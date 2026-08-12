@@ -61,14 +61,11 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
   const isDark = theme === 'dark';
   
   // Combine material sources
-  const rawMaterials = (propsMaterials && propsMaterials.length > 0)
+  const displayMaterials = (propsMaterials && propsMaterials.length > 0)
     ? propsMaterials
     : (dashboardConfig?.presentationMaterials && dashboardConfig.presentationMaterials.length > 0)
     ? dashboardConfig.presentationMaterials
     : DEFAULT_MATERIALS;
-
-  // Filter out any leftover legacy dummy materials
-  const displayMaterials = rawMaterials.filter(m => !m.id.startsWith('mat-'));
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState<string>('');

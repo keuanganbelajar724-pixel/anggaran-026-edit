@@ -59,6 +59,16 @@ export default function App() {
 
   // Admin Configurable Dashboard State
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
+    let savedConfig: DashboardConfig | null = null;
+    try {
+      const local = localStorage.getItem('kppn_dashboard_config');
+      if (local) {
+        savedConfig = JSON.parse(local);
+      }
+    } catch (e) {
+      console.error('Error parsing kppn_dashboard_config in App.tsx:', e);
+    }
+
     let savedHist: ExcelUploadHistory[] | undefined = undefined;
     try {
       const local = localStorage.getItem('kppn_historical_uploads');
@@ -68,6 +78,13 @@ export default function App() {
       }
     } catch (e) {
       console.error('Error parsing kppn_historical_uploads in App.tsx:', e);
+    }
+
+    if (savedConfig) {
+      return {
+        ...savedConfig,
+        historicalUploads: savedHist || savedConfig.historicalUploads
+      };
     }
 
     return {
@@ -152,9 +169,7 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((p: PejabatSertifikasi) => !p.id?.startsWith('cert-'));
-        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error parsing saved pejabat data:', e);
       }
@@ -218,12 +233,7 @@ export default function App() {
             localStorage.setItem('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
-            const cleanConfig = {
-              ...data.dashboardConfig,
-              announcements: (data.dashboardConfig.announcements || []).filter((a: any) => !a.id?.startsWith('ann-')),
-              presentationMaterials: (data.dashboardConfig.presentationMaterials || []).filter((m: any) => !m.id?.startsWith('mat-'))
-            };
-            setDashboardConfig(cleanConfig);
+            setDashboardConfig(data.dashboardConfig);
           }
         }
       }, (error) => {
@@ -235,9 +245,8 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
-            const cleanList = data.list.filter((s: SatkerIKPA) => !s.id?.startsWith('satker-smg1-'));
-            setSatkers(cleanList);
-            localStorage.setItem('kppn_satker_data', JSON.stringify(cleanList));
+            setSatkers(data.list);
+            localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -249,9 +258,8 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
-            const cleanList = data.list.filter((p: PejabatSertifikasi) => !p.id?.startsWith('cert-'));
-            setPejabatSertifikasiList(cleanList);
-            localStorage.setItem('kppn_pejabat_data', JSON.stringify(cleanList));
+            setPejabatSertifikasiList(data.list);
+            localStorage.setItem('kppn_pejabat_data', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -303,6 +311,7 @@ export default function App() {
   const handleUpdateDashboardConfig = (newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
     try {
+      localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
       setDoc(doc(db, 'settings', 'global'), { dashboardConfig: newConfig, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
       console.warn("Firebase save config notice:", e);

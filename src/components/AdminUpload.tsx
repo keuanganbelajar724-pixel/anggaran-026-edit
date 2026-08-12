@@ -75,7 +75,8 @@ import {
   ChevronUp,
   Presentation,
   Star,
-  Link2
+  Link2,
+  Loader2
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -375,6 +376,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [searchDetailQuery, setSearchDetailQuery] = useState<string>('');
 
   // Global Confirmation Modal State (replaces iframe-blocked window.confirm)
+  const [isConfirmLoading, setIsConfirmLoading] = useState<boolean>(false);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -391,6 +393,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     onConfirm: () => void,
     options?: { confirmText?: string; cancelText?: string; variant?: 'danger' | 'warning' | 'info' }
   ) => {
+    setIsConfirmLoading(false);
     setConfirmModal({
       isOpen: true,
       title,
@@ -7241,52 +7244,72 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
       {/* Global Custom Confirmation Modal (replaces native window.confirm for iframe compatibility) */}
       {confirmModal && confirmModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border transition-all ${
-            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${
+            isDark ? 'bg-slate-900/95 border-slate-800 text-slate-100 shadow-slate-950/80' : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-900/20'
           }`}>
             <div className="flex items-start gap-4">
-              <div className={`p-3.5 rounded-2xl shrink-0 ${
+              <div className={`relative flex items-center justify-center p-4 rounded-2xl shrink-0 shadow-inner ${
                 confirmModal.variant === 'danger'
-                  ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400'
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 ring-4 ring-rose-500/10'
                   : confirmModal.variant === 'warning'
-                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-600 dark:text-amber-400'
-                  : 'bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400'
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 ring-4 ring-amber-500/10'
+                  : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 ring-4 ring-indigo-500/10'
               }`}>
-                <AlertTriangle className="w-6 h-6" />
+                <AlertTriangle className="w-7 h-7" />
               </div>
 
-              <div className="space-y-1.5 flex-1">
-                <h3 className="text-lg font-black tracking-tight">{confirmModal.title}</h3>
-                <p className="text-xs text-slate-600 dark:text-slate-300 whitespace-pre-line leading-relaxed">
+              <div className="space-y-2 flex-1 pt-0.5">
+                <h3 className="text-xl font-black tracking-tight">{confirmModal.title}</h3>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium whitespace-pre-line leading-relaxed">
                   {confirmModal.message}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
               <button
-                onClick={() => setConfirmModal(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                disabled={isConfirmLoading}
+                onClick={() => {
+                  if (isConfirmLoading) return;
+                  setConfirmModal(null);
+                }}
+                className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               >
                 {confirmModal.cancelText || 'Batal'}
               </button>
 
               <button
+                disabled={isConfirmLoading}
                 onClick={() => {
+                  if (isConfirmLoading) return;
+                  setIsConfirmLoading(true);
                   const callback = confirmModal.onConfirm;
-                  setConfirmModal(null);
-                  callback();
+                  setTimeout(() => {
+                    try {
+                      callback();
+                    } finally {
+                      setIsConfirmLoading(false);
+                      setConfirmModal(null);
+                    }
+                  }, 300);
                 }}
-                className={`px-5 py-2.5 rounded-xl text-xs font-black text-white transition-all shadow-md cursor-pointer ${
+                className={`px-6 py-3 rounded-2xl text-xs sm:text-sm font-black text-white active:scale-95 transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 ${
                   confirmModal.variant === 'danger'
-                    ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-600/30'
+                    ? 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 shadow-rose-600/30'
                     : confirmModal.variant === 'warning'
-                    ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/30'
-                    : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'
+                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-indigo-600/30'
                 }`}
               >
-                {confirmModal.confirmText || 'Ya, Lanjutkan'}
+                {isConfirmLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <span>{confirmModal.confirmText || 'Ya, Lanjutkan'}</span>
+                )}
               </button>
             </div>
           </div>

@@ -54,7 +54,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed.filter((k: KnowledgeItem) => !k.id?.startsWith('kn-'));
+          return parsed;
         }
       } catch (e) {
         console.warn('Error parsing knowledge items:', e);
