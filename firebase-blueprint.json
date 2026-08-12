@@ -1,0 +1,29 @@
+{
+  "entities": {
+    "settings": {
+      "title": "Global Settings",
+      "description": "Stores admin PIN and global dashboard configuration",
+      "type": "object",
+      "properties": {
+        "adminPin": { "type": "string" },
+        "dashboardConfig": { "type": "object" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["adminPin"]
+    },
+    "announcements": {
+      "title": "Announcements",
+      "description": "Stores official announcements and circulars for satkers",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string" },
+        "category": { "type": "string" },
+        "isPinned": { "type": "boolean" },
+        "author": { "type": "string" }
+      },
+      "required": ["title", "content", "date"]
+    }
+  }
+}
