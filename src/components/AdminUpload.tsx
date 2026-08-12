@@ -1,4 +1,7 @@
 import React, { useState, useRef } from 'react';
+import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
+import { useToast } from './ToastNotification';
+import { ModernLoadingOverlay } from './ModernLoadingOverlay';
 import { SatkerIKPA, UploadLog, DashboardConfig, Announcement, AppTheme, ExcelUploadHistory, PejabatSertifikasi, MenuVisibilityConfig, PresentationMaterial } from '../types';
 import { 
   processExcelFile, 
@@ -375,25 +378,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [viewingHistoryDetail, setViewingHistoryDetail] = useState<ExcelUploadHistory | null>(null);
   const [searchDetailQuery, setSearchDetailQuery] = useState<string>('');
 
+  const { showToast } = useToast();
+
   // Global Confirmation Modal State (replaces iframe-blocked window.confirm)
-  const [isConfirmLoading, setIsConfirmLoading] = useState<boolean>(false);
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    variant?: 'danger' | 'warning' | 'info';
-    onConfirm: () => void;
-  } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
 
   const requestConfirm = (
     title: string,
     message: string,
-    onConfirm: () => void,
-    options?: { confirmText?: string; cancelText?: string; variant?: 'danger' | 'warning' | 'info' }
+    onConfirm: () => void | Promise<void>,
+    options?: { 
+      confirmText?: string; 
+      cancelText?: string; 
+      variant?: 'danger' | 'warning' | 'info' | 'success';
+      iconType?: 'trash' | 'warning' | 'shield' | 'check' | 'info' | 'sparkles' | 'reload';
+    }
   ) => {
-    setIsConfirmLoading(false);
     setConfirmModal({
       isOpen: true,
       title,
@@ -401,6 +401,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       confirmText: options?.confirmText || 'Ya, Lanjutkan',
       cancelText: options?.cancelText || 'Batal',
       variant: options?.variant || 'danger',
+      iconType: options?.iconType,
       onConfirm
     });
   };
@@ -1513,7 +1514,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           'SUCCESS'
         );
       } else {
-        const result = await processExcelFile(file);
+        const result = await processExcelFile(file, excelCategory);
         setPreviewSatkers(result.satkers);
         if (result.satkers.length > 0 && result.satkers[0].periodeUpdate) {
           setUploadPeriode(result.satkers[0].periodeUpdate);
@@ -1578,7 +1579,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         `${previewPejabatList.length} data Pejabat Sertifikasi diterapkan ke sistem & disimpan ke Arsip Historical.`,
         'SUCCESS'
       );
-      alert(`Berhasil! ${previewPejabatList.length} data Pejabat Perbendaharaan & Sertifikasi telah diterapkan ke sistem dan tersimpan di Arsip Historical.`);
+      showToast({
+        type: 'success',
+        title: 'Pejabat Berhasil Diterapkan',
+        message: `${previewPejabatList.length} data Pejabat Perbendaharaan telah diterapkan ke sistem.`
+      });
       setPreviewPejabatList([]);
       setUploadLog(null);
       setCurrentFileName('');
@@ -1591,31 +1596,87 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     const fileNameToUse = currentFileName || `Data_${excelCategory}_${uploadPeriode.replace(/\s+/g, '_')}.xlsx`;
     const avgIKPA = Number((previewSatkers.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / previewSatkers.length).toFixed(2));
 
+    let satkersToApply: SatkerIKPA[] = [];
+
+    if (excelCategory === 'CAPAIAN_OUTPUT' && satkers && satkers.length > 0) {
+      // Merge Capaian Output into existing active satkers list!
+      const previewMap = new Map(previewSatkers.map(p => [p.kodeSatker, p]));
+      
+      satkersToApply = satkers.map(existing => {
+        const match = previewMap.get(existing.kodeSatker);
+        if (match) {
+          const updatedIndikator = {
+            ...existing.indikator,
+            capaianOutput: match.indikator.capaianOutput
+          };
+          const newTotalIKPA = hitungTotalIKPA(updatedIndikator);
+          const newPredikat = getPredikatIKPA(newTotalIKPA);
+          
+          const newIssues = existing.issues.filter(iss => !iss.toLowerCase().includes('capaian output'));
+          if (match.statusCapaianOutput === 'Belum Terlaporkan' || match.indikator.capaianOutput === 0) {
+            newIssues.push('Capaian Output Belum Diselesaikan (0%)');
+          } else if (match.statusCapaianOutput === 'Terlambat') {
+            newIssues.push('Pengiriman Capaian Output Terlambat');
+          }
+          if (newTotalIKPA < 87.5 && !newIssues.some(i => i.includes('Nilai IKPA'))) {
+            newIssues.push(`Nilai IKPA (${newTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
+          }
+
+          return {
+            ...existing,
+            statusCapaianOutput: match.statusCapaianOutput,
+            indikator: updatedIndikator,
+            nilaiTotalIKPA: newTotalIKPA,
+            predikat: newPredikat,
+            issues: newIssues,
+            periodeUpdate: uploadPeriode,
+            isModified: true
+          };
+        }
+        return existing;
+      });
+
+      // Append any brand new satker from previewSatkers if not in existing
+      const existingKodes = new Set(satkers.map(s => s.kodeSatker));
+      const brandNew = previewSatkers.filter(p => !existingKodes.has(p.kodeSatker));
+      if (brandNew.length > 0) {
+        satkersToApply = [...satkersToApply, ...brandNew];
+      }
+    } else {
+      satkersToApply = appendMode ? [...previewSatkers, ...satkers] : previewSatkers;
+    }
+
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-${Date.now()}`,
       fileName: fileNameToUse,
       periode: uploadPeriode.trim() || 'Agustus 2026',
       uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
       uploadedBy: 'Seksi MSKI KPPN Semarang I',
-      satkerCount: previewSatkers.length,
+      satkerCount: satkersToApply.length,
       averageIKPA: avgIKPA,
-      notes: uploadNotes.trim() || 'Data hasil upload & pembersihan otomatis Excel SAKTI',
-      satkersData: [...previewSatkers],
+      notes: uploadNotes.trim() || `Upload & rekonsiliasi otomatis data ${excelCategory === 'CAPAIAN_OUTPUT' ? 'Capaian Output SAKTI' : 'IKPA'}`,
+      satkersData: satkersToApply,
       category: excelCategory,
       isActive: overwriteActiveDashboard
     };
 
     if (overwriteActiveDashboard) {
-      onApplyNewSatkers(previewSatkers, appendMode);
+      onApplyNewSatkers(satkersToApply, false);
       const newHistoryList = [newHistoryItem, ...historicalUploads.map(h => ({ ...h, isActive: false }))];
       saveAndApplyHistoricalUploads(newHistoryList);
       addLog(
-        'Nimpa Data Dashboard & Arsip', 
+        'Update Data Dashboard & Arsip', 
         'UPLOAD', 
-        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" diterapkan ke Dashboard Utama & disimpan ke Arsip Historical.`, 
+        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" berhasil diperbarui di Dashboard Utama & disimpan ke Arsip.`, 
         'SUCCESS'
       );
-      alert(`Berhasil! ${previewSatkers.length} data Satker (${excelCategory}) periode "${uploadPeriode}" telah MENIMPA data Dashboard Utama dan tersimpan di Arsip Historical.`);
+      showToast({
+        type: 'success',
+        title: 'Data Berhasil Diperbarui',
+        message: excelCategory === 'CAPAIAN_OUTPUT'
+          ? `Berhasil memperbarui status Capaian Output untuk ${previewSatkers.length} Satker. Indikator IKPA lainnya tetap dipertahankan.`
+          : `${previewSatkers.length} data Satker periode "${uploadPeriode}" telah memperbarui Dashboard Utama.`
+      });
     } else {
       const newHistoryList = [newHistoryItem, ...historicalUploads];
       saveAndApplyHistoricalUploads(newHistoryList);
@@ -1625,7 +1686,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         `File "${fileNameToUse}" (${previewSatkers.length} Satker) periode "${uploadPeriode}" disimpan ke Arsip Historical tanpa menimpa data aktif.`, 
         'INFO'
       );
-      alert(`File Excel (${excelCategory}) periode "${uploadPeriode}" berhasil DISIMPAN ke Arsip Historical. (Dashboard Utama tidak ditimpa).`);
+      showToast({
+        type: 'info',
+        title: 'Tersimpan di Arsip',
+        message: `File Excel (${excelCategory}) periode "${uploadPeriode}" tersimpan di Arsip Historical.`
+      });
     }
 
     setPreviewSatkers([]);
@@ -6813,6 +6878,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </label>
             </div>
 
+            {/* Capaian Output Mode Info Banner */}
+            {excelCategory === 'CAPAIAN_OUTPUT' && (
+              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/80 p-4 rounded-2xl flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
+                <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-extrabold text-sm mb-0.5">
+                    🎯 Mode Pengunggahan Khusus Capaian Output (SAKTI/OM-SPAN)
+                  </div>
+                  <div>
+                    Sistem mendeteksi file kategori <strong>Capaian Output</strong>. Pengunggahan ini hanya memperbarui <strong>Status Terlaporkan &amp; Nilai Capaian Output</strong> Satker tanpa merusak atau mengubah nilai 7 indikator IKPA lainnya.
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Periode and Notes Metadata Form */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
               <div>
@@ -6882,10 +6962,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 onClick={() => handleApply(true)}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center gap-2 cursor-pointer"
-                title="Menimpa data aktif dashboard utama dan menyimpan arsipnya"
+                title="Memperbarui data aktif dashboard utama dan menyimpan arsipnya"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>⚡ Nimpa &amp; Aktifkan Di Dashboard Utama</span>
+                <span>⚡ Update &amp; Aktifkan Di Dashboard Utama</span>
               </button>
             </div>
           </div>
@@ -6893,55 +6973,106 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
               <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                <tr>
-                  <th className="py-3 px-4">Kode &amp; Nama Satker</th>
-                  <th className="py-3 px-4">Pagu Anggaran</th>
-                  <th className="py-3 px-4">Penyerapan</th>
-                  <th className="py-3 px-4">Capaian Output</th>
-                  <th className="py-3 px-4">Total IKPA</th>
-                  <th className="py-3 px-4">Predikat</th>
-                  <th className="py-3 px-4 text-center">Aksi</th>
-                </tr>
+                {excelCategory === 'CAPAIAN_OUTPUT' ? (
+                  <tr>
+                    <th className="py-3 px-4">Kode &amp; Nama Satker</th>
+                    <th className="py-3 px-4">Status Capaian Output (SAKTI)</th>
+                    <th className="py-3 px-4">Nilai Caput (%)</th>
+                    <th className="py-3 px-4">IKPA Saat Ini</th>
+                    <th className="py-3 px-4">Hasil IKPA Setelah Merge</th>
+                    <th className="py-3 px-4 text-center">Aksi</th>
+                  </tr>
+                ) : (
+                  <tr>
+                    <th className="py-3 px-4">Kode &amp; Nama Satker</th>
+                    <th className="py-3 px-4">Pagu Anggaran</th>
+                    <th className="py-3 px-4">Penyerapan</th>
+                    <th className="py-3 px-4">Capaian Output</th>
+                    <th className="py-3 px-4">Total IKPA</th>
+                    <th className="py-3 px-4">Predikat</th>
+                    <th className="py-3 px-4 text-center">Aksi</th>
+                  </tr>
+                )}
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {previewSatkers.map((satker) => (
-                  <tr key={satker.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">{satker.namaSatker}</div>
-                      <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Kode: {satker.kodeSatker}</div>
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      Rp {satker.paguAnggaran.toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-3 px-4 font-bold">
-                      {satker.persenPenyerapan}%
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        satker.statusCapaianOutput === 'Sudah Terlaporkan' 
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' 
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
-                      }`}>
-                        {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-extrabold text-sm text-slate-900 dark:text-slate-100">
-                      {satker.nilaiTotalIKPA}
-                    </td>
-                    <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300">
-                      {satker.predikat}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleRemovePreviewItem(satker.id)}
-                        className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded cursor-pointer"
-                        title="Hapus baris ini dari import"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {previewSatkers.map((satker) => {
+                  const existing = satkers?.find(s => s.kodeSatker === satker.kodeSatker);
+                  const isCaput = excelCategory === 'CAPAIAN_OUTPUT';
+
+                  let projectedIKPA = satker.nilaiTotalIKPA;
+                  if (isCaput && existing) {
+                    projectedIKPA = hitungTotalIKPA({
+                      ...existing.indikator,
+                      capaianOutput: satker.indikator.capaianOutput
+                    });
+                  }
+
+                  return (
+                    <tr key={satker.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{satker.namaSatker}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Kode: {satker.kodeSatker}</div>
+                      </td>
+
+                      {isCaput ? (
+                        <>
+                          <td className="py-3 px-4">
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 ${
+                              satker.statusCapaianOutput === 'Sudah Terlaporkan'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
+                            }`}>
+                              {satker.statusCapaianOutput}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono font-extrabold text-slate-900 dark:text-slate-100">
+                            {satker.indikator.capaianOutput}%
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400 font-bold">
+                            {existing ? existing.nilaiTotalIKPA : '-'}
+                          </td>
+                          <td className="py-3 px-4 font-mono font-extrabold text-sky-700 dark:text-sky-300">
+                            {existing ? `${existing.nilaiTotalIKPA} ➔ ${projectedIKPA}` : projectedIKPA}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-3 px-4 font-mono">
+                            Rp {satker.paguAnggaran.toLocaleString('id-ID')}
+                          </td>
+                          <td className="py-3 px-4 font-bold">
+                            {satker.persenPenyerapan}%
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                              satker.statusCapaianOutput === 'Sudah Terlaporkan' 
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' 
+                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
+                            }`}>
+                              {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                            {satker.nilaiTotalIKPA}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300">
+                            {satker.predikat}
+                          </td>
+                        </>
+                      )}
+
+                      <td className="py-3 px-4 text-center">
+                        <button
+                          onClick={() => handleRemovePreviewItem(satker.id)}
+                          className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded cursor-pointer"
+                          title="Hapus baris ini dari import"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -7242,79 +7373,12 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       )}
 
-      {/* Global Custom Confirmation Modal (replaces native window.confirm for iframe compatibility) */}
-      {confirmModal && confirmModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className={`w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${
-            isDark ? 'bg-slate-900/95 border-slate-800 text-slate-100 shadow-slate-950/80' : 'bg-white/95 border-slate-200 text-slate-900 shadow-slate-900/20'
-          }`}>
-            <div className="flex items-start gap-4">
-              <div className={`relative flex items-center justify-center p-4 rounded-2xl shrink-0 shadow-inner ${
-                confirmModal.variant === 'danger'
-                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 ring-4 ring-rose-500/10'
-                  : confirmModal.variant === 'warning'
-                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 ring-4 ring-amber-500/10'
-                  : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 ring-4 ring-indigo-500/10'
-              }`}>
-                <AlertTriangle className="w-7 h-7" />
-              </div>
-
-              <div className="space-y-2 flex-1 pt-0.5">
-                <h3 className="text-xl font-black tracking-tight">{confirmModal.title}</h3>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium whitespace-pre-line leading-relaxed">
-                  {confirmModal.message}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
-              <button
-                disabled={isConfirmLoading}
-                onClick={() => {
-                  if (isConfirmLoading) return;
-                  setConfirmModal(null);
-                }}
-                className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
-              >
-                {confirmModal.cancelText || 'Batal'}
-              </button>
-
-              <button
-                disabled={isConfirmLoading}
-                onClick={() => {
-                  if (isConfirmLoading) return;
-                  setIsConfirmLoading(true);
-                  const callback = confirmModal.onConfirm;
-                  setTimeout(() => {
-                    try {
-                      callback();
-                    } finally {
-                      setIsConfirmLoading(false);
-                      setConfirmModal(null);
-                    }
-                  }, 300);
-                }}
-                className={`px-6 py-3 rounded-2xl text-xs sm:text-sm font-black text-white active:scale-95 transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2 ${
-                  confirmModal.variant === 'danger'
-                    ? 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 shadow-rose-600/30'
-                    : confirmModal.variant === 'warning'
-                    ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 shadow-indigo-600/30'
-                }`}
-              >
-                {isConfirmLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Memproses...</span>
-                  </>
-                ) : (
-                  <span>{confirmModal.confirmText || 'Ya, Lanjutkan'}</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Global Custom Confirmation Modal */}
+      <ModernConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+        isDark={isDark}
+      />
 
     </div>
   );

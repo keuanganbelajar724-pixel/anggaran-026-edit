@@ -20,6 +20,8 @@ import { ReminderGenerator } from './components/ReminderGenerator';
 import { SatkerDetailModal } from './components/SatkerDetailModal';
 import { ExcelGuideModal } from './components/ExcelGuideModal';
 
+import { ToastProvider } from './components/ToastNotification';
+
 const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
 
 export default function App() {

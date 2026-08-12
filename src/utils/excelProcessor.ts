@@ -35,7 +35,7 @@ function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   return isNaN(num) ? defaultValue : num;
 }
 
-export async function processExcelFile(file: File): Promise<ProcessedExcelResult> {
+export async function processExcelFile(file: File, requestedCategory?: string): Promise<ProcessedExcelResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
@@ -87,20 +87,34 @@ export async function processExcelFile(file: File): Promise<ProcessedExcelResult
         const periodeFormatted = `${detectedMonth} 2026`;
 
         // Check if Caput format specifically
-        let isCaputFormat = false;
+        let isCaputFormat = requestedCategory === 'CAPAIAN_OUTPUT';
         let caputHeaderRow = -1;
 
-        for (let i = 0; i < Math.min(20, matrix.length); i++) {
+        for (let i = 0; i < Math.min(25, matrix.length); i++) {
           if (!matrix[i]) continue;
           const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
           if (
             rowStr.includes('rekap kertas kerja capaian output') ||
-            (rowStr.includes('kode satker') && (rowStr.includes('data masuk') || rowStr.includes('konfirmasi capaian output')))
+            rowStr.includes('konfirmasi capaian output') ||
+            rowStr.includes('capaian output') ||
+            (rowStr.includes('kode') && (rowStr.includes('data masuk') || rowStr.includes('persen') || rowStr.includes('status') || rowStr.includes('output')))
           ) {
             isCaputFormat = true;
             caputHeaderRow = i;
             break;
           }
+        }
+
+        if (isCaputFormat && caputHeaderRow === -1) {
+          for (let i = 0; i < Math.min(25, matrix.length); i++) {
+            if (!matrix[i]) continue;
+            const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
+            if (rowStr.includes('kode') || rowStr.includes('satker')) {
+              caputHeaderRow = i;
+              break;
+            }
+          }
+          if (caputHeaderRow === -1) caputHeaderRow = 0;
         }
 
         const cleanedSatkers: SatkerIKPA[] = [];
@@ -114,9 +128,9 @@ export async function processExcelFile(file: File): Promise<ProcessedExcelResult
           if (matrix[caputHeaderRow]) {
             matrix[caputHeaderRow].forEach((colVal: any, cIdx: number) => {
               const cStr = String(colVal).toLowerCase();
-              if (cStr.includes('kode satker') || cStr.includes('kdsatker')) colKode = cIdx;
-              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('uraian')) colNama = cIdx;
-              if (cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('persen')) colPersen = cIdx;
+              if (cStr.includes('kode satker') || cStr.includes('kdsatker') || (cStr.includes('kode') && !cStr.includes('koderincian'))) colKode = cIdx;
+              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('uraian') || cStr.includes('satker')) colNama = cIdx;
+              if (cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('persen') || cStr.includes('capaian') || cStr.includes('status') || cStr.includes('output')) colPersen = cIdx;
             });
           }
 

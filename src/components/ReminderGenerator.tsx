@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
+import { useToast } from './ToastNotification';
 import { SatkerIKPA, TemplateMessage, DashboardConfig, WhatsAppDeviceStatus, BroadcastSettings } from '../types';
 import { REMINDER_TEMPLATES } from '../data/reminderTemplates';
 import { 
@@ -272,6 +274,9 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
     }
   };
 
+  const { showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+
   const handleConnectSimulatedQr = () => {
     updateWaDevice({
       isConnected: true,
@@ -282,24 +287,46 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
       lastSeen: 'Aktif Sockets WA Web'
     });
     setIsQrModalOpen(false);
-    alert('Berhasil! WhatsApp Admin KPPN Semarang I terhubung ke Gateway Broadcast.');
+    showToast({
+      type: 'success',
+      title: 'WhatsApp Terhubung',
+      message: 'WhatsApp Admin KPPN Semarang I terhubung ke Gateway Broadcast.'
+    });
   };
 
   const handleDisconnectWa = () => {
-    if (window.confirm('Apakah Anda yakin ingin memutuskan koneksi WhatsApp Gateway?')) {
-      updateWaDevice({
-        isConnected: false,
-        status: 'DISCONNECTED',
-        phoneNumber: '',
-        deviceName: 'Tidak Terhubung',
-        batteryLevel: 0,
-        lastSeen: 'Terputus'
-      });
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Putuskan Koneksi WhatsApp',
+      message: 'Apakah Anda yakin ingin memutuskan koneksi WhatsApp Gateway Admin? Broadcast otomatis tidak akan terkirim sampai dihubungkan kembali.',
+      confirmText: 'Ya, Putuskan',
+      cancelText: 'Batal',
+      variant: 'danger',
+      iconType: 'warning',
+      onConfirm: () => {
+        updateWaDevice({
+          isConnected: false,
+          status: 'DISCONNECTED',
+          phoneNumber: '',
+          deviceName: 'Tidak Terhubung',
+          batteryLevel: 0,
+          lastSeen: 'Terputus'
+        });
+        showToast({
+          type: 'info',
+          title: 'Koneksi Terputus',
+          message: 'WhatsApp Gateway telah diputuskan.'
+        });
+      }
+    });
   };
 
   const handlePingTest = () => {
-    alert('📲 [TEST PING SUCCESS] Koneksi Sockets WhatsApp Web Gateway KPPN Semarang I Responsif (Latency: 24ms). Sedia mengirim broadcast!');
+    showToast({
+      type: 'success',
+      title: 'Test Ping Berhasil',
+      message: 'Sockets WhatsApp Web Gateway KPPN Semarang I Responsif (Latency: 24ms).'
+    });
   };
 
   const generatePairingCode = () => {
@@ -1155,6 +1182,13 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modern Confirmation Modal */}
+      <ModernConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+        isDark={isDark}
+      />
 
     </div>
   );

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
+import { useToast } from './ToastNotification';
 import { 
   BookOpen, 
   Search, 
@@ -216,12 +218,30 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
     setIsModalOpen(false);
   };
 
+  const { showToast } = useToast();
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
+
   // Delete Item
   const handleDeleteItem = (id: string) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus petunjuk/artikel pengetahuan ini?')) {
-      const newList = knowledgeList.filter(k => k.id !== id);
-      saveKnowledgeToFirebase(newList);
-    }
+    const target = knowledgeList.find(k => k.id === id);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Petunjuk Pengetahuan',
+      message: `Apakah Anda yakin ingin menghapus artikel/petunjuk "${target?.title || 'ini'}"? Data yang dihapus tidak dapat dikembalikan.`,
+      confirmText: 'Ya, Hapus Artikel',
+      cancelText: 'Batal',
+      variant: 'danger',
+      iconType: 'trash',
+      onConfirm: () => {
+        const newList = knowledgeList.filter(k => k.id !== id);
+        saveKnowledgeToFirebase(newList);
+        showToast({
+          type: 'success',
+          title: 'Pengetahuan Dihapus',
+          message: 'Artikel petunjuk berhasil dihapus dari daftar.'
+        });
+      }
+    });
   };
 
   // Toggle Pin
@@ -904,6 +924,13 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modern Confirmation Modal */}
+      <ModernConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+        isDark={isDark}
+      />
 
     </div>
   );
