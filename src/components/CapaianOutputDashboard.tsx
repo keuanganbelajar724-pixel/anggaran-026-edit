@@ -36,7 +36,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filterKL, setFilterKL] = useState<string>('ALL');
 
   // Statistics
   const totalSatker = satkers.length;
@@ -51,9 +50,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     ? (satkers.reduce((acc, curr) => acc + curr.indikator.capaianOutput, 0) / totalSatker).toFixed(2)
     : '0';
 
-  // Extract unique KL
-  const uniqueKL = Array.from(new Set(satkers.map(s => s.kementerianLembaga))).filter(Boolean);
-
   // Filtering & Sorting (Satker belum menyampaikan / 0% diposisikan paling atas)
   const filteredSatkers = satkers.filter(s => {
     // Status Filter
@@ -61,16 +57,12 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     if (filterStatus === 'SUDAH' && !(s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0)) return false;
     if (filterStatus === 'TERLAMBAT' && s.statusCapaianOutput !== 'Terlambat') return false;
 
-    // KL Filter
-    if (filterKL !== 'ALL' && s.kementerianLembaga !== filterKL) return false;
-
     // Search
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
       const matchName = s.namaSatker.toLowerCase().includes(q);
       const matchKode = s.kodeSatker.toLowerCase().includes(q);
-      const matchKL = s.kementerianLembaga.toLowerCase().includes(q);
-      if (!matchName && !matchKode && !matchKL) return false;
+      if (!matchName && !matchKode) return false;
     }
 
     return true;
@@ -250,8 +242,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 
         {/* Category Filters */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-          
-          {/* Status Buttons */}
+                 {/* Status Buttons */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
             <button
               onClick={() => setFilterStatus('ALL')}
@@ -267,7 +258,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 filterStatus === 'BELUM' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-600 hover:bg-rose-50'
               }`}
             >
-              🔴 Belum ({satkerBelum.length})
+              🔴 Belum Menyampaikan ({satkerBelum.length})
             </button>
             <button
               onClick={() => setFilterStatus('SUDAH')}
@@ -277,21 +268,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             >
               🟢 Sudah ({satkerSudah.length})
             </button>
-          </div>
-
-          {/* KL Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
-            <select
-              value={filterKL}
-              onChange={(e) => setFilterKL(e.target.value)}
-              className="bg-transparent font-semibold text-slate-700 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-            >
-              <option value="ALL">Semua K/L</option>
-              {uniqueKL.map(kl => (
-                <option key={kl} value={kl}>{kl}</option>
-              ))}
-            </select>
           </div>
 
         </div>
@@ -317,18 +293,16 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className={`${isDark ? 'bg-slate-800/80 text-slate-300' : 'bg-slate-50 text-slate-600'} text-xs font-extrabold border-b border-slate-200 dark:border-slate-800 uppercase tracking-wider`}>
-                <th className="py-3.5 px-4">No</th>
-                <th className="py-3.5 px-4">Kode & Satuan Kerja</th>
-                <th className="py-3.5 px-4">Kementerian / Lembaga</th>
-                <th className="py-3.5 px-4 text-center">Status Penyampaian</th>
-                <th className="py-3.5 px-4">Progress Visual Output (% Data)</th>
-                <th className="py-3.5 px-4 text-center">Aksi Pengingat</th>
+                <th className="py-3.5 px-4 w-12 text-center">NO</th>
+                <th className="py-3.5 px-4">KODE &amp; SATUAN KERJA</th>
+                <th className="py-3.5 px-4 text-center">STATUS PENYAMPAIAN</th>
+                <th className="py-3.5 px-4 text-center">AKSI PENGINGAT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
               {filteredSatkers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center">
+                  <td colSpan={4} className="py-16 text-center">
                     <div className="max-w-md mx-auto space-y-2">
                       <Info className="w-10 h-10 mx-auto text-slate-400" />
                       <p className={`font-extrabold text-base ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
@@ -354,7 +328,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                         isBelum ? 'bg-rose-50/20' : ''
                       }`}
                     >
-                      <td className="py-4 px-4 font-mono font-semibold text-slate-400">{idx + 1}</td>
+                      <td className="py-4 px-4 font-mono font-semibold text-slate-400 text-center">{idx + 1}</td>
                       
                       <td className="py-4 px-4">
                         <button 
@@ -375,68 +349,41 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                         </div>
                       </td>
 
-                      <td className={`py-4 px-4 font-medium max-w-xs truncate ${
-                        isDark ? 'text-amber-200/90' : 'text-slate-700'
-                      }`}>
-                        {satker.kementerianLembaga}
-                      </td>
-
                       <td className="py-4 px-4 text-center">
                         {isSudah ? (
-                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1 rounded-full text-[11px] font-bold ${
+                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1.5 rounded-full text-xs font-bold ${
                             isDark 
                               ? 'bg-emerald-950/80 text-emerald-300 border-emerald-800' 
                               : 'bg-emerald-100 text-emerald-800 border-emerald-300'
                           }`}>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
                             Sudah Terlaporkan
                           </span>
                         ) : satker.statusCapaianOutput === 'Terlambat' ? (
-                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1 rounded-full text-[11px] font-bold ${
+                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1.5 rounded-full text-xs font-bold ${
                             isDark 
                               ? 'bg-amber-950/80 text-amber-300 border-amber-800' 
                               : 'bg-amber-100 text-amber-900 border-amber-300'
                           }`}>
-                            <Clock className="w-3.5 h-3.5 text-amber-500" />
+                            <Clock className="w-4 h-4 text-amber-500" />
                             Terlambat
                           </span>
                         ) : (
-                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1 rounded-full text-[11px] font-extrabold animate-pulse ${
+                          <span className={`inline-flex items-center gap-1.5 border px-3.5 py-1.5 rounded-full text-xs font-extrabold animate-pulse ${
                             isDark 
                               ? 'bg-rose-950/80 text-rose-300 border-rose-800' 
                               : 'bg-rose-100 text-rose-900 border-rose-300'
                           }`}>
-                            <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                            Belum Upload (0%)
+                            <AlertCircle className="w-4 h-4 text-rose-500" />
+                            Belum Menyampaikan
                           </span>
                         )}
-                      </td>
-
-                      <td className="py-4 px-4 min-w-[200px]">
-                        <div className="flex items-center justify-between text-xs font-bold mb-1">
-                          <span className={isBelum ? 'text-rose-600' : 'text-emerald-600'}>
-                            {satker.indikator.capaianOutput}% Output
-                          </span>
-                          <span className="text-[10px] text-slate-400">Target 100%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full transition-all duration-500 ${
-                              isBelum 
-                                ? 'bg-rose-500' 
-                                : satker.indikator.capaianOutput < 80 
-                                ? 'bg-amber-500' 
-                                : 'bg-emerald-500'
-                            }`}
-                            style={{ width: `${satker.indikator.capaianOutput}%` }}
-                          ></div>
-                        </div>
                       </td>
 
                       <td className="py-4 px-4 text-center">
                         <button
                           onClick={() => onOpenReminder(satker)}
-                          className="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-all shadow-xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
                         >
                           <Send className="w-3.5 h-3.5" />
                           <span>Kirim Pengingat</span>
@@ -476,14 +423,13 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                       >
                         {satker.namaSatker}
                       </button>
-                      <p className="text-xs text-slate-500 truncate mt-0.5">{satker.kementerianLembaga}</p>
                     </div>
 
                     <div className="shrink-0">
                       {isSudah ? (
                         <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Sudah
+                          Sudah Terlaporkan
                         </span>
                       ) : satker.statusCapaianOutput === 'Terlambat' ? (
                         <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
@@ -493,26 +439,9 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                       ) : (
                         <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-1 rounded-full text-[10px] font-extrabold animate-pulse">
                           <AlertCircle className="w-3 h-3 text-rose-600" />
-                          Belum
+                          Belum Menyampaikan
                         </span>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-700/60 space-y-1">
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className={isBelum ? 'text-rose-600' : 'text-emerald-600'}>
-                        Progress Capaian Output SAKTI: {satker.indikator.capaianOutput}%
-                      </span>
-                      <span className="text-[10px] text-slate-400">Target 100%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          isBelum ? 'bg-rose-500' : satker.indikator.capaianOutput < 80 ? 'bg-amber-500' : 'bg-emerald-500'
-                        }`}
-                        style={{ width: `${satker.indikator.capaianOutput}%` }}
-                      ></div>
                     </div>
                   </div>
 

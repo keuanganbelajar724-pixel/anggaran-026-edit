@@ -24,7 +24,8 @@ import {
   EyeOff,
   UserCheck,
   LifeBuoy,
-  Presentation
+  Presentation,
+  Link2
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -141,6 +142,13 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
     },
     {
+      id: 'portal-link',
+      label: '🔗 Link Sosialisasi',
+      icon: <Link2 className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Sosialisasi</span>,
+      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
       id: 'pengetahuan',
       label: 'Pengetahuan & Juknis',
       icon: <BookOpen className="w-4 h-4 text-indigo-300" />,
@@ -158,11 +166,6 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'admin',
       label: '🛠️ Panel Edit Admin',
       icon: <ShieldCheck className="w-4 h-4 text-amber-300" />,
-      badge: (
-        <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs">
-          {isAdminAuthenticated ? '⚡ AKTIF' : '🔑 LOGIN'}
-        </span>
-      ),
       activeColor: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/50 ring-2 ring-indigo-300 font-black'
     },
     {

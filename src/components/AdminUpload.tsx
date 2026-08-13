@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
 import { ModernLoadingOverlay } from './ModernLoadingOverlay';
-import { SatkerIKPA, UploadLog, DashboardConfig, Announcement, AppTheme, ExcelUploadHistory, PejabatSertifikasi, MenuVisibilityConfig, PresentationMaterial } from '../types';
+import { SatkerIKPA, UploadLog, DashboardConfig, Announcement, AppTheme, ExcelUploadHistory, PejabatSertifikasi, MenuVisibilityConfig, PresentationMaterial, KegiatanSosialisasi, SocializationLink } from '../types';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -257,7 +257,49 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'settings' | 'announcements' | 'materi-slide' | 'broadcast' | 'logs'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'broadcast' | 'logs'>('upload');
+
+  // Link Sosialisasi / Linktree Management State
+  const [editingKegiatanId, setEditingKegiatanId] = useState<string | null>(null);
+  const [kegiatanForm, setKegiatanForm] = useState<{
+    judulKegiatan: string;
+    subJudul: string;
+    tanggal: string;
+    jam: string;
+    lokasi: string;
+    deskripsi: string;
+    isActive: boolean;
+    isFeatured: boolean;
+  }>({
+    judulKegiatan: '',
+    subJudul: '',
+    tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+    jam: '08:30 WIB - Selesai',
+    lokasi: 'Aula KPPN Semarang I / Hybrid Zoom',
+    deskripsi: '',
+    isActive: true,
+    isFeatured: true
+  });
+
+  const [selectedKegiatanForLinks, setSelectedKegiatanForLinks] = useState<string | null>(null);
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [linkForm, setLinkForm] = useState<{
+    judulLink: string;
+    url: string;
+    deskripsi: string;
+    badge: string;
+    iconType: 'drive' | 'pdf' | 'zoom' | 'form' | 'youtube' | 'presence' | 'certificate' | 'whatsapp' | 'website' | 'general';
+    isHighlight: boolean;
+    isActive: boolean;
+  }>({
+    judulLink: '',
+    url: '',
+    deskripsi: '',
+    badge: 'Wajib',
+    iconType: 'presence',
+    isHighlight: true,
+    isActive: true
+  });
 
   // Satker Dalam Perhatian Tab State
   const [searchPerhatianQuery, setSearchPerhatianQuery] = useState<string>('');
@@ -379,6 +421,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [searchDetailQuery, setSearchDetailQuery] = useState<string>('');
 
   const { showToast } = useToast();
+  const addToast = (msg: string, type?: 'success' | 'error' | 'warning' | 'info') => showToast(msg, type);
 
   // Global Confirmation Modal State (replaces iframe-blocked window.confirm)
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
@@ -1600,7 +1643,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
     if (excelCategory === 'CAPAIAN_OUTPUT' && satkers && satkers.length > 0) {
       // Merge Capaian Output into existing active satkers list!
-      const previewMap = new Map(previewSatkers.map(p => [p.kodeSatker, p]));
+      const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
       
       satkersToApply = satkers.map(existing => {
         const match = previewMap.get(existing.kodeSatker);
@@ -2095,6 +2138,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>7. Kelola Materi Slide Show</span>
           <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {(tempConfig.presentationMaterials?.length || 0)}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('portal-link')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'portal-link'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-emerald-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+          }`}
+        >
+          <Link2 className="w-4 h-4 text-emerald-600" />
+          <span>8. Link Sosialisasi (Linktree)</span>
+          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            {(tempConfig.kegiatanSosialisasi?.length || 0)}
           </span>
         </button>
 
@@ -4590,6 +4648,909 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* Link Sosialisasi Tab */}
+      {adminTab === 'portal-link' && (
+        <div className="space-y-6">
+          
+          {/* Header & Overview Card */}
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
+            
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
+                  <Link2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  PENGATURAN PORTAL &amp; TAUTAN SOSIALISASI (ABSEN, SLIDE PAPARAN, ZOOM, FORM)
+                </div>
+                <h3 className="text-xl font-black tracking-tight">
+                  Kelola Kegiatan &amp; Tautan Sosialisasi
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium max-w-2xl">
+                  Atur daftar kegiatan sosialisasi, link presensi, materi slide, zoom meeting, pre-test/post-test, dan form evaluasi. Tautan yang disimpan di sini langsung otomatis tampil di Dashboard publik.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newConfig = { ...tempConfig };
+                    onUpdateDashboardConfig(newConfig);
+                    showToast('Seluruh konfigurasi sosialisasi tersimpan!', 'success');
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Ke Database</span>
+                </button>
+              </div>
+            </div>
+
+            {/* List of Kegiatan Sosialisasi */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>Daftar Kegiatan Sosialisasi ({(tempConfig.kegiatanSosialisasi || []).length})</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingKegiatanId(null);
+                    setKegiatanForm({
+                      judulKegiatan: '',
+                      subJudul: 'KPPN Semarang I • Seksi MSKI',
+                      tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+                      jam: '08:30 WIB - Selesai',
+                      lokasi: 'Aula KPPN Semarang I / Zoom Hybrid',
+                      deskripsi: '',
+                      isActive: true,
+                      isFeatured: true
+                    });
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Buat Kegiatan Baru</span>
+                </button>
+              </div>
+
+              {/* Kegiatan Cards */}
+              <div className="grid grid-cols-1 gap-4">
+                {(tempConfig.kegiatanSosialisasi || []).length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 text-xs space-y-2">
+                    <Info className="w-8 h-8 text-slate-400 mx-auto" />
+                    <p className="font-bold text-slate-700 dark:text-slate-300">Belum Ada Kegiatan Sosialisasi</p>
+                    <p>Klik &quot;Buat Kegiatan Baru&quot; di bawah untuk menambah agenda sosialisasi pertama Anda.</p>
+                  </div>
+                ) : (
+                  (tempConfig.kegiatanSosialisasi || []).map(kegiatan => {
+                    const isSelectedForLinks = selectedKegiatanForLinks === kegiatan.id || (tempConfig.kegiatanSosialisasi?.length === 1 && selectedKegiatanForLinks === null);
+
+                    return (
+                      <div
+                        key={kegiatan.id}
+                        className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                          kegiatan.isActive 
+                            ? 'bg-white dark:bg-slate-800/90 border-slate-200 dark:border-slate-700/80 shadow-sm' 
+                            : 'bg-slate-100/80 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-70'
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                kegiatan.isActive
+                                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60'
+                                  : 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700/60'
+                              }`}>
+                                {kegiatan.isActive ? '🟢 Aktif (Dapat Diakses)' : '🔴 Non-Aktif (Diarsipkan)'}
+                              </span>
+
+                              {kegiatan.isFeatured && (
+                                <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black shadow-xs">
+                                  ⭐ Event Utama
+                                </span>
+                              )}
+
+                              <span className="bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border border-indigo-200 dark:border-indigo-800">
+                                {kegiatan.links.length} Tautan / Link
+                              </span>
+                            </div>
+
+                            <h5 className="font-black text-base text-slate-900 dark:text-white truncate">
+                              {kegiatan.judulKegiatan}
+                            </h5>
+
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {kegiatan.subJudul} • {kegiatan.tanggal} • {kegiatan.lokasi}
+                            </p>
+                          </div>
+
+                          {/* Quick Actions for Event */}
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (tempConfig.kegiatanSosialisasi || []).map(k => 
+                                  k.id === kegiatan.id ? { ...k, isActive: !k.isActive } : k
+                                );
+                                const newConfig = { ...tempConfig, kegiatanSosialisasi: updated };
+                                 setTempConfig(newConfig);
+                                onUpdateDashboardConfig(newConfig);
+                                showToast(kegiatan.isActive ? 'Kegiatan Dinonaktifkan' : 'Kegiatan Diaktifkan', 'info');
+                              }}
+                              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                kegiatan.isActive
+                                  ? 'bg-rose-500/10 text-rose-600 border-rose-500/30 hover:bg-rose-500/20'
+                                  : 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20'
+                              }`}
+                            >
+                              {kegiatan.isActive ? 'Non-Aktifkan' : 'Aktifkan'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedKegiatanForLinks(isSelectedForLinks ? 'none' : kegiatan.id);
+                              }}
+                              className={`px-3.5 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                                isSelectedForLinks
+                                  ? 'bg-indigo-600 text-white border-indigo-500 ring-2 ring-indigo-400/40'
+                                  : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 hover:from-emerald-500 hover:to-teal-500'
+                              }`}
+                            >
+                              <Link2 className="w-4 h-4" />
+                              <span>{isSelectedForLinks ? '🔽 Sembunyikan Kelola Link' : `🔗 Atur Link Kegiatan (${kegiatan.links.length})`}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingKegiatanId(kegiatan.id);
+                                setKegiatanForm({
+                                  judulKegiatan: kegiatan.judulKegiatan,
+                                  subJudul: kegiatan.subJudul || '',
+                                  tanggal: kegiatan.tanggal || '',
+                                  jam: kegiatan.jam || '',
+                                  lokasi: kegiatan.lokasi || '',
+                                  deskripsi: kegiatan.deskripsi || '',
+                                  isActive: kegiatan.isActive,
+                                  isFeatured: !!kegiatan.isFeatured
+                                });
+                              }}
+                              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 cursor-pointer"
+                              title="Edit Detail Kegiatan"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (tempConfig.kegiatanSosialisasi || []).filter(k => k.id !== kegiatan.id);
+                                const newConfig = { ...tempConfig, kegiatanSosialisasi: updated };
+                                setTempConfig(newConfig);
+                                onUpdateDashboardConfig(newConfig);
+                                showToast('Kegiatan berhasil dihapus', 'success');
+                              }}
+                              className="p-2 rounded-xl text-rose-500 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 cursor-pointer"
+                              title="Hapus Kegiatan"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expandable Link Management Sub-Section */}
+                        {isSelectedForLinks && (
+                          <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                              <div>
+                                <h6 className="font-extrabold text-xs text-slate-800 dark:text-slate-200">
+                                  Kelola Daftar Tautan untuk: {kegiatan.judulKegiatan}
+                                </h6>
+                                <p className="text-[11px] text-slate-500">
+                                  Tambahkan link Presensi, Slide PDF, Zoom, Form Evaluasi, atau Sertifikat.
+                                </p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const defaultPresets: SocializationLink[] = [
+                                    {
+                                      id: `link-presensi-${Date.now()}`,
+                                      judulLink: '📝 Presensi & Absensi Online Peserta Sosialisasi',
+                                      url: 'https://forms.google.com/',
+                                      deskripsi: 'Wajib diisi oleh seluruh peserta mitra KPPN Semarang I untuk konfirmasi kehadiran.',
+                                      badge: 'Wajib Fill',
+                                      iconType: 'presence',
+                                      isHighlight: true,
+                                      isActive: true
+                                    },
+                                    {
+                                      id: `link-materi-${Date.now() + 1}`,
+                                      judulLink: '📊 Unduh Slide Paparan & Materi Presentasi PDF',
+                                      url: 'https://drive.google.com/',
+                                      deskripsi: 'Bahan tayang paparan narasumber, juknis SAKTI, dan pedoman teknis.',
+                                      badge: 'Materi PDF',
+                                      iconType: 'pdf',
+                                      isHighlight: false,
+                                      isActive: true
+                                    },
+                                    {
+                                      id: `link-zoom-${Date.now() + 2}`,
+                                      judulLink: '📹 Ruang Virtual Zoom Meeting Hybrid',
+                                      url: 'https://zoom.us/',
+                                      deskripsi: 'Akses masuk virtual room bagi peserta online yang mengikuti secara hybrid.',
+                                      badge: 'Live Zoom',
+                                      iconType: 'zoom',
+                                      isHighlight: true,
+                                      isActive: true
+                                    },
+                                    {
+                                      id: `link-evaluasi-${Date.now() + 3}`,
+                                      judulLink: '📋 Form Evaluasi & Feedback Kepuasan Sosialisasi',
+                                      url: 'https://forms.google.com/',
+                                      deskripsi: 'Mohon berkenan mengisi umpan balik penilaian layanan kegiatan KPPN Semarang I.',
+                                      badge: 'Form Feedback',
+                                      iconType: 'form',
+                                      isHighlight: false,
+                                      isActive: true
+                                    },
+                                    {
+                                      id: `link-sertifikat-${Date.now() + 4}`,
+                                      judulLink: '📜 Unduh Sertifikat Digital & Surat Tugas',
+                                      url: 'https://drive.google.com/',
+                                      deskripsi: 'Unduh e-sertifikat apresiasi dan dokumen penetapan kegiatan.',
+                                      badge: 'Sertifikat',
+                                      iconType: 'certificate',
+                                      isHighlight: false,
+                                      isActive: true
+                                    }
+                                  ];
+
+                                  const updatedKegiatan = (tempConfig.kegiatanSosialisasi || []).map(k => {
+                                    if (k.id === kegiatan.id) {
+                                      return { ...k, links: [...k.links, ...defaultPresets] };
+                                    }
+                                    return k;
+                                  });
+
+                                  setTempConfig(prev => ({ ...prev, kegiatanSosialisasi: updatedKegiatan }));
+                                  onUpdateDashboardConfig({ ...tempConfig, kegiatanSosialisasi: updatedKegiatan });
+                                  addToast('5 Link Preset Sosialisasi Standar Berhasil Ditambahkan!', 'success');
+                                }}
+                                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                              >
+                                <Zap className="w-3.5 h-3.5 fill-slate-950" />
+                                <span>+ Isi 5 Link Preset Standar</span>
+                              </button>
+                            </div>
+
+                            {/* Existing links list in this kegiatan */}
+                            <div className="space-y-2">
+                              {kegiatan.links.map((link, lIdx) => (
+                                <div
+                                  key={link.id}
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="font-mono text-slate-400 font-bold">{lIdx + 1}.</span>
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-extrabold text-slate-800 dark:text-slate-100 truncate">
+                                          {link.judulLink}
+                                        </p>
+                                        {link.badge && (
+                                          <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                            {link.badge}
+                                          </span>
+                                        )}
+                                        {link.isHighlight && (
+                                          <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded-full font-black">
+                                            ✨ Highlight
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-[11px] text-slate-400 font-mono truncate">
+                                        {link.url}
+                                      </p>
+                                      {link.deskripsi && (
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                          {link.deskripsi}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingLinkId(link.id);
+                                        setLinkForm({
+                                          judulLink: link.judulLink,
+                                          url: link.url,
+                                          deskripsi: link.deskripsi || '',
+                                          badge: link.badge || 'Wajib',
+                                          iconType: link.iconType || 'presence',
+                                          isHighlight: !!link.isHighlight,
+                                          isActive: link.isActive !== false
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600 cursor-pointer"
+                                      title="Edit Detail Link"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (tempConfig.kegiatanSosialisasi || []).map(k => {
+                                          if (k.id === kegiatan.id) {
+                                            const newLinks = k.links.map(l => 
+                                              l.id === link.id ? { ...l, isActive: !l.isActive } : l
+                                            );
+                                            return { ...k, links: newLinks };
+                                          }
+                                          return k;
+                                        });
+                                        setTempConfig(prev => ({ ...prev, kegiatanSosialisasi: updated }));
+                                        onUpdateDashboardConfig({ ...tempConfig, kegiatanSosialisasi: updated });
+                                      }}
+                                      className={`px-2.5 py-1 rounded-lg font-bold text-[11px] border cursor-pointer ${
+                                        link.isActive
+                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                          : 'bg-rose-50 text-rose-700 border-rose-300'
+                                      }`}
+                                    >
+                                      {link.isActive ? 'Aktif' : 'Off'}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = (tempConfig.kegiatanSosialisasi || []).map(k => {
+                                          if (k.id === kegiatan.id) {
+                                            return { ...k, links: k.links.filter(l => l.id !== link.id) };
+                                          }
+                                          return k;
+                                        });
+                                        setTempConfig(prev => ({ ...prev, kegiatanSosialisasi: updated }));
+                                        onUpdateDashboardConfig({ ...tempConfig, kegiatanSosialisasi: updated });
+                                        addToast('Link berhasil dihapus', 'success');
+                                      }}
+                                      className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 cursor-pointer"
+                                      title="Hapus Link"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Form Input Custom / Edit Link Detail */}
+                            <div className="bg-slate-50 dark:bg-slate-900/90 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h6 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider">
+                                  {editingLinkId ? '📝 Edit Tautan / Link' : '➕ Tambah Tautan Baru (Absen, Zoom, Paparan, dll)'}
+                                </h6>
+                                <span className="text-[11px] text-slate-400 font-semibold">Pilih Pintasan Cepat:</span>
+                              </div>
+
+                              {/* Quick Fill Preset Buttons for specific link types */}
+                              <div className="flex flex-wrap gap-1.5 pb-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '📝 Presensi & Absensi Online Peserta Sosialisasi',
+                                    url: 'https://forms.google.com/',
+                                    deskripsi: 'Wajib diisi oleh seluruh peserta mitra KPPN Semarang I untuk konfirmasi kehadiran.',
+                                    badge: 'Wajib Absen',
+                                    iconType: 'presence',
+                                    isHighlight: true,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 cursor-pointer"
+                                >
+                                  + Presensi / Absen
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '📊 Unduh Slide Paparan & Materi Presentasi PDF',
+                                    url: 'https://drive.google.com/',
+                                    deskripsi: 'Bahan tayang paparan narasumber, juknis SAKTI, dan pedoman teknis.',
+                                    badge: 'Materi PDF',
+                                    iconType: 'pdf',
+                                    isHighlight: false,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-100 text-indigo-800 hover:bg-indigo-200 cursor-pointer"
+                                >
+                                  + Slide Paparan / PDF
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '📹 Ruang Virtual Zoom Meeting Hybrid',
+                                    url: 'https://zoom.us/j/',
+                                    deskripsi: 'Akses masuk virtual room bagi peserta online yang mengikuti secara hybrid.',
+                                    badge: 'Live Zoom',
+                                    iconType: 'zoom',
+                                    isHighlight: true,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-sky-100 text-sky-800 hover:bg-sky-200 cursor-pointer"
+                                >
+                                  + Zoom Virtual Room
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '📋 Form Evaluasi & Feedback Kepuasan Sosialisasi',
+                                    url: 'https://forms.google.com/',
+                                    deskripsi: 'Mohon berkenan mengisi umpan balik penilaian layanan kegiatan KPPN Semarang I.',
+                                    badge: 'Evaluasi',
+                                    iconType: 'form',
+                                    isHighlight: false,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer"
+                                >
+                                  + Form Evaluasi
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '📜 Unduh Sertifikat Digital & Surat Tugas',
+                                    url: 'https://drive.google.com/',
+                                    deskripsi: 'Unduh e-sertifikat apresiasi dan dokumen penetapan kegiatan.',
+                                    badge: 'Sertifikat',
+                                    iconType: 'certificate',
+                                    isHighlight: false,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-800 hover:bg-purple-200 cursor-pointer"
+                                >
+                                  + E-Sertifikat
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setLinkForm({
+                                    judulLink: '💬 Gabung Grup Whatsapp Koordinasi Peserta',
+                                    url: 'https://chat.whatsapp.com/',
+                                    deskripsi: 'Grup komunikasi cepat antar-peserta dan narasumber KPPN Semarang I.',
+                                    badge: 'Grup WA',
+                                    iconType: 'whatsapp',
+                                    isHighlight: false,
+                                    isActive: true
+                                  })}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-teal-100 text-teal-800 hover:bg-teal-200 cursor-pointer"
+                                >
+                                  + Grup WA
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-[11px] font-bold mb-1 text-slate-700 dark:text-slate-300">
+                                    Judul Tautan / Link <span className="text-rose-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Contoh: 📝 Form Presensi & Absensi Online"
+                                    value={linkForm.judulLink}
+                                    onChange={(e) => setLinkForm(prev => ({ ...prev, judulLink: e.target.value }))}
+                                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-slate-900 dark:text-white focus:outline-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[11px] font-bold mb-1 text-slate-700 dark:text-slate-300">
+                                    URL / Alamat Web Lengkap (https://...) <span className="text-rose-500">*</span>
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="https://forms.gle/xyz atau https://zoom.us/j/123..."
+                                    value={linkForm.url}
+                                    onChange={(e) => setLinkForm(prev => ({ ...prev, url: e.target.value }))}
+                                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono text-slate-900 dark:text-white focus:outline-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[11px] font-bold mb-1 text-slate-700 dark:text-slate-300">
+                                    Keterangan / Deskripsi Singkat
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Contoh: Wajib diisi oleh seluruh peserta sebelum acara selesai"
+                                    value={linkForm.deskripsi}
+                                    onChange={(e) => setLinkForm(prev => ({ ...prev, deskripsi: e.target.value }))}
+                                    className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div>
+                                    <label className="block text-[11px] font-bold mb-1 text-slate-700 dark:text-slate-300">
+                                      Label Badge
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="Contoh: Wajib, Live, PDF, Gratis"
+                                      value={linkForm.badge}
+                                      onChange={(e) => setLinkForm(prev => ({ ...prev, badge: e.target.value }))}
+                                      className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-bold mb-1 text-slate-700 dark:text-slate-300">
+                                      Tipe Ikon
+                                    </label>
+                                    <select
+                                      value={linkForm.iconType}
+                                      onChange={(e) => setLinkForm(prev => ({ ...prev, iconType: e.target.value as any }))}
+                                      className="w-full text-xs p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                                    >
+                                      <option value="presence">📝 Presensi (Checklist)</option>
+                                      <option value="pdf">📊 PDF / Slide Paparan</option>
+                                      <option value="drive">📁 Google Drive</option>
+                                      <option value="zoom">📹 Zoom / Video Call</option>
+                                      <option value="form">📋 Form / Survei</option>
+                                      <option value="certificate">📜 Sertifikat</option>
+                                      <option value="whatsapp">💬 WhatsApp Group</option>
+                                      <option value="youtube">🎬 Youtube Stream</option>
+                                      <option value="website">🌐 Website / Portal</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 md:col-span-2 pt-1">
+                                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={linkForm.isHighlight}
+                                      onChange={(e) => setLinkForm(prev => ({ ...prev, isHighlight: e.target.checked }))}
+                                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <span>✨ Jadikan Tombol Sorotan (Highlight Berwarna Gradasi)</span>
+                                  </label>
+
+                                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    <input
+                                      type="checkbox"
+                                      checked={linkForm.isActive}
+                                      onChange={(e) => setLinkForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                    <span>🟢 Status Aktif</span>
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-end gap-2 pt-2">
+                                {editingLinkId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingLinkId(null);
+                                      setLinkForm({
+                                        judulLink: '',
+                                        url: '',
+                                        deskripsi: '',
+                                        badge: 'Wajib',
+                                        iconType: 'presence',
+                                        isHighlight: true,
+                                        isActive: true
+                                      });
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 cursor-pointer"
+                                  >
+                                    Batal Edit
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!linkForm.judulLink.trim() || !linkForm.url.trim()) {
+                                      addToast('Judul Link dan URL wajib diisi!', 'warning');
+                                      return;
+                                    }
+
+                                    // Format URL if missing protocol
+                                    let formattedUrl = linkForm.url.trim();
+                                    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
+                                      formattedUrl = 'https://' + formattedUrl;
+                                    }
+
+                                    const updatedKegiatanList = (tempConfig.kegiatanSosialisasi || []).map(k => {
+                                      if (k.id === kegiatan.id) {
+                                        if (editingLinkId) {
+                                          const newLinks = k.links.map(l => 
+                                            l.id === editingLinkId ? {
+                                              ...l,
+                                              judulLink: linkForm.judulLink,
+                                              url: formattedUrl,
+                                              deskripsi: linkForm.deskripsi,
+                                              badge: linkForm.badge,
+                                              iconType: linkForm.iconType,
+                                              isHighlight: linkForm.isHighlight,
+                                              isActive: linkForm.isActive
+                                            } : l
+                                          );
+                                          return { ...k, links: newLinks };
+                                        } else {
+                                          const newLink: SocializationLink = {
+                                            id: `link-${Date.now()}`,
+                                            judulLink: linkForm.judulLink,
+                                            url: formattedUrl,
+                                            deskripsi: linkForm.deskripsi,
+                                            badge: linkForm.badge,
+                                            iconType: linkForm.iconType,
+                                            isHighlight: linkForm.isHighlight,
+                                            isActive: linkForm.isActive
+                                          };
+                                          return { ...k, links: [...k.links, newLink] };
+                                        }
+                                      }
+                                      return k;
+                                    });
+
+                                    const newConfig = { ...tempConfig, kegiatanSosialisasi: updatedKegiatanList };
+                                    setTempConfig(newConfig);
+                                    onUpdateDashboardConfig(newConfig);
+                                    addToast(editingLinkId ? 'Tautan berhasil diperbarui!' : 'Tautan baru berhasil ditambahkan!', 'success');
+
+                                    setEditingLinkId(null);
+                                    setLinkForm({
+                                      judulLink: '',
+                                      url: '',
+                                      deskripsi: '',
+                                      badge: 'Wajib',
+                                      iconType: 'presence',
+                                      isHighlight: true,
+                                      isActive: true
+                                    });
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2 rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                  <span>{editingLinkId ? 'Update Tautan' : 'Simpan Tautan Baru ke Dashboard'}</span>
+                                </button>
+                              </div>
+
+                            </div>
+
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Form Tambah / Edit Kegiatan */}
+            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                {editingKegiatanId ? 'Form Edit Kegiatan Sosialisasi' : 'Form Tambah Kegiatan Sosialisasi Baru'}
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Nama / Judul Kegiatan Sosialisasi <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Sosialisasi Langkah-Langkah Akhir Tahun & Akselerasi IKPA 2026"
+                    value={kegiatanForm.judulKegiatan}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, judulKegiatan: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Sub-Judul / Penyelenggara
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: KPPN Semarang I • Aula Pengayoman"
+                    value={kegiatanForm.subJudul}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, subJudul: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Tanggal Pelaksanaan
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 15 Agustus 2026"
+                    value={kegiatanForm.tanggal}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, tanggal: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Jam Pelaksanaan
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: 08:30 WIB - Selesai"
+                    value={kegiatanForm.jam}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, jam: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Lokasi / Platform
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Contoh: Aula KPPN Semarang I / Zoom Hybrid"
+                    value={kegiatanForm.lokasi}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, lokasi: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold mb-1 text-slate-700 dark:text-slate-300">
+                    Deskripsi Ringkas Kegiatan
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Deskripsi singkat acuan atau petunjuk bagi peserta sosialisasi..."
+                    value={kegiatanForm.deskripsi}
+                    onChange={(e) => setKegiatanForm(prev => ({ ...prev, deskripsi: e.target.value }))}
+                    className="w-full text-xs p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-6 md:col-span-2 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={kegiatanForm.isActive}
+                      onChange={(e) => setKegiatanForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                      className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <span>Aktifkan Kegiatan Ini di Portal Public</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={kegiatanForm.isFeatured}
+                      onChange={(e) => setKegiatanForm(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 cursor-pointer"
+                    />
+                    <span>Jadikan Kegiatan Utama (Featured Default)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                {editingKegiatanId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingKegiatanId(null);
+                      setKegiatanForm({
+                        judulKegiatan: '',
+                        subJudul: 'KPPN Semarang I • Seksi MSKI',
+                        tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+                        jam: '08:30 WIB - Selesai',
+                        lokasi: 'Aula KPPN Semarang I / Zoom Hybrid',
+                        deskripsi: '',
+                        isActive: true,
+                        isFeatured: true
+                      });
+                    }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!kegiatanForm.judulKegiatan.trim()) {
+                      addToast('Judul kegiatan wajib diisi!', 'warning');
+                      return;
+                    }
+
+                    const existingList = tempConfig.kegiatanSosialisasi || [];
+
+                    let updatedKegiatanList: KegiatanSosialisasi[];
+
+                    if (editingKegiatanId) {
+                      updatedKegiatanList = existingList.map(k => {
+                        if (k.id === editingKegiatanId) {
+                          return {
+                            ...k,
+                            judulKegiatan: kegiatanForm.judulKegiatan,
+                            subJudul: kegiatanForm.subJudul,
+                            tanggal: kegiatanForm.tanggal,
+                            jam: kegiatanForm.jam,
+                            lokasi: kegiatanForm.lokasi,
+                            deskripsi: kegiatanForm.deskripsi,
+                            isActive: kegiatanForm.isActive,
+                            isFeatured: kegiatanForm.isFeatured
+                          };
+                        }
+                        return k;
+                      });
+                      addToast('Kegiatan sosialisasi berhasil diperbarui!', 'success');
+                    } else {
+                      const newEvent: KegiatanSosialisasi = {
+                        id: `kegiatan-${Date.now()}`,
+                        judulKegiatan: kegiatanForm.judulKegiatan,
+                        subJudul: kegiatanForm.subJudul,
+                        tanggal: kegiatanForm.tanggal,
+                        jam: kegiatanForm.jam,
+                        lokasi: kegiatanForm.lokasi,
+                        deskripsi: kegiatanForm.deskripsi,
+                        isActive: kegiatanForm.isActive,
+                        isFeatured: kegiatanForm.isFeatured,
+                        links: []
+                      };
+                      updatedKegiatanList = [newEvent, ...existingList];
+                      setSelectedKegiatanForLinks(newEvent.id);
+                      addToast('Kegiatan sosialisasi baru berhasil dibuat!', 'success');
+                    }
+
+                    const newConfig = { ...tempConfig, kegiatanSosialisasi: updatedKegiatanList };
+                    setTempConfig(newConfig);
+                    onUpdateDashboardConfig(newConfig);
+
+                    setEditingKegiatanId(null);
+                    setKegiatanForm({
+                      judulKegiatan: '',
+                      subJudul: 'KPPN Semarang I • Seksi MSKI',
+                      tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+                      jam: '08:30 WIB - Selesai',
+                      lokasi: 'Aula KPPN Semarang I / Zoom Hybrid',
+                      deskripsi: '',
+                      isActive: true,
+                      isFeatured: true
+                    });
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Kegiatan Sosialisasi</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
       )}
 

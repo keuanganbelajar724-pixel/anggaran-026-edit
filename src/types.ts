@@ -225,6 +225,33 @@ export interface PresentationMaterial {
   tags?: string[];
 }
 
+export interface SocializationLink {
+  id: string;
+  judulLink: string;
+  url: string;
+  deskripsi?: string;
+  iconType?: 'drive' | 'pdf' | 'zoom' | 'form' | 'youtube' | 'presence' | 'certificate' | 'whatsapp' | 'website' | 'general';
+  badge?: string;
+  isHighlight?: boolean;
+  isActive?: boolean;
+  clickCount?: number;
+}
+
+export interface KegiatanSosialisasi {
+  id: string;
+  judulKegiatan: string;
+  subJudul?: string;
+  tanggal?: string;
+  jam?: string;
+  lokasi?: string;
+  bannerUrl?: string;
+  deskripsi?: string;
+  isActive: boolean;
+  isFeatured?: boolean;
+  themeColor?: 'emerald' | 'sky' | 'indigo' | 'purple' | 'amber' | 'rose';
+  links: SocializationLink[];
+}
+
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
@@ -233,6 +260,7 @@ export interface MenuVisibilityConfig {
   'per5-analisis': boolean;
   'announcements': boolean;
   'materi-slide'?: boolean;
+  'portal-link'?: boolean;
   'pengetahuan': boolean;
   'aduan'?: boolean;
   'reminder': boolean;
@@ -285,6 +313,10 @@ export interface DashboardCustomTexts {
   materiSlideBadge?: string;
   materiSlideTitle?: string;
   materiSlideSubtitle?: string;
+
+  portalLinkBadge?: string;
+  portalLinkTitle?: string;
+  portalLinkSubtitle?: string;
 }
 
 export interface DashboardConfig {
@@ -294,6 +326,7 @@ export interface DashboardConfig {
   showBarChart: boolean;
   announcements: Announcement[];
   presentationMaterials?: PresentationMaterial[];
+  kegiatanSosialisasi?: KegiatanSosialisasi[];
   menuVisibility?: MenuVisibilityConfig;
   waDeviceStatus?: WhatsAppDeviceStatus;
   broadcastSettings?: BroadcastSettings;
@@ -306,6 +339,7 @@ export interface DashboardConfig {
     redflags?: string;
     per5Analisis?: string;
     materiSlide?: string;
+    portalLink?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -319,6 +353,7 @@ export type NavigationTab =
   | 'per5-analisis'
   | 'announcements' 
   | 'materi-slide'
+  | 'portal-link'
   | 'pengetahuan'
   | 'aduan'
   | 'admin' 

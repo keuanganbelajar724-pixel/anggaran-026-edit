@@ -123,14 +123,19 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
         const notes: string[] = [];
 
         if (isCaputFormat && caputHeaderRow !== -1) {
-          let colKode = -1, colNama = -1, colPersen = -1;
+          // Column E = index 4 (Kode Satker)
+          // Column F = index 5 (Nama Satuan Kerja)
+          // Column O = index 14 (Status Penyampaian)
+          let colKode = 4;
+          let colNama = 5;
+          let colPersen = 14;
           
           if (matrix[caputHeaderRow]) {
             matrix[caputHeaderRow].forEach((colVal: any, cIdx: number) => {
               const cStr = String(colVal).toLowerCase();
               if (cStr.includes('kode satker') || cStr.includes('kdsatker') || (cStr.includes('kode') && !cStr.includes('koderincian'))) colKode = cIdx;
-              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('uraian') || cStr.includes('satker')) colNama = cIdx;
-              if (cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('persen') || cStr.includes('capaian') || cStr.includes('status') || cStr.includes('output')) colPersen = cIdx;
+              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('satuan kerja') || cStr === 'nama') colNama = cIdx;
+              if (cStr.includes('status penyampaian') || cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('status')) colPersen = cIdx;
             });
           }
 
@@ -141,14 +146,14 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             const row = matrix[r];
             if (!row || row.length === 0) continue;
 
-            // Find 6 digit code in row if colKode is -1 or row[colKode] invalid
-            let rawKode = colKode !== -1 ? String(row[colKode] || '').trim() : '';
+            // Target Column E (index 4) or fallback search for 5-6 digit Kode Satker
+            let rawKode = String(row[colKode] !== undefined ? row[colKode] : '').trim();
             if (!rawKode || !/^\d{5,6}$/.test(rawKode)) {
               for (let c = 0; c < row.length; c++) {
                 const cellStr = String(row[c] || '').trim();
                 if (/^\d{5,6}$/.test(cellStr)) {
                   rawKode = cellStr;
-                  if (colNama === -1 && row[c + 1]) colNama = c + 1;
+                  if (row[c + 1]) colNama = c + 1;
                   break;
                 }
               }
@@ -156,23 +161,34 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
 
             if (rawKode && /^\d{5,6}$/.test(rawKode)) {
               const kodeSatker = rawKode.padStart(6, '0');
-              const namaSatker = colNama !== -1 ? cleanText(row[colNama] || '') : `SATKER ${kodeSatker}`;
-              const rawPersenStr = String(colPersen !== -1 && row[colPersen] !== undefined ? row[colPersen] : '').trim();
-              const persenDataMasuk = parseFormattedNumber(rawPersenStr, 0);
+              const rawNama = row[colNama] !== undefined ? cleanText(row[colNama] || '') : '';
+              const namaSatker = rawNama || `SATKER ${kodeSatker}`;
+              
+              // Target Column O (index 14) for Status Penyampaian / % Data
+              const rawStatusStr = String(row[colPersen] !== undefined ? row[colPersen] : (row[14] !== undefined ? row[14] : '')).trim();
+              const lowerStatus = rawStatusStr.toLowerCase();
+
+              const isZeroPercent = 
+                lowerStatus === '0%' || 
+                lowerStatus === '0' || 
+                lowerStatus === '0.00%' || 
+                lowerStatus === '0,00%' || 
+                lowerStatus === '0.0%' || 
+                lowerStatus.includes('0%') || 
+                lowerStatus.includes('belum') || 
+                parseFormattedNumber(rawStatusStr, -1) === 0;
 
               let statusCapaianOutput: SatkerIKPA['statusCapaianOutput'] = 'Sudah Terlaporkan';
-              let capaianOutputScore = persenDataMasuk;
+              let capaianOutputScore = 100;
 
-              if (persenDataMasuk === 0) {
+              if (isZeroPercent) {
                 statusCapaianOutput = 'Belum Terlaporkan';
                 capaianOutputScore = 0;
                 zeroCaputCount++;
-              } else if (persenDataMasuk < 95) {
-                statusCapaianOutput = 'Terlambat';
-                terlaporkanCaputCount++;
               } else {
                 statusCapaianOutput = 'Sudah Terlaporkan';
-                capaianOutputScore = 100;
+                const parsedVal = parseFormattedNumber(rawStatusStr, 100);
+                capaianOutputScore = (parsedVal > 0 && parsedVal <= 100) ? parsedVal : 100;
                 terlaporkanCaputCount++;
               }
 
@@ -194,10 +210,8 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               const realisasiAnggaran = Math.round(paguAnggaran * 0.85);
 
               const issues: string[] = [];
-              if (statusCapaianOutput === 'Belum Terlaporkan' || persenDataMasuk === 0) {
+              if (statusCapaianOutput === 'Belum Terlaporkan' || capaianOutputScore === 0) {
                 issues.push('Capaian Output 0% (Belum Mengirim Capaian Output ke SAKTI)');
-              } else if (statusCapaianOutput === 'Terlambat') {
-                issues.push(`Pengiriman Capaian Output Terlambat (${persenDataMasuk}%)`);
               }
 
               if (nilaiTotalIKPA < 87.5) {

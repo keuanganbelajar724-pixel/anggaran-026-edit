@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi } from './types';
 import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { Header } from './components/Header';
@@ -10,6 +10,7 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
+import { SocializationPortalView } from './components/SocializationPortalView';
 import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
@@ -23,6 +24,62 @@ import { ExcelGuideModal } from './components/ExcelGuideModal';
 import { ToastProvider } from './components/ToastNotification';
 
 const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
+
+const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
+  {
+    id: 'kegiatan-demo-1',
+    judulKegiatan: 'Sosialisasi & Bimtek Akselerasi IKPA & Capaian Output SAKTI 2026',
+    subJudul: 'KPPN Semarang I • Seksi MSKI',
+    tanggal: '15 Agustus 2026',
+    jam: '08:30 - 12:00 WIB',
+    lokasi: 'Aula KPPN Semarang I / Zoom Meeting Hybrid',
+    deskripsi: 'Penyampaian strategi peningkatan nilai IKPA, panduan pengisian Capaian Output SAKTI, dan petunjuk teknis PER-5/PB/2024.',
+    isActive: true,
+    isFeatured: true,
+    links: [
+      {
+        id: 'link-1',
+        judulLink: '📝 Presensi & Absensi Online Peserta Sosialisasi',
+        url: 'https://forms.google.com/',
+        deskripsi: 'Wajib diisi oleh seluruh peserta KPA/PPK/PPSPM mitra KPPN Semarang I.',
+        badge: 'Wajib',
+        iconType: 'presence',
+        isHighlight: true,
+        isActive: true
+      },
+      {
+        id: 'link-2',
+        judulLink: '📊 Unduh Slide Paparan & Materi Presentasi PDF',
+        url: 'https://drive.google.com/',
+        deskripsi: 'Bahan tayang paparan narasumber, juknis SAKTI, dan pedoman teknis.',
+        badge: 'Drive PDF',
+        iconType: 'pdf',
+        isHighlight: false,
+        isActive: true
+      },
+      {
+        id: 'link-3',
+        judulLink: '📹 Ruang Virtual Zoom Meeting Hybrid',
+        url: 'https://zoom.us/',
+        deskripsi: 'Akses masuk virtual room bagi peserta online yang mengikuti secara hybrid.',
+        badge: 'Live Zoom',
+        iconType: 'zoom',
+        isHighlight: true,
+        isActive: true
+      },
+      {
+        id: 'link-4',
+        judulLink: '📋 Form Evaluasi & Feedback Kepuasan Sosialisasi',
+        url: 'https://forms.google.com/',
+        deskripsi: 'Mohon berkenan mengisi umpan balik penilaian layanan kegiatan KPPN Semarang I.',
+        badge: 'Feedback',
+        iconType: 'form',
+        isHighlight: false,
+        isActive: true
+      }
+    ]
+  }
+];
 
 export default function App() {
   const [satkers, setSatkers] = useState<SatkerIKPA[]>(() => {
@@ -85,7 +142,14 @@ export default function App() {
     if (savedConfig) {
       return {
         ...savedConfig,
-        historicalUploads: savedHist || savedConfig.historicalUploads
+        historicalUploads: savedHist || savedConfig.historicalUploads,
+        kegiatanSosialisasi: savedConfig.kegiatanSosialisasi && savedConfig.kegiatanSosialisasi.length > 0 
+          ? savedConfig.kegiatanSosialisasi 
+          : INITIAL_KEGIATAN_SOSIALISASI,
+        menuVisibility: {
+          'portal-link': true,
+          ...savedConfig.menuVisibility
+        }
       };
     }
 
@@ -95,20 +159,22 @@ export default function App() {
       showKpiCards: true,
       showBarChart: true,
       announcements: INITIAL_ANNOUNCEMENTS,
+      kegiatanSosialisasi: INITIAL_KEGIATAN_SOSIALISASI,
       historicalUploads: savedHist,
       menuVisibility: {
-      'dashboard': true,
-      'capaian-output': true,
-      'redflags': true,
-      'sertifikasi': true,
-      'per5-analisis': true,
-      'announcements': true,
-      'materi-slide': true,
-      'pengetahuan': true,
-      'aduan': true,
-      'reminder': true,
-      'guide': true
-    },
+        'dashboard': true,
+        'capaian-output': true,
+        'redflags': true,
+        'sertifikasi': true,
+        'per5-analisis': true,
+        'announcements': true,
+        'materi-slide': true,
+        'portal-link': true,
+        'pengetahuan': true,
+        'aduan': true,
+        'reminder': true,
+        'guide': true
+      },
     helpdeskPhone: '081234567890',
     helpdeskJamLayanan: 'Senin - Jumat (08:00 - 16:00 WIB)',
     waDeviceStatus: {
@@ -204,6 +270,7 @@ export default function App() {
           'dashboard',
           'capaian-output',
           'materi-slide',
+          'portal-link',
           'announcements',
           'redflags',
           'sertifikasi',
@@ -584,6 +651,17 @@ export default function App() {
                 materials={dashboardConfig.presentationMaterials}
                 theme={theme}
                 dashboardConfig={dashboardConfig}
+              />
+            )}
+
+            {/* Tab Portal Linktree / Sosialisasi */}
+            {activeTab === 'portal-link' && (
+              <SocializationPortalView
+                kegiatanList={dashboardConfig.kegiatanSosialisasi}
+                theme={theme}
+                dashboardConfig={dashboardConfig}
+                onGoToAdmin={() => setActiveTab('admin')}
+                isAdminAuthenticated={isAdminAuthenticated}
               />
             )}
 
