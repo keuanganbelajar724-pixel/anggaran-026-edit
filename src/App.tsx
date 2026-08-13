@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi } from './types';
 import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { Header } from './components/Header';
@@ -11,6 +11,7 @@ import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
 import { SocializationPortalView } from './components/SocializationPortalView';
+import { PresensiOnlineView, INITIAL_DEFAULT_KEGIATAN } from './components/PresensiOnlineView';
 import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
@@ -255,6 +256,33 @@ export default function App() {
 
   const [sertifikasiLastUpdate, setSertifikasiLastUpdate] = useState<string>('07 Agustus 2026 jam 13:45 WIB');
 
+  // Presensi Online State & Persistence
+  const [presensiPesertaList, setPresensiPesertaList] = useState<PesertaPresensi[]>(() => {
+    const saved = localStorage.getItem('kppn_presensi_peserta');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved presensi peserta:', e);
+      }
+    }
+    return [];
+  });
+
+  const [presensiKegiatanList, setPresensiKegiatanList] = useState<PresensiKegiatan[]>(() => {
+    const saved = localStorage.getItem('kppn_presensi_kegiatan');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved presensi kegiatan:', e);
+      }
+    }
+    return INITIAL_DEFAULT_KEGIATAN;
+  });
+
   // Global Admin Authentication State shared across Admin Upload, Satker Details Modal & Reminder Generator
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPin, setAdminPin] = useState<string>(() => {
@@ -335,10 +363,24 @@ export default function App() {
         console.warn("Firebase Pejabat listener notice:", error);
       });
 
+      // 4. Presensi Peserta Data
+      const unsubPresensi = onSnapshot(doc(db, 'data', 'presensi_peserta'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setPresensiPesertaList(data.list);
+            localStorage.setItem('kppn_presensi_peserta', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Presensi listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubSatkers();
         unsubPejabat();
+        unsubPresensi();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -360,6 +402,48 @@ export default function App() {
     } catch (e) {
       console.warn("Error syncing pejabat to Firebase:", e);
     }
+  };
+
+  const syncPresensiToFirebase = (newList: PesertaPresensi[]) => {
+    try {
+      setDoc(doc(db, 'data', 'presensi_peserta'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Error syncing presensi to Firebase:", e);
+    }
+  };
+
+  const handleSavePesertaPresensi = (newPeserta: PesertaPresensi) => {
+    const updated = [newPeserta, ...presensiPesertaList];
+    setPresensiPesertaList(updated);
+    localStorage.setItem('kppn_presensi_peserta', JSON.stringify(updated));
+    syncPresensiToFirebase(updated);
+  };
+
+  const handleDeletePesertaPresensi = (pesertaId: string) => {
+    const updated = presensiPesertaList.filter(p => p.id !== pesertaId);
+    setPresensiPesertaList(updated);
+    localStorage.setItem('kppn_presensi_peserta', JSON.stringify(updated));
+    syncPresensiToFirebase(updated);
+  };
+
+  const handleSavePresensiKegiatan = (kegiatan: PresensiKegiatan) => {
+    const exists = presensiKegiatanList.some(k => k.id === kegiatan.id);
+    const updated = exists 
+      ? presensiKegiatanList.map(k => k.id === kegiatan.id ? kegiatan : k)
+      : [kegiatan, ...presensiKegiatanList];
+    
+    setPresensiKegiatanList(updated);
+    localStorage.setItem('kppn_presensi_kegiatan', JSON.stringify(updated));
+    const newConfig = { ...dashboardConfig, presensiKegiatanList: updated };
+    handleUpdateDashboardConfig(newConfig);
+  };
+
+  const handleDeletePresensiKegiatan = (kegiatanId: string) => {
+    const updated = presensiKegiatanList.filter(k => k.id !== kegiatanId);
+    setPresensiKegiatanList(updated);
+    localStorage.setItem('kppn_presensi_kegiatan', JSON.stringify(updated));
+    const newConfig = { ...dashboardConfig, presensiKegiatanList: updated };
+    handleUpdateDashboardConfig(newConfig);
   };
 
   const handleUpdatePejabatList = (newList: PejabatSertifikasi[]) => {
@@ -661,7 +745,25 @@ export default function App() {
                 theme={theme}
                 dashboardConfig={dashboardConfig}
                 onGoToAdmin={() => setActiveTab('admin')}
+                onGoToPresensi={() => setActiveTab('presensi')}
                 isAdminAuthenticated={isAdminAuthenticated}
+              />
+            )}
+
+            {/* Tab Presensi Online Digital KPPN */}
+            {activeTab === 'presensi' && (
+              <PresensiOnlineView
+                kegiatanList={presensiKegiatanList}
+                pesertaList={presensiPesertaList}
+                satkers={satkers}
+                theme={theme}
+                dashboardConfig={dashboardConfig}
+                isAdminAuthenticated={isAdminAuthenticated}
+                onSavePesertaPresensi={handleSavePesertaPresensi}
+                onDeletePesertaPresensi={handleDeletePesertaPresensi}
+                onSaveKegiatan={handleSavePresensiKegiatan}
+                onDeleteKegiatan={handleDeletePresensiKegiatan}
+                onGoToAdmin={() => setActiveTab('admin')}
               />
             )}
 
@@ -685,6 +787,11 @@ export default function App() {
                 theme={theme}
                 adminPin={adminPin}
                 onUpdateAdminPin={handleUpdateAdminPin}
+                presensiKegiatanList={presensiKegiatanList}
+                presensiPesertaList={presensiPesertaList}
+                onSavePresensiKegiatan={handleSavePresensiKegiatan}
+                onDeletePresensiKegiatan={handleDeletePresensiKegiatan}
+                onDeletePesertaPresensi={handleDeletePesertaPresensi}
               />
             )}
 

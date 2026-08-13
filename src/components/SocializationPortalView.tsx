@@ -24,7 +24,10 @@ import {
   Zap, 
   Building2, 
   Info,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight,
+  Filter,
+  Layers
 } from 'lucide-react';
 import { KegiatanSosialisasi, SocializationLink, AppTheme, DashboardConfig } from '../types';
 
@@ -33,6 +36,7 @@ interface SocializationPortalViewProps {
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
   onGoToAdmin?: () => void;
+  onGoToPresensi?: () => void;
   isAdminAuthenticated?: boolean;
 }
 
@@ -41,6 +45,7 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
   theme = 'light',
   dashboardConfig,
   onGoToAdmin,
+  onGoToPresensi,
   isAdminAuthenticated = false
 }) => {
   const isDark = theme === 'dark';
@@ -56,17 +61,17 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
   });
 
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [showQrModal, setShowQrModal] = useState<boolean>(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [activeQrModalUrl, setActiveQrModalUrl] = useState<{ url: string; title: string } | null>(null);
   const [clickedLinkIds, setClickedLinkIds] = useState<Record<string, number>>({});
 
   const currentEvent = activeEvents.find(k => k.id === selectedEventId) || activeEvents[0];
 
-  const handleCopyPortalLink = () => {
-    const url = window.location.href;
+  const handleCopyLink = (url: string, id: string) => {
     navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+    setCopiedLinkId(id);
+    setTimeout(() => setCopiedLinkId(null), 2000);
   };
 
   const handleLinkClick = (link: SocializationLink) => {
@@ -77,48 +82,59 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
     window.open(link.url, '_blank', 'noopener,noreferrer');
   };
 
-  // Icon selector helper
-  const renderLinkIcon = (type?: string, isHighlight?: boolean) => {
-    const className = `w-6 h-6 shrink-0 ${isHighlight ? 'animate-bounce' : ''}`;
+  // Icon selector helper with styling & vibrant background badges matching the screenshot
+  const renderLinkIconBox = (type?: string, isHighlight?: boolean) => {
     switch (type) {
       case 'presence':
-        return <ClipboardCheck className={`${className} text-emerald-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-teal-100 dark:bg-teal-950/80 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-700 flex items-center justify-center shrink-0 shadow-xs">
+            <ClipboardCheck className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'zoom':
-        return <Video className={`${className} text-sky-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-sky-100 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-700 flex items-center justify-center shrink-0 shadow-xs">
+            <Video className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'pdf':
       case 'drive':
-        return <FileText className={`${className} text-indigo-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700 flex items-center justify-center shrink-0 shadow-xs">
+            <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'form':
-        return <ClipboardCheck className={`${className} text-amber-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 flex items-center justify-center shrink-0 shadow-xs">
+            <HelpCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'certificate':
-        return <Award className={`${className} text-yellow-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-yellow-100 dark:bg-yellow-950/80 text-yellow-700 dark:text-yellow-300 border border-yellow-300 dark:border-yellow-700 flex items-center justify-center shrink-0 shadow-xs">
+            <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'whatsapp':
-        return <MessageSquare className={`${className} text-emerald-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+            <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       case 'youtube':
-        return <Video className={`${className} text-rose-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+            <Video className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
       default:
-        return <Globe className={`${className} text-sky-400`} />;
+        return (
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full sm:rounded-2xl bg-slate-100 dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 shadow-xs">
+            <Globe className="w-5 h-5 sm:w-6 sm:h-6" />
+          </div>
+        );
     }
-  };
-
-  // Quick SVG QR Code Generator component (Generates a clean QR visual)
-  const renderQrVisual = (textUrl: string) => {
-    return (
-      <div className="p-4 bg-white rounded-2xl shadow-xl border-4 border-slate-900 inline-block text-center">
-        <img 
-          src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(textUrl)}`} 
-          alt="QR Code Akses Sosialisasi"
-          className="w-56 h-56 mx-auto rounded-lg object-contain"
-          onError={(e) => {
-            // Fallback visual if offline
-            (e.target as HTMLElement).style.display = 'none';
-          }}
-        />
-        <p className="text-[11px] font-black font-mono text-slate-800 mt-2 tracking-wider uppercase">
-          SCAN QR CODE MATERI SOSIALISASI
-        </p>
-      </div>
-    );
   };
 
   const customTexts = dashboardConfig?.customTexts;
@@ -126,9 +142,30 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
   const titleText = customTexts?.portalLinkTitle || 'Akses Cepat Materi, Presensi & Zoom Sosialisasi';
   const subtitleText = customTexts?.portalLinkSubtitle || 'Satu pintasan resmi KPPN Semarang I untuk seluruh tautan kegiatan sosialisasi, bimtek, presensi online, materi paparan, dan sertifikat.';
 
-  // Filter links by search query
+  // Categories definition
+  const categories = [
+    { id: 'ALL', label: 'Semua Link', icon: Layers },
+    { id: 'presence', label: 'Presensi', icon: ClipboardCheck },
+    { id: 'zoom', label: 'Zoom & Video', icon: Video },
+    { id: 'pdf', label: 'Materi & PDF', icon: FileText },
+    { id: 'form', label: 'Form & Evaluasi', icon: HelpCircle },
+    { id: 'certificate', label: 'Sertifikat', icon: Award },
+    { id: 'whatsapp', label: 'Grup WA', icon: MessageSquare }
+  ];
+
+  // Filter links by search query & category
   const filteredLinks = currentEvent?.links.filter(link => {
     if (link.isActive === false) return false;
+    
+    // Category filter
+    if (selectedCategory !== 'ALL') {
+      if (selectedCategory === 'pdf' && (link.iconType === 'pdf' || link.iconType === 'drive')) {
+        // match
+      } else if (link.iconType !== selectedCategory) {
+        return false;
+      }
+    }
+
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -139,17 +176,17 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
   }) || [];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+    <div className="space-y-6 max-w-6xl mx-auto pb-16">
       
       {/* Top Banner & Header */}
-      <div className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-xl transition-all ${
+      <div className={`relative overflow-hidden rounded-3xl p-6 sm:p-8 border shadow-2xl transition-all ${
         isDark 
-          ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 border-slate-800/80 text-white' 
-          : 'bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border-indigo-900/50 text-white'
+          ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/80 border-slate-800/80 text-white' 
+          : 'bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 border-indigo-900/50 text-white'
       }`}>
-        {/* Glow Decor */}
-        <div className="absolute top-0 right-0 -mt-12 -mr-12 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-64 h-64 rounded-full bg-sky-500/10 blur-3xl pointer-events-none"></div>
+        {/* Glow Decors */}
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 w-80 h-80 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 -mb-16 -ml-16 w-80 h-80 rounded-full bg-sky-500/20 blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
@@ -174,16 +211,16 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
 
             <div className="pt-2 flex flex-wrap items-center gap-2.5 text-xs">
               <button
-                onClick={handleCopyPortalLink}
-                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2 rounded-xl transition-all shadow-md cursor-pointer"
+                onClick={() => handleCopyLink(window.location.href, 'portal-main')}
+                className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-4 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
               >
-                {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
-                <span>{copiedLink ? 'Link Tersalin!' : 'Bagikan Link Portal'}</span>
+                {copiedLinkId === 'portal-main' ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedLinkId === 'portal-main' ? 'Link Tersalin!' : 'Bagikan Link Portal'}</span>
               </button>
 
               <button
-                onClick={() => setShowQrModal(true)}
-                className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2 rounded-xl border border-white/20 transition-all cursor-pointer backdrop-blur-md"
+                onClick={() => setActiveQrModalUrl({ url: window.location.href, title: 'Portal Link Sosialisasi KPPN Semarang I' })}
+                className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-xl border border-white/20 transition-all cursor-pointer backdrop-blur-md"
               >
                 <QrCode className="w-4 h-4 text-amber-400" />
                 <span>Tampilkan QR Code</span>
@@ -192,7 +229,7 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
               {isAdminAuthenticated && (
                 <button
                   onClick={onGoToAdmin}
-                  className="inline-flex items-center gap-1.5 bg-indigo-600/80 hover:bg-indigo-500 text-white font-extrabold px-3.5 py-2 rounded-xl border border-indigo-400/40 transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 bg-indigo-600/80 hover:bg-indigo-500 text-white font-extrabold px-3.5 py-2.5 rounded-xl border border-indigo-400/40 transition-all cursor-pointer"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-300" />
                   <span>Atur Kegiatan (Admin)</span>
@@ -202,19 +239,24 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
 
           </div>
 
-          {/* Quick Info Box / Event Counter */}
-          <div className="bg-slate-900/80 border border-slate-700/80 p-4 sm:p-5 rounded-2xl backdrop-blur-md text-center min-w-[200px] shrink-0 space-y-2">
+          {/* Quick Info Box */}
+          <div className="bg-slate-900/90 border border-slate-700/80 p-5 rounded-2xl backdrop-blur-md text-center min-w-[210px] shrink-0 space-y-2 shadow-xl">
             <Building2 className="w-8 h-8 text-emerald-400 mx-auto" />
-            <div className="text-xl font-black text-white">{activeEvents.length} Kegiatan</div>
-            <p className="text-[11px] text-slate-400 font-medium">Sosialisasi Aktif Saat Ini</p>
+            <div className="text-2xl font-black text-white">{activeEvents.length} Kegiatan</div>
+            <p className="text-[11px] text-slate-300 font-semibold">Sosialisasi Aktif Saat Ini</p>
+            <div className="pt-1 text-[10px] font-mono text-emerald-400 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-700/60 inline-block">
+              {currentEvent?.links.length || 0} Link Terverifikasi
+            </div>
           </div>
         </div>
       </div>
 
       {/* Active Events Tab Selector if multiple events */}
       {activeEvents.length > 1 && (
-        <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <span className="text-xs font-black text-slate-500 dark:text-slate-400 px-3 uppercase tracking-wider">
+        <div className={`p-2 rounded-2xl border flex flex-wrap items-center gap-2 ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-100 border-slate-200'
+        }`}>
+          <span className="text-xs font-black text-slate-400 px-3 uppercase tracking-wider">
             Pilih Kegiatan:
           </span>
           {activeEvents.map(event => {
@@ -226,7 +268,9 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-emerald-600 text-white shadow-md font-black'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
+                    : isDark 
+                    ? 'text-slate-300 hover:bg-slate-800' 
+                    : 'text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
@@ -241,8 +285,8 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
       )}
 
       {/* Current Selected Event Detail Header */}
-      {currentEvent ? (
-        <div className={`p-6 rounded-3xl border shadow-lg space-y-4 transition-all ${
+      {currentEvent && (
+        <div className={`p-6 sm:p-7 rounded-3xl border shadow-lg space-y-4 transition-all ${
           isDark 
             ? 'bg-slate-900/90 border-slate-800 text-slate-100' 
             : 'bg-white border-slate-200 text-slate-900 shadow-slate-100'
@@ -274,17 +318,17 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
             </div>
 
             {/* Quick Search */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Cari link, materi, presensi..."
+                placeholder="Cari link, zoom, materi..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full text-xs rounded-xl pl-9 pr-3 py-2 border focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all ${
+                className={`w-full text-xs rounded-xl pl-9 pr-3 py-2.5 border focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all ${
                   isDark 
                     ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' 
-                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                    : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400'
                 }`}
               />
             </div>
@@ -315,173 +359,185 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
           </div>
 
           {currentEvent.deskripsi && (
-            <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700/60 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700/60 leading-relaxed">
               {currentEvent.deskripsi}
             </p>
           )}
 
-          {/* Link Tree Buttons List */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center justify-between">
-              <span>Daftar Link &amp; Akses Pintasan ({filteredLinks.length})</span>
-              <span className="text-[11px] font-normal text-slate-400">Klik tombol untuk membuka tautan</span>
-            </h3>
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+            {categories.map(cat => {
+              const Icon = cat.icon;
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white font-black shadow-sm'
+                      : isDark
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Modern Bio-Link Capsule Pill Rows matching the uploaded design */}
+          <div className="space-y-3.5 pt-2 max-w-4xl mx-auto w-full">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-teal-500" />
+                <span>Daftar Tautan Resmi ({filteredLinks.length})</span>
+              </h3>
+              <span className="text-[11px] font-semibold text-slate-400">Klik tombol untuk langsung membuka link</span>
+            </div>
 
             {filteredLinks.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-6 space-y-2">
+              <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/40 rounded-3xl border-2 border-dashed border-slate-300 dark:border-slate-700 p-6 space-y-2">
                 <Info className="w-8 h-8 text-slate-400 mx-auto" />
-                <p className="font-bold text-slate-700 dark:text-slate-300">Belum Ada Link yang Tersedia</p>
-                <p className="text-xs text-slate-500">Silakan hubungi panitia sosialisasi KPPN Semarang I atau periksa kata kunci pencarian Anda.</p>
+                <p className="font-bold text-slate-700 dark:text-slate-300">Belum Ada Link yang Sesuai</p>
+                <p className="text-xs text-slate-500">Coba ubah filter kategori atau periksa kembali kata kunci pencarian Anda.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-3">
                 {filteredLinks.map((link) => {
-                  const clickCount = (clickedLinkIds[link.id] || 0) + (link.clickCount || 0);
+                  const isCopied = copiedLinkId === link.id;
 
                   return (
-                    <motion.button
+                    <motion.div
                       key={link.id}
-                      whileHover={{ scale: 1.01, y: -2 }}
-                      whileTap={{ scale: 0.99 }}
+                      whileHover={{ scale: 1.012, y: -2 }}
+                      whileTap={{ scale: 0.995 }}
+                      transition={{ duration: 0.18 }}
                       onClick={() => handleLinkClick(link)}
-                      className={`group relative text-left w-full p-4 sm:p-5 rounded-2xl transition-all cursor-pointer flex items-center justify-between gap-4 border shadow-md ${
+                      className={`w-full relative rounded-full p-2.5 sm:p-3 sm:px-5 border-2 transition-all flex items-center justify-between gap-3 sm:gap-4 shadow-md hover:shadow-xl cursor-pointer ${
                         link.isHighlight
-                          ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-sky-600 hover:from-emerald-500 hover:to-sky-500 text-white border-emerald-400 shadow-emerald-900/20 ring-2 ring-emerald-400/40'
+                          ? 'bg-white dark:bg-slate-900 border-teal-500 ring-2 ring-teal-500/30 shadow-teal-900/10'
                           : isDark
-                          ? 'bg-slate-800/90 hover:bg-slate-800 text-slate-100 border-slate-700/80 shadow-black/20'
-                          : 'bg-white hover:bg-slate-50 text-slate-900 border-slate-200 shadow-slate-100'
+                          ? 'bg-slate-900/90 hover:bg-slate-850 border-teal-500/60 shadow-black/30'
+                          : 'bg-white hover:bg-teal-50/30 border-teal-600/50 shadow-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        {/* Icon Box */}
-                        <div className={`p-3 rounded-xl shrink-0 flex items-center justify-center ${
-                          link.isHighlight 
-                            ? 'bg-white/20 text-white backdrop-blur-md' 
-                            : isDark 
-                            ? 'bg-slate-900 text-emerald-400 border border-slate-700' 
-                            : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}>
-                          {renderLinkIcon(link.iconType, link.isHighlight)}
-                        </div>
-
-                        {/* Title & Description */}
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className={`font-black text-sm sm:text-base tracking-tight truncate ${
-                              link.isHighlight ? 'text-white' : 'text-slate-900 dark:text-white'
-                            }`}>
-                              {link.judulLink}
-                            </h4>
-
-                            {link.badge && (
-                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                link.isHighlight
-                                  ? 'bg-amber-400 text-slate-950 shadow-xs'
-                                  : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60'
-                              }`}>
-                                {link.badge}
-                              </span>
-                            )}
-                          </div>
-
-                          {link.deskripsi && (
-                            <p className={`text-xs truncate ${
-                              link.isHighlight ? 'text-emerald-100' : 'text-slate-500 dark:text-slate-400'
-                            }`}>
-                              {link.deskripsi}
-                            </p>
-                          )}
-                        </div>
+                      {/* Left: Round icon/avatar with distinct color */}
+                      <div className="shrink-0">
+                        {renderLinkIconBox(link.iconType, link.isHighlight)}
                       </div>
 
-                      {/* Right Action Arrow & Click Tag */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {clickCount > 0 && (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-md font-mono hidden sm:inline ${
-                            link.isHighlight ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'
+                      {/* Center: Title & Optional Description */}
+                      <div className="flex-1 text-center px-2 min-w-0">
+                        <h4 className={`font-extrabold text-sm sm:text-base tracking-tight truncate ${
+                          isDark ? 'text-white' : 'text-slate-900'
+                        }`}>
+                          {link.judulLink}
+                        </h4>
+                        {link.deskripsi && (
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate hidden sm:block mt-0.5 font-medium">
+                            {link.deskripsi}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Right: Pill Badge (e.g. Free, Baru, Zoom, Wajib) & Quick Actions */}
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {link.badge && (
+                          <span className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-black uppercase tracking-wider ${
+                            link.badge.toLowerCase() === 'free' || link.badge.toLowerCase() === 'gratis'
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : link.isHighlight
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                              : 'bg-teal-600 text-white shadow-xs'
                           }`}>
-                            {clickCount}x dibuka
+                            {link.badge}
                           </span>
                         )}
+                        
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyLink(link.url, link.id);
+                          }}
+                          className={`p-2 rounded-full border transition-all cursor-pointer ${
+                            isCopied
+                              ? 'bg-emerald-600 text-white border-emerald-500'
+                              : isDark
+                              ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                          }`}
+                          title="Salin Link"
+                        >
+                          {isCopied ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
 
-                        <div className={`p-2 rounded-xl transition-all group-hover:translate-x-1 ${
-                          link.isHighlight 
-                            ? 'bg-white text-slate-950' 
-                            : isDark 
-                            ? 'bg-slate-700 text-slate-200 group-hover:bg-emerald-600 group-hover:text-white' 
-                            : 'bg-slate-100 text-slate-700 group-hover:bg-emerald-600 group-hover:text-white'
-                        }`}>
-                          <ExternalLink className="w-4 h-4" />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveQrModalUrl({ url: link.url, title: link.judulLink });
+                          }}
+                          className={`p-2 rounded-full border transition-all cursor-pointer ${
+                            isDark
+                              ? 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-slate-700'
+                              : 'bg-slate-100 hover:bg-slate-200 text-amber-700 border-slate-200'
+                          }`}
+                          title="Tampilkan QR Code"
+                        >
+                          <QrCode className="w-3.5 h-3.5" />
+                        </button>
+
+                        <div className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800">
+                          <ArrowRight className="w-4 h-4" />
                         </div>
                       </div>
-                    </motion.button>
+                    </motion.div>
                   );
                 })}
               </div>
             )}
-
           </div>
 
         </div>
-      ) : (
-        <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 space-y-4">
-          <Info className="w-12 h-12 text-slate-400 mx-auto" />
-          <h3 className="text-lg font-black text-slate-800 dark:text-slate-200">Belum Ada Kegiatan Sosialisasi yang Aktif</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Saat ini tidak ada jadwal sosialisasi yang dipublikasikan. Silakan kembali lagi nanti atau hubungi Admin KPPN Semarang I untuk mengaktifkan jadwal kegiatan.
-          </p>
-          {isAdminAuthenticated && (
-            <button
-              onClick={onGoToAdmin}
-              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-5 py-2.5 rounded-xl text-xs transition-all shadow-md cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-300" />
-              <span>Kelola &amp; Aktifkan Kegiatan di Panel Admin &rarr;</span>
-            </button>
-          )}
-        </div>
       )}
 
-      {/* QR Code Modal Display for Presentation Screen */}
+      {/* QR CODE MODAL */}
       <AnimatePresence>
-        {showQrModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        {activeQrModalUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-4 shadow-2xl relative"
+              className="bg-white p-6 sm:p-8 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl border-4 border-slate-900"
             >
-              <button
-                onClick={() => setShowQrModal(false)}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 rounded-full text-xl cursor-pointer"
-              >
-                ✕
-              </button>
-
               <div className="space-y-1">
-                <span className="bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 px-3 py-0.5 rounded-full text-[10px] font-black uppercase">
-                  TAMPILAN MONITOR PROYEKTOR / ZOOM
-                </span>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                  Scan QR Code Materi Sosialisasi
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Arahkan kamera smartphone ke gambar di bawah untuk langsung membuka portal link ini.
-                </p>
+                <span className="text-[10px] font-black text-teal-600 uppercase tracking-wider">KPPN SEMARANG I</span>
+                <h4 className="text-sm font-black text-slate-900 leading-tight">{activeQrModalUrl.title}</h4>
               </div>
 
-              {renderQrVisual(window.location.href)}
-
-              <div className="pt-2 flex items-center justify-center gap-2">
-                <button
-                  onClick={handleCopyPortalLink}
-                  className="w-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-extrabold py-2.5 rounded-xl text-xs hover:opacity-90 transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedLink ? 'Link Tersalin!' : 'Salin URL Portal'}</span>
-                </button>
+              <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 inline-block shadow-inner">
+                <img 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(activeQrModalUrl.url)}`} 
+                  alt="QR Code"
+                  className="w-48 h-48 mx-auto object-contain"
+                />
               </div>
+
+              <p className="text-[11px] text-slate-500 font-mono break-all line-clamp-2">
+                {activeQrModalUrl.url}
+              </p>
+
+              <button
+                onClick={() => setActiveQrModalUrl(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-md"
+              >
+                Tutup QR Code
+              </button>
             </motion.div>
           </div>
         )}

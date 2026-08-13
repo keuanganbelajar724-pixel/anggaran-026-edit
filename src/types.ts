@@ -64,6 +64,9 @@ export interface SatkerIKPA {
   nilaiTotalIKPA: number;
   predikat: IKPAPredikat;
   
+  // Flag indicating if full IKPA Excel data has been uploaded
+  hasIKPAData?: boolean;
+  
   // Riwayat Bulanan (Januari - Juli / Update Terus)
   riwayatBulanan?: RiwayatBulananIKPA[];
   
@@ -234,6 +237,8 @@ export interface SocializationLink {
   badge?: string;
   isHighlight?: boolean;
   isActive?: boolean;
+  colorTheme?: 'teal' | 'emerald' | 'sky' | 'indigo' | 'amber' | 'rose' | 'purple' | 'slate';
+  customIcon?: string;
   clickCount?: number;
 }
 
@@ -252,6 +257,41 @@ export interface KegiatanSosialisasi {
   links: SocializationLink[];
 }
 
+export type JenisPelaksanaanPresensi = 'Online' | 'Offline' | 'Hybrid';
+
+export interface PresensiKegiatan {
+  id: string;
+  judulKegiatan: string;
+  subJudul?: string;
+  tanggal: string;
+  jamMulai?: string;
+  jamSelesai?: string;
+  jenis: JenisPelaksanaanPresensi;
+  lokasi: string;
+  deskripsi?: string;
+  penyelenggara?: string;
+  isActive: boolean;
+  isLocked?: boolean;
+  createdAt?: string;
+}
+
+export interface PesertaPresensi {
+  id: string;
+  kegiatanId: string;
+  namaLengkap: string;
+  nip: string;
+  jabatan?: string;
+  asalInstansi: string;
+  kodeSatker?: string;
+  noHp?: string;
+  email?: string;
+  tandaTanganUrl: string; // Base64 data URL
+  waktuPresensi: string;
+  statusKehadiran?: 'Hadir' | 'Izin' | 'Tugas Luar';
+  catatan?: string;
+  createdAt?: string;
+}
+
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
@@ -261,6 +301,7 @@ export interface MenuVisibilityConfig {
   'announcements': boolean;
   'materi-slide'?: boolean;
   'portal-link'?: boolean;
+  'presensi'?: boolean;
   'pengetahuan': boolean;
   'aduan'?: boolean;
   'reminder': boolean;
@@ -343,6 +384,8 @@ export interface DashboardConfig {
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
+  presensiKegiatanList?: PresensiKegiatan[];
+  presensiPesertaList?: PesertaPresensi[];
 }
 
 export type NavigationTab = 
@@ -354,6 +397,7 @@ export type NavigationTab =
   | 'announcements' 
   | 'materi-slide'
   | 'portal-link'
+  | 'presensi'
   | 'pengetahuan'
   | 'aduan'
   | 'admin' 

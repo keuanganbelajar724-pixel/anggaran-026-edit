@@ -113,10 +113,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const deltaPenyerapanNum = lastMonthData && firstMonthData ? Number((lastMonthData.avgPenyerapan - firstMonthData.avgPenyerapan).toFixed(1)) : 0;
   const deltaOutputNum = lastMonthData && firstMonthData ? Number((lastMonthData.avgCapaianOutput - firstMonthData.avgCapaianOutput).toFixed(1)) : 0;
 
-  // Calculated Stats
+  // Calculated Stats (Only include satkers that actually have IKPA data for IKPA averages)
   const totalSatker = satkers.length;
-  const avgIKPA = totalSatker > 0 
-    ? (satkers.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / totalSatker).toFixed(2)
+  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0));
+  const hasAnyIKPA = satkersWithIKPA.length > 0;
+
+  const avgIKPA = hasAnyIKPA 
+    ? (satkersWithIKPA.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / satkersWithIKPA.length).toFixed(2)
     : '0.00';
 
   const totalPagu = satkers.reduce((acc, s) => acc + s.paguAnggaran, 0);
@@ -125,9 +128,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     ? ((totalRealisasi / totalPagu) * 100).toFixed(2) 
     : '0.00';
 
-  const satkerPerluPerhatian = satkers.filter(s => s.nilaiTotalIKPA < 87.5);
-  const satkerBelumCapaian = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan');
-  const satkerPenyerapanRendah = satkers.filter(s => s.persenPenyerapan < 70);
+  const satkerPerluPerhatian = hasAnyIKPA ? satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5) : [];
+  const satkerBelumCapaian = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.indikator.capaianOutput === 0);
+  const satkerPenyerapanRendah = hasAnyIKPA ? satkersWithIKPA.filter(s => s.persenPenyerapan < 70) : [];
 
   // Filter & Sort Logic (Prioritize satker with 0% Capaian Output at the top)
   const filteredSatkers = satkers.filter(s => {
@@ -202,7 +205,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     }).format(val);
   };
 
-  const getPredikatBadge = (predikat: IKPAPredikat, nilai: number) => {
+  const getPredikatBadge = (predikat: IKPAPredikat, nilai: number, hasIKPAData?: boolean) => {
+    if (hasIKPAData === false || nilai === 0) {
+      return (
+        <span className={`font-semibold text-xs px-2.5 py-1 rounded-full flex items-center gap-1 border ${
+          isDark 
+            ? 'bg-slate-800 text-slate-400 border-slate-700' 
+            : 'bg-slate-100 text-slate-600 border-slate-300'
+        }`}>
+          <Clock className="w-3.5 h-3.5 text-slate-400"/> Belum Upload IKPA
+        </span>
+      );
+    }
     switch (predikat) {
       case 'Sangat Baik':
         return (
@@ -890,16 +904,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <th className="py-3.5 px-4">Kode & Satker</th>
                 <th className="py-3.5 px-4">Kementerian / Lembaga</th>
                 <th className="py-3.5 px-4">Penyerapan / Pagu</th>
-                <th className="py-3.5 px-4">Capaian Output</th>
                 <th className="py-3.5 px-4">Nilai Total IKPA</th>
                 <th className="py-3.5 px-4">Catatan / Poin Masalah IKPA</th>
-                <th className="py-3.5 px-4 text-center">Aksi / Pengingat</th>
+                <th className="py-3.5 px-4 text-center">Detail</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-slate-800/80' : 'divide-slate-200'}`}>
               {filteredSatkers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={6} className="py-16 text-center">
                     <div className="max-w-md mx-auto space-y-3">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
                         isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-400'
@@ -911,7 +924,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                       </p>
                       <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                         {satkers.length === 0 
-                          ? 'Seluruh data dummy telah dikosongkan. Silakan unggah file Excel IKPA atau Capaian Output asli Anda.'
+                          ? 'Seluruh data dummy telah dikosongkan. Silakan unggah file Excel IKPA asli Anda.'
                           : 'Coba ubah kata kunci pencarian atau sesuaikan filter predikat/masalah.'}
                       </p>
                       {satkers.length === 0 && (
@@ -963,57 +976,50 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
                       {/* Penyerapan / Pagu */}
                       <td className="py-3.5 px-4 min-w-[150px]">
-                        <div className="flex items-center justify-between font-bold mb-1">
-                          <span className={`text-xs ${
-                            satker.persenPenyerapan >= 85 
-                              ? (isDark ? 'text-emerald-400 font-black' : 'text-emerald-700') 
-                              : satker.persenPenyerapan >= 70 
-                              ? (isDark ? 'text-amber-300 font-black' : 'text-amber-700') 
-                              : (isDark ? 'text-rose-400 font-black' : 'text-rose-700')
-                          }`}>
-                            {satker.persenPenyerapan}% Penyerapan
-                          </span>
-                          <span className={`text-[10px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
-                            {formatRupiah(satker.realisasiAnggaran)}
-                          </span>
-                        </div>
-                        <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700/60' : 'bg-slate-200'}`}>
-                          <div 
-                            className={`h-full rounded-full transition-all duration-300 ${
-                              satker.persenPenyerapan >= 85 ? 'bg-emerald-500 shadow-xs shadow-emerald-500/50' :
-                              satker.persenPenyerapan >= 70 ? 'bg-amber-500 shadow-xs shadow-amber-500/50' : 'bg-rose-500 shadow-xs shadow-rose-500/50'
-                            }`}
-                            style={{ width: `${Math.min(100, satker.persenPenyerapan)}%` }}
-                          ></div>
-                        </div>
-                        <div className={`text-[10px] mt-1 font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                          Pagu: {formatRupiah(satker.paguAnggaran)}
-                        </div>
-                      </td>
-
-                      {/* Capaian Output SAKTI */}
-                      <td className="py-3.5 px-4 min-w-[130px]">
-                        {satker.statusCapaianOutput === 'Sudah Terlaporkan' && satker.indikator.capaianOutput > 0 ? (
-                          <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold text-xs px-2.5 py-1 rounded-full shadow-2xs">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            {satker.indikator.capaianOutput}% SAKTI
-                          </span>
-                        ) : satker.statusCapaianOutput === 'Terlambat' ? (
-                          <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-950 border border-amber-300 font-extrabold text-xs px-2.5 py-1 rounded-full shadow-2xs">
-                            <Clock className="w-3.5 h-3.5 text-amber-600" />
-                            {satker.indikator.capaianOutput}% (Terlambat)
-                          </span>
+                        {satker.hasIKPAData === false || (satker.paguAnggaran === 0 && satker.realisasiAnggaran === 0) ? (
+                          <div className="py-1">
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500 italic flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5" /> Belum ada data IKPA
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-600 block mt-0.5">
+                              (Hanya Capaian Output)
+                            </span>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 bg-rose-600 text-white font-extrabold text-xs px-2.5 py-1 rounded-full shadow-sm animate-pulse">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            🔴 0% (Belum Upload)
-                          </span>
+                          <>
+                            <div className="flex items-center justify-between font-bold mb-1">
+                              <span className={`text-xs ${
+                                satker.persenPenyerapan >= 85 
+                                  ? (isDark ? 'text-emerald-400 font-black' : 'text-emerald-700') 
+                                  : satker.persenPenyerapan >= 70 
+                                  ? (isDark ? 'text-amber-300 font-black' : 'text-amber-700') 
+                                  : (isDark ? 'text-rose-400 font-black' : 'text-rose-700')
+                              }`}>
+                                {satker.persenPenyerapan}% Penyerapan
+                              </span>
+                              <span className={`text-[10px] font-mono ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>
+                                {formatRupiah(satker.realisasiAnggaran)}
+                              </span>
+                            </div>
+                            <div className={`w-full h-2 rounded-full overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700/60' : 'bg-slate-200'}`}>
+                              <div 
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  satker.persenPenyerapan >= 85 ? 'bg-emerald-500 shadow-xs shadow-emerald-500/50' :
+                                  satker.persenPenyerapan >= 70 ? 'bg-amber-500 shadow-xs shadow-amber-500/50' : 'bg-rose-500 shadow-xs shadow-rose-500/50'
+                                }`}
+                                style={{ width: `${Math.min(100, satker.persenPenyerapan)}%` }}
+                              ></div>
+                            </div>
+                            <div className={`text-[10px] mt-1 font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                              Pagu: {formatRupiah(satker.paguAnggaran)}
+                            </div>
+                          </>
                         )}
                       </td>
 
                       {/* Nilai Total IKPA & Predikat */}
                       <td className="py-3.5 px-4">
-                        {getPredikatBadge(satker.predikat, satker.nilaiTotalIKPA)}
+                        {getPredikatBadge(satker.predikat, satker.nilaiTotalIKPA, satker.hasIKPAData)}
                       </td>
 
                       {/* Issues / Keterangan Masalah IKPA */}
@@ -1044,22 +1050,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => onSelectSatker(satker)}
-                            className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-xl border transition-all cursor-pointer inline-flex items-center gap-1.5 font-bold text-xs ${
                               isDark 
                                 ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200' 
                                 : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
                             }`}
                             title="Buka Rincian Indikator & Nilai Satker"
                           >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            onClick={() => onOpenReminder(satker)}
-                            className="p-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition-all shadow-2xs cursor-pointer"
-                            title="Buat Pengingat WA Resmi Satker Ini"
-                          >
-                            <Send className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5 text-sky-500" />
+                            <span>Detail</span>
                           </button>
                         </div>
                       </td>
@@ -1202,24 +1201,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     </div>
                   )}
 
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="pt-1">
                     <button
                       onClick={() => onSelectSatker(satker)}
-                      className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl border text-center min-h-[42px] flex items-center justify-center gap-1.5 active:scale-98 transition-transform cursor-pointer ${
+                      className={`w-full py-2.5 px-3 text-xs font-bold rounded-xl border text-center min-h-[42px] flex items-center justify-center gap-1.5 active:scale-98 transition-transform cursor-pointer ${
                         isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
                       }`}
                     >
-                      <Eye className="w-4 h-4 text-slate-400" />
-                      Detail Indikator
-                    </button>
-                    <button
-                      onClick={() => onOpenReminder(satker)}
-                      className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-xl text-center min-h-[42px] flex items-center justify-center gap-1.5 active:scale-98 transition-transform cursor-pointer ${
-                        isRedFlag ? 'bg-amber-600 text-white shadow-xs' : 'bg-emerald-600 text-white shadow-xs'
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
-                      Pengingat
+                      <Eye className="w-4 h-4 text-sky-500" />
+                      Lihat Detail Satker
                     </button>
                   </div>
                 </div>

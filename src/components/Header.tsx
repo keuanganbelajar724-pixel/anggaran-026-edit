@@ -25,7 +25,8 @@ import {
   UserCheck,
   LifeBuoy,
   Presentation,
-  Link2
+  Link2,
+  ClipboardCheck
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -163,10 +164,11 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 ring-1 ring-rose-400/40'
     },
     {
-      id: 'admin',
-      label: '🛠️ Panel Edit Admin',
-      icon: <ShieldCheck className="w-4 h-4 text-amber-300" />,
-      activeColor: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white shadow-xl shadow-indigo-600/50 ring-2 ring-indigo-300 font-black'
+      id: 'presensi',
+      label: '📋 Presensi Online',
+      icon: <ClipboardCheck className="w-4 h-4 text-teal-300" />,
+      badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Absen</span>,
+      activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     },
     {
       id: 'reminder',

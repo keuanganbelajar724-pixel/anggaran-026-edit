@@ -2,7 +2,21 @@ import React, { useState, useRef } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
 import { ModernLoadingOverlay } from './ModernLoadingOverlay';
-import { SatkerIKPA, UploadLog, DashboardConfig, Announcement, AppTheme, ExcelUploadHistory, PejabatSertifikasi, MenuVisibilityConfig, PresentationMaterial, KegiatanSosialisasi, SocializationLink } from '../types';
+import { 
+  SatkerIKPA, 
+  UploadLog, 
+  DashboardConfig, 
+  Announcement, 
+  AppTheme, 
+  ExcelUploadHistory, 
+  PejabatSertifikasi, 
+  MenuVisibilityConfig, 
+  PresentationMaterial, 
+  KegiatanSosialisasi, 
+  SocializationLink,
+  PresensiKegiatan,
+  PesertaPresensi
+} from '../types';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -79,7 +93,13 @@ import {
   Presentation,
   Star,
   Link2,
-  Loader2
+  Loader2,
+  Printer,
+  ClipboardCheck,
+  PenTool,
+  Unlock,
+  FileDown,
+  UserCheck
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -101,6 +121,11 @@ interface AdminUploadProps {
   theme?: AppTheme;
   adminPin?: string;
   onUpdateAdminPin?: (newPin: string) => void;
+  presensiKegiatanList?: PresensiKegiatan[];
+  presensiPesertaList?: PesertaPresensi[];
+  onSavePresensiKegiatan?: (kegiatan: PresensiKegiatan) => void;
+  onDeletePresensiKegiatan?: (kegiatanId: string) => void;
+  onDeletePesertaPresensi?: (pesertaId: string) => void;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -252,12 +277,37 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   setIsAdminAuthenticated,
   theme = 'light',
   adminPin = 'admin123',
-  onUpdateAdminPin
+  onUpdateAdminPin,
+  presensiKegiatanList = [],
+  presensiPesertaList = [],
+  onSavePresensiKegiatan,
+  onDeletePresensiKegiatan,
+  onDeletePesertaPresensi
 }) => {
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'broadcast' | 'logs'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'logs'>('upload');
+
+  // Presensi Admin State
+  const [selectedPresensiKegiatanId, setSelectedPresensiKegiatanId] = useState<string | null>(null);
+  const [searchPresensiQuery, setSearchPresensiQuery] = useState<string>('');
+  const [previewPresensiSignature, setPreviewPresensiSignature] = useState<string | null>(null);
+  const [showPrintPresensiModal, setShowPrintPresensiModal] = useState<boolean>(false);
+  const [editingPresensiKegiatanId, setEditingPresensiKegiatanId] = useState<string | null>(null);
+  const [presensiKegiatanForm, setPresensiKegiatanForm] = useState<Partial<PresensiKegiatan>>({
+    judulKegiatan: '',
+    subJudul: '',
+    tanggal: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+    jamMulai: '08:30',
+    jamSelesai: '12:00 WIB',
+    jenis: 'Hybrid',
+    lokasi: 'Aula KPPN Semarang I / Zoom Meeting Hybrid',
+    deskripsi: '',
+    penyelenggara: 'Seksi MSKI KPPN Semarang I',
+    isActive: true,
+    isLocked: false
+  });
 
   // Link Sosialisasi / Linktree Management State
   const [editingKegiatanId, setEditingKegiatanId] = useState<string | null>(null);
@@ -1641,8 +1691,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
     let satkersToApply: SatkerIKPA[] = [];
 
-    if (excelCategory === 'CAPAIAN_OUTPUT' && satkers && satkers.length > 0) {
-      // Merge Capaian Output into existing active satkers list!
+    if (excelCategory === 'CAPAIAN_OUTPUT' && satkers && satkers.length > 0 && !overwriteActiveDashboard) {
+      // Merge Capaian Output into existing active satkers list ONLY if not overwriting completely!
       const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
       
       satkersToApply = satkers.map(existing => {
@@ -1652,8 +1702,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             ...existing.indikator,
             capaianOutput: match.indikator.capaianOutput
           };
-          const newTotalIKPA = hitungTotalIKPA(updatedIndikator);
-          const newPredikat = getPredikatIKPA(newTotalIKPA);
+          
+          const hasRealIKPA = existing.hasIKPAData !== false && (existing.nilaiTotalIKPA > 0 || existing.paguAnggaran > 0);
+          const newTotalIKPA = hasRealIKPA ? hitungTotalIKPA(updatedIndikator) : 0;
+          const newPredikat = hasRealIKPA ? getPredikatIKPA(newTotalIKPA) : 'Cukup';
           
           const newIssues = existing.issues.filter(iss => !iss.toLowerCase().includes('capaian output'));
           if (match.statusCapaianOutput === 'Belum Terlaporkan' || match.indikator.capaianOutput === 0) {
@@ -1661,7 +1713,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           } else if (match.statusCapaianOutput === 'Terlambat') {
             newIssues.push('Pengiriman Capaian Output Terlambat');
           }
-          if (newTotalIKPA < 87.5 && !newIssues.some(i => i.includes('Nilai IKPA'))) {
+          if (hasRealIKPA && newTotalIKPA < 87.5 && !newIssues.some(i => i.includes('Nilai IKPA'))) {
             newIssues.push(`Nilai IKPA (${newTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
           }
 
@@ -1672,6 +1724,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             nilaiTotalIKPA: newTotalIKPA,
             predikat: newPredikat,
             issues: newIssues,
+            hasIKPAData: hasRealIKPA,
             periodeUpdate: uploadPeriode,
             isModified: true
           };
@@ -2153,6 +2206,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>8. Link Sosialisasi (Linktree)</span>
           <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {(tempConfig.kegiatanSosialisasi?.length || 0)}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('presensi-admin')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'presensi-admin'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-teal-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+          }`}
+        >
+          <ClipboardCheck className="w-4 h-4 text-teal-600" />
+          <span>9. Presensi &amp; Rekap Kehadiran</span>
+          <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            {presensiPesertaList.length} Peserta
           </span>
         </button>
 
@@ -5553,6 +5621,647 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
         </div>
       )}
+
+      {/* Presensi & Rekap Kehadiran Admin Tab */}
+      {adminTab === 'presensi-admin' && (
+        <div className="space-y-6">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
+            
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1 rounded-full text-xs font-bold mb-2">
+                  <ClipboardCheck className="w-3.5 h-3.5" />
+                  MODUL MONITORING &amp; REKAP PRESENSI DIGITAL
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight">
+                  Monitoring Daftar Hadir, Tanda Tangan Digital &amp; Pengaturan Kegiatan
+                </h3>
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl">
+                  Pantau kehadiran peserta secara real-time, verifikasi tanda tangan digital, cetak lembar daftar hadir resmi ber-KOP Kemenkeu, dan atur status buka/tutup presensi.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const activeEvt = presensiKegiatanList.find(k => k.id === selectedPresensiKegiatanId) || presensiKegiatanList[0];
+                    if (!activeEvt) {
+                      alert('Belum ada kegiatan presensi yang dipilih.');
+                      return;
+                    }
+                    setShowPrintPresensiModal(true);
+                  }}
+                  className="bg-teal-600 hover:bg-teal-500 text-white font-extrabold text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak Rekap Resmi (PDF/Print)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const activeEvt = presensiKegiatanList.find(k => k.id === selectedPresensiKegiatanId) || presensiKegiatanList[0];
+                    const eventAttendees = presensiPesertaList.filter(p => !activeEvt || p.kegiatanId === activeEvt.id);
+                    if (eventAttendees.length === 0) {
+                      alert('Belum ada data peserta untuk diekspor.');
+                      return;
+                    }
+
+                    // CSV generation
+                    let csvContent = 'data:text/csv;charset=utf-8,';
+                    csvContent += 'No,Waktu Presensi,Nama Lengkap,NIP / NIK,Asal Satker / Instansi,Kode Satker,Nomor HP\n';
+                    eventAttendees.forEach((p, idx) => {
+                      csvContent += `"${idx + 1}","${p.waktuPresensi}","${p.namaLengkap.replace(/"/g, '""')}","${p.nip}","${p.asalInstansi.replace(/"/g, '""')}","${p.kodeSatker || ''}","${p.noHp || ''}"\n`;
+                    });
+
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement('a');
+                    link.setAttribute('href', encodedUri);
+                    link.setAttribute('download', `Rekap_Presensi_${activeEvt?.judulKegiatan?.replace(/[^a-zA-Z0-9]/g, '_') || 'KPPN'}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm font-bold px-3.5 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FileDown className="w-4 h-4 text-emerald-500" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Event Selector & Stats Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2 p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 space-y-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Pilih Kegiatan yang Dimonitor:
+                </label>
+                <select
+                  value={selectedPresensiKegiatanId || (presensiKegiatanList[0]?.id || '')}
+                  onChange={(e) => setSelectedPresensiKegiatanId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs sm:text-sm font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                >
+                  {presensiKegiatanList.map(k => (
+                    <option key={k.id} value={k.id}>
+                      {k.judulKegiatan} ({k.tanggal}) - {k.isActive ? '🟢 Aktif' : '⚪ Nonaktif'} {k.isLocked ? '🔒 [Terkunci]' : '🔓 [Terbuka]'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Event Quick Stat Card */}
+              {(() => {
+                const activeEvt = presensiKegiatanList.find(k => k.id === (selectedPresensiKegiatanId || presensiKegiatanList[0]?.id)) || presensiKegiatanList[0];
+                const count = presensiPesertaList.filter(p => !activeEvt || p.kegiatanId === activeEvt.id).length;
+                return (
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-teal-500 to-emerald-700 text-white shadow-lg flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-wider opacity-90">Total Kehadiran</div>
+                      <div className="text-3xl font-black">{count}</div>
+                      <div className="text-[11px] opacity-80 mt-0.5">Peserta Terdaftar</div>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-xs">
+                      <UserCheck className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Attendance Table & Search */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-teal-600" />
+                  <span>Daftar Peserta Hadir</span>
+                </h4>
+
+                <div className="relative max-w-xs w-full">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchPresensiQuery}
+                    onChange={(e) => setSearchPresensiQuery(e.target.value)}
+                    placeholder="Cari Nama / NIP / Satker..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              {/* Table */}
+              {(() => {
+                const activeEvt = presensiKegiatanList.find(k => k.id === (selectedPresensiKegiatanId || presensiKegiatanList[0]?.id)) || presensiKegiatanList[0];
+                const attendees = presensiPesertaList.filter(p => !activeEvt || p.kegiatanId === activeEvt.id);
+                const filtered = attendees.filter(p => {
+                  if (!searchPresensiQuery.trim()) return true;
+                  const q = searchPresensiQuery.toLowerCase();
+                  return (
+                    p.namaLengkap.toLowerCase().includes(q) ||
+                    p.nip.toLowerCase().includes(q) ||
+                    p.asalInstansi.toLowerCase().includes(q)
+                  );
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-850 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 text-xs">
+                      Belum ada data peserta yang terdaftar untuk kegiatan ini.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                        <tr>
+                          <th className="p-3 w-10 text-center">No</th>
+                          <th className="p-3">Waktu Presensi</th>
+                          <th className="p-3">Nama Lengkap &amp; NIP</th>
+                          <th className="p-3">Asal Satker / Instansi</th>
+                          <th className="p-3">No HP / WA</th>
+                          <th className="p-3 text-center">Tanda Tangan</th>
+                          <th className="p-3 text-center w-16">Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filtered.map((p, idx) => (
+                          <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors">
+                            <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                            <td className="p-3 font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {p.waktuPresensi}
+                            </td>
+                            <td className="p-3">
+                              <div className="font-extrabold text-slate-900 dark:text-white">{p.namaLengkap}</div>
+                              <div className="text-[10px] font-mono text-slate-500">NIP: {p.nip}</div>
+                            </td>
+                            <td className="p-3 font-medium text-slate-800 dark:text-slate-200">
+                              {p.asalInstansi}
+                              {p.kodeSatker && (
+                                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-sm bg-slate-100 dark:bg-slate-800 text-slate-500">
+                                  ({p.kodeSatker})
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 font-mono text-slate-600 dark:text-slate-400">
+                              {p.noHp || '-'}
+                            </td>
+                            <td className="p-3 text-center">
+                              {p.tandaTanganUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewPresensiSignature(p.tandaTanganUrl)}
+                                  className="p-1 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-500 transition-all inline-block shadow-2xs cursor-pointer"
+                                  title="Klik untuk memperbesar tanda tangan"
+                                >
+                                  <img 
+                                    src={p.tandaTanganUrl} 
+                                    alt="TTD" 
+                                    className="h-8 w-16 object-contain" 
+                                  />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 italic">Tanpa TTD</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Hapus data presensi atas nama "${p.namaLengkap}"?`)) {
+                                    if (onDeletePesertaPresensi) {
+                                      onDeletePesertaPresensi(p.id);
+                                    }
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer"
+                                title="Hapus Entri Presensi"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Management Kegiatan Presensi Accordion / Panel */}
+            <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>Kelola &amp; Buat Kegiatan Presensi</span>
+                </h4>
+
+                {editingPresensiKegiatanId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPresensiKegiatanId(null);
+                      setPresensiKegiatanForm({
+                        judulKegiatan: '',
+                        subJudul: '',
+                        tanggal: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+                        jamMulai: '08:30',
+                        jamSelesai: '12:00 WIB',
+                        jenis: 'Hybrid',
+                        lokasi: 'Aula KPPN Semarang I / Zoom Meeting Hybrid',
+                        deskripsi: '',
+                        penyelenggara: 'Seksi MSKI KPPN Semarang I',
+                        isActive: true,
+                        isLocked: false
+                      });
+                    }}
+                    className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Batal Edit &amp; Tambah Baru
+                  </button>
+                )}
+              </div>
+
+              {/* Form Tambah/Edit Kegiatan */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-200 dark:border-slate-700 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Judul Kegiatan Presensi <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={presensiKegiatanForm.judulKegiatan || ''}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, judulKegiatan: e.target.value }))}
+                      placeholder="Contoh: Bimtek Percepatan Capaian Output & Digitalisasi Pembayaran"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-bold text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Sub-Judul / Keterangan Singkat
+                    </label>
+                    <input
+                      type="text"
+                      value={presensiKegiatanForm.subJudul || ''}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, subJudul: e.target.value }))}
+                      placeholder="Contoh: KPA & PPK Satker KPPN Semarang I"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Tanggal Pelaksanaan
+                    </label>
+                    <input
+                      type="text"
+                      value={presensiKegiatanForm.tanggal || ''}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, tanggal: e.target.value }))}
+                      placeholder="Contoh: 18 Agustus 2026"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Jam Pelaksanaan
+                    </label>
+                    <input
+                      type="text"
+                      value={presensiKegiatanForm.jamMulai || ''}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, jamMulai: e.target.value }))}
+                      placeholder="Contoh: 08:30 WIB - Selesai"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Lokasi / Platform
+                    </label>
+                    <input
+                      type="text"
+                      value={presensiKegiatanForm.lokasi || ''}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, lokasi: e.target.value }))}
+                      placeholder="Contoh: Aula Lantai 2 / Zoom Meeting"
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">
+                      Jenis Kegiatan
+                    </label>
+                    <select
+                      value={presensiKegiatanForm.jenis || 'Hybrid'}
+                      onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, jenis: e.target.value as any }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                    >
+                      <option value="Hybrid">Hybrid (Online &amp; Tatap Muka)</option>
+                      <option value="Offline">Offline (Tatap Muka di Aula)</option>
+                      <option value="Online">Online (Zoom / YouTube)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-4">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold">
+                      <input
+                        type="checkbox"
+                        checked={presensiKegiatanForm.isActive !== false}
+                        onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                        className="rounded text-teal-600"
+                      />
+                      <span>Tampilkan di Dashboard</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-rose-600">
+                      <input
+                        type="checkbox"
+                        checked={!!presensiKegiatanForm.isLocked}
+                        onChange={(e) => setPresensiKegiatanForm(prev => ({ ...prev, isLocked: e.target.checked }))}
+                        className="rounded text-rose-600"
+                      />
+                      <span>Kunci Presensi (Tutup Form)</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!presensiKegiatanForm.judulKegiatan?.trim()) {
+                        alert('Judul kegiatan wajib diisi!');
+                        return;
+                      }
+
+                      const newKegiatan: PresensiKegiatan = {
+                        id: editingPresensiKegiatanId || `kegiatan-${Date.now()}`,
+                        judulKegiatan: presensiKegiatanForm.judulKegiatan.trim(),
+                        subJudul: presensiKegiatanForm.subJudul?.trim(),
+                        tanggal: presensiKegiatanForm.tanggal?.trim() || new Date().toLocaleDateString('id-ID'),
+                        jamMulai: presensiKegiatanForm.jamMulai?.trim() || '08:30',
+                        jamSelesai: presensiKegiatanForm.jamSelesai?.trim() || 'Selesai',
+                        jenis: presensiKegiatanForm.jenis || 'Hybrid',
+                        lokasi: presensiKegiatanForm.lokasi?.trim() || 'Aula KPPN Semarang I',
+                        deskripsi: presensiKegiatanForm.deskripsi?.trim() || '',
+                        penyelenggara: presensiKegiatanForm.penyelenggara?.trim() || 'Seksi MSKI KPPN Semarang I',
+                        isActive: presensiKegiatanForm.isActive !== false,
+                        isLocked: !!presensiKegiatanForm.isLocked,
+                        createdAt: new Date().toISOString()
+                      };
+
+                      if (onSavePresensiKegiatan) {
+                        onSavePresensiKegiatan(newKegiatan);
+                      }
+                      setSelectedPresensiKegiatanId(newKegiatan.id);
+                      setEditingPresensiKegiatanId(null);
+                      setPresensiKegiatanForm({
+                        judulKegiatan: '',
+                        subJudul: '',
+                        tanggal: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+                        jamMulai: '08:30',
+                        jamSelesai: '12:00 WIB',
+                        jenis: 'Hybrid',
+                        lokasi: 'Aula KPPN Semarang I / Zoom Meeting Hybrid',
+                        deskripsi: '',
+                        penyelenggara: 'Seksi MSKI KPPN Semarang I',
+                        isActive: true,
+                        isLocked: false
+                      });
+                      alert('Kegiatan presensi berhasil disimpan!');
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{editingPresensiKegiatanId ? 'Perbarui Kegiatan' : 'Simpan Kegiatan Baru'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* List of Existing Events with Quick Toggle & Edit */}
+              <div className="space-y-2">
+                {presensiKegiatanList.map(k => (
+                  <div 
+                    key={k.id}
+                    className="p-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-slate-900 dark:text-white">{k.judulKegiatan}</span>
+                        {k.isActive ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800">Aktif</span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600">Nonaktif</span>
+                        )}
+                        {k.isLocked && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800">Terkunci</span>
+                        )}
+                      </div>
+                      <div className="text-slate-500 text-[11px]">
+                        {k.tanggal} • {k.jamMulai} • {k.lokasi}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPresensiKegiatanId(k.id);
+                          setPresensiKegiatanForm({ ...k });
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-bold text-xs cursor-pointer"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSavePresensiKegiatan) {
+                            onSavePresensiKegiatan({ ...k, isLocked: !k.isLocked });
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs cursor-pointer ${
+                          k.isLocked 
+                            ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' 
+                            : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                        }`}
+                      >
+                        {k.isLocked ? 'Buka Kunci' : 'Kunci Form'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Hapus kegiatan "${k.judulKegiatan}"? Semua data presensi kegiatan ini tetap tersimpan di database.`)) {
+                            if (onDeletePresensiKegiatan) {
+                              onDeletePresensiKegiatan(k.id);
+                            }
+                          }
+                        }}
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        title="Hapus Kegiatan"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Signature Zoom Modal */}
+      {previewPresensiSignature && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
+          <div className="bg-white p-6 rounded-3xl max-w-md w-full text-center space-y-4 shadow-2xl border">
+            <h4 className="font-extrabold text-slate-900 text-sm">Pratinjau Tanda Tangan Asli Peserta</h4>
+            <div className="p-4 bg-slate-50 rounded-2xl border flex items-center justify-center">
+              <img src={previewPresensiSignature} alt="Tanda Tangan Peserta" className="max-h-48 object-contain" />
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreviewPresensiSignature(null)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer"
+            >
+              Tutup Pratinjau
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Official Print Modal (Ber-KOP Kemenkeu) */}
+      {showPrintPresensiModal && (() => {
+        const activeEvt = presensiKegiatanList.find(k => k.id === (selectedPresensiKegiatanId || presensiKegiatanList[0]?.id)) || presensiKegiatanList[0];
+        const attendees = presensiPesertaList.filter(p => !activeEvt || p.kegiatanId === activeEvt.id);
+
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 print:p-0 print:bg-white print:static">
+            <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full p-8 sm:p-10 shadow-2xl space-y-6 print:shadow-none print:p-0 print:rounded-none">
+              
+              {/* Top Controls (Hidden during print) */}
+              <div className="flex items-center justify-between border-b pb-4 print:hidden">
+                <div className="flex items-center gap-2">
+                  <Printer className="w-5 h-5 text-teal-600" />
+                  <span className="font-extrabold text-sm">Pratinjau Cetak Lembar Presensi Resmi</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Cetak Sekarang (Print / PDF)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPrintPresensiModal(false)}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl text-xs cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
+
+              {/* Official Document Body */}
+              <div className="space-y-6 text-slate-900">
+                {/* Formal KOP Kemenkeu */}
+                <div className="text-center border-b-2 border-slate-900 pb-3 space-y-0.5">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider">KEMENTERIAN KEUANGAN REPUBLIK INDONESIA</h4>
+                  <h3 className="font-bold text-xs uppercase tracking-wider">DIREKTORAT JENDERAL PERBENDAHARAAN</h3>
+                  <h3 className="font-bold text-xs uppercase tracking-wider">KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH</h3>
+                  <h2 className="font-black text-sm uppercase tracking-wider">KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I</h2>
+                  <p className="text-[10px] text-slate-600">Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1</p>
+                </div>
+
+                {/* Event Title */}
+                <div className="text-center space-y-1">
+                  <h2 className="text-base font-black uppercase underline tracking-wide">
+                    DAFTAR HADIR PESERTA KEGIATAN
+                  </h2>
+                  <p className="text-xs font-bold">{activeEvt?.judulKegiatan}</p>
+                  {activeEvt?.subJudul && <p className="text-[11px] text-slate-600 italic">{activeEvt.subJudul}</p>}
+                </div>
+
+                {/* Event Details Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs border border-slate-300 p-3 rounded-lg bg-slate-50/50">
+                  <div><strong>Hari / Tanggal:</strong> {activeEvt?.tanggal}</div>
+                  <div><strong>Waktu:</strong> {activeEvt?.jamMulai} - {activeEvt?.jamSelesai || 'Selesai'}</div>
+                  <div><strong>Tempat / Media:</strong> {activeEvt?.lokasi}</div>
+                  <div><strong>Penyelenggara:</strong> {activeEvt?.penyelenggara || 'Seksi MSKI KPPN Semarang I'}</div>
+                </div>
+
+                {/* Attendees Table */}
+                <div className="overflow-hidden border border-slate-900">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-900 text-[11px] font-black uppercase">
+                        <th className="p-2 border-r border-slate-900 w-8 text-center">No</th>
+                        <th className="p-2 border-r border-slate-900">Nama Lengkap &amp; Gelar</th>
+                        <th className="p-2 border-r border-slate-900">NIP / NIK</th>
+                        <th className="p-2 border-r border-slate-900">Asal Satker / Unit Kerja</th>
+                        <th className="p-2 border-r border-slate-900">No. WhatsApp / HP</th>
+                        <th className="p-2 w-32 text-center">Tanda Tangan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-400">
+                      {attendees.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-4 text-center text-slate-400 italic">Belum ada peserta yang mengisi presensi.</td>
+                        </tr>
+                      ) : (
+                        attendees.map((p, idx) => (
+                          <tr key={p.id} className="border-b border-slate-300">
+                            <td className="p-2 border-r border-slate-900 text-center font-bold">{idx + 1}</td>
+                            <td className="p-2 border-r border-slate-900 font-bold">{p.namaLengkap}</td>
+                            <td className="p-2 border-r border-slate-900 font-mono text-[11px]">{p.nip}</td>
+                            <td className="p-2 border-r border-slate-900">{p.asalInstansi}</td>
+                            <td className="p-2 border-r border-slate-900 font-mono text-[11px]">{p.noHp || '-'}</td>
+                            <td className="p-1 text-center flex items-center justify-center min-h-12">
+                              {p.tandaTanganUrl ? (
+                                <img src={p.tandaTanganUrl} alt="TTD" className="h-10 max-w-28 object-contain" />
+                              ) : (
+                                <span className="text-[10px] text-slate-400">Hadir</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Formal Approval Signature Block */}
+                <div className="pt-8 flex justify-between text-xs break-inside-avoid">
+                  <div></div>
+                  <div className="text-center space-y-16">
+                    <div>
+                      <p>Semarang, {activeEvt?.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p className="font-bold">Penanggung Jawab Kegiatan / Kepala Seksi MSKI,</p>
+                    </div>
+                    <div className="border-t border-slate-900 pt-1 font-bold">
+                      <p>( .................................................... )</p>
+                      <p className="text-[10px] font-normal text-slate-600">NIP. .............................................</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Broadcast & Mass Notification Tab */}
       {adminTab === 'broadcast' && (

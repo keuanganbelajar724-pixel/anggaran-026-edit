@@ -541,11 +541,17 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                 <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-between border border-slate-800">
                   <span className="text-xs text-slate-400 font-semibold">NILAI TOTAL IKPA</span>
                   <div className="my-2">
-                    <span className="text-4xl font-black text-amber-400">{satker.nilaiTotalIKPA}</span>
-                    <span className="text-xs text-slate-400 font-semibold ml-1">/ 100</span>
+                    {satker.hasIKPAData === false || satker.nilaiTotalIKPA === 0 ? (
+                      <span className="text-2xl font-black text-slate-400">Belum Ada IKPA</span>
+                    ) : (
+                      <>
+                        <span className="text-4xl font-black text-amber-400">{satker.nilaiTotalIKPA}</span>
+                        <span className="text-xs text-slate-400 font-semibold ml-1">/ 100</span>
+                      </>
+                    )}
                   </div>
                   <div className="inline-block self-start bg-slate-800 text-amber-300 font-extrabold text-xs px-3 py-1 rounded-full border border-slate-700">
-                    Predikat: {satker.predikat}
+                    {satker.hasIKPAData === false || satker.nilaiTotalIKPA === 0 ? 'Data Hanya Capaian Output' : `Predikat: ${satker.predikat}`}
                   </div>
                 </div>
 
@@ -555,14 +561,22 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                 }`}>
                   <div>
                     <span className="text-xs text-slate-500 font-semibold block mb-1">PAGU &amp; REALISASI</span>
-                    <div className="text-lg font-black">{satker.persenPenyerapan}%</div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden my-2">
-                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, satker.persenPenyerapan)}%` }}></div>
-                    </div>
+                    {satker.hasIKPAData === false || (satker.paguAnggaran === 0 && satker.realisasiAnggaran === 0) ? (
+                      <div className="text-xs text-slate-400 dark:text-slate-500 italic my-2">
+                        Data Pagu &amp; Realisasi belum diunggah (Excel IKPA belum diupload).
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-lg font-black">{satker.persenPenyerapan}%</div>
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden my-2">
+                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, satker.persenPenyerapan)}%` }}></div>
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
-                    <div>Realisasi: <strong>{formatRupiah(satker.realisasiAnggaran)}</strong></div>
-                    <div>Pagu Total: <strong>{formatRupiah(satker.paguAnggaran)}</strong></div>
+                    <div>Realisasi: <strong>{satker.paguAnggaran > 0 ? formatRupiah(satker.realisasiAnggaran) : '-'}</strong></div>
+                    <div>Pagu Total: <strong>{satker.paguAnggaran > 0 ? formatRupiah(satker.paguAnggaran) : '-'}</strong></div>
                   </div>
                 </div>
 

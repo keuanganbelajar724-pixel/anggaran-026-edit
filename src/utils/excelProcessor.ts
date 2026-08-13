@@ -192,30 +192,27 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                 terlaporkanCaputCount++;
               }
 
+              // Since this is purely a Capaian Output file, do NOT generate fake IKPA data
               const indikatorObj = {
-                revisiDipa: 100,
-                deviasiHal3Dipa: 100,
-                penyerapanAnggaran: 85,
-                belanjaKontraktual: 100,
-                penyelesaianTagihan: 90,
-                pengelolaanUpTup: 90,
-                dispensasiSpm: 100,
+                revisiDipa: 0,
+                deviasiHal3Dipa: 0,
+                penyerapanAnggaran: 0,
+                belanjaKontraktual: 0,
+                penyelesaianTagihan: 0,
+                pengelolaanUpTup: 0,
+                dispensasiSpm: 0,
                 capaianOutput: capaianOutputScore
               };
 
-              const nilaiTotalIKPA = hitungTotalIKPA(indikatorObj);
-              const predikat = getPredikatIKPA(nilaiTotalIKPA);
+              const nilaiTotalIKPA = 0;
+              const predikat: SatkerIKPA['predikat'] = 'Cukup';
 
-              const paguAnggaran = (10 + (cleanedCount % 20) * 5) * 1000000000;
-              const realisasiAnggaran = Math.round(paguAnggaran * 0.85);
+              const paguAnggaran = 0;
+              const realisasiAnggaran = 0;
 
               const issues: string[] = [];
               if (statusCapaianOutput === 'Belum Terlaporkan' || capaianOutputScore === 0) {
                 issues.push('Capaian Output 0% (Belum Mengirim Capaian Output ke SAKTI)');
-              }
-
-              if (nilaiTotalIKPA < 87.5) {
-                issues.push(`Nilai IKPA (${nilaiTotalIKPA}) Di Bawah Target KPPN (≥87.5)`);
               }
 
               cleanedCount++;
@@ -227,11 +224,12 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                 unitEselon1: 'Unit Kerja Terkait',
                 paguAnggaran,
                 realisasiAnggaran,
-                persenPenyerapan: 85.0,
+                persenPenyerapan: 0,
                 statusCapaianOutput,
                 indikator: indikatorObj,
                 nilaiTotalIKPA,
                 predikat,
+                hasIKPAData: false,
                 issues,
                 namaPic: `Operator ${kodeSatker}`,
                 noHpPic: '081234567890',
@@ -437,32 +435,47 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                                          (rawDispensasi >= 0 && rawDispensasi <= 5) &&
                                          (rawPenyerapan > 0 || rawCapaian > 0);
 
-            let revisiDipa = 100;
-            let deviasiHal3Dipa = 100;
-            let penyerapanAnggaran = 85;
-            let belanjaKontraktual = 100;
-            let penyelesaianTagihan = 90;
-            let pengelolaanUpTup = 90;
-            let dispensasiSpm = 100;
+            const hasIKPAInFile = category === 'IKPA' || (
+              colMap.nilaiTotal !== -1 ||
+              colMap.penyerapan !== -1 ||
+              colMap.revisi !== -1 ||
+              colMap.deviasi !== -1 ||
+              colMap.kontraktual !== -1 ||
+              colMap.tagihan !== -1 ||
+              colMap.uptup !== -1 ||
+              colMap.dispensasi !== -1
+            );
+
+            let revisiDipa = 0;
+            let deviasiHal3Dipa = 0;
+            let penyerapanAnggaran = 0;
+            let belanjaKontraktual = 0;
+            let penyelesaianTagihan = 0;
+            let pengelolaanUpTup = 0;
+            let dispensasiSpm = 0;
             let capaianOutput = 100;
 
-            if (isWeightedConversion) {
-              revisiDipa = rawRevisi >= 0 ? Math.min(100, Number(((rawRevisi / 10) * 100).toFixed(2))) : 100;
-              deviasiHal3Dipa = rawDeviasi >= 0 ? Math.min(100, Number(((rawDeviasi / 10) * 100).toFixed(2))) : 100;
-              penyerapanAnggaran = rawPenyerapan >= 0 ? Math.min(100, Number(((rawPenyerapan / 20) * 100).toFixed(2))) : 85;
-              belanjaKontraktual = rawKontraktual >= 0 ? Math.min(100, Number(((rawKontraktual / 10) * 100).toFixed(2))) : 100;
-              penyelesaianTagihan = rawTagihan >= 0 ? Math.min(100, Number(((rawTagihan / 10) * 100).toFixed(2))) : 90;
-              pengelolaanUpTup = rawUpTup >= 0 ? Math.min(100, Number(((rawUpTup / 10) * 100).toFixed(2))) : 90;
-              dispensasiSpm = rawDispensasi >= 0 ? Math.min(100, Number(((rawDispensasi / 5) * 100).toFixed(2))) : 100;
-              capaianOutput = rawCapaian >= 0 ? Math.min(100, Number(((rawCapaian / 25) * 100).toFixed(2))) : 100;
+            if (hasIKPAInFile) {
+              if (isWeightedConversion) {
+                revisiDipa = rawRevisi >= 0 ? Math.min(100, Number(((rawRevisi / 10) * 100).toFixed(2))) : 100;
+                deviasiHal3Dipa = rawDeviasi >= 0 ? Math.min(100, Number(((rawDeviasi / 10) * 100).toFixed(2))) : 100;
+                penyerapanAnggaran = rawPenyerapan >= 0 ? Math.min(100, Number(((rawPenyerapan / 20) * 100).toFixed(2))) : 85;
+                belanjaKontraktual = rawKontraktual >= 0 ? Math.min(100, Number(((rawKontraktual / 10) * 100).toFixed(2))) : 100;
+                penyelesaianTagihan = rawTagihan >= 0 ? Math.min(100, Number(((rawTagihan / 10) * 100).toFixed(2))) : 90;
+                pengelolaanUpTup = rawUpTup >= 0 ? Math.min(100, Number(((rawUpTup / 10) * 100).toFixed(2))) : 90;
+                dispensasiSpm = rawDispensasi >= 0 ? Math.min(100, Number(((rawDispensasi / 5) * 100).toFixed(2))) : 100;
+                capaianOutput = rawCapaian >= 0 ? Math.min(100, Number(((rawCapaian / 25) * 100).toFixed(2))) : 100;
+              } else {
+                revisiDipa = rawRevisi >= 0 ? rawRevisi : 100;
+                deviasiHal3Dipa = rawDeviasi >= 0 ? rawDeviasi : 100;
+                penyerapanAnggaran = rawPenyerapan >= 0 ? rawPenyerapan : 85;
+                belanjaKontraktual = rawKontraktual >= 0 ? rawKontraktual : 100;
+                penyelesaianTagihan = rawTagihan >= 0 ? rawTagihan : 90;
+                pengelolaanUpTup = rawUpTup >= 0 ? rawUpTup : 90;
+                dispensasiSpm = rawDispensasi >= 0 ? rawDispensasi : 100;
+                capaianOutput = rawCapaian >= 0 ? rawCapaian : 100;
+              }
             } else {
-              revisiDipa = rawRevisi >= 0 ? rawRevisi : 100;
-              deviasiHal3Dipa = rawDeviasi >= 0 ? rawDeviasi : 100;
-              penyerapanAnggaran = rawPenyerapan >= 0 ? rawPenyerapan : 85;
-              belanjaKontraktual = rawKontraktual >= 0 ? rawKontraktual : 100;
-              penyelesaianTagihan = rawTagihan >= 0 ? rawTagihan : 90;
-              pengelolaanUpTup = rawUpTup >= 0 ? rawUpTup : 90;
-              dispensasiSpm = rawDispensasi >= 0 ? rawDispensasi : 100;
               capaianOutput = rawCapaian >= 0 ? rawCapaian : 100;
             }
 
@@ -477,38 +490,41 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               capaianOutput
             };
 
-            let nilaiTotalIKPA = colMap.nilaiTotal !== -1 ? parseFormattedNumber(row[colMap.nilaiTotal], 0) : 0;
-            
-            // If colMap.nilaiTotal gave 0 or wasn't mapped, scan row for candidate total IKPA cell
-            if (nilaiTotalIKPA === 0) {
-              for (let c = row.length - 1; c >= 0; c--) {
-                const val = parseFormattedNumber(row[c], 0);
-                // Total IKPA is a float between 10 and 100 (excluding Kode Satker which is >= 100000)
-                if (val > 10 && val <= 100 && c !== colMap.pagu && c !== colMap.realisasi && c !== kodeColIndex) {
-                  nilaiTotalIKPA = val;
-                  break;
+            let nilaiTotalIKPA = 0;
+            if (hasIKPAInFile) {
+              nilaiTotalIKPA = colMap.nilaiTotal !== -1 ? parseFormattedNumber(row[colMap.nilaiTotal], 0) : 0;
+              
+              // If colMap.nilaiTotal gave 0 or wasn't mapped, scan row for candidate total IKPA cell
+              if (nilaiTotalIKPA === 0) {
+                for (let c = row.length - 1; c >= 0; c--) {
+                  const val = parseFormattedNumber(row[c], 0);
+                  // Total IKPA is a float between 10 and 100 (excluding Kode Satker which is >= 100000)
+                  if (val > 10 && val <= 100 && c !== colMap.pagu && c !== colMap.realisasi && c !== kodeColIndex) {
+                    nilaiTotalIKPA = val;
+                    break;
+                  }
                 }
               }
-            }
 
-            if (nilaiTotalIKPA === 0) {
-              if (isWeightedConversion) {
-                const sumWeighted = (rawRevisi >= 0 ? rawRevisi : 10) +
-                                    (rawDeviasi >= 0 ? rawDeviasi : 10) +
-                                    (rawPenyerapan >= 0 ? rawPenyerapan : 17) +
-                                    (rawKontraktual >= 0 ? rawKontraktual : 10) +
-                                    (rawTagihan >= 0 ? rawTagihan : 9) +
-                                    (rawUpTup >= 0 ? rawUpTup : 9) +
-                                    (rawDispensasi >= 0 ? rawDispensasi : 5) +
-                                    (rawCapaian >= 0 ? rawCapaian : 25);
-                nilaiTotalIKPA = Number(sumWeighted.toFixed(2));
-              } else {
-                nilaiTotalIKPA = hitungTotalIKPA(indikatorObj);
+              if (nilaiTotalIKPA === 0) {
+                if (isWeightedConversion) {
+                  const sumWeighted = (rawRevisi >= 0 ? rawRevisi : 10) +
+                                      (rawDeviasi >= 0 ? rawDeviasi : 10) +
+                                      (rawPenyerapan >= 0 ? rawPenyerapan : 17) +
+                                      (rawKontraktual >= 0 ? rawKontraktual : 10) +
+                                      (rawTagihan >= 0 ? rawTagihan : 9) +
+                                      (rawUpTup >= 0 ? rawUpTup : 9) +
+                                      (rawDispensasi >= 0 ? rawDispensasi : 5) +
+                                      (rawCapaian >= 0 ? rawCapaian : 25);
+                  nilaiTotalIKPA = Number(sumWeighted.toFixed(2));
+                } else {
+                  nilaiTotalIKPA = hitungTotalIKPA(indikatorObj);
+                }
+                recomputedTotalCount++;
               }
-              recomputedTotalCount++;
             }
 
-            const predikat = getPredikatIKPA(nilaiTotalIKPA);
+            const predikat = hasIKPAInFile ? getPredikatIKPA(nilaiTotalIKPA) : 'Cukup';
 
             const rawStatusStr = colMap.statusCaput !== -1 ? cleanText(row[colMap.statusCaput]).toLowerCase() : '';
             let statusCapaianOutput: SatkerIKPA['statusCapaianOutput'] = 'Sudah Terlaporkan';
@@ -521,13 +537,13 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               statusCapaianOutput = 'Sudah Terlaporkan';
             }
 
-            const paguAnggaran = colMap.pagu !== -1 
+            const paguAnggaran = (hasIKPAInFile && colMap.pagu !== -1)
               ? parseFormattedNumber(row[colMap.pagu], (10 + (cleanedCount % 20) * 5) * 1000000000)
-              : (10 + (cleanedCount % 20) * 5) * 1000000000;
+              : (hasIKPAInFile ? (10 + (cleanedCount % 20) * 5) * 1000000000 : 0);
 
-            const realisasiAnggaran = colMap.realisasi !== -1
+            const realisasiAnggaran = (hasIKPAInFile && colMap.realisasi !== -1)
               ? parseFormattedNumber(row[colMap.realisasi], Math.round(paguAnggaran * (penyerapanAnggaran / 100)))
-              : Math.round(paguAnggaran * (penyerapanAnggaran / 100));
+              : (hasIKPAInFile ? Math.round(paguAnggaran * (penyerapanAnggaran / 100)) : 0);
 
             const kementerianLembaga = colMap.kl !== -1 && cleanText(row[colMap.kl])
               ? cleanText(row[colMap.kl])
@@ -540,17 +556,19 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               issues.push('Pengiriman Capaian Output Terlambat');
             }
 
-            if (nilaiTotalIKPA < 87.5) {
-              issues.push(`Nilai IKPA (${nilaiTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
-            }
-            if (penyerapanAnggaran < 75) {
-              issues.push(`Penyerapan Anggaran Rendah (${penyerapanAnggaran.toFixed(1)}%)`);
-            }
-            if (deviasiHal3Dipa < 75) {
-              issues.push(`Deviasi Halaman III DIPA Tinggi (${deviasiHal3Dipa.toFixed(1)}%)`);
-            }
-            if (capaianOutput < 90 && statusCapaianOutput !== 'Belum Terlaporkan') {
-              issues.push(`Capaian Output Belum Maksimal (${capaianOutput.toFixed(1)}%)`);
+            if (hasIKPAInFile) {
+              if (nilaiTotalIKPA < 87.5) {
+                issues.push(`Nilai IKPA (${nilaiTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
+              }
+              if (penyerapanAnggaran < 75) {
+                issues.push(`Penyerapan Anggaran Rendah (${penyerapanAnggaran.toFixed(1)}%)`);
+              }
+              if (deviasiHal3Dipa < 75) {
+                issues.push(`Deviasi Halaman III DIPA Tinggi (${deviasiHal3Dipa.toFixed(1)}%)`);
+              }
+              if (capaianOutput < 90 && statusCapaianOutput !== 'Belum Terlaporkan') {
+                issues.push(`Capaian Output Belum Maksimal (${capaianOutput.toFixed(1)}%)`);
+              }
             }
 
             cleanedCount++;
@@ -562,11 +580,12 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               unitEselon1: 'Unit Kerja Terkait',
               paguAnggaran,
               realisasiAnggaran,
-              persenPenyerapan: penyerapanAnggaran,
+              persenPenyerapan: hasIKPAInFile ? penyerapanAnggaran : 0,
               statusCapaianOutput,
               indikator: indikatorObj,
               nilaiTotalIKPA,
               predikat,
+              hasIKPAData: hasIKPAInFile,
               issues,
               namaPic: colMap.picNama !== -1 && cleanText(row[colMap.picNama]) ? cleanText(row[colMap.picNama]) : `Operator ${kodeSatker}`,
               noHpPic: colMap.picHp !== -1 && cleanText(row[colMap.picHp]) ? cleanText(row[colMap.picHp]) : '081234567890',
