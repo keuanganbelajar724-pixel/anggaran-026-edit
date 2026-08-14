@@ -225,6 +225,8 @@ export interface PresentationMaterial {
   isPinned?: boolean;
   isActive?: boolean; // Admin toggle to activate/deactivate
   importance?: 'Sangat Penting' | 'Penting' | 'Biasa'; // Admin priority badge
+  accessType?: 'UMUM' | 'INTERNAL'; // Target audiens: UMUM (eksternal) atau INTERNAL (khusus)
+  password?: string; // Password akses khusus jika tipe INTERNAL
   tags?: string[];
 }
 
@@ -330,39 +332,73 @@ export interface DashboardCustomTexts {
   dashboardBadge?: string;
   dashboardTitle?: string;
   dashboardSubtitle?: string;
+  dashboardAnnouncement?: string;
 
   capaianOutputBadge?: string;
   capaianOutputTitle?: string;
   capaianOutputSubtitle?: string;
+  capaianOutputAnnouncement?: string;
 
   redflagsBadge?: string;
   redflagsTitle?: string;
   redflagsSubtitle?: string;
+  redflagsAnnouncement?: string;
 
   per5Badge?: string;
   per5Title?: string;
   per5Subtitle?: string;
+  per5Announcement?: string;
 
   sertifikasiBadge?: string;
   sertifikasiTitle?: string;
   sertifikasiSubtitle?: string;
+  sertifikasiAnnouncement?: string;
 
   pengumumanBadge?: string;
   pengumumanTitle?: string;
   pengumumanSubtitle?: string;
+  pengumumanAnnouncement?: string;
 
   materiSlideBadge?: string;
   materiSlideTitle?: string;
   materiSlideSubtitle?: string;
+  materiSlideAnnouncement?: string;
 
   portalLinkBadge?: string;
   portalLinkTitle?: string;
   portalLinkSubtitle?: string;
+  portalLinkAnnouncement?: string;
+
+  presensiBadge?: string;
+  presensiTitle?: string;
+  presensiSubtitle?: string;
+  presensiAnnouncement?: string;
+
+  pengetahuanBadge?: string;
+  pengetahuanTitle?: string;
+  pengetahuanSubtitle?: string;
+  pengetahuanAnnouncement?: string;
+
+  aduanBadge?: string;
+  aduanTitle?: string;
+  aduanSubtitle?: string;
+  aduanAnnouncement?: string;
+
+  reminderBadge?: string;
+  reminderTitle?: string;
+  reminderSubtitle?: string;
+  reminderAnnouncement?: string;
+
+  guideBadge?: string;
+  guideTitle?: string;
+  guideSubtitle?: string;
+  guideAnnouncement?: string;
 }
 
 export interface DashboardConfig {
   defaultFilter: 'ALL' | 'BELUM_OUTPUT' | 'SUDAH_OUTPUT' | 'IKPA_KURANG' | 'PENYERAPAN_RENDAH' | 'DEVIASI_TINGGI';
   customAnnouncement: string;
+  hideIKPAWhenOnlyCapaianOutput?: boolean;
   showKpiCards: boolean;
   showBarChart: boolean;
   announcements: Announcement[];
@@ -381,6 +417,7 @@ export interface DashboardConfig {
     per5Analisis?: string;
     materiSlide?: string;
     portalLink?: string;
+    presensi?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];

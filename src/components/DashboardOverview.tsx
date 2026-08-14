@@ -116,7 +116,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // Calculated Stats (Only include satkers that actually have IKPA data for IKPA averages)
   const totalSatker = satkers.length;
   const satkersWithIKPA = satkers.filter(s => s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0));
-  const hasAnyIKPA = satkersWithIKPA.length > 0;
+  const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
 
   const avgIKPA = hasAnyIKPA 
     ? (satkersWithIKPA.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / satkersWithIKPA.length).toFixed(2)
@@ -130,7 +130,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const satkerPerluPerhatian = hasAnyIKPA ? satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5) : [];
   const satkerBelumCapaian = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.indikator.capaianOutput === 0);
+  const satkerSudahCapaian = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
   const satkerPenyerapanRendah = hasAnyIKPA ? satkersWithIKPA.filter(s => s.persenPenyerapan < 70) : [];
+  const avgCapaianOutputScore = (satkers.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / (totalSatker || 1)).toFixed(1);
 
   // Filter & Sort Logic (Prioritize satker with 0% Capaian Output at the top)
   const filteredSatkers = satkers.filter(s => {
@@ -355,97 +357,207 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
       )}
 
+      {/* Mode Capaian Output SAKTI Active Notice (When IKPA is not uploaded or hidden) */}
+      {!hasAnyIKPA && satkers.length > 0 && (
+        <div className="bg-sky-500/10 border border-sky-500/30 p-4 rounded-2xl flex items-start gap-3 text-sky-900 dark:text-sky-200 text-xs">
+          <FileCheck className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-extrabold uppercase tracking-wider text-[11px] text-sky-700 dark:text-sky-300 block">
+              STATUS DATA: KHUSUS CAPAIAN OUTPUT SAKTI AKTIF
+            </span>
+            <p className="leading-relaxed text-slate-600 dark:text-slate-300">
+              Data yang dimuat saat ini adalah Laporan Capaian Output SAKTI. Widget, grafik tren, dan 8 indikator IKPA (Total IKPA, Deviasi Hal III DIPA, Realisasi Pagu) disembunyikan secara otomatis agar fokus pada percepatan pengiriman Capaian Output. Data IKPA akan otomatis aktif kembali saat Admin mengunggah file Excel IKPA KPPN.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Card 1: Total Satker & Avg Score */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-            <span>RATA-RATA IKPA KPPN SMG I</span>
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              <TrendingUp className="w-4 h-4" />
+        {hasAnyIKPA ? (
+          <>
+            {/* Card 1: Total Satker & Avg Score */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span>RATA-RATA IKPA KPPN SMG I</span>
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">{avgIKPA}</span>
+                <span className="text-xs font-semibold text-slate-500">/ 100</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
+                <span>Total Satker Dipantau:</span>
+                <span className="font-bold text-slate-900">{totalSatker} Satker</span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-slate-900">{avgIKPA}</span>
-            <span className="text-xs font-semibold text-slate-500">/ 100</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
-            <span>Total Satker Dipantau:</span>
-            <span className="font-bold text-slate-900">{totalSatker} Satker</span>
-          </div>
-        </div>
 
-        {/* Card 2: Satker Perlu Perhatian */}
-        <div className="bg-white p-5 rounded-2xl border border-rose-200 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-            <span>NILAI IKPA &lt; 87.50 (KURANG)</span>
-            <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
-              <AlertCircle className="w-4 h-4" />
+            {/* Card 2: Satker Perlu Perhatian */}
+            <div className="bg-white p-5 rounded-2xl border border-rose-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span>NILAI IKPA &lt; 87.50 (KURANG)</span>
+                <div className="p-2 bg-rose-50 text-rose-600 rounded-xl">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-rose-600">{satkerPerluPerhatian.length}</span>
+                <span className="text-xs font-semibold text-rose-500">Satker</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
+                <span>Perlu Evaluasi Khusus:</span>
+                <span className="font-bold text-rose-700">
+                  {`${((satkerPerluPerhatian.length / (totalSatker || 1)) * 100).toFixed(0)}% Dari Total`}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-rose-600">{satkerPerluPerhatian.length}</span>
-            <span className="text-xs font-semibold text-rose-500">Satker</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
-            <span>Perlu Evaluasi Khusus:</span>
-            <span className="font-bold text-rose-700">
-              {((satkerPerluPerhatian.length / (totalSatker || 1)) * 100).toFixed(0)}% Dari Total
-            </span>
-          </div>
-        </div>
 
-        {/* Card 3: Belum Capaian Output / 0% Data Masuk */}
-        <div 
-          onClick={() => setFilterIssue(filterIssue === 'BELUM_OUTPUT' ? 'ALL' : 'BELUM_OUTPUT')}
-          className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-            filterIssue === 'BELUM_OUTPUT' 
-              ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500 shadow-md' 
-              : 'bg-white border-amber-200 shadow-xs hover:shadow-md'
-          }`}
-        >
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-            <span className="font-extrabold text-rose-700">BELUM CAPAIAN OUTPUT (0% DATA)</span>
-            <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
-              <AlertCircle className="w-4 h-4" />
+            {/* Card 3: Belum Capaian Output / 0% Data Masuk */}
+            <div 
+              onClick={() => setFilterIssue(filterIssue === 'BELUM_OUTPUT' ? 'ALL' : 'BELUM_OUTPUT')}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                filterIssue === 'BELUM_OUTPUT' 
+                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500 shadow-md' 
+                  : 'bg-white border-amber-200 shadow-xs hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span className="font-extrabold text-rose-700">BELUM CAPAIAN OUTPUT (0% DATA)</span>
+                <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-rose-600">{satkerBelumCapaian.length}</span>
+                <span className="text-xs font-semibold text-rose-500">Satker (0% Masuk)</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-rose-100 pt-2 text-rose-700 font-semibold">
+                <span>Klik Untuk Filter Tampil:</span>
+                <span className="bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded text-[10px] font-bold">
+                  {filterIssue === 'BELUM_OUTPUT' ? '✓ Aktif' : 'Tampilkan'}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-rose-600">{satkerBelumCapaian.length}</span>
-            <span className="text-xs font-semibold text-rose-500">Satker (0% Masuk)</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs border-t border-rose-100 pt-2 text-rose-700 font-semibold">
-            <span>Klik Untuk Filter Tampil:</span>
-            <span className="bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded text-[10px] font-bold">
-              {filterIssue === 'BELUM_OUTPUT' ? '✓ Aktif' : 'Tampilkan'}
-            </span>
-          </div>
-        </div>
 
-        {/* Card 4: Realisasi & Penyerapan Pagu */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-            <span>PENYERAPAN ANGGARAN</span>
-            <div className="p-2 bg-sky-50 text-sky-600 rounded-xl">
-              <Building2 className="w-4 h-4" />
+            {/* Card 4: Realisasi & Penyerapan Pagu */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span>PENYERAPAN ANGGARAN</span>
+                <div className="p-2 rounded-xl bg-sky-50 text-sky-600">
+                  <Building2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">{totalPersenPenyerapan}%</span>
+                <span className="text-xs font-semibold text-sky-600">Terrealisasi</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600 truncate">
+                <span>Realisasi / Pagu:</span>
+                <span className="font-bold text-slate-900 truncate">
+                  {totalPagu > 0 ? formatRupiah(totalRealisasi) : '-'}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-slate-900">{totalPersenPenyerapan}%</span>
-            <span className="text-xs font-semibold text-sky-600">Terrealisasi</span>
-          </div>
-          <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600 truncate">
-            <span>Realisasi / Pagu:</span>
-            <span className="font-bold text-slate-900 truncate">
-              {formatRupiah(totalRealisasi)}
-            </span>
-          </div>
-        </div>
+          </>
+        ) : (
+          <>
+            {/* Card 1: Total Satker Terdaftar */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span>TOTAL SATKER DIPANTAU</span>
+                <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
+                  <Building2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">{totalSatker}</span>
+                <span className="text-xs font-semibold text-slate-500">Satker</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
+                <span>Lingkup Wilayah:</span>
+                <span className="font-bold text-slate-900">KPPN Semarang I</span>
+              </div>
+            </div>
+
+            {/* Card 2: Sudah Terlaporkan Capaian Output */}
+            <div 
+              onClick={() => setFilterIssue(filterIssue === 'SUDAH_OUTPUT' ? 'ALL' : 'SUDAH_OUTPUT')}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                filterIssue === 'SUDAH_OUTPUT' 
+                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500 shadow-md' 
+                  : 'bg-white border-emerald-200 shadow-xs hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span className="font-bold text-emerald-700">SUDAH LAPOR CAPAIAN OUTPUT</span>
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-emerald-600">{satkerSudahCapaian.length}</span>
+                <span className="text-xs font-semibold text-emerald-600">Satker ({totalSatker > 0 ? ((satkerSudahCapaian.length / totalSatker) * 100).toFixed(0) : 0}%)</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-emerald-100 pt-2 text-emerald-700">
+                <span>Status Data:</span>
+                <span className="font-bold text-emerald-800">Sudah Terisi &gt;0%</span>
+              </div>
+            </div>
+
+            {/* Card 3: Belum Capaian Output (0% Data Masuk) */}
+            <div 
+              onClick={() => setFilterIssue(filterIssue === 'BELUM_OUTPUT' ? 'ALL' : 'BELUM_OUTPUT')}
+              className={`p-5 rounded-2xl border transition-all cursor-pointer ${
+                filterIssue === 'BELUM_OUTPUT' 
+                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500 shadow-md' 
+                  : 'bg-white border-rose-200 shadow-xs hover:shadow-md'
+              }`}
+            >
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span className="font-extrabold text-rose-700">BELUM CAPAIAN OUTPUT (0% DATA)</span>
+                <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
+                  <AlertCircle className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-rose-600">{satkerBelumCapaian.length}</span>
+                <span className="text-xs font-semibold text-rose-500">Satker (0% Masuk)</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-rose-100 pt-2 text-rose-700 font-semibold">
+                <span>Klik Untuk Filter:</span>
+                <span className="bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded text-[10px] font-bold">
+                  {filterIssue === 'BELUM_OUTPUT' ? '✓ Aktif' : 'Tampilkan 0%'}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 4: Rata-Rata Capaian Output SAKTI */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
+                <span>RATA-RATA CAPAIAN OUTPUT</span>
+                <div className="p-2 rounded-xl bg-sky-50 text-sky-600">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900">{avgCapaianOutputScore}</span>
+                <span className="text-xs font-semibold text-sky-600">/ 100</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600 truncate">
+                <span>Target Standar Nasional:</span>
+                <span className="font-bold text-emerald-600">≥ 87.50 Poin</span>
+              </div>
+            </div>
+          </>
+        )}
 
       </div>
 
       {/* OVERALL KPPN MONTHLY TREND CHART WITH MONTH RANGE FILTER */}
+      {hasAnyIKPA && (
       <div className={`p-6 rounded-3xl border shadow-xs space-y-6 ${
         isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
       }`}>
@@ -703,113 +815,116 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
         </div>
       </div>
+      )}
 
       {/* Rata-Rata Indikator Performance Grid */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <PieChart className="w-5 h-5 text-emerald-600" />
-            <h3 className="text-base font-bold text-slate-900">
-              Rata-Rata Performa 8 Indikator IKPA (Lingkup KPPN Semarang I)
-            </h3>
+      {hasAnyIKPA && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PieChart className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-base font-bold text-slate-900">
+                Rata-Rata Performa 8 Indikator IKPA (Lingkup KPPN Semarang I)
+              </h3>
+            </div>
+            <span className="text-xs text-slate-500">Target Ideal: ≥ 87.50</span>
           </div>
-          <span className="text-xs text-slate-500">Target Ideal: ≥ 87.50</span>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Revisi DIPA (10%)</span>
+                <span className="text-slate-900">{avgIndicators.revisiDipa}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.revisiDipa))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Deviasi Hal III DIPA (10%)</span>
+                <span className={Number(avgIndicators.deviasiHal3Dipa) < 75 ? 'text-amber-600 font-bold' : 'text-slate-900'}>
+                  {avgIndicators.deviasiHal3Dipa}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${Number(avgIndicators.deviasiHal3Dipa) < 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                  style={{ width: `${Math.min(100, Number(avgIndicators.deviasiHal3Dipa))}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Penyerapan Anggaran (20%)</span>
+                <span className="text-slate-900">{avgIndicators.penyerapanAnggaran}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.penyerapanAnggaran))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Belanja Kontraktual (10%)</span>
+                <span className="text-slate-900">{avgIndicators.belanjaKontraktual}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.belanjaKontraktual))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Penyelesaian Tagihan (10%)</span>
+                <span className="text-slate-900">{avgIndicators.penyelesaianTagihan}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.penyelesaianTagihan))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Pengelolaan UP/TUP (10%)</span>
+                <span className="text-slate-900">{avgIndicators.pengelolaanUpTup}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.pengelolaanUpTup))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Dispensasi SPM (5%)</span>
+                <span className="text-slate-900">{avgIndicators.dispensasiSpm}</span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.dispensasiSpm))}%` }}></div>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+              <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span>Capaian Output (25%)</span>
+                <span className={Number(avgIndicators.capaianOutput) < 70 ? 'text-rose-600 font-bold' : 'text-slate-900'}>
+                  {avgIndicators.capaianOutput}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full ${Number(avgIndicators.capaianOutput) < 70 ? 'bg-rose-500' : 'bg-emerald-500'}`} 
+                  style={{ width: `${Math.min(100, Number(avgIndicators.capaianOutput))}%` }}
+                ></div>
+              </div>
+            </div>
+
+          </div>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Revisi DIPA (10%)</span>
-              <span className="text-slate-900">{avgIndicators.revisiDipa}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.revisiDipa))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Deviasi Hal III DIPA (10%)</span>
-              <span className={Number(avgIndicators.deviasiHal3Dipa) < 75 ? 'text-amber-600 font-bold' : 'text-slate-900'}>
-                {avgIndicators.deviasiHal3Dipa}
-              </span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full ${Number(avgIndicators.deviasiHal3Dipa) < 75 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                style={{ width: `${Math.min(100, Number(avgIndicators.deviasiHal3Dipa))}%` }}
-              ></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Penyerapan Anggaran (20%)</span>
-              <span className="text-slate-900">{avgIndicators.penyerapanAnggaran}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.penyerapanAnggaran))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Belanja Kontraktual (10%)</span>
-              <span className="text-slate-900">{avgIndicators.belanjaKontraktual}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.belanjaKontraktual))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Penyelesaian Tagihan (10%)</span>
-              <span className="text-slate-900">{avgIndicators.penyelesaianTagihan}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.penyelesaianTagihan))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Pengelolaan UP/TUP (10%)</span>
-              <span className="text-slate-900">{avgIndicators.pengelolaanUpTup}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.pengelolaanUpTup))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Dispensasi SPM (5%)</span>
-              <span className="text-slate-900">{avgIndicators.dispensasiSpm}</span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Number(avgIndicators.dispensasiSpm))}%` }}></div>
-            </div>
-          </div>
-
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <div className="flex justify-between text-xs font-semibold text-slate-700 mb-1">
-              <span>Capaian Output (25%)</span>
-              <span className={Number(avgIndicators.capaianOutput) < 70 ? 'text-rose-600 font-bold' : 'text-slate-900'}>
-                {avgIndicators.capaianOutput}
-              </span>
-            </div>
-            <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full ${Number(avgIndicators.capaianOutput) < 70 ? 'bg-rose-500' : 'bg-emerald-500'}`} 
-                style={{ width: `${Math.min(100, Number(avgIndicators.capaianOutput))}%` }}
-              ></div>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      )}
 
       {/* Satker Main Table Section */}
       <div className={`rounded-2xl border shadow-xs overflow-hidden ${
@@ -823,10 +938,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div>
             <h3 className={`text-base font-extrabold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               <Building2 className="w-5 h-5 text-emerald-500" />
-              <span>Daftar Nilai IKPA Satker Mitra KPPN Semarang I</span>
+              <span>{hasAnyIKPA ? 'Daftar Nilai IKPA Satker Mitra KPPN Semarang I' : 'Daftar Monitoring Capaian Output Satker Mitra KPPN Semarang I'}</span>
             </h3>
             <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} mt-0.5`}>
-              Menampilkan {filteredSatkers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, filteredSatkers.length)} dari total {filteredSatkers.length} Satker (Fokus Nilai & Indikator IKPA)
+              Menampilkan {filteredSatkers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, filteredSatkers.length)} dari total {filteredSatkers.length} Satker ({hasAnyIKPA ? 'Fokus Nilai & Indikator IKPA' : 'Fokus Pelaporan Capaian Output SAKTI'})
             </p>
           </div>
 
@@ -1160,20 +1275,29 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         {satker.kementerianLembaga}
                       </p>
                     </div>
-                    <div className="shrink-0">{getPredikatBadge(satker.predikat, satker.nilaiTotalIKPA)}</div>
+                    <div className="shrink-0">{getPredikatBadge(satker.predikat, satker.nilaiTotalIKPA, satker.hasIKPAData)}</div>
                   </div>
 
                   <div className={`grid grid-cols-2 gap-2 text-xs pt-1 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
                     <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/60'}`}>
                       <span className={`text-[10px] block font-semibold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Penyerapan Anggaran</span>
-                      <span className={`font-black text-sm ${
-                        satker.persenPenyerapan >= 85 
-                          ? (isDark ? 'text-emerald-400' : 'text-emerald-700') 
-                          : satker.persenPenyerapan >= 70 
-                          ? (isDark ? 'text-amber-300' : 'text-amber-700') 
-                          : (isDark ? 'text-rose-400' : 'text-rose-700')
-                      }`}>{satker.persenPenyerapan}%</span>
-                      <span className={`text-[10px] block truncate font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{formatRupiah(satker.realisasiAnggaran)}</span>
+                      {satker.hasIKPAData === false || (satker.paguAnggaran === 0 && satker.realisasiAnggaran === 0) ? (
+                        <div className="mt-0.5">
+                          <span className="text-[11px] text-slate-400 dark:text-slate-500 italic block font-semibold">Belum ada IKPA</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-600 block">(Capaian Output)</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={`font-black text-sm ${
+                            satker.persenPenyerapan >= 85 
+                              ? (isDark ? 'text-emerald-400' : 'text-emerald-700') 
+                              : satker.persenPenyerapan >= 70 
+                              ? (isDark ? 'text-amber-300' : 'text-amber-700') 
+                              : (isDark ? 'text-rose-400' : 'text-rose-700')
+                          }`}>{satker.persenPenyerapan}%</span>
+                          <span className={`text-[10px] block truncate font-mono ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{formatRupiah(satker.realisasiAnggaran)}</span>
+                        </>
+                      )}
                     </div>
                     <div className={`p-2.5 rounded-xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200/60'}`}>
                       <span className={`text-[10px] block font-semibold ${isDark ? 'text-slate-300' : 'text-slate-500'}`}>Capaian Output</span>

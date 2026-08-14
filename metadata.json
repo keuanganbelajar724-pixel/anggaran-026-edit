@@ -1,6 +1,6 @@
 {
-  "name": "Monitoring IKPA KPPN Semarang I",
-  "description": "Dashboard Monitoring IKPA Satker KPPN Semarang I, Pengolah Data Excel Mentah Otomatis, dan Fitur Pengingat Keuangan Satker",
+  "name": "ANGKASA",
+  "description": "ANGKASA (Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja) KPPN Semarang I: Monitoring Kinerja Anggaran, Capaian Output SAKTI, Presentasi Slide Show, Presensi & Sosialisasi",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

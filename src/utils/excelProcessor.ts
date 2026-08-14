@@ -435,7 +435,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                                          (rawDispensasi >= 0 && rawDispensasi <= 5) &&
                                          (rawPenyerapan > 0 || rawCapaian > 0);
 
-            const hasIKPAInFile = category === 'IKPA' || (
+            const hasIKPAInFile = (
               colMap.nilaiTotal !== -1 ||
               colMap.penyerapan !== -1 ||
               colMap.revisi !== -1 ||

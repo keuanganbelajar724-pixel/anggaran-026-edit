@@ -206,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <h1 className={`text-base sm:text-lg font-black tracking-tight leading-tight flex items-center gap-1.5 ${
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}>
-                  IKPA MONITORING
+                  ANGKASA
                   <Sparkles className="w-4 h-4 text-amber-500 animate-pulse hidden sm:inline-block" />
                 </h1>
                 <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-xs ${
@@ -215,10 +215,10 @@ export const Header: React.FC<HeaderProps> = ({
                   KPPN Semarang I (026)
                 </span>
               </div>
-              <p className={`text-[10px] sm:text-xs truncate max-w-[260px] sm:max-w-none ${
+              <p className={`text-[10px] sm:text-xs truncate max-w-[320px] sm:max-w-none ${
                 isDark ? 'text-slate-400' : 'text-slate-500'
               }`}>
-                Direktorat Jenderal Perbendaharaan • Kanwil DJPb Jawa Tengah
+                Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja • DJPb Kemenkeu
               </p>
             </div>
           </div>

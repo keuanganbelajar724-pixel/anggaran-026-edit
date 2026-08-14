@@ -7,9 +7,36 @@
       "properties": {
         "adminPin": { "type": "string" },
         "dashboardConfig": { "type": "object" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string" }
       },
       "required": ["adminPin"]
+    },
+    "satkerData": {
+      "title": "Satker Data List",
+      "description": "Stores list of satkers with IKPA and Capaian Output scores",
+      "type": "object",
+      "properties": {
+        "list": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "pejabatData": {
+      "title": "Pejabat Sertifikasi Data",
+      "description": "Stores list of certified perbendaharaan officials",
+      "type": "object",
+      "properties": {
+        "list": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "presensiData": {
+      "title": "Presensi Peserta Data",
+      "description": "Stores online attendance entries for KPPN socialization sessions",
+      "type": "object",
+      "properties": {
+        "list": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     },
     "announcements": {
       "title": "Announcements",
@@ -25,5 +52,20 @@
       },
       "required": ["title", "content", "date"]
     }
+  },
+  "firestore": {
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/settings" },
+      "description": "Global application configuration documents"
+    },
+    "/data/{dataType}": {
+      "schema": { "$ref": "#/entities/satkerData" },
+      "description": "Centralized sync datasets for Satker IKPA, Pejabat, and Presensi"
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/entities/announcements" },
+      "description": "Public announcements and bulletin notices"
+    }
   }
 }
+
