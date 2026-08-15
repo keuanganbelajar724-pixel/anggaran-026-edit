@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { SatkerIKPA, UploadLog } from '../types';
+import { SatkerIKPA, UploadLog, MasterSatker } from '../types';
 import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
 
 export interface ProcessedExcelResult {
@@ -86,22 +86,61 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
 
         const periodeFormatted = `${detectedMonth} 2026`;
 
-        // Check if Caput format specifically
-        let isCaputFormat = requestedCategory === 'CAPAIAN_OUTPUT';
-        let caputHeaderRow = -1;
-
-        for (let i = 0; i < Math.min(25, matrix.length); i++) {
+        // Determine whether file format is dedicated Capaian Output or full IKPA
+        let hasIKPAColumns = false;
+        for (let i = 0; i < Math.min(30, matrix.length); i++) {
           if (!matrix[i]) continue;
           const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
           if (
-            rowStr.includes('rekap kertas kerja capaian output') ||
-            rowStr.includes('konfirmasi capaian output') ||
-            rowStr.includes('capaian output') ||
-            (rowStr.includes('kode') && (rowStr.includes('data masuk') || rowStr.includes('persen') || rowStr.includes('status') || rowStr.includes('output')))
+            rowStr.includes('revisi dipa') ||
+            rowStr.includes('revisi') ||
+            rowStr.includes('deviasi') ||
+            rowStr.includes('penyerapan') ||
+            rowStr.includes('kontraktual') ||
+            rowStr.includes('tagihan') ||
+            rowStr.includes('up/tup') ||
+            rowStr.includes('uptup') ||
+            rowStr.includes('dispensasi') ||
+            rowStr.includes('nilai akhir') ||
+            rowStr.includes('total ikpa') ||
+            rowStr.includes('nilai total') ||
+            rowStr.includes('bobot') ||
+            rowStr.includes('komposit')
           ) {
-            isCaputFormat = true;
-            caputHeaderRow = i;
+            hasIKPAColumns = true;
             break;
+          }
+        }
+
+        let isCaputFormat = false;
+        let caputHeaderRow = -1;
+
+        if (requestedCategory === 'IKPA') {
+          // Explicitly IKPA requested -> ALWAYS parse as IKPA
+          isCaputFormat = false;
+        } else if (requestedCategory === 'CAPAIAN_OUTPUT') {
+          // If explicitly requested as Capaian Output, only use Caput format if it does NOT have full IKPA columns
+          if (!hasIKPAColumns) {
+            isCaputFormat = true;
+          } else {
+            isCaputFormat = false;
+          }
+        } else {
+          // Auto-detection: Only treat as Caput if NO IKPA columns exist AND it matches Caput report patterns
+          if (!hasIKPAColumns) {
+            for (let i = 0; i < Math.min(25, matrix.length); i++) {
+              if (!matrix[i]) continue;
+              const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
+              if (
+                rowStr.includes('rekap kertas kerja capaian output') ||
+                rowStr.includes('konfirmasi capaian output') ||
+                (rowStr.includes('kode') && (rowStr.includes('data masuk') || rowStr.includes('status penyampaian')))
+              ) {
+                isCaputFormat = true;
+                caputHeaderRow = i;
+                break;
+              }
+            }
           }
         }
 
@@ -1064,3 +1103,394 @@ export async function processBroadcastExcel(file: File): Promise<{
     reader.readAsArrayBuffer(file);
   });
 }
+
+/**
+ * Download Template Excel Master Data Satker
+ * Format Kolom H (Kode Satker), Kolom I (Nama Satker), Kolom J (Status Aktif)
+ * Sesuai referensi: https://docs.google.com/spreadsheets/d/1ze5IoKiFUgiehhnceOUh8OouyIt6LQT-
+ */
+export function downloadMasterSatkerTemplate() {
+  const sampleData = [
+    {
+      'No': 1,
+      'Kode BA': '015',
+      'Kementerian / Lembaga': 'KEMENTERIAN KEUANGAN',
+      'Kode Eselon 1': '08',
+      'Unit Eselon 1': 'DIREKTORAT JENDERAL PAJAK',
+      'Kode KPPN': '026',
+      'Nama KPPN': 'KPPN SEMARANG I',
+      'Kode Satker': '651046',
+      'Nama Satker': 'KANTOR PELAYANAN PAJAK PRATAMA SEMARANG CANDISARI',
+      'Status Aktif': 'AKTIF',
+      'Password Satker': 'KPPN026#651046',
+      'Nama PIC': 'Budi Santoso',
+      'No HP PIC': '081234567890',
+      'Email PIC': 'kpp.candisari@pajak.go.id'
+    },
+    {
+      'No': 2,
+      'Kode BA': '060',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'Kode Eselon 1': '01',
+      'Unit Eselon 1': 'POLRI',
+      'Kode KPPN': '026',
+      'Nama KPPN': 'KPPN SEMARANG I',
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Status Aktif': 'AKTIF',
+      'Password Satker': 'KPPN026#652189',
+      'Nama PIC': 'Agus Prasetyo',
+      'No HP PIC': '081298765432',
+      'Email PIC': 'polrestabes.semarang@polri.go.id'
+    },
+    {
+      'No': 3,
+      'Kode BA': '025',
+      'Kementerian / Lembaga': 'KEMENTERIAN AGAMA',
+      'Kode Eselon 1': '04',
+      'Unit Eselon 1': 'DITJEN BIMAS ISLAM',
+      'Kode KPPN': '026',
+      'Nama KPPN': 'KPPN SEMARANG I',
+      'Kode Satker': '416075',
+      'Nama Satker': 'KANTOR KEMENTERIAN AGAMA KOTA SEMARANG',
+      'Status Aktif': 'AKTIF',
+      'Password Satker': 'KPPN026#416075',
+      'Nama PIC': 'Dra. Siti Rahmah',
+      'No HP PIC': '081323456789',
+      'Email PIC': 'kemenag.semarangkota@kemenag.go.id'
+    },
+    {
+      'No': 4,
+      'Kode BA': '018',
+      'Kementerian / Lembaga': 'KEMENTERIAN PERTANIAN',
+      'Kode Eselon 1': '03',
+      'Unit Eselon 1': 'BADAN KARANTINA INDONESIA',
+      'Kode KPPN': '026',
+      'Nama KPPN': 'KPPN SEMARANG I',
+      'Kode Satker': '543210',
+      'Nama Satker': 'BALAI KARANTINA HEWAN, IKAN, DAN TUMBUHAN JATENG (INAKTIF)',
+      'Status Aktif': 'NONAKTIF',
+      'Password Satker': 'KPPN026#543210',
+      'Nama PIC': 'Ir. Hendro Wijaya',
+      'No HP PIC': '081567890123',
+      'Email PIC': 'karantina.jateng@pertanian.go.id'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  
+  // Set explicit column widths
+  worksheet['!cols'] = [
+    { wch: 6 },  // A: No
+    { wch: 10 }, // B: Kode BA
+    { wch: 38 }, // C: Kementerian / Lembaga
+    { wch: 14 }, // D: Kode Eselon 1
+    { wch: 32 }, // E: Unit Eselon 1
+    { wch: 12 }, // F: Kode KPPN
+    { wch: 20 }, // G: Nama KPPN
+    { wch: 15 }, // H: KODE SATKER (Penting)
+    { wch: 50 }, // I: NAMA SATKER (Penting)
+    { wch: 16 }, // J: STATUS AKTIF (Penting: AKTIF / NONAKTIF)
+    { wch: 20 }, // K: Password
+    { wch: 22 }, // L: PIC
+    { wch: 18 }, // M: No HP
+    { wch: 30 }  // N: Email
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Master Data Satker');
+  
+  XLSX.writeFile(workbook, 'Template_Master_Data_Satker_KPPN026.xlsx');
+}
+
+/**
+ * Process Excel file for Master Data Satker
+ * Specifically supports Column H (Kode Satker), Column I (Nama Satker), Column J (Status Aktif)
+ * as well as auto-detecting headers like KD_SATKER, NM_SATKER, STATUS/AKTIF.
+ */
+export async function processMasterSatkerExcel(file: File): Promise<{
+  masterSatkers: MasterSatker[];
+  activeCount: number;
+  nonActiveCount: number;
+  log: UploadLog;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        // 1. Convert to 2D Array Matrix for positional & header inspection
+        const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (!matrix || matrix.length === 0) {
+          throw new Error('File Excel Master Satker kosong atau tidak berisi data.');
+        }
+
+        // Find Header Row Index and map column positions
+        let headerRowIdx = -1;
+        let colKodeIdx = 7;   // Default Column H (0-indexed 7)
+        let colNamaIdx = 8;   // Default Column I (0-indexed 8)
+        let colAktifIdx = 9;  // Default Column J (0-indexed 9)
+        let colBaIdx = 1;     // Column B
+        let colKlIdx = 2;     // Column C
+        let colEs1Idx = 4;    // Column E
+        let colKppnIdx = 5;   // Column F
+        let colNamaKppnIdx = 6; // Column G
+        let colPassIdx = 10;  // Column K
+        let colPicIdx = 11;
+        let colHpIdx = 12;
+        let colEmailIdx = 13;
+
+        // Inspect first 20 rows to detect header labels dynamically
+        for (let r = 0; r < Math.min(20, matrix.length); r++) {
+          const row = matrix[r];
+          if (!row || !Array.isArray(row)) continue;
+
+          const rowClean = row.map(c => String(c || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+          const hasKodeHeader = rowClean.some(c => c === 'kodesatker' || c === 'kdsatker' || c === 'kdsatkerinduk' || c === 'satker');
+          const hasNamaHeader = rowClean.some(c => c === 'namasatker' || c === 'nmsatker' || c === 'satkernama');
+
+          if (hasKodeHeader || (hasNamaHeader && rowClean.some(c => c === 'status' || c === 'aktif' || c === 'statusaktif'))) {
+            headerRowIdx = r;
+            // Map exact column positions based on this header row
+            rowClean.forEach((cellStr, idx) => {
+              if (['kodesatker', 'kdsatker', 'kd_satker', 'kodesatkerinduk'].includes(cellStr)) colKodeIdx = idx;
+              else if (['namasatker', 'nmsatker', 'nm_satker', 'satkernama'].includes(cellStr)) colNamaIdx = idx;
+              else if (['statusaktif', 'status', 'aktif', 'isactive', 'keaktifan', 'stsatker'].includes(cellStr)) colAktifIdx = idx;
+              else if (['kodeba', 'kdba', 'kd_ba', 'ba'].includes(cellStr)) colBaIdx = idx;
+              else if (['kementerianlembaga', 'kementerian', 'lembaga', 'kl', 'namaba', 'nmba'].includes(cellStr)) colKlIdx = idx;
+              else if (['uniteselon1', 'eselon1', 'es1', 'nmeselon1', 'unit'].includes(cellStr)) colEs1Idx = idx;
+              else if (['kodekppn', 'kdkppn', 'kppn'].includes(cellStr)) colKppnIdx = idx;
+              else if (['namakppn', 'nmkppn'].includes(cellStr)) colNamaKppnIdx = idx;
+              else if (['passwordsatker', 'password', 'pass', 'pin'].includes(cellStr)) colPassIdx = idx;
+              else if (['namapic', 'pic', 'pejabat', 'kontak'].includes(cellStr)) colPicIdx = idx;
+              else if (['nohppic', 'nohp', 'wa', 'hp', 'telepon'].includes(cellStr)) colHpIdx = idx;
+              else if (['emailpic', 'email'].includes(cellStr)) colEmailIdx = idx;
+            });
+            break;
+          }
+        }
+
+        // Also fallback to sheet_to_json if matrix header detection was at row 0 or none
+        const startDataRow = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
+        const masterSatkers: MasterSatker[] = [];
+        const seenKodes = new Set<string>();
+        let activeCount = 0;
+        let nonActiveCount = 0;
+
+        for (let r = startDataRow; r < matrix.length; r++) {
+          const row = matrix[r];
+          if (!row || !Array.isArray(row) || row.length === 0) continue;
+
+          // 1. Extract Kode Satker
+          let rawKode = String(row[colKodeIdx] !== undefined ? row[colKodeIdx] : '').trim();
+          // If empty in colKodeIdx, check if any cell contains a 6-digit number
+          if (!rawKode) {
+            for (let c = 0; c < row.length; c++) {
+              const val = String(row[c] || '').trim();
+              if (/^\d{6}$/.test(val)) {
+                rawKode = val;
+                break;
+              }
+            }
+          }
+
+          // Clean Kode Satker (extract 6 digits or clean text)
+          let cleanKode = rawKode.replace(/[^0-9]/g, '');
+          if (cleanKode.length > 6) {
+            // Take the 6-digit satker code portion if format is like 018.01.651046
+            const match = rawKode.match(/(\d{6})/);
+            if (match) cleanKode = match[1];
+            else cleanKode = cleanKode.slice(-6);
+          }
+          if (cleanKode.length < 6 && cleanKode.length > 0) {
+            cleanKode = cleanKode.padStart(6, '0');
+          }
+
+          // 2. Extract Nama Satker
+          let rawNama = cleanText(row[colNamaIdx] !== undefined ? row[colNamaIdx] : '');
+          if (!rawNama) {
+            // Check adjacent cells
+            for (let c = 0; c < row.length; c++) {
+              if (c === colKodeIdx) continue;
+              const val = cleanText(row[c]);
+              if (val.length > 5 && isNaN(Number(val)) && !val.toLowerCase().includes('kppn') && !val.toLowerCase().includes('kemen')) {
+                rawNama = val;
+                break;
+              }
+            }
+          }
+
+          // Skip empty or invalid rows (headers, totals, remarks)
+          if (!cleanKode && !rawNama) continue;
+          if (rawNama.toUpperCase().startsWith('TOTAL') || rawNama.toUpperCase().startsWith('JUMLAH') || rawNama.toUpperCase().startsWith('KETERANGAN')) {
+            continue;
+          }
+
+          if (!cleanKode) {
+            // Fallback if no numeric code: generate temporary identifier
+            continue;
+          }
+
+          if (seenKodes.has(cleanKode)) {
+            // Duplicate row in file, skip or update
+            continue;
+          }
+          seenKodes.add(cleanKode);
+
+          // 3. Extract Status Aktif (Column J)
+          const rawStatus = cleanText(row[colAktifIdx] !== undefined ? row[colAktifIdx] : '').toUpperCase();
+          let isActive = true;
+          if (
+            rawStatus === 'NONAKTIF' || 
+            rawStatus === 'TIDAK AKTIF' || 
+            rawStatus === 'NON AKTIF' || 
+            rawStatus === 'TIDAK' || 
+            rawStatus === 'N' || 
+            rawStatus === 'NO' || 
+            rawStatus === '0' || 
+            rawStatus === 'FALSE' || 
+            rawStatus === 'INAKTIF' || 
+            rawStatus === 'PASIF' ||
+            rawStatus === 'TUTUP'
+          ) {
+            isActive = false;
+          } else {
+            // 'AKTIF', 'Y', 'YA', '1', 'TRUE', 'ACTIVE', 'V' or default blank
+            isActive = true;
+          }
+
+          if (isActive) activeCount++;
+          else nonActiveCount++;
+
+          // 4. Extract Supporting Columns
+          const kodeBa = cleanText(row[colBaIdx] || '').padStart(3, '0');
+          let kementerianLembaga = cleanText(row[colKlIdx] || '');
+          if (!kementerianLembaga) {
+            if (rawNama.includes('KEPOLISIAN') || rawNama.includes('POLRES') || rawNama.includes('POLDA')) {
+              kementerianLembaga = 'KEPOLISIAN NEGARA REPUBLIK INDONESIA';
+            } else if (rawNama.includes('PAJAK') || rawNama.includes('BEA CUKAI') || rawNama.includes('KPKNL')) {
+              kementerianLembaga = 'KEMENTERIAN KEUANGAN';
+            } else if (rawNama.includes('AGAMA') || rawNama.includes('KUA') || rawNama.includes('MAN ') || rawNama.includes('MTsN')) {
+              kementerianLembaga = 'KEMENTERIAN AGAMA';
+            } else if (rawNama.includes('PENGADILAN') || rawNama.includes('MAHKAMAH')) {
+              kementerianLembaga = 'MAHKAMAH AGUNG';
+            } else if (rawNama.includes('KEJAKSAAN')) {
+              kementerianLembaga = 'KEJAKSAAN REPUBLIK INDONESIA';
+            } else if (rawNama.includes('BPS') || rawNama.includes('STATISTIK')) {
+              kementerianLembaga = 'BADAN PUSAT STATISTIK';
+            } else if (rawNama.includes('KPU') || rawNama.includes('PEMILIHAN')) {
+              kementerianLembaga = 'KOMISI PEMILIHAN UMUM';
+            } else {
+              kementerianLembaga = 'KEMENTERIAN / LEMBAGA MITRA';
+            }
+          }
+
+          const unitEselon1 = cleanText(row[colEs1Idx] || '') || 'KPPN Semarang I';
+          const kodeKppn = cleanText(row[colKppnIdx] || '026');
+          const namaKppn = cleanText(row[colNamaKppnIdx] || 'KPPN SEMARANG I');
+          const passwordSatker = cleanText(row[colPassIdx] || '') || `KPPN026#${cleanKode}`;
+          const namaPic = cleanText(row[colPicIdx] || '');
+          const noHpPic = cleanText(row[colHpIdx] || '');
+          const emailPic = cleanText(row[colEmailIdx] || '');
+
+          masterSatkers.push({
+            id: `master-satker-${cleanKode}`,
+            kodeSatker: cleanKode,
+            namaSatker: rawNama || `SATKER KPPN ${cleanKode}`,
+            isActive,
+            kementerianLembaga,
+            kodeBa: kodeBa !== '000' ? kodeBa : undefined,
+            unitEselon1,
+            kodeKppn,
+            namaKppn,
+            passwordSatker,
+            namaPic: namaPic || undefined,
+            noHpPic: noHpPic || undefined,
+            emailPic: emailPic || undefined,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          });
+        }
+
+        if (masterSatkers.length === 0) {
+          throw new Error('Tidak ditemukan baris data Satker yang valid dalam file Excel. Pastikan Kolom H berisi Kode Satker dan Kolom I berisi Nama Satker.');
+        }
+
+        const uploadLog: UploadLog = {
+          id: `log-master-${Date.now()}`,
+          fileName: file.name,
+          uploadDate: new Date().toLocaleString('id-ID'),
+          rowCount: matrix.length,
+          cleanedCount: masterSatkers.length,
+          status: 'Success',
+          notes: [
+            `Berhasil memproses ${masterSatkers.length} Master Data Satker.`,
+            `Status Keaktifan: ${activeCount} Satker AKTIF (Tampil di Dashboard), ${nonActiveCount} Satker NONAKTIF (Disembunyikan).`,
+            `Data Master ini dijadikan acuan penyaringan (source of truth) untuk seluruh data IKPA dan Capaian Output.`
+          ]
+        };
+
+        resolve({
+          masterSatkers,
+          activeCount,
+          nonActiveCount,
+          log: uploadLog
+        });
+      } catch (err: any) {
+        reject(new Error(err.message || 'Gagal membaca file Excel Master Data Satker.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file Excel dari media penyimpanan.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Export Master Data Satker to Excel
+ */
+export function exportMasterSatkerToExcel(masterSatkers: MasterSatker[], fileName: string = 'Master_Data_Satker_KPPN026.xlsx') {
+  const exportData = masterSatkers.map((s, idx) => ({
+    'No': idx + 1,
+    'Kode BA': s.kodeBa || '',
+    'Kementerian / Lembaga': s.kementerianLembaga || '',
+    'Unit Eselon 1': s.unitEselon1 || '',
+    'Kode KPPN': s.kodeKppn || '026',
+    'Nama KPPN': s.namaKppn || 'KPPN SEMARANG I',
+    'Kode Satker': s.kodeSatker,
+    'Nama Satker': s.namaSatker,
+    'Status Aktif': s.isActive ? 'AKTIF' : 'NONAKTIF',
+    'Password Satker': s.passwordSatker || `KPPN026#${s.kodeSatker}`,
+    'Nama PIC': s.namaPic || '',
+    'No HP PIC': s.noHpPic || '',
+    'Email PIC': s.emailPic || ''
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  worksheet['!cols'] = [
+    { wch: 6 },
+    { wch: 10 },
+    { wch: 38 },
+    { wch: 30 },
+    { wch: 12 },
+    { wch: 20 },
+    { wch: 15 },
+    { wch: 50 },
+    { wch: 15 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 18 },
+    { wch: 30 }
+  ];
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Master Data Satker');
+
+  const finalFileName = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`;
+  XLSX.writeFile(workbook, finalFileName);
+}
+

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { AlertTriangle, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 
 // Configure pdfjs worker to match the exact installed pdfjs-dist version
 if (typeof window !== 'undefined') {
@@ -16,7 +16,10 @@ interface PdfSlideViewerProps {
   url?: string;
   currentPage: number;
   zoomLevel: number; // e.g. 100 = 100%
+  rotation?: number; // 0, 90, 180, 270
+  fitMode?: 'page' | 'width';
   onTotalPagesLoaded?: (totalPages: number) => void;
+  onPageChange?: (page: number) => void;
   className?: string;
 }
 
@@ -24,17 +27,55 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
   url,
   currentPage,
   zoomLevel,
+  rotation = 0,
+  fitMode = 'page',
   onTotalPagesLoaded,
+  onPageChange,
   className = ''
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isRendering, setIsRendering] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [renderTask, setRenderTask] = useState<any>(null);
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({ width: 1200, height: 800 });
+  const renderTaskRef = useRef<any>(null);
 
-  // Load PDF Document when url changes
+  // Resize Observer on container for crisp responsive scaling
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          setContainerSize({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height
+          });
+        }
+      }
+    });
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Helper to extract or resolve URL if Google Drive
+  const resolvePdfSource = (rawUrl: string): string => {
+    if (!rawUrl) return '';
+    const trimmed = rawUrl.trim();
+    // If it's a Google Drive URL, try direct download / uc link or standard preview
+    if (trimmed.includes('drive.google.com/file/d/')) {
+      const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        // Direct streamable Google Drive view
+        return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      }
+    }
+    return trimmed;
+  };
+
+  // Load PDF Document when URL changes
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
@@ -49,12 +90,13 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
 
     const loadPdf = async () => {
       try {
+        const resolvedUrl = resolvePdfSource(url);
         let sourceOptions: { data?: Uint8Array; url?: string; cMapUrl?: string; cMapPacked?: boolean };
 
         // 1. Data URL (Base64 PDF)
-        if (url.startsWith('data:application/pdf;base64,') || url.startsWith('data:application/pdf;')) {
-          const commaIdx = url.indexOf(',');
-          const base64Data = commaIdx !== -1 ? url.slice(commaIdx + 1) : url;
+        if (resolvedUrl.startsWith('data:application/pdf;base64,') || resolvedUrl.startsWith('data:application/pdf;')) {
+          const commaIdx = resolvedUrl.indexOf(',');
+          const base64Data = commaIdx !== -1 ? resolvedUrl.slice(commaIdx + 1) : resolvedUrl;
           const binaryString = atob(base64Data);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
@@ -68,7 +110,7 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
         } else {
           // 2. HTTP/HTTPS or Blob URL
           sourceOptions = { 
-            url: url.trim(),
+            url: resolvedUrl,
             cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version || '6.2.108'}/cmaps/`,
             cMapPacked: true
           };
@@ -87,7 +129,7 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
       } catch (err: any) {
         console.error('Error loading PDF in PdfSlideViewer:', err);
         if (isMounted) {
-          setError(err?.message || 'Gagal memuat dokumen PDF untuk Slide Show.');
+          setError(err?.message || 'Gagal memuat dokumen PDF. Pastikan URL atau file PDF valid.');
           setIsLoading(false);
         }
       }
@@ -100,79 +142,97 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
     };
   }, [url]);
 
-  // Render specific page onto canvas when pdfDoc, currentPage, or zoomLevel changes
-  useEffect(() => {
-    let cancelRender = false;
+  // Render specific page onto canvas with high-DPI crisp rendering
+  const renderPage = useCallback(async () => {
+    if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
 
-    const renderPage = async () => {
-      if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
+    const pageNum = Math.min(Math.max(1, currentPage), pdfDoc.numPages || 1);
 
-      const pageNum = Math.min(Math.max(1, currentPage), pdfDoc.numPages || 1);
-
-      try {
-        // Cancel existing render task if in progress
-        if (renderTask) {
-          try {
-            renderTask.cancel();
-          } catch {
-            // ignore cancel
-          }
-        }
-
-        const page = await pdfDoc.getPage(pageNum);
-        if (cancelRender) return;
-
-        const canvas = canvasRef.current;
-        const container = containerRef.current;
-        const context = canvas.getContext('2d');
-        if (!context) return;
-
-        // Determine optimal scale to fit container width & height
-        const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const containerWidth = container.clientWidth || 900;
-        const containerHeight = container.clientHeight || 600;
-
-        const scaleX = (containerWidth - 32) / unscaledViewport.width;
-        const scaleY = (containerHeight - 32) / unscaledViewport.height;
-        const baseScale = Math.min(scaleX, scaleY, 2.5);
-        const finalScale = (baseScale > 0.1 ? baseScale : 1.0) * (zoomLevel / 100);
-
-        const dpr = window.devicePixelRatio || 1;
-        const viewport = page.getViewport({ scale: finalScale * dpr });
-
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / dpr}px`;
-        canvas.style.height = `${viewport.height / dpr}px`;
-
-        const newRenderTask = page.render({
-          canvasContext: context,
-          viewport: viewport,
-          intent: 'display'
-        });
-
-        setRenderTask(newRenderTask);
-        await newRenderTask.promise;
-      } catch (err: any) {
-        if (err.name !== 'RenderingCancelledException') {
-          console.error('Error rendering PDF page:', err);
+    try {
+      if (renderTaskRef.current) {
+        try {
+          renderTaskRef.current.cancel();
+        } catch {
+          // ignore
         }
       }
-    };
 
+      setIsRendering(true);
+      const page = await pdfDoc.getPage(pageNum);
+
+      const canvas = canvasRef.current;
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) {
+        setIsRendering(false);
+        return;
+      }
+
+      // Calculate viewport rotation (Firefox PDF standard: 0, 90, 180, 270)
+      const effectiveRotation = (rotation % 360 + 360) % 360;
+      const unscaledViewport = page.getViewport({ scale: 1.0, rotation: effectiveRotation });
+
+      const containerWidth = Math.max(containerSize.width, 300);
+      const containerHeight = Math.max(containerSize.height, 300);
+
+      // Fit calculation
+      let baseScale = 1.0;
+      if (fitMode === 'width') {
+        baseScale = (containerWidth - 32) / unscaledViewport.width;
+      } else {
+        // Fit whole page (standard presentation mode)
+        const scaleX = (containerWidth - 40) / unscaledViewport.width;
+        const scaleY = (containerHeight - 40) / unscaledViewport.height;
+        baseScale = Math.min(scaleX, scaleY);
+      }
+
+      if (baseScale <= 0 || isNaN(baseScale)) baseScale = 1.0;
+
+      // Apply zoom multiplier
+      const finalScale = baseScale * (zoomLevel / 100);
+
+      // High DPI retina scaling for razor-sharp text
+      const dpr = Math.max(window.devicePixelRatio || 1, 2);
+      const viewport = page.getViewport({ scale: finalScale * dpr, rotation: effectiveRotation });
+
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = `${viewport.width / dpr}px`;
+      canvas.style.height = `${viewport.height / dpr}px`;
+
+      // Fill white background first
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const renderTask = page.render({
+        canvasContext: context,
+        viewport: viewport,
+        intent: 'display'
+      });
+
+      renderTaskRef.current = renderTask;
+      await renderTask.promise;
+      setIsRendering(false);
+    } catch (err: any) {
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error('Error rendering PDF page in presentation mode:', err);
+      }
+      setIsRendering(false);
+    }
+  }, [pdfDoc, currentPage, zoomLevel, rotation, fitMode, containerSize]);
+
+  useEffect(() => {
     renderPage();
 
     return () => {
-      cancelRender = true;
-      if (renderTask) {
+      if (renderTaskRef.current) {
         try {
-          renderTask.cancel();
+          renderTaskRef.current.cancel();
         } catch {
           // ignore
         }
       }
     };
-  }, [pdfDoc, currentPage, zoomLevel]);
+  }, [renderPage]);
 
   if (error) {
     return (
@@ -183,15 +243,15 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
         <div className="space-y-1 max-w-md">
           <h4 className="text-sm font-extrabold text-white">Pratinjau Dokumen Slide</h4>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Menampilkan pratinjau langsung melalui browser preview frame.
+            Menampilkan slide dokumen melalui embed preview.
           </p>
         </div>
-        {/* Fallback iframe */}
         {url && (
           <iframe
             src={url}
-            title="PDF Fallback"
-            className="w-full h-96 rounded-xl border border-slate-800 bg-slate-900"
+            title="Dokumen Slide"
+            className="w-full h-[75vh] rounded-xl border border-slate-800 bg-slate-900 shadow-2xl"
+            allowFullScreen
           />
         )}
       </div>
@@ -201,16 +261,25 @@ export const PdfSlideViewer: React.FC<PdfSlideViewerProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full h-full flex items-center justify-center overflow-auto bg-slate-950 p-4 ${className}`}
+      className={`relative w-full h-full flex items-center justify-center overflow-auto bg-black p-2 sm:p-4 ${className}`}
     >
       {isLoading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-xs space-y-2">
-          <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
-          <span className="text-xs font-bold text-slate-300">Menyiapkan Slide PDF Halaman {currentPage}...</span>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-xs space-y-3">
+          <Loader2 className="w-9 h-9 text-indigo-400 animate-spin" />
+          <div className="text-center">
+            <p className="text-xs font-black text-white">Memuat Dokumen Slide Presentation...</p>
+            <p className="text-[11px] text-slate-400">Menyiapkan mode presentasi PDF resolusi tinggi</p>
+          </div>
         </div>
       )}
 
-      <div className="relative shadow-2xl rounded-lg overflow-hidden bg-white max-w-full max-h-full flex items-center justify-center">
+      {/* Slide Canvas Wrapper with smooth shadow */}
+      <div 
+        className="relative shadow-[0_20px_60px_rgba(0,0,0,0.8)] rounded-md overflow-hidden bg-white max-w-full max-h-full flex items-center justify-center transition-all"
+        style={{
+          boxShadow: '0 10px 40px -10px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.08)'
+        }}
+      >
         <canvas ref={canvasRef} className="block select-none" />
       </div>
     </div>

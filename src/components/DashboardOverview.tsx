@@ -36,7 +36,9 @@ import {
   FileSpreadsheet,
   FileText,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BarChart3,
+  Zap
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
@@ -44,6 +46,7 @@ interface DashboardOverviewProps {
   onSelectSatker: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
   onGoToUpload: () => void;
+  onGoToCapaianOutput?: () => void;
   dashboardConfig?: DashboardConfig;
   theme?: AppTheme;
 }
@@ -53,11 +56,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onSelectSatker,
   onOpenReminder,
   onGoToUpload,
+  onGoToCapaianOutput,
   dashboardConfig,
   theme = 'light'
 }) => {
   const [filterPredikat, setFilterPredikat] = useState<string>('ALL');
-  const [filterIssue, setFilterIssue] = useState<string>(dashboardConfig?.defaultFilter || 'BELUM_OUTPUT');
+  const [filterIssue, setFilterIssue] = useState<string>(dashboardConfig?.defaultFilter || 'ALL');
 
   // Sync defaultFilter when dashboardConfig updates
   useEffect(() => {
@@ -77,8 +81,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
   ];
 
-  // Compute KPPN overall monthly aggregate data
-  const kppnMonthlyDataAll = getKPPNMonthlyAggregate(satkers);
+  // Calculated Stats (Only include satkers that actually have IKPA data for IKPA dashboard)
+  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
+  const totalSatker = satkersWithIKPA.length;
+
+  // Compute KPPN overall monthly aggregate data based on satkersWithIKPA
+  const kppnMonthlyDataAll = getKPPNMonthlyAggregate(satkersWithIKPA);
   const availableMonths = kppnMonthlyDataAll.map(d => d.bulan);
   const firstUploadedMonth = availableMonths[0] || 'Januari';
   const latestUploadedMonth = availableMonths[availableMonths.length - 1] || 'Januari';
@@ -113,29 +122,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const deltaPenyerapanNum = lastMonthData && firstMonthData ? Number((lastMonthData.avgPenyerapan - firstMonthData.avgPenyerapan).toFixed(1)) : 0;
   const deltaOutputNum = lastMonthData && firstMonthData ? Number((lastMonthData.avgCapaianOutput - firstMonthData.avgCapaianOutput).toFixed(1)) : 0;
 
-  // Calculated Stats (Only include satkers that actually have IKPA data for IKPA averages)
-  const totalSatker = satkers.length;
-  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0));
-  const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
-
   const avgIKPA = hasAnyIKPA 
     ? (satkersWithIKPA.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / satkersWithIKPA.length).toFixed(2)
     : '0.00';
 
-  const totalPagu = satkers.reduce((acc, s) => acc + s.paguAnggaran, 0);
-  const totalRealisasi = satkers.reduce((acc, s) => acc + s.realisasiAnggaran, 0);
+  const totalPagu = satkersWithIKPA.reduce((acc, s) => acc + s.paguAnggaran, 0);
+  const totalRealisasi = satkersWithIKPA.reduce((acc, s) => acc + s.realisasiAnggaran, 0);
   const totalPersenPenyerapan = totalPagu > 0 
     ? ((totalRealisasi / totalPagu) * 100).toFixed(2) 
     : '0.00';
 
   const satkerPerluPerhatian = hasAnyIKPA ? satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5) : [];
-  const satkerBelumCapaian = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.indikator.capaianOutput === 0);
-  const satkerSudahCapaian = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
+  const satkerBelumCapaian = satkersWithIKPA.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.indikator.capaianOutput === 0);
+  const satkerSudahCapaian = satkersWithIKPA.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
   const satkerPenyerapanRendah = hasAnyIKPA ? satkersWithIKPA.filter(s => s.persenPenyerapan < 70) : [];
-  const avgCapaianOutputScore = (satkers.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / (totalSatker || 1)).toFixed(1);
+  const avgCapaianOutputScore = totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / totalSatker).toFixed(1) : '0.0';
 
-  // Filter & Sort Logic (Prioritize satker with 0% Capaian Output at the top)
-  const filteredSatkers = satkers.filter(s => {
+  // Filter & Sort Logic for IKPA Satkers
+  const filteredSatkers = satkersWithIKPA.filter(s => {
     // Filter Predikat
     if (filterPredikat !== 'ALL' && s.predikat !== filterPredikat) {
       return false;
@@ -168,19 +172,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     if (aBelum && !bBelum) return -1;
     if (!aBelum && bBelum) return 1;
 
-    // Secondary Priority: Skor Capaian Output terendah dulu (0% paling atas)
-    if (a.indikator.capaianOutput !== b.indikator.capaianOutput) {
-      return a.indikator.capaianOutput - b.indikator.capaianOutput;
-    }
-
-    // Tertiary Priority: Total Nilai IKPA terendah
+    // Secondary Priority: Total Nilai IKPA terendah
     return a.nilaiTotalIKPA - b.nilaiTotalIKPA;
   });
 
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterPredikat, filterIssue, satkers.length]);
+  }, [filterPredikat, filterIssue, satkersWithIKPA.length]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSatkers.length / (pageSize > 0 ? pageSize : filteredSatkers.length || 1)));
   const paginatedSatkers = pageSize === -1 
@@ -189,14 +188,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   // Calculate Indicator Averages for Progress Bars
   const avgIndicators = {
-    revisiDipa: (satkers.reduce((acc, s) => acc + s.indikator.revisiDipa, 0) / (totalSatker || 1)).toFixed(1),
-    deviasiHal3Dipa: (satkers.reduce((acc, s) => acc + s.indikator.deviasiHal3Dipa, 0) / (totalSatker || 1)).toFixed(1),
-    penyerapanAnggaran: (satkers.reduce((acc, s) => acc + s.indikator.penyerapanAnggaran, 0) / (totalSatker || 1)).toFixed(1),
-    belanjaKontraktual: (satkers.reduce((acc, s) => acc + s.indikator.belanjaKontraktual, 0) / (totalSatker || 1)).toFixed(1),
-    penyelesaianTagihan: (satkers.reduce((acc, s) => acc + s.indikator.penyelesaianTagihan, 0) / (totalSatker || 1)).toFixed(1),
-    pengelolaanUpTup: (satkers.reduce((acc, s) => acc + s.indikator.pengelolaanUpTup, 0) / (totalSatker || 1)).toFixed(1),
-    dispensasiSpm: (satkers.reduce((acc, s) => acc + s.indikator.dispensasiSpm, 0) / (totalSatker || 1)).toFixed(1),
-    capaianOutput: (satkers.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / (totalSatker || 1)).toFixed(1),
+    revisiDipa: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.revisiDipa, 0) / totalSatker).toFixed(1) : '0.0',
+    deviasiHal3Dipa: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.deviasiHal3Dipa, 0) / totalSatker).toFixed(1) : '0.0',
+    penyerapanAnggaran: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.penyerapanAnggaran, 0) / totalSatker).toFixed(1) : '0.0',
+    belanjaKontraktual: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.belanjaKontraktual, 0) / totalSatker).toFixed(1) : '0.0',
+    penyelesaianTagihan: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.penyelesaianTagihan, 0) / totalSatker).toFixed(1) : '0.0',
+    pengelolaanUpTup: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.pengelolaanUpTup, 0) / totalSatker).toFixed(1) : '0.0',
+    dispensasiSpm: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.dispensasiSpm, 0) / totalSatker).toFixed(1) : '0.0',
+    capaianOutput: totalSatker > 0 ? (satkersWithIKPA.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / totalSatker).toFixed(1) : '0.0',
   };
 
   const formatRupiah = (val: number) => {
@@ -339,44 +338,61 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         )}
       </div>
 
-      {/* Clean Slate Empty State Notice Banner */}
-      {satkers.length === 0 && (
-        <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-indigo-950 p-6 sm:p-8 rounded-3xl border border-sky-500/30 text-white shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 bg-sky-500/20 text-sky-300 border border-sky-500/30 px-3 py-1 rounded-full text-xs font-extrabold">
-              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-              MONITORING REAL-TIME KPPN SEMARANG I (026)
-            </div>
-            <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Belum Ada Data IKPA Dipublikasikan
-            </h3>
-            <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Belum ada data IKPA KPPN Semarang I yang diunggah oleh Administrator KPPN. Data akan ditampilkan di dashboard ini secara otomatis setelah Administrator mengunggah file Excel KPPN.
-            </p>
+      {/* Clean Slate / Capaian Output Active Notice Banner */}
+      {!hasAnyIKPA ? (
+        <div className={`p-8 sm:p-12 rounded-3xl border text-center shadow-lg space-y-6 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto border shadow-inner ${
+            isDark ? 'bg-slate-800/80 text-emerald-400 border-slate-700' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+          }`}>
+            <BarChart3 className="w-10 h-10" />
           </div>
-        </div>
-      )}
 
-      {/* Mode Capaian Output SAKTI Active Notice (When IKPA is not uploaded or hidden) */}
-      {!hasAnyIKPA && satkers.length > 0 && (
-        <div className="bg-sky-500/10 border border-sky-500/30 p-4 rounded-2xl flex items-start gap-3 text-sky-900 dark:text-sky-200 text-xs">
-          <FileCheck className="w-5 h-5 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <span className="font-extrabold uppercase tracking-wider text-[11px] text-sky-700 dark:text-sky-300 block">
-              STATUS DATA: KHUSUS CAPAIAN OUTPUT SAKTI AKTIF
+          <div className="max-w-xl mx-auto space-y-2">
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+              {satkers.length > 0 ? 'DATA CAPAIAN OUTPUT AKTIF (TERISOLASI)' : 'BELUM ADA DATA IKPA'}
             </span>
-            <p className="leading-relaxed text-slate-600 dark:text-slate-300">
-              Data yang dimuat saat ini adalah Laporan Capaian Output SAKTI. Widget, grafik tren, dan 8 indikator IKPA (Total IKPA, Deviasi Hal III DIPA, Realisasi Pagu) disembunyikan secara otomatis agar fokus pada percepatan pengiriman Capaian Output. Data IKPA akan otomatis aktif kembali saat Admin mengunggah file Excel IKPA KPPN.
+            <h3 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              {satkers.length > 0 ? 'Dashboard IKPA Kosong (Terisolasi dari Capaian Output)' : 'Dashboard IKPA Belum Memiliki Data'}
+            </h3>
+            <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              {satkers.length > 0
+                ? `Anda telah mengunggah Laporan Capaian Output SAKTI (${satkers.length} Satker). Data tersebut diproses dan dipantau secara penuh di tab "Capaian Output SAKTI" tanpa memengaruhi atau mencemari Dashboard IKPA ini. Dashboard IKPA akan terisi otomatis saat Anda mengunggah File Excel IKPA KPPN (8 Indikator).`
+                : 'Belum ada data Satker yang diunggah ke sistem. Silakan unggah file Excel IKPA untuk memuat data evaluasi dan monitoring 8 indikator.'}
             </p>
           </div>
-        </div>
-      )}
 
-      {/* KPI Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        {hasAnyIKPA ? (
-          <>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            {satkers.length > 0 && onGoToCapaianOutput && (
+              <button
+                onClick={onGoToCapaianOutput}
+                className="px-6 py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-600/30 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Buka Tab Capaian Output SAKTI ({satkers.length} Satker) &rarr;</span>
+              </button>
+            )}
+
+            <button
+              onClick={onGoToUpload}
+              className={`px-6 py-3 rounded-2xl font-bold text-sm border flex items-center gap-2 transition-all cursor-pointer ${
+                satkers.length === 0
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 shadow-lg shadow-emerald-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' 
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
+              <span>Upload File Excel IKPA (8 Indikator)</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* KPI Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Card 1: Total Satker & Avg Score */}
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
@@ -461,106 +477,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </span>
               </div>
             </div>
-          </>
-        ) : (
-          <>
-            {/* Card 1: Total Satker Terdaftar */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-                <span>TOTAL SATKER DIPANTAU</span>
-                <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
-                  <Building2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">{totalSatker}</span>
-                <span className="text-xs font-semibold text-slate-500">Satker</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600">
-                <span>Lingkup Wilayah:</span>
-                <span className="font-bold text-slate-900">KPPN Semarang I</span>
-              </div>
-            </div>
+          </div>
 
-            {/* Card 2: Sudah Terlaporkan Capaian Output */}
-            <div 
-              onClick={() => setFilterIssue(filterIssue === 'SUDAH_OUTPUT' ? 'ALL' : 'SUDAH_OUTPUT')}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-                filterIssue === 'SUDAH_OUTPUT' 
-                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500 shadow-md' 
-                  : 'bg-white border-emerald-200 shadow-xs hover:shadow-md'
-              }`}
-            >
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-                <span className="font-bold text-emerald-700">SUDAH LAPOR CAPAIAN OUTPUT</span>
-                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-emerald-600">{satkerSudahCapaian.length}</span>
-                <span className="text-xs font-semibold text-emerald-600">Satker ({totalSatker > 0 ? ((satkerSudahCapaian.length / totalSatker) * 100).toFixed(0) : 0}%)</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs border-t border-emerald-100 pt-2 text-emerald-700">
-                <span>Status Data:</span>
-                <span className="font-bold text-emerald-800">Sudah Terisi &gt;0%</span>
-              </div>
-            </div>
-
-            {/* Card 3: Belum Capaian Output (0% Data Masuk) */}
-            <div 
-              onClick={() => setFilterIssue(filterIssue === 'BELUM_OUTPUT' ? 'ALL' : 'BELUM_OUTPUT')}
-              className={`p-5 rounded-2xl border transition-all cursor-pointer ${
-                filterIssue === 'BELUM_OUTPUT' 
-                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500 shadow-md' 
-                  : 'bg-white border-rose-200 shadow-xs hover:shadow-md'
-              }`}
-            >
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-                <span className="font-extrabold text-rose-700">BELUM CAPAIAN OUTPUT (0% DATA)</span>
-                <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
-                  <AlertCircle className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-rose-600">{satkerBelumCapaian.length}</span>
-                <span className="text-xs font-semibold text-rose-500">Satker (0% Masuk)</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs border-t border-rose-100 pt-2 text-rose-700 font-semibold">
-                <span>Klik Untuk Filter:</span>
-                <span className="bg-rose-200/80 text-rose-900 px-2 py-0.5 rounded text-[10px] font-bold">
-                  {filterIssue === 'BELUM_OUTPUT' ? '✓ Aktif' : 'Tampilkan 0%'}
-                </span>
-              </div>
-            </div>
-
-            {/* Card 4: Rata-Rata Capaian Output SAKTI */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-                <span>RATA-RATA CAPAIAN OUTPUT</span>
-                <div className="p-2 rounded-xl bg-sky-50 text-sky-600">
-                  <TrendingUp className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-black text-slate-900">{avgCapaianOutputScore}</span>
-                <span className="text-xs font-semibold text-sky-600">/ 100</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-100 pt-2 text-slate-600 truncate">
-                <span>Target Standar Nasional:</span>
-                <span className="font-bold text-emerald-600">≥ 87.50 Poin</span>
-              </div>
-            </div>
-          </>
-        )}
-
-      </div>
-
-      {/* OVERALL KPPN MONTHLY TREND CHART WITH MONTH RANGE FILTER */}
-      {hasAnyIKPA && (
-      <div className={`p-6 rounded-3xl border shadow-xs space-y-6 ${
-        isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
-      }`}>
+          {/* OVERALL KPPN MONTHLY TREND CHART WITH MONTH RANGE FILTER */}
+          <div className={`p-6 rounded-3xl border shadow-xs space-y-6 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
         {/* Header & Filter Controls */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div>
@@ -815,11 +737,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
         </div>
       </div>
-      )}
 
       {/* Rata-Rata Indikator Performance Grid */}
-      {hasAnyIKPA && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <PieChart className="w-5 h-5 text-emerald-600" />
@@ -924,7 +844,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
           </div>
         </div>
-      )}
 
       {/* Satker Main Table Section */}
       <div className={`rounded-2xl border shadow-xs overflow-hidden ${
@@ -1343,6 +1262,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
       </div>
+        </>
+      )}
 
     </div>
   );

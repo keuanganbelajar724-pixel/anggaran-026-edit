@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker } from './types';
 import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { Header } from './components/Header';
@@ -256,6 +256,28 @@ export default function App() {
 
   const [sertifikasiLastUpdate, setSertifikasiLastUpdate] = useState<string>('07 Agustus 2026 jam 13:45 WIB');
 
+  // Master Data Satker State (Source of Truth untuk IKPA & Capaian Output)
+  const [masterSatkers, setMasterSatkers] = useState<MasterSatker[]>(() => {
+    const saved = localStorage.getItem('kppn_master_satkers');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved master satkers:', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_master_satkers', JSON.stringify(masterSatkers));
+    } catch (e) {
+      console.warn('Error saving master satkers to localStorage:', e);
+    }
+  }, [masterSatkers]);
+
   // Presensi Online State & Persistence
   const [presensiPesertaList, setPresensiPesertaList] = useState<PesertaPresensi[]>(() => {
     const saved = localStorage.getItem('kppn_presensi_peserta');
@@ -499,9 +521,18 @@ export default function App() {
     );
   });
 
-  const redFlagsCount = satkers.filter(s => 
-    s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan'
-  ).length;
+  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  const ikpaSatkerCount = satkersWithIKPA.length;
+
+  const redFlagsCount = satkersWithIKPA.filter(s => {
+    return (
+      s.nilaiTotalIKPA < 87.5 || 
+      s.statusCapaianOutput !== 'Sudah Terlaporkan' || 
+      (s.indikator && s.indikator.capaianOutput === 0) || 
+      s.persenPenyerapan < 70 || 
+      s.indikator.deviasiHal3Dipa < 75
+    );
+  }).length;
 
   const belumCapaianCount = satkers.filter(s => 
     s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0
@@ -537,7 +568,7 @@ export default function App() {
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
   };
 
-  const handleApplyNewSatkers = (newSatkers: SatkerIKPA[], appendMode: boolean) => {
+  const handleApplyNewSatkers = (newSatkers: SatkerIKPA[], appendMode: boolean, targetTab: NavigationTab = 'dashboard') => {
     let result: SatkerIKPA[] = [];
     if (appendMode) {
       result = [...newSatkers, ...satkers];
@@ -547,7 +578,7 @@ export default function App() {
     setSatkers(result);
     syncSatkersToFirebase(result);
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
-    setActiveTab('dashboard');
+    setActiveTab(targetTab);
   };
 
   const handleOpenReminderSingle = (satker: SatkerIKPA) => {
@@ -606,7 +637,7 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        satkerCount={satkers.length}
+        satkerCount={ikpaSatkerCount}
         redFlagsCount={redFlagsCount}
         belumCapaianCount={belumCapaianCount}
         sertifikasiUnapprovedCount={sertifikasiUnapprovedCount}
@@ -693,6 +724,7 @@ export default function App() {
                     onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
                     onOpenReminder={handleOpenReminderSingle}
                     onGoToUpload={() => setActiveTab('admin')}
+                    onGoToCapaianOutput={() => setActiveTab('capaian-output')}
                     dashboardConfig={dashboardConfig}
                     theme={theme}
                   />
@@ -711,10 +743,11 @@ export default function App() {
 
             {activeTab === 'redflags' && (
               <RedFlagsView
-                satkers={searchedSatkers}
+                satkers={searchedSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)))}
                 onOpenReminder={handleOpenReminderSingle}
                 onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
                 onOpenBulkReminder={handleOpenReminderBulk}
+                onGoToUpload={() => setActiveTab('admin')}
                 theme={theme}
                 dashboardConfig={dashboardConfig}
               />

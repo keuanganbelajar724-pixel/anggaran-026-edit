@@ -20,6 +20,7 @@ interface RedFlagsViewProps {
   onOpenReminder: (satker: SatkerIKPA) => void;
   onSelectSatker: (satker: SatkerIKPA) => void;
   onOpenBulkReminder: (targetSatkers: SatkerIKPA[]) => void;
+  onGoToUpload?: () => void;
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
 }
@@ -29,20 +30,25 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
   onOpenReminder,
   onSelectSatker,
   onOpenBulkReminder,
+  onGoToUpload,
   theme = 'light',
   dashboardConfig
 }) => {
   const isDark = theme === 'dark';
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'OUTPUT' | 'IKPA_LOW' | 'PENYERAPAN' | 'DEVIASI'>('ALL');
 
-  // Filter Problematic Satkers
-  const satkerBelumOutput = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan');
-  const satkerIKPALow = satkers.filter(s => s.nilaiTotalIKPA < 87.5);
-  const satkerPenyerapanRendah = satkers.filter(s => s.persenPenyerapan < 70);
-  const satkerDeviasiTinggi = satkers.filter(s => s.indikator.deviasiHal3Dipa < 75);
+  // Filter Problematic Satkers ONLY from satkers that have actual IKPA data
+  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+
+  const satkerBelumOutput = satkersWithIKPA.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0));
+  const satkerIKPALow = satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5);
+  const satkerPenyerapanRendah = satkersWithIKPA.filter(s => s.persenPenyerapan < 70);
+  const satkerDeviasiTinggi = satkersWithIKPA.filter(s => s.indikator.deviasiHal3Dipa < 75);
 
   let displayedSatkers: SatkerIKPA[] = [];
-  if (activeCategory === 'OUTPUT') {
+  if (satkersWithIKPA.length === 0) {
+    displayedSatkers = [];
+  } else if (activeCategory === 'OUTPUT') {
     displayedSatkers = satkerBelumOutput;
   } else if (activeCategory === 'IKPA_LOW') {
     displayedSatkers = satkerIKPALow;
@@ -53,8 +59,8 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
   } else {
     // Unique list of satkers with at least 1 issue
     const idSet = new Set<string>();
-    displayedSatkers = satkers.filter(s => {
-      const hasIssue = s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 70 || s.indikator.deviasiHal3Dipa < 75;
+    displayedSatkers = satkersWithIKPA.filter(s => {
+      const hasIssue = s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0) || s.persenPenyerapan < 70 || s.indikator.deviasiHal3Dipa < 75;
       if (hasIssue && !idSet.has(s.id)) {
         idSet.add(s.id);
         return true;
@@ -123,7 +129,7 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
           }`}
         >
           <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Semua Satker Red Flag</div>
-          <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{satkers.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan').length}</div>
+          <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0) || s.persenPenyerapan < 70 || s.indikator.deviasiHal3Dipa < 75).length}</div>
           <div className="text-[11px] opacity-80 mt-1">Gagal Target / Belum Output</div>
         </button>
 
@@ -197,13 +203,25 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
           }`}>
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
             <p className={`text-base font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              {satkers.length === 0 ? 'Belum Ada Data Satker (0 Satker)' : 'Luar biasa! Tidak ada Satker pada kategori masalah ini.'}
+              {satkersWithIKPA.length === 0 
+                ? 'Belum Ada Data Evaluasi IKPA (0 Satker)' 
+                : 'Luar biasa! Tidak ada Satker pada kategori masalah ini.'}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {satkers.length === 0 
-                ? 'Seluruh data dummy telah dikosongkan. Silakan unggah file Excel Anda di menu Admin & Upload Excel.'
+            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+              {satkersWithIKPA.length === 0 
+                ? 'Tab Perlu Perhatian terhubung langsung dengan Dashboard IKPA (8 Indikator). Silakan unggah File Excel IKPA di menu Admin untuk memuat evaluasi dan deteksi risiko kinerja.'
                 : 'Seluruh Satker mitra KPPN Semarang I dalam kelompok ini telah memenuhi kualifikasi target.'}
             </p>
+            {satkersWithIKPA.length === 0 && onGoToUpload && (
+              <div className="pt-4">
+                <button
+                  onClick={onGoToUpload}
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs border border-slate-300 dark:border-slate-700 inline-flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Upload File Excel IKPA &rarr;</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           displayedSatkers.map((satker) => (

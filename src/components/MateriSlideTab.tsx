@@ -19,8 +19,11 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   ZoomIn,
   ZoomOut,
+  RotateCw,
   RotateCcw,
   Pencil,
   Highlighter,
@@ -39,7 +42,8 @@ import {
   KeyRound,
   Eye,
   EyeOff,
-  Globe
+  Globe,
+  Scan
 } from 'lucide-react';
 import { PresentationMaterial, AppTheme, DashboardConfig } from '../types';
 import { PdfSlideViewer } from './PdfSlideViewer';
@@ -98,6 +102,8 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(1);
   const [detectedPdfPages, setDetectedPdfPages] = useState<number | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(100); // 100% default
+  const [rotation, setRotation] = useState<number>(0); // 0, 90, 180, 270 deg (Firefox PDF style)
+  const [fitMode, setFitMode] = useState<'page' | 'width'>('page'); // 'page' or 'width'
   const [isPlayingAuto, setIsPlayingAuto] = useState<boolean>(false);
   const [autoSpeedSeconds, setAutoSpeedSeconds] = useState<number>(5);
 
@@ -269,6 +275,8 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
       setCurrentSlideIndex(1);
       setDetectedPdfPages(null);
       setZoomLevel(100);
+      setRotation(0);
+      setFitMode('page');
       setPanOffset({ x: 0, y: 0 });
       setIsPlayingAuto(false);
       setTimerSeconds(0);
@@ -280,6 +288,7 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
       setDetectedPdfPages(null);
       setIsTimerRunning(false);
       setPanOffset({ x: 0, y: 0 });
+      setRotation(0);
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
       }
@@ -309,7 +318,7 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     return () => clearInterval(playInterval);
   }, [isPlayingAuto, autoSpeedSeconds, activeSlideShow, detectedPdfPages]);
 
-  // Keyboard Navigation Listener
+  // Keyboard Navigation Listener (Firefox PDF Presentation Mode compliant)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!activeSlideShow) return;
@@ -322,18 +331,33 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
         e.preventDefault();
         setCurrentSlideIndex(prev => Math.max(1, prev - 1));
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        setCurrentSlideIndex(1);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        setCurrentSlideIndex(total);
       } else if (e.key === 'ArrowDown') {
         e.preventDefault();
         scrollSlideDown();
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         scrollSlideUp();
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        setRotation(prev => (e.shiftKey ? (prev - 90 + 360) % 360 : (prev + 90) % 360));
       } else if (e.key === 'h' || e.key === 'H') {
         setActiveTool(prev => (prev === 'hand' ? 'pointer' : 'hand'));
       } else if (e.key === 'f' || e.key === 'F') {
         toggleNativeFullscreen();
       } else if (e.key === 'c' || e.key === 'C') {
         clearCanvas();
+      } else if (e.key === '+' || e.key === '=') {
+        setZoomLevel(prev => Math.min(200, prev + 15));
+      } else if (e.key === '-') {
+        setZoomLevel(prev => Math.max(50, prev - 15));
+      } else if (e.key === '0') {
+        resetPanAndZoom();
       } else if (e.key === '?') {
         setShowShortcutsHelp(prev => !prev);
       }
@@ -541,35 +565,37 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
            lower.includes('.pdf?');
   };
 
-  // Helper to format embed URL for Google Slides and Google Drive
+  // Helper to format embed URL for Google Slides and Google Drive with active slide/page number
   const formatEmbedUrl = (rawUrl: string, slideIndex: number): string => {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
     let url = rawUrl.trim();
     
     // 1. Google Slides Presentation
     if (url.includes('docs.google.com/presentation')) {
-      if (!url.includes('/embed')) {
-        url = url.replace(/\/edit.*$/, `/embed?start=false&loop=false&delayms=3000`);
-        url = url.replace(/\/pub.*$/, `/embed?start=false&loop=false&delayms=3000`);
-      } else {
-        url = url.replace(/[?#].*$/, `?start=false&loop=false&delayms=3000`);
+      const match = url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000&slide=${slideIndex}`;
       }
-      return url;
+      return url.replace(/\/(edit|view|present|preview|pub).*$/, `/embed?start=false&loop=false&delayms=3000&slide=${slideIndex}`);
     }
 
-    // 2. Google Drive PDF / Document Preview File
+    // 2. Google Drive PDF / Presentation / Document Preview File
     if (url.includes('drive.google.com')) {
+      const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/file/d/${match[1]}/preview#page=${slideIndex}`;
+      }
       url = url.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
       if (!url.includes('/preview')) {
         url = url.replace(/\/$/, '') + '/preview';
       }
-      return url;
+      return `${url}#page=${slideIndex}`;
     }
 
     // 3. Direct PDF (Data URL Base64, Blob URL, or Web PDF)
     if (url.startsWith('data:application/pdf') || url.toLowerCase().includes('.pdf') || url.startsWith('blob:')) {
       const baseUrl = url.split('#')[0];
-      return `${baseUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
+      return `${baseUrl}#page=${slideIndex}&toolbar=0&navpanes=0&scrollbar=1&view=FitH`;
     }
 
     return url;
@@ -1032,46 +1058,35 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                 className="w-full h-full flex flex-col bg-slate-950 text-white relative overflow-hidden"
               >
                 
-                {/* Top Modal Header */}
-                <div className="p-2.5 sm:p-3 bg-slate-900/95 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 shrink-0 z-30 backdrop-blur-md">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2 rounded-xl bg-indigo-600 text-white shrink-0 shadow-md shadow-indigo-600/30">
-                      <Presentation className="w-4 h-4 sm:w-5 sm:h-5" />
+                {/* Top Modal Header - Minimalist Sleek Presentation Bar */}
+                <div className="px-3 py-2 bg-slate-900/95 border-b border-slate-800/80 flex items-center justify-between gap-3 shrink-0 z-30 backdrop-blur-md">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-1.5 rounded-lg bg-indigo-600/80 text-white shrink-0 shadow-sm">
+                      <Presentation className="w-4 h-4" />
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-700/60">
-                          {activeSlideShow.category}
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-700/50 shrink-0">
+                        {activeSlideShow.category}
+                      </span>
+                      {activeSlideShow.accessType === 'INTERNAL' ? (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-950/80 text-amber-300 border border-amber-700/50 flex items-center gap-1 shrink-0">
+                          <Lock className="w-2.5 h-2.5" /> INTERNAL
                         </span>
-                        {activeSlideShow.accessType === 'INTERNAL' ? (
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-700/60 flex items-center gap-1">
-                            <Lock className="w-2.5 h-2.5" /> INTERNAL
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700/60 flex items-center gap-1">
-                            <Globe className="w-2.5 h-2.5" /> UMUM
-                          </span>
-                        )}
-                        {activeSlideShow.importance === 'Sangat Penting' && (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-500 text-white animate-pulse">
-                            SANGAT PENTING
-                          </span>
-                        )}
-                        <span className="text-[10px] font-bold text-amber-400 hidden sm:flex items-center gap-1">
-                          <Lock className="w-3 h-3" />
-                          KPPN Semarang I
+                      ) : (
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-700/50 flex items-center gap-1 shrink-0">
+                          <Globe className="w-2.5 h-2.5" /> UMUM
                         </span>
-                      </div>
-                      <h3 className="text-xs sm:text-sm font-black text-white truncate">
+                      )}
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-100 truncate">
                         {activeSlideShow.title}
                       </h3>
                     </div>
                   </div>
 
-                  {/* Right Header Badges & Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* Right Header Controls */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {/* Timer Stopwatch */}
-                    <div className="px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-mono font-black text-xs flex items-center gap-1.5 shadow-xs">
+                    <div className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/60 text-amber-300 font-mono font-bold text-xs flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
                       <span>{formatTime(timerSeconds)}</span>
                     </div>
@@ -1082,18 +1097,17 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                         href={activeSlideShow.embedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
+                        className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
                         title="Buka Dokumen di Tab Baru"
                       >
                         <ExternalLink className="w-4 h-4 text-sky-400" />
-                        <span className="hidden lg:inline">Tab Baru</span>
                       </a>
                     )}
 
                     {/* Shortcuts Help Toggle */}
                     <button
                       onClick={() => setShowShortcutsHelp(!showShortcutsHelp)}
-                      className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
                       title="Petunjuk Keyboard Shortcuts (?)"
                     >
                       <HelpCircle className="w-4 h-4 text-indigo-400" />
@@ -1102,13 +1116,14 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                     {/* Native Fullscreen Button */}
                     <button
                       onClick={toggleNativeFullscreen}
-                      className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer flex items-center gap-1 text-xs font-black px-3 shadow-md shadow-indigo-600/30"
-                      title={isFullscreenMode ? 'Keluar Fullscreen (F)' : 'Layar Penuh / Fullscreen Monitor (F)'}
+                      className="p-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold px-2.5"
+                      title={isFullscreenMode ? 'Keluar Layar Penuh (F)' : 'Layar Penuh / Fullscreen (F)'}
                     >
                       {isFullscreenMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-                      <span className="hidden md:inline">{isFullscreenMode ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                      <span className="hidden sm:inline">{isFullscreenMode ? 'Keluar' : 'Fullscreen'}</span>
                     </button>
 
+                    {/* Close Slide Show */}
                     <button
                       onClick={() => {
                         setActiveSlideShow(null);
@@ -1117,8 +1132,8 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                           document.exitFullscreen().catch(() => {});
                         }
                       }}
-                      className="p-2 rounded-xl bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors cursor-pointer border border-rose-500/30"
-                      title="Tutup Slide Show"
+                      className="p-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white transition-colors cursor-pointer border border-rose-500/30"
+                      title="Tutup Presentasi (Esc)"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1135,23 +1150,10 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
                   onWheel={handleWheel}
-                  className={`relative flex-1 w-full h-full bg-black overflow-hidden flex items-center justify-center select-none ${
+                  className={`relative flex-1 w-full h-full bg-slate-950 overflow-hidden flex items-center justify-center select-none ${
                     activeTool === 'hand' ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : ''
                   }`}
                 >
-                  {/* Floating Notification & Reset button if Pan Offset or Zoom is active */}
-                  {(panOffset.x !== 0 || panOffset.y !== 0 || zoomLevel !== 100) && (
-                    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 bg-slate-900/90 text-amber-300 border border-amber-500/50 px-3.5 py-1.5 rounded-full shadow-2xl backdrop-blur-md text-xs font-bold animate-fade-in pointer-events-auto">
-                      <span className="text-[11px]">📍 Posisi Digeser ({zoomLevel}%)</span>
-                      <button
-                        onClick={resetPanAndZoom}
-                        className="px-2.5 py-1 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-[10px] uppercase transition-all cursor-pointer shadow-sm"
-                      >
-                        Pusatkan Slide
-                      </button>
-                    </div>
-                  )}
-
                   {/* Scalable & Scrollable Viewport Wrapper */}
                   <div 
                     className="w-full h-full flex items-center justify-center transition-transform duration-75 ease-out origin-center"
@@ -1164,19 +1166,23 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                         url={activeSlideShow.embedUrl}
                         currentPage={currentSlideIndex}
                         zoomLevel={zoomLevel}
+                        rotation={rotation}
+                        fitMode={fitMode}
                         onTotalPagesLoaded={(total) => setDetectedPdfPages(total)}
                         className="w-full h-full"
                       />
                     ) : (
-                      <iframe
-                        ref={iframeRef}
-                        key={activeSlideShow.id}
-                        src={formatEmbedUrl(activeSlideShow.embedUrl, currentSlideIndex)}
-                        title={activeSlideShow.title}
-                        className="w-full h-full border-0 pointer-events-auto bg-slate-900"
-                        allowFullScreen
-                        allow="autoplay; fullscreen"
-                      />
+                      <div className="w-full h-full overflow-hidden relative flex items-center justify-center bg-slate-900">
+                        <iframe
+                          ref={iframeRef}
+                          key={`${activeSlideShow.id}-${currentSlideIndex}`}
+                          src={formatEmbedUrl(activeSlideShow.embedUrl, currentSlideIndex)}
+                          title={activeSlideShow.title}
+                          className="w-full h-[calc(100%+38px)] -mb-[38px] border-0 pointer-events-auto bg-slate-900"
+                          allowFullScreen
+                          allow="autoplay; fullscreen"
+                        />
+                      </div>
                     )}
                   </div>
 
@@ -1208,11 +1214,6 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                     />
                   )}
 
-                  {/* Watermark Security Overlay */}
-                  <div className="absolute top-3 right-3 z-10 opacity-30 pointer-events-none text-[10px] font-black text-white bg-slate-900/80 px-2.5 py-1 rounded-md border border-white/20 uppercase tracking-widest">
-                    KPPN SEMARANG I • PRESENTER SLIDE SHOW
-                  </div>
-
                   {/* Shortcuts Tooltip Popup */}
                   {showShortcutsHelp && (
                     <div className="absolute top-4 left-4 z-40 bg-slate-900/95 border border-slate-700 p-4 rounded-2xl shadow-2xl text-xs max-w-sm space-y-2 text-slate-200 backdrop-blur-md animate-fade-in">
@@ -1226,33 +1227,47 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                       </div>
                       <ul className="space-y-1 text-[11px] font-mono">
                         <li><strong className="text-white">Panah Kiri / Kanan:</strong> Pindah Slide</li>
-                        <li><strong className="text-white">Panah Atas / Bawah:</strong> Scroll Slide Atas/Bawah</li>
+                        <li><strong className="text-white">Home / End:</strong> Halaman Pertama / Terakhir</li>
+                        <li><strong className="text-white">R:</strong> Rotasi Dokumen 90° Searah Jarum Jam</li>
                         <li><strong className="text-white">H:</strong> Alat Tangan (Hand / Drag Pan)</li>
-                        <li><strong className="text-white">Space / PageDown:</strong> Slide Berikutnya</li>
-                        <li><strong className="text-white">F:</strong> Toggle Native Fullscreen</li>
-                        <li><strong className="text-white">C:</strong> Hapus Seluruh Coretan Slide</li>
-                        <li><strong className="text-white">?:</strong> Buka / Tutup Bantuan Ini</li>
+                        <li><strong className="text-white">+ / -:</strong> Zoom In / Zoom Out</li>
+                        <li><strong className="text-white">0:</strong> Reset Posisi & Zoom 100%</li>
+                        <li><strong className="text-white">F:</strong> Toggle Layar Penuh (Fullscreen)</li>
+                        <li><strong className="text-white">C:</strong> Hapus Seluruh Coretan</li>
+                        <li><strong className="text-white">?:</strong> Buka / Tutup Petunjuk Ini</li>
                       </ul>
                     </div>
                   )}
                 </div>
 
-                {/* PREMIUM FLOATING PRESENTER TOOLBAR */}
-                <div className="p-3 bg-slate-900/95 border-t border-slate-800 z-30 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0 backdrop-blur-md">
+                {/* FIREFOX-INSPIRED FULLY FUNCTIONAL BOTTOM PRESENTER TOOLBAR */}
+                <div className="p-2.5 bg-slate-900/95 border-t border-slate-800 z-30 flex flex-wrap items-center justify-between gap-2.5 text-xs shrink-0 backdrop-blur-md shadow-2xl">
                   
-                  {/* 1. Slide Navigation & Quick Scroll Controls */}
-                  <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                  {/* 1. Complete Page Navigation (Firefox Style) */}
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+                    {/* First Page Button */}
+                    <button
+                      onClick={() => setCurrentSlideIndex(1)}
+                      disabled={currentSlideIndex <= 1}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
+                      title="Halaman Pertama (Home)"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Previous Page Button */}
                     <button
                       onClick={() => setCurrentSlideIndex(prev => Math.max(1, prev - 1))}
                       disabled={currentSlideIndex <= 1}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
-                      title="Slide Sebelumnya (Panah Kiri)"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
+                      title="Halaman Sebelumnya (Panah Kiri)"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
 
-                    <div className="px-3 py-1 bg-slate-900 rounded-lg border border-slate-800 font-extrabold text-amber-300 text-xs flex items-center gap-1">
-                      <span>Slide</span>
+                    {/* Direct Page Input */}
+                    <div className="px-2.5 py-0.5 bg-slate-900 rounded-md border border-slate-800 font-bold text-amber-300 text-xs flex items-center gap-1">
+                      <span className="text-[11px] text-slate-400">Hal.</span>
                       <input
                         type="number"
                         min={1}
@@ -1264,37 +1279,29 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                             setCurrentSlideIndex(val);
                           }
                         }}
-                        className="w-10 bg-slate-950 border border-slate-700 rounded text-center text-amber-400 font-black focus:outline-none focus:ring-1 focus:ring-amber-500 py-0.5"
+                        className="w-9 bg-slate-950 border border-slate-700 rounded text-center text-amber-400 font-extrabold focus:outline-none focus:ring-1 focus:ring-amber-500 py-0.5"
                       />
-                      <span className="text-slate-400">/ {totalSlides}</span>
+                      <span className="text-slate-400 font-normal">/ {totalSlides}</span>
                     </div>
 
+                    {/* Next Page Button */}
                     <button
                       onClick={() => setCurrentSlideIndex(prev => Math.min(totalSlides, prev + 1))}
                       disabled={currentSlideIndex >= totalSlides}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
-                      title="Slide Berikutnya (Panah Kanan / Space)"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
+                      title="Halaman Berikutnya (Panah Kanan / Spasi)"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
 
-                    <div className="h-4 w-px bg-slate-800 my-auto mx-0.5" />
-
-                    {/* Scroll Ke Atas / Bawah Fast Actions */}
+                    {/* Last Page Button */}
                     <button
-                      onClick={() => scrollSlideUp()}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold transition-all cursor-pointer"
-                      title="Scroll Slide Ke Atas (Panah Atas)"
+                      onClick={() => setCurrentSlideIndex(totalSlides)}
+                      disabled={currentSlideIndex >= totalSlides}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-slate-800 text-white font-bold transition-all cursor-pointer"
+                      title="Halaman Terakhir (End)"
                     >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => scrollSlideDown()}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold transition-all cursor-pointer"
-                      title="Scroll Slide Ke Bawah (Panah Bawah)"
-                    >
-                      <ArrowDown className="w-4 h-4" />
+                      <ChevronsRight className="w-4 h-4" />
                     </button>
 
                     <div className="h-4 w-px bg-slate-800 my-auto mx-0.5" />
@@ -1302,59 +1309,56 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                     {/* Auto-Play Slide Toggle */}
                     <button
                       onClick={() => setIsPlayingAuto(!isPlayingAuto)}
-                      className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                         isPlayingAuto
                           ? 'bg-amber-500 text-slate-950 shadow-sm animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                       }`}
-                      title={isPlayingAuto ? 'Hentikan Auto-Play' : 'Putar Otomatis (Auto Slide Show)'}
+                      title={isPlayingAuto ? 'Hentikan Putar Otomatis' : 'Putar Otomatis (Auto Slide Show)'}
                     >
                       {isPlayingAuto ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                       <span className="hidden md:inline">{isPlayingAuto ? 'Pause' : 'Auto Play'}</span>
                     </button>
                   </div>
 
-                  {/* 2. Interactive Annotation Pen, Laser & HAND TOOL */}
-                  <div className="flex items-center gap-1 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
-                    <span className="text-[10px] font-black uppercase text-slate-500 px-1 hidden lg:inline">Alat:</span>
-
-                    {/* Pointer Mode */}
+                  {/* 2. Interactive Presenter Tools (Pointer, Hand, Laser, Pen, Highlighter) */}
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+                    {/* Normal Cursor */}
                     <button
                       onClick={() => {
                         setActiveTool('pointer');
-                        if (zoomLevel === 100) setPanOffset({ x: 0, y: 0 });
                       }}
-                      className={`p-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                         activeTool === 'pointer'
-                          ? 'bg-indigo-600 text-white shadow-md'
+                          ? 'bg-indigo-600 text-white shadow-sm'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
                       }`}
-                      title="Kursor Normal / Navigasi Slide"
+                      title="Kursor Normal (Navigasi Dokumen)"
                     >
                       <MousePointer className="w-4 h-4" />
                       <span className="hidden xl:inline">Navigasi</span>
                     </button>
 
-                    {/* Menu Tangan (Hand / Pan Tool) */}
+                    {/* Hand Tool (Pan/Drag) */}
                     <button
                       onClick={() => setActiveTool('hand')}
-                      className={`p-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                         activeTool === 'hand'
-                          ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                       }`}
-                      title="Menu Tangan / Geser Slide (Drag Pan & Scroll) - Tombol H"
+                      title="Alat Tangan / Geser Dokumen (Drag Pan) - Tombol H"
                     >
                       <Hand className="w-4 h-4" />
-                      <span className="hidden sm:inline">Tangan (Geser)</span>
+                      <span className="hidden sm:inline">Tangan</span>
                     </button>
 
                     {/* Laser Pointer */}
                     <button
                       onClick={() => setActiveTool('laser')}
-                      className={`p-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                         activeTool === 'laser'
-                          ? 'bg-rose-600 text-white shadow-md animate-pulse'
+                          ? 'bg-rose-600 text-white shadow-sm animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
                       }`}
                       title="Laser Pointer (Sorotan Merah)"
@@ -1363,15 +1367,15 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                       <span className="hidden xl:inline">Laser</span>
                     </button>
 
-                    {/* Pen Mode (Coret-Coret) */}
+                    {/* Pen Drawing Tool */}
                     <button
                       onClick={() => setActiveTool('pen')}
-                      className={`p-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                         activeTool === 'pen'
-                          ? 'bg-emerald-600 text-white shadow-md'
+                          ? 'bg-emerald-600 text-white shadow-sm'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
                       }`}
-                      title="Coret-Coret Slide (Pena Merah/Warna)"
+                      title="Coret-Coret Slide (Pena Gambar)"
                     >
                       <Pencil className="w-4 h-4" />
                       <span className="hidden xl:inline">Pena</span>
@@ -1380,9 +1384,9 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                     {/* Highlighter Marker */}
                     <button
                       onClick={() => setActiveTool('highlighter')}
-                      className={`p-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
+                      className={`p-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
                         activeTool === 'highlighter'
-                          ? 'bg-amber-500 text-slate-950 shadow-md'
+                          ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-400'
                       }`}
                       title="Stabilo / Marker Sorot Teks"
@@ -1391,15 +1395,15 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                       <span className="hidden xl:inline">Stabilo</span>
                     </button>
 
-                    {/* Color Picker Palette */}
+                    {/* Pen Color Palette */}
                     {(activeTool === 'pen' || activeTool === 'highlighter') && (
                       <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
                         {['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#ffffff'].map(c => (
                           <button
                             key={c}
                             onClick={() => setPenColor(c)}
-                            className={`w-5 h-5 rounded-full border-2 transition-transform cursor-pointer ${
-                              penColor === c ? 'scale-125 border-white ring-2 ring-indigo-500' : 'border-transparent opacity-80 hover:opacity-100'
+                            className={`w-4 h-4 rounded-full border transition-transform cursor-pointer ${
+                              penColor === c ? 'scale-125 border-white ring-2 ring-indigo-500' : 'border-transparent opacity-75 hover:opacity-100'
                             }`}
                             style={{ backgroundColor: c }}
                           />
@@ -1407,51 +1411,83 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                       </div>
                     )}
 
-                    {/* Clear Canvas Drawing */}
+                    {/* Clear Drawings */}
                     <button
                       onClick={clearCanvas}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 transition-colors cursor-pointer ml-1"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 transition-colors cursor-pointer ml-0.5"
                       title="Hapus Semua Coretan (Tombol C)"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 
-                  {/* 3. Zoom Controls & Reset View */}
-                  <div className="flex items-center gap-1.5 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+                  {/* 3. Firefox PDF Presentation Tools (Rotate, Fit Mode, Zoom, Fit Reset) */}
+                  <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+                    {/* Rotate 90° Clockwise */}
+                    <button
+                      onClick={() => setRotation(prev => (prev + 90) % 360)}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold transition-all cursor-pointer flex items-center gap-1"
+                      title="Putar Dokumen 90° Searah Jarum Jam (Tombol R)"
+                    >
+                      <RotateCw className="w-4 h-4 text-emerald-400" />
+                      {rotation !== 0 && (
+                        <span className="text-[10px] text-emerald-300 font-mono">{rotation}°</span>
+                      )}
+                    </button>
+
+                    {/* Fit Page vs Fit Width (Firefox Presentation Toggle) */}
+                    <button
+                      onClick={() => setFitMode(prev => (prev === 'page' ? 'width' : 'page'))}
+                      className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        fitMode === 'width'
+                          ? 'bg-sky-600 text-white'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                      }`}
+                      title={fitMode === 'page' ? 'Mode: Pas Layar Penuh (Klik untuk Pas Lebar Halaman)' : 'Mode: Pas Lebar Halaman (Klik untuk Pas Layar Penuh)'}
+                    >
+                      <Scan className="w-4 h-4" />
+                      <span className="hidden sm:inline text-[10px]">{fitMode === 'page' ? 'Pas Layar' : 'Pas Lebar'}</span>
+                    </button>
+
+                    <div className="h-4 w-px bg-slate-800 my-auto mx-0.5" />
+
+                    {/* Zoom Out */}
                     <button
                       onClick={() => setZoomLevel(prev => Math.max(50, prev - 15))}
                       disabled={zoomLevel <= 50}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white font-bold transition-all cursor-pointer"
-                      title="Perkecil Slide (Zoom Out)"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white font-bold transition-all cursor-pointer"
+                      title="Perkecil Tampilan (Zoom Out / -)"
                     >
                       <ZoomOut className="w-4 h-4" />
                     </button>
 
-                    <span className="px-2 font-mono font-black text-indigo-300 text-xs w-12 text-center">
+                    {/* Zoom Indicator */}
+                    <span className="px-1.5 font-mono font-bold text-indigo-300 text-xs w-11 text-center">
                       {zoomLevel}%
                     </span>
 
+                    {/* Zoom In */}
                     <button
                       onClick={() => setZoomLevel(prev => Math.min(200, prev + 15))}
                       disabled={zoomLevel >= 200}
-                      className="p-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white font-bold transition-all cursor-pointer"
-                      title="Perbesar Slide (Zoom In)"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-white font-bold transition-all cursor-pointer"
+                      title="Perbesar Tampilan (Zoom In / +)"
                     >
                       <ZoomIn className="w-4 h-4" />
                     </button>
 
+                    {/* Fit Layar 100% Reset */}
                     <button
                       onClick={resetPanAndZoom}
-                      className={`p-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 font-bold ${
+                      className={`p-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 font-bold ${
                         panOffset.x !== 0 || panOffset.y !== 0 || zoomLevel !== 100
-                          ? 'bg-amber-500 text-slate-950 animate-pulse'
+                          ? 'bg-amber-500 text-slate-950 font-black animate-pulse'
                           : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                       }`}
-                      title="Reset Posisi (Fit Layar 100%)"
+                      title="Reset Posisi & Zoom ke 100% (Tombol 0)"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline text-[10px]">Fit Layar</span>
+                      <span className="hidden sm:inline text-[10px]">100%</span>
                     </button>
                   </div>
 

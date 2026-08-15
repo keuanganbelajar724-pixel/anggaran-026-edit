@@ -21,7 +21,7 @@ import {
 
 interface CapaianOutputDashboardProps {
   satkers: SatkerIKPA[];
-  onSelectSatker: (satker: SatkerIKPA) => void;
+  onSelectSatker?: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
@@ -296,13 +296,12 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 <th className="py-3.5 px-4 w-12 text-center">NO</th>
                 <th className="py-3.5 px-4">KODE &amp; SATUAN KERJA</th>
                 <th className="py-3.5 px-4 text-center">STATUS PENYAMPAIAN</th>
-                <th className="py-3.5 px-4 text-center">DETAIL</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
               {filteredSatkers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-16 text-center">
+                  <td colSpan={3} className="py-16 text-center">
                     <div className="max-w-md mx-auto space-y-2">
                       <Info className="w-10 h-10 mx-auto text-slate-400" />
                       <p className={`font-extrabold text-base ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
@@ -331,14 +330,13 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                       <td className="py-4 px-4 font-mono font-semibold text-slate-400 text-center">{idx + 1}</td>
                       
                       <td className="py-4 px-4">
-                        <button 
-                          onClick={() => onSelectSatker(satker)}
-                          className={`text-left font-extrabold hover:underline cursor-pointer block text-sm ${
-                            isDark ? 'text-white' : 'text-sky-800'
+                        <div 
+                          className={`font-extrabold text-sm ${
+                            isDark ? 'text-white' : 'text-sky-900'
                           }`}
                         >
                           {satker.namaSatker}
-                        </button>
+                        </div>
                         <div className="flex items-center gap-1.5 text-[11px] font-mono mt-1">
                           <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>Kode:</span>
                           <span className={`px-2 py-0.5 rounded-md font-extrabold border ${
@@ -380,15 +378,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                         )}
                       </td>
 
-                      <td className="py-4 px-4 text-center">
-                        <button
-                          onClick={() => onSelectSatker(satker)}
-                          className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer border border-slate-300 dark:border-slate-700"
-                        >
-                          <span>Lihat Detail</span>
-                        </button>
-                      </td>
-
                     </tr>
                   );
                 })
@@ -416,12 +405,11 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                       <span className="font-mono bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] px-1.5 py-0.5 rounded font-bold">
                         #{idx + 1} • {satker.kodeSatker}
                       </span>
-                      <button 
-                        onClick={() => onSelectSatker(satker)}
-                        className="font-extrabold text-sky-700 dark:text-sky-400 text-sm mt-1 text-left block leading-tight hover:underline cursor-pointer"
+                      <div 
+                        className="font-extrabold text-sky-900 dark:text-sky-300 text-sm mt-1 text-left block leading-tight"
                       >
                         {satker.namaSatker}
-                      </button>
+                      </div>
                     </div>
 
                     <div className="shrink-0">
@@ -442,15 +430,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                         </span>
                       )}
                     </div>
-                  </div>
-
-                  <div className="pt-1">
-                    <button
-                      onClick={() => onSelectSatker(satker)}
-                      className="w-full py-2.5 px-3 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 rounded-xl border border-slate-300 dark:border-slate-700 text-center min-h-[42px] flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <span>Lihat Detail Satker</span>
-                    </button>
                   </div>
                 </div>
               );

@@ -1,3 +1,23 @@
+export interface MasterSatker {
+  id: string;
+  kodeSatker: string; // Kolom H: Kode Satker (e.g. "651046")
+  namaSatker: string; // Kolom I: Nama Satker
+  isActive: boolean;  // Kolom J: Status Aktif (true = AKTIF / false = NONAKTIF)
+  kementerianLembaga?: string; // Kolom C
+  kodeBa?: string;    // Kolom B: 3-digit BA code (e.g. "015", "060")
+  unitEselon1?: string; // Kolom E
+  kodeKppn?: string;  // Kolom F (e.g. "026")
+  namaKppn?: string;  // Kolom G (e.g. "KPPN SEMARANG I")
+  passwordSatker?: string;
+  namaPic?: string;
+  noHpPic?: string;
+  emailPic?: string;
+  alamatSatker?: string;
+  catatan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export type IKPAPredikat = 'Sangat Baik' | 'Baik' | 'Cukup' | 'Sangat Perlu Perhatian';
 
 export interface IndikatorIKPA {
@@ -85,6 +105,8 @@ export interface SatkerIKPA {
   // Metadata
   periodeUpdate: string;
   isModified?: boolean;
+  isActive?: boolean; // Status aktif dari Master Satker
+  statusAktif?: 'AKTIF' | 'NONAKTIF';
 
   // Keamanan & Akses Password Satker
   passwordSatker?: string;
@@ -421,6 +443,7 @@ export interface DashboardConfig {
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
+  masterSatkers?: MasterSatker[];
   presensiKegiatanList?: PresensiKegiatan[];
   presensiPesertaList?: PesertaPresensi[];
 }

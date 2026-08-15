@@ -14,11 +14,11 @@ import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Use initializeFirestore with auto-detect long-polling to prevent iframe WebChannel connection drops
+// Initialize Firestore with forced long-polling to prevent WebChannel connection drops in iframe/sandboxed environments
 let firestoreDb;
 try {
   firestoreDb = initializeFirestore(app, {
-    experimentalAutoDetectLongPolling: true,
+    experimentalForceLongPolling: true
   }, firebaseConfig.firestoreDatabaseId || undefined);
 } catch {
   firestoreDb = getFirestore(

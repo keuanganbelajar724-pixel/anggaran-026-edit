@@ -15,7 +15,8 @@ import {
   KegiatanSosialisasi, 
   SocializationLink,
   PresensiKegiatan,
-  PesertaPresensi
+  PesertaPresensi,
+  NavigationTab
 } from '../types';
 import { 
   processExcelFile, 
@@ -104,7 +105,7 @@ import {
 
 interface AdminUploadProps {
   satkers?: SatkerIKPA[];
-  onApplyNewSatkers: (newSatkers: SatkerIKPA[], appendMode: boolean) => void;
+  onApplyNewSatkers: (newSatkers: SatkerIKPA[], appendMode: boolean, targetTab?: NavigationTab) => void;
   onUpdateSatker?: (updatedSatker: SatkerIKPA) => void;
   onDeleteSatker?: (id: string) => void;
   onDeleteBatchSatkers?: (ids: string[]) => void;
@@ -1722,55 +1723,73 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
     let satkersToApply: SatkerIKPA[] = [];
 
-    if (excelCategory === 'CAPAIAN_OUTPUT' && satkers && satkers.length > 0 && !overwriteActiveDashboard) {
-      // Merge Capaian Output into existing active satkers list ONLY if not overwriting completely!
+    if (excelCategory === 'CAPAIAN_OUTPUT') {
       const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
-      
-      satkersToApply = satkers.map(existing => {
-        const match = previewMap.get(existing.kodeSatker);
-        if (match) {
-          const updatedIndikator = {
-            ...existing.indikator,
-            capaianOutput: match.indikator.capaianOutput
-          };
-          
-          const hasRealIKPA = existing.hasIKPAData !== false && (existing.nilaiTotalIKPA > 0 || existing.paguAnggaran > 0);
-          const newTotalIKPA = hasRealIKPA ? hitungTotalIKPA(updatedIndikator) : 0;
-          const newPredikat = hasRealIKPA ? getPredikatIKPA(newTotalIKPA) : 'Cukup';
-          
-          const newIssues = existing.issues.filter(iss => !iss.toLowerCase().includes('capaian output'));
-          if (match.statusCapaianOutput === 'Belum Terlaporkan' || match.indikator.capaianOutput === 0) {
-            newIssues.push('Capaian Output Belum Diselesaikan (0%)');
-          } else if (match.statusCapaianOutput === 'Terlambat') {
-            newIssues.push('Pengiriman Capaian Output Terlambat');
-          }
-          if (hasRealIKPA && newTotalIKPA < 87.5 && !newIssues.some(i => i.includes('Nilai IKPA'))) {
-            newIssues.push(`Nilai IKPA (${newTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
-          }
+      const hasExistingRealIKPA = (satkers || []).some(s => s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0));
 
-          return {
-            ...existing,
-            statusCapaianOutput: match.statusCapaianOutput,
-            indikator: updatedIndikator,
-            nilaiTotalIKPA: newTotalIKPA,
-            predikat: newPredikat,
-            issues: newIssues,
-            hasIKPAData: hasRealIKPA,
-            periodeUpdate: uploadPeriode,
-            isModified: true
-          };
+      if (hasExistingRealIKPA) {
+        // We have active IKPA data. Merge Capaian Output without zeroing existing IKPA indicators
+        satkersToApply = (satkers || []).map(existing => {
+          const match = previewMap.get(existing.kodeSatker);
+          if (match) {
+            const updatedIndikator = {
+              ...existing.indikator,
+              capaianOutput: match.indikator.capaianOutput
+            };
+            
+            const hasRealIKPA = existing.hasIKPAData !== false && (existing.nilaiTotalIKPA > 0 || existing.paguAnggaran > 0);
+            const newTotalIKPA = hasRealIKPA ? hitungTotalIKPA(updatedIndikator) : 0;
+            const newPredikat = hasRealIKPA ? getPredikatIKPA(newTotalIKPA) : 'Cukup';
+            
+            const newIssues = existing.issues.filter(iss => !iss.toLowerCase().includes('capaian output'));
+            if (match.statusCapaianOutput === 'Belum Terlaporkan' || match.indikator.capaianOutput === 0) {
+              newIssues.push('Capaian Output Belum Diselesaikan (0%)');
+            } else if (match.statusCapaianOutput === 'Terlambat') {
+              newIssues.push('Pengiriman Capaian Output Terlambat');
+            }
+            if (hasRealIKPA && newTotalIKPA < 87.5 && !newIssues.some(i => i.includes('Nilai IKPA'))) {
+              newIssues.push(`Nilai IKPA (${newTotalIKPA.toFixed(2)}) Di Bawah Target KPPN (≥87.5)`);
+            }
+
+            return {
+              ...existing,
+              statusCapaianOutput: match.statusCapaianOutput,
+              indikator: updatedIndikator,
+              nilaiTotalIKPA: newTotalIKPA,
+              predikat: newPredikat,
+              issues: newIssues,
+              hasIKPAData: hasRealIKPA,
+              periodeUpdate: uploadPeriode,
+              isModified: true
+            };
+          }
+          return existing;
+        });
+
+        // Append any brand new satker from previewSatkers if not in existing
+        const existingKodes = new Set((satkers || []).map(s => s.kodeSatker));
+        const brandNew = previewSatkers.filter(p => !existingKodes.has(p.kodeSatker)).map(p => ({
+          ...p,
+          hasIKPAData: false,
+          nilaiTotalIKPA: 0,
+          paguAnggaran: 0,
+          realisasiAnggaran: 0
+        }));
+        if (brandNew.length > 0) {
+          satkersToApply = [...satkersToApply, ...brandNew];
         }
-        return existing;
-      });
-
-      // Append any brand new satker from previewSatkers if not in existing
-      const existingKodes = new Set(satkers.map(s => s.kodeSatker));
-      const brandNew = previewSatkers.filter(p => !existingKodes.has(p.kodeSatker));
-      if (brandNew.length > 0) {
-        satkersToApply = [...satkersToApply, ...brandNew];
+      } else {
+        // No IKPA data in active state. Set hasIKPAData: false so Dashboard IKPA stays completely empty and isolated
+        satkersToApply = previewSatkers.map(p => ({
+          ...p,
+          hasIKPAData: false,
+          nilaiTotalIKPA: 0,
+          paguAnggaran: 0,
+          realisasiAnggaran: 0
+        }));
       }
     } else {
-      satkersToApply = appendMode ? [...previewSatkers, ...satkers] : previewSatkers;
+      satkersToApply = appendMode ? [...previewSatkers, ...(satkers || [])] : previewSatkers;
     }
 
     const newHistoryItem: ExcelUploadHistory = {
@@ -1781,28 +1800,29 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       uploadedBy: 'Seksi MSKI KPPN Semarang I',
       satkerCount: satkersToApply.length,
       averageIKPA: avgIKPA,
-      notes: uploadNotes.trim() || `Upload & rekonsiliasi otomatis data ${excelCategory === 'CAPAIAN_OUTPUT' ? 'Capaian Output SAKTI' : 'IKPA'}`,
+      notes: uploadNotes.trim() || `Upload data ${excelCategory === 'CAPAIAN_OUTPUT' ? 'Capaian Output SAKTI' : 'IKPA'}`,
       satkersData: satkersToApply,
       category: excelCategory,
       isActive: overwriteActiveDashboard
     };
 
     if (overwriteActiveDashboard) {
-      onApplyNewSatkers(satkersToApply, false);
+      const targetTab: NavigationTab = excelCategory === 'CAPAIAN_OUTPUT' ? 'capaian-output' : 'dashboard';
+      onApplyNewSatkers(satkersToApply, false, targetTab);
       const newHistoryList = [newHistoryItem, ...historicalUploads.map(h => ({ ...h, isActive: false }))];
       saveAndApplyHistoricalUploads(newHistoryList);
       addLog(
         'Update Data Dashboard & Arsip', 
         'UPLOAD', 
-        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" berhasil diperbarui di Dashboard Utama & disimpan ke Arsip.`, 
+        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" berhasil diperbarui & disimpan ke Arsip.`, 
         'SUCCESS'
       );
       showToast({
         type: 'success',
         title: 'Data Berhasil Diperbarui',
         message: excelCategory === 'CAPAIAN_OUTPUT'
-          ? `Berhasil memperbarui status Capaian Output untuk ${previewSatkers.length} Satker. Indikator IKPA lainnya tetap dipertahankan.`
-          : `${previewSatkers.length} data Satker periode "${uploadPeriode}" telah memperbarui Dashboard Utama.`
+          ? `Berhasil memperbarui data Capaian Output (${previewSatkers.length} Satker) di Tab Capaian Output SAKTI. Dashboard IKPA tetap terisolasi.`
+          : `${previewSatkers.length} data Satker IKPA periode "${uploadPeriode}" telah memperbarui Dashboard IKPA.`
       });
     } else {
       const newHistoryList = [newHistoryItem, ...historicalUploads];
