@@ -18,6 +18,229 @@ export interface MasterSatker {
   updatedAt?: string;
 }
 
+// -------------------------------------------------------------
+// MODUL IKPA (Terpisah)
+// -------------------------------------------------------------
+export interface IKPARecord {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  unitEselon1?: string;
+  paguAnggaran: number;
+  realisasiAnggaran: number;
+  persenPenyerapan: number;
+  nilaiTotalIKPA: number;
+  predikat: IKPAPredikat;
+  indikator: IndikatorIKPA;
+  periode: string; // misal 'Januari 2026', 'Semester I 2026'
+  tahun: number;
+  riwayatBulanan?: RiwayatBulananIKPA[];
+  issues?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface IKPAUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  tahun: number;
+  periode: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  invalidSatkers: { kodeSatker: string; namaSatker?: string; reason: string }[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  summaryPagu?: number;
+  summaryRealisasi?: number;
+  avgIKPA?: number;
+}
+
+// -------------------------------------------------------------
+// MODUL CAPAIAN OUTPUT (Terpisah)
+// -------------------------------------------------------------
+export interface CapaianOutputRecord {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  unitEselon1?: string;
+  periode: string; // misal 'Agustus 2026'
+  tahun: number;
+  targetRO: number;
+  terlaporkanRO: number;
+  persenCapaianOutput: number;
+  statusCapaianOutput: 'Sudah Terlaporkan' | 'Belum Terlaporkan' | 'Terlambat';
+  rincianRO?: {
+    kodeRO: string;
+    namaRO: string;
+    target: number;
+    realisasi: number;
+    persen: number;
+    status: string;
+  }[];
+  kendala?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CapaianOutputUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  tahun: number;
+  periode: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  invalidSatkers: { kodeSatker: string; namaSatker?: string; reason: string }[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  terlaporkanCount?: number;
+  belumTerlaporkanCount?: number;
+  terlambatCount?: number;
+}
+
+// -------------------------------------------------------------
+// MODUL PEJABAT PERBENDAHARAAN (Terpisah)
+// -------------------------------------------------------------
+export interface PejabatUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  invalidSatkers: { kodeSatker: string; namaPejabat?: string; reason: string }[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+}
+
+// -------------------------------------------------------------
+// MODUL PENGELOLAAN UP / TUP (Terpisah)
+// -------------------------------------------------------------
+export interface PengelolaanUPRecord {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  kodeBa?: string;
+  paguUP: number;
+  nilaiUP: number;
+  realisasiGUP: number;
+  sisaUP: number;
+  persentaseRevolving: number;
+  frekuensiGUP: number;
+  statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving';
+  tglTerakhirSP2D?: string;
+  hariTanpaRevolving?: number;
+  peringatanKritis?: boolean;
+  keterangan?: string;
+  periode: string;
+  tahun: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PengelolaanUPUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  tahun: number;
+  periode: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  invalidSatkers: { kodeSatker: string; namaSatker?: string; reason: string }[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  totalPaguUP?: number;
+  totalRealisasiGUP?: number;
+  satkerKritisCount?: number;
+}
+
+// -------------------------------------------------------------
+// MODUL BROADCAST MESSAGE & AUDIT LOG (Terpisah)
+// -------------------------------------------------------------
+export interface BroadcastMessageRecord {
+  id: string;
+  judul: string;
+  isiPesan: string;
+  kategori: 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP' | 'UMUM';
+  targetTipe: 'SEMUA_SATKER' | 'SATKER_TERTENTU' | 'PER_KL' | 'SATKER_BERMASALAH';
+  targetSatkerIds: string[];
+  targetRoles: string[];
+  pengirim: string;
+  statusKirim: 'DRAFT' | 'TERKIRIM' | 'TERJADWAL';
+  dikirimPada?: string;
+  totalPenerima: number;
+  lampiran?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  role: 'ADMIN' | 'PESERTA' | 'SYSTEM';
+  modul: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP' | 'BROADCAST' | 'CONFIG' | 'AUTH';
+  aksi: 'UPLOAD' | 'IMPORT' | 'EDIT' | 'DELETE' | 'RESET' | 'LOGIN' | 'EXPORT' | 'UPDATE_PROFILE';
+  detail: string;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR' | 'INFO';
+  ipAddress?: string;
+  affectedCount?: number;
+}
+
+// -------------------------------------------------------------
+// PREVIEW VALIDASI EXCEL MODEL (2-Step Import Workflow)
+// -------------------------------------------------------------
+export interface ExcelValidationPreview<T> {
+  file: File;
+  fileName: string;
+  fileSize: number;
+  modul: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP';
+  tahun: number;
+  periode: string;
+  totalRows: number;
+  validData: T[];
+  invalidRows: {
+    rowNumber: number;
+    kodeSatker: string;
+    namaSatker?: string;
+    reason: string;
+    raw?: any;
+  }[];
+  unregisteredSatkers: {
+    kodeSatker: string;
+    namaSatker?: string;
+    reason: string;
+  }[];
+  isValidFormat: boolean;
+  formatErrors: string[];
+}
+
+// -------------------------------------------------------------
+// ROLE & PERMISSION SYSTEM
+// -------------------------------------------------------------
+export type UserRole = 'ADMIN' | 'PESERTA' | 'GUEST';
+
+export interface UserPermissionConfig {
+  canViewDashboard: boolean;
+  canManageMasterSatker: boolean;
+  canManageIKPA: boolean;
+  canManageCapaianOutput: boolean;
+  canManagePejabat: boolean;
+  canManagePengelolaanUP: boolean;
+  canBroadcastMessage: boolean;
+  canViewAuditLogs: boolean;
+  canExportData: boolean;
+  canEditOwnProfile: boolean;
+}
+
 export type IKPAPredikat = 'Sangat Baik' | 'Baik' | 'Cukup' | 'Sangat Perlu Perhatian';
 
 export interface IndikatorIKPA {
@@ -191,7 +414,7 @@ export interface Announcement {
 
 export interface PejabatSertifikasi {
   id: string;
-  nomor: number;
+  nomor?: number;
   nip: string;
   nama: string;
   kdSatker: string;
@@ -200,6 +423,8 @@ export interface PejabatSertifikasi {
   noSertifikat: string; // e.g. PNT-06134/026/044/2021 or "Tidak Ada"
   tglSertifikat?: string; // e.g. 30/06/2021 or ""
   tglKadaluarsa?: string; // e.g. 30/06/2026 or ""
+  status?: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi';
+  keterangan?: string;
 }
 
 export type KnowledgeCategory = 
@@ -319,9 +544,11 @@ export interface PesertaPresensi {
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
+  'pengelolaan-up'?: boolean;
   'redflags': boolean;
   'sertifikasi': boolean;
   'per5-analisis': boolean;
+  'profil-satker'?: boolean;
   'announcements': boolean;
   'materi-slide'?: boolean;
   'portal-link'?: boolean;
@@ -415,6 +642,11 @@ export interface DashboardCustomTexts {
   guideTitle?: string;
   guideSubtitle?: string;
   guideAnnouncement?: string;
+
+  pengelolaanUpBadge?: string;
+  pengelolaanUpTitle?: string;
+  pengelolaanUpSubtitle?: string;
+  pengelolaanUpAnnouncement?: string;
 }
 
 export interface DashboardConfig {
@@ -440,10 +672,20 @@ export interface DashboardConfig {
     materiSlide?: string;
     portalLink?: string;
     presensi?: string;
+    pengelolaanUp?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
   masterSatkers?: MasterSatker[];
+  ikpaRecords?: IKPARecord[];
+  ikpaUploads?: IKPAUploadBatch[];
+  capaianOutputRecords?: CapaianOutputRecord[];
+  capaianOutputUploads?: CapaianOutputUploadBatch[];
+  pejabatUploads?: PejabatUploadBatch[];
+  pengelolaanUpRecords?: PengelolaanUPRecord[];
+  pengelolaanUpUploads?: PengelolaanUPUploadBatch[];
+  broadcastMessages?: BroadcastMessageRecord[];
+  auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
   presensiPesertaList?: PesertaPresensi[];
 }
@@ -451,6 +693,7 @@ export interface DashboardConfig {
 export type NavigationTab = 
   | 'dashboard' 
   | 'capaian-output' 
+  | 'pengelolaan-up'
   | 'redflags' 
   | 'sertifikasi'
   | 'per5-analisis'
@@ -462,7 +705,8 @@ export type NavigationTab =
   | 'aduan'
   | 'admin' 
   | 'reminder' 
-  | 'guide';
+  | 'guide'
+  | 'profil-satker';
 
 export type AppTheme = 'light' | 'dark';
 

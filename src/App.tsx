@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord } from './types';
 import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
+import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
+import { SatkerProfileView } from './components/SatkerProfileView';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
 import { SocializationPortalView } from './components/SocializationPortalView';
@@ -398,11 +400,25 @@ export default function App() {
         console.warn("Firebase Presensi listener notice:", error);
       });
 
+      // 5. Master Satkers Data (Source of Truth)
+      const unsubMaster = onSnapshot(doc(db, 'data', 'master_satkers'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setMasterSatkers(data.list);
+            localStorage.setItem('kppn_master_satkers', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Master Satkers listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubSatkers();
         unsubPejabat();
         unsubPresensi();
+        unsubMaster();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -415,6 +431,14 @@ export default function App() {
       setDoc(doc(db, 'data', 'satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
       console.warn("Error syncing satkers to Firebase:", e);
+    }
+  };
+
+  const syncMasterSatkersToFirebase = (newList: MasterSatker[]) => {
+    try {
+      setDoc(doc(db, 'data', 'master_satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Error syncing master satkers to Firebase:", e);
     }
   };
 
@@ -432,6 +456,41 @@ export default function App() {
     } catch (e) {
       console.warn("Error syncing presensi to Firebase:", e);
     }
+  };
+
+  // Master Satker Handlers
+  const handleUpdateMasterSatkers = (newList: MasterSatker[]) => {
+    setMasterSatkers(newList);
+    localStorage.setItem('kppn_master_satkers', JSON.stringify(newList));
+    syncMasterSatkersToFirebase(newList);
+  };
+
+  const handleSaveMasterSatker = (item: MasterSatker) => {
+    const exists = masterSatkers.some(m => m.kodeSatker === item.kodeSatker || m.id === item.id);
+    const updated = exists
+      ? masterSatkers.map(m => (m.kodeSatker === item.kodeSatker || m.id === item.id) ? { ...m, ...item, updatedAt: new Date().toISOString() } : m)
+      : [{ ...item, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...masterSatkers];
+    handleUpdateMasterSatkers(updated);
+  };
+
+  const handleDeleteMasterSatker = (idOrKode: string) => {
+    const updated = masterSatkers.filter(m => m.id !== idOrKode && m.kodeSatker !== idOrKode);
+    handleUpdateMasterSatkers(updated);
+  };
+
+  const handleDeleteBatchMasterSatkers = (idsOrKodes: string[]) => {
+    const updated = masterSatkers.filter(m => !idsOrKodes.includes(m.id) && !idsOrKodes.includes(m.kodeSatker));
+    handleUpdateMasterSatkers(updated);
+  };
+
+  const handleToggleActiveMasterSatker = (idOrKode: string, active: boolean) => {
+    const updated = masterSatkers.map(m => {
+      if (m.id === idOrKode || m.kodeSatker === idOrKode) {
+        return { ...m, isActive: active, updatedAt: new Date().toISOString() };
+      }
+      return m;
+    });
+    handleUpdateMasterSatkers(updated);
   };
 
   const handleSavePesertaPresensi = (newPeserta: PesertaPresensi) => {
@@ -493,6 +552,37 @@ export default function App() {
     }
   };
 
+  // Pengelolaan UP/TUP State
+  const [pengelolaanUPList, setPengelolaanUPList] = useState<PengelolaanUPRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_pengelolaan_up');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved UP data:', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(pengelolaanUPList));
+    } catch (e) {
+      console.warn('Error saving UP data to localStorage:', e);
+    }
+  }, [pengelolaanUPList]);
+
+  const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
+    setPengelolaanUPList(newList);
+    try {
+      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Error syncing UP to Firebase:", e);
+    }
+  };
+
   const handleAuthenticateAdmin = (pin: string): boolean => {
     if (pin === adminPin || pin === '527272' || pin === 'admin123' || pin === 'kppn026' || pin === 'kppn033' || pin === 'admin') {
       setIsAdminAuthenticated(true);
@@ -509,8 +599,49 @@ export default function App() {
     new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
   );
 
-  // Search Filtered Data
-  const searchedSatkers = satkers.filter(s => {
+  // Master Satker Map for fast lookup & filtering (Source of Truth)
+  const masterSatkerMap = useMemo(() => {
+    const map = new Map<string, MasterSatker>();
+    masterSatkers.forEach(m => {
+      if (m.kodeSatker) {
+        map.set(m.kodeSatker.trim(), m);
+      }
+    });
+    return map;
+  }, [masterSatkers]);
+
+  // Active Satkers displayed in Dashboards:
+  // If Master Satkers have been uploaded, only satkers registered in Master Satker AND active (isActive !== false) will appear!
+  const activeDisplaySatkers = useMemo(() => {
+    if (masterSatkers.length === 0) {
+      return satkers;
+    }
+    return satkers
+      .filter(s => {
+        const master = masterSatkerMap.get(s.kodeSatker.trim());
+        return master && master.isActive !== false;
+      })
+      .map(s => {
+        const master = masterSatkerMap.get(s.kodeSatker.trim());
+        if (master) {
+          return {
+            ...s,
+            namaSatker: master.namaSatker || s.namaSatker,
+            kementerianLembaga: master.kementerianLembaga || s.kementerianLembaga,
+            unitEselon1: master.unitEselon1 || s.unitEselon1,
+            passwordSatker: master.passwordSatker || s.passwordSatker,
+            namaPic: master.namaPic || s.namaPic,
+            noHpPic: master.noHpPic || s.noHpPic,
+            emailPic: master.emailPic || s.emailPic,
+            isActive: master.isActive
+          };
+        }
+        return s;
+      });
+  }, [satkers, masterSatkers, masterSatkerMap]);
+
+  // Search Filtered Data based on active master filtered satkers
+  const searchedSatkers = activeDisplaySatkers.filter(s => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -521,7 +652,7 @@ export default function App() {
     );
   });
 
-  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  const satkersWithIKPA = activeDisplaySatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
   const ikpaSatkerCount = satkersWithIKPA.length;
 
   const redFlagsCount = satkersWithIKPA.filter(s => {
@@ -534,7 +665,7 @@ export default function App() {
     );
   }).length;
 
-  const belumCapaianCount = satkers.filter(s => 
+  const belumCapaianCount = activeDisplaySatkers.filter(s => 
     s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0
   ).length;
 
@@ -652,6 +783,7 @@ export default function App() {
         isAdminAuthenticated={isAdminAuthenticated}
         onAuthenticateAdmin={handleAuthenticateAdmin}
         onLogoutAdmin={handleLogoutAdmin}
+        masterSatkers={masterSatkers}
       />
 
       {/* Main Content View Container */}
@@ -741,6 +873,37 @@ export default function App() {
               />
             )}
 
+            {/* Tab 3: Pengelolaan UP / TUP Dedicated */}
+            {activeTab === 'pengelolaan-up' && (
+              <PengelolaanUPDashboard
+                upRecords={pengelolaanUPList}
+                masterSatkers={masterSatkers}
+                theme={theme}
+                isAdminAuthenticated={isAdminAuthenticated}
+                onOpenReminder={(record) => {
+                  const matchSatker = satkers.find(s => s.kodeSatker === record.kodeSatker);
+                  if (matchSatker) {
+                    handleOpenReminderSingle(matchSatker);
+                  } else {
+                    setActiveTab('reminder');
+                  }
+                }}
+                onGoToAdmin={() => setActiveTab('admin')}
+              />
+            )}
+
+            {/* Tab Pembaruan Kontak Satker */}
+            {activeTab === 'profil-satker' && (
+              <SatkerProfileView
+                masterSatkers={masterSatkers}
+                satkers={satkers}
+                pejabatList={pejabatSertifikasiList}
+                onUpdateProfile={handleSaveMasterSatker}
+                onUpdateSatkerIKPA={handleUpdateSatker}
+                theme={theme}
+              />
+            )}
+
             {activeTab === 'redflags' && (
               <RedFlagsView
                 satkers={searchedSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)))}
@@ -808,6 +971,12 @@ export default function App() {
                 onDeleteSatker={handleDeleteSatker}
                 onDeleteBatchSatkers={handleDeleteBatchSatkers}
                 onAddSatker={handleAddSatker}
+                masterSatkers={masterSatkers}
+                onUpdateMasterSatkers={handleUpdateMasterSatkers}
+                onSaveMasterSatker={handleSaveMasterSatker}
+                onDeleteMasterSatker={handleDeleteMasterSatker}
+                onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
+                onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
                 pejabatList={pejabatSertifikasiList}
                 onUpdatePejabatList={handleUpdatePejabatList}
                 onResetData={handleResetData}

@@ -26,9 +26,12 @@ import {
   LifeBuoy,
   Presentation,
   Link2,
-  ClipboardCheck
+  ClipboardCheck,
+  CreditCard,
+  User,
+  Phone
 } from 'lucide-react';
-import { NavigationTab, AppTheme, MenuVisibilityConfig } from '../types';
+import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
 
 interface HeaderProps {
@@ -49,6 +52,7 @@ interface HeaderProps {
   isAdminAuthenticated?: boolean;
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
+  masterSatkers?: MasterSatker[];
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -68,10 +72,11 @@ export const Header: React.FC<HeaderProps> = ({
   menuVisibility,
   isAdminAuthenticated = false,
   onAuthenticateAdmin,
-  onLogoutAdmin
+  onLogoutAdmin,
+  masterSatkers = []
 }) => {
   const isDark = theme === 'dark';
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
   const [isSatkerPreviewMode, setIsSatkerPreviewMode] = useState<boolean>(false);
 
   const tabs: { id: NavigationTab; label: string; icon: React.ReactNode; badge?: React.ReactNode; activeColor: string }[] = [
@@ -94,6 +99,13 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="bg-sky-950 text-sky-200 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold">SAKTI</span>
       ),
       activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
+    },
+    {
+      id: 'pengelolaan-up',
+      label: 'Pengelolaan UP/TUP',
+      icon: <CreditCard className="w-4 h-4 text-indigo-300" />,
+      badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">UP</span>,
+      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
     },
     {
       id: 'redflags',
@@ -123,6 +135,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <Calculator className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">PER-5</span>,
       activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
+      id: 'profil-satker',
+      label: 'Update Kontak Satker',
+      icon: <Phone className="w-4 h-4 text-teal-300" />,
+      badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">PIC</span>,
+      activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     },
     {
       id: 'announcements',
@@ -294,7 +313,7 @@ export const Header: React.FC<HeaderProps> = ({
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setIsLoginModalOpen(true)}
+                onClick={() => setIsAdminLoginModalOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px]"
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -443,8 +462,8 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Admin Login Modal */}
       <AdminLoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        isOpen={isAdminLoginModalOpen}
+        onClose={() => setIsAdminLoginModalOpen(false)}
         onAuthenticateAdmin={(pin) => {
           if (onAuthenticateAdmin) {
             const success = onAuthenticateAdmin(pin);

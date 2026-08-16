@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
 import { ModernLoadingOverlay } from './ModernLoadingOverlay';
@@ -16,7 +16,8 @@ import {
   SocializationLink,
   PresensiKegiatan,
   PesertaPresensi,
-  NavigationTab
+  NavigationTab,
+  MasterSatker
 } from '../types';
 import { 
   processExcelFile, 
@@ -28,7 +29,10 @@ import {
   downloadPasswordBatchTemplate,
   processPasswordBatchExcel,
   downloadBroadcastExcelTemplate,
-  processBroadcastExcel
+  processBroadcastExcel,
+  downloadMasterSatkerTemplate,
+  processMasterSatkerExcel,
+  exportMasterSatkerToExcel
 } from '../utils/excelProcessor';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
 import { ensurePejabatOperator, getSatkerDefaultPassword, extractKodeBA } from '../utils/analysisEngine';
@@ -110,6 +114,12 @@ interface AdminUploadProps {
   onDeleteSatker?: (id: string) => void;
   onDeleteBatchSatkers?: (ids: string[]) => void;
   onAddSatker?: (newSatker: SatkerIKPA) => void;
+  masterSatkers?: MasterSatker[];
+  onUpdateMasterSatkers?: (newList: MasterSatker[]) => void;
+  onSaveMasterSatker?: (masterSatker: MasterSatker) => void;
+  onDeleteMasterSatker?: (id: string) => void;
+  onDeleteBatchMasterSatkers?: (ids: string[]) => void;
+  onToggleActiveMasterSatker?: (id: string, active: boolean) => void;
   pejabatList?: PejabatSertifikasi[];
   onUpdatePejabatList?: (newList: PejabatSertifikasi[]) => void;
   onResetData: () => void;
@@ -267,6 +277,12 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onDeleteSatker,
   onDeleteBatchSatkers,
   onAddSatker,
+  masterSatkers = [],
+  onUpdateMasterSatkers,
+  onSaveMasterSatker,
+  onDeleteMasterSatker,
+  onDeleteBatchMasterSatkers,
+  onToggleActiveMasterSatker,
   pejabatList = [],
   onUpdatePejabatList,
   onResetData,
@@ -1485,6 +1501,222 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     const newConfig = { ...tempConfig, presentationMaterials: updated };
     setTempConfig(newConfig);
     onUpdateDashboardConfig(newConfig);
+  };
+
+  // Master Data Satker State & Handlers
+  const masterSatkerFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingMasterSatker, setIsUploadingMasterSatker] = useState<boolean>(false);
+  const [masterSearchQuery, setMasterSearchQuery] = useState<string>('');
+  const [masterStatusFilter, setMasterStatusFilter] = useState<'ALL' | 'AKTIF' | 'NONAKTIF'>('ALL');
+  const [masterKlFilter, setMasterKlFilter] = useState<string>('ALL');
+  const [selectedMasterIds, setSelectedMasterIds] = useState<string[]>([]);
+  const [isAddingMasterSatker, setIsAddingMasterSatker] = useState<boolean>(false);
+  const [editingMasterSatker, setEditingMasterSatker] = useState<MasterSatker | null>(null);
+  const [masterSatkerForm, setMasterSatkerForm] = useState<Partial<MasterSatker>>({
+    kodeSatker: '',
+    namaSatker: '',
+    isActive: true,
+    kodeBa: '',
+    kementerianLembaga: '',
+    unitEselon1: 'KPPN Semarang I',
+    kodeKppn: '026',
+    namaKppn: 'KPPN SEMARANG I',
+    passwordSatker: '',
+    namaPic: '',
+    noHpPic: '',
+    emailPic: ''
+  });
+
+  const filteredMasterSatkers = useMemo(() => {
+    return (masterSatkers || []).filter(m => {
+      const q = masterSearchQuery.toLowerCase();
+      const matchSearch = !q ||
+        m.namaSatker.toLowerCase().includes(q) ||
+        m.kodeSatker.includes(q) ||
+        (m.kementerianLembaga && m.kementerianLembaga.toLowerCase().includes(q)) ||
+        (m.namaPic && m.namaPic.toLowerCase().includes(q)) ||
+        (m.noHpPic && m.noHpPic.includes(q));
+
+      const matchStatus = masterStatusFilter === 'ALL' ||
+        (masterStatusFilter === 'AKTIF' ? m.isActive : !m.isActive);
+
+      const matchKl = masterKlFilter === 'ALL' || m.kementerianLembaga === masterKlFilter;
+
+      return matchSearch && matchStatus && matchKl;
+    });
+  }, [masterSatkers, masterSearchQuery, masterStatusFilter, masterKlFilter]);
+
+  const uniqueMasterKls = useMemo(() => {
+    const kls = new Set<string>();
+    (masterSatkers || []).forEach(m => {
+      if (m.kementerianLembaga) kls.add(m.kementerianLembaga);
+    });
+    return Array.from(kls).sort();
+  }, [masterSatkers]);
+
+  const handleMasterSatkerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    setIsUploadingMasterSatker(true);
+    try {
+      const result = await processMasterSatkerExcel(file);
+      if (result.masterSatkers.length === 0) {
+        showToast({
+          type: 'warning',
+          title: 'Format Excel Kosong',
+          message: 'Tidak ditemukan data satker yang valid di Kolom H (Kode) dan Kolom I (Nama Satker).'
+        });
+        return;
+      }
+      const totalCount = result.masterSatkers.length;
+      if (onUpdateMasterSatkers) {
+        onUpdateMasterSatkers(result.masterSatkers);
+      }
+      addLog(
+        `Upload Master Data Satker (${totalCount} Satker)`,
+        'SETTINGS',
+        `Mengunggah file referensi '${file.name}'. Total ${totalCount} satker disinkronkan (${result.activeCount} Aktif).`,
+        'SUCCESS'
+      );
+      showToast({
+        type: 'success',
+        title: 'Master Data Satker Berhasil Diunggah',
+        message: `${totalCount} data Satker berhasil diimpor (${result.activeCount} Aktif). Dashboard sekarang menyaring data hanya untuk Satker yang Aktif.`
+      });
+    } catch (err: any) {
+      showToast({
+        type: 'error',
+        title: 'Gagal Memproses Excel Master Satker',
+        message: err.message || 'Terjadi kesalahan pemrosesan file.'
+      });
+    } finally {
+      setIsUploadingMasterSatker(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleToggleActiveMaster = (id: string, currentStatus: boolean) => {
+    if (onToggleActiveMasterSatker) {
+      onToggleActiveMasterSatker(id, !currentStatus);
+    }
+  };
+
+  const handleToggleSelectMasterAll = () => {
+    if (selectedMasterIds.length === filteredMasterSatkers.length) {
+      setSelectedMasterIds([]);
+    } else {
+      setSelectedMasterIds(filteredMasterSatkers.map(m => m.id));
+    }
+  };
+
+  const handleToggleSelectMasterSingle = (id: string) => {
+    setSelectedMasterIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleDeleteMasterSingle = (m: MasterSatker) => {
+    requestConfirm(
+      'Hapus Master Satker',
+      `Apakah Anda yakin ingin MENGHAPUS Master Satker "${m.namaSatker}" (${m.kodeSatker}) dari Master Data?\n\nJika dihapus, satker ini otomatis tidak akan muncul di Dashboard IKPA & Capaian Output.`,
+      () => {
+        if (onDeleteMasterSatker) {
+          onDeleteMasterSatker(m.id);
+        }
+        addLog('Hapus Master Satker', 'SETTINGS', `Menghapus master satker "${m.namaSatker}" (${m.kodeSatker}).`, 'WARNING');
+        showToast({
+          type: 'info',
+          title: 'Master Satker Dihapus',
+          message: `Satker ${m.namaSatker} (${m.kodeSatker}) telah dihapus dari Master Data.`
+        });
+      },
+      { confirmText: 'Hapus Satker', variant: 'danger' }
+    );
+  };
+
+  const handleDeleteMasterBatch = () => {
+    if (selectedMasterIds.length === 0) return;
+    requestConfirm(
+      'Hapus Batch Master Satker',
+      `Apakah Anda yakin ingin menghapus ${selectedMasterIds.length} Master Satker yang dipilih?`,
+      () => {
+        if (onDeleteBatchMasterSatkers) {
+          onDeleteBatchMasterSatkers(selectedMasterIds);
+        } else if (onDeleteMasterSatker) {
+          selectedMasterIds.forEach(id => onDeleteMasterSatker(id));
+        }
+        addLog('Hapus Batch Master Satker', 'SETTINGS', `Menghapus ${selectedMasterIds.length} master satker terpilih.`, 'WARNING');
+        setSelectedMasterIds([]);
+        showToast({
+          type: 'info',
+          title: 'Batch Master Satker Dihapus',
+          message: `${selectedMasterIds.length} satker telah dihapus dari Master Data.`
+        });
+      },
+      { confirmText: `Hapus ${selectedMasterIds.length} Satker`, variant: 'danger' }
+    );
+  };
+
+  const handleBatchToggleActive = (activeState: boolean) => {
+    if (selectedMasterIds.length === 0) return;
+    if (onUpdateMasterSatkers) {
+      const idSet = new Set(selectedMasterIds);
+      const updated = (masterSatkers || []).map(m => idSet.has(m.id) ? { ...m, isActive: activeState } : m);
+      onUpdateMasterSatkers(updated);
+    }
+    showToast({
+      type: 'success',
+      title: `Status Diperbarui`,
+      message: `${selectedMasterIds.length} satker telah di-${activeState ? 'Aktifkan' : 'Nonaktifkan'}.`
+    });
+    setSelectedMasterIds([]);
+  };
+
+  const handleSaveMasterSatkerSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!masterSatkerForm.kodeSatker || !masterSatkerForm.namaSatker) {
+      alert('Kode Satker dan Nama Satker wajib diisi!');
+      return;
+    }
+
+    const itemToSave: MasterSatker = {
+      id: editingMasterSatker ? editingMasterSatker.id : `master-${Date.now()}`,
+      kodeSatker: masterSatkerForm.kodeSatker.trim(),
+      namaSatker: masterSatkerForm.namaSatker.trim(),
+      isActive: masterSatkerForm.isActive !== false,
+      kodeBa: masterSatkerForm.kodeBa || (masterSatkerForm.kodeSatker.length >= 3 ? masterSatkerForm.kodeSatker.substring(0, 3) : '018'),
+      kementerianLembaga: masterSatkerForm.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+      unitEselon1: masterSatkerForm.unitEselon1 || 'Unit Kerja',
+      kodeKppn: masterSatkerForm.kodeKppn || '026',
+      namaKppn: masterSatkerForm.namaKppn || 'KPPN SEMARANG I',
+      passwordSatker: masterSatkerForm.passwordSatker || `KPPN026#${masterSatkerForm.kodeSatker.trim()}`,
+      namaPic: masterSatkerForm.namaPic || '',
+      noHpPic: masterSatkerForm.noHpPic || '',
+      emailPic: masterSatkerForm.emailPic || '',
+      createdAt: editingMasterSatker?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (onSaveMasterSatker) {
+      onSaveMasterSatker(itemToSave);
+    }
+
+    addLog(
+      editingMasterSatker ? 'Edit Master Satker' : 'Tambah Master Satker',
+      'SETTINGS',
+      `Menyimpan data master Satker "${itemToSave.namaSatker}" (${itemToSave.kodeSatker}). Status: ${itemToSave.isActive ? 'AKTIF' : 'NONAKTIF'}.`,
+      'SUCCESS'
+    );
+
+    showToast({
+      type: 'success',
+      title: editingMasterSatker ? 'Master Satker Diperbarui' : 'Master Satker Ditambahkan',
+      message: `Satker ${itemToSave.namaSatker} (${itemToSave.kodeSatker}) berhasil disimpan.`
+    });
+
+    setIsAddingMasterSatker(false);
+    setEditingMasterSatker(null);
   };
 
   // CRUD Helpers
@@ -2995,6 +3227,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   { key: 'portal-link', label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi' },
                   { key: 'presensi', label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi' },
                   { key: 'aduan', label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker' },
+                  { key: 'profil-satker', label: 'Update Kontak Satker', desc: 'Formulir Update PIC & Pejabat Satker' },
                   { key: 'reminder', label: 'Pengingat WA Satker', desc: 'Portal Draf & Broadcast WhatsApp' },
                   { key: 'guide', label: 'Panduan Excel', desc: 'Instruksi format & kolom' }
                 ].map((menu) => {
@@ -7264,241 +7497,395 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
             
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
               <div>
-                <div className="inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                  <Wrench className="w-3.5 h-3.5" />
-                  KELOLA, EDIT MANUAL &amp; HAPUS DATA SATKER
+                <div className="inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1 rounded-full text-xs font-bold mb-1.5 shadow-xs">
+                  <Building2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>MASTER DATA SATKER • SOURCE OF TRUTH KPPN SEMARANG I</span>
                 </div>
-                <h3 className="text-xl font-black tracking-tight">
-                  Manajemen &amp; Pembaruan Manual Data Satker Dashboard
+                <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                  Kelola &amp; Form Upload Master Data Satker
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-                  Edit nilai indikator, ubah status capaian output, hapus data salah, atau tambahkan satker baru secara langsung tanpa perlu upload ulang file Excel.
+                <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 max-w-3xl leading-relaxed">
+                  Master Satker adalah sumber data utama (Source of Truth). Unggah file referensi Excel resmi Satker (Kolom H: Kode Satker, Kolom I: Nama Satker, Kolom J: Status Aktif). Jika file Excel IKPA atau Capaian Output diunggah dan Satkernya tidak terdaftar di Master Satker (atau berstatus Nonaktif), maka Satker tersebut <strong>tidak akan dimunculkan</strong> di dashboard.
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Action Buttons Toolbar */}
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <input
+                  type="file"
+                  ref={masterSatkerFileInputRef}
+                  onChange={handleMasterSatkerFileUpload}
+                  accept=".xlsx, .xls, .csv"
+                  className="hidden"
+                />
+
                 <button
-                  onClick={() => passwordFileInputRef.current?.click()}
-                  className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
-                  title="Upload Excel berisi Kode Satker, Nama Satker, Password Satker"
+                  type="button"
+                  onClick={() => masterSatkerFileInputRef.current?.click()}
+                  disabled={isUploadingMasterSatker}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2 cursor-pointer active:scale-98"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>Upload Batch Password Excel</span>
+                  <span>{isUploadingMasterSatker ? 'Memproses Master Satker...' : 'Upload Excel Master Satker'}</span>
                 </button>
 
                 <button
-                  onClick={downloadPasswordBatchTemplate}
-                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Download template format password satker"
+                  type="button"
+                  onClick={downloadMasterSatkerTemplate}
+                  className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-md shadow-sky-600/20 flex items-center gap-1.5 cursor-pointer"
+                  title="Download Format Template Referensi Master Satker (Kolom H, I, J)"
                 >
-                  <Download className="w-3.5 h-3.5 text-sky-500" />
-                  <span>Template Password</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Format Referensi Excel</span>
                 </button>
 
                 <button
-                  onClick={() => setIsAddingSatker(true)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  type="button"
+                  onClick={() => exportMasterSatkerToExcel(masterSatkers)}
+                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Export seluruh daftar Master Satker ke file Excel"
+                >
+                  <FileDown className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                  <span>Export Master (.xlsx)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMasterSatker(null);
+                    setMasterSatkerForm({
+                      kodeSatker: '',
+                      namaSatker: '',
+                      isActive: true,
+                      kodeBa: '018',
+                      kementerianLembaga: 'Kementerian / Lembaga Mitra',
+                      unitEselon1: 'Unit Kerja Mitra',
+                      kodeKppn: '026',
+                      namaKppn: 'KPPN SEMARANG I',
+                      passwordSatker: '',
+                      namaPic: '',
+                      noHpPic: '',
+                      emailPic: ''
+                    });
+                    setIsAddingMasterSatker(true);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Tambah Satker Baru</span>
+                  <span>Tambah Satker Manual</span>
                 </button>
+              </div>
+            </div>
 
-                {selectedSatkerIds.length > 0 && (
-                  <button
-                    onClick={handleDeleteBatch}
-                    className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span>Hapus ({selectedSatkerIds.length}) Terpilih</span>
-                  </button>
-                )}
-
+            {/* Excel Reference Format Guideline Banner */}
+            <div className="bg-gradient-to-r from-sky-50 via-indigo-50/50 to-emerald-50 dark:from-sky-950/40 dark:via-indigo-950/30 dark:to-emerald-950/40 border border-sky-200 dark:border-sky-800/60 p-4 sm:p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-xs">
+              <div className="space-y-1.5 flex-1">
+                <div className="flex items-center gap-2 font-black text-slate-900 dark:text-slate-100 text-sm">
+                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <span>Struktur Kolom File Referensi Excel Master Satker:</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-slate-700 dark:text-slate-300">
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-sky-200 dark:border-sky-800">
+                    <span className="font-black text-sky-700 dark:text-sky-300 block">Kolom H: Kode Satker</span>
+                    <span className="text-[11px] text-slate-500">6 Digit Kode Satker resmi KPPN (Wajib)</span>
+                  </div>
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                    <span className="font-black text-emerald-700 dark:text-emerald-300 block">Kolom I: Nama Satker</span>
+                    <span className="text-[11px] text-slate-500">Nama Lengkap Satker Mitra (Wajib)</span>
+                  </div>
+                  <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-xl border border-amber-200 dark:border-amber-800">
+                    <span className="font-black text-amber-700 dark:text-amber-300 block">Kolom J: Status Satker</span>
+                    <span className="text-[11px] text-slate-500">Nilai "AKTIF" atau "NONAKTIF"</span>
+                  </div>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
                 <button
-                  onClick={handleClearEverything}
-                  className="bg-rose-700 hover:bg-rose-600 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer border border-rose-500"
-                  title="Hapus total seluruh data satker dan arsip file Excel dummy"
+                  type="button"
+                  onClick={downloadMasterSatkerTemplate}
+                  className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Delete All Data &amp; Excel Dummy</span>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Format Referensi</span>
                 </button>
               </div>
             </div>
 
             {/* Stats Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Master Satker</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-slate-100 mt-1 block">
+                  {masterSatkers.length} <span className="text-xs font-normal text-slate-400">Satker</span>
+                </span>
+              </div>
+
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-emerald-50/50 border-emerald-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Satker Dashboard</span>
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{satkers.length} Satker</span>
+                <span className="text-slate-500 dark:text-slate-400 block font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Satker Aktif (Muncul)</span>
+                </span>
+                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
+                  {masterSatkers.filter(m => m.isActive).length} <span className="text-xs font-normal text-slate-400">Satker</span>
+                </span>
               </div>
+
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-rose-50/50 border-rose-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Satker Berisiko (IKPA &lt; 87.5)</span>
+                <span className="text-slate-500 dark:text-slate-400 block font-semibold flex items-center gap-1">
+                  <X className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Satker Nonaktif (Disembunyikan)</span>
+                </span>
                 <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
-                  {satkers.filter(s => s.nilaiTotalIKPA < 87.5).length} Satker
+                  {masterSatkers.filter(m => !m.isActive).length} <span className="text-xs font-normal text-slate-400">Satker</span>
                 </span>
               </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Belum Laporkan Output</span>
-                <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
-                  {satkers.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan').length} Satker
-                </span>
-              </div>
+
               <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-sky-50/50 border-sky-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Pagu Mitra</span>
-                <span className="text-sm font-black font-mono text-sky-700 dark:text-sky-300 mt-2 block">
-                  Rp {(satkers.reduce((acc, s) => acc + s.paguAnggaran, 0) / 1000000000).toFixed(1)} Miliar
+                <span className="text-slate-500 dark:text-slate-400 block font-semibold flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Kontak PIC / WhatsApp</span>
+                </span>
+                <span className="text-2xl font-black text-sky-700 dark:text-sky-300 mt-1 block">
+                  {masterSatkers.filter(m => m.namaPic || m.noHpPic).length} <span className="text-xs font-normal text-slate-400">Satker</span>
                 </span>
               </div>
             </div>
 
-            {/* Filter & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950/80 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs">
-              <div className="relative flex-1 w-full">
-                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={crudSearch}
-                  onChange={(e) => setCrudSearch(e.target.value)}
-                  placeholder="Cari nama satker, kode satker, atau K/L..."
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium"
-                />
+            {/* Filter, Search & Batch Actions Bar */}
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row items-center gap-3 bg-slate-50 dark:bg-slate-950/80 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs">
+                <div className="relative flex-1 w-full">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={masterSearchQuery}
+                    onChange={(e) => setMasterSearchQuery(e.target.value)}
+                    placeholder="Cari nama satker, kode satker 6 digit, K/L, atau kontak PIC..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                  <select
+                    value={masterStatusFilter}
+                    onChange={(e) => setMasterStatusFilter(e.target.value as any)}
+                    className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold focus:outline-none"
+                  >
+                    <option value="ALL">Semua Status ({masterSatkers.length})</option>
+                    <option value="AKTIF">🟢 Hanya Satker Aktif ({masterSatkers.filter(m => m.isActive).length})</option>
+                    <option value="NONAKTIF">🔴 Hanya Nonaktif ({masterSatkers.filter(m => !m.isActive).length})</option>
+                  </select>
+
+                  {uniqueMasterKls.length > 0 && (
+                    <select
+                      value={masterKlFilter}
+                      onChange={(e) => setMasterKlFilter(e.target.value)}
+                      className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold focus:outline-none max-w-[200px] truncate"
+                    >
+                      <option value="ALL">Semua K/L ({uniqueMasterKls.length})</option>
+                      {uniqueMasterKls.map(kl => (
+                        <option key={kl} value={kl}>{kl}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <select
-                  value={crudPredikatFilter}
-                  onChange={(e) => setCrudPredikatFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold"
-                >
-                  <option value="ALL">Semua Predikat IKPA</option>
-                  <option value="SANGAT BAIK">Sangat Baik (≥ 95)</option>
-                  <option value="BAIK">Baik (87.5 - 94.99)</option>
-                  <option value="CUKUP">Cukup (75 - 87.49)</option>
-                  <option value="KURANG">Kurang (&lt; 75)</option>
-                </select>
-
-                <select
-                  value={crudOutputFilter}
-                  onChange={(e) => setCrudOutputFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-bold"
-                >
-                  <option value="ALL">Semua Status Output</option>
-                  <option value="Sudah Terlaporkan">Sudah Terlaporkan</option>
-                  <option value="Belum Terlaporkan">Belum Terlaporkan</option>
-                  <option value="Terlambat">Terlambat</option>
-                </select>
-              </div>
+              {/* Batch Action Toolbar when items selected */}
+              {selectedMasterIds.length > 0 && (
+                <div className="bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 p-3 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="font-extrabold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>{selectedMasterIds.length} Master Satker Terpilih:</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleBatchToggleActive(true)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Aktifkan Terpilih</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchToggleActive(false)}
+                      className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Nonaktifkan Terpilih</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteMasterBatch}
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Hapus ({selectedMasterIds.length})</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Table of Satkers */}
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            {/* Table of Master Satkers */}
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="py-3 px-3 text-center w-10">
                       <input
                         type="checkbox"
-                        checked={selectedSatkerIds.length > 0 && selectedSatkerIds.length === filteredCrudSatkers.length}
-                        onChange={handleToggleSelectAll}
+                        checked={selectedMasterIds.length > 0 && selectedMasterIds.length === filteredMasterSatkers.length}
+                        onChange={handleToggleSelectMasterAll}
                         className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                       />
                     </th>
+                    <th className="py-3 px-3 text-center w-12">No</th>
                     <th className="py-3 px-4">Kode &amp; Nama Satker</th>
-                    <th className="py-3 px-4">Password Akses Satker</th>
+                    <th className="py-3 px-4 text-center">Status Dashboard</th>
                     <th className="py-3 px-4">Kementerian / Lembaga</th>
-                    <th className="py-3 px-4">Pagu &amp; Realisasi</th>
-                    <th className="py-3 px-4">Status Output</th>
-                    <th className="py-3 px-4">Nilai IKPA</th>
-                    <th className="py-3 px-4 text-center">Aksi Edit / Hapus</th>
+                    <th className="py-3 px-4">Password Satker</th>
+                    <th className="py-3 px-4">Kontak PIC / WA</th>
+                    <th className="py-3 px-4 text-center">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredCrudSatkers.length === 0 ? (
+                  {filteredMasterSatkers.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-16 text-center text-slate-400">
-                        <Building2 className="w-10 h-10 mx-auto mb-2 text-slate-300 dark:text-slate-700" />
+                        <Building2 className="w-12 h-12 mx-auto mb-3 text-slate-300 dark:text-slate-700" />
                         <p className="font-extrabold text-sm text-slate-700 dark:text-slate-300">
-                          {satkers.length === 0 ? 'Daftar Satker Masih Kosong (0 Satker)' : 'Tidak Ada Data Satker Terkait'}
+                          {masterSatkers.length === 0 ? 'Belum Ada Master Data Satker' : 'Tidak Ada Data Satker Yang Cocok'}
                         </p>
-                        <p className="text-xs mt-1 text-slate-500 dark:text-slate-400">
-                          {satkers.length === 0 
-                            ? 'Seluruh data dummy telah dikosongkan. Silakan unggah file Excel Anda di tab "Upload File Excel Baru".'
-                            : 'Coba sesuaikan kata kunci pencarian atau filter status.'}
+                        <p className="text-xs mt-1 text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                          {masterSatkers.length === 0 
+                            ? 'Silakan klik tombol "Upload Excel Master Satker" di atas untuk mengimpor file referensi Satker Anda, atau "Download Format Referensi Excel".'
+                            : 'Coba sesuaikan kata kunci pencarian atau filter status aktif.'}
                         </p>
                       </td>
                     </tr>
                   ) : (
-                    filteredCrudSatkers.map((satker) => {
-                    const isSelected = selectedSatkerIds.includes(satker.id);
-                    return (
-                      <tr key={satker.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 ${isSelected ? 'bg-emerald-50/50 dark:bg-emerald-950/30' : ''}`}>
-                        <td className="py-3 px-3 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelectSatker(satker.id)}
-                            className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                          />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-extrabold text-slate-900 dark:text-slate-100">{satker.namaSatker}</div>
-                          <div className="text-[11px] text-slate-500 font-mono">Kode: {satker.kodeSatker}</div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-mono bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
-                            <KeyRound className="w-3 h-3 text-amber-600" />
-                            {satker.passwordSatker || getSatkerDefaultPassword(satker)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-slate-800 dark:text-slate-200">{satker.kementerianLembaga}</div>
-                          <div className="text-[11px] text-slate-400">{satker.unitEselon1}</div>
-                        </td>
-                        <td className="py-3 px-4 font-mono">
-                          <div className="font-bold">Rp {satker.paguAnggaran.toLocaleString('id-ID')}</div>
-                          <div className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                            Realisasi: {satker.persenPenyerapan}%
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                            satker.statusCapaianOutput === 'Sudah Terlaporkan'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/50'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300/50'
-                          }`}>
-                            {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
-                          </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="font-black text-sm text-slate-900 dark:text-slate-100">{satker.nilaiTotalIKPA}</div>
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">{satker.predikat}</span>
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                    filteredMasterSatkers.map((m, idx) => {
+                      const isSelected = selectedMasterIds.includes(m.id);
+                      return (
+                        <tr 
+                          key={m.id} 
+                          className={`hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors ${
+                            isSelected ? 'bg-emerald-50/60 dark:bg-emerald-950/30' : !m.isActive ? 'opacity-60 bg-slate-50/40 dark:bg-slate-950/40' : ''
+                          }`}
+                        >
+                          <td className="py-3 px-3 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectMasterSingle(m.id)}
+                              className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            />
+                          </td>
+                          <td className="py-3 px-3 text-center font-mono text-slate-400 text-[11px]">
+                            {idx + 1}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-black text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 rounded text-[11px]">
+                                {m.kodeSatker}
+                              </span>
+                              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-1.5 py-0.5 rounded font-mono">
+                                KPPN {m.kodeKppn || '026'}
+                              </span>
+                            </div>
+                            <div className="font-extrabold text-slate-900 dark:text-slate-100 mt-1 text-xs sm:text-sm">
+                              {m.namaSatker}
+                            </div>
+                            {m.unitEselon1 && (
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                {m.unitEselon1}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
                             <button
-                              onClick={() => setEditingSatker({ ...satker, indikator: { ...satker.indikator } })}
-                              className="bg-sky-600 hover:bg-sky-500 text-white p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                              title="Edit Detail Data & Indikator Satker"
+                              type="button"
+                              onClick={() => handleToggleActiveMaster(m.id, m.isActive)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black transition-all cursor-pointer shadow-xs ${
+                                m.isActive
+                                  ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 hover:bg-emerald-200'
+                                  : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:bg-slate-300'
+                              }`}
+                              title={`Klik untuk ${m.isActive ? 'Menonaktifkan' : 'Mengaktifkan'} Satker di Dashboard`}
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Edit</span>
+                              <span className={`w-2 h-2 rounded-full ${m.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                              <span>{m.isActive ? 'AKTIF' : 'NONAKTIF'}</span>
                             </button>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-800 dark:text-slate-200">
+                              {m.kementerianLembaga || 'Kementerian / Lembaga Mitra'}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              Kode BA: {m.kodeBa || (m.kodeSatker.length >= 3 ? m.kodeSatker.substring(0, 3) : '-')}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-mono bg-amber-50 dark:bg-amber-950/80 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 px-2 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1">
+                              <KeyRound className="w-3 h-3 text-amber-600" />
+                              {m.passwordSatker || `KPPN026#${m.kodeSatker}`}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {m.namaPic || m.noHpPic ? (
+                              <div className="space-y-0.5">
+                                {m.namaPic && <div className="font-bold text-slate-800 dark:text-slate-200">{m.namaPic}</div>}
+                                {m.noHpPic && (
+                                  <a
+                                    href={`https://wa.me/${m.noHpPic.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline font-mono text-[11px]"
+                                  >
+                                    <Phone className="w-3 h-3" />
+                                    <span>{m.noHpPic}</span>
+                                  </a>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic text-[11px]">Belum terisi</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingMasterSatker(m);
+                                  setMasterSatkerForm({ ...m });
+                                  setIsAddingMasterSatker(true);
+                                }}
+                                className="bg-sky-600 hover:bg-sky-500 text-white p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                                title="Edit Detail Master Satker"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Edit</span>
+                              </button>
 
-                            <button
-                              onClick={() => handleDeleteSingleSatker(satker)}
-                              className="bg-rose-600 hover:bg-rose-500 text-white p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
-                              title="Hapus Satker Dari Dashboard"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Hapus</span>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteMasterSingle(m)}
+                                className="bg-rose-600 hover:bg-rose-500 text-white p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                                title="Hapus Dari Master Data"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Hapus</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -9368,6 +9755,221 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </button>
               </div>
             </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tambah & Edit Master Satker */}
+      {isAddingMasterSatker && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full">
+                  {editingMasterSatker ? 'EDIT MASTER SATKER' : 'TAMBAH MASTER SATKER BARU'}
+                </span>
+                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
+                  {editingMasterSatker ? `Edit Satker ${editingMasterSatker.namaSatker}` : 'Formulir Data Referensi Satker'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Data master ini menjadi acuan utama (Source of Truth) pemfilteran dashboard IKPA dan Capaian Output.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsAddingMasterSatker(false);
+                  setEditingMasterSatker(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl cursor-pointer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMasterSatkerSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kode Satker (6 Digit): <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    placeholder="misal: 690123"
+                    value={masterSatkerForm.kodeSatker || ''}
+                    onChange={(e) => {
+                      const kode = e.target.value;
+                      setMasterSatkerForm({
+                        ...masterSatkerForm,
+                        kodeSatker: kode,
+                        passwordSatker: masterSatkerForm.passwordSatker || `KPPN026#${kode}`
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold font-mono text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Status Satker di Dashboard: <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() => setMasterSatkerForm({ ...masterSatkerForm, isActive: true })}
+                      className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 border cursor-pointer transition-all ${
+                        masterSatkerForm.isActive !== false
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>AKTIF (Tampil)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMasterSatkerForm({ ...masterSatkerForm, isActive: false })}
+                      className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 border cursor-pointer transition-all ${
+                        masterSatkerForm.isActive === false
+                          ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                      }`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>NONAKTIF (Sembunyikan)</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nama Satker Lengkap: <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="misal: Kantor Pertanahan Kab. Semarang"
+                    value={masterSatkerForm.namaSatker || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, namaSatker: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kode Bagian Anggaran (BA):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: 018 atau 056"
+                    value={masterSatkerForm.kodeBa || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, kodeBa: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Password Akses Satker:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: KPPN026#690123"
+                    value={masterSatkerForm.passwordSatker || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, passwordSatker: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 font-mono font-bold text-amber-900 dark:text-amber-200"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Kementerian / Lembaga:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: Kementerian Agraria dan Tata Ruang / BPN"
+                    value={masterSatkerForm.kementerianLembaga || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, kementerianLembaga: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Unit Eselon 1:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: Ditjen Penetapan Hak dan Pendaftaran Tanah"
+                    value={masterSatkerForm.unitEselon1 || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, unitEselon1: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Nama PIC / Operator Satker:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: Budi Santoso"
+                    value={masterSatkerForm.namaPic || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, namaPic: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    No. HP / WhatsApp PIC:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="misal: 081234567890"
+                    value={masterSatkerForm.noHpPic || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, noHpPic: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Email Resmi PIC / Satker:
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="misal: satker.semarang@kemenkeu.go.id"
+                    value={masterSatkerForm.emailPic || ''}
+                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, emailPic: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingMasterSatker(false);
+                    setEditingMasterSatker(null);
+                  }}
+                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold px-4 py-2 rounded-xl cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-xl cursor-pointer shadow-lg flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Master Satker</span>
+                </button>
+              </div>
+            </form>
 
           </div>
         </div>
