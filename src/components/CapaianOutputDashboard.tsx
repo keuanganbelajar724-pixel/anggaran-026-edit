@@ -23,6 +23,7 @@ interface CapaianOutputDashboardProps {
   satkers: SatkerIKPA[];
   onSelectSatker?: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
+  onGoToUpload?: () => void;
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
 }
@@ -31,27 +32,32 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   satkers,
   onSelectSatker,
   onOpenReminder,
+  onGoToUpload,
   theme = 'light',
   dashboardConfig
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Filter satkers yang memang memiliki data Capaian Output SAKTI (terisolasi dari IKPA)
+  const satkersWithOutput = satkers.filter(s => s.hasCapaianOutputData === true);
+  const hasAnyOutput = satkersWithOutput.length > 0;
+
   // Statistics
-  const totalSatker = satkers.length;
-  const satkerSudah = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
-  const satkerBelum = satkers.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0);
-  const satkerTerlambat = satkers.filter(s => s.statusCapaianOutput === 'Terlambat');
+  const totalSatker = satkersWithOutput.length;
+  const satkerSudah = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
+  const satkerBelum = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0);
+  const satkerTerlambat = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Terlambat');
 
   const percentSudah = totalSatker > 0 ? ((satkerSudah.length / totalSatker) * 100).toFixed(1) : '0';
   const percentBelum = totalSatker > 0 ? ((satkerBelum.length / totalSatker) * 100).toFixed(1) : '0';
 
   const avgCapaian = totalSatker > 0 
-    ? (satkers.reduce((acc, curr) => acc + curr.indikator.capaianOutput, 0) / totalSatker).toFixed(2)
+    ? (satkersWithOutput.reduce((acc, curr) => acc + curr.indikator.capaianOutput, 0) / totalSatker).toFixed(2)
     : '0';
 
   // Filtering & Sorting (Satker belum menyampaikan / 0% diposisikan paling atas)
-  const filteredSatkers = satkers.filter(s => {
+  const filteredSatkers = satkersWithOutput.filter(s => {
     // Status Filter
     if (filterStatus === 'BELUM' && !(s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0)) return false;
     if (filterStatus === 'SUDAH' && !(s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0)) return false;
@@ -131,6 +137,44 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Empty State Banner if no Capaian Output file uploaded */}
+      {!hasAnyOutput ? (
+        <div className={`p-8 sm:p-12 rounded-3xl border text-center shadow-lg space-y-6 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
+          <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto border shadow-inner ${
+            isDark ? 'bg-slate-800/80 text-sky-400 border-slate-700' : 'bg-sky-50 text-sky-600 border-sky-200'
+          }`}>
+            <FileCheck className="w-10 h-10" />
+          </div>
+
+          <div className="max-w-xl mx-auto space-y-2">
+            <span className="inline-block px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+              MODUL CAPAIAN OUTPUT TERISOLASI
+            </span>
+            <h3 className={`text-2xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
+              Belum Ada Data Capaian Output SAKTI
+            </h3>
+            <p className={`text-sm leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+              Dashboard ini dirancang terpisah secara independen. Data dari file Excel IKPA tidak akan mencemari dashboard ini. Untuk memantau status penyampaian konfirmasi data Capaian Output, silakan unggah file Excel Capaian Output SAKTI pada menu Admin.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            {onGoToUpload && (
+              <button
+                onClick={onGoToUpload}
+                className="px-6 py-3 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm shadow-lg shadow-sky-600/30 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <FileCheck className="w-4 h-4" />
+                <span>Upload File Excel Capaian Output SAKTI &rarr;</span>
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -437,6 +481,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           )}
         </div>
       </div>
+      </>
+      )}
 
     </div>
   );

@@ -9,6 +9,7 @@ import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
+import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { SatkerProfileView } from './components/SatkerProfileView';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
@@ -151,6 +152,8 @@ export default function App() {
           : INITIAL_KEGIATAN_SOSIALISASI,
         menuVisibility: {
           'portal-link': true,
+          'pengelolaan-up': true,
+          'kelola-satker': true,
           ...savedConfig.menuVisibility
         }
       };
@@ -167,6 +170,8 @@ export default function App() {
       menuVisibility: {
         'dashboard': true,
         'capaian-output': true,
+        'pengelolaan-up': true,
+        'kelola-satker': true,
         'redflags': true,
         'sertifikasi': true,
         'per5-analisis': true,
@@ -483,10 +488,11 @@ export default function App() {
     handleUpdateMasterSatkers(updated);
   };
 
-  const handleToggleActiveMasterSatker = (idOrKode: string, active: boolean) => {
+  const handleToggleActiveMasterSatker = (idOrKode: string, active?: boolean) => {
     const updated = masterSatkers.map(m => {
       if (m.id === idOrKode || m.kodeSatker === idOrKode) {
-        return { ...m, isActive: active, updatedAt: new Date().toISOString() };
+        const nextActive = active !== undefined ? active : !m.isActive;
+        return { ...m, isActive: nextActive, updatedAt: new Date().toISOString() };
       }
       return m;
     });
@@ -889,6 +895,23 @@ export default function App() {
                   }
                 }}
                 onGoToAdmin={() => setActiveTab('admin')}
+              />
+            )}
+
+            {/* Tab Dedicated: Kelola Data Satker (Master & Kontak PIC) */}
+            {activeTab === 'kelola-satker' && (
+              <KelolaDataSatkerDashboard
+                masterSatkers={masterSatkers}
+                satkers={satkers}
+                theme={theme}
+                isAdminAuthenticated={isAdminAuthenticated}
+                onSaveMasterSatker={handleSaveMasterSatker}
+                onUpdateMasterSatkers={handleUpdateMasterSatkers}
+                onDeleteMasterSatker={handleDeleteMasterSatker}
+                onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
+                onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
+                onGoToAdmin={() => setActiveTab('admin')}
+                onOpenReminder={handleOpenReminderSingle}
               />
             )}
 

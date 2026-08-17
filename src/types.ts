@@ -309,6 +309,9 @@ export interface SatkerIKPA {
   
   // Flag indicating if full IKPA Excel data has been uploaded
   hasIKPAData?: boolean;
+
+  // Flag indicating if Capaian Output SAKTI Excel data has been uploaded
+  hasCapaianOutputData?: boolean;
   
   // Riwayat Bulanan (Januari - Juli / Update Terus)
   riwayatBulanan?: RiwayatBulananIKPA[];
@@ -545,6 +548,7 @@ export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
   'pengelolaan-up'?: boolean;
+  'kelola-satker'?: boolean;
   'redflags': boolean;
   'sertifikasi': boolean;
   'per5-analisis': boolean;
@@ -694,6 +698,7 @@ export type NavigationTab =
   | 'dashboard' 
   | 'capaian-output' 
   | 'pengelolaan-up'
+  | 'kelola-satker'
   | 'redflags' 
   | 'sertifikasi'
   | 'per5-analisis'

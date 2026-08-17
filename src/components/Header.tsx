@@ -108,6 +108,13 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
     },
     {
+      id: 'kelola-satker',
+      label: 'Kelola Data Satker',
+      icon: <Building2 className="w-4 h-4 text-sky-300" />,
+      badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Master</span>,
+      activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
+    },
+    {
       id: 'redflags',
       label: 'Perlu Perhatian',
       icon: <AlertTriangle className="w-4 h-4 text-amber-300" />,

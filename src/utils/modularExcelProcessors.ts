@@ -789,3 +789,137 @@ export async function validatePejabatExcelFile(
     reader.readAsArrayBuffer(file);
   });
 }
+
+// Alias for validatePengelolaanUPExcelFile
+export const validateUPExcelFile = validatePengelolaanUPExcelFile;
+
+/**
+ * Template Downloads for Modular Categories
+ */
+export function downloadIKPATemplate() {
+  const sampleData = [
+    {
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Kementerian / Lembaga': 'Kepolisian Negara Republik Indonesia',
+      'Pagu Anggaran': 145800000000,
+      'Realisasi Anggaran': 112500000000,
+      'Revisi DIPA': 95.0,
+      'Deviasi Hal III DIPA': 62.5,
+      'Penyerapan Anggaran': 77.1,
+      'Belanja Kontraktual': 88.0,
+      'Penyelesaian Tagihan': 80.0,
+      'Pengelolaan UP TUP': 75.0,
+      'Dispensasi SPM': 100.0,
+      'Capaian Output': 45.0
+    },
+    {
+      'Kode Satker': '015432',
+      'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'Kementerian / Lembaga': 'Kementerian Agama',
+      'Pagu Anggaran': 210500000000,
+      'Realisasi Anggaran': 185400000000,
+      'Revisi DIPA': 90.0,
+      'Deviasi Hal III DIPA': 70.0,
+      'Penyerapan Anggaran': 88.0,
+      'Belanja Kontraktual': 92.0,
+      'Penyelesaian Tagihan': 85.0,
+      'Pengelolaan UP TUP': 90.0,
+      'Dispensasi SPM': 100.0,
+      'Capaian Output': 50.0
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Format IKPA Satker');
+  XLSX.writeFile(workbook, 'Template_Excel_IKPA_KPPN_Semarang1.xlsx');
+}
+
+export function downloadCapaianOutputTemplate() {
+  const sampleData = [
+    {
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Target Rincian Output (RO)': 12,
+      'Terlaporkan RO': 8,
+      'Persentase Capaian (%)': 66.7,
+      'Status Capaian Output': 'Belum Terlaporkan'
+    },
+    {
+      'Kode Satker': '015432',
+      'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'Target Rincian Output (RO)': 25,
+      'Terlaporkan RO': 25,
+      'Persentase Capaian (%)': 100,
+      'Status Capaian Output': 'Sudah Terlaporkan'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Format Capaian Output');
+  XLSX.writeFile(workbook, 'Template_Excel_Capaian_Output_SAKTI.xlsx');
+}
+
+export function downloadPengelolaanUPTemplate() {
+  const sampleData = [
+    {
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Pagu UP (Rp)': 1200000000,
+      'Nilai Besaran UP (Rp)': 100000000,
+      'Realisasi GUP (Rp)': 85000000,
+      'Sisa UP (Rp)': 15000000,
+      'Persentase Revolving (%)': 85.0,
+      'Frekuensi GUP': 4,
+      'Tanggal Terakhir SP2D': '15-08-2026'
+    },
+    {
+      'Kode Satker': '015432',
+      'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'Pagu UP (Rp)': 600000000,
+      'Nilai Besaran UP (Rp)': 50000000,
+      'Realisasi GUP (Rp)': 12500000,
+      'Sisa UP (Rp)': 37500000,
+      'Persentase Revolving (%)': 25.0,
+      'Frekuensi GUP': 1,
+      'Tanggal Terakhir SP2D': '02-07-2026'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Pengelolaan UP TUP');
+  XLSX.writeFile(workbook, 'Template_Excel_Pengelolaan_UP_TUP.xlsx');
+}
+
+export function downloadPejabatTemplate() {
+  const sampleData = [
+    {
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Nama Pejabat': 'BAMBANG PRASETYO, S.H.',
+      'NIP': '197805122002121001',
+      'Jabatan': 'PPK (Pejabat Pembuat Komitmen)',
+      'No Sertifikat': 'BNSP-PPK-026-2023-089',
+      'Status Sertifikat': 'Aktif',
+      'Tanggal Kadaluarsa': '2026-12-31'
+    },
+    {
+      'Kode Satker': '015432',
+      'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'Nama Pejabat': 'H. AHMAD FAUZI, M.Ag',
+      'NIP': '198103152005011003',
+      'Jabatan': 'PPSPM (Pejabat Penandatangan SPM)',
+      'No Sertifikat': 'Tidak Ada',
+      'Status Sertifikat': 'Belum Tersertifikasi',
+      'Tanggal Kadaluarsa': '-'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Pejabat Perbendaharaan');
+  XLSX.writeFile(workbook, 'Template_Excel_Pejabat_Perbendaharaan.xlsx');
+}
