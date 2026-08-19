@@ -114,31 +114,92 @@ export function analyzeSatkerPeriodicTrend(
   satkerName: string,
   history: RiwayatBulananIKPA[]
 ): SatkerTrendAnalysisResult {
-  if (!history || history.length < 2) {
+  if (!history || history.length === 0) {
     return {
       trendDirection: 'STABLE',
-      latestScore: history[0]?.nilaiIKPA || 0,
-      previousScore: history[0]?.nilaiIKPA || 0,
+      latestScore: 0,
+      previousScore: 0,
       scoreChange: 0,
-      highestMonth: { bulan: 'Juli', score: history[0]?.nilaiIKPA || 0 },
-      lowestMonth: { bulan: 'Januari', score: history[0]?.nilaiIKPA || 0 },
+      highestMonth: { bulan: '-', score: 0 },
+      lowestMonth: { bulan: '-', score: 0 },
       mainDriversUp: [],
       mainDriversDown: [],
-      narrativeSummary: 'Data riwayat periodik belum mencukupi untuk analisis tren.',
-      recommendations: []
+      narrativeSummary: 'Belum ada data riwayat IKPA yang diunggah.',
+      recommendations: ['Silakan unggah data Excel IKPA dari OM-SPAN untuk memulai analisis otomatis.']
     };
   }
 
-  const latest = history[history.length - 1]; // Juli or latest
-  const previous = history[history.length - 2]; // Juni or previous
-  const initial = history[0]; // Januari
+  // If only 1 month is present (e.g. initial upload for January)
+  if (history.length === 1) {
+    const cur = history[0];
+    const currentScore = cur.nilaiIKPA;
+    const optimalIndicators: string[] = [];
+    const bottleneckIndicators: string[] = [];
+    const recommendations: string[] = [];
+
+    if (cur.revisiDipa >= 95) optimalIndicators.push('Revisi DIPA optimal (100.00)');
+    else bottleneckIndicators.push(`Revisi DIPA masih ${cur.revisiDipa}`);
+
+    if (cur.deviasiHal3Dipa >= 90) optimalIndicators.push('Deviasi Hal III DIPA sangat terkendali (100.00)');
+    else bottleneckIndicators.push(`Deviasi Hal III DIPA perlu disesuaikan (${cur.deviasiHal3Dipa})`);
+
+    if (cur.pengelolaanUpTup >= 95) optimalIndicators.push('Pengelolaan UP & TUP disiplin (100.00)');
+    else bottleneckIndicators.push(`Pengelolaan UP/TUP belum optimal (${cur.pengelolaanUpTup})`);
+
+    if (cur.penyerapanAnggaran < 75) {
+      bottleneckIndicators.push(`Penyerapan anggaran masih ${cur.penyerapanAnggaran.toFixed(1)}% (Perlu akselerasi belanja)`);
+      recommendations.push('Akselerasi realisasi kegiatan operasional dan segera ajukan SPM belanja barang/modal ke KPPN.');
+    } else {
+      optimalIndicators.push(`Penyerapan anggaran mencapai target (${cur.penyerapanAnggaran.toFixed(1)}%)`);
+    }
+
+    if (cur.capaianOutput < 70) {
+      bottleneckIndicators.push(`Capaian Output SAKTI masih ${cur.capaianOutput.toFixed(1)}% (Bobot terbesar: 25%)`);
+      recommendations.push('Segera lakukan konfirmasi dan pengunggahan capaian rincian output (RO) pada aplikasi SAKTI.');
+    } else {
+      optimalIndicators.push(`Capaian Output SAKTI baik (${cur.capaianOutput.toFixed(1)}%)`);
+    }
+
+    if (cur.dispensasiSpm < 100 && cur.dispensasiSpm > 0) {
+      bottleneckIndicators.push('Terdapat pengajuan Dispensasi SPM yang berpotensi mengurangi poin');
+      recommendations.push('Hindari keterlambatan pengajuan SPM pada akhir periode untuk mencegah dispensasi.');
+    }
+
+    if (recommendations.length === 0) {
+      recommendations.push('Pertahankan kinerja optimal dan disiplin pelaporan SAKTI setiap bulannya.');
+    }
+
+    const narrative = `Posisi awal kinerja IKPA ${satkerName} pada periode ${cur.bulan} tercatat sebesar ${currentScore.toFixed(2)} poin. ${
+      bottleneckIndicators.length > 0
+        ? `Area yang menjadi faktor pembatas (bottleneck) utama adalah ${bottleneckIndicators.slice(0, 2).join(' serta ')}.`
+        : 'Seluruh indikator kinerja utama berada pada posisi optimal.'
+    }`;
+
+    return {
+      trendDirection: 'STABLE',
+      latestScore: currentScore,
+      previousScore: currentScore,
+      scoreChange: 0,
+      highestMonth: { bulan: cur.bulan, score: currentScore },
+      lowestMonth: { bulan: cur.bulan, score: currentScore },
+      mainDriversUp: optimalIndicators,
+      mainDriversDown: bottleneckIndicators,
+      narrativeSummary: narrative,
+      recommendations
+    };
+  }
+
+  // Multi-month comparison (e.g. Februari vs Januari)
+  const latest = history[history.length - 1];
+  const previous = history[history.length - 2];
+  const initial = history[0];
 
   const scoreChange = Number((latest.nilaiIKPA - previous.nilaiIKPA).toFixed(2));
   const totalPeriodChange = Number((latest.nilaiIKPA - initial.nilaiIKPA).toFixed(2));
 
   let trendDirection: 'UP' | 'DOWN' | 'STABLE' = 'STABLE';
-  if (scoreChange > 0.5) trendDirection = 'UP';
-  else if (scoreChange < -0.5) trendDirection = 'DOWN';
+  if (scoreChange > 0.3) trendDirection = 'UP';
+  else if (scoreChange < -0.3) trendDirection = 'DOWN';
 
   // Find highest and lowest month
   let highest = history[0];
@@ -149,42 +210,62 @@ export function analyzeSatkerPeriodicTrend(
   });
 
   // Calculate indicator shifts between latest and previous month
-  const dOutput = latest.capaianOutput - previous.capaianOutput;
-  const dDeviasi = latest.deviasiHal3Dipa - previous.deviasiHal3Dipa;
-  const dPenyerapan = latest.penyerapanAnggaran - previous.penyerapanAnggaran;
+  const dOutput = Number((latest.capaianOutput - previous.capaianOutput).toFixed(2));
+  const dDeviasi = Number((latest.deviasiHal3Dipa - previous.deviasiHal3Dipa).toFixed(2));
+  const dPenyerapan = Number((latest.penyerapanAnggaran - previous.penyerapanAnggaran).toFixed(2));
+  const dRevisi = Number((latest.revisiDipa - previous.revisiDipa).toFixed(2));
+  const dUpTup = Number((latest.pengelolaanUpTup - previous.pengelolaanUpTup).toFixed(2));
+  const dKontrak = Number((latest.belanjaKontraktual - previous.belanjaKontraktual).toFixed(2));
+  const dTagihan = Number((latest.penyelesaianTagihan - previous.penyelesaianTagihan).toFixed(2));
 
   const mainDriversUp: string[] = [];
   const mainDriversDown: string[] = [];
 
-  if (dOutput > 5) {
-    mainDriversUp.push(`Peningkatan signifikan Indikator Capaian Output (+${dOutput.toFixed(1)} poin, dari ${previous.capaianOutput} menjadi ${latest.capaianOutput}) setelah pengunggahan data SAKTI.`);
-  } else if (dOutput < -5) {
-    mainDriversDown.push(`Penurunan tajam Indikator Capaian Output (${dOutput.toFixed(1)} poin, dari ${previous.capaianOutput} ke ${latest.capaianOutput}) akibat data SAKTI belum dikonfirmasi atau terlambat.`);
+  if (dOutput > 3) {
+    mainDriversUp.push(`Peningkatan Indikator Capaian Output (+${dOutput.toFixed(1)} poin, dari ${previous.capaianOutput} menjadi ${latest.capaianOutput}) setelah pemutakhiran data SAKTI.`);
+  } else if (dOutput < -3) {
+    mainDriversDown.push(`Penurunan Indikator Capaian Output (${dOutput.toFixed(1)} poin, dari ${previous.capaianOutput} ke ${latest.capaianOutput}) akibat kendala konfirmasi RO.`);
   }
 
-  if (dDeviasi > 5) {
-    mainDriversUp.push(`Perbaikan akurasi Rencana Penarikan Dana (RPD) Hal III DIPA (+${dDeviasi.toFixed(1)} poin, dari ${previous.deviasiHal3Dipa} ke ${latest.deviasiHal3Dipa}).`);
-  } else if (dDeviasi < -5) {
-    mainDriversDown.push(`Pembengkakan Deviasi Halaman III DIPA (${dDeviasi.toFixed(1)} poin, dari ${previous.deviasiHal3Dipa} menjadi ${latest.deviasiHal3Dipa}) karena realisasi penarikan tidak sesuai RPD.`);
+  if (dDeviasi > 3) {
+    mainDriversUp.push(`Perbaikan akurasi RPD Hal III DIPA (+${dDeviasi.toFixed(1)} poin, dari ${previous.deviasiHal3Dipa} ke ${latest.deviasiHal3Dipa}).`);
+  } else if (dDeviasi < -3) {
+    mainDriversDown.push(`Pembengkakan Deviasi Halaman III DIPA (${dDeviasi.toFixed(1)} poin, dari ${previous.deviasiHal3Dipa} menjadi ${latest.deviasiHal3Dipa}) karena realisasi tidak sesuai jadwal RPD.`);
   }
 
-  if (dPenyerapan > 5) {
-    mainDriversUp.push(`Akselerasi penyerapan anggaran Triwulan III (+${dPenyerapan.toFixed(1)} poin, dari ${previous.penyerapanAnggaran}% ke ${latest.penyerapanAnggaran}%).`);
-  } else if (dPenyerapan < -5) {
-    mainDriversDown.push(`Perlambatan realisasi belanja negara (${dPenyerapan.toFixed(1)} poin) melebihi batas toleransi.`);
+  if (dPenyerapan > 3) {
+    mainDriversUp.push(`Akselerasi penyerapan anggaran (+${dPenyerapan.toFixed(1)} poin, dari ${previous.penyerapanAnggaran.toFixed(1)}% ke ${latest.penyerapanAnggaran.toFixed(1)}%).`);
+  } else if (dPenyerapan < -3) {
+    mainDriversDown.push(`Perlambatan realisasi belanja (${dPenyerapan.toFixed(1)} poin).`);
+  }
+
+  if (dRevisi > 3) {
+    mainDriversUp.push(`Optimalisasi Indikator Revisi DIPA (+${dRevisi.toFixed(1)} poin).`);
+  } else if (dRevisi < -3) {
+    mainDriversDown.push(`Penurunan nilai Revisi DIPA (${dRevisi.toFixed(1)} poin) akibat revisi berulang.`);
+  }
+
+  if (dUpTup > 3) {
+    mainDriversUp.push(`Peningkatan kepatuhan revolving UP/TUP (+${dUpTup.toFixed(1)} poin).`);
+  } else if (dUpTup < -3) {
+    mainDriversDown.push(`Keterlambatan revolving UP/TUP (${dUpTup.toFixed(1)} poin).`);
   }
 
   // Generate Narrative Summary
   let narrative = '';
   if (trendDirection === 'UP') {
-    narrative = `Pada periode ${latest.bulan}, nilai IKPA ${satkerName} mengalami KENAIKAN sebesar +${scoreChange} poin (dari ${previous.nilaiIKPA} menjadi ${latest.nilaiIKPA}). Performa terbaik tercatat pada bulan ${highest.bulan} (${highest.nilaiIKPA}). Faktor pendorong utama adalah perbaikan pada komponen Capaian Output dan penyesuaian RPD Halaman III DIPA.`;
+    narrative = `Pada periode ${latest.bulan}, nilai IKPA ${satkerName} mengalami KENAIKAN sebesar +${scoreChange} poin (dari ${previous.nilaiIKPA.toFixed(2)} di bulan ${previous.bulan} menjadi ${latest.nilaiIKPA.toFixed(2)}). Performa terbaik tercatat pada bulan ${highest.bulan} (${highest.nilaiIKPA.toFixed(2)}). ${
+      mainDriversUp.length > 0 ? `Pendorong utama kenaikan adalah ${mainDriversUp[0]}` : ''
+    }`;
   } else if (trendDirection === 'DOWN') {
-    narrative = `Pada periode ${latest.bulan}, nilai IKPA ${satkerName} mengalami PENURUNAN sebesar ${scoreChange} poin (dari ${previous.nilaiIKPA} menjadi ${latest.nilaiIKPA}). Titik performa terendah terjadi pada bulan ${lowest.bulan} (${lowest.nilaiIKPA}). Penyebab utama penurunan skor adalah belum terinputnya Capaian Output SAKTI atau tinggi nya deviasi penarikan dana harian.`;
+    narrative = `Pada periode ${latest.bulan}, nilai IKPA ${satkerName} mengalami PENURUNAN sebesar ${Math.abs(scoreChange)} poin (dari ${previous.nilaiIKPA.toFixed(2)} di bulan ${previous.bulan} menjadi ${latest.nilaiIKPA.toFixed(2)}). ${
+      mainDriversDown.length > 0 ? `Faktor penurunan disebabkan oleh ${mainDriversDown[0]}` : ''
+    }`;
   } else {
-    narrative = `Performa IKPA ${satkerName} cenderung STABIL di angka ${latest.nilaiIKPA} pada bulan ${latest.bulan} dibanding bulan ${previous.bulan} (${previous.nilaiIKPA}). Skor tertinggi tercatat pada bulan ${highest.bulan} (${highest.nilaiIKPA}).`;
+    narrative = `Performa IKPA ${satkerName} relatif STABIL di angka ${latest.nilaiIKPA.toFixed(2)} pada bulan ${latest.bulan} dibanding bulan ${previous.bulan} (${previous.nilaiIKPA.toFixed(2)}).`;
   }
 
-  // Recommendations
+  // Dynamic Recommendations
   const recommendations: string[] = [];
   if (latest.capaianOutput < 70) {
     recommendations.push('Segera lakukan konfirmasi dan unggah data Laporan Capaian Output di aplikasi SAKTI sebelum tanggal 5.');
@@ -196,7 +277,7 @@ export function analyzeSatkerPeriodicTrend(
     recommendations.push('Akselerasi penerbitan SPM belanja barang & modal yang telah selesai dilaksanakan untuk mendongkrak rasio penyerapan anggaran.');
   }
   if (recommendations.length === 0) {
-    recommendations.push('Pertahankan konsistensi perekaman data SAKTI dan jaga deviasi Hal III DIPA tetap di bawah 5% untuk mencapai nilai 100 Sangat Baik.');
+    recommendations.push('Pertahankan konsistensi perekaman data SAKTI dan jaga deviasi Hal III DIPA tetap di bawah 5% untuk mempertahankan predikat Sangat Baik.');
   }
 
   return {
@@ -283,15 +364,14 @@ export function extractKodeBA(klString?: string): string {
 }
 
 /**
- * Computes default satker password in format: [KodeSatker][KodeBA][KodeKPPN]
- * e.g. 527272 + 015 + 026 => 527272015026
+ * Computes default satker password in format: [KodeSatker]_[KodeBA]
+ * e.g. 890594 + 018 => 890594_018
  */
 export function getSatkerDefaultPassword(satker: SatkerIKPA): string {
   if (satker.passwordSatker && satker.passwordSatker.trim() !== '') {
     return satker.passwordSatker.trim();
   }
   const ba = satker.kodeBa || extractKodeBA(satker.kementerianLembaga);
-  const kppn = satker.kodeKppn || '026';
-  return `${satker.kodeSatker}${ba}${kppn}`;
+  return `${satker.kodeSatker}_${ba}`;
 }
 

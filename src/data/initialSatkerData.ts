@@ -2,9 +2,9 @@ import { SatkerIKPA, IKPAPredikat } from "../types";
 
 export function getPredikatIKPA(nilai: number): IKPAPredikat {
   if (nilai >= 95) return "Sangat Baik";
-  if (nilai >= 87.5) return "Baik";
+  if (nilai >= 89) return "Baik";
   if (nilai >= 70) return "Cukup";
-  return "Sangat Perlu Perhatian";
+  return "Kurang";
 }
 
 export function hitungTotalIKPA(indikator: SatkerIKPA["indikator"]): number {

@@ -14,6 +14,7 @@ export interface MasterSatker {
   emailPic?: string;
   alamatSatker?: string;
   catatan?: string;
+  pejabatOperator?: PejabatDanOperator;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -241,7 +242,7 @@ export interface UserPermissionConfig {
   canEditOwnProfile: boolean;
 }
 
-export type IKPAPredikat = 'Sangat Baik' | 'Baik' | 'Cukup' | 'Sangat Perlu Perhatian';
+export type IKPAPredikat = 'Sangat Baik' | 'Baik' | 'Cukup' | 'Kurang' | 'Sangat Perlu Perhatian';
 
 export interface IndikatorIKPA {
   revisiDipa: number; // Max 100
@@ -552,7 +553,6 @@ export interface MenuVisibilityConfig {
   'redflags': boolean;
   'sertifikasi': boolean;
   'per5-analisis': boolean;
-  'profil-satker'?: boolean;
   'announcements': boolean;
   'materi-slide'?: boolean;
   'portal-link'?: boolean;
@@ -710,8 +710,7 @@ export type NavigationTab =
   | 'aduan'
   | 'admin' 
   | 'reminder' 
-  | 'guide'
-  | 'profil-satker';
+  | 'guide';
 
 export type AppTheme = 'light' | 'dark';
 

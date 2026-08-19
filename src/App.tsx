@@ -10,7 +10,6 @@ import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
-import { SatkerProfileView } from './components/SatkerProfileView';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
 import { SocializationPortalView } from './components/SocializationPortalView';
@@ -160,7 +159,7 @@ export default function App() {
     }
 
     return {
-      defaultFilter: 'BELUM_OUTPUT', // Default: daftar satker belum upload capaian output (0% data)
+      defaultFilter: 'ALL',
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
@@ -468,6 +467,34 @@ export default function App() {
     setMasterSatkers(newList);
     localStorage.setItem('kppn_master_satkers', JSON.stringify(newList));
     syncMasterSatkersToFirebase(newList);
+
+    // Also sync contact/password info to satkers list
+    setSatkers(prevSatkers => {
+      const masterMap = new Map(newList.map(m => [m.kodeSatker, m]));
+      let hasChanges = false;
+      const updatedSatkers = prevSatkers.map(s => {
+        const matchMaster = masterMap.get(s.kodeSatker);
+        if (matchMaster) {
+          hasChanges = true;
+          return {
+            ...s,
+            passwordSatker: matchMaster.passwordSatker || s.passwordSatker,
+            namaPic: matchMaster.namaPic || s.namaPic,
+            noHpPic: matchMaster.noHpPic || s.noHpPic,
+            emailPic: matchMaster.emailPic || s.emailPic,
+            alamatSatker: matchMaster.alamatSatker || s.alamatSatker,
+            pejabatOperator: matchMaster.pejabatOperator || s.pejabatOperator
+          };
+        }
+        return s;
+      });
+      if (hasChanges) {
+        localStorage.setItem('kppn_satker_data', JSON.stringify(updatedSatkers));
+        syncSatkersToFirebase(updatedSatkers);
+        return updatedSatkers;
+      }
+      return prevSatkers;
+    });
   };
 
   const handleSaveMasterSatker = (item: MasterSatker) => {
@@ -476,6 +503,28 @@ export default function App() {
       ? masterSatkers.map(m => (m.kodeSatker === item.kodeSatker || m.id === item.id) ? { ...m, ...item, updatedAt: new Date().toISOString() } : m)
       : [{ ...item, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...masterSatkers];
     handleUpdateMasterSatkers(updated);
+
+    // Sync to satkers state
+    setSatkers(prevSatkers => {
+      const matchIndex = prevSatkers.findIndex(s => s.kodeSatker === item.kodeSatker);
+      if (matchIndex !== -1) {
+        const updatedSatkers = [...prevSatkers];
+        updatedSatkers[matchIndex] = {
+          ...updatedSatkers[matchIndex],
+          namaSatker: item.namaSatker || updatedSatkers[matchIndex].namaSatker,
+          namaPic: item.namaPic || updatedSatkers[matchIndex].namaPic,
+          noHpPic: item.noHpPic || updatedSatkers[matchIndex].noHpPic,
+          emailPic: item.emailPic || updatedSatkers[matchIndex].emailPic,
+          alamatSatker: item.alamatSatker || updatedSatkers[matchIndex].alamatSatker,
+          passwordSatker: item.passwordSatker || updatedSatkers[matchIndex].passwordSatker,
+          pejabatOperator: item.pejabatOperator || updatedSatkers[matchIndex].pejabatOperator
+        };
+        localStorage.setItem('kppn_satker_data', JSON.stringify(updatedSatkers));
+        syncSatkersToFirebase(updatedSatkers);
+        return updatedSatkers;
+      }
+      return prevSatkers;
+    });
   };
 
   const handleDeleteMasterSatker = (idOrKode: string) => {
@@ -617,15 +666,15 @@ export default function App() {
   }, [masterSatkers]);
 
   // Active Satkers displayed in Dashboards:
-  // If Master Satkers have been uploaded, only satkers registered in Master Satker AND active (isActive !== false) will appear!
+  // Show all uploaded satkers (unless explicitly marked isActive: false in Master Satker), and enrich with Master Satker details
   const activeDisplaySatkers = useMemo(() => {
-    if (masterSatkers.length === 0) {
-      return satkers;
-    }
     return satkers
       .filter(s => {
         const master = masterSatkerMap.get(s.kodeSatker.trim());
-        return master && master.isActive !== false;
+        if (master && master.isActive === false) {
+          return false;
+        }
+        return true;
       })
       .map(s => {
         const master = masterSatkerMap.get(s.kodeSatker.trim());
@@ -644,7 +693,7 @@ export default function App() {
         }
         return s;
       });
-  }, [satkers, masterSatkers, masterSatkerMap]);
+  }, [satkers, masterSatkerMap]);
 
   // Search Filtered Data based on active master filtered satkers
   const searchedSatkers = activeDisplaySatkers.filter(s => {
@@ -664,16 +713,16 @@ export default function App() {
   const redFlagsCount = satkersWithIKPA.filter(s => {
     return (
       s.nilaiTotalIKPA < 87.5 || 
-      s.statusCapaianOutput !== 'Sudah Terlaporkan' || 
-      (s.indikator && s.indikator.capaianOutput === 0) || 
       s.persenPenyerapan < 70 || 
-      s.indikator.deviasiHal3Dipa < 75
+      s.indikator.deviasiHal3Dipa < 75 ||
+      s.indikator.dispensasiSpm < 100
     );
   }).length;
 
-  const belumCapaianCount = activeDisplaySatkers.filter(s => 
-    s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0
-  ).length;
+  const satkersWithCaputData = activeDisplaySatkers.filter(s => s.hasCapaianOutputData === true);
+  const belumCapaianCount = satkersWithCaputData.length > 0 
+    ? satkersWithCaputData.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0).length
+    : 0;
 
   const sertifikasiUnapprovedCount = pejabatSertifikasiList.filter(p => 
     !p.noSertifikat || p.noSertifikat.trim() === '' || p.noSertifikat.toLowerCase().includes('tidak ada')
@@ -689,13 +738,29 @@ export default function App() {
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
   };
 
+  const handleClearAllMasterSatkers = () => {
+    setMasterSatkers([]);
+    localStorage.setItem('kppn_master_satkers', JSON.stringify([]));
+    syncMasterSatkersToFirebase([]);
+  };
+
   const handleClearAllSatkers = () => {
     setSatkers([]);
+    setMasterSatkers([]);
     setPejabatSertifikasiList([]);
+    setPengelolaanUPList([]);
     syncSatkersToFirebase([]);
+    syncMasterSatkersToFirebase([]);
     syncPejabatToFirebase([]);
+    try {
+      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: [], updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Error clearing UP in Firebase:", e);
+    }
     localStorage.setItem('kppn_satker_data', JSON.stringify([]));
+    localStorage.setItem('kppn_master_satkers', JSON.stringify([]));
     localStorage.setItem('kppn_pejabat_data', JSON.stringify([]));
+    localStorage.setItem('kppn_pengelolaan_up', JSON.stringify([]));
     localStorage.setItem('kppn_historical_uploads', JSON.stringify([]));
     handleUpdateDashboardConfig({
       ...dashboardConfig,
@@ -710,7 +775,52 @@ export default function App() {
     if (appendMode) {
       result = [...newSatkers, ...satkers];
     } else {
-      result = newSatkers;
+      // Smart Multi-Month Merger:
+      // If satkers already have history for previous months (e.g. Januari),
+      // and newSatkers brings February or subsequent months, preserve & merge history!
+      const existingSatkerMap = new Map<string, SatkerIKPA>();
+      satkers.forEach(s => {
+        if (s.kodeSatker) {
+          existingSatkerMap.set(s.kodeSatker.trim(), s);
+        }
+      });
+
+      const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+      result = newSatkers.map(newS => {
+        const existing = existingSatkerMap.get(newS.kodeSatker.trim());
+        if (!existing) return newS;
+
+        const existingHistory = existing.riwayatBulanan || [];
+        const newHistory = newS.riwayatBulanan || [];
+
+        // Build combined unique history by month name
+        const combinedHistoryMap = new Map<string, any>();
+        existingHistory.forEach(h => {
+          if (h.bulan) {
+            const mNorm = h.bulan.charAt(0).toUpperCase() + h.bulan.slice(1).toLowerCase();
+            combinedHistoryMap.set(mNorm, { ...h, bulan: mNorm });
+          }
+        });
+        newHistory.forEach(h => {
+          if (h.bulan) {
+            const mNorm = h.bulan.charAt(0).toUpperCase() + h.bulan.slice(1).toLowerCase();
+            combinedHistoryMap.set(mNorm, { ...h, bulan: mNorm });
+          }
+        });
+
+        const sortedHistory = Array.from(combinedHistoryMap.values()).sort((a, b) => {
+          const idxA = monthsOrder.findIndex(m => m.toLowerCase() === (a.bulan || '').toLowerCase());
+          const idxB = monthsOrder.findIndex(m => m.toLowerCase() === (b.bulan || '').toLowerCase());
+          return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+        });
+
+        return {
+          ...existing,
+          ...newS,
+          riwayatBulanan: sortedHistory.length > 0 ? sortedHistory : newS.riwayatBulanan
+        };
+      });
     }
     setSatkers(result);
     syncSatkersToFirebase(result);
@@ -909,21 +1019,10 @@ export default function App() {
                 onUpdateMasterSatkers={handleUpdateMasterSatkers}
                 onDeleteMasterSatker={handleDeleteMasterSatker}
                 onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
+                onClearAllMasterSatkers={handleClearAllMasterSatkers}
                 onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
                 onGoToAdmin={() => setActiveTab('admin')}
                 onOpenReminder={handleOpenReminderSingle}
-              />
-            )}
-
-            {/* Tab Pembaruan Kontak Satker */}
-            {activeTab === 'profil-satker' && (
-              <SatkerProfileView
-                masterSatkers={masterSatkers}
-                satkers={satkers}
-                pejabatList={pejabatSertifikasiList}
-                onUpdateProfile={handleSaveMasterSatker}
-                onUpdateSatkerIKPA={handleUpdateSatker}
-                theme={theme}
               />
             )}
 
@@ -1017,6 +1116,7 @@ export default function App() {
                 onSavePresensiKegiatan={handleSavePresensiKegiatan}
                 onDeletePresensiKegiatan={handleDeletePresensiKegiatan}
                 onDeletePesertaPresensi={handleDeletePesertaPresensi}
+                onClearMasterSatkers={handleClearAllMasterSatkers}
               />
             )}
 

@@ -2038,7 +2038,50 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         }));
       }
     } else {
-      satkersToApply = appendMode ? [...previewSatkers, ...(satkers || [])] : previewSatkers;
+      const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const uploadMonthName = monthsOrder.find(m => uploadPeriode.toLowerCase().includes(m.toLowerCase())) || 'Januari';
+
+      const formattedIKPA = previewSatkers.map(p => {
+        const existing = (satkers || []).find(s => s.kodeSatker === p.kodeSatker);
+
+        // Build new monthly history item for this uploaded month
+        const newMonthEntry = {
+          bulan: uploadMonthName,
+          nilaiIKPA: p.nilaiTotalIKPA,
+          capaianOutput: p.indikator.capaianOutput,
+          deviasiHal3Dipa: p.indikator.deviasiHal3Dipa,
+          penyerapanAnggaran: p.indikator.penyerapanAnggaran,
+          revisiDipa: p.indikator.revisiDipa,
+          belanjaKontraktual: p.indikator.belanjaKontraktual,
+          penyelesaianTagihan: p.indikator.penyelesaianTagihan,
+          pengelolaanUpTup: p.indikator.pengelolaanUpTup,
+          dispensasiSpm: p.indikator.dispensasiSpm
+        };
+
+        // Merge existing history with the new month
+        let mergedHistory = existing?.riwayatBulanan ? [...existing.riwayatBulanan] : [];
+        mergedHistory = mergedHistory.filter(h => h.bulan.toLowerCase() !== uploadMonthName.toLowerCase());
+        mergedHistory.push(newMonthEntry);
+
+        // Sort chronologically Jan - Des
+        mergedHistory.sort((a, b) => {
+          const idxA = monthsOrder.findIndex(m => m.toLowerCase() === a.bulan.toLowerCase());
+          const idxB = monthsOrder.findIndex(m => m.toLowerCase() === b.bulan.toLowerCase());
+          return (idxA !== -1 ? idxA : 0) - (idxB !== -1 ? idxB : 0);
+        });
+
+        return {
+          ...p,
+          hasIKPAData: true,
+          hasCapaianOutputData: existing ? !!existing.hasCapaianOutputData : false,
+          statusCapaianOutput: (existing && existing.hasCapaianOutputData) ? existing.statusCapaianOutput : p.statusCapaianOutput,
+          periodeUpdate: uploadPeriode,
+          riwayatBulanan: mergedHistory,
+          pejabatOperator: existing?.pejabatOperator || p.pejabatOperator,
+          passwordSatker: existing?.passwordSatker || p.passwordSatker
+        };
+      });
+      satkersToApply = appendMode ? [...formattedIKPA, ...(satkers || [])] : formattedIKPA;
     }
 
     const newHistoryItem: ExcelUploadHistory = {
@@ -2194,14 +2237,17 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
     requestConfirm(
       '⚠️ Bersihkan Total Data & Arsip (0 Satker)',
-      `Apakah Anda yakin ingin MENGHAPUS TOTAL DATA SATKER (${satkers.length} Satker) DAN MENGHAPUS SEMUA ARSIP FILE EXCEL?\n\nTindakan ini akan mengosongkan dashboard secara menyeluruh (IKPA, Capaian Output, & Perlu Perhatian) menjadi 0 Satker agar Anda dapat menguji dengan file Excel asli milik Anda.`,
+      `Apakah Anda yakin ingin MENGHAPUS TOTAL DATA SATKER (${satkers.length} Satker) DAN MENGHAPUS SEMUA ARSIP FILE EXCEL?\n\nTindakan ini akan mengosongkan dashboard secara menyeluruh (IKPA, Capaian Output, Master Satker & Perlu Perhatian) menjadi 0 Satker agar Anda dapat menguji dengan file Excel asli milik Anda.`,
       () => {
         if (onClearAllData) {
           onClearAllData();
         }
+        if (onClearMasterSatkers) {
+          onClearMasterSatkers();
+        }
         saveAndApplyHistoricalUploads([]);
         setCustomBroadcastExcelList([]);
-        addLog('Reset Total Data & Arsip', 'SETTINGS', 'Seluruh data Satker dan arsip file Excel dikosongkan secara total.', 'WARNING');
+        addLog('Reset Total Data & Arsip', 'SETTINGS', 'Seluruh data Satker, Master Satker, dan arsip file Excel dikosongkan secara total.', 'WARNING');
       },
       { confirmText: 'Ya, Bersihkan Total (0 Satker)', variant: 'danger' }
     );
@@ -2211,10 +2257,77 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     setPreviewSatkers(prev => prev.filter(s => s.id !== id));
   };
 
-  // If NOT Authenticated -> Show Front-and-Center Admin Login Hero Card
+  // If NOT Authenticated -> Show Front-and-Center Executive Admin Login Hero Card
   if (!isAuthenticated) {
     return (
-      <div className="max-w-2xl mx-auto py-8 px-4">
+      <div className="max-w-2xl mx-auto py-4 sm:py-8 px-3 sm:px-4 space-y-4">
+        
+        {/* Notice for Public Satker / Participants */}
+        <div className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+          isDark 
+            ? 'bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border-indigo-500/30 text-slate-200' 
+            : 'bg-gradient-to-r from-sky-50 via-indigo-50 to-sky-50 border-sky-200 text-slate-800'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-sky-500/15 text-sky-500 shrink-0 mt-0.5">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="space-y-2 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] sm:text-xs font-black uppercase px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-300 border border-sky-400/30">
+                  Untuk Satuan Kerja &amp; Peserta
+                </span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Akses Publik Tanpa Login
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Halaman ini khusus <strong>Administrator KPPN Semarang I</strong>. Satuan Kerja dan Peserta kegiatan dapat langsung mengakses seluruh fitur publik tanpa perlu login:
+              </p>
+              
+              {/* Quick Navigation Links for Satker/Peserta */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const navBtn = document.querySelector('header nav');
+                    if (navBtn) window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <BarChart3 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Dashboard IKPA</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const navBtn = document.querySelector('header nav');
+                    if (navBtn) window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5 text-sky-500" />
+                  <span>Capaian Output</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const navBtn = document.querySelector('header nav');
+                    if (navBtn) window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-700 text-xs font-bold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5 text-teal-500" />
+                  <span>Presensi Online</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Admin Authentication Card */}
         <div className={`rounded-3xl border-2 shadow-2xl overflow-hidden transition-all ${
           isDark 
             ? 'bg-slate-900 border-indigo-500/50 text-slate-100 shadow-indigo-950/50' 
@@ -2223,30 +2336,30 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           {/* Header Banner */}
           <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-8 text-white relative overflow-hidden border-b border-indigo-500/30">
             {/* Ambient Background Glow */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-indigo-500/20 border border-indigo-400/40 rounded-2xl flex items-center justify-center text-amber-400 shadow-lg shrink-0">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="flex items-center gap-3.5 mb-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-500/20 border border-indigo-400/40 rounded-2xl flex items-center justify-center text-amber-400 shadow-lg shrink-0">
+                <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
               <div>
-                <span className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-3 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
                   <Building2 className="w-3.5 h-3.5" />
                   KPPN Semarang I (026) • Admin Control Center
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
-                  Otentikasi Modul Administrator
+                  Otentikasi Administrator
                 </h2>
               </div>
             </div>
 
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
-              Gunakan password admin untuk membuka hak akses pengelola: Olah File Excel SAKTI/OM-SPAN, WhatsApp Gateway Broadcast, Manajemen Satker &amp; Pejabat, serta Kontrol Visibilitas Menu.
+              Gunakan password pengelola untuk membuka hak akses upload Excel SAKTI mentah, broadcast WhatsApp pejabat, manajemen arsip, dan kontrol menu.
             </p>
           </div>
 
           {/* Form & Quick Actions Body */}
-          <div className="p-6 sm:p-8 space-y-6">
+          <div className="p-5 sm:p-8 space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
@@ -2270,7 +2383,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </div>
 
               {authError && (
-                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2">
+                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2 animate-shake">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span className="font-semibold">{authError}</span>
                 </div>
@@ -2389,7 +2502,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <Wrench className="w-4 h-4 text-emerald-600" />
           <span>2. Kelola Data Satker</span>
           <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {satkers.length}
+            {masterSatkers.length}
           </span>
         </button>
 
@@ -2409,21 +2522,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </button>
 
         <button
-          onClick={() => setAdminTab('pejabat-hp')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'pejabat-hp'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-emerald-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Phone className="w-4 h-4 text-emerald-600" />
-          <span>4. Monitoring No HP Pejabat</span>
-          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Kontak
-          </span>
-        </button>
-
-        <button
           onClick={() => setAdminTab('history')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'history'
@@ -2432,7 +2530,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <FolderArchive className="w-4 h-4 text-blue-600" />
-          <span>3. Arsip Periode</span>
+          <span>4. Arsip Periode</span>
           <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {historicalUploads.length}
           </span>
@@ -2447,7 +2545,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Calculator className="w-4 h-4 text-indigo-600" />
-          <span>4. Analisis &amp; Simulator IKPA</span>
+          <span>5. Analisis &amp; Simulator IKPA</span>
         </button>
 
         <button
@@ -2459,7 +2557,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-          <span>5. Pengaturan Dashboard</span>
+          <span>6. Pengaturan Dashboard</span>
         </button>
 
         <button
@@ -2471,7 +2569,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Megaphone className="w-4 h-4 text-amber-600" />
-          <span>6. Pengumuman</span>
+          <span>7. Pengumuman</span>
           {(tempConfig.announcements?.length || 0) > 0 && (
             <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
               {tempConfig.announcements.length}
@@ -2488,7 +2586,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Presentation className="w-4 h-4 text-indigo-600" />
-          <span>7. Kelola Materi Slide Show</span>
+          <span>8. Kelola Materi Slide Show</span>
           <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {(tempConfig.presentationMaterials?.length || 0)}
           </span>
@@ -2503,7 +2601,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Link2 className="w-4 h-4 text-emerald-600" />
-          <span>8. Link Sosialisasi (Linktree)</span>
+          <span>9. Link Sosialisasi (Linktree)</span>
           <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {(tempConfig.kegiatanSosialisasi?.length || 0)}
           </span>
@@ -2518,7 +2616,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <ClipboardCheck className="w-4 h-4 text-teal-600" />
-          <span>9. Presensi &amp; Rekap Kehadiran</span>
+          <span>10. Presensi &amp; Rekap Kehadiran</span>
           <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {presensiPesertaList.length} Peserta
           </span>
@@ -2533,7 +2631,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Send className="w-4 h-4 text-rose-600" />
-          <span>7. Broadcast Masif Satker</span>
+          <span>11. Broadcast Masif Satker</span>
           <span className="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             Dynamic Mail Merge
           </span>
@@ -2548,7 +2646,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <History className="w-4 h-4 text-purple-600" />
-          <span>8. Log Admin</span>
+          <span>12. Log Admin</span>
           <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {activityLogs.length}
           </span>
@@ -3246,7 +3344,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   { key: 'portal-link', label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi' },
                   { key: 'presensi', label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi' },
                   { key: 'aduan', label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker' },
-                  { key: 'profil-satker', label: 'Update Kontak Satker', desc: 'Formulir Update PIC & Pejabat Satker' },
                   { key: 'reminder', label: 'Pengingat WA Satker', desc: 'Portal Draf & Broadcast WhatsApp' },
                   { key: 'guide', label: 'Panduan Excel', desc: 'Instruksi format & kolom' }
                 ].map((menu) => {
@@ -9032,7 +9129,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 ) : (
                   <tr>
                     <th className="py-3 px-4">Kode &amp; Nama Satker</th>
-                    <th className="py-3 px-4">Pagu Anggaran</th>
+                    <th className="py-3 px-4">Periode</th>
                     <th className="py-3 px-4">Penyerapan</th>
                     <th className="py-3 px-4">Capaian Output</th>
                     <th className="py-3 px-4">Total IKPA</th>
@@ -9084,11 +9181,18 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         </>
                       ) : (
                         <>
-                          <td className="py-3 px-4 font-mono">
-                            Rp {satker.paguAnggaran.toLocaleString('id-ID')}
+                          <td className="py-3 px-4 font-medium text-slate-700 dark:text-slate-300">
+                            <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-md font-semibold text-xs border border-sky-200 dark:border-sky-800/60">
+                              {satker.periodeUpdate || uploadPeriode}
+                            </span>
+                            {satker.paguAnggaran > 0 && (
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                Pagu: Rp {satker.paguAnggaran.toLocaleString('id-ID')}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-4 font-bold">
-                            {satker.persenPenyerapan}%
+                            {satker.indikator.penyerapanAnggaran}%
                           </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
@@ -9099,11 +9203,18 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                               {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
                             </span>
                           </td>
-                          <td className="py-3 px-4 font-extrabold text-sm text-slate-900 dark:text-slate-100">
+                          <td className="py-3 px-4 font-extrabold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
                             {satker.nilaiTotalIKPA}
                           </td>
                           <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300">
-                            {satker.predikat}
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                              satker.nilaiTotalIKPA >= 95 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                              satker.nilaiTotalIKPA >= 87.5 ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
+                              satker.nilaiTotalIKPA >= 70 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                              'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                            }`}>
+                              {satker.predikat}
+                            </span>
                           </td>
                         </>
                       )}

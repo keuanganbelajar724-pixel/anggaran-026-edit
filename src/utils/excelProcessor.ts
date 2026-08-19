@@ -55,19 +55,35 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
           throw new Error('File Excel kosong atau tidak memiliki data yang valid.');
         }
 
-        // 1. Detect Month / Periode from top 15 rows or filename
+        // 1. Detect Month & Period & Year from top 25 rows or filename
         let detectedMonth = '';
+        let detectedYear = '2026';
+        let detectedPeriodText = '';
+
         const monthsList = [
           'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
           'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
         ];
 
-        for (let i = 0; i < Math.min(15, matrix.length); i++) {
+        // Scan top 25 rows for period keywords (e.g. "Kondisi s.d. Januari 2026", "Periode Januari 2026")
+        for (let i = 0; i < Math.min(25, matrix.length); i++) {
           if (!matrix[i]) continue;
-          const rowStr = matrix[i].join(' ');
+          const rowStr = matrix[i].map(c => String(c || '')).join(' ');
+          
+          // Check for year (2024, 2025, 2026, 2027)
+          const yearMatch = rowStr.match(/\b(202[4-9])\b/);
+          if (yearMatch) {
+            detectedYear = yearMatch[1];
+          }
+
           monthsList.forEach(m => {
             if (rowStr.toLowerCase().includes(m.toLowerCase()) && !detectedMonth) {
               detectedMonth = m;
+              if (rowStr.toLowerCase().includes('s.d.') || rowStr.toLowerCase().includes('sd ') || rowStr.toLowerCase().includes('sampai')) {
+                detectedPeriodText = `s.d. ${m} ${detectedYear}`;
+              } else {
+                detectedPeriodText = `s.d. ${m} ${detectedYear}`;
+              }
             }
           });
         }
@@ -78,13 +94,15 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               detectedMonth = m;
             }
           });
+          const fileYearMatch = file.name.match(/\b(202[4-9])\b/);
+          if (fileYearMatch) detectedYear = fileYearMatch[1];
         }
 
         if (!detectedMonth) {
           detectedMonth = 'Januari';
         }
 
-        const periodeFormatted = `${detectedMonth} 2026`;
+        const periodeFormatted = detectedPeriodText || `s.d. ${detectedMonth} ${detectedYear}`;
 
         // Determine whether file format is dedicated Capaian Output or full IKPA
         let hasIKPAColumns = false;
@@ -269,6 +287,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                 nilaiTotalIKPA,
                 predikat,
                 hasIKPAData: false,
+                hasCapaianOutputData: true,
                 issues,
                 namaPic: `Operator ${kodeSatker}`,
                 noHpPic: '081234567890',
@@ -285,43 +304,54 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
 
         } else {
           // General / OM-SPAN / SAKTI / Custom Excel Universal Parser
-          // 1. Scan rows to build dynamic column map
-          let headerRowIdx = -1;
-          for (let i = 0; i < Math.min(25, matrix.length); i++) {
+          // 1. Find the true table header row with highest indicator keyword matches
+          let bestHeaderRowIdx = -1;
+          let maxHeaderMatches = 0;
+
+          for (let i = 0; i < Math.min(35, matrix.length); i++) {
             if (!matrix[i]) continue;
-            const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
-            if (
-              rowStr.includes('kode') || 
-              rowStr.includes('satker') || 
-              rowStr.includes('indikator') || 
-              rowStr.includes('revisi') || 
-              rowStr.includes('penyerapan') ||
-              rowStr.includes('ikpa')
-            ) {
-              headerRowIdx = i;
-              break;
+            const rowStr = matrix[i].map(c => String(c || '').toLowerCase()).join(' ');
+            let score = 0;
+            if (rowStr.includes('revisi')) score += 3;
+            if (rowStr.includes('deviasi') || rowStr.includes('hal iii') || rowStr.includes('hal 3')) score += 3;
+            if (rowStr.includes('penyerapan')) score += 3;
+            if (rowStr.includes('kontraktual') || rowStr.includes('kontrak')) score += 3;
+            if (rowStr.includes('tagihan') || rowStr.includes('penyelesaian')) score += 3;
+            if (rowStr.includes('up dan tup') || rowStr.includes('uptup') || rowStr.includes('pengelolaan up')) score += 3;
+            if (rowStr.includes('capaian output') || rowStr.includes('output')) score += 3;
+            if (rowStr.includes('dispensasi')) score += 3;
+            if (rowStr.includes('kode satker') || rowStr.includes('uraian satker')) score += 2;
+            if (rowStr.includes('kualitas perencanaan') || rowStr.includes('kualitas pelaksanaan')) score += 2;
+            if (rowStr.includes('konversi bobot') || rowStr.includes('nilai akhir')) score += 2;
+
+            if (score > maxHeaderMatches) {
+              maxHeaderMatches = score;
+              bestHeaderRowIdx = i;
             }
           }
 
-          if (headerRowIdx === -1) headerRowIdx = 0;
+          if (bestHeaderRowIdx === -1) bestHeaderRowIdx = 0;
 
-          // Combine headers across row -1, row 0, row +1 to handle multi-level merged headers
+          // Combine headers across adjacent rows to handle multi-level merged headers
           const rawHeaders: string[] = [];
-          const maxCols = Math.max(...matrix.slice(0, Math.min(30, matrix.length)).map(r => r ? r.length : 0));
+          const maxCols = Math.max(...matrix.slice(0, Math.min(40, matrix.length)).map(r => r ? r.length : 0));
 
           for (let c = 0; c < maxCols; c++) {
             let combined = '';
-            for (let r = Math.max(0, headerRowIdx - 1); r <= Math.min(matrix.length - 1, headerRowIdx + 2); r++) {
+            for (let r = Math.max(0, bestHeaderRowIdx - 2); r <= Math.min(matrix.length - 1, bestHeaderRowIdx + 2); r++) {
               if (matrix[r] && matrix[r][c] !== undefined && matrix[r][c] !== '') {
                 combined += ' ' + String(matrix[r][c]);
               }
             }
-            rawHeaders.push(combined.toLowerCase());
+            rawHeaders.push(combined.toLowerCase().trim());
           }
 
           const colMap = {
             kode: -1,
+            kodeBa: -1,
             nama: -1,
+            keterangan: -1,
+            periode: -1,
             revisi: -1,
             deviasi: -1,
             penyerapan: -1,
@@ -331,6 +361,8 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             dispensasi: -1,
             capaian: -1,
             nilaiTotal: -1,
+            konversiBobot: -1,
+            nilaiAkhir: -1,
             pagu: -1,
             realisasi: -1,
             kl: -1,
@@ -340,69 +372,95 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             picEmail: -1
           };
 
-          rawHeaders.forEach((h, colIdx) => {
+          // Step A: Parse headers with precise keyword checking
+          for (let colIdx = 0; colIdx < maxCols; colIdx++) {
+            const h = rawHeaders[colIdx] || '';
             const cleanH = h.replace(/[^a-z0-9]/g, '');
+            
+            // Check specific header cell in the bestHeaderRowIdx
+            const directHeaderCell = String(matrix[bestHeaderRowIdx]?.[colIdx] || '').toLowerCase().trim();
+            const cleanDirect = directHeaderCell.replace(/[^a-z0-9]/g, '');
+            const isAspek = cleanDirect.includes('aspek') || cleanDirect.includes('nilaiaspek') || cleanH.endsWith('nilaiaspek') || cleanH.includes('aspek');
 
-            if (colMap.kode === -1 && (cleanH.includes('kodesatker') || cleanH.includes('kdsatker') || cleanH.includes('satkercode') || cleanH.includes('kodeba') || (cleanH.includes('kode') && !cleanH.includes('koderincian')))) {
+            if (cleanDirect.includes('kodeba') || cleanH.includes('kodeba') || cleanH.includes('kdba')) {
+              colMap.kodeBa = colIdx;
+            }
+
+            if (colMap.kode === -1 && (cleanDirect.includes('kodesatker') || cleanH.includes('kodesatker') || cleanH.includes('kdsatker') || cleanH.includes('satkercode'))) {
               colMap.kode = colIdx;
             }
-            if (colMap.nama === -1 && (cleanH.includes('namasatker') || cleanH.includes('nmsatker') || cleanH.includes('uraiansatker') || cleanH.includes('satkername') || (cleanH.includes('nama') && !cleanH.includes('pic') && !cleanH.includes('pejabat')) || cleanH.includes('uraian'))) {
+
+            if (colMap.nama === -1 && (cleanDirect.includes('uraiansatker') || cleanH.includes('namasatker') || cleanH.includes('nmsatker') || cleanH.includes('uraiansatker') || cleanH.includes('satkername') || (cleanH.includes('nama') && !cleanH.includes('pic') && !cleanH.includes('pejabat')) || cleanH.includes('uraian'))) {
               colMap.nama = colIdx;
             }
-            if (colMap.revisi === -1 && (cleanH.includes('revisidipa') || cleanH.includes('revisi'))) {
-              colMap.revisi = colIdx;
+
+            if (colMap.keterangan === -1 && (cleanDirect === 'keterangan' || cleanH.includes('keterangan') || cleanH === 'ket')) {
+              colMap.keterangan = colIdx;
             }
-            if (colMap.deviasi === -1 && (cleanH.includes('deviasihal3') || cleanH.includes('deviasihaliii') || cleanH.includes('deviasihalaman3') || cleanH.includes('deviasihalamanii') || cleanH.includes('hal3') || cleanH.includes('haliii') || cleanH.includes('deviasi'))) {
-              colMap.deviasi = colIdx;
+
+            if (colMap.periode === -1 && (cleanH.includes('periode') || cleanH.includes('bulan') || cleanH.includes('triwulan') || cleanH.includes('tw'))) {
+              colMap.periode = colIdx;
             }
-            if (colMap.penyerapan === -1 && (cleanH.includes('penyerapananggaran') || cleanH.includes('penyerapan') || cleanH.includes('persenpenyerapan') || cleanH.includes('serap'))) {
-              colMap.penyerapan = colIdx;
+
+            // Indicators (EXCLUDE columns that represent aspect sub-totals / "Nilai Aspek")
+            if (!isAspek) {
+              if (colMap.revisi === -1 && (cleanDirect.includes('revisi') || cleanH.includes('revisidipa') || cleanH.includes('revisi'))) {
+                colMap.revisi = colIdx;
+              }
+              if (colMap.deviasi === -1 && (cleanDirect.includes('deviasi') || cleanH.includes('deviasihal3') || cleanH.includes('deviasihaliii') || cleanH.includes('deviasihalaman3') || cleanH.includes('deviasihalamanii') || cleanH.includes('hal3') || cleanH.includes('haliii') || cleanH.includes('deviasi'))) {
+                colMap.deviasi = colIdx;
+              }
+              if (colMap.penyerapan === -1 && (cleanDirect.includes('penyerapan') || cleanH.includes('penyerapananggaran') || cleanH.includes('penyerapan') || cleanH.includes('persenpenyerapan') || cleanH.includes('serap'))) {
+                colMap.penyerapan = colIdx;
+              }
+              if (colMap.kontraktual === -1 && (cleanDirect.includes('kontrak') || cleanH.includes('belanjakontraktual') || cleanH.includes('kontraktual') || cleanH.includes('kontrak'))) {
+                colMap.kontraktual = colIdx;
+              }
+              if (colMap.tagihan === -1 && (cleanDirect.includes('tagihan') || cleanH.includes('penyelesaiantagihan') || cleanH.includes('tagihan') || cleanH.includes('spmtagihan'))) {
+                colMap.tagihan = colIdx;
+              }
+              if (colMap.uptup === -1 && (cleanDirect.includes('uptup') || cleanDirect.includes('up') || cleanH.includes('pengelolaanuptup') || cleanH.includes('updantup') || cleanH.includes('uptup') || cleanH.includes('pengelolaanup'))) {
+                colMap.uptup = colIdx;
+              }
+              if (colMap.dispensasi === -1 && (cleanDirect.includes('dispensasi') || cleanH.includes('dispensasispm') || cleanH.includes('dispensasi'))) {
+                colMap.dispensasi = colIdx;
+              }
+              if (colMap.capaian === -1 && (cleanDirect.includes('capaian') || cleanDirect.includes('output') || cleanH.includes('capaianoutput') || cleanH.includes('datamasuk') || cleanH.includes('persenoutput') || cleanH.includes('capaian'))) {
+                colMap.capaian = colIdx;
+              }
             }
-            if (colMap.kontraktual === -1 && (cleanH.includes('belanjakontraktual') || cleanH.includes('kontraktual') || cleanH.includes('kontrak'))) {
-              colMap.kontraktual = colIdx;
+
+            if (colMap.konversiBobot === -1 && (cleanDirect.includes('konversi') || cleanH.includes('konversibobot') || cleanH.includes('bobotkonversi'))) {
+              colMap.konversiBobot = colIdx;
             }
-            if (colMap.tagihan === -1 && (cleanH.includes('penyelesaiantagihan') || cleanH.includes('tagihan') || cleanH.includes('spmtagihan'))) {
-              colMap.tagihan = colIdx;
-            }
-            if (colMap.uptup === -1 && (cleanH.includes('pengelolaanuptup') || cleanH.includes('uptup') || cleanH.includes('pengelolaanup'))) {
-              colMap.uptup = colIdx;
-            }
-            if (colMap.dispensasi === -1 && (cleanH.includes('dispensasispm') || cleanH.includes('dispensasi'))) {
-              colMap.dispensasi = colIdx;
-            }
-            if (colMap.capaian === -1 && (cleanH.includes('capaianoutput') || cleanH.includes('datamasuk') || cleanH.includes('progress') || cleanH.includes('persenoutput') || cleanH.includes('capaian'))) {
-              colMap.capaian = colIdx;
-            }
-            if (colMap.nilaiTotal === -1 && (
-              cleanH.includes('nilaitotal') ||
+
+            if (colMap.nilaiAkhir === -1 && (
+              cleanDirect.includes('nilaiakhir') ||
               cleanH.includes('nilaiakhir') ||
-              cleanH.includes('nilaiikpa') ||
-              cleanH.includes('totalikpa') ||
-              cleanH.includes('konversibobot') ||
+              cleanH.includes('nilaitotal/konversibobot') ||
+              cleanH.includes('nilaitotalkonversibobot') ||
+              cleanH.includes('akhirikpa')
+            )) {
+              colMap.nilaiAkhir = colIdx;
+            }
+
+            if (colMap.nilaiTotal === -1 && (
+              cleanDirect.includes('nilaitotal') ||
+              cleanH.includes('nilaitotal') ||
               cleanH.includes('nilaikomposit') ||
-              cleanH.includes('totalnilai') ||
-              cleanH.includes('ikpaakhir') ||
-              cleanH.includes('akhirikpa') ||
-              cleanH.includes('ikpatotal') ||
-              cleanH.includes('bobotkonversi') ||
-              cleanH.includes('nilaikonversi') ||
-              (cleanH.includes('nilai') && cleanH.includes('akhir')) ||
-              (cleanH.includes('total') && cleanH.includes('nilai')) ||
-              (cleanH.includes('konversi') && cleanH.includes('bobot')) ||
-              cleanH === 'nilai' ||
-              cleanH === 'total' ||
-              cleanH === 'akhir' ||
+              cleanH === 'nilaiakhir' ||
               cleanH === 'ikpa'
             )) {
               colMap.nilaiTotal = colIdx;
             }
+
             if (colMap.pagu === -1 && (cleanH.includes('paguanggaran') || cleanH.includes('totalpagu') || cleanH.includes('pagu'))) {
               colMap.pagu = colIdx;
             }
             if (colMap.realisasi === -1 && (cleanH.includes('realisasianggaran') || cleanH.includes('totalrealisasi') || cleanH.includes('realisasi'))) {
               colMap.realisasi = colIdx;
             }
-            if (colMap.kl === -1 && (cleanH.includes('kementerian') || cleanH.includes('lembaga') || cleanH.includes('kl') || cleanH.includes('bagiananggaran'))) {
+            if (colMap.kl === -1 && (cleanH.includes('kementerian') || cleanH.includes('lembaga') || cleanH.includes('bagiananggaran'))) {
               colMap.kl = colIdx;
             }
             if (colMap.statusCaput === -1 && (cleanH.includes('statuscapaian') || cleanH.includes('statusoutput') || cleanH.includes('status'))) {
@@ -417,19 +475,44 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             if (colMap.picEmail === -1 && (cleanH.includes('email') || cleanH.includes('mail'))) {
               colMap.picEmail = colIdx;
             }
-          });
+          }
+
+          // Check if this matches the standard OM-SPAN matrix (columns A to T/U)
+          const isStandardOMSPAN = maxCols >= 19;
+
+          // Track seen satkers to only take the FIRST primary row per satker (e.g. row 8, 11, 14...)
+          // and ignore auxiliary rows (BOBOT, NILAI AKHIR, NILAI KONVERSI)
+          const seenKodeSatkers = new Set<string>();
+          let skippedAuxiliaryRows = 0;
 
           // Iterate through data rows starting after headerRowIdx
-          for (let r = headerRowIdx + 1; r < matrix.length; r++) {
+          for (let r = bestHeaderRowIdx + 1; r < matrix.length; r++) {
             const row = matrix[r];
             if (!row || row.length === 0) continue;
+
+            const rowUpper = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
+
+            // 1. FILTER OUT Auxiliary rows (Bobot, Nilai Akhir, Nilai Konversi, Rata-rata, Jumlah, etc.)
+            if (
+              rowUpper.includes('BOBOT') ||
+              rowUpper.includes('NILAI AKHIR') ||
+              rowUpper.includes('NILAI KONVERSI') ||
+              rowUpper.includes('BOBOT KONVERSI') ||
+              rowUpper.includes('TOTAL BOBOT') ||
+              rowUpper.includes('RATA-RATA') ||
+              rowUpper.includes('JUMLAH')
+            ) {
+              skippedAuxiliaryRows++;
+              continue; // STRICTLY SKIP auxiliary / weight / converted rows
+            }
 
             // Extract Kode Satker
             let rawKode = colMap.kode !== -1 ? cleanText(row[colMap.kode]) : '';
             let kodeColIndex = colMap.kode;
 
             if (!rawKode || !/^\d{5,6}$/.test(rawKode)) {
-              for (let c = 0; c < row.length; c++) {
+              for (let c = 0; c < Math.min(6, row.length); c++) {
+                if (c === colMap.kodeBa) continue; // skip Kode BA (e.g. 136)
                 const cellVal = cleanText(row[c]);
                 if (/^\d{5,6}$/.test(cellVal)) {
                   rawKode = cellVal;
@@ -443,14 +526,26 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
 
             const kodeSatker = rawKode.padStart(6, '0');
 
+            // 2. DEDUPLICATE: If this Satker has already been extracted from its first row, SKIP subsequent rows
+            if (seenKodeSatkers.has(kodeSatker)) {
+              continue;
+            }
+            seenKodeSatkers.add(kodeSatker);
+
             // Extract Nama Satker
             let namaSatker = colMap.nama !== -1 ? cleanText(row[colMap.nama]) : '';
             if (!namaSatker) {
-              // Try adjacent cell to kodeSatker
+              // Try adjacent cells to kodeSatker
               if (kodeColIndex !== -1 && row[kodeColIndex + 1]) {
                 const candidate = cleanText(row[kodeColIndex + 1]);
-                if (candidate && !/^\d+$/.test(candidate) && candidate.toUpperCase() !== 'NILAI' && candidate.toUpperCase() !== 'BOBOT') {
+                if (candidate && !/^\d+$/.test(candidate) && !['NILAI', 'BOBOT', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'].includes(candidate.toUpperCase())) {
                   namaSatker = candidate;
+                }
+              }
+              if (!namaSatker && kodeColIndex !== -1 && row[kodeColIndex + 2]) {
+                const candidate2 = cleanText(row[kodeColIndex + 2]);
+                if (candidate2 && !/^\d+$/.test(candidate2) && !['NILAI', 'BOBOT', 'JANUARI', 'FEBRUARI', 'MARET', 'APRIL', 'MEI', 'JUNI', 'JULI', 'AGUSTUS', 'SEPTEMBER', 'OKTOBER', 'NOVEMBER', 'DESEMBER'].includes(candidate2.toUpperCase())) {
+                  namaSatker = candidate2;
                 }
               }
             }
@@ -459,106 +554,115 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             }
 
             // Extract Indicators
-            const rawRevisi = parseFormattedNumber(colMap.revisi !== -1 ? row[colMap.revisi] : '', -1);
-            const rawDeviasi = parseFormattedNumber(colMap.deviasi !== -1 ? row[colMap.deviasi] : '', -1);
-            const rawPenyerapan = parseFormattedNumber(colMap.penyerapan !== -1 ? row[colMap.penyerapan] : '', -1);
-            const rawKontraktual = parseFormattedNumber(colMap.kontraktual !== -1 ? row[colMap.kontraktual] : '', -1);
-            const rawTagihan = parseFormattedNumber(colMap.tagihan !== -1 ? row[colMap.tagihan] : '', -1);
-            const rawUpTup = parseFormattedNumber(colMap.uptup !== -1 ? row[colMap.uptup] : '', -1);
-            const rawDispensasi = parseFormattedNumber(colMap.dispensasi !== -1 ? row[colMap.dispensasi] : '', -1);
-            const rawCapaian = parseFormattedNumber(colMap.capaian !== -1 ? row[colMap.capaian] : '', -1);
+            // EXACT EXCEL COLUMN SPECIFICATION (0-indexed):
+            // Col H (Index 7): Revisi DIPA (e.g. 100.00)
+            // Col I (Index 8): Deviasi Halaman III DIPA (e.g. 100.00)
+            // Col J (Index 9): Nilai Aspek Kualitas Perencanaan Anggaran [Subtotal - SKIP]
+            // Col K (Index 10): Penyerapan Anggaran (e.g. 15.53)
+            // Col L (Index 11): Belanja Kontraktual (e.g. 0.00)
+            // Col M (Index 12): Penyelesaian Tagihan (e.g. 0.00)
+            // Col N (Index 13): Pengelolaan UP dan TUP (e.g. 100.00)
+            // Col O (Index 14): Nilai Aspek Kualitas Pelaksanaan Anggaran [Subtotal - SKIP]
+            // Col P (Index 15): Capaian Output (e.g. 30.00)
+            // Col Q (Index 16): Nilai Aspek Kualitas Hasil Pelaksanaan Anggaran [Subtotal - SKIP]
+            // Col R (Index 17): Nilai Total [Subtotal - SKIP]
+            // Col S (Index 18): Konversi Bobot [Subtotal - SKIP]
+            // Col T (Index 19): Dispensasi SPM (e.g. 0.00)
+            // Col U (Index 20) / Col V (Index 21): Nilai Akhir Total IKPA (e.g. 57.01)
 
-            // Auto-detect if columns represent converted weights (e.g. Penyerapan <= 20, Capaian <= 25, Dispensasi <= 5)
-            const isWeightedConversion = (rawPenyerapan >= 0 && rawPenyerapan <= 20) &&
-                                         (rawCapaian >= 0 && rawCapaian <= 25) &&
-                                         (rawDispensasi >= 0 && rawDispensasi <= 5) &&
-                                         (rawPenyerapan > 0 || rawCapaian > 0);
+            let rawRevisi = -1;
+            let rawDeviasi = -1;
+            let rawPenyerapan = -1;
+            let rawKontraktual = -1;
+            let rawTagihan = -1;
+            let rawUpTup = -1;
+            let rawCapaian = -1;
+            let rawDispensasi = -1;
+
+            if (row.length >= 20 || isStandardOMSPAN) {
+              // Direct deterministic extraction for OM-SPAN format
+              rawRevisi = row.length > 7 ? parseFormattedNumber(row[7], -1) : -1;
+              rawDeviasi = row.length > 8 ? parseFormattedNumber(row[8], -1) : -1;
+              rawPenyerapan = row.length > 10 ? parseFormattedNumber(row[10], -1) : -1;
+              rawKontraktual = row.length > 11 ? parseFormattedNumber(row[11], -1) : -1;
+              rawTagihan = row.length > 12 ? parseFormattedNumber(row[12], -1) : -1;
+              rawUpTup = row.length > 13 ? parseFormattedNumber(row[13], -1) : -1;
+              rawCapaian = row.length > 15 ? parseFormattedNumber(row[15], -1) : -1;
+              rawDispensasi = row.length > 19 ? parseFormattedNumber(row[19], -1) : -1;
+            } else {
+              // Fallback to colMap for smaller or non-standard custom sheets
+              rawRevisi = colMap.revisi !== -1 ? parseFormattedNumber(row[colMap.revisi], -1) : -1;
+              rawDeviasi = colMap.deviasi !== -1 ? parseFormattedNumber(row[colMap.deviasi], -1) : -1;
+              rawPenyerapan = colMap.penyerapan !== -1 ? parseFormattedNumber(row[colMap.penyerapan], -1) : -1;
+              rawKontraktual = colMap.kontraktual !== -1 ? parseFormattedNumber(row[colMap.kontraktual], -1) : -1;
+              rawTagihan = colMap.tagihan !== -1 ? parseFormattedNumber(row[colMap.tagihan], -1) : -1;
+              rawUpTup = colMap.uptup !== -1 ? parseFormattedNumber(row[colMap.uptup], -1) : -1;
+              rawCapaian = colMap.capaian !== -1 ? parseFormattedNumber(row[colMap.capaian], -1) : -1;
+              rawDispensasi = colMap.dispensasi !== -1 ? parseFormattedNumber(row[colMap.dispensasi], -1) : -1;
+            }
 
             const hasIKPAInFile = (
+              colMap.nilaiAkhir !== -1 ||
               colMap.nilaiTotal !== -1 ||
               colMap.penyerapan !== -1 ||
               colMap.revisi !== -1 ||
               colMap.deviasi !== -1 ||
-              colMap.kontraktual !== -1 ||
-              colMap.tagihan !== -1 ||
-              colMap.uptup !== -1 ||
-              colMap.dispensasi !== -1
+              rawRevisi !== -1 ||
+              rawPenyerapan !== -1 ||
+              (row.length >= 20 && (parseFormattedNumber(row[20], -1) >= 0 || parseFormattedNumber(row[19], -1) >= 0 || parseFormattedNumber(row[21], -1) >= 0))
             );
 
-            let revisiDipa = 0;
-            let deviasiHal3Dipa = 0;
-            let penyerapanAnggaran = 0;
-            let belanjaKontraktual = 0;
-            let penyelesaianTagihan = 0;
-            let pengelolaanUpTup = 0;
-            let dispensasiSpm = 0;
-            let capaianOutput = 100;
-
-            if (hasIKPAInFile) {
-              if (isWeightedConversion) {
-                revisiDipa = rawRevisi >= 0 ? Math.min(100, Number(((rawRevisi / 10) * 100).toFixed(2))) : 100;
-                deviasiHal3Dipa = rawDeviasi >= 0 ? Math.min(100, Number(((rawDeviasi / 10) * 100).toFixed(2))) : 100;
-                penyerapanAnggaran = rawPenyerapan >= 0 ? Math.min(100, Number(((rawPenyerapan / 20) * 100).toFixed(2))) : 85;
-                belanjaKontraktual = rawKontraktual >= 0 ? Math.min(100, Number(((rawKontraktual / 10) * 100).toFixed(2))) : 100;
-                penyelesaianTagihan = rawTagihan >= 0 ? Math.min(100, Number(((rawTagihan / 10) * 100).toFixed(2))) : 90;
-                pengelolaanUpTup = rawUpTup >= 0 ? Math.min(100, Number(((rawUpTup / 10) * 100).toFixed(2))) : 90;
-                dispensasiSpm = rawDispensasi >= 0 ? Math.min(100, Number(((rawDispensasi / 5) * 100).toFixed(2))) : 100;
-                capaianOutput = rawCapaian >= 0 ? Math.min(100, Number(((rawCapaian / 25) * 100).toFixed(2))) : 100;
-              } else {
-                revisiDipa = rawRevisi >= 0 ? rawRevisi : 100;
-                deviasiHal3Dipa = rawDeviasi >= 0 ? rawDeviasi : 100;
-                penyerapanAnggaran = rawPenyerapan >= 0 ? rawPenyerapan : 85;
-                belanjaKontraktual = rawKontraktual >= 0 ? rawKontraktual : 100;
-                penyelesaianTagihan = rawTagihan >= 0 ? rawTagihan : 90;
-                pengelolaanUpTup = rawUpTup >= 0 ? rawUpTup : 90;
-                dispensasiSpm = rawDispensasi >= 0 ? rawDispensasi : 100;
-                capaianOutput = rawCapaian >= 0 ? rawCapaian : 100;
-              }
-            } else {
-              capaianOutput = rawCapaian >= 0 ? rawCapaian : 100;
-            }
+            let revisiDipa = rawRevisi >= 0 ? rawRevisi : 100;
+            let deviasiHal3Dipa = rawDeviasi >= 0 ? rawDeviasi : 100;
+            let penyerapanAnggaran = rawPenyerapan >= 0 ? rawPenyerapan : 0;
+            let belanjaKontraktual = rawKontraktual >= 0 ? rawKontraktual : 0;
+            let penyelesaianTagihan = rawTagihan >= 0 ? rawTagihan : 0;
+            let pengelolaanUpTup = rawUpTup >= 0 ? rawUpTup : 0;
+            let dispensasiSpm = rawDispensasi >= 0 ? rawDispensasi : 0;
+            let capaianOutput = rawCapaian >= 0 ? rawCapaian : 0;
 
             const indikatorObj = {
-              revisiDipa,
-              deviasiHal3Dipa,
-              penyerapanAnggaran,
-              belanjaKontraktual,
-              penyelesaianTagihan,
-              pengelolaanUpTup,
-              dispensasiSpm,
-              capaianOutput
+              revisiDipa: Math.min(100, Math.max(0, revisiDipa)),
+              deviasiHal3Dipa: Math.min(100, Math.max(0, deviasiHal3Dipa)),
+              penyerapanAnggaran: Math.min(100, Math.max(0, penyerapanAnggaran)),
+              belanjaKontraktual: Math.min(100, Math.max(0, belanjaKontraktual)),
+              penyelesaianTagihan: Math.min(100, Math.max(0, penyelesaianTagihan)),
+              pengelolaanUpTup: Math.min(100, Math.max(0, pengelolaanUpTup)),
+              dispensasiSpm: Math.min(100, Math.max(0, dispensasiSpm)),
+              capaianOutput: Math.min(100, Math.max(0, capaianOutput))
             };
 
             let nilaiTotalIKPA = 0;
             if (hasIKPAInFile) {
-              nilaiTotalIKPA = colMap.nilaiTotal !== -1 ? parseFormattedNumber(row[colMap.nilaiTotal], 0) : 0;
-              
-              // If colMap.nilaiTotal gave 0 or wasn't mapped, scan row for candidate total IKPA cell
-              if (nilaiTotalIKPA === 0) {
-                for (let c = row.length - 1; c >= 0; c--) {
-                  const val = parseFormattedNumber(row[c], 0);
-                  // Total IKPA is a float between 10 and 100 (excluding Kode Satker which is >= 100000)
-                  if (val > 10 && val <= 100 && c !== colMap.pagu && c !== colMap.realisasi && c !== kodeColIndex) {
-                    nilaiTotalIKPA = val;
-                    break;
+              // 1. Check explicit Nilai Akhir column
+              if (colMap.nilaiAkhir !== -1) {
+                const valAkhir = parseFormattedNumber(row[colMap.nilaiAkhir], -1);
+                if (valAkhir >= 0 && valAkhir <= 100) {
+                  nilaiTotalIKPA = valAkhir;
+                }
+              }
+
+              // 2. Check Standard OM-SPAN Column U (index 20) or V (index 21)
+              if (nilaiTotalIKPA === 0 && row.length > 20) {
+                const colUVal = parseFormattedNumber(row[20], -1);
+                if (colUVal > 0 && colUVal <= 100) {
+                  nilaiTotalIKPA = colUVal;
+                } else if (row.length > 21) {
+                  const colVVal = parseFormattedNumber(row[21], -1);
+                  if (colVVal > 0 && colVVal <= 100) {
+                    nilaiTotalIKPA = colVVal;
                   }
                 }
               }
 
+              // 3. If not found, check colMap.nilaiTotal
+              if (nilaiTotalIKPA === 0 && colMap.nilaiTotal !== -1) {
+                nilaiTotalIKPA = parseFormattedNumber(row[colMap.nilaiTotal], 0);
+              }
+              
+              // 4. Fallback: Recompute weighted score
               if (nilaiTotalIKPA === 0) {
-                if (isWeightedConversion) {
-                  const sumWeighted = (rawRevisi >= 0 ? rawRevisi : 10) +
-                                      (rawDeviasi >= 0 ? rawDeviasi : 10) +
-                                      (rawPenyerapan >= 0 ? rawPenyerapan : 17) +
-                                      (rawKontraktual >= 0 ? rawKontraktual : 10) +
-                                      (rawTagihan >= 0 ? rawTagihan : 9) +
-                                      (rawUpTup >= 0 ? rawUpTup : 9) +
-                                      (rawDispensasi >= 0 ? rawDispensasi : 5) +
-                                      (rawCapaian >= 0 ? rawCapaian : 25);
-                  nilaiTotalIKPA = Number(sumWeighted.toFixed(2));
-                } else {
-                  nilaiTotalIKPA = hitungTotalIKPA(indikatorObj);
-                }
+                nilaiTotalIKPA = hitungTotalIKPA(indikatorObj);
                 recomputedTotalCount++;
               }
             }
@@ -577,12 +681,38 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             }
 
             const paguAnggaran = (hasIKPAInFile && colMap.pagu !== -1)
-              ? parseFormattedNumber(row[colMap.pagu], (10 + (cleanedCount % 20) * 5) * 1000000000)
-              : (hasIKPAInFile ? (10 + (cleanedCount % 20) * 5) * 1000000000 : 0);
+              ? parseFormattedNumber(row[colMap.pagu], 0)
+              : 0;
 
             const realisasiAnggaran = (hasIKPAInFile && colMap.realisasi !== -1)
-              ? parseFormattedNumber(row[colMap.realisasi], Math.round(paguAnggaran * (penyerapanAnggaran / 100)))
-              : (hasIKPAInFile ? Math.round(paguAnggaran * (penyerapanAnggaran / 100)) : 0);
+              ? parseFormattedNumber(row[colMap.realisasi], 0)
+              : 0;
+
+            let satkerMonth = detectedMonth;
+            let satkerPeriode = periodeFormatted;
+
+            if (colMap.periode !== -1 && row[colMap.periode]) {
+              const rawRowPeriode = cleanText(row[colMap.periode]);
+              if (rawRowPeriode) {
+                for (const m of monthsList) {
+                  if (rawRowPeriode.toLowerCase().includes(m.toLowerCase())) {
+                    satkerMonth = m;
+                    satkerPeriode = `${m} 2026`;
+                    break;
+                  }
+                }
+                if (satkerMonth === detectedMonth) {
+                  const numMatch = rawRowPeriode.match(/\b([1-9]|1[0-2])\b/);
+                  if (numMatch && numMatch[1]) {
+                    const mIdx = parseInt(numMatch[1], 10) - 1;
+                    if (monthsList[mIdx]) {
+                      satkerMonth = monthsList[mIdx];
+                      satkerPeriode = `${satkerMonth} 2026`;
+                    }
+                  }
+                }
+              }
+            }
 
             const kementerianLembaga = colMap.kl !== -1 && cleanText(row[colMap.kl])
               ? cleanText(row[colMap.kl])
@@ -625,15 +755,16 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               nilaiTotalIKPA,
               predikat,
               hasIKPAData: hasIKPAInFile,
+              hasCapaianOutputData: !hasIKPAInFile && isCaputFormat,
               issues,
               namaPic: colMap.picNama !== -1 && cleanText(row[colMap.picNama]) ? cleanText(row[colMap.picNama]) : `Operator ${kodeSatker}`,
               noHpPic: colMap.picHp !== -1 && cleanText(row[colMap.picHp]) ? cleanText(row[colMap.picHp]) : '081234567890',
               emailPic: colMap.picEmail !== -1 && cleanText(row[colMap.picEmail]) ? cleanText(row[colMap.picEmail]) : `satker.${kodeSatker}@kemenkeu.go.id`,
               alamatSatker: 'Kota Semarang',
-              periodeUpdate: periodeFormatted,
+              periodeUpdate: satkerPeriode,
               riwayatBulanan: [
                 {
-                  bulan: detectedMonth,
+                  bulan: satkerMonth,
                   nilaiIKPA: nilaiTotalIKPA,
                   capaianOutput: indikatorObj.capaianOutput,
                   deviasiHal3Dipa: indikatorObj.deviasiHal3Dipa,

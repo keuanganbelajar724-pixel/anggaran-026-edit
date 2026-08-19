@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'kelola-satker',
       label: 'Kelola Data Satker',
       icon: <Building2 className="w-4 h-4 text-sky-300" />,
-      badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Master</span>,
+      badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{masterSatkers.length} Satker</span>,
       activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
     },
     {
@@ -142,13 +142,6 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <Calculator className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">PER-5</span>,
       activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
-    },
-    {
-      id: 'profil-satker',
-      label: 'Update Kontak Satker',
-      icon: <Phone className="w-4 h-4 text-teal-300" />,
-      badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">PIC</span>,
-      activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     },
     {
       id: 'announcements',
@@ -330,11 +323,12 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={() => setActiveTab('admin')}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-black rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
                   title="Masuk ke Modul Admin"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Admin Mode</span>
+                  <span className="hidden sm:inline">Admin Mode</span>
+                  <span className="sm:hidden text-[11px]">Admin</span>
                 </button>
 
                 <button

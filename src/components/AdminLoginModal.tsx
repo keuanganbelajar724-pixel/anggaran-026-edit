@@ -83,21 +83,34 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               <ShieldCheck className="w-7 h-7" />
             </div>
 
-            <div className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wide mb-2">
+            <div className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wide mb-2">
               <Building2 className="w-3.5 h-3.5" />
               PORTAL EKSKLUSIF ADMIN KPPN (026)
             </div>
 
-            <h3 className="text-xl font-black text-white tracking-tight">
+            <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
               Otentikasi Administrator
             </h3>
             <p className="text-slate-300 text-xs mt-1 max-w-xs mx-auto leading-relaxed">
-              Masukkan password admin untuk membuka hak akses Olah Excel, WhatsApp Broadcast, dan Kunci Menu Satker.
+              Khusus pengelola KPPN Semarang I untuk olah Excel SAKTI, WhatsApp Broadcast, dan kontrol sistem.
             </p>
           </div>
 
+          {/* Notice for Public Satker */}
+          <div className="px-5 pt-4 pb-0">
+            <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200 text-xs space-y-1">
+              <div className="flex items-center gap-1.5 font-extrabold text-[11px]">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <span>Info Satker &amp; Peserta:</span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-normal">
+                Satker dan Peserta dapat langsung mengakses Dashboard IKPA, Capaian Output, &amp; Presensi tanpa perlu login admin ini.
+              </p>
+            </div>
+          </div>
+
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
             {successLogin ? (
               <div className="py-8 text-center space-y-3">
                 <div className="w-12 h-12 bg-emerald-500/20 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/40">

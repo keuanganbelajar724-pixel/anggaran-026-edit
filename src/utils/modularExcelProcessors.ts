@@ -169,6 +169,21 @@ export async function validateIKPAExcelFile(
           const row = matrix[r];
           if (!row || row.length === 0) continue;
 
+          const rowUpper = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
+
+          // Skip auxiliary rows (Bobot, Nilai Akhir, Konversi, Total, etc.)
+          if (
+            rowUpper.includes('BOBOT') ||
+            rowUpper.includes('NILAI AKHIR') ||
+            rowUpper.includes('NILAI KONVERSI') ||
+            rowUpper.includes('BOBOT KONVERSI') ||
+            rowUpper.includes('TOTAL BOBOT') ||
+            rowUpper.includes('RATA-RATA') ||
+            rowUpper.includes('JUMLAH')
+          ) {
+            continue;
+          }
+
           const rawKode = row[colKode] || row[0] || '';
           const kodeSatker = normalizeKodeSatker(rawKode);
           const namaSatkerFromRow = cleanText(row[colNama] || '');
@@ -204,15 +219,40 @@ export async function validateIKPAExcelFile(
             continue;
           }
 
-          // Parse IKPA Indicators
-          const revisiDipa = colRevisi !== -1 ? parseFormattedNumber(row[colRevisi], 100) : 100;
-          const deviasiHal3Dipa = colDeviasi !== -1 ? parseFormattedNumber(row[colDeviasi], 100) : 100;
-          const penyerapanAnggaran = colPenyerapan !== -1 ? parseFormattedNumber(row[colPenyerapan], 95) : 95;
-          const belanjaKontraktual = colKontraktual !== -1 ? parseFormattedNumber(row[colKontraktual], 100) : 100;
-          const penyelesaianTagihan = colTagihan !== -1 ? parseFormattedNumber(row[colTagihan], 100) : 100;
-          const pengelolaanUpTup = colUpTup !== -1 ? parseFormattedNumber(row[colUpTup], 100) : 100;
-          const dispensasiSpm = colDispensasi !== -1 ? parseFormattedNumber(row[colDispensasi], 100) : 100;
-          const capaianOutput = colCapaianOutput !== -1 ? parseFormattedNumber(row[colCapaianOutput], 100) : 100;
+          // Parse IKPA Indicators using detected col or standard OM-SPAN column indices
+          // Col H (7): Revisi DIPA, Col I (8): Deviasi, Col K (10): Penyerapan, Col L (11): Kontraktual
+          // Col M (12): Tagihan, Col N (13): UP/TUP, Col P (15): Capaian Output, Col T (19): Dispensasi
+          const revisiDipa = colRevisi !== -1 
+            ? parseFormattedNumber(row[colRevisi], 100) 
+            : (row.length > 7 ? parseFormattedNumber(row[7], 100) : 100);
+
+          const deviasiHal3Dipa = colDeviasi !== -1 
+            ? parseFormattedNumber(row[colDeviasi], 100) 
+            : (row.length > 8 ? parseFormattedNumber(row[8], 100) : 100);
+
+          const penyerapanAnggaran = colPenyerapan !== -1 
+            ? parseFormattedNumber(row[colPenyerapan], 0) 
+            : (row.length > 10 ? parseFormattedNumber(row[10], 0) : 0);
+
+          const belanjaKontraktual = colKontraktual !== -1 
+            ? parseFormattedNumber(row[colKontraktual], 0) 
+            : (row.length > 11 ? parseFormattedNumber(row[11], 0) : 0);
+
+          const penyelesaianTagihan = colTagihan !== -1 
+            ? parseFormattedNumber(row[colTagihan], 0) 
+            : (row.length > 12 ? parseFormattedNumber(row[12], 0) : 0);
+
+          const pengelolaanUpTup = colUpTup !== -1 
+            ? parseFormattedNumber(row[colUpTup], 0) 
+            : (row.length > 13 ? parseFormattedNumber(row[13], 0) : 0);
+
+          const capaianOutput = colCapaianOutput !== -1 
+            ? parseFormattedNumber(row[colCapaianOutput], 0) 
+            : (row.length > 15 ? parseFormattedNumber(row[15], 0) : 0);
+
+          const dispensasiSpm = colDispensasi !== -1 
+            ? parseFormattedNumber(row[colDispensasi], 0) 
+            : (row.length > 19 ? parseFormattedNumber(row[19], 0) : 0);
 
           const paguAnggaran = colPagu !== -1 ? parseFormattedNumber(row[colPagu], 0) : 0;
           const realisasiAnggaran = colRealisasi !== -1 ? parseFormattedNumber(row[colRealisasi], 0) : 0;
@@ -229,9 +269,16 @@ export async function validateIKPAExcelFile(
             capaianOutput: Math.min(100, Math.max(0, capaianOutput))
           };
 
-          const calculatedTotal = colNilaiAkhir !== -1 && parseFormattedNumber(row[colNilaiAkhir]) > 0
-            ? parseFormattedNumber(row[colNilaiAkhir])
-            : hitungTotalIKPA(indikator);
+          let calculatedTotal = 0;
+          if (colNilaiAkhir !== -1 && parseFormattedNumber(row[colNilaiAkhir]) > 0) {
+            calculatedTotal = parseFormattedNumber(row[colNilaiAkhir]);
+          } else if (row.length > 20 && parseFormattedNumber(row[20]) > 0) {
+            calculatedTotal = parseFormattedNumber(row[20]);
+          } else if (row.length > 21 && parseFormattedNumber(row[21]) > 0) {
+            calculatedTotal = parseFormattedNumber(row[21]);
+          } else {
+            calculatedTotal = hitungTotalIKPA(indikator);
+          }
 
           const predikat = getPredikatIKPA(calculatedTotal);
 

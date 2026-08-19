@@ -319,23 +319,23 @@ export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
               </span>
             </div>
 
-            {isAdminAuthenticated && onGoToAdmin && (
+            {onGoToAdmin && (
               <button
                 onClick={onGoToAdmin}
-                className="inline-flex items-center gap-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-xl border border-emerald-400/40 text-xs shadow-md transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 bg-slate-900/80 hover:bg-slate-800 text-white font-extrabold px-3 py-1.5 rounded-xl border border-teal-400/40 text-xs shadow-md transition-all cursor-pointer"
               >
-                <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                <span>Monitoring &amp; Cetak di Admin</span>
+                <ShieldCheck className="w-4 h-4 text-amber-300" />
+                <span>{isAdminAuthenticated ? 'Monitoring & Cetak di Admin' : 'Panel Admin Presensi'}</span>
               </button>
             )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight text-white">
-            Formulir Presensi Online &amp; Tanda Tangan Digital
+            Formulir Presensi Peserta (Sosialisasi &amp; Bimtek)
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
-            Silakan pilih nama kegiatan yang Anda hadiri, lengkapi identitas peserta, dan bubuhkan tanda tangan digital resmi Anda di bawah ini.
+            Khusus peserta sosialisasi/bimtek KPPN Semarang I: Silakan pilih kegiatan yang Anda hadiri, isi identitas peserta, dan bubuhkan tanda tangan digital resmi Anda.
           </p>
         </div>
       </div>

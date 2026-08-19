@@ -39,11 +39,14 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
 
   // Filter Problematic Satkers ONLY from satkers that have actual IKPA data
   const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  const hasCaputData = satkers.some(s => s.hasCapaianOutputData === true);
 
-  const satkerBelumOutput = satkersWithIKPA.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0));
+  const satkerBelumOutput = hasCaputData 
+    ? satkersWithIKPA.filter(s => s.hasCapaianOutputData === true && (s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0)))
+    : [];
   const satkerIKPALow = satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5);
-  const satkerPenyerapanRendah = satkersWithIKPA.filter(s => s.persenPenyerapan < 70);
-  const satkerDeviasiTinggi = satkersWithIKPA.filter(s => s.indikator.deviasiHal3Dipa < 75);
+  const satkerPenyerapanRendah = satkersWithIKPA.filter(s => s.indikator.penyerapanAnggaran < 85);
+  const satkerDeviasiTinggi = satkersWithIKPA.filter(s => s.indikator.deviasiHal3Dipa < 85);
 
   let displayedSatkers: SatkerIKPA[] = [];
   if (satkersWithIKPA.length === 0) {
@@ -60,7 +63,8 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
     // Unique list of satkers with at least 1 issue
     const idSet = new Set<string>();
     displayedSatkers = satkersWithIKPA.filter(s => {
-      const hasIssue = s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0) || s.persenPenyerapan < 70 || s.indikator.deviasiHal3Dipa < 75;
+      const hasOutputIssue = hasCaputData && (s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0));
+      const hasIssue = s.nilaiTotalIKPA < 87.5 || hasOutputIssue || s.indikator.penyerapanAnggaran < 85 || s.indikator.deviasiHal3Dipa < 85;
       if (hasIssue && !idSet.has(s.id)) {
         idSet.add(s.id);
         return true;
