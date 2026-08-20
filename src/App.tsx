@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { Lock, Database } from 'lucide-react';
-import { db, doc, onSnapshot, setDoc } from './lib/firebase';
+import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
 import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord } from './types';
 import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
+import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
@@ -145,6 +145,9 @@ export default function App() {
     if (savedConfig) {
       return {
         ...savedConfig,
+        aduanList: savedConfig.aduanList && savedConfig.aduanList.length > 0 
+          ? savedConfig.aduanList 
+          : INITIAL_ADUAN_RECORDS,
         historicalUploads: savedHist || savedConfig.historicalUploads,
         kegiatanSosialisasi: savedConfig.kegiatanSosialisasi && savedConfig.kegiatanSosialisasi.length > 0 
           ? savedConfig.kegiatanSosialisasi 
@@ -165,6 +168,7 @@ export default function App() {
       showBarChart: true,
       announcements: INITIAL_ANNOUNCEMENTS,
       kegiatanSosialisasi: INITIAL_KEGIATAN_SOSIALISASI,
+      aduanList: INITIAL_ADUAN_RECORDS,
       historicalUploads: savedHist,
       menuVisibility: {
         'dashboard': true,
@@ -325,15 +329,16 @@ export default function App() {
         const tabPriorityOrder: NavigationTab[] = [
           'dashboard',
           'capaian-output',
+          'pengelolaan-up',
+          'kelola-satker',
+          'sertifikasi',
+          'per5-analisis',
           'materi-slide',
           'portal-link',
           'announcements',
-          'redflags',
-          'sertifikasi',
-          'per5-analisis',
           'pengetahuan',
+          'presensi',
           'aduan',
-          'reminder',
           'guide'
         ];
         const firstVisibleTab = tabPriorityOrder.find(
@@ -349,7 +354,35 @@ export default function App() {
   // Real-time Firebase Sync for Satkers, Pejabat & Global Settings
   useEffect(() => {
     try {
-      // 1. Settings & Dashboard Config
+      // 1. Initial Force Fetch from Firestore Server to ensure fresh data on Vercel / new browser
+      getDocFromServer(doc(db, 'settings', 'global')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.adminPin) {
+            setAdminPin(data.adminPin);
+            localStorage.setItem('kppn_admin_pin', data.adminPin);
+          }
+          if (data.dashboardConfig) {
+            setDashboardConfig(data.dashboardConfig);
+            localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+            if (data.dashboardConfig.historicalUploads) {
+              localStorage.setItem('kppn_historical_uploads', JSON.stringify(data.dashboardConfig.historicalUploads));
+            }
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
+
+      getDocFromServer(doc(db, 'data', 'satkers')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list)) {
+            setSatkers(data.list);
+            localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
+
+      // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -359,13 +392,17 @@ export default function App() {
           }
           if (data.dashboardConfig) {
             setDashboardConfig(data.dashboardConfig);
+            localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+            if (data.dashboardConfig.historicalUploads) {
+              localStorage.setItem('kppn_historical_uploads', JSON.stringify(data.dashboardConfig.historicalUploads));
+            }
           }
         }
       }, (error) => {
         console.warn("Firebase Firestore settings notice:", error);
       });
 
-      // 2. Satkers Data
+      // 3. Realtime Satkers Data
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -378,7 +415,7 @@ export default function App() {
         console.warn("Firebase Satkers listener notice:", error);
       });
 
-      // 3. Pejabat Sertifikasi Data
+      // 4. Realtime Pejabat Sertifikasi Data
       const unsubPejabat = onSnapshot(doc(db, 'data', 'pejabat'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -391,7 +428,7 @@ export default function App() {
         console.warn("Firebase Pejabat listener notice:", error);
       });
 
-      // 4. Presensi Peserta Data
+      // 5. Realtime Presensi Peserta Data
       const unsubPresensi = onSnapshot(doc(db, 'data', 'presensi_peserta'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -404,7 +441,7 @@ export default function App() {
         console.warn("Firebase Presensi listener notice:", error);
       });
 
-      // 5. Master Satkers Data (Source of Truth)
+      // 6. Realtime Master Satkers Data (Source of Truth)
       const unsubMaster = onSnapshot(doc(db, 'data', 'master_satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -417,12 +454,26 @@ export default function App() {
         console.warn("Firebase Master Satkers listener notice:", error);
       });
 
+      // 7. Realtime Pengelolaan UP/TUP Data
+      const unsubUP = onSnapshot(doc(db, 'data', 'pengelolaan_up'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setPengelolaanUPList(data.list);
+            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase UP listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubSatkers();
         unsubPejabat();
         unsubPresensi();
         unsubMaster();
+        unsubUP();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -462,15 +513,60 @@ export default function App() {
     }
   };
 
-  // Master Satker Handlers
+  // Master Satker Handlers - Protected & Deep Merge (Anti-Data Loss)
   const handleUpdateMasterSatkers = (newList: MasterSatker[]) => {
-    setMasterSatkers(newList);
-    localStorage.setItem('kppn_master_satkers', JSON.stringify(newList));
-    syncMasterSatkersToFirebase(newList);
+    // Smart merge with existing masterSatkers to never lose phone numbers, passwords, or contacts
+    const existingMasterMap = new Map<string, MasterSatker>();
+    masterSatkers.forEach(m => {
+      if (m.kodeSatker) existingMasterMap.set(m.kodeSatker.trim(), m);
+      if (m.id) existingMasterMap.set(m.id, m);
+    });
+
+    const mergedList: MasterSatker[] = newList.map(item => {
+      const existing = existingMasterMap.get(item.kodeSatker?.trim() || '') || (item.id ? existingMasterMap.get(item.id) : undefined);
+      if (!existing) return item;
+
+      // Merge pejabatOperator safely
+      const mergedPejabatOperator = {
+        kpa: (item.pejabatOperator?.kpa?.nama || item.pejabatOperator?.kpa?.noHp) ? item.pejabatOperator.kpa : (existing.pejabatOperator?.kpa || item.pejabatOperator?.kpa),
+        ppk: (item.pejabatOperator?.ppk?.nama || item.pejabatOperator?.ppk?.noHp) ? item.pejabatOperator.ppk : (existing.pejabatOperator?.ppk || item.pejabatOperator?.ppk),
+        ppspm: (item.pejabatOperator?.ppspm?.nama || item.pejabatOperator?.ppspm?.noHp) ? item.pejabatOperator.ppspm : (existing.pejabatOperator?.ppspm || item.pejabatOperator?.ppspm),
+        bendahara: (item.pejabatOperator?.bendahara?.nama || item.pejabatOperator?.bendahara?.noHp) ? item.pejabatOperator.bendahara : (existing.pejabatOperator?.bendahara || item.pejabatOperator?.bendahara),
+        operatorPembayaran: (item.pejabatOperator?.operatorPembayaran?.nama || item.pejabatOperator?.operatorPembayaran?.noHp) ? item.pejabatOperator.operatorPembayaran : (existing.pejabatOperator?.operatorPembayaran || item.pejabatOperator?.operatorPembayaran),
+        operatorKomitmen: (item.pejabatOperator?.operatorKomitmen?.nama || item.pejabatOperator?.operatorKomitmen?.noHp) ? item.pejabatOperator.operatorKomitmen : (existing.pejabatOperator?.operatorKomitmen || item.pejabatOperator?.operatorKomitmen),
+        operatorGaji: (item.pejabatOperator?.operatorGaji?.nama || item.pejabatOperator?.operatorGaji?.noHp) ? item.pejabatOperator.operatorGaji : (existing.pejabatOperator?.operatorGaji || item.pejabatOperator?.operatorGaji),
+        operatorPelaporan: (item.pejabatOperator?.operatorPelaporan?.nama || item.pejabatOperator?.operatorPelaporan?.noHp) ? item.pejabatOperator.operatorPelaporan : (existing.pejabatOperator?.operatorPelaporan || item.pejabatOperator?.operatorPelaporan),
+      };
+
+      return {
+        ...existing,
+        ...item,
+        namaSatker: item.namaSatker || existing.namaSatker,
+        kementerianLembaga: item.kementerianLembaga || existing.kementerianLembaga,
+        kodeBa: item.kodeBa || existing.kodeBa,
+        namaPic: item.namaPic || existing.namaPic,
+        noHpPic: item.noHpPic || existing.noHpPic,
+        emailPic: item.emailPic || existing.emailPic,
+        alamatSatker: item.alamatSatker || existing.alamatSatker,
+        passwordSatker: item.passwordSatker || existing.passwordSatker,
+        pejabatOperator: mergedPejabatOperator,
+        isActive: item.isActive !== undefined ? item.isActive : existing.isActive,
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    // Retain any satkers that were in existing masterSatkers but omitted from newList
+    const newKodes = new Set(mergedList.map(m => m.kodeSatker?.trim()));
+    const missingExisting = masterSatkers.filter(m => m.kodeSatker && !newKodes.has(m.kodeSatker.trim()));
+    const finalMasterList = [...mergedList, ...missingExisting];
+
+    setMasterSatkers(finalMasterList);
+    localStorage.setItem('kppn_master_satkers', JSON.stringify(finalMasterList));
+    syncMasterSatkersToFirebase(finalMasterList);
 
     // Also sync contact/password info to satkers list
     setSatkers(prevSatkers => {
-      const masterMap = new Map(newList.map(m => [m.kodeSatker, m]));
+      const masterMap = new Map(finalMasterList.map(m => [m.kodeSatker, m]));
       let hasChanges = false;
       const updatedSatkers = prevSatkers.map(s => {
         const matchMaster = masterMap.get(s.kodeSatker);
@@ -527,14 +623,14 @@ export default function App() {
     });
   };
 
-  const handleDeleteMasterSatker = (idOrKode: string) => {
-    const updated = masterSatkers.filter(m => m.id !== idOrKode && m.kodeSatker !== idOrKode);
-    handleUpdateMasterSatkers(updated);
+  const handleDeleteMasterSatker = (_idOrKode: string) => {
+    // Protected against deletion per user requirement (Update-Only Policy)
+    console.info("Master Satker is protected against deletion.");
   };
 
-  const handleDeleteBatchMasterSatkers = (idsOrKodes: string[]) => {
-    const updated = masterSatkers.filter(m => !idsOrKodes.includes(m.id) && !idsOrKodes.includes(m.kodeSatker));
-    handleUpdateMasterSatkers(updated);
+  const handleDeleteBatchMasterSatkers = (_idsOrKodes: string[]) => {
+    // Protected against deletion per user requirement (Update-Only Policy)
+    console.info("Master Satker is protected against deletion.");
   };
 
   const handleToggleActiveMasterSatker = (idOrKode: string, active?: boolean) => {
@@ -601,7 +697,48 @@ export default function App() {
     setDashboardConfig(newConfig);
     try {
       localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
-      setDoc(doc(db, 'settings', 'global'), { dashboardConfig: newConfig, updatedAt: new Date().toISOString() }, { merge: true });
+
+      // Optimize historicalUploads payload so it never exceeds Firestore's 1MB single-document limit
+      const sanitizedHistorical = (newConfig.historicalUploads || []).map(h => ({
+        id: h.id,
+        fileName: h.fileName,
+        periode: h.periode,
+        uploadDate: h.uploadDate,
+        uploadedBy: h.uploadedBy,
+        satkerCount: h.satkerCount,
+        averageIKPA: h.averageIKPA,
+        notes: h.notes,
+        category: h.category,
+        isActive: !!h.isActive,
+        // Keep satkersData lightweight if present
+        satkersData: (h.satkersData || []).map(s => ({
+          id: s.id,
+          kodeSatker: s.kodeSatker,
+          namaSatker: s.namaSatker,
+          kementerianLembaga: s.kementerianLembaga,
+          nilaiTotalIKPA: s.nilaiTotalIKPA,
+          predikat: s.predikat,
+          persenPenyerapan: s.persenPenyerapan,
+          statusCapaianOutput: s.statusCapaianOutput,
+          hasIKPAData: s.hasIKPAData,
+          hasCapaianOutputData: s.hasCapaianOutputData,
+          periodeUpdate: s.periodeUpdate,
+          indikator: s.indikator,
+          issues: (s.issues || []).slice(0, 3)
+        }))
+      }));
+
+      const cleanConfig = {
+        ...newConfig,
+        historicalUploads: sanitizedHistorical
+      };
+
+      setDoc(doc(db, 'settings', 'global'), { 
+        dashboardConfig: cleanConfig, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true }).catch(err => {
+        console.warn("Error persisting clean dashboardConfig to Firebase:", err);
+      });
     } catch (e) {
       console.warn("Firebase save config notice:", e);
     }
@@ -739,18 +876,16 @@ export default function App() {
   };
 
   const handleClearAllMasterSatkers = () => {
-    setMasterSatkers([]);
-    localStorage.setItem('kppn_master_satkers', JSON.stringify([]));
-    syncMasterSatkersToFirebase([]);
+    // Protected against deletion per user requirement (Update-Only Policy)
+    console.info("Master Satker directory is protected against deletion.");
   };
 
   const handleClearAllSatkers = () => {
+    // Clear only transient calculation and upload data, strictly PRESERVING Master Satkers directory & saved contacts
     setSatkers([]);
-    setMasterSatkers([]);
     setPejabatSertifikasiList([]);
     setPengelolaanUPList([]);
     syncSatkersToFirebase([]);
-    syncMasterSatkersToFirebase([]);
     syncPejabatToFirebase([]);
     try {
       setDoc(doc(db, 'data', 'pengelolaan_up'), { list: [], updatedAt: new Date().toISOString() }, { merge: true });
@@ -758,7 +893,6 @@ export default function App() {
       console.warn("Error clearing UP in Firebase:", e);
     }
     localStorage.setItem('kppn_satker_data', JSON.stringify([]));
-    localStorage.setItem('kppn_master_satkers', JSON.stringify([]));
     localStorage.setItem('kppn_pejabat_data', JSON.stringify([]));
     localStorage.setItem('kppn_pengelolaan_up', JSON.stringify([]));
     localStorage.setItem('kppn_historical_uploads', JSON.stringify([]));
@@ -775,9 +909,9 @@ export default function App() {
     if (appendMode) {
       result = [...newSatkers, ...satkers];
     } else {
-      // Smart Multi-Month Merger:
+      // Smart Multi-Month Merger with Contact & Master Protection:
       // If satkers already have history for previous months (e.g. Januari),
-      // and newSatkers brings February or subsequent months, preserve & merge history!
+      // and newSatkers brings February or subsequent months, preserve & merge history and all contacts!
       const existingSatkerMap = new Map<string, SatkerIKPA>();
       satkers.forEach(s => {
         if (s.kodeSatker) {
@@ -788,8 +922,29 @@ export default function App() {
       const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
       result = newSatkers.map(newS => {
-        const existing = existingSatkerMap.get(newS.kodeSatker.trim());
-        if (!existing) return newS;
+        const cleanKode = newS.kodeSatker?.trim() || '';
+        const existing = existingSatkerMap.get(cleanKode);
+        const master = masterSatkerMap.get(cleanKode);
+
+        // Retain contact info from master or existing satker
+        const preservedNamaPic = newS.namaPic || existing?.namaPic || master?.namaPic;
+        const preservedNoHpPic = newS.noHpPic || existing?.noHpPic || master?.noHpPic;
+        const preservedEmailPic = newS.emailPic || existing?.emailPic || master?.emailPic;
+        const preservedPassword = newS.passwordSatker || existing?.passwordSatker || master?.passwordSatker;
+        const preservedAlamat = newS.alamatSatker || existing?.alamatSatker || master?.alamatSatker;
+        const preservedPejabat = newS.pejabatOperator || existing?.pejabatOperator || master?.pejabatOperator;
+
+        if (!existing) {
+          return {
+            ...newS,
+            namaPic: preservedNamaPic,
+            noHpPic: preservedNoHpPic,
+            emailPic: preservedEmailPic,
+            passwordSatker: preservedPassword,
+            alamatSatker: preservedAlamat,
+            pejabatOperator: preservedPejabat
+          };
+        }
 
         const existingHistory = existing.riwayatBulanan || [];
         const newHistory = newS.riwayatBulanan || [];
@@ -818,6 +973,12 @@ export default function App() {
         return {
           ...existing,
           ...newS,
+          namaPic: preservedNamaPic,
+          noHpPic: preservedNoHpPic,
+          emailPic: preservedEmailPic,
+          passwordSatker: preservedPassword,
+          alamatSatker: preservedAlamat,
+          pejabatOperator: preservedPejabat,
           riwayatBulanan: sortedHistory.length > 0 ? sortedHistory : newS.riwayatBulanan
         };
       });
@@ -891,7 +1052,6 @@ export default function App() {
         announcementsCount={dashboardConfig.announcements.length}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        onResetData={handleResetData}
         lastUpdateDate={lastUpdateDate}
         theme={theme}
         toggleTheme={toggleTheme}
@@ -904,298 +1064,294 @@ export default function App() {
 
       {/* Main Content View Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all duration-300">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab + '-' + theme}
-            initial={{ opacity: 0, y: 15, scale: 0.99 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -15, scale: 0.99 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-          >
-            {/* Check if current tab is locked by Admin for Satker */}
-            {activeTab !== 'admin' && !isAdminAuthenticated && dashboardConfig.menuVisibility?.[activeTab as keyof MenuVisibilityConfig] === false ? (
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xl space-y-5 my-8">
-                <div className="w-16 h-16 bg-rose-500/15 text-rose-500 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
-                  <Lock className="w-8 h-8" />
-                </div>
-
-                <div>
-                  <span className="inline-block bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 font-black text-[10px] uppercase px-3 py-1 rounded-full border border-rose-300 dark:border-rose-800 mb-2">
-                    MENU TERKUNCI OLEH ADMIN KPPN (026)
-                  </span>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                    Akses Menu Ini Sedang Dinonaktifkan
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 max-w-md mx-auto leading-relaxed">
-                    Admin KPPN Semarang I saat ini mengunci/menonaktifkan sementara menu ini agar seluruh Satker Mitra KPPN dapat fokus pada tugas prioritas utama.
-                  </p>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    onClick={() => {
-                      const tabPriorityOrder: NavigationTab[] = [
-                        'dashboard',
-                        'capaian-output',
-                        'materi-slide',
-                        'announcements',
-                        'redflags',
-                        'sertifikasi',
-                        'per5-analisis',
-                        'pengetahuan',
-                        'aduan',
-                        'reminder',
-                        'guide'
-                      ];
-                      const firstVisible = tabPriorityOrder.find(tab => dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false);
-                      if (firstVisible) setActiveTab(firstVisible);
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer"
-                  >
-                    Pindah ke Menu Lain yang Aktif &rarr;
-                  </button>
-
-                  <button
-                    onClick={() => setActiveTab('admin')}
-                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
-                  >
-                    Login Akses Admin
-                  </button>
-                </div>
+        <div key={activeTab + '-' + theme} className="animate-fadeIn">
+          {/* Check if current tab is locked by Admin for Satker */}
+          {activeTab !== 'admin' && !isAdminAuthenticated && dashboardConfig.menuVisibility?.[activeTab as keyof MenuVisibilityConfig] === false ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xl space-y-5 my-8">
+              <div className="w-16 h-16 bg-rose-500/15 text-rose-500 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/30">
+                <Lock className="w-8 h-8" />
               </div>
-            ) : (
-              <>
-                {/* Tab 1: Dashboard IKPA Overview */}
-                {activeTab === 'dashboard' && (
-                  <DashboardOverview
-                    satkers={searchedSatkers}
-                    onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
-                    onOpenReminder={handleOpenReminderSingle}
-                    onGoToUpload={() => setActiveTab('admin')}
-                    onGoToCapaianOutput={() => setActiveTab('capaian-output')}
-                    dashboardConfig={dashboardConfig}
-                    theme={theme}
-                  />
-                )}
 
-            {/* Tab 2: Dashboard Capaian Output Dedicated */}
-            {activeTab === 'capaian-output' && (
-              <CapaianOutputDashboard
-                satkers={searchedSatkers}
-                onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
-                onOpenReminder={handleOpenReminderSingle}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
+              <div>
+                <span className="inline-block bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-300 font-black text-[10px] uppercase px-3 py-1 rounded-full border border-rose-300 dark:border-rose-800 mb-2">
+                  MENU TERKUNCI OLEH ADMIN KPPN (026)
+                </span>
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  Akses Menu Ini Sedang Dinonaktifkan
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-2 max-w-md mx-auto leading-relaxed">
+                  Admin KPPN Semarang I saat ini mengunci/menonaktifkan sementara menu ini agar seluruh Satker Mitra KPPN dapat fokus pada tugas prioritas utama.
+                </p>
+              </div>
 
-            {/* Tab 3: Pengelolaan UP / TUP Dedicated */}
-            {activeTab === 'pengelolaan-up' && (
-              <PengelolaanUPDashboard
-                upRecords={pengelolaanUPList}
-                masterSatkers={masterSatkers}
-                theme={theme}
-                isAdminAuthenticated={isAdminAuthenticated}
-                onOpenReminder={(record) => {
-                  const matchSatker = satkers.find(s => s.kodeSatker === record.kodeSatker);
-                  if (matchSatker) {
-                    handleOpenReminderSingle(matchSatker);
-                  } else {
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => {
+                    const tabPriorityOrder: NavigationTab[] = [
+                      'dashboard',
+                      'capaian-output',
+                      'pengelolaan-up',
+                      'kelola-satker',
+                      'sertifikasi',
+                      'per5-analisis',
+                      'materi-slide',
+                      'portal-link',
+                      'announcements',
+                      'pengetahuan',
+                      'presensi',
+                      'aduan',
+                      'guide'
+                    ];
+                    const firstVisible = tabPriorityOrder.find(tab => dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false);
+                    if (firstVisible) setActiveTab(firstVisible);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer"
+                >
+                  Pindah ke Menu Lain yang Aktif &rarr;
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold text-xs transition-all cursor-pointer border border-slate-300 dark:border-slate-700"
+                >
+                  Login Akses Admin
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* Tab 1: Dashboard IKPA Overview */}
+              {activeTab === 'dashboard' && (
+                <DashboardOverview
+                  satkers={searchedSatkers}
+                  onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
+                  onOpenReminder={handleOpenReminderSingle}
+                  onGoToUpload={() => setActiveTab('admin')}
+                  onGoToCapaianOutput={() => setActiveTab('capaian-output')}
+                  dashboardConfig={dashboardConfig}
+                  theme={theme}
+                />
+              )}
+
+              {/* Tab 2: Dashboard Capaian Output Dedicated */}
+              {activeTab === 'capaian-output' && (
+                <CapaianOutputDashboard
+                  satkers={searchedSatkers}
+                  onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
+                  onOpenReminder={handleOpenReminderSingle}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab 3: Pengelolaan UP / TUP Dedicated */}
+              {activeTab === 'pengelolaan-up' && (
+                <PengelolaanUPDashboard
+                  upRecords={pengelolaanUPList}
+                  masterSatkers={masterSatkers}
+                  theme={theme}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onOpenReminder={(record) => {
+                    const matchSatker = satkers.find(s => s.kodeSatker === record.kodeSatker);
+                    if (matchSatker) {
+                      handleOpenReminderSingle(matchSatker);
+                    } else {
+                      setActiveTab('reminder');
+                    }
+                  }}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab Dedicated: Kelola Data Satker (Master & Kontak PIC) */}
+              {activeTab === 'kelola-satker' && (
+                <KelolaDataSatkerDashboard
+                  masterSatkers={masterSatkers}
+                  satkers={satkers}
+                  theme={theme}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSaveMasterSatker={handleSaveMasterSatker}
+                  onUpdateMasterSatkers={handleUpdateMasterSatkers}
+                  onDeleteMasterSatker={handleDeleteMasterSatker}
+                  onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
+                  onClearAllMasterSatkers={handleClearAllMasterSatkers}
+                  onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                  onOpenReminder={handleOpenReminderSingle}
+                />
+              )}
+
+              {activeTab === 'redflags' && (
+                <RedFlagsView
+                  satkers={searchedSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)))}
+                  onOpenReminder={handleOpenReminderSingle}
+                  onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
+                  onOpenBulkReminder={handleOpenReminderBulk}
+                  onGoToUpload={() => setActiveTab('admin')}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab Pengumuman */}
+              {activeTab === 'announcements' && (
+                <PengumumanTab
+                  announcements={dashboardConfig.announcements}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab Materi Slide Presentation */}
+              {activeTab === 'materi-slide' && (
+                <MateriSlideTab
+                  materials={dashboardConfig.presentationMaterials}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab Portal Linktree / Sosialisasi */}
+              {activeTab === 'portal-link' && (
+                <SocializationPortalView
+                  kegiatanList={dashboardConfig.kegiatanSosialisasi}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                  onGoToPresensi={() => setActiveTab('presensi')}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                />
+              )}
+
+              {/* Tab Presensi Online Digital KPPN */}
+              {activeTab === 'presensi' && (
+                <PresensiOnlineView
+                  kegiatanList={presensiKegiatanList}
+                  pesertaList={presensiPesertaList}
+                  satkers={satkers}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSavePesertaPresensi={handleSavePesertaPresensi}
+                  onDeletePesertaPresensi={handleDeletePesertaPresensi}
+                  onSaveKegiatan={handleSavePresensiKegiatan}
+                  onDeleteKegiatan={handleDeletePresensiKegiatan}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {activeTab === 'admin' && (
+                <AdminUpload
+                  satkers={satkers}
+                  onApplyNewSatkers={handleApplyNewSatkers}
+                  onUpdateSatker={handleUpdateSatker}
+                  onDeleteSatker={handleDeleteSatker}
+                  onDeleteBatchSatkers={handleDeleteBatchSatkers}
+                  onAddSatker={handleAddSatker}
+                  masterSatkers={masterSatkers}
+                  onUpdateMasterSatkers={handleUpdateMasterSatkers}
+                  onSaveMasterSatker={handleSaveMasterSatker}
+                  onDeleteMasterSatker={handleDeleteMasterSatker}
+                  onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
+                  onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
+                  pejabatList={pejabatSertifikasiList}
+                  onUpdatePejabatList={handleUpdatePejabatList}
+                  onResetData={handleResetData}
+                  onClearAllData={handleClearAllSatkers}
+                  currentSatkerCount={satkers.length}
+                  dashboardConfig={dashboardConfig}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  setIsAdminAuthenticated={setIsAdminAuthenticated}
+                  theme={theme}
+                  adminPin={adminPin}
+                  onUpdateAdminPin={handleUpdateAdminPin}
+                  presensiKegiatanList={presensiKegiatanList}
+                  presensiPesertaList={presensiPesertaList}
+                  onSavePresensiKegiatan={handleSavePresensiKegiatan}
+                  onDeletePresensiKegiatan={handleDeletePresensiKegiatan}
+                  onDeletePesertaPresensi={handleDeletePesertaPresensi}
+                  onClearMasterSatkers={handleClearAllMasterSatkers}
+                />
+              )}
+
+              {activeTab === 'reminder' && (
+                <ReminderGenerator
+                  satkers={satkers}
+                  selectedSatkerFromProps={selectedSatkerForReminder}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  onGoToAdminTab={() => setActiveTab('admin')}
+                  bulkSatkersFromProps={bulkSatkersForReminder}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  onUpdateDashboardConfig={(newConfig) => setDashboardConfig(newConfig)}
+                />
+              )}
+
+              {/* Tab Sertifikasi Pejabat Perbendaharaan */}
+              {activeTab === 'sertifikasi' && (
+                <SertifikasiPejabatView
+                  pejabatList={pejabatSertifikasiList}
+                  onUpdatePejabatList={handleUpdatePejabatList}
+                  lastUpdateTimestamp={dashboardConfig.updateDates?.sertifikasi || sertifikasiLastUpdate}
+                  onUpdateTimestamp={(newTs) => setSertifikasiLastUpdate(newTs)}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  onOpenReminderWithPejabat={(pejabat) => {
+                    const matchSatker = satkers.find(s => s.kodeSatker === pejabat.kdSatker);
+                    if (matchSatker) {
+                      handleOpenReminderSingle(matchSatker);
+                    } else {
+                      setActiveTab('reminder');
+                    }
+                  }}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab Analisis & Knowledge PER-5/PB/2024 */}
+              {activeTab === 'per5-analisis' && (
+                <Per5AnalisisView
+                  satkers={satkers}
+                  onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
+                  onOpenReminderWithAnalysis={(satker, text) => {
+                    setSelectedSatkerForReminder(satker);
                     setActiveTab('reminder');
-                  }
-                }}
-                onGoToAdmin={() => setActiveTab('admin')}
-              />
-            )}
+                  }}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
 
-            {/* Tab Dedicated: Kelola Data Satker (Master & Kontak PIC) */}
-            {activeTab === 'kelola-satker' && (
-              <KelolaDataSatkerDashboard
-                masterSatkers={masterSatkers}
-                satkers={satkers}
-                theme={theme}
-                isAdminAuthenticated={isAdminAuthenticated}
-                onSaveMasterSatker={handleSaveMasterSatker}
-                onUpdateMasterSatkers={handleUpdateMasterSatkers}
-                onDeleteMasterSatker={handleDeleteMasterSatker}
-                onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
-                onClearAllMasterSatkers={handleClearAllMasterSatkers}
-                onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
-                onGoToAdmin={() => setActiveTab('admin')}
-                onOpenReminder={handleOpenReminderSingle}
-              />
-            )}
+              {/* Tab Pusat Pengetahuan & Juknis SAKTI */}
+              {activeTab === 'pengetahuan' && (
+                <PengetahuanSaktiView
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                />
+              )}
 
-            {activeTab === 'redflags' && (
-              <RedFlagsView
-                satkers={searchedSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)))}
-                onOpenReminder={handleOpenReminderSingle}
-                onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
-                onOpenBulkReminder={handleOpenReminderBulk}
-                onGoToUpload={() => setActiveTab('admin')}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
+              {/* Tab Kanal Lapor Aduan Satker */}
+              {activeTab === 'aduan' && (
+                <LaporAduanView
+                  theme={theme}
+                  helpdeskPhone={dashboardConfig.helpdeskPhone}
+                  helpdeskJamLayanan={dashboardConfig.helpdeskJamLayanan}
+                  dashboardConfig={dashboardConfig}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
+                />
+              )}
 
-            {/* Tab Pengumuman */}
-            {activeTab === 'announcements' && (
-              <PengumumanTab
-                announcements={dashboardConfig.announcements}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
-
-            {/* Tab Materi Slide Presentation */}
-            {activeTab === 'materi-slide' && (
-              <MateriSlideTab
-                materials={dashboardConfig.presentationMaterials}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
-
-            {/* Tab Portal Linktree / Sosialisasi */}
-            {activeTab === 'portal-link' && (
-              <SocializationPortalView
-                kegiatanList={dashboardConfig.kegiatanSosialisasi}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-                onGoToAdmin={() => setActiveTab('admin')}
-                onGoToPresensi={() => setActiveTab('presensi')}
-                isAdminAuthenticated={isAdminAuthenticated}
-              />
-            )}
-
-            {/* Tab Presensi Online Digital KPPN */}
-            {activeTab === 'presensi' && (
-              <PresensiOnlineView
-                kegiatanList={presensiKegiatanList}
-                pesertaList={presensiPesertaList}
-                satkers={satkers}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-                isAdminAuthenticated={isAdminAuthenticated}
-                onSavePesertaPresensi={handleSavePesertaPresensi}
-                onDeletePesertaPresensi={handleDeletePesertaPresensi}
-                onSaveKegiatan={handleSavePresensiKegiatan}
-                onDeleteKegiatan={handleDeletePresensiKegiatan}
-                onGoToAdmin={() => setActiveTab('admin')}
-              />
-            )}
-
-            {activeTab === 'admin' && (
-              <AdminUpload
-                satkers={satkers}
-                onApplyNewSatkers={handleApplyNewSatkers}
-                onUpdateSatker={handleUpdateSatker}
-                onDeleteSatker={handleDeleteSatker}
-                onDeleteBatchSatkers={handleDeleteBatchSatkers}
-                onAddSatker={handleAddSatker}
-                masterSatkers={masterSatkers}
-                onUpdateMasterSatkers={handleUpdateMasterSatkers}
-                onSaveMasterSatker={handleSaveMasterSatker}
-                onDeleteMasterSatker={handleDeleteMasterSatker}
-                onDeleteBatchMasterSatkers={handleDeleteBatchMasterSatkers}
-                onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
-                pejabatList={pejabatSertifikasiList}
-                onUpdatePejabatList={handleUpdatePejabatList}
-                onResetData={handleResetData}
-                onClearAllData={handleClearAllSatkers}
-                currentSatkerCount={satkers.length}
-                dashboardConfig={dashboardConfig}
-                onUpdateDashboardConfig={handleUpdateDashboardConfig}
-                isAdminAuthenticated={isAdminAuthenticated}
-                setIsAdminAuthenticated={setIsAdminAuthenticated}
-                theme={theme}
-                adminPin={adminPin}
-                onUpdateAdminPin={handleUpdateAdminPin}
-                presensiKegiatanList={presensiKegiatanList}
-                presensiPesertaList={presensiPesertaList}
-                onSavePresensiKegiatan={handleSavePresensiKegiatan}
-                onDeletePresensiKegiatan={handleDeletePresensiKegiatan}
-                onDeletePesertaPresensi={handleDeletePesertaPresensi}
-                onClearMasterSatkers={handleClearAllMasterSatkers}
-              />
-            )}
-
-            {activeTab === 'reminder' && (
-              <ReminderGenerator
-                satkers={satkers}
-                selectedSatkerFromProps={selectedSatkerForReminder}
-                isAdminAuthenticated={isAdminAuthenticated}
-                onAuthenticateAdmin={handleAuthenticateAdmin}
-                onGoToAdminTab={() => setActiveTab('admin')}
-                bulkSatkersFromProps={bulkSatkersForReminder}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-                onUpdateDashboardConfig={(newConfig) => setDashboardConfig(newConfig)}
-              />
-            )}
-
-            {/* Tab Sertifikasi Pejabat Perbendaharaan */}
-            {activeTab === 'sertifikasi' && (
-              <SertifikasiPejabatView
-                pejabatList={pejabatSertifikasiList}
-                onUpdatePejabatList={handleUpdatePejabatList}
-                lastUpdateTimestamp={dashboardConfig.updateDates?.sertifikasi || sertifikasiLastUpdate}
-                onUpdateTimestamp={(newTs) => setSertifikasiLastUpdate(newTs)}
-                isAdminAuthenticated={isAdminAuthenticated}
-                onAuthenticateAdmin={handleAuthenticateAdmin}
-                onOpenReminderWithPejabat={(pejabat) => {
-                  const matchSatker = satkers.find(s => s.kodeSatker === pejabat.kdSatker);
-                  if (matchSatker) {
-                    handleOpenReminderSingle(matchSatker);
-                  } else {
-                    setActiveTab('reminder');
-                  }
-                }}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
-
-            {/* Tab Analisis & Knowledge PER-5/PB/2024 */}
-            {activeTab === 'per5-analisis' && (
-              <Per5AnalisisView
-                satkers={satkers}
-                onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
-                onOpenReminderWithAnalysis={(satker, text) => {
-                  setSelectedSatkerForReminder(satker);
-                  setActiveTab('reminder');
-                }}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
-
-            {/* Tab Pusat Pengetahuan & Juknis SAKTI */}
-            {activeTab === 'pengetahuan' && (
-              <PengetahuanSaktiView
-                isAdminAuthenticated={isAdminAuthenticated}
-                onAuthenticateAdmin={handleAuthenticateAdmin}
-                theme={theme}
-                dashboardConfig={dashboardConfig}
-              />
-            )}
-
-            {/* Tab Kanal Lapor Aduan Satker */}
-            {activeTab === 'aduan' && (
-              <LaporAduanView
-                theme={theme}
-                helpdeskPhone={dashboardConfig.helpdeskPhone}
-                helpdeskJamLayanan={dashboardConfig.helpdeskJamLayanan}
-              />
-            )}
-
-            {activeTab === 'guide' && (
-              <ExcelGuideModal theme={theme} />
-            )}
-              </>
-            )}
-          </motion.div>
-        </AnimatePresence>
+              {activeTab === 'guide' && (
+                <ExcelGuideModal theme={theme} />
+              )}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Satker Detail Modal */}

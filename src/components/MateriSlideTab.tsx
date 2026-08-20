@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Presentation,
   Search,
@@ -795,10 +794,9 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
             const isUnlocked = unlockedMaterialIds.has(material.id);
 
             return (
-              <motion.div
+              <div
                 key={material.id}
-                whileHover={{ y: -4, transition: { duration: 0.2 } }}
-                className={`rounded-3xl border flex flex-col justify-between overflow-hidden transition-all shadow-md relative ${
+                className={`rounded-3xl border flex flex-col justify-between overflow-hidden transition-all shadow-md relative hover:-translate-y-1 hover:shadow-xl ${
                   isInternal
                     ? isDark
                       ? 'bg-slate-900 border-amber-500/60 ring-1 ring-amber-500/30'
@@ -932,131 +930,118 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                   </button>
                 </div>
 
-              </motion.div>
+              </div>
             );
           })}
         </div>
       )}
 
       {/* PASSWORD VERIFICATION MODAL FOR INTERNAL SLIDES */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {promptPasswordMaterial && (
-            <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-4 ${
-                  isDark ? 'bg-slate-900 border-amber-500/50 text-white' : 'bg-white border-amber-300 text-slate-900'
-                }`}
+      {typeof document !== 'undefined' && promptPasswordMaterial && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-4 ${
+              isDark ? 'bg-slate-900 border-amber-500/50 text-white' : 'bg-white border-amber-300 text-slate-900'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-amber-500 text-slate-950 rounded-2xl shrink-0 shadow-md">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">
+                    🔒 Materi Internal Terproteksi
+                  </span>
+                  <h3 className="text-base font-extrabold leading-snug">
+                    Masukkan Password Slide
+                  </h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setPromptPasswordMaterial(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
               >
-                <div className="flex items-start justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 bg-amber-500 text-slate-950 rounded-2xl shrink-0 shadow-md">
-                      <KeyRound className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider">
-                        🔒 Materi Internal Terproteksi
-                      </span>
-                      <h3 className="text-base font-extrabold leading-snug">
-                        Masukkan Password Slide
-                      </h3>
-                    </div>
-                  </div>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-300 space-y-1">
+              <p className="font-extrabold truncate">
+                📄 {promptPasswordMaterial.title}
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Materi ini khusus untuk kalangan internal KPPN Semarang I. Silakan masukkan kata sandi untuk mengakses konten slide show.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold mb-1.5 text-slate-700 dark:text-slate-300">
+                  Kata Sandi / Password Akses:
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPasswordText ? "text" : "password"}
+                    autoFocus
+                    required
+                    value={inputPassword}
+                    onChange={(e) => {
+                      setInputPassword(e.target.value);
+                      if (passwordError) setPasswordError(null);
+                    }}
+                    placeholder="Ketik password materi di sini..."
+                    className={`w-full p-3 rounded-xl border text-xs font-mono font-bold pr-10 focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                      isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    }`}
+                  />
                   <button
-                    onClick={() => setPromptPasswordMaterial(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                    type="button"
+                    onClick={() => setShowPasswordText(!showPasswordText)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
                   >
-                    <X className="w-4 h-4" />
+                    {showPasswordText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-300 space-y-1">
-                  <p className="font-extrabold truncate">
-                    📄 {promptPasswordMaterial.title}
+                {passwordError && (
+                  <p className="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1 animate-pulse">
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                    <span>{passwordError}</span>
                   </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Materi ini khusus untuk kalangan internal KPPN Semarang I. Silakan masukkan kata sandi untuk mengakses konten slide show.
-                  </p>
-                </div>
+                )}
+              </div>
 
-                <form onSubmit={handleVerifyPassword} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold mb-1.5 text-slate-700 dark:text-slate-300">
-                      Kata Sandi / Password Akses:
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPasswordText ? "text" : "password"}
-                        autoFocus
-                        required
-                        value={inputPassword}
-                        onChange={(e) => {
-                          setInputPassword(e.target.value);
-                          if (passwordError) setPasswordError(null);
-                        }}
-                        placeholder="Ketik password materi di sini..."
-                        className={`w-full p-3 rounded-xl border text-xs font-mono font-bold pr-10 focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                          isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPasswordText(!showPasswordText)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
-                      >
-                        {showPasswordText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    {passwordError && (
-                      <p className="text-xs text-rose-500 font-bold mt-1.5 flex items-center gap-1 animate-pulse">
-                        <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                        <span>{passwordError}</span>
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setPromptPasswordMaterial(null)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Unlock className="w-3.5 h-3.5" />
-                      <span>Buka Slide Show</span>
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>,
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPromptPasswordMaterial(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>Buka Slide Show</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
         document.body
       )}
 
       {/* Slide Show Modal (Full Interactive Presentation Viewer with Native Fullscreen & Presenter Toolbar) */}
-      {typeof document !== 'undefined' && createPortal(
-        <AnimatePresence>
-          {activeSlideShow && (
-            <div className="fixed inset-0 z-[99999] flex flex-col w-screen h-screen p-0 bg-slate-950 overflow-hidden select-none">
-              <motion.div
-                ref={modalContainerRef}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.12 }}
-                onContextMenu={(e) => e.preventDefault()}
-                className="w-full h-full flex flex-col bg-slate-950 text-white relative overflow-hidden"
-              >
+      {typeof document !== 'undefined' && activeSlideShow && createPortal(
+        <div className="fixed inset-0 z-[99999] flex flex-col w-screen h-screen p-0 bg-slate-950 overflow-hidden select-none animate-in fade-in duration-150">
+          <div
+            ref={modalContainerRef}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full h-full flex flex-col bg-slate-950 text-white relative overflow-hidden"
+          >
                 
                 {/* Top Modal Header - Minimalist Sleek Presentation Bar */}
                 <div className="px-3 py-2 bg-slate-900/95 border-b border-slate-800/80 flex items-center justify-between gap-3 shrink-0 z-30 backdrop-blur-md">
@@ -1493,12 +1478,10 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
 
                 </div>
 
-              </motion.div>
-            </div>
+              </div>
+            </div>,
+            document.body
           )}
-        </AnimatePresence>,
-        document.body
-      )}
 
     </div>
   );

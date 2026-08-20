@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Building2,
   Phone,
@@ -51,8 +50,8 @@ interface KelolaDataSatkerDashboardProps {
   isAdminAuthenticated?: boolean;
   onSaveMasterSatker: (satker: MasterSatker) => Promise<void> | void;
   onUpdateMasterSatkers: (satkers: MasterSatker[]) => void;
-  onDeleteMasterSatker: (id: string) => void;
-  onDeleteBatchMasterSatkers: (ids: string[]) => void;
+  onDeleteMasterSatker?: (id: string) => void;
+  onDeleteBatchMasterSatkers?: (ids: string[]) => void;
   onClearAllMasterSatkers?: () => void;
   onToggleActiveMasterSatker: (id: string) => void;
   onGoToAdmin?: () => void;
@@ -654,6 +653,257 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     reader.readAsBinaryString(file);
   };
 
+  // Upload Excel Batch Kontak Pejabat & Operator (Safe merge - never deletes or blanks existing data)
+  const handlePhoneContactsUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingFile(true);
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+
+        if (jsonData.length < 2) throw new Error('File Excel tidak memiliki baris data kontak.');
+
+        // Find header row and column indexes
+        let headerRowIdx = 0;
+        let colKode = -1;
+        let colNamaSatker = -1;
+        let colKpaNama = -1, colKpaHp = -1;
+        let colPpkNama = -1, colPpkHp = -1;
+        let colPpspmNama = -1, colPpspmHp = -1;
+        let colBendaharaNama = -1, colBendaharaHp = -1;
+        let colOpBayarNama = -1, colOpBayarHp = -1;
+        let colOpKomitmenNama = -1, colOpKomitmenHp = -1;
+        let colOpGajiNama = -1, colOpGajiHp = -1;
+        let colOpLaporNama = -1, colOpLaporHp = -1;
+        let colPicNama = -1, colPicHp = -1, colPicEmail = -1, colAlamat = -1;
+
+        for (let r = 0; r < Math.min(10, jsonData.length); r++) {
+          const row = jsonData[r];
+          if (!row) continue;
+          row.forEach((cell: any, cIdx: number) => {
+            const str = String(cell || '').toLowerCase().trim();
+            if (str.includes('kode') && str.includes('satker')) colKode = cIdx;
+            else if (str === 'kode' || str === 'kdsatker' || str === 'kode_satker') colKode = cIdx;
+            if (str.includes('nama') && str.includes('satker')) colNamaSatker = cIdx;
+            
+            // KPA
+            if (str.includes('kpa') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colKpaHp = cIdx;
+            else if (str.includes('kpa') && (str.includes('nama') || str.includes('pejabat'))) colKpaNama = cIdx;
+            else if (str === 'kpa' || str.includes('kuasa pengguna')) colKpaNama = cIdx;
+
+            // PPK
+            if (str.includes('ppk') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colPpkHp = cIdx;
+            else if (str.includes('ppk') && (str.includes('nama') || str.includes('pejabat'))) colPpkNama = cIdx;
+            else if (str === 'ppk' || str.includes('komitmen')) colPpkNama = cIdx;
+
+            // PPSPM
+            if (str.includes('ppspm') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colPpspmHp = cIdx;
+            else if (str.includes('ppspm') && (str.includes('nama') || str.includes('pejabat'))) colPpspmNama = cIdx;
+            else if (str === 'ppspm' || str.includes('penguji')) colPpspmNama = cIdx;
+
+            // Bendahara
+            if ((str.includes('bendahara') || str.includes('bpp')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colBendaharaHp = cIdx;
+            else if ((str.includes('bendahara') || str.includes('bpp')) && (str.includes('nama') || str.includes('pejabat'))) colBendaharaNama = cIdx;
+            else if (str.includes('bendahara')) colBendaharaNama = cIdx;
+
+            // Op Pembayaran
+            if ((str.includes('bayar') || str.includes('pembayaran') || str.includes('spp')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpBayarHp = cIdx;
+            else if (str.includes('bayar') || str.includes('pembayaran')) colOpBayarNama = cIdx;
+
+            // Op Komitmen
+            if ((str.includes('komitmen') || str.includes('kontrak')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpKomitmenHp = cIdx;
+            else if (str.includes('komitmen') || str.includes('kontrak')) colOpKomitmenNama = cIdx;
+
+            // Op Gaji
+            if ((str.includes('gaji') || str.includes('ppn') || str.includes('tukin')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpGajiHp = cIdx;
+            else if (str.includes('gaji')) colOpGajiNama = cIdx;
+
+            // Op Pelaporan / Caput
+            if ((str.includes('lapor') || str.includes('pelaporan') || str.includes('caput') || str.includes('akuntansi')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpLaporHp = cIdx;
+            else if (str.includes('lapor') || str.includes('pelaporan') || str.includes('caput')) colOpLaporNama = cIdx;
+
+            // General PIC / HP
+            if ((str.includes('pic') || str.includes('kontak') || str.includes('whatsapp') || str.includes('no hp') || str.includes('nohp') || str.includes('telepon')) && !str.includes('kpa') && !str.includes('ppk') && !str.includes('ppspm') && !str.includes('bendahara')) {
+              if (str.includes('nama')) colPicNama = cIdx;
+              else colPicHp = cIdx;
+            }
+            if (str.includes('email')) colPicEmail = cIdx;
+            if (str.includes('alamat')) colAlamat = cIdx;
+          });
+
+          if (colKode !== -1) {
+            headerRowIdx = r;
+            break;
+          }
+        }
+
+        if (colKode === -1) {
+          throw new Error('Kolom "Kode Satker" tidak ditemukan dalam file Excel.');
+        }
+
+        const cleanHp = (hp?: any) => {
+          if (!hp) return undefined;
+          let str = String(hp).trim().replace(/\s+/g, '').replace(/[-_.]/g, '');
+          if (str.startsWith('+62')) str = '0' + str.substring(3);
+          else if (str.startsWith('62') && str.length > 8) str = '0' + str.substring(2);
+          return str.length >= 8 ? str : undefined;
+        };
+
+        const newMasterMap = new Map<string, MasterSatker>();
+        masterSatkers.forEach(m => newMasterMap.set(m.kodeSatker, { ...m }));
+
+        let updatedCount = 0;
+
+        for (let r = headerRowIdx + 1; r < jsonData.length; r++) {
+          const row = jsonData[r];
+          if (!row || !row[colKode]) continue;
+
+          const rawKode = String(row[colKode]).trim().replace(/\D/g, '');
+          if (!rawKode || rawKode.length < 5) continue;
+          const kodeSatker = rawKode.padStart(6, '0');
+
+          const existing = newMasterMap.get(kodeSatker);
+          if (!existing) continue;
+
+          const existingPo = existing.pejabatOperator || {};
+
+          const valKpaNama = colKpaNama !== -1 && row[colKpaNama] ? String(row[colKpaNama]).trim() : undefined;
+          const valKpaHp = colKpaHp !== -1 ? cleanHp(row[colKpaHp]) : undefined;
+
+          const valPpkNama = colPpkNama !== -1 && row[colPpkNama] ? String(row[colPpkNama]).trim() : undefined;
+          const valPpkHp = colPpkHp !== -1 ? cleanHp(row[colPpkHp]) : undefined;
+
+          const valPpspmNama = colPpspmNama !== -1 && row[colPpspmNama] ? String(row[colPpspmNama]).trim() : undefined;
+          const valPpspmHp = colPpspmHp !== -1 ? cleanHp(row[colPpspmHp]) : undefined;
+
+          const valBendaharaNama = colBendaharaNama !== -1 && row[colBendaharaNama] ? String(row[colBendaharaNama]).trim() : undefined;
+          const valBendaharaHp = colBendaharaHp !== -1 ? cleanHp(row[colBendaharaHp]) : undefined;
+
+          const valOpBayarNama = colOpBayarNama !== -1 && row[colOpBayarNama] ? String(row[colOpBayarNama]).trim() : undefined;
+          const valOpBayarHp = colOpBayarHp !== -1 ? cleanHp(row[colOpBayarHp]) : undefined;
+
+          const valOpKomitmenNama = colOpKomitmenNama !== -1 && row[colOpKomitmenNama] ? String(row[colOpKomitmenNama]).trim() : undefined;
+          const valOpKomitmenHp = colOpKomitmenHp !== -1 ? cleanHp(row[colOpKomitmenHp]) : undefined;
+
+          const valOpGajiNama = colOpGajiNama !== -1 && row[colOpGajiNama] ? String(row[colOpGajiNama]).trim() : undefined;
+          const valOpGajiHp = colOpGajiHp !== -1 ? cleanHp(row[colOpGajiHp]) : undefined;
+
+          const valOpLaporNama = colOpLaporNama !== -1 && row[colOpLaporNama] ? String(row[colOpLaporNama]).trim() : undefined;
+          const valOpLaporHp = colOpLaporHp !== -1 ? cleanHp(row[colOpLaporHp]) : undefined;
+
+          const valPicNama = colPicNama !== -1 && row[colPicNama] ? String(row[colPicNama]).trim() : undefined;
+          const valPicHp = colPicHp !== -1 ? cleanHp(row[colPicHp]) : undefined;
+          const valPicEmail = colPicEmail !== -1 && row[colPicEmail] ? String(row[colPicEmail]).trim() : undefined;
+          const valAlamat = colAlamat !== -1 && row[colAlamat] ? String(row[colAlamat]).trim() : undefined;
+
+          const mergedPo: PejabatDanOperator = {
+            kpa: {
+              nama: valKpaNama || existingPo.kpa?.nama || '',
+              noHp: valKpaHp || existingPo.kpa?.noHp || undefined,
+              nip: existingPo.kpa?.nip,
+              email: existingPo.kpa?.email
+            },
+            ppk: {
+              nama: valPpkNama || existingPo.ppk?.nama || '',
+              noHp: valPpkHp || existingPo.ppk?.noHp || undefined,
+              nip: existingPo.ppk?.nip,
+              email: existingPo.ppk?.email
+            },
+            ppspm: {
+              nama: valPpspmNama || existingPo.ppspm?.nama || '',
+              noHp: valPpspmHp || existingPo.ppspm?.noHp || undefined,
+              nip: existingPo.ppspm?.nip,
+              email: existingPo.ppspm?.email
+            },
+            bendahara: {
+              nama: valBendaharaNama || existingPo.bendahara?.nama || '',
+              noHp: valBendaharaHp || existingPo.bendahara?.noHp || undefined,
+              nip: existingPo.bendahara?.nip,
+              email: existingPo.bendahara?.email
+            },
+            operatorPembayaran: {
+              nama: valOpBayarNama || existingPo.operatorPembayaran?.nama || '',
+              noHp: valOpBayarHp || existingPo.operatorPembayaran?.noHp || undefined,
+              nip: existingPo.operatorPembayaran?.nip,
+              email: existingPo.operatorPembayaran?.email
+            },
+            operatorKomitmen: {
+              nama: valOpKomitmenNama || existingPo.operatorKomitmen?.nama || '',
+              noHp: valOpKomitmenHp || existingPo.operatorKomitmen?.noHp || undefined,
+              nip: existingPo.operatorKomitmen?.nip,
+              email: existingPo.operatorKomitmen?.email
+            },
+            operatorGaji: {
+              nama: valOpGajiNama || existingPo.operatorGaji?.nama || '',
+              noHp: valOpGajiHp || existingPo.operatorGaji?.noHp || undefined,
+              nip: existingPo.operatorGaji?.nip,
+              email: existingPo.operatorGaji?.email
+            },
+            operatorPelaporan: {
+              nama: valOpLaporNama || existingPo.operatorPelaporan?.nama || '',
+              noHp: valOpLaporHp || existingPo.operatorPelaporan?.noHp || undefined,
+              nip: existingPo.operatorPelaporan?.nip,
+              email: existingPo.operatorPelaporan?.email
+            }
+          };
+
+          const primaryPhone =
+            valPicHp ||
+            existing.noHpPic ||
+            mergedPo.operatorPembayaran?.noHp ||
+            mergedPo.bendahara?.noHp ||
+            mergedPo.ppk?.noHp ||
+            mergedPo.kpa?.noHp;
+
+          const primaryName =
+            valPicNama ||
+            existing.namaPic ||
+            mergedPo.operatorPembayaran?.nama ||
+            mergedPo.bendahara?.nama ||
+            mergedPo.ppk?.nama ||
+            mergedPo.kpa?.nama;
+
+          newMasterMap.set(kodeSatker, {
+            ...existing,
+            pejabatOperator: mergedPo,
+            namaPic: primaryName || existing.namaPic,
+            noHpPic: primaryPhone || existing.noHpPic,
+            emailPic: valPicEmail || existing.emailPic,
+            alamatSatker: valAlamat || existing.alamatSatker,
+            updatedAt: new Date().toISOString()
+          });
+
+          updatedCount++;
+        }
+
+        const resultList = Array.from(newMasterMap.values());
+        onUpdateMasterSatkers(resultList);
+        setUploadFeedback({
+          type: 'success',
+          message: `Berhasil memutakhirkan kontak pejabat & operator untuk ${updatedCount} Satker. Data yang sudah ada tetap aman dan tidak terhapus!`
+        });
+        triggerToast(`Kontak ${updatedCount} Satker berhasil dimutakhirkan secara aman.`);
+      } catch (err: any) {
+        setUploadFeedback({
+          type: 'error',
+          message: `Gagal memproses batch kontak: ${err.message || 'Format tidak sesuai.'}`
+        });
+      } finally {
+        setIsProcessingFile(false);
+        if (phoneFileInputRef.current) phoneFileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsBinaryString(file);
+  };
+
   // Batch Toggle Status
   const handleBatchToggleStatus = (targetActive: boolean) => {
     if (selectedIds.length === 0) return;
@@ -675,22 +925,35 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   return (
     <div className="space-y-6">
-      {/* Toast Notification */}
-      <AnimatePresence>
-        {toastMessage && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed top-5 right-5 z-50 bg-emerald-600 text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 border border-emerald-400"
-          >
-            <CheckCircle2 className="w-4 h-4 text-white" />
-            <span>{toastMessage}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Modern Confirmation Modal */}
+      {confirmModal && (
+        <ModernConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText={confirmModal.confirmText}
+          cancelText={confirmModal.cancelText}
+          variant={confirmModal.variant}
+          iconType={confirmModal.iconType}
+          onConfirm={() => {
+            confirmModal.onConfirm();
+            setConfirmModal(null);
+          }}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
 
-      {/* Hidden File Input */}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div
+          className="fixed top-5 right-5 z-50 bg-emerald-600 text-white font-bold text-xs px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2 border border-emerald-400 animate-in fade-in duration-200"
+        >
+          <CheckCircle2 className="w-4 h-4 text-white" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Hidden File Inputs */}
       <input
         type="file"
         ref={masterFileInputRef}
@@ -698,28 +961,42 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         accept=".xlsx, .xls, .csv"
         className="hidden"
       />
+      <input
+        type="file"
+        ref={phoneFileInputRef}
+        onChange={handlePhoneContactsUpload}
+        accept=".xlsx, .xls, .csv"
+        className="hidden"
+      />
 
       {/* Top Banner & Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-sky-950 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-2xl border border-sky-500/30 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-slate-900 via-sky-950 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-2xl border border-sky-500/30 relative overflow-hidden space-y-6">
         <div className="absolute right-0 top-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -left-10 -bottom-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-400/40 text-sky-200 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
-              <Building2 className="w-3.5 h-3.5 text-sky-400" />
-              <span>{isAdminAuthenticated ? 'ADMIN KELOLA DATA SATKER & PENGATURAN PASSWORD' : 'PORTAL PESERTA SATKER & PEMUTAKHIRAN DATA KONTAK'}</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Kelola Data Satker, Kontak Pejabat &amp; Operator SAKTI
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              Satker dapat mengisi Nama &amp; Nomor WhatsApp untuk <strong>8 Pejabat/Operator</strong> (KPA, PPK, PPSPM, Bendahara Pengeluaran, Op. Pembayaran, Op. Komitmen, Op. Gaji, dan Op. Pelaporan). 
-              Akses dilindungi oleh <strong>Password Satker</strong> untuk memastikan data Anda aman dan tidak dapat diubah oleh satker lain.
-            </p>
+        {/* Title & Description Row */}
+        <div className="relative z-10 space-y-3">
+          <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-400/40 text-sky-200 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
+            <Building2 className="w-3.5 h-3.5 text-sky-400" />
+            <span>{isAdminAuthenticated ? 'ADMIN KELOLA DATA SATKER & PENGATURAN PASSWORD' : 'PORTAL PESERTA SATKER & PEMUTAKHIRAN DATA KONTAK'}</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+            Kelola Data Satker, Kontak Pejabat &amp; Operator SAKTI
+          </h1>
+          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-4xl">
+            Satker dapat mengisi Nama &amp; Nomor WhatsApp untuk <strong>8 Pejabat/Operator</strong> (KPA, PPK, PPSPM, Bendahara Pengeluaran, Op. Pembayaran, Op. Komitmen, Op. Gaji, dan Op. Pelaporan). 
+            Akses dilindungi oleh <strong>Password Satker</strong> untuk memastikan data Anda aman dan tidak dapat diubah oleh satker lain.
+          </p>
+        </div>
+
+        {/* Action Buttons Toolbar Bar */}
+        <div className="relative z-10 pt-4 border-t border-sky-500/20 flex flex-wrap items-center justify-between gap-3">
+          <div className="text-xs font-semibold text-sky-200/80 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-sky-400" />
+            <span>Total <strong>{totalMaster}</strong> Satker terdaftar dalam sistem</span>
           </div>
 
-          {/* Action Buttons Toolbar */}
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5">
             {isAdminAuthenticated ? (
               <>
                 {/* Setting Password All Button (Admin) */}
@@ -727,7 +1004,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   type="button"
                   onClick={handleBulkSetDefaultPasswords}
                   className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-amber-400/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95 border border-amber-300"
-                  title="Setel atau reset password default ([KodeSatker]_[KodeBA]) untuk seluruh Satker mitra"
+                  title="Setel atau reset password default ([KodeSatker]) untuk seluruh Satker mitra"
                 >
                   <KeyRound className="w-4 h-4 text-slate-950" />
                   <span>Setting Password All</span>
@@ -770,11 +1047,17 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   onClick={() => phoneFileInputRef.current?.click()}
                   disabled={isProcessingFile}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md border border-emerald-400/30 transition-all flex items-center gap-2 cursor-pointer"
-                  title="Upload batch kontak HP pejabat & operator dari Excel"
+                  title="Upload batch kontak HP pejabat & operator dari Excel (penggabungan aman tanpa hapus data lama)"
                 >
                   <Phone className="w-4 h-4 text-emerald-200" />
                   <span>Upload Batch Kontak</span>
                 </button>
+
+                {/* Proteksi Data Anti-Hapus */}
+                <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-xs font-bold shadow-xs">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Data Aman: Anti-Hapus &amp; Hanya Update</span>
+                </div>
               </>
             ) : (
               <button
@@ -1053,7 +1336,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                     />
                   </th>
                 )}
-                <th className="py-3.5 px-4">Kode Satker &amp; BA</th>
+                <th className="py-3.5 px-4">Kode Satker</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Nama Satker &amp; K/L</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
                 <th className="py-3.5 px-4 min-w-[280px]">Rincian Kontak 8 Pejabat &amp; Operator</th>
@@ -1107,9 +1390,6 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                       {/* Kode Satker */}
                       <td className="py-3.5 px-4 font-mono font-black text-sky-600 dark:text-sky-400 text-sm whitespace-nowrap">
                         {satker.kodeSatker}
-                        <span className="block text-[10px] font-mono text-slate-400 font-normal">
-                          BA: {satker.kodeBa || resolveKodeBA(satker)}
-                        </span>
                       </td>
 
                       {/* Nama Satker & K/L */}
@@ -1240,30 +1520,14 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                           </button>
 
                           {isAdminAuthenticated && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditMaster(satker)}
-                                className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                                title="Edit Data Master Satker (Admin)"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm(`Hapus Satker ${satker.namaSatker} (${satker.kodeSatker}) dari Master Satker?`)) {
-                                    onDeleteMasterSatker(satker.id);
-                                    triggerToast(`Satker ${satker.kodeSatker} berhasil dihapus.`);
-                                  }
-                                }}
-                                className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/80 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-                                title="Hapus Satker (Admin)"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditMaster(satker)}
+                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                              title="Edit Data Master Satker (Admin)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
                       </td>
@@ -1289,9 +1553,6 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className="font-mono text-xs bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded-lg shadow-xs">
                     KODE SATKER: {selectedSatkerForPejabat.kodeSatker}
-                  </span>
-                  <span className="text-xs text-sky-400 font-bold">
-                    BA: {selectedSatkerForPejabat.kodeBa || resolveKodeBA(selectedSatkerForPejabat)}
                   </span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-black text-white leading-tight">

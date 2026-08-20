@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -9,7 +8,6 @@ import {
   Building2, 
   ShieldCheck,
   Search,
-  RefreshCw,
   Zap,
   Megaphone,
   Sun,
@@ -44,7 +42,7 @@ interface HeaderProps {
   announcementsCount?: number;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  onResetData: () => void;
+  onResetData?: () => void;
   lastUpdateDate: string;
   theme: AppTheme;
   toggleTheme: () => void;
@@ -115,17 +113,6 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
     },
     {
-      id: 'redflags',
-      label: 'Perlu Perhatian',
-      icon: <AlertTriangle className="w-4 h-4 text-amber-300" />,
-      badge: redFlagsCount > 0 ? (
-        <span className="bg-rose-950 text-rose-200 border border-rose-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">
-          {redFlagsCount}
-        </span>
-      ) : undefined,
-      activeColor: 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 ring-1 ring-rose-400/40'
-    },
-    {
       id: 'sertifikasi',
       label: 'Sertifikasi Pejabat',
       icon: <Award className="w-4 h-4 text-amber-300" />,
@@ -190,12 +177,6 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     },
     {
-      id: 'reminder',
-      label: 'Pengingat WA',
-      icon: <Send className="w-4 h-4" />,
-      activeColor: 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 ring-1 ring-purple-400/40'
-    },
-    {
       id: 'guide',
       label: 'Panduan',
       icon: <BookOpen className="w-4 h-4" />,
@@ -210,16 +191,13 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Bar Banner */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          
-          {/* Identity & Sub-header */}
+               {/* Identity & Sub-header */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
-            <motion.div 
-              whileHover={{ rotate: 5, scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/40 shrink-0 cursor-pointer"
+            <div 
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/40 shrink-0 cursor-pointer hover:scale-105 transition-transform"
             >
               <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
-            </motion.div>
+            </div>
             <div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <h1 className={`text-base sm:text-lg font-black tracking-tight leading-tight flex items-center gap-1.5 ${
@@ -245,50 +223,32 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Controls & Quick Stats */}
           <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
             
-            {/* Animated Theme Toggle Button (Light/Dark Mode) */}
-            <motion.button
+            {/* Theme Toggle Button (Light/Dark Mode) */}
+            <button
               onClick={toggleTheme}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.92 }}
-              className={`relative flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold transition-all duration-300 cursor-pointer shadow-md overflow-hidden shrink-0 min-h-[40px] sm:min-h-[44px] ${
+              className={`relative flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold transition-all duration-300 cursor-pointer shadow-md overflow-hidden shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95 ${
                 isDark 
                   ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-amber-500/50 text-amber-300 shadow-amber-950/30 ring-1 ring-amber-500/20' 
                   : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-300 border-amber-400 text-slate-950 shadow-amber-500/20 ring-2 ring-amber-400/50'
               }`}
               title={isDark ? "Beralih ke Light Mode" : "Beralih ke Dark Mode"}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                {isDark ? (
-                  <motion.div
-                    key="dark-mode-toggle"
-                    initial={{ y: -20, opacity: 0, rotate: -90 }}
-                    animate={{ y: 0, opacity: 1, rotate: 0 }}
-                    exit={{ y: 20, opacity: 0, rotate: 90 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <div className="p-1 rounded-lg bg-amber-500/20 text-amber-300">
-                      <Sun className="w-4 h-4 text-amber-400" />
-                    </div>
-                    <span className="text-xs font-extrabold text-amber-200 hidden sm:inline">☀️ Light</span>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="light-mode-toggle"
-                    initial={{ y: -20, opacity: 0, rotate: 90 }}
-                    animate={{ y: 0, opacity: 1, rotate: 0 }}
-                    exit={{ y: 20, opacity: 0, rotate: -90 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    className="flex items-center gap-1.5"
-                  >
-                    <div className="p-1 rounded-lg bg-slate-900/20 text-slate-900">
-                      <Moon className="w-4 h-4 text-slate-900" />
-                    </div>
-                    <span className="text-xs font-extrabold text-slate-900 hidden sm:inline">🌙 Dark</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.button>
+              {isDark ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1 rounded-lg bg-amber-500/20 text-amber-300">
+                    <Sun className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="text-xs font-extrabold text-amber-200 hidden sm:inline">☀️ Light</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1 rounded-lg bg-slate-900/20 text-slate-900">
+                    <Moon className="w-4 h-4 text-slate-900" />
+                  </div>
+                  <span className="text-xs font-extrabold text-slate-900 hidden sm:inline">🌙 Dark</span>
+                </div>
+              )}
+            </button>
 
             {/* Search Box */}
             <div className="relative flex-1 min-w-0 md:min-w-[220px]">
@@ -310,15 +270,13 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Admin Login / Logout Button */}
             {!isAdminAuthenticated ? (
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={() => setIsAdminLoginModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px]"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Login Admin</span>
-              </motion.button>
+              </button>
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
@@ -342,22 +300,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Reset Data Button */}
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onResetData}
-              title="Reset ke Data Bawaan KPPN Semarang I (026)"
-              className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-medium rounded-xl border transition-colors cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] ${
-                isDark 
-                  ? 'text-slate-300 bg-slate-900 hover:bg-slate-800 border-slate-800' 
-                  : 'text-slate-700 bg-slate-100 hover:bg-slate-200 border-slate-300'
-              }`}
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">Reset</span>
-            </motion.button>
 
             {/* Status Badge */}
             <div className={`hidden lg:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border shrink-0 ${
@@ -439,10 +381,8 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                 >
                   {isActive && (
-                    <motion.div
-                      layoutId="activeTabPill"
+                    <div
                       className="absolute inset-0 rounded-xl bg-white/10"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
                   )}
                   <span className="relative z-10 flex items-center gap-2">

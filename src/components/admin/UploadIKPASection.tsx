@@ -20,6 +20,7 @@ import {
 import { SatkerIKPA, ExcelUploadHistory, MasterSatker, IndikatorIKPA } from '../../types';
 import { processExcelFile, downloadExcelTemplate, exportSatkersToExcel } from '../../utils/excelProcessor';
 import { hitungTotalIKPA, getPredikatIKPA } from '../../data/initialSatkerData';
+import { PeriodDropdownSelector } from './PeriodDropdownSelector';
 
 interface UploadIKPASectionProps {
   isDark: boolean;
@@ -125,15 +126,44 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
       (previewSatkers.reduce((acc, s) => acc + (s.nilaiTotalIKPA || 0), 0) / (previewSatkers.length || 1)).toFixed(2)
     );
 
+    // Check if period already exists in historical uploads -> Overwrite / Replace previous upload for the same period
+    const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const uploadMonthName = monthsOrder.find(m => uploadPeriode.toLowerCase().includes(m.toLowerCase())) || 'Januari';
+
     // Tandai data memiliki IKPA secara tegas (tidak mencampuradukkan status capaian output kecuali sudah diupload)
     const formattedData = previewSatkers.map(s => {
       const existing = satkers.find(curr => curr.kodeSatker === s.kodeSatker);
+
+      // Build or update monthly history entry for this uploaded month
+      const newMonthEntry = {
+        bulan: uploadMonthName,
+        nilaiIKPA: s.nilaiTotalIKPA,
+        capaianOutput: s.indikator?.capaianOutput || 0,
+        deviasiHal3Dipa: s.indikator?.deviasiHal3Dipa || 0,
+        penyerapanAnggaran: s.indikator?.penyerapanAnggaran || 0,
+        revisiDipa: s.indikator?.revisiDipa || 0,
+        belanjaKontraktual: s.indikator?.belanjaKontraktual || 0,
+        penyelesaianTagihan: s.indikator?.penyelesaianTagihan || 0,
+        pengelolaanUpTup: s.indikator?.pengelolaanUpTup || 0,
+        dispensasiSpm: s.indikator?.dispensasiSpm || 0
+      };
+
+      let mergedHistory = existing?.riwayatBulanan ? [...existing.riwayatBulanan] : [];
+      mergedHistory = mergedHistory.filter(h => h.bulan.toLowerCase() !== uploadMonthName.toLowerCase());
+      mergedHistory.push(newMonthEntry);
+      mergedHistory.sort((a, b) => {
+        const idxA = monthsOrder.findIndex(m => m.toLowerCase() === (a.bulan || '').toLowerCase());
+        const idxB = monthsOrder.findIndex(m => m.toLowerCase() === (b.bulan || '').toLowerCase());
+        return (idxA !== -1 ? idxA : 0) - (idxB !== -1 ? idxB : 0);
+      });
+
       return {
         ...s,
         hasIKPAData: true,
         hasCapaianOutputData: existing ? existing.hasCapaianOutputData : false,
         statusCapaianOutput: (existing && existing.hasCapaianOutputData) ? existing.statusCapaianOutput : s.statusCapaianOutput,
-        periodeUpdate: uploadPeriode
+        periodeUpdate: uploadPeriode,
+        riwayatBulanan: mergedHistory
       };
     });
 
@@ -151,41 +181,49 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
       isActive: overwriteActive
     };
 
+    // Filter out existing historical upload with SAME period & IKPA category to guarantee overwrite
+    const normalizedPeriode = uploadPeriode.trim().toLowerCase();
+    const filteredHistory = historicalUploads.filter(h => {
+      const isIKPA = !h.category || h.category === 'IKPA';
+      const samePeriode = (h.periode || '').trim().toLowerCase() === normalizedPeriode;
+      return !(isIKPA && samePeriode);
+    });
+
     if (overwriteActive) {
       onApplySatkers(formattedData, appendMode);
       const updatedHistory = [
         newHistoryItem,
-        ...historicalUploads.map(h => (!h.category || h.category === 'IKPA' ? { ...h, isActive: false } : h))
+        ...filteredHistory.map(h => (!h.category || h.category === 'IKPA' ? { ...h, isActive: false } : h))
       ];
       onSaveHistoricalUploads(updatedHistory);
 
       addLog(
-        'Update Database IKPA',
+        'Update Database IKPA (Menimpa Periode Sama)',
         'UPLOAD',
-        `${formattedData.length} Satker IKPA periode "${uploadPeriode}" berhasil diperbarui ke Dashboard IKPA Utama.`,
+        `${formattedData.length} Satker IKPA periode "${uploadPeriode}" berhasil menimpa periode sebelumnya dan diperbarui ke Dashboard IKPA Utama.`,
         'SUCCESS'
       );
 
       showToast({
         type: 'success',
-        title: 'Database IKPA Berhasil Diperbarui',
-        message: `${formattedData.length} data Satker periode "${uploadPeriode}" telah aktif di Dashboard IKPA Utama.`
+        title: 'Database IKPA Diperbarui',
+        message: `${formattedData.length} data Satker periode "${uploadPeriode}" berhasil menimpa data lama dan kini aktif di Dashboard IKPA.`
       });
     } else {
-      const updatedHistory = [newHistoryItem, ...historicalUploads];
+      const updatedHistory = [newHistoryItem, ...filteredHistory];
       onSaveHistoricalUploads(updatedHistory);
 
       addLog(
-        'Simpan Arsip IKPA',
+        'Simpan Arsip IKPA (Menimpa Periode Sama)',
         'UPLOAD',
-        `File "${fileNameToUse}" (${formattedData.length} Satker) tersimpan di Arsip IKPA tanpa menimpa data aktif.`,
+        `File "${fileNameToUse}" (${formattedData.length} Satker) tersimpan di Arsip IKPA menimpa arsip lama periode "${uploadPeriode}".`,
         'INFO'
       );
 
       showToast({
         type: 'info',
         title: 'Tersimpan di Arsip IKPA',
-        message: `File IKPA periode "${uploadPeriode}" tersimpan di Arsip Historical.`
+        message: `File IKPA periode "${uploadPeriode}" berhasil menimpa arsip lama dan tersimpan di Arsip Historical.`
       });
     }
 
@@ -226,20 +264,89 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
 
   const handleDeleteHistorical = (id: string) => {
     const target = historicalUploads.find(h => h.id === id);
+    const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const targetMonth = monthsOrder.find(m => (target?.periode || '').toLowerCase().includes(m.toLowerCase()));
+
     requestConfirm(
-      'Hapus Arsip IKPA',
-      `Apakah Anda yakin ingin menghapus arsip file IKPA periode "${target?.periode || ''}"?`,
+      'Hapus Arsip IKPA & Bersihkan Dashboard',
+      `Apakah Anda yakin ingin menghapus arsip file IKPA periode "${target?.periode || ''}" (${target?.fileName || ''})?\n\n⚠️ Menghapus arsip ini akan otomatis membersihkan data peserta terkait di Dashboard.`,
       () => {
-        const updated = historicalUploads.filter(h => h.id !== id);
-        onSaveHistoricalUploads(updated);
-        addLog('Hapus Arsip IKPA', 'UPLOAD', `Arsip IKPA "${target?.fileName}" dihapus.`, 'INFO');
-        showToast({
-          type: 'info',
-          title: 'Arsip Dihapus',
-          message: `Arsip IKPA periode "${target?.periode}" telah dihapus.`
-        });
+        const newHistoryList = historicalUploads.filter(h => h.id !== id);
+        const remainingIKPA = newHistoryList.filter(h => !h.category || h.category === 'IKPA');
+
+        if (remainingIKPA.length === 0) {
+          // Tidak ada arsip IKPA yang tersisa -> Bersihkan total data IKPA di dashboard peserta
+          const clearedSatkers = satkers.map(s => ({
+            ...s,
+            hasIKPAData: false,
+            nilaiTotalIKPA: 0,
+            predikat: 'Cukup' as const,
+            riwayatBulanan: [],
+            paguAnggaran: 0,
+            realisasiAnggaran: 0,
+            persenPenyerapan: 0,
+            issues: [],
+            indikator: {
+              capaianOutput: s.indikator?.capaianOutput || 0,
+              deviasiHal3Dipa: 0,
+              penyerapanAnggaran: 0,
+              revisiDipa: 0,
+              belanjaKontraktual: 0,
+              penyelesaianTagihan: 0,
+              pengelolaanUpTup: 0,
+              dispensasiSpm: 0
+            }
+          }));
+          onApplySatkers(clearedSatkers, false);
+          onSaveHistoricalUploads(newHistoryList);
+          if (onClearIKPAData) {
+            onClearIKPAData();
+          }
+          addLog('Hapus Arsip & Bersihkan Dashboard IKPA', 'UPLOAD', `Seluruh arsip IKPA dihapus. Data peserta IKPA di dashboard telah dikosongkan (0 Satker).`, 'INFO');
+          showToast({
+            type: 'info',
+            title: 'Arsip Dihapus & Dashboard Dikosongkan',
+            message: `Seluruh arsip IKPA telah dihapus. Data IKPA pada dashboard peserta otomatis dibersihkan (0 Satker).`
+          });
+        } else {
+          // Masih ada arsip IKPA lain
+          if (target?.isActive) {
+            // Aktifkan arsip IKPA teratas yang tersisa
+            const nextActive = remainingIKPA[0];
+            const updatedWithActive = newHistoryList.map(h => {
+              if (!h.category || h.category === 'IKPA') {
+                return { ...h, isActive: h.id === nextActive.id };
+              }
+              return h;
+            });
+            onSaveHistoricalUploads(updatedWithActive);
+            onApplySatkers(nextActive.satkersData || [], false);
+            addLog('Hapus Arsip IKPA & Alihkan Dashboard', 'UPLOAD', `Arsip IKPA "${target?.fileName}" dihapus. Dashboard dialihkan ke periode "${nextActive.periode}".`, 'INFO');
+            showToast({
+              type: 'info',
+              title: 'Arsip Dihapus & Data Disinkronkan',
+              message: `Arsip IKPA "${target?.periode}" dihapus. Dashboard IKPA kini menampilkan data periode "${nextActive.periode}".`
+            });
+          } else {
+            // Hapus riwayat bulan dari riwayatBulanan peserta jika ada
+            if (targetMonth) {
+              const cleanedSatkers = satkers.map(s => ({
+                ...s,
+                riwayatBulanan: (s.riwayatBulanan || []).filter(r => r.bulan.toLowerCase() !== targetMonth.toLowerCase())
+              }));
+              onApplySatkers(cleanedSatkers, false);
+            }
+            onSaveHistoricalUploads(newHistoryList);
+            addLog('Hapus Arsip IKPA', 'UPLOAD', `Arsip IKPA "${target?.fileName}" periode "${target?.periode}" berhasil dihapus.`, 'INFO');
+            showToast({
+              type: 'info',
+              title: 'Arsip Dihapus',
+              message: `Arsip IKPA periode "${target?.periode}" telah dihapus dan disinkronkan.`
+            });
+          }
+        }
       },
-      { confirmText: 'Hapus Arsip', variant: 'danger' }
+      { confirmText: 'Ya, Hapus & Bersihkan', variant: 'danger' }
     );
   };
 
@@ -407,12 +514,11 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
+                <PeriodDropdownSelector
                   value={uploadPeriode}
-                  onChange={(e) => setUploadPeriode(e.target.value)}
-                  placeholder="Periode misal: Agustus 2026"
-                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200"
+                  onChange={setUploadPeriode}
+                  isDark={isDark}
+                  themeColor="sky"
                 />
 
                 <button

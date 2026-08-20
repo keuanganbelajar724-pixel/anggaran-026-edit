@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileText, 
   Calculator, 
@@ -1268,9 +1267,8 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             {PER5_INDIKATOR_INFO.map((info, idx) => {
               const isExpanded = expandedInfoIndex === idx;
               return (
-                <motion.div
+                <div
                   key={info.id}
-                  layout
                   className={`p-5 rounded-2xl border transition-all ${
                     isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-sm'
                   }`}
@@ -1325,41 +1323,36 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     </button>
                   </div>
 
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className={`mt-3 space-y-3 pt-3 border-t text-xs ${
-                          isDark ? 'border-slate-800/60' : 'border-slate-200'
-                        }`}
-                      >
-                        <div className={`p-3 rounded-xl border ${
-                          isDark 
-                            ? 'bg-slate-800/50 border-slate-700/60 text-slate-300' 
-                            : 'bg-amber-50/80 border-amber-200/80 text-amber-950'
-                        }`}>
-                          <span className="font-bold text-amber-600 dark:text-amber-300 block mb-1">Ketentuan Layering / Batas:</span>
-                          <p className="text-[11px] leading-relaxed">{info.layering}</p>
-                        </div>
+                  {isExpanded && (
+                    <div
+                      className={`mt-3 space-y-3 pt-3 border-t text-xs animate-in fade-in duration-150 ${
+                        isDark ? 'border-slate-800/60' : 'border-slate-200'
+                      }`}
+                    >
+                      <div className={`p-3 rounded-xl border ${
+                        isDark 
+                          ? 'bg-slate-800/50 border-slate-700/60 text-slate-300' 
+                          : 'bg-amber-50/80 border-amber-200/80 text-amber-950'
+                      }`}>
+                        <span className="font-bold text-amber-600 dark:text-amber-300 block mb-1">Ketentuan Layering / Batas:</span>
+                        <p className="text-[11px] leading-relaxed">{info.layering}</p>
+                      </div>
 
-                        <div className={`p-3 rounded-xl border space-y-1.5 ${
-                          isDark 
-                            ? 'bg-emerald-950/30 border-emerald-800/40 text-slate-300' 
-                            : 'bg-emerald-50/90 border-emerald-200/90 text-emerald-950'
-                        }`}>
-                          <span className="font-bold text-emerald-700 dark:text-emerald-300 block">Langkah Strategis Satker (Slide 40-41):</span>
-                          <ul className="list-disc pl-4 space-y-1 text-[11px]">
-                            {info.strategi.map((st, i) => (
-                              <li key={i}>{st}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
+                      <div className={`p-3 rounded-xl border space-y-1.5 ${
+                        isDark 
+                          ? 'bg-emerald-950/30 border-emerald-800/40 text-slate-300' 
+                          : 'bg-emerald-50/90 border-emerald-200/90 text-emerald-950'
+                      }`}>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-300 block">Langkah Strategis Satker (Slide 40-41):</span>
+                        <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                          {info.strategi.map((st, i) => (
+                            <li key={i}>{st}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

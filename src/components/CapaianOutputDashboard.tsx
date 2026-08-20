@@ -43,25 +43,26 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   const satkersWithOutput = satkers.filter(s => s.hasCapaianOutputData === true);
   const hasAnyOutput = satkersWithOutput.length > 0;
 
-  // Statistics
+  // Statistics & Classification
+  const isSatkerBelum = (s: SatkerIKPA) => 
+    s.statusCapaianOutput === 'Belum Terlaporkan' || 
+    s.indikator.capaianOutput === 0;
+
   const totalSatker = satkersWithOutput.length;
-  const satkerSudah = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0);
-  const satkerBelum = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0);
-  const satkerTerlambat = satkersWithOutput.filter(s => s.statusCapaianOutput === 'Terlambat');
+  const satkerBelum = satkersWithOutput.filter(s => isSatkerBelum(s));
+  const satkerSudah = satkersWithOutput.filter(s => !isSatkerBelum(s));
 
   const percentSudah = totalSatker > 0 ? ((satkerSudah.length / totalSatker) * 100).toFixed(1) : '0';
   const percentBelum = totalSatker > 0 ? ((satkerBelum.length / totalSatker) * 100).toFixed(1) : '0';
 
-  const avgCapaian = totalSatker > 0 
-    ? (satkersWithOutput.reduce((acc, curr) => acc + curr.indikator.capaianOutput, 0) / totalSatker).toFixed(2)
-    : '0';
-
   // Filtering & Sorting (Satker belum menyampaikan / 0% diposisikan paling atas)
   const filteredSatkers = satkersWithOutput.filter(s => {
+    const isBelum = isSatkerBelum(s);
+    const isSudah = !isBelum;
+
     // Status Filter
-    if (filterStatus === 'BELUM' && !(s.statusCapaianOutput === 'Belum Terlaporkan' || s.indikator.capaianOutput === 0)) return false;
-    if (filterStatus === 'SUDAH' && !(s.statusCapaianOutput === 'Sudah Terlaporkan' && s.indikator.capaianOutput > 0)) return false;
-    if (filterStatus === 'TERLAMBAT' && s.statusCapaianOutput !== 'Terlambat') return false;
+    if (filterStatus === 'BELUM' && !isBelum) return false;
+    if (filterStatus === 'SUDAH' && !isSudah) return false;
 
     // Search
     if (searchQuery.trim() !== '') {
@@ -73,8 +74,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 
     return true;
   }).sort((a, b) => {
-    const aBelum = a.statusCapaianOutput === 'Belum Terlaporkan' || a.indikator.capaianOutput === 0;
-    const bBelum = b.statusCapaianOutput === 'Belum Terlaporkan' || b.indikator.capaianOutput === 0;
+    const aBelum = isSatkerBelum(a);
+    const bBelum = isSatkerBelum(b);
 
     if (aBelum && !bBelum) return -1;
     if (!aBelum && bBelum) return 1;
@@ -176,8 +177,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
       ) : (
         <>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards (3 Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         
         {/* Total Satker */}
         <div className={`${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} p-5 rounded-2xl border shadow-xs`}>
@@ -197,7 +198,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           </div>
         </div>
 
-        {/* Sudah Upload */}
+        {/* Sudah Upload / Menyampaikan */}
         <div 
           onClick={() => setFilterStatus(filterStatus === 'SUDAH' ? 'ALL' : 'SUDAH')}
           className={`p-5 rounded-2xl border transition-all cursor-pointer ${
@@ -207,7 +208,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           }`}
         >
           <div className="flex items-center justify-between text-xs font-medium mb-2">
-            <span className="font-extrabold text-emerald-600 dark:text-emerald-400">SUDAH TERLAPORKAN (&gt;0%)</span>
+            <span className="font-extrabold text-emerald-600 dark:text-emerald-400">SUDAH MENYAMPAIKAN (&gt;0%)</span>
             <div className="p-2 bg-emerald-100 text-emerald-700 rounded-xl">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -222,7 +223,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           </div>
         </div>
 
-        {/* Belum Upload / 0% */}
+        {/* Belum Upload / Belum Menyampaikan */}
         <div 
           onClick={() => setFilterStatus(filterStatus === 'BELUM' ? 'ALL' : 'BELUM')}
           className={`p-5 rounded-2xl border transition-all cursor-pointer ${
@@ -232,7 +233,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           }`}
         >
           <div className="flex items-center justify-between text-xs font-medium mb-2">
-            <span className="font-extrabold text-rose-600 dark:text-rose-400">BELUM UPLOAD (0% DATA)</span>
+            <span className="font-extrabold text-rose-600 dark:text-rose-400">BELUM MENYAMPAIKAN (0% DATA)</span>
             <div className="p-2 bg-rose-100 text-rose-700 rounded-xl">
               <AlertCircle className="w-4 h-4" />
             </div>
@@ -244,24 +245,6 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           <div className="mt-3 text-xs text-rose-700 dark:text-rose-400 border-t border-rose-100 dark:border-rose-900/50 pt-2 flex justify-between font-semibold">
             <span>Risiko IKPA:</span>
             <span className="bg-rose-200 dark:bg-rose-950 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded text-[10px]">Teguran WA</span>
-          </div>
-        </div>
-
-        {/* Rata-Rata Capaian Output */}
-        <div className={`${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} p-5 rounded-2xl border shadow-xs`}>
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-2">
-            <span>RATA-RATA NILAI CAPAIAN</span>
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 rounded-xl">
-              <TrendingUp className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-indigo-600">{avgCapaian}%</span>
-            <span className="text-xs font-semibold text-indigo-500">Nilai Rata-rata</span>
-          </div>
-          <div className="mt-3 text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-2 flex justify-between">
-            <span>Target Capaian:</span>
-            <span className="font-bold text-emerald-600">100.00%</span>
           </div>
         </div>
 
@@ -361,8 +344,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 </tr>
               ) : (
                 filteredSatkers.map((satker, idx) => {
-                  const isBelum = satker.statusCapaianOutput === 'Belum Terlaporkan' || satker.indikator.capaianOutput === 0;
-                  const isSudah = satker.statusCapaianOutput === 'Sudah Terlaporkan' && satker.indikator.capaianOutput > 0;
+                  const isBelum = isSatkerBelum(satker);
+                  const isSudah = !isBelum;
 
                   return (
                     <tr 
@@ -399,16 +382,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                               : 'bg-emerald-100 text-emerald-800 border-emerald-300'
                           }`}>
                             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                            Sudah Terlaporkan
-                          </span>
-                        ) : satker.statusCapaianOutput === 'Terlambat' ? (
-                          <span className={`inline-flex items-center gap-1.5 border px-3 py-1.5 rounded-full text-xs font-bold ${
-                            isDark 
-                              ? 'bg-amber-950/80 text-amber-300 border-amber-800' 
-                              : 'bg-amber-100 text-amber-900 border-amber-300'
-                          }`}>
-                            <Clock className="w-4 h-4 text-amber-500" />
-                            Terlambat
+                            Sudah Menyampaikan
                           </span>
                         ) : (
                           <span className={`inline-flex items-center gap-1.5 border px-3.5 py-1.5 rounded-full text-xs font-extrabold animate-pulse ${
@@ -439,8 +413,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             </div>
           ) : (
             filteredSatkers.map((satker, idx) => {
-              const isBelum = satker.statusCapaianOutput === 'Belum Terlaporkan' || satker.indikator.capaianOutput === 0;
-              const isSudah = satker.statusCapaianOutput === 'Sudah Terlaporkan' && satker.indikator.capaianOutput > 0;
+              const isBelum = isSatkerBelum(satker);
+              const isSudah = !isBelum;
 
               return (
                 <div key={satker.id} className={`p-4 space-y-3 ${isBelum ? 'bg-rose-50/20' : ''}`}>
@@ -460,12 +434,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                       {isSudah ? (
                         <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Sudah Terlaporkan
-                        </span>
-                      ) : satker.statusCapaianOutput === 'Terlambat' ? (
-                        <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full text-[10px] font-bold">
-                          <Clock className="w-3 h-3 text-amber-600" />
-                          Terlambat
+                          Sudah Menyampaikan
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-1 rounded-full text-[10px] font-extrabold animate-pulse">

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle2, AlertCircle, Info, AlertTriangle, X, Sparkles } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -52,13 +51,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode; isDark?: boole
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {createPortal(
+      {typeof document !== 'undefined' && createPortal(
         <div className="fixed top-5 right-5 z-[999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none px-4 sm:px-0">
-          <AnimatePresence>
-            {toasts.map((toast) => (
-              <ToastContainer key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} isDark={isDark} />
-            ))}
-          </AnimatePresence>
+          {toasts.map((toast) => (
+            <ToastContainer key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} isDark={isDark} />
+          ))}
         </div>,
         document.body
       )}
@@ -79,39 +76,31 @@ const ToastContainer: React.FC<{ toast: ToastItem; onClose: () => void; isDark?:
       border: 'border-emerald-500/30',
       iconBg: 'bg-emerald-500/15 text-emerald-500 ring-2 ring-emerald-500/20',
       icon: <CheckCircle2 className="w-5 h-5 shrink-0" />,
-      progressBg: 'bg-emerald-500',
       bg: isDark ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900',
     },
     error: {
       border: 'border-rose-500/30',
       iconBg: 'bg-rose-500/15 text-rose-500 ring-2 ring-rose-500/20',
       icon: <AlertCircle className="w-5 h-5 shrink-0" />,
-      progressBg: 'bg-rose-500',
       bg: isDark ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900',
     },
     warning: {
       border: 'border-amber-500/30',
       iconBg: 'bg-amber-500/15 text-amber-500 ring-2 ring-amber-500/20',
       icon: <AlertTriangle className="w-5 h-5 shrink-0" />,
-      progressBg: 'bg-amber-500',
       bg: isDark ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900',
     },
     info: {
       border: 'border-sky-500/30',
       iconBg: 'bg-sky-500/15 text-sky-500 ring-2 ring-sky-500/20',
       icon: <Info className="w-5 h-5 shrink-0" />,
-      progressBg: 'bg-sky-500',
       bg: isDark ? 'bg-slate-900/95 text-slate-100' : 'bg-white/95 text-slate-900',
     },
   }[toast.type];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 100, scale: 0.9 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-      className={`pointer-events-auto relative overflow-hidden rounded-2xl p-4 shadow-xl border backdrop-blur-xl ${styles.bg} ${styles.border}`}
+    <div
+      className={`pointer-events-auto relative overflow-hidden rounded-2xl p-4 shadow-xl border backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 ${styles.bg} ${styles.border}`}
     >
       <div className="flex items-start gap-3">
         <div className={`p-2 rounded-xl ${styles.iconBg}`}>{styles.icon}</div>
@@ -132,14 +121,6 @@ const ToastContainer: React.FC<{ toast: ToastItem; onClose: () => void; isDark?:
           <X className="w-4 h-4" />
         </button>
       </div>
-
-      {/* Progress timer bar */}
-      <motion.div
-        initial={{ width: '100%' }}
-        animate={{ width: '0%' }}
-        transition={{ duration: (toast.duration || 4000) / 1000, ease: 'linear' }}
-        className={`absolute bottom-0 left-0 h-1 ${styles.progressBg}`}
-      />
-    </motion.div>
+    </div>
   );
 };

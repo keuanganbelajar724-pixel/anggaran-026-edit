@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
 import { ModernLoadingOverlay } from './ModernLoadingOverlay';
@@ -24,6 +24,9 @@ import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
 import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
 import { UploadTUPSection } from './admin/UploadTUPSection';
+import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
+import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
+import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -56,6 +59,7 @@ import {
   Lock,
   KeyRound,
   LogOut,
+  ShieldAlert,
   ShieldCheck,
   Building2,
   SlidersHorizontal,
@@ -318,7 +322,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'logs'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs'>('upload');
   
   // Dedicated Upload Sub-Tabs (3 Main Tabs + TUP)
   const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup'>('ikpa');
@@ -1032,6 +1036,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [newAdminPinInput, setNewAdminPinInput] = useState<string>('');
   const [confirmAdminPinInput, setConfirmAdminPinInput] = useState<string>('');
   const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
+
+  // Sync state when dashboardConfig prop updates from Firebase Firestore realtime
+  useEffect(() => {
+    setTempConfig(dashboardConfig);
+    if (dashboardConfig.historicalUploads && Array.isArray(dashboardConfig.historicalUploads)) {
+      setHistoricalUploads(dashboardConfig.historicalUploads);
+    }
+  }, [dashboardConfig]);
 
   // Announcement Manager Form State
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
@@ -2098,37 +2110,51 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       isActive: overwriteActiveDashboard
     };
 
+    // Filter out existing historical upload with SAME period & SAME category to guarantee overwrite
+    const normalizedPeriode = uploadPeriode.trim().toLowerCase();
+    const filteredHistory = historicalUploads.filter(h => {
+      const isSameCategory = (!h.category && excelCategory === 'IKPA') || h.category === excelCategory;
+      const isSamePeriode = (h.periode || '').trim().toLowerCase() === normalizedPeriode;
+      return !(isSameCategory && isSamePeriode);
+    });
+
     if (overwriteActiveDashboard) {
       const targetTab: NavigationTab = excelCategory === 'CAPAIAN_OUTPUT' ? 'capaian-output' : 'dashboard';
       onApplyNewSatkers(satkersToApply, false, targetTab);
-      const newHistoryList = [newHistoryItem, ...historicalUploads.map(h => ({ ...h, isActive: false }))];
+      const newHistoryList = [
+        newHistoryItem,
+        ...filteredHistory.map(h => {
+          const isSameCat = (!h.category && excelCategory === 'IKPA') || h.category === excelCategory;
+          return isSameCat ? { ...h, isActive: false } : h;
+        })
+      ];
       saveAndApplyHistoricalUploads(newHistoryList);
       addLog(
-        'Update Data Dashboard & Arsip', 
+        'Update Data Dashboard & Arsip (Menimpa Periode Sama)', 
         'UPLOAD', 
-        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" berhasil diperbarui & disimpan ke Arsip.`, 
+        `${previewSatkers.length} Satker (${excelCategory}) periode "${uploadPeriode}" berhasil menimpa data lama & diperbarui ke Dashboard.`, 
         'SUCCESS'
       );
       showToast({
         type: 'success',
         title: 'Data Berhasil Diperbarui',
         message: excelCategory === 'CAPAIAN_OUTPUT'
-          ? `Berhasil memperbarui data Capaian Output (${previewSatkers.length} Satker) di Tab Capaian Output SAKTI. Dashboard IKPA tetap terisolasi.`
-          : `${previewSatkers.length} data Satker IKPA periode "${uploadPeriode}" telah memperbarui Dashboard IKPA.`
+          ? `Berhasil memperbarui data Capaian Output (${previewSatkers.length} Satker) periode "${uploadPeriode}" (menimpa periode sama).`
+          : `${previewSatkers.length} data Satker IKPA periode "${uploadPeriode}" telah memperbarui Dashboard IKPA (menimpa periode sama).`
       });
     } else {
-      const newHistoryList = [newHistoryItem, ...historicalUploads];
+      const newHistoryList = [newHistoryItem, ...filteredHistory];
       saveAndApplyHistoricalUploads(newHistoryList);
       addLog(
-        'Simpan Ke Arsip Historical', 
+        'Simpan Ke Arsip Historical (Menimpa Periode Sama)', 
         'UPLOAD', 
-        `File "${fileNameToUse}" (${previewSatkers.length} Satker) periode "${uploadPeriode}" disimpan ke Arsip Historical tanpa menimpa data aktif.`, 
+        `File "${fileNameToUse}" (${previewSatkers.length} Satker) periode "${uploadPeriode}" disimpan ke Arsip Historical menimpa arsip lama.`, 
         'INFO'
       );
       showToast({
         type: 'info',
         title: 'Tersimpan di Arsip',
-        message: `File Excel (${excelCategory}) periode "${uploadPeriode}" tersimpan di Arsip Historical.`
+        message: `File Excel (${excelCategory}) periode "${uploadPeriode}" tersimpan di Arsip Historical (menimpa periode sama).`
       });
     }
 
@@ -2143,10 +2169,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       `Apakah Anda yakin ingin MENIMPA data Dashboard Utama dengan data Excel periode "${item.periode}" (${item.fileName})?`,
       () => {
         onApplyNewSatkers(item.satkersData, false);
-        const newHistoryList = historicalUploads.map(h => ({
-          ...h,
-          isActive: h.id === item.id
-        }));
+        const targetCategory = item.category || 'IKPA';
+        const newHistoryList = historicalUploads.map(h => {
+          const isSameCat = (!h.category && targetCategory === 'IKPA') || h.category === targetCategory;
+          return isSameCat ? { ...h, isActive: h.id === item.id } : h;
+        });
         saveAndApplyHistoricalUploads(newHistoryList);
         addLog(
           'Nimpa Data Dashboard (Arsip)', 
@@ -2162,35 +2189,112 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const handleDeleteHistorical = (id: string) => {
     const target = historicalUploads.find(h => h.id === id);
     const newHistoryList = historicalUploads.filter(h => h.id !== id);
+    const targetCat = target?.category || 'IKPA';
     const isNowEmpty = newHistoryList.length === 0;
 
     requestConfirm(
-      'Hapus Arsip Excel',
-      `Apakah Anda yakin ingin menghapus arsip Excel periode "${target?.periode || ''}" (${target?.fileName || ''})?${
-        target?.isActive || isNowEmpty
-          ? '\n\n⚠️ PERHATIAN: Menghapus arsip ini juga akan mengosongkan data Satker di Dashboard Utama.'
-          : ' Data ini akan dihapus dari riwayat.'
-      }`,
+      'Hapus Arsip Excel & Bersihkan Dashboard',
+      `Apakah Anda yakin ingin menghapus arsip Excel periode "${target?.periode || ''}" (${target?.fileName || ''})?\n\n⚠️ Menghapus arsip ini akan otomatis membersihkan dan menyinkronkan data peserta terkait di Dashboard.`,
       () => {
         saveAndApplyHistoricalUploads(newHistoryList);
-        if ((target?.isActive || isNowEmpty) && onClearAllData) {
-          onClearAllData();
-        } else if (target?.isActive && newHistoryList.length > 0) {
-          const firstRemaining = newHistoryList[0];
-          if (firstRemaining.satkersData && firstRemaining.satkersData.length > 0) {
-            onApplyNewSatkers(firstRemaining.satkersData, false);
-            const updatedWithActive = newHistoryList.map((h, i) => ({
-              ...h,
-              isActive: i === 0
-            }));
-            saveAndApplyHistoricalUploads(updatedWithActive);
-          } else if (onClearAllData) {
+
+        if (isNowEmpty) {
+          // Seluruh arsip kosong -> Bersihkan total data perhitungan satkers di dashboard
+          if (onClearAllData) {
             onClearAllData();
           }
+        } else if (targetCat === 'IKPA') {
+          const remainingIKPA = newHistoryList.filter(h => !h.category || h.category === 'IKPA');
+          if (remainingIKPA.length === 0) {
+            // Arsip IKPA habis -> Bersihkan total IKPA dari satkers
+            const clearedSatkers = satkers.map(s => ({
+              ...s,
+              hasIKPAData: false,
+              nilaiTotalIKPA: 0,
+              predikat: 'Cukup' as const,
+              riwayatBulanan: [],
+              paguAnggaran: 0,
+              realisasiAnggaran: 0,
+              persenPenyerapan: 0,
+              issues: [],
+              indikator: {
+                capaianOutput: s.indikator?.capaianOutput || 0,
+                deviasiHal3Dipa: 0,
+                penyerapanAnggaran: 0,
+                revisiDipa: 0,
+                belanjaKontraktual: 0,
+                penyelesaianTagihan: 0,
+                pengelolaanUpTup: 0,
+                dispensasiSpm: 0
+              }
+            }));
+            onApplyNewSatkers(clearedSatkers, false);
+          } else if (target?.isActive) {
+            const nextActive = remainingIKPA[0];
+            const updatedWithActive = newHistoryList.map(h => {
+              if (!h.category || h.category === 'IKPA') {
+                return { ...h, isActive: h.id === nextActive.id };
+              }
+              return h;
+            });
+            saveAndApplyHistoricalUploads(updatedWithActive);
+            onApplyNewSatkers(nextActive.satkersData || [], false);
+          }
+        } else if (targetCat === 'CAPAIAN_OUTPUT') {
+          const remainingCaput = newHistoryList.filter(h => h.category === 'CAPAIAN_OUTPUT');
+          if (remainingCaput.length === 0) {
+            // Arsip Capaian Output habis -> Bersihkan total status Capaian Output dari satkers
+            const resetSatkers = satkers.map(s => ({
+              ...s,
+              hasCapaianOutputData: false,
+              statusCapaianOutput: 'Belum Terlaporkan' as const,
+              indikator: {
+                ...s.indikator,
+                capaianOutput: 0
+              }
+            }));
+            onApplyNewSatkers(resetSatkers, false);
+          } else if (target?.isActive) {
+            const nextActive = remainingCaput[0];
+            const updatedWithActive = newHistoryList.map(h => {
+              if (h.category === 'CAPAIAN_OUTPUT') {
+                return { ...h, isActive: h.id === nextActive.id };
+              }
+              return h;
+            });
+            saveAndApplyHistoricalUploads(updatedWithActive);
+            const previewMap = new Map<string, SatkerIKPA>((nextActive.satkersData || []).map(p => [p.kodeSatker, p]));
+            const updatedSatkers = satkers.map(s => {
+              const match = previewMap.get(s.kodeSatker);
+              if (match) {
+                return {
+                  ...s,
+                  hasCapaianOutputData: true,
+                  statusCapaianOutput: match.statusCapaianOutput,
+                  indikator: {
+                    ...s.indikator,
+                    capaianOutput: match.indikator.capaianOutput
+                  }
+                };
+              }
+              return s;
+            });
+            onApplyNewSatkers(updatedSatkers, false);
+          }
+        } else if (targetCat === 'SERTIFIKASI') {
+          const remainingSert = newHistoryList.filter(h => h.category === 'SERTIFIKASI');
+          if (remainingSert.length === 0 && onUpdatePejabatList) {
+            onUpdatePejabatList([]);
+          }
         }
-        addLog('Hapus Arsip Excel', 'UPLOAD', `Arsip Excel periode "${target?.periode}" dihapus.`, 'INFO');
+        addLog('Hapus Arsip Excel', 'UPLOAD', `Arsip Excel periode "${target?.periode}" dihapus dan data dashboard disinkronkan.`, 'INFO');
+        showToast({
+          type: 'info',
+          title: 'Arsip Dihapus & Dashboard Dibersihkan',
+          message: `Arsip Excel periode "${target?.periode}" telah dihapus dan data peserta dashboard disinkronkan.`
+        });
       },
-      { confirmText: 'Ya, Hapus Arsip', variant: 'danger' }
+      { confirmText: 'Ya, Hapus & Bersihkan', variant: 'danger' }
     );
   };
 
@@ -2638,6 +2742,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </button>
 
         <button
+          onClick={() => setAdminTab('aduan')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'aduan'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-rose-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4 text-rose-600" />
+          <span>12. Kelola Aduan &amp; Tiket Satker</span>
+          {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length > 0 ? (
+            <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">
+              {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length} Baru
+            </span>
+          ) : (
+            <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+              {(tempConfig.aduanList || []).length} Tiket
+            </span>
+          )}
+        </button>
+
+        <button
           onClick={() => setAdminTab('logs')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'logs'
@@ -2646,7 +2771,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <History className="w-4 h-4 text-purple-600" />
-          <span>12. Log Admin</span>
+          <span>13. Log Admin</span>
           <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {activityLogs.length}
           </span>
@@ -3335,7 +3460,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   { key: 'capaian-output', label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload output' },
                   { key: 'pengelolaan-up', label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP' },
                   { key: 'kelola-satker', label: 'Kelola Data Satker (Master)', desc: 'Pusat Master Satker & Database No Telepon' },
-                  { key: 'redflags', label: 'Hal Perlu Diperhatikan', desc: 'Indikator IKPA merah & deviasi' },
                   { key: 'sertifikasi', label: 'Sertifikasi Pejabat', desc: 'Status PTP/PPK/PPSPM' },
                   { key: 'per5-analisis', label: 'Analisis PER-5/PB/2024', desc: 'Simulasi proyeksi nilai IKPA' },
                   { key: 'pengetahuan', label: 'Pengetahuan & Juknis', desc: 'Pusat Juknis & Regulasi SAKTI' },
@@ -3344,7 +3468,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   { key: 'portal-link', label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi' },
                   { key: 'presensi', label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi' },
                   { key: 'aduan', label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker' },
-                  { key: 'reminder', label: 'Pengingat WA Satker', desc: 'Portal Draf & Broadcast WhatsApp' },
                   { key: 'guide', label: 'Panduan Excel', desc: 'Instruksi format & kolom' }
                 ].map((menu) => {
                   const isVisible = tempConfig.menuVisibility?.[menu.key as keyof MenuVisibilityConfig] ?? true;
@@ -6945,669 +7068,46 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
       {/* Broadcast & Mass Notification Tab */}
       {adminTab === 'broadcast' && (
-        <div className="space-y-6">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
-            
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                  <Send className="w-3.5 h-3.5" />
-                  PUSAT BROADCAST &amp; NOTIFIKASI MASIF SATKER
-                </div>
-                <h3 className="text-xl font-black tracking-tight">
-                  Pengiriman Pesan WhatsApp &amp; Mail Merge Dinamis ke Pejabat Satker
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-                  Kirim pengingat atau apresiasi secara terfokus ke KPA, PPK, PPSPM, Bendahara, maupun Operator. Gunakan template dinamis atau upload pesan khusus via Excel.
-                </p>
-              </div>
+        <BroadcastMasifSection
+          satkers={satkers}
+          masterSatkers={masterSatkers}
+          pejabatList={pejabatList}
+          pengelolaanUpRecords={dashboardConfig.pengelolaanUpRecords || []}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(newCfg) => {
+            setTempConfig(newCfg);
+            onUpdateDashboardConfig(newCfg);
+          }}
+          isDark={isDark}
+          theme={theme}
+          onNavigateToPerhatian={() => setAdminTab('perhatian')}
+          addLog={addLog}
+          showToast={(opts) => addToast(opts.message, opts.type)}
+        />
+      )}
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => broadcastFileInputRef.current?.click()}
-                  className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                  title="Unggah Excel berisi Kode Satker & Pesan Khusus Per Satker"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>Upload Excel Broadcast Custom</span>
-                </button>
-
-                <button
-                  onClick={downloadBroadcastExcelTemplate}
-                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                  title="Download template format broadcast excel"
-                >
-                  <Download className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Template Broadcast</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Custom Excel Alert Banner */}
-            {customBroadcastExcelList.length > 0 && (
-              <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 p-4 rounded-2xl flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200">
-                <div className="flex items-center gap-2 font-bold">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                  <span>File Excel Custom Terhubung ({customBroadcastExcelList.length} Pesan Satker Khusus Siap Digunakan)</span>
-                </div>
-                <button
-                  onClick={() => setCustomBroadcastExcelList([])}
-                  className="text-emerald-700 dark:text-emerald-300 underline font-extrabold hover:text-rose-600 cursor-pointer"
-                >
-                  Gunakan Template Biasa
-                </button>
-              </div>
-            )}
-
-            {/* Target Role & Filter Configuration Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Target Roles Card */}
-              <div className="bg-slate-50 dark:bg-slate-950/80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 text-xs">
-                <h4 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <User className="w-4 h-4 text-rose-500" />
-                  1. Pilih Pejabat &amp; Operator Penerima Target:
-                </h4>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
-                  {[
-                    { key: 'kpa', label: 'Kuasa Pengguna Anggaran (KPA)' },
-                    { key: 'ppk', label: 'Pejabat Pembuat Komitmen (PPK)' },
-                    { key: 'ppspm', label: 'Pejabat Penanda Tangan SPM (PPSPM)' },
-                    { key: 'bendahara', label: 'Bendahara Pengeluaran' },
-                    { key: 'operatorKomitmen', label: 'Operator Komitmen' },
-                    { key: 'operatorPembayaran', label: 'Operator Pembayaran' },
-                    { key: 'operatorPelaporan', label: 'Operator Pelaporan' },
-                    { key: 'operatorGaji', label: 'Operator Gaji' }
-                  ].map(role => {
-                    const isChecked = selectedBroadcastRoles.includes(role.key);
-                    return (
-                      <label
-                        key={role.key}
-                        className={`p-2.5 rounded-xl border flex items-center gap-2 cursor-pointer font-bold transition-all ${
-                          isChecked
-                            ? 'bg-rose-50 dark:bg-rose-950/80 border-rose-400 text-rose-900 dark:text-rose-200'
-                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedBroadcastRoles(prev => [...prev, role.key]);
-                            } else {
-                              setSelectedBroadcastRoles(prev => prev.filter(r => r !== role.key));
-                            }
-                          }}
-                          className="rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
-                        />
-                        <span className="truncate">{role.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Target Satkers Filter Card */}
-              <div className="bg-slate-50 dark:bg-slate-950/80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3 text-xs">
-                <h4 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-sky-500" />
-                  2. Filter Kondisi Satker Target:
-                </h4>
-
-                <div className="space-y-2">
-                  {[
-                    { key: 'ALL', label: 'Semua Satker Mitra KPPN Semarang I', desc: `Total ${satkers.length} Satker` },
-                    { key: 'BELUM_OUTPUT', label: 'Khusus Satker Belum/Terlambat Capaian Output', desc: `${satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan').length} Satker` },
-                    { key: 'IKPA_KURANG', label: 'Khusus Satker Nilai IKPA < 87.5 (Kategori Risko)', desc: `${satkers.filter(s => s.nilaiTotalIKPA < 87.5).length} Satker` },
-                    { key: 'PENYERAPAN_RENDAH', label: 'Khusus Satker Realisasi Penyerapan < 70%', desc: `${satkers.filter(s => s.persenPenyerapan < 70).length} Satker` }
-                  ].map(opt => (
-                    <label
-                      key={opt.key}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer font-bold transition-all ${
-                        broadcastTargetFilter === opt.key
-                          ? 'bg-sky-50 dark:bg-sky-950/80 border-sky-400 text-sky-900 dark:text-sky-200'
-                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name="broadcastTargetFilter"
-                          checked={broadcastTargetFilter === opt.key}
-                          onChange={() => setBroadcastTargetFilter(opt.key as any)}
-                          className="text-sky-600 focus:ring-sky-500 cursor-pointer"
-                        />
-                        <span>{opt.label}</span>
-                      </div>
-                      <span className="text-[10px] bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded font-mono font-bold">
-                        {opt.desc}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* WhatsApp Gateway Provider & API Token Configuration */}
-            <div className="bg-emerald-950/20 dark:bg-emerald-950/40 p-5 rounded-2xl border border-emerald-500/30 dark:border-emerald-500/30 space-y-4 text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-500/20 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 font-bold">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2 text-sm">
-                      Integrasi &amp; Pengaturan Token WhatsApp Gateway API
-                    </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Pilih metode pengiriman pesan: Simulasi Log Konsol, WhatsApp Direct Link, atau kirim langsung via Provider API Gateway (Fonnte, Wablas, Whacenter, Custom Webhook).
-                    </p>
-                  </div>
-                </div>
-
-                <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full font-extrabold text-[11px]">
-                  <span>Status: {waGatewayProvider === 'simulasi' ? 'Simulasi Konsol 🟡' : waGatewayProvider === 'wa_me_link' ? 'WA Direct Link 🔵' : waGatewayToken ? 'API Token Siap 🟢' : 'API Token Belum Diisi 🔴'}</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Provider Select */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block text-[11px]">
-                    1. Provider WhatsApp Gateway:
-                  </label>
-                  <select
-                    value={waGatewayProvider}
-                    onChange={(e) => {
-                      const prov = e.target.value as any;
-                      setWaGatewayProvider(prov);
-                      if (prov === 'fonnte') setWaGatewayEndpoint('https://api.fonnte.com/send');
-                      else if (prov === 'wablas') setWaGatewayEndpoint('https://api.wablas.com/api/v2/send-message');
-                      else if (prov === 'whacenter') setWaGatewayEndpoint('https://api.whacenter.com/send');
-                    }}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-xs"
-                  >
-                    <option value="simulasi">🟡 Mode Simulasi (Dry-Run Konsol Log)</option>
-                    <option value="wa_me_link">🔵 Mode WA Direct Link (wa.me Multi-Tab)</option>
-                    <option value="fonnte">🟢 Fonnte API Gateway (fonnte.com)</option>
-                    <option value="wablas">🟢 Wablas API Gateway (wablas.com)</option>
-                    <option value="whacenter">🟢 Whacenter API Gateway (whacenter.com)</option>
-                    <option value="custom_api">⚙️ Custom REST API Webhook Endpoint</option>
-                  </select>
-                </div>
-
-                {/* API Token Input */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block text-[11px]">
-                    2. API Token / Authorization Secret Key:
-                  </label>
-                  <input
-                    type="password"
-                    value={waGatewayToken}
-                    onChange={(e) => setWaGatewayToken(e.target.value)}
-                    disabled={waGatewayProvider === 'simulasi' || waGatewayProvider === 'wa_me_link'}
-                    placeholder={waGatewayProvider === 'simulasi' ? 'Tidak diperlukan untuk simulasi' : 'Contoh: token_abc123xyz...'}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs disabled:opacity-50"
-                  />
-                </div>
-
-                {/* Endpoint URL Input */}
-                <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700 dark:text-slate-300 block text-[11px]">
-                    3. Endpoint URL REST API Gateway:
-                  </label>
-                  <input
-                    type="text"
-                    value={waGatewayEndpoint}
-                    onChange={(e) => setWaGatewayEndpoint(e.target.value)}
-                    disabled={waGatewayProvider === 'simulasi' || waGatewayProvider === 'wa_me_link'}
-                    placeholder="https://api.fonnte.com/send"
-                    className="w-full p-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs disabled:opacity-50"
-                  />
-                </div>
-              </div>
-
-              {/* Quick Test Bar */}
-              <div className="pt-2 border-t border-emerald-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <span className="font-bold text-slate-600 dark:text-slate-300 shrink-0">Tes Kirim WA Uji Coba:</span>
-                  <input
-                    type="text"
-                    value={waTestPhone}
-                    onChange={(e) => setWaTestPhone(e.target.value)}
-                    placeholder="081234567890"
-                    className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs w-36"
-                  />
-                  <button
-                    type="button"
-                    disabled={isTestingWaConnection}
-                    onClick={handleTestWaConnection}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 shrink-0 cursor-pointer"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>{isTestingWaConnection ? 'Mengirim Tes...' : 'Tes Kirim WA'}</span>
-                  </button>
-                </div>
-
-                <div className="text-slate-500 text-[10px]">
-                  💡 <span className="font-bold">Info:</span> Token WhatsApp Gateway Anda disimpan secara aman di memori browser dan digunakan khusus untuk pengiriman pesan ke Satker.
-                </div>
-              </div>
-            </div>
-
-            {/* Template Editor & Presets */}
-            <div className="bg-slate-50 dark:bg-slate-950/80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 text-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-                <h4 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-amber-500" />
-                  3. Pengaturan Template Pesan Dinamis &amp; Placeholder:
-                </h4>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="font-bold text-slate-500 text-[11px]">Preset Template:</span>
-                  {[
-                    { key: 'preset1', name: 'Rekap IKPA' },
-                    { key: 'preset2', name: 'Pengingat Output' },
-                    { key: 'preset3', name: 'Apresiasi Baik' },
-                    { key: 'preset4', name: 'Peringatan Risk' }
-                  ].map(p => (
-                    <button
-                      key={p.key}
-                      onClick={() => handleSelectBroadcastPreset(p.key)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-all ${
-                        broadcastTemplatePreset === p.key
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                          : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
-                      }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Placeholder Badges List */}
-              <div className="flex flex-wrap items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
-                <span className="font-bold text-amber-800 dark:text-amber-300 mr-1 text-[11px]">🏷️ Placeholder Tersedia:</span>
-                {[
-                  '{NAMA_PEJABAT}',
-                  '{PERAN_PEJABAT}',
-                  '{NAMA_SATKER}',
-                  '{KODE_SATKER}',
-                  '{NILAI_IKPA}',
-                  '{PREDIKAT}',
-                  '{STATUS_OUTPUT}',
-                  '{PENYERAPAN}',
-                  '{PERIODE_BULAN}'
-                ].map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => setBroadcastTemplateText(prev => prev + ` ${tag}`)}
-                    className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-amber-100 dark:hover:bg-amber-950 font-mono text-[10px] px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800 cursor-pointer"
-                    title="Klik untuk menyisipkan ke teks"
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-
-              <textarea
-                rows={6}
-                value={broadcastTemplateText}
-                onChange={(e) => setBroadcastTemplateText(e.target.value)}
-                placeholder="Tuliskan template pesan broadcast di sini..."
-                className={`w-full p-3.5 rounded-2xl border font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 ${
-                  isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900'
-                }`}
-              />
-            </div>
-
-            {/* Recipient Live Preview & Interactive Selection / Edit Console */}
-            {(() => {
-              const allRecipients = getCalculatedBroadcastRecipients();
-
-              const filteredRecipients = allRecipients.filter(rec => {
-                if (!recipientSearchQuery.trim()) return true;
-                const q = recipientSearchQuery.toLowerCase();
-                return (
-                  rec.satkerNama.toLowerCase().includes(q) ||
-                  rec.satkerKode.toLowerCase().includes(q) ||
-                  rec.pejabatNama.toLowerCase().includes(q) ||
-                  rec.pejabatNoHp.toLowerCase().includes(q) ||
-                  rec.roleLabel.toLowerCase().includes(q)
-                );
-              });
-
-              const selectedRecipients = filteredRecipients.filter(r => !unselectedRecipientIds.includes(r.id));
-              const selectedCount = selectedRecipients.length;
-              const isAllChecked = filteredRecipients.length > 0 && selectedCount === filteredRecipients.length;
-
-              const toggleSelectAll = () => {
-                if (isAllChecked) {
-                  // Deselect all filtered
-                  setUnselectedRecipientIds(prev => Array.from(new Set([...prev, ...filteredRecipients.map(r => r.id)])));
-                } else {
-                  // Select all filtered
-                  setUnselectedRecipientIds(prev => prev.filter(id => !filteredRecipients.some(r => r.id === id)));
-                }
-              };
-
-              const handleUpdateOverride = (id: string, field: 'pejabatNama' | 'pejabatNoHp' | 'renderedMessage', value: string) => {
-                setRecipientOverrides(prev => ({
-                  ...prev,
-                  [id]: {
-                    ...prev[id],
-                    [field]: value
-                  }
-                }));
-              };
-
-              const handleResetOverride = (id: string) => {
-                setRecipientOverrides(prev => {
-                  const next = { ...prev };
-                  delete next[id];
-                  return next;
-                });
-              };
-
-              return (
-                <div className="space-y-4 pt-2">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div>
-                      <h4 className="font-black text-base text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-rose-500" />
-                        Daftar Penerima Terkalkulasi ({selectedCount} / {allRecipients.length} Terpilih Siap Kirim)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Centang penerima yang diinginkan. Anda dapat mengedit Nama Pejabat, Nomor WhatsApp, atau Teks Pesan secara langsung jika ada kesalahan data.
-                      </p>
-                    </div>
-
-                    <button
-                      disabled={isSendingBroadcast || selectedCount === 0}
-                      onClick={handleStartMassBroadcast}
-                      className={`px-6 py-3 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                        isSendingBroadcast || selectedCount === 0
-                          ? 'bg-slate-400 cursor-not-allowed shadow-none'
-                          : 'bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 shadow-rose-600/30'
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>
-                        {isSendingBroadcast ? `Mengirim... (${broadcastProgress}%)` : `Kirim Broadcast Masif Sekarang (${selectedCount} Penerima Terpilih)`}
-                      </span>
-                    </button>
-                  </div>
-
-                  {/* Filter & Selection Bar */}
-                  <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                    
-                    {/* Search Input */}
-                    <div className="relative w-full sm:w-72">
-                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        value={recipientSearchQuery}
-                        onChange={(e) => setRecipientSearchQuery(e.target.value)}
-                        placeholder="Cari Satker, Pejabat, No HP, Role..."
-                        className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500"
-                      />
-                      {recipientSearchQuery && (
-                        <button onClick={() => setRecipientSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Bulk Selection Actions */}
-                    <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
-                      <button
-                        type="button"
-                        onClick={toggleSelectAll}
-                        className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
-                      >
-                        {isAllChecked ? <CheckSquare className="w-3.5 h-3.5 text-rose-500" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
-                        <span>{isAllChecked ? 'Hapus Semua Centang' : 'Pilih Semua (' + filteredRecipients.length + ')'}</span>
-                      </button>
-
-                      {Object.keys(recipientOverrides).length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setRecipientOverrides({})}
-                          className="px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/60 font-bold text-amber-800 dark:text-amber-300 hover:bg-amber-100 flex items-center gap-1.5 cursor-pointer text-[11px]"
-                          title="Kembalikan semua nama, nomor HP, dan pesan yang pernah diedit ke data asli"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>Reset ({Object.keys(recipientOverrides).length}) Edit Data</span>
-                        </button>
-                      )}
-
-                      <span className="bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-3 py-1.5 rounded-xl font-mono font-bold text-[11px]">
-                        {selectedCount} Terpilih
-                      </span>
-                    </div>
-
-                  </div>
-
-                  {/* Progress Bar during broadcast */}
-                  {isSendingBroadcast && (
-                    <div className="space-y-1 bg-slate-900 p-4 rounded-2xl border border-slate-800">
-                      <div className="flex justify-between text-xs font-bold text-rose-400">
-                        <span>Proses Pengiriman Masif Berjalan...</span>
-                        <span>{broadcastProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-rose-500 to-amber-500 h-full transition-all duration-300"
-                          style={{ width: `${broadcastProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Live Sending Console Logs */}
-                  {broadcastLogs.length > 0 && (
-                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
-                      <div className="text-[11px] font-bold text-slate-400 flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
-                          <Activity className="w-3.5 h-3.5" /> LOG KONSOL PENGIRIMAN WA &amp; EMAIL:
-                        </span>
-                        <button onClick={() => setBroadcastLogs([])} className="text-slate-500 hover:text-slate-300">
-                          Bersihkan Log
-                        </button>
-                      </div>
-                      <div className="max-h-40 overflow-y-auto space-y-1 font-mono text-[11px] text-slate-300">
-                        {broadcastLogs.map((lg, idx) => (
-                          <div key={idx} className="border-b border-slate-900/60 pb-0.5">
-                            {lg}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recipient Table */}
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 max-h-[450px] overflow-y-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
-                        <tr>
-                          <th className="py-2.5 px-3 w-10 text-center">
-                            <input
-                              type="checkbox"
-                              checked={isAllChecked}
-                              onChange={toggleSelectAll}
-                              className="rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
-                            />
-                          </th>
-                          <th className="py-2.5 px-3">Satker Target</th>
-                          <th className="py-2.5 px-3 min-w-[180px]">Peran &amp; Edit Nama Pejabat</th>
-                          <th className="py-2.5 px-3 min-w-[150px]">Edit No WhatsApp</th>
-                          <th className="py-2.5 px-3">Hasil Teks Pesan Ter-render</th>
-                          <th className="py-2.5 px-3 text-center">Status &amp; Opsi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                        {filteredRecipients.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} className="py-8 text-center text-slate-400">
-                              Tidak ada penerima yang cocok dengan filter / pencarian.
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredRecipients.map(rec => {
-                            const isSelected = !unselectedRecipientIds.includes(rec.id);
-                            return (
-                              <tr key={rec.id} className={`transition-all ${isSelected ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-slate-100/50 dark:bg-slate-950/40 opacity-60'}`}>
-                                <td className="py-2.5 px-3 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setUnselectedRecipientIds(prev => prev.filter(id => id !== rec.id));
-                                      } else {
-                                        setUnselectedRecipientIds(prev => [...prev, rec.id]);
-                                      }
-                                    }}
-                                    className="rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
-                                  />
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <div className="font-extrabold text-slate-900 dark:text-slate-100">{rec.satkerNama}</div>
-                                  <div className="text-[10px] text-slate-500 font-mono">{rec.satkerKode} | IKPA: {rec.nilaiIkpa}</div>
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <div className="font-bold text-rose-600 dark:text-rose-400 mb-0.5">{rec.roleLabel}</div>
-                                  <input
-                                    type="text"
-                                    value={rec.pejabatNama}
-                                    onChange={(e) => handleUpdateOverride(rec.id, 'pejabatNama', e.target.value)}
-                                    placeholder="Masukkan nama pejabat..."
-                                    className="w-full px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                  />
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <div className="text-[10px] text-slate-400 mb-0.5 font-bold">No. WA Tujuan:</div>
-                                  <input
-                                    type="text"
-                                    value={rec.pejabatNoHp}
-                                    onChange={(e) => handleUpdateOverride(rec.id, 'pejabatNoHp', e.target.value)}
-                                    placeholder="081234567890"
-                                    className="w-full px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
-                                  />
-                                </td>
-                                <td className="py-2.5 px-3">
-                                  <div className="bg-slate-100 dark:bg-slate-950 p-2 rounded-xl text-[11px] font-sans text-slate-800 dark:text-slate-200 max-w-md line-clamp-2 whitespace-pre-line border border-slate-200 dark:border-slate-800">
-                                    {rec.renderedMessage}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingCustomMsgModal({
-                                      id: rec.id,
-                                      recipientName: rec.pejabatNama,
-                                      satkerNama: rec.satkerNama,
-                                      currentMsg: rec.renderedMessage
-                                    })}
-                                    className="mt-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <Edit3 className="w-3 h-3" />
-                                    <span>Edit Pesan Khusus Untuk Satker Ini</span>
-                                  </button>
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  {rec.isEdited ? (
-                                    <div className="space-y-1">
-                                      <span className="inline-block bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[10px] px-2 py-0.5 rounded font-bold">
-                                        Diedit
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleResetOverride(rec.id)}
-                                        className="block mx-auto text-[10px] text-slate-500 hover:text-rose-600 underline font-bold cursor-pointer"
-                                      >
-                                        Reset
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400 font-mono">Bawaan</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Modal Edit Custom Message Per Recipient */}
-                  {editingCustomMsgModal && (
-                    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-                      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
-                        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-                          <div>
-                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                              <Edit3 className="w-4 h-4 text-rose-500" />
-                              Edit Pesan Khusus Recipient
-                            </h4>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              {editingCustomMsgModal.recipientName} - {editingCustomMsgModal.satkerNama}
-                            </p>
-                          </div>
-                          <button
-                            onClick={() => setEditingCustomMsgModal(null)}
-                            className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            Tuliskan Isi Pesan Khusus:
-                          </label>
-                          <textarea
-                            rows={6}
-                            value={editingCustomMsgModal.currentMsg}
-                            onChange={(e) => setEditingCustomMsgModal({ ...editingCustomMsgModal, currentMsg: e.target.value })}
-                            className="w-full p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-sans text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-end gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => setEditingCustomMsgModal(null)}
-                            className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                          >
-                            Batal
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleUpdateOverride(editingCustomMsgModal.id, 'renderedMessage', editingCustomMsgModal.currentMsg);
-                              setEditingCustomMsgModal(null);
-                            }}
-                            className="px-5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span>Simpan Pesan Khusus</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              );
-            })()}
-
-          </div>
-        </div>
+      {/* Aduan, Helpdesk & Tiket Satker Management Tab */}
+      {adminTab === 'aduan' && (
+        <KelolaAduanSatkerSection
+          aduanList={tempConfig.aduanList || []}
+          onUpdateAduanList={(newList) => {
+            const updated = {
+              ...tempConfig,
+              aduanList: newList
+            };
+            setTempConfig(updated);
+            onUpdateDashboardConfig(updated);
+          }}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(newCfg) => {
+            setTempConfig(newCfg);
+            onUpdateDashboardConfig(newCfg);
+          }}
+          isDark={isDark}
+          theme={theme}
+          addLog={addLog}
+          showToast={(opts) => addToast(opts.message, opts.type)}
+        />
       )}
       {adminTab === 'crud' && (
         <KelolaDataSatkerDashboard
@@ -7623,221 +7123,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         />
       )}
 
-      {/* Satker Dalam Perhatian Subtab */}
+      {/* Satker Dalam Perhatian Subtab - Deep Admin Analytical Workspace */}
       {adminTab === 'perhatian' && (
-        <div className="space-y-6">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
-            
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                  KOMPILASI DATA SATKER DALAM PERHATIAN KHUSUS
-                </div>
-                <h3 className="text-xl font-black tracking-tight">
-                  Kompilasi Satker Perlu Pendampingan &amp; Evaluasi Kinerja IKPA
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-                  Kompilasi terpadu seluruh Satker yang memiliki catatan risiko: nilai IKPA &lt; 87.5, Capaian Output belum terlaporkan/0%, deviasi Halaman III DIPA tinggi, atau penyerapan rendah.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <button
-                  onClick={() => exportSatkersToExcel(satkers.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan'), 'Kompilasi_Satker_Perhatian_KPPN026.xlsx')}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Unduh Excel Satker Perhatian</span>
-                </button>
-              </div>
-            </div>
-
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-rose-50/50 border-rose-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Satker Dalam Perhatian</span>
-                <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
-                  {satkers.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75 || s.indikator.deviasiHal3Dipa < 75).length} Satker
-                </span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Capaian Output Belum/Terlambat</span>
-                <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
-                  {satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan').length} Satker
-                </span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-purple-50/50 border-purple-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Nilai IKPA &lt; 87.5 (Kategori Risiko)</span>
-                <span className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 block">
-                  {satkers.filter(s => s.nilaiTotalIKPA < 87.5).length} Satker
-                </span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-sky-50/50 border-sky-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Deviasi Hal III DIPA Tinggi (&lt;75%)</span>
-                <span className="text-2xl font-black text-sky-600 dark:text-sky-400 mt-1 block">
-                  {satkers.filter(s => s.indikator.deviasiHal3Dipa < 75).length} Satker
-                </span>
-              </div>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-100 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchPerhatianQuery}
-                  onChange={(e) => setSearchPerhatianQuery(e.target.value)}
-                  placeholder="Cari Kode Satker, Nama Satker, K/L..."
-                  className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 text-xs"
-                />
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <span className="font-bold text-slate-500 text-[11px] shrink-0">Filter Kategori Risiko:</span>
-                <select
-                  value={filterPerhatianRisk}
-                  onChange={(e) => setFilterPerhatianRisk(e.target.value as any)}
-                  className="w-full sm:w-auto px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-xs"
-                >
-                  <option value="ALL">Semua Kategori Risiko ({satkers.length})</option>
-                  <option value="BELUM_OUTPUT">🔴 Capaian Output Belum Terlaporkan</option>
-                  <option value="IKPA_RENDAH">⚠️ Nilai IKPA &lt; 87.50</option>
-                  <option value="DEVIASI_TINGGI">📉 Deviasi Hal III DIPA &lt; 75%</option>
-                  <option value="PENYERAPAN_RENDAH">💸 Penyerapan Anggaran &lt; 75%</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Table of Satker Dalam Perhatian */}
-            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                  <tr>
-                    <th className="py-3 px-4">Satker</th>
-                    <th className="py-3 px-4">Kementerian / Lembaga</th>
-                    <th className="py-3 px-4 text-center">Score IKPA</th>
-                    <th className="py-3 px-4 text-center">Output SAKTI</th>
-                    <th className="py-3 px-4">Indikator Kunci &amp; Issues</th>
-                    <th className="py-3 px-4 text-center">Kontak PIC / HP</th>
-                    <th className="py-3 px-4 text-center">Tindakan / Aksi MSKI</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {satkers
-                    .filter(s => {
-                      if (filterPerhatianRisk === 'BELUM_OUTPUT' && s.statusCapaianOutput === 'Sudah Terlaporkan') return false;
-                      if (filterPerhatianRisk === 'IKPA_RENDAH' && s.nilaiTotalIKPA >= 87.5) return false;
-                      if (filterPerhatianRisk === 'DEVIASI_TINGGI' && s.indikator.deviasiHal3Dipa >= 75) return false;
-                      if (filterPerhatianRisk === 'PENYERAPAN_RENDAH' && s.persenPenyerapan >= 75) return false;
-
-                      if (!searchPerhatianQuery.trim()) {
-                        if (filterPerhatianRisk === 'ALL') {
-                          return s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75 || s.indikator.deviasiHal3Dipa < 75;
-                        }
-                        return true;
-                      }
-                      const q = searchPerhatianQuery.toLowerCase();
-                      return s.namaSatker.toLowerCase().includes(q) || s.kodeSatker.includes(q) || s.kementerianLembaga.toLowerCase().includes(q);
-                    })
-                    .map(satker => {
-                      const pejabats = ensurePejabatOperator(satker);
-                      const isOutputMissing = satker.statusCapaianOutput !== 'Sudah Terlaporkan';
-                      const isIkpaLow = satker.nilaiTotalIKPA < 87.5;
-                      const isDeviasiLow = satker.indikator.deviasiHal3Dipa < 75;
-                      const isPenyerapanLow = satker.persenPenyerapan < 75;
-
-                      return (
-                        <tr key={satker.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                          <td className="py-3 px-4">
-                            <div className="font-extrabold text-slate-900 dark:text-slate-100">{satker.namaSatker}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">Kode: {satker.kodeSatker}</div>
-                          </td>
-                          <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                            <div className="font-medium text-xs">{satker.kementerianLembaga}</div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2.5 py-1 rounded-full font-black text-xs inline-block ${
-                              isIkpaLow ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            }`}>
-                              {satker.nilaiTotalIKPA}
-                            </span>
-                            <div className="text-[10px] text-slate-400 uppercase mt-0.5 font-bold">{satker.predikat}</div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-black inline-block ${
-                              isOutputMissing ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300' : 'bg-emerald-100 text-emerald-800'
-                            }`}>
-                              {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 space-y-1">
-                            <div className="flex flex-wrap gap-1">
-                              {isOutputMissing && (
-                                <span className="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                                  🔴 Capaian Output 0%
-                                </span>
-                              )}
-                              {isIkpaLow && (
-                                <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                                  ⚠️ IKPA &lt; 87.5
-                                </span>
-                              )}
-                              {isDeviasiLow && (
-                                <span className="bg-sky-100 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                                  📉 Deviasi Hal III ({satker.indikator.deviasiHal3Dipa}%)
-                                </span>
-                              )}
-                              {isPenyerapanLow && (
-                                <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-2 py-0.5 rounded">
-                                  💸 Penyerapan ({satker.persenPenyerapan}%)
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-center text-xs">
-                            <div className="font-bold text-slate-800 dark:text-slate-200">{pejabats.operatorPelaporan?.nama || satker.namaPic || 'PIC SAKTI'}</div>
-                            <div className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold text-[11px]">{pejabats.operatorPelaporan?.noHp || satker.noHpPic || '-'}</div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {(pejabats.operatorPelaporan?.noHp || satker.noHpPic) && (
-                                <a
-                                  href={`https://wa.me/${(pejabats.operatorPelaporan?.noHp || satker.noHpPic).replace(/[^0-9]/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Yth. ${satker.namaSatker} (${satker.kodeSatker}), mohon penyesuaian/pembinaan terkait kinerja IKPA periode ini.`)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                                  title="Kirim WhatsApp Pendampingan"
-                                >
-                                  <Send className="w-3.5 h-3.5" />
-                                  <span>WA</span>
-                                </a>
-                              )}
-
-                              <button
-                                onClick={() => {
-                                  setEditingSatker({ ...satker, indikator: { ...satker.indikator } });
-                                  setAdminTab('crud');
-                                }}
-                                className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 p-1.5 rounded-lg text-xs font-bold transition-all border border-slate-300 dark:border-slate-700 cursor-pointer flex items-center gap-1"
-                                title="Edit / Detail Data Satker"
-                              >
-                                <Edit3 className="w-3.5 h-3.5 text-sky-500" />
-                                <span>Edit</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                </tbody>
-              </table>
-            </div>
-
-          </div>
-        </div>
+        <SatkerPerhatianAnalyticsSection
+          satkers={satkers}
+          masterSatkers={masterSatkers}
+          pejabatList={pejabatList}
+          pengelolaanUpRecords={pengelolaanUpRecords}
+          isDark={isDark}
+          theme={theme}
+          onOpenEditSatker={(satker) => {
+            setEditingSatker({ ...satker, indikator: { ...satker.indikator } });
+            setAdminTab('crud');
+          }}
+        />
       )}
 
       {/* Phone Number Monitoring Subtab */}

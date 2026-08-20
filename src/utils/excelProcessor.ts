@@ -674,7 +674,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
 
             if (capaianOutput === 0 || rawStatusStr.includes('belum') || rawStatusStr.includes('0%')) {
               statusCapaianOutput = 'Belum Terlaporkan';
-            } else if (capaianOutput < 95 || rawStatusStr.includes('terlambat')) {
+            } else if (rawStatusStr.includes('lambat')) {
               statusCapaianOutput = 'Terlambat';
             } else {
               statusCapaianOutput = 'Sudah Terlaporkan';

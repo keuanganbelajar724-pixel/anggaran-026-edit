@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
   Link2, 
   ExternalLink, 
@@ -410,13 +409,10 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
                   const isCopied = copiedLinkId === link.id;
 
                   return (
-                    <motion.div
+                    <div
                       key={link.id}
-                      whileHover={{ scale: 1.012, y: -2 }}
-                      whileTap={{ scale: 0.995 }}
-                      transition={{ duration: 0.18 }}
                       onClick={() => handleLinkClick(link)}
-                      className={`w-full relative rounded-full p-2.5 sm:p-3 sm:px-5 border-2 transition-all flex items-center justify-between gap-3 sm:gap-4 shadow-md hover:shadow-xl cursor-pointer ${
+                      className={`w-full relative rounded-full p-2.5 sm:p-3 sm:px-5 border-2 transition-all flex items-center justify-between gap-3 sm:gap-4 shadow-md hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
                         link.isHighlight
                           ? 'bg-white dark:bg-slate-900 border-teal-500 ring-2 ring-teal-500/30 shadow-teal-900/10'
                           : isDark
@@ -495,7 +491,7 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
                           <ArrowRight className="w-4 h-4" />
                         </div>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
@@ -506,42 +502,37 @@ export const SocializationPortalView: React.FC<SocializationPortalViewProps> = (
       )}
 
       {/* QR CODE MODAL */}
-      <AnimatePresence>
-        {activeQrModalUrl && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white p-6 sm:p-8 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl border-4 border-slate-900"
+      {activeQrModalUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in duration-200">
+          <div
+            className="bg-white p-6 sm:p-8 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl border-4 border-slate-900"
+          >
+            <div className="space-y-1">
+              <span className="text-[10px] font-black text-teal-600 uppercase tracking-wider">KPPN SEMARANG I</span>
+              <h4 className="text-sm font-black text-slate-900 leading-tight">{activeQrModalUrl.title}</h4>
+            </div>
+
+            <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 inline-block shadow-inner">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(activeQrModalUrl.url)}`} 
+                alt="QR Code"
+                className="w-48 h-48 mx-auto object-contain"
+              />
+            </div>
+
+            <p className="text-[11px] text-slate-500 font-mono break-all line-clamp-2">
+              {activeQrModalUrl.url}
+            </p>
+
+            <button
+              onClick={() => setActiveQrModalUrl(null)}
+              className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-md"
             >
-              <div className="space-y-1">
-                <span className="text-[10px] font-black text-teal-600 uppercase tracking-wider">KPPN SEMARANG I</span>
-                <h4 className="text-sm font-black text-slate-900 leading-tight">{activeQrModalUrl.title}</h4>
-              </div>
-
-              <div className="p-4 bg-white rounded-2xl border-2 border-slate-200 inline-block shadow-inner">
-                <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(activeQrModalUrl.url)}`} 
-                  alt="QR Code"
-                  className="w-48 h-48 mx-auto object-contain"
-                />
-              </div>
-
-              <p className="text-[11px] text-slate-500 font-mono break-all line-clamp-2">
-                {activeQrModalUrl.url}
-              </p>
-
-              <button
-                onClick={() => setActiveQrModalUrl(null)}
-                className="w-full py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-md"
-              >
-                Tutup QR Code
-              </button>
-            </motion.div>
+              Tutup QR Code
+            </button>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
     </div>
   );

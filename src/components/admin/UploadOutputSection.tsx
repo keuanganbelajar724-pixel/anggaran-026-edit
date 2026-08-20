@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { SatkerIKPA, ExcelUploadHistory, MasterSatker } from '../../types';
 import { processExcelFile, downloadCapaianOutputTemplate, exportSatkersToExcel } from '../../utils/excelProcessor';
+import { PeriodDropdownSelector } from './PeriodDropdownSelector';
 
 interface UploadOutputSectionProps {
   isDark: boolean;
@@ -120,10 +121,9 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     const fileNameToUse = currentFileName || `Laporan_Capaian_Output_${uploadPeriode.replace(/\s+/g, '_')}.xlsx`;
 
     // Gabungkan data Capaian Output ke Satker yang sudah ada tanpa merusak indikator IKPA lainnya
+    const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
     const mergedSatkers = satkers.map(currentSatker => {
-      const foundInPreview = previewSatkers.find(
-        p => p.kodeSatker === currentSatker.kodeSatker || p.id === currentSatker.id
-      );
+      const foundInPreview = previewMap.get(currentSatker.kodeSatker);
 
       if (foundInPreview) {
         return {
@@ -146,7 +146,10 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
         mergedSatkers.push({
           ...p,
           hasCapaianOutputData: true,
-          hasIKPAData: false
+          hasIKPAData: false,
+          nilaiTotalIKPA: 0,
+          paguAnggaran: 0,
+          realisasiAnggaran: 0
         });
       }
     });
@@ -165,41 +168,49 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
       isActive: overwriteActive
     };
 
+    // Filter out existing historical upload with SAME period & CAPAIAN_OUTPUT category to overwrite
+    const normalizedPeriode = uploadPeriode.trim().toLowerCase();
+    const filteredHistory = historicalUploads.filter(h => {
+      const isCaput = h.category === 'CAPAIAN_OUTPUT';
+      const samePeriode = (h.periode || '').trim().toLowerCase() === normalizedPeriode;
+      return !(isCaput && samePeriode);
+    });
+
     if (overwriteActive) {
       onApplySatkers(mergedSatkers, false);
       const updatedHistory = [
         newHistoryItem,
-        ...historicalUploads.map(h => (h.category === 'CAPAIAN_OUTPUT' ? { ...h, isActive: false } : h))
+        ...filteredHistory.map(h => (h.category === 'CAPAIAN_OUTPUT' ? { ...h, isActive: false } : h))
       ];
       onSaveHistoricalUploads(updatedHistory);
 
       addLog(
-        'Update Capaian Output',
+        'Update Capaian Output (Menimpa Periode Sama)',
         'UPLOAD',
-        `Data Capaian Output ${previewSatkers.length} Satker periode "${uploadPeriode}" berhasil diperbarui.`,
+        `Data Capaian Output ${previewSatkers.length} Satker periode "${uploadPeriode}" berhasil menimpa data lama dan diperbarui.`,
         'SUCCESS'
       );
 
       showToast({
         type: 'success',
         title: 'Capaian Output Berhasil Diperbarui',
-        message: `${previewSatkers.length} status Capaian Output telah aktif di Dashboard.`
+        message: `${previewSatkers.length} status Capaian Output periode "${uploadPeriode}" telah aktif di Dashboard.`
       });
     } else {
-      const updatedHistory = [newHistoryItem, ...historicalUploads];
+      const updatedHistory = [newHistoryItem, ...filteredHistory];
       onSaveHistoricalUploads(updatedHistory);
 
       addLog(
-        'Simpan Arsip Capaian Output',
+        'Simpan Arsip Capaian Output (Menimpa Periode Sama)',
         'UPLOAD',
-        `File "${fileNameToUse}" (${previewSatkers.length} Satker) tersimpan di Arsip Capaian Output.`,
+        `File "${fileNameToUse}" (${previewSatkers.length} Satker) tersimpan di Arsip Capaian Output menimpa arsip lama periode "${uploadPeriode}".`,
         'INFO'
       );
 
       showToast({
         type: 'info',
         title: 'Tersimpan di Arsip Capaian Output',
-        message: `File Capaian Output periode "${uploadPeriode}" tersimpan di Arsip Historical.`
+        message: `File Capaian Output periode "${uploadPeriode}" berhasil menimpa arsip lama dan tersimpan di Arsip Historical.`
       });
     }
 
@@ -213,11 +224,13 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
       `Apakah Anda yakin ingin mengaktifkan data Capaian Output periode "${item.periode}" (${item.fileName}) ke Dashboard?`,
       () => {
         // Terapkan data Capaian Output dari history ke satkers aktif
+        const previewMap = new Map<string, SatkerIKPA>((item.satkersData || []).map(p => [p.kodeSatker, p]));
         const merged = satkers.map(s => {
-          const matched = item.satkersData?.find(p => p.kodeSatker === s.kodeSatker);
+          const matched = previewMap.get(s.kodeSatker);
           if (matched) {
             return {
               ...s,
+              hasCapaianOutputData: true,
               statusCapaianOutput: matched.statusCapaianOutput,
               indikator: {
                 ...s.indikator,
@@ -257,19 +270,81 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   const handleDeleteHistorical = (id: string) => {
     const target = historicalUploads.find(h => h.id === id);
     requestConfirm(
-      'Hapus Arsip Capaian Output',
-      `Apakah Anda yakin ingin menghapus arsip file Capaian Output periode "${target?.periode || ''}"?`,
+      'Hapus Arsip Capaian Output & Bersihkan Dashboard',
+      `Apakah Anda yakin ingin menghapus arsip file Capaian Output periode "${target?.periode || ''}" (${target?.fileName || ''})?\n\n⚠️ Menghapus arsip ini akan otomatis membersihkan status Capaian Output pada dashboard peserta.`,
       () => {
-        const updated = historicalUploads.filter(h => h.id !== id);
-        onSaveHistoricalUploads(updated);
-        addLog('Hapus Arsip Capaian Output', 'UPLOAD', `Arsip "${target?.fileName}" dihapus.`, 'INFO');
-        showToast({
-          type: 'info',
-          title: 'Arsip Dihapus',
-          message: `Arsip Capaian Output periode "${target?.periode}" telah dihapus.`
-        });
+        const newHistoryList = historicalUploads.filter(h => h.id !== id);
+        const remainingCaput = newHistoryList.filter(h => h.category === 'CAPAIAN_OUTPUT');
+
+        if (remainingCaput.length === 0) {
+          // Tidak ada arsip Capaian Output yang tersisa -> Bersihkan total status capaian output dari satkers
+          const resetSatkers = satkers.map(s => ({
+            ...s,
+            hasCapaianOutputData: false,
+            statusCapaianOutput: 'Belum Terlaporkan' as const,
+            indikator: {
+              ...s.indikator,
+              capaianOutput: 0
+            }
+          }));
+          onApplySatkers(resetSatkers, false);
+          onSaveHistoricalUploads(newHistoryList);
+          if (onClearCapaianOutputData) {
+            onClearCapaianOutputData();
+          }
+          addLog('Hapus Arsip & Bersihkan Capaian Output', 'UPLOAD', `Seluruh arsip Capaian Output dihapus. Data capaian output pada dashboard peserta otomatis dikosongkan.`, 'INFO');
+          showToast({
+            type: 'info',
+            title: 'Arsip Dihapus & Capaian Output Dikosongkan',
+            message: `Seluruh arsip Capaian Output telah dihapus. Status Capaian Output peserta pada dashboard otomatis direset (0%).`
+          });
+        } else {
+          if (target?.isActive) {
+            // Aktifkan arsip Capaian Output teratas yang tersisa
+            const nextActive = remainingCaput[0];
+            const updatedWithActive = newHistoryList.map(h => {
+              if (h.category === 'CAPAIAN_OUTPUT') {
+                return { ...h, isActive: h.id === nextActive.id };
+              }
+              return h;
+            });
+            onSaveHistoricalUploads(updatedWithActive);
+
+            const previewMap = new Map<string, SatkerIKPA>((nextActive.satkersData || []).map(p => [p.kodeSatker, p]));
+            const updatedSatkers = satkers.map(s => {
+              const match = previewMap.get(s.kodeSatker);
+              if (match) {
+                return {
+                  ...s,
+                  hasCapaianOutputData: true,
+                  statusCapaianOutput: match.statusCapaianOutput,
+                  indikator: {
+                    ...s.indikator,
+                    capaianOutput: match.indikator.capaianOutput
+                  }
+                };
+              }
+              return s;
+            });
+            onApplySatkers(updatedSatkers, false);
+            addLog('Hapus Arsip & Alihkan Capaian Output', 'UPLOAD', `Arsip Capaian Output "${target?.fileName}" dihapus. Dashboard dialihkan ke periode "${nextActive.periode}".`, 'INFO');
+            showToast({
+              type: 'info',
+              title: 'Arsip Dihapus & Data Disinkronkan',
+              message: `Arsip Capaian Output "${target?.periode}" dihapus. Dashboard kini menampilkan data periode "${nextActive.periode}".`
+            });
+          } else {
+            onSaveHistoricalUploads(newHistoryList);
+            addLog('Hapus Arsip Capaian Output', 'UPLOAD', `Arsip "${target?.fileName}" periode "${target?.periode}" dihapus.`, 'INFO');
+            showToast({
+              type: 'info',
+              title: 'Arsip Dihapus',
+              message: `Arsip Capaian Output periode "${target?.periode}" telah dihapus.`
+            });
+          }
+        }
       },
-      { confirmText: 'Hapus Arsip', variant: 'danger' }
+      { confirmText: 'Ya, Hapus & Bersihkan', variant: 'danger' }
     );
   };
 
@@ -428,12 +503,11 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
+                <PeriodDropdownSelector
                   value={uploadPeriode}
-                  onChange={(e) => setUploadPeriode(e.target.value)}
-                  placeholder="Periode misal: Agustus 2026"
-                  className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 dark:text-slate-200"
+                  onChange={setUploadPeriode}
+                  isDark={isDark}
+                  themeColor="emerald"
                 />
 
                 <button

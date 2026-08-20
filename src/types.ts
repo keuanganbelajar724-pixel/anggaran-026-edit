@@ -134,11 +134,21 @@ export interface PengelolaanUPRecord {
   paguUP: number;
   nilaiUP: number;
   realisasiGUP: number;
+  totalRevolvingGUP?: number; // Alias for realisasiGUP
+  persenRevolving?: number; // Alias for persentaseRevolving
   sisaUP: number;
   persentaseRevolving: number;
   frekuensiGUP: number;
-  statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving';
+  statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' | 'Lancar / Normal';
   tglTerakhirSP2D?: string;
+  nomorSp2dTerakhir?: string;
+  nilaiSp2dTerakhir?: number;
+  batasRevolving?: string; // Batas Revolving di Kolom N Excel
+  sisaHariBatasRevolving?: number; // Hitungan sisa hari menuju jatuh tempo
+  isJatuhTempo1Minggu?: boolean; // Jatuh tempo dalam kurun waktu 1 minggu (<= 7 hari)
+  isOverdue?: boolean; // Melewati batas revolving
+  isHariLibur?: boolean; // Jatuh pada hari Sabtu/Minggu/Libur
+  saranTglPengajuan?: string; // Saran diajukan pada HARI KERJA sebelum libur
   hariTanpaRevolving?: number;
   peringatanKritis?: boolean;
   keterangan?: string;
@@ -163,6 +173,54 @@ export interface PengelolaanUPUploadBatch {
   totalPaguUP?: number;
   totalRealisasiGUP?: number;
   satkerKritisCount?: number;
+  satker1MingguCount?: number;
+}
+
+export interface KarwasTUPRecord {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  kodeBa?: string;
+  nomorSuratPersetujuan?: string;
+  tglPersetujuan?: string;
+  nomorSp2dTUP?: string;
+  tglSp2dTUP?: string;
+  nilaiTUP: number;
+  realisasiPertanggungjawaban: number; // GTUP / Nihil
+  sisaTUP: number;
+  persenPertanggungjawaban: number;
+  batasWaktuTUP: string; // Batas Waktu TUP di Kolom H Excel
+  sisaHariBatasWaktuTUP?: number; // Hitungan sisa hari
+  isJatuhTempo1Minggu?: boolean; // Dalam kurun waktu 1 minggu (<= 7 hari)
+  isOverdue?: boolean; // Melewati batas waktu TUP
+  isHariLibur?: boolean; // Jatuh tempo di hari libur
+  saranTglPengajuan?: string; // Saran diajukan HARI KERJA sebelum libur
+  statusTUP: 'Lunas / Selesai' | 'Dalam Proses' | 'Kritis / Segera Jatuh Tempo' | 'Lewat Batas Waktu';
+  keterangan?: string;
+  periode: string;
+  tahun: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KarwasTUPUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  tahun: number;
+  periode: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  invalidSatkers: { kodeSatker: string; namaSatker?: string; reason: string }[];
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  totalNilaiTUP?: number;
+  totalRealisasiTUP?: number;
+  tupKritisCount?: number;
+  tup1MingguCount?: number;
 }
 
 // -------------------------------------------------------------
@@ -573,6 +631,16 @@ export interface WhatsAppDeviceStatus {
   pairingCode?: string;
 }
 
+export interface WhatsAppGatewayConfig {
+  provider: 'simulasi' | 'fonnte' | 'wablas' | 'whacenter' | 'custom_api' | 'wa_me_link';
+  token: string;
+  endpoint: string;
+  deviceId?: string;
+  testPhone?: string;
+  savedAt?: string;
+  isAutoSave?: boolean;
+}
+
 export interface BroadcastSettings {
   delaySeconds: number; // Jeda antar pesan (detik)
   useJitter: boolean;   // Acak jeda (+1 sampai +5 detik)
@@ -653,6 +721,50 @@ export interface DashboardCustomTexts {
   pengelolaanUpAnnouncement?: string;
 }
 
+export type AduanStatus = 'MENUNGGU' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
+
+export type AduanKategori = 
+  | 'Pengaduan Gratifikasi / Imbalan'
+  | 'Pelanggaran Kode Etik / Sikap Petugas'
+  | 'Pengaduan Layanan / Disiplin'
+  | 'Kendala Teknis SAKTI & Rekonsiliasi'
+  | 'Permintaan Konsultasi / Pendampingan'
+  | 'Indikasi Fraud / Penyimpangan'
+  | 'Lainnya';
+
+export interface AduanRiwayatTindakLanjut {
+  id: string;
+  waktu: string;
+  petugas: string;
+  catatan: string;
+  statusSebelumnya: AduanStatus;
+  statusBaru: AduanStatus;
+}
+
+export interface AduanSatkerRecord {
+  id: string;
+  tiketNomor: string;
+  tanggal: string;
+  createdAt: string;
+  aliasPelapor: string;
+  namaSatker?: string;
+  kodeSatker?: string;
+  kontakHp?: string;
+  emailPelapor?: string;
+  kategori: AduanKategori;
+  judulAduan: string;
+  deskripsi: string;
+  lampiranUrl?: string;
+  lampiranNama?: string;
+  status: AduanStatus;
+  urgensi: 'BIASA' | 'PENTING' | 'SANGAT_SEGERA';
+  sumber: 'DASHBOARD_FORM' | 'WHATSAPP_MANUAL' | 'TATAP_MUKA' | 'SURAT_RESMI';
+  catatanAdmin?: string;
+  petugasPenyelesai?: string;
+  tanggalSelesai?: string;
+  riwayatTindakLanjut?: AduanRiwayatTindakLanjut[];
+}
+
 export interface DashboardConfig {
   defaultFilter: 'ALL' | 'BELUM_OUTPUT' | 'SUDAH_OUTPUT' | 'IKPA_KURANG' | 'PENYERAPAN_RENDAH' | 'DEVIASI_TINGGI';
   customAnnouncement: string;
@@ -664,9 +776,15 @@ export interface DashboardConfig {
   kegiatanSosialisasi?: KegiatanSosialisasi[];
   menuVisibility?: MenuVisibilityConfig;
   waDeviceStatus?: WhatsAppDeviceStatus;
+  waGatewayConfig?: WhatsAppGatewayConfig;
   broadcastSettings?: BroadcastSettings;
   helpdeskPhone?: string;
   helpdeskJamLayanan?: string;
+  helpdeskPicName?: string;
+  helpdeskEmail?: string;
+  helpdeskOpeningGreeting?: string;
+  allowPublicTickets?: boolean;
+  aduanList?: AduanSatkerRecord[];
   updateDates?: {
     dashboard?: string;
     capaianOutput?: string;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
+import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
 import { 
   Building2, 
   TrendingUp, 
@@ -73,15 +74,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     }
   }, [dashboardConfig?.defaultFilter]);
 
-  // State for 8 Indicators Diagnostic Assistance Module
+  // State for 7 Indicators Diagnostic Assistance Module (Capaian Output dipisah di menu/modal khusus)
   const [selectedIndicatorKey, setSelectedIndicatorKey] = useState<
     'revisiDipa' | 'deviasiHal3Dipa' | 'penyerapanAnggaran' | 'belanjaKontraktual' | 
-    'penyelesaianTagihan' | 'pengelolaanUpTup' | 'dispensasiSpm' | 'capaianOutput'
-  >('capaianOutput');
+    'penyelesaianTagihan' | 'pengelolaanUpTup' | 'dispensasiSpm'
+  >('deviasiHal3Dipa');
   const [indicatorPredikatFilter, setIndicatorPredikatFilter] = useState<'ALL' | 'KURANG' | 'CUKUP' | 'BAIK' | 'SANGAT_BAIK'>('KURANG');
   const [indicatorSearch, setIndicatorSearch] = useState<string>('');
   const [indicatorPage, setIndicatorPage] = useState<number>(1);
   const [isDiagnosticExpanded, setIsDiagnosticExpanded] = useState<boolean>(true);
+  const [indicatorAnalysisModalData, setIndicatorAnalysisModalData] = useState<IndicatorAnalysisModalData | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -101,29 +103,37 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
   const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
 
-  // Extract all uploaded months from satkers history
+  // Extract all uploaded months from satkers history (hanya bulan data IKPA, bukan Capaian Output)
   const availableUploadedMonths = React.useMemo(() => {
     const set = new Set<string>();
     satkersWithIKPA.forEach(s => {
       if (s.riwayatBulanan && s.riwayatBulanan.length > 0) {
         s.riwayatBulanan.forEach(r => {
-          if (r.bulan) {
+          // Hanya bulan yang memiliki nilai IKPA murni (> 0)
+          if (r.bulan && typeof r.nilaiIKPA === 'number' && r.nilaiIKPA > 0) {
             const match = ALL_MONTHS_LIST.find(m => r.bulan.toLowerCase().includes(m.toLowerCase()));
-            if (match) set.add(match);
+            if (match && match !== 'Juli') set.add(match);
           }
         });
       }
-      if (s.periodeUpdate) {
-        const match = ALL_MONTHS_LIST.find(m => s.periodeUpdate.toLowerCase().includes(m.toLowerCase()));
-        if (match) set.add(match);
-      }
     });
+
+    // Jika belum ada di riwayat, cari dari periode IKPA selain Juli
+    if (set.size === 0) {
+      satkersWithIKPA.forEach(s => {
+        if (s.hasIKPAData === true && s.periodeUpdate && !s.periodeUpdate.toLowerCase().includes('juli') && !s.periodeUpdate.toLowerCase().includes('capaian')) {
+          const match = ALL_MONTHS_LIST.find(m => s.periodeUpdate.toLowerCase().includes(m.toLowerCase()));
+          if (match && match !== 'Juli') set.add(match);
+        }
+      });
+    }
+
     const res = ALL_MONTHS_LIST.filter(m => set.has(m));
-    return res.length > 0 ? res : ['Februari'];
+    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret'];
   }, [satkersWithIKPA]);
 
-  const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Februari';
-  const latestUploadedMonth = satkersWithIKPA.find(s => s.periodeUpdate)?.periodeUpdate || `s.d. ${latestMonthName} 2026`;
+  const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Maret';
+  const latestUploadedMonth = `s.d. ${latestMonthName} 2026`;
 
   // Dynamically map satker data based on the selected period filter
   const effectiveSatkers = React.useMemo(() => {
@@ -660,8 +670,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
         </div>
 
-        {/* 8 Indikator Interactive Selection Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        {/* 7 Indikator IKPA Interactive Selection Grid (Capaian Output dipisah di Dashboard khusus & Detail) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {[
             { key: 'revisiDipa' as const, label: 'Revisi DIPA', bobot: '10%', icon: FileEdit, avg: avgIndicators.revisiDipa },
             { key: 'deviasiHal3Dipa' as const, label: 'Deviasi Hal III', bobot: '10%', icon: BarChart3, avg: avgIndicators.deviasiHal3Dipa },
@@ -670,15 +680,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             { key: 'penyelesaianTagihan' as const, label: 'Tagihan SPM', bobot: '10%', icon: FileCheck, avg: avgIndicators.penyelesaianTagihan },
             { key: 'pengelolaanUpTup' as const, label: 'UP & TUP', bobot: '10%', icon: Coins, avg: avgIndicators.pengelolaanUpTup },
             { key: 'dispensasiSpm' as const, label: 'Dispensasi', bobot: '5%', icon: AlertCircle, avg: avgIndicators.dispensasiSpm },
-            { key: 'capaianOutput' as const, label: 'Output SAKTI', bobot: '25%', icon: Target, avg: avgIndicators.capaianOutput },
           ].map((item) => {
             const isSelected = selectedIndicatorKey === item.key;
             const IconComp = item.icon;
             const avgNum = parseFloat(item.avg) || 0;
             
-            // Hitung satker yang nilainya kurang (< 70) pada indikator ini
-            const satkerKurangCount = satkersWithIKPA.filter(s => (s.indikator[item.key] || 0) < 70).length;
-            const satkerSangatBaikCount = satkersWithIKPA.filter(s => (s.indikator[item.key] || 0) >= 95).length;
+            // Hitung satker yang nilainya kurang (< 70) pada indikator ini sesuai periode aktif
+            const satkerKurangCount = effectiveSatkers.filter(s => (s.indikator[item.key] || 0) < 70).length;
+            const satkerSangatBaikCount = effectiveSatkers.filter(s => (s.indikator[item.key] || 0) >= 95).length;
 
             return (
               <button
@@ -807,9 +816,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             }
           }[selectedIndicatorKey];
 
-          // Hitung satker per kategori pada indikator terpilih
-          const indSatkers = satkersWithIKPA.map(s => {
-            const val = s.indikator[selectedIndicatorKey] || 0;
+          // Hitung satker per kategori pada indikator terpilih sesuai periode aktif
+          const indSatkers = effectiveSatkers.map(s => {
+            const val = s.indikator[selectedIndicatorKey] ?? 0;
             let kategori: 'Sangat Baik' | 'Baik' | 'Cukup' | 'Kurang' = 'Kurang';
             if (val >= 95) kategori = 'Sangat Baik';
             else if (val >= 89) kategori = 'Baik';
@@ -965,16 +974,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     <tr>
                       <th className="py-2.5 px-3 text-center w-12">No</th>
                       <th className="py-2.5 px-4">Satuan Kerja</th>
-                      <th className="py-2.5 px-4 text-center">Nilai Indikator ({indicatorMetaMap.name})</th>
                       <th className="py-2.5 px-3 text-center">Kategori</th>
-                      <th className="py-2.5 px-3 text-center">Total IKPA Satker</th>
-                      <th className="py-2.5 px-4 text-center">Aksi</th>
+                      <th className="py-2.5 px-3 text-center">
+                        <div className="flex flex-col items-center">
+                          <span>Nilai {indicatorMetaMap.name}</span>
+                          <span className="text-[9px] font-semibold text-amber-500 normal-case tracking-normal">
+                            (Bobot: {indicatorMetaMap.bobot})
+                          </span>
+                        </div>
+                      </th>
+                      <th className="py-2.5 px-4 text-center">Analisis &amp; Rekomendasi</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-200'}`}>
                     {pagedIndSatkers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-6 text-center text-slate-500 font-medium">
+                        <td colSpan={5} className="py-6 text-center text-slate-500 font-medium">
                           Tidak ada data Satker yang sesuai dengan kriteria filter.
                         </td>
                       </tr>
@@ -1004,21 +1019,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                               </div>
                             </td>
 
-                            <td className="py-2.5 px-4 text-center">
-                              <div className="inline-flex items-center gap-2">
-                                <span className={`font-mono font-black text-sm px-2.5 py-0.5 rounded-lg border ${
-                                  val >= 95 ? (isDark ? 'bg-emerald-950 text-emerald-300 border-emerald-800' : 'bg-emerald-50 text-emerald-800 border-emerald-300') :
-                                  val >= 89 ? (isDark ? 'bg-sky-950 text-sky-300 border-sky-800' : 'bg-sky-50 text-sky-800 border-sky-300') :
-                                  val >= 70 ? (isDark ? 'bg-amber-950 text-amber-300 border-amber-800' : 'bg-amber-50 text-amber-800 border-amber-300') :
-                                  (isDark ? 'bg-rose-950 text-rose-300 border-rose-800' : 'bg-rose-50 text-rose-800 border-rose-300')
-                                }`}>
-                                  {val}
-                                </span>
-                              </div>
-                            </td>
-
                             <td className="py-2.5 px-3 text-center">
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                                 satker.indicatorKategori === 'Sangat Baik' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
                                 satker.indicatorKategori === 'Baik' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
                                 satker.indicatorKategori === 'Cukup' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
@@ -1028,23 +1030,66 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                               </span>
                             </td>
 
-                            <td className="py-2.5 px-3 text-center font-mono font-bold">
-                              {satker.nilaiTotalIKPA.toFixed(2)}
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className={`font-mono text-xs font-black px-2.5 py-1 rounded-lg border ${
+                                  val >= 95 
+                                    ? (isDark ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60' : 'bg-emerald-50 text-emerald-700 border-emerald-200') :
+                                  val >= 89 
+                                    ? (isDark ? 'bg-sky-950/60 text-sky-300 border-sky-800/60' : 'bg-sky-50 text-sky-700 border-sky-200') :
+                                  val >= 70 
+                                    ? (isDark ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-800 border-amber-200') :
+                                    (isDark ? 'bg-rose-950/60 text-rose-300 border-rose-800/60' : 'bg-rose-50 text-rose-800 border-rose-200')
+                                }`}>
+                                  {val.toFixed(2)}
+                                </span>
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5" title={`Total IKPA Kumulatif: ${satker.nilaiTotalIKPA.toFixed(2)}`}>
+                                  Total IKPA: {satker.nilaiTotalIKPA.toFixed(2)}
+                                </span>
+                              </div>
                             </td>
 
                             <td className="py-2.5 px-4 text-center">
-                              <button
-                                onClick={() => onSelectSatker(satker)}
-                                className={`px-2.5 py-1 rounded-lg border text-xs font-bold inline-flex items-center gap-1 transition-all cursor-pointer ${
-                                  isDark 
-                                    ? 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300' 
-                                    : 'bg-amber-50 hover:bg-amber-100 border-amber-200 text-amber-800'
-                                }`}
-                                title="Buka Detail Satker"
-                              >
-                                <Eye className="w-3 h-3 text-amber-500" />
-                                <span>Detail</span>
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => setIndicatorAnalysisModalData({
+                                    satker,
+                                    indicatorKey: selectedIndicatorKey,
+                                    value: val,
+                                    category: satker.indicatorKategori,
+                                    periodLabel: currentDisplayPeriodLabel
+                                  })}
+                                  className={`px-3 py-1.5 rounded-xl border text-xs font-black inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-xs ${
+                                    val < 70
+                                      ? (isDark 
+                                          ? 'bg-rose-500/15 hover:bg-rose-500/25 border-rose-500/40 text-rose-300 hover:scale-105' 
+                                          : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-700 hover:scale-105')
+                                      : val < 89
+                                      ? (isDark 
+                                          ? 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300 hover:scale-105' 
+                                          : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800 hover:scale-105')
+                                      : (isDark 
+                                          ? 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-300 hover:scale-105' 
+                                          : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800 hover:scale-105')
+                                  }`}
+                                  title={`Buka Analisis Diagnostik & Solusi Taktis untuk ${satker.namaSatker}`}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                                  <span>Analisis &amp; Rekomendasi</span>
+                                </button>
+
+                                <button
+                                  onClick={() => onSelectSatker(satker)}
+                                  className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
+                                    isDark 
+                                      ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300' 
+                                      : 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700'
+                                  }`}
+                                  title="Buka Profil Lengkap & Histori Satker"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1573,6 +1618,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       </div>
         </>
       )}
+
+      {/* Interactive Indicator Analysis & Tactical Recommendation Modal */}
+      <IndicatorAnalysisModal
+        data={indicatorAnalysisModalData}
+        onClose={() => setIndicatorAnalysisModalData(null)}
+        onSelectSatker={onSelectSatker}
+        onOpenReminder={onOpenReminder}
+        theme={theme}
+      />
 
     </div>
   );
