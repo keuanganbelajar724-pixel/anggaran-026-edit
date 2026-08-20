@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { SatkerIKPA, ExcelUploadHistory, MasterSatker, IndikatorIKPA } from '../../types';
 import { processExcelFile, downloadExcelTemplate, exportSatkersToExcel } from '../../utils/excelProcessor';
-import { hitungTotalIKPA, getPredikatIKPA } from '../../data/initialSatkerData';
+import { hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from '../../data/initialSatkerData';
 import { PeriodDropdownSelector } from './PeriodDropdownSelector';
 
 interface UploadIKPASectionProps {
@@ -233,10 +233,31 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
 
   const handleActivateHistorical = (item: ExcelUploadHistory) => {
     requestConfirm(
-      'Aktifkan Arsip IKPA',
-      `Apakah Anda yakin ingin mengaktifkan data IKPA periode "${item.periode}" (${item.fileName}) ke Dashboard IKPA Utama?`,
+      'Jadikan Periode Acuan Utama',
+      `Apakah Anda yakin ingin menjadikan data IKPA periode "${item.periode}" (${item.fileName}) sebagai periode acuan utama di Dashboard IKPA?\n\n💡 Catatan: Seluruh riwayat bulanan dari periode lain tetap aktif dan terintegrasi di profil Satker.`,
       () => {
-        onApplySatkers(item.satkersData, false);
+        // Merge all historical uploads so all months stay active, but set target item values as primary
+        const merged = mergeHistoricalUploadsToSatkers(historicalUploads);
+        // If target item has direct satkersData, we make sure target values take precedence
+        const targetMap = new Map((item.satkersData || []).map(s => [s.kodeSatker?.trim(), s]));
+        const adjustedList = merged.map(s => {
+          const targetItem = targetMap.get(s.kodeSatker?.trim());
+          if (targetItem) {
+            return {
+              ...s,
+              nilaiTotalIKPA: targetItem.nilaiTotalIKPA || s.nilaiTotalIKPA,
+              predikat: targetItem.predikat || s.predikat,
+              paguAnggaran: targetItem.paguAnggaran || s.paguAnggaran,
+              realisasiAnggaran: targetItem.realisasiAnggaran || s.realisasiAnggaran,
+              persenPenyerapan: targetItem.persenPenyerapan || s.persenPenyerapan,
+              indikator: targetItem.indikator || s.indikator,
+              periodeUpdate: item.periode
+            };
+          }
+          return s;
+        });
+
+        onApplySatkers(adjustedList.length > 0 ? adjustedList : (item.satkersData || []), false);
         const updated = historicalUploads.map(h => {
           if (!h.category || h.category === 'IKPA') {
             return { ...h, isActive: h.id === item.id };
@@ -246,19 +267,70 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
         onSaveHistoricalUploads(updated);
 
         addLog(
-          'Beralih Periode IKPA',
+          'Beralih Periode Utama IKPA',
           'UPLOAD',
-          `Dashboard IKPA Utama dialihkan ke periode "${item.periode}" (${item.satkerCount} Satker).`,
+          `Dashboard IKPA Utama dialihkan ke periode acuan "${item.periode}" (${item.satkerCount} Satker) dengan seluruh riwayat bulanan tetap aktif.`,
           'SUCCESS'
         );
 
         showToast({
           type: 'success',
           title: 'Periode IKPA Diaktifkan',
-          message: `Data IKPA periode "${item.periode}" kini aktif di Dashboard IKPA.`
+          message: `Periode "${item.periode}" kini menjadi acuan utama di Dashboard IKPA dan seluruh riwayat bulanan tetap aktif.`
         });
       },
-      { confirmText: 'Aktifkan Periode Ini', variant: 'warning' }
+      { confirmText: 'Jadikan Acuan Utama', variant: 'warning' }
+    );
+  };
+
+  const handleMergeAllHistoricalPeriods = () => {
+    if (ikpaHistories.length === 0) return;
+    requestConfirm(
+      'Gabungkan & Aktifkan Seluruh Periode',
+      `Apakah Anda ingin menggabungkan seluruh data dari ${ikpaHistories.length} batch arsip IKPA ke Dashboard Utama?\n\nSemua riwayat bulanan (Januari, Februari, dll.) akan diintegrasikan secara komprehensif ke profil setiap Satker.`,
+      () => {
+        const mergedList = mergeHistoricalUploadsToSatkers(historicalUploads);
+        if (mergedList.length === 0) {
+          showToast({ type: 'error', title: 'Gagal Menggabungkan', message: 'Tidak ada data satker yang dapat digabungkan dari arsip.' });
+          return;
+        }
+
+        onApplySatkers(mergedList, false);
+        
+        // Ensure latest period is marked as active in historical uploads
+        const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        let latestHist = ikpaHistories[0];
+        let maxIdx = -1;
+        ikpaHistories.forEach(h => {
+          const idx = monthsOrder.findIndex(m => (h.periode || '').toLowerCase().includes(m.toLowerCase()));
+          if (idx >= maxIdx) {
+            maxIdx = idx;
+            latestHist = h;
+          }
+        });
+
+        const updatedHistory = historicalUploads.map(h => {
+          if (!h.category || h.category === 'IKPA') {
+            return { ...h, isActive: h.id === latestHist.id };
+          }
+          return h;
+        });
+        onSaveHistoricalUploads(updatedHistory);
+
+        addLog(
+          'Gabungkan Seluruh Periode IKPA',
+          'UPLOAD',
+          `${mergedList.length} Satker berhasil digabungkan dari ${ikpaHistories.length} batch arsip IKPA dengan riwayat bulanan lengkap.`,
+          'SUCCESS'
+        );
+
+        showToast({
+          type: 'success',
+          title: 'Seluruh Periode Terintegrasi',
+          message: `${mergedList.length} Satker berhasil disinkronkan dengan riwayat bulanan lengkap (${ikpaHistories.length} Batch).`
+        });
+      },
+      { confirmText: 'Gabungkan Semua', variant: 'info' }
     );
   };
 
@@ -595,18 +667,32 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
               Riwayat &amp; Arsip Periode Laporan IKPA ({ikpaHistories.length} Batch)
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Klik "Aktifkan" untuk menampilkan kembali data IKPA periode terdahulu ke Dashboard Utama.
+              Seluruh periode yang diunggah otomatis tersinkronisasi ke riwayat bulanan seluruh Satker.
             </p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              value={searchHistory}
-              onChange={(e) => setSearchHistory(e.target.value)}
-              placeholder="Cari arsip IKPA..."
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            {ikpaHistories.length > 1 && (
+              <button
+                type="button"
+                onClick={handleMergeAllHistoricalPeriods}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                title="Gabungkan seluruh periode (Januari, Februari, dll.) ke riwayat dashboard"
+              >
+                <Sparkles className="w-4 h-4 text-emerald-200 animate-pulse" />
+                <span>Gabungkan &amp; Aktifkan Semua Periode ({ikpaHistories.length} Batch)</span>
+              </button>
+            )}
+
+            <div className="relative w-full sm:w-56">
+              <input
+                type="text"
+                value={searchHistory}
+                onChange={(e) => setSearchHistory(e.target.value)}
+                placeholder="Cari arsip IKPA..."
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
+              />
+            </div>
           </div>
         </div>
 
@@ -630,14 +716,19 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="font-black text-sm text-slate-900 dark:text-slate-100">
                           {item.periode}
                         </span>
-                        {item.isActive && (
-                          <span className="bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
+                        {item.isActive ? (
+                          <span className="bg-emerald-500 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
                             <Check className="w-3 h-3" />
-                            <span>AKTIF</span>
+                            <span>PERIODE UTAMA AKTIF</span>
+                          </span>
+                        ) : (
+                          <span className="bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="w-3 h-3 text-sky-500" />
+                            <span>TERINTEGRASI DI RIWAYAT</span>
                           </span>
                         )}
                       </div>
@@ -656,9 +747,10 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
                         type="button"
                         onClick={() => handleActivateHistorical(item)}
                         className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs flex items-center gap-1"
+                        title="Jadikan periode ini sebagai nilai acuan utama di Dashboard"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Aktifkan Periode Ini</span>
+                        <span>Jadikan Periode Utama</span>
                       </button>
                     )}
 

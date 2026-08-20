@@ -8024,7 +8024,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               satkers={satkers}
               masterSatkers={masterSatkers}
               historicalUploads={historicalUploads}
-              onApplySatkers={onApplyNewSatkers}
+              onApplySatkers={(data, append) => onApplyNewSatkers(data, append, 'dashboard')}
               onSaveHistoricalUploads={saveAndApplyHistoricalUploads}
               onClearIKPAData={onClearAllData || (() => {})}
               requestConfirm={requestConfirm}
@@ -8039,7 +8039,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               satkers={satkers}
               masterSatkers={masterSatkers}
               historicalUploads={historicalUploads}
-              onApplySatkers={onApplyNewSatkers}
+              onApplySatkers={(data, append) => onApplyNewSatkers(data, append, 'capaian-output')}
               onSaveHistoricalUploads={saveAndApplyHistoricalUploads}
               onClearCapaianOutputData={() => {
                 const resetSatkers = satkers.map(s => ({
@@ -8047,7 +8047,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   statusCapaianOutput: 'Belum Terlaporkan' as const,
                   indikator: { ...s.indikator, capaianOutput: 0 }
                 }));
-                onApplyNewSatkers(resetSatkers, false);
+                onApplyNewSatkers(resetSatkers, false, 'capaian-output');
               }}
               requestConfirm={requestConfirm}
               showToast={showToast}

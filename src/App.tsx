@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
 import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord } from './types';
-import { INITIAL_SATKER_DATA } from './data/initialSatkerData';
+import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { Header } from './components/Header';
@@ -367,6 +367,19 @@ export default function App() {
             localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
             if (data.dashboardConfig.historicalUploads) {
               localStorage.setItem('kppn_historical_uploads', JSON.stringify(data.dashboardConfig.historicalUploads));
+              
+              // If satkers state is currently empty, auto-hydrate from historical uploads
+              setSatkers(curr => {
+                if (curr.length === 0 && Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0) {
+                  const restored = mergeHistoricalUploadsToSatkers(data.dashboardConfig.historicalUploads);
+                  if (restored.length > 0) {
+                    localStorage.setItem('kppn_satker_data', JSON.stringify(restored));
+                    syncSatkersToFirebase(restored);
+                    return restored;
+                  }
+                }
+                return curr;
+              });
             }
           }
         }
@@ -378,6 +391,20 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(data.list);
             localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
+          } else {
+            // Check if we can recover from historical uploads
+            const savedHistorical = localStorage.getItem('kppn_historical_uploads');
+            if (savedHistorical) {
+              try {
+                const parsed = JSON.parse(savedHistorical);
+                const restored = mergeHistoricalUploadsToSatkers(parsed);
+                if (restored.length > 0) {
+                  setSatkers(restored);
+                  localStorage.setItem('kppn_satker_data', JSON.stringify(restored));
+                  syncSatkersToFirebase(restored);
+                }
+              } catch (e) {}
+            }
           }
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
@@ -406,7 +433,6 @@ export default function App() {
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          // Only overwrite if incoming list has items or if server deliberately emptied
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(data.list);
             localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
@@ -699,7 +725,7 @@ export default function App() {
     try {
       localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
 
-      // Optimize historicalUploads payload so it never exceeds Firestore's 1MB single-document limit
+      // Optimize historicalUploads payload for Firestore while preserving all critical values
       const sanitizedHistorical = (newConfig.historicalUploads || []).map(h => ({
         id: h.id,
         fileName: h.fileName,
@@ -711,20 +737,22 @@ export default function App() {
         notes: h.notes,
         category: h.category,
         isActive: !!h.isActive,
-        // Keep satkersData lightweight if present
         satkersData: (h.satkersData || []).map(s => ({
           id: s.id,
           kodeSatker: s.kodeSatker,
           namaSatker: s.namaSatker,
           kementerianLembaga: s.kementerianLembaga,
-          nilaiTotalIKPA: s.nilaiTotalIKPA,
+          nilaiTotalIKPA: s.nilaiTotalIKPA || 0,
+          paguAnggaran: s.paguAnggaran || 0,
+          realisasiAnggaran: s.realisasiAnggaran || 0,
           predikat: s.predikat,
-          persenPenyerapan: s.persenPenyerapan,
+          persenPenyerapan: s.persenPenyerapan || 0,
           statusCapaianOutput: s.statusCapaianOutput,
-          hasIKPAData: s.hasIKPAData,
-          hasCapaianOutputData: s.hasCapaianOutputData,
+          hasIKPAData: s.hasIKPAData !== false,
+          hasCapaianOutputData: !!s.hasCapaianOutputData,
           periodeUpdate: s.periodeUpdate,
           indikator: s.indikator,
+          riwayatBulanan: s.riwayatBulanan || [],
           issues: (s.issues || []).slice(0, 3)
         }))
       }));
@@ -974,8 +1002,18 @@ export default function App() {
           capaianOutput: isNewCaput ? (newS.indikator?.capaianOutput || 0) : (existing.indikator?.capaianOutput || 0)
         };
 
-        const calculatedIKPATotal = effectiveHasIKPA ? hitungTotalIKPA(mergedIndikator) : 0;
-        const calculatedPredikat = effectiveHasIKPA ? getPredikatIKPA(calculatedIKPATotal) : 'Cukup';
+        const calculatedIKPATotal = effectiveHasIKPA 
+          ? (isNewIKPA && typeof newS.nilaiTotalIKPA === 'number' && newS.nilaiTotalIKPA > 0
+              ? (isNewCaput ? hitungTotalIKPA(mergedIndikator) : newS.nilaiTotalIKPA)
+              : (existing && existing.nilaiTotalIKPA > 0 
+                  ? (isNewCaput ? hitungTotalIKPA(mergedIndikator) : existing.nilaiTotalIKPA) 
+                  : hitungTotalIKPA(mergedIndikator)
+                )
+            ) 
+          : 0;
+        const calculatedPredikat = effectiveHasIKPA 
+          ? (newS.predikat && isNewIKPA ? newS.predikat : getPredikatIKPA(calculatedIKPATotal)) 
+          : 'Cukup';
 
         const existingHistory = existing.riwayatBulanan || [];
         const newHistory = newS.riwayatBulanan || [];
