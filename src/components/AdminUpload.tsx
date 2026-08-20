@@ -2165,24 +2165,47 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleActivateHistorical = (item: ExcelUploadHistory) => {
     requestConfirm(
-      'Timpa Data Dashboard Utama',
-      `Apakah Anda yakin ingin MENIMPA data Dashboard Utama dengan data Excel periode "${item.periode}" (${item.fileName})?`,
+      'Aktifkan Data Periode Arsip',
+      `Apakah Anda yakin ingin mengaktifkan data Excel periode "${item.periode}" (${item.fileName}) ke Dashboard?`,
       () => {
-        onApplyNewSatkers(item.satkersData, false);
         const targetCategory = item.category || 'IKPA';
+        const targetTab: NavigationTab = targetCategory === 'CAPAIAN_OUTPUT' ? 'capaian-output' : 'dashboard';
+
+        onApplyNewSatkers(item.satkersData, false, targetTab);
+
         const newHistoryList = historicalUploads.map(h => {
           const isSameCat = (!h.category && targetCategory === 'IKPA') || h.category === targetCategory;
           return isSameCat ? { ...h, isActive: h.id === item.id } : h;
         });
+
         saveAndApplyHistoricalUploads(newHistoryList);
+
+        const updatedConfig: DashboardConfig = {
+          ...tempConfig,
+          historicalUploads: newHistoryList,
+          updateDates: {
+            ...tempConfig.updateDates,
+            ...(targetCategory === 'CAPAIAN_OUTPUT'
+              ? { capaianOutput: `Periode ${item.periode}` }
+              : { dashboard: `Periode ${item.periode}` })
+          }
+        };
+        setTempConfig(updatedConfig);
+        onUpdateDashboardConfig(updatedConfig);
+
         addLog(
-          'Nimpa Data Dashboard (Arsip)', 
+          'Aktifkan Periode Dashboard (Arsip)', 
           'UPLOAD', 
-          `Dashboard Utama ditimpa dengan data arsip Excel periode "${item.periode}" (${item.satkerCount} Satker).`, 
+          `Dashboard ditimpa/diaktifkan dengan data arsip Excel periode "${item.periode}" (${item.satkerCount} Satker).`, 
           'SUCCESS'
         );
+        showToast({
+          type: 'success',
+          title: 'Periode Berhasil Diaktifkan',
+          message: `Data periode "${item.periode}" kini aktif di Dashboard ${targetCategory === 'CAPAIAN_OUTPUT' ? 'Capaian Output' : 'IKPA'}.`
+        });
       },
-      { confirmText: 'Ya, Timpa Data Dashboard', variant: 'warning' }
+      { confirmText: 'Ya, Aktifkan Periode Ini', variant: 'info' }
     );
   };
 

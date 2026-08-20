@@ -112,24 +112,24 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           // Hanya bulan yang memiliki nilai IKPA murni (> 0)
           if (r.bulan && typeof r.nilaiIKPA === 'number' && r.nilaiIKPA > 0) {
             const match = ALL_MONTHS_LIST.find(m => r.bulan.toLowerCase().includes(m.toLowerCase()));
-            if (match && match !== 'Juli') set.add(match);
+            if (match) set.add(match);
           }
         });
       }
     });
 
-    // Jika belum ada di riwayat, cari dari periode IKPA selain Juli
+    // Jika belum ada di riwayat, cari dari periode IKPA
     if (set.size === 0) {
       satkersWithIKPA.forEach(s => {
-        if (s.hasIKPAData === true && s.periodeUpdate && !s.periodeUpdate.toLowerCase().includes('juli') && !s.periodeUpdate.toLowerCase().includes('capaian')) {
+        if (s.hasIKPAData === true && s.periodeUpdate && !s.periodeUpdate.toLowerCase().includes('capaian')) {
           const match = ALL_MONTHS_LIST.find(m => s.periodeUpdate.toLowerCase().includes(m.toLowerCase()));
-          if (match && match !== 'Juli') set.add(match);
+          if (match) set.add(match);
         }
       });
     }
 
     const res = ALL_MONTHS_LIST.filter(m => set.has(m));
-    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret'];
+    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'];
   }, [satkersWithIKPA]);
 
   const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Maret';

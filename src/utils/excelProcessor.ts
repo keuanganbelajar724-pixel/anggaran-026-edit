@@ -65,8 +65,44 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
           'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
         ];
 
-        // Scan top 25 rows for period keywords (e.g. "Kondisi s.d. Januari 2026", "Periode Januari 2026")
-        for (let i = 0; i < Math.min(25, matrix.length); i++) {
+        // Smart Month Detection helper
+        const extractBestMonth = (text: string): { month: string; isSd: boolean } | null => {
+          const lower = text.toLowerCase();
+          
+          // Check for "s.d." or "sampai" or "-" with month (e.g. "s.d. Juli", "s.d Juli", "sd Juli", "sampai dengan Juli", "Januari - Juli")
+          for (let m = monthsList.length - 1; m >= 0; m--) {
+            const mName = monthsList[m];
+            const mLower = mName.toLowerCase();
+            const regexSd = new RegExp(`(?:s\\.?d\\.?|sd|sampai(?:\\s+dengan)?|-|s\\/d)\\s*${mLower}`, 'i');
+            if (regexSd.test(lower)) {
+              return { month: mName, isSd: true };
+            }
+          }
+
+          // Check for exact "Bulan [Nama]" or "Periode [Nama]" from end of year downwards
+          for (let m = monthsList.length - 1; m >= 0; m--) {
+            const mName = monthsList[m];
+            const mLower = mName.toLowerCase();
+            const regexBulan = new RegExp(`(?:bulan|periode|kondisi|tahap|data)\\s+${mLower}`, 'i');
+            if (regexBulan.test(lower)) {
+              return { month: mName, isSd: true };
+            }
+          }
+
+          // Check any occurrence from latest months down to January
+          for (let m = monthsList.length - 1; m >= 0; m--) {
+            const mName = monthsList[m];
+            const mLower = mName.toLowerCase();
+            if (lower.includes(mLower)) {
+              return { month: mName, isSd: lower.includes('s.d') || lower.includes('sd') || lower.includes('sampai') };
+            }
+          }
+
+          return null;
+        };
+
+        // Scan top 30 rows for period keywords
+        for (let i = 0; i < Math.min(30, matrix.length); i++) {
           if (!matrix[i]) continue;
           const rowStr = matrix[i].map(c => String(c || '')).join(' ');
           
@@ -76,30 +112,25 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             detectedYear = yearMatch[1];
           }
 
-          monthsList.forEach(m => {
-            if (rowStr.toLowerCase().includes(m.toLowerCase()) && !detectedMonth) {
-              detectedMonth = m;
-              if (rowStr.toLowerCase().includes('s.d.') || rowStr.toLowerCase().includes('sd ') || rowStr.toLowerCase().includes('sampai')) {
-                detectedPeriodText = `s.d. ${m} ${detectedYear}`;
-              } else {
-                detectedPeriodText = `s.d. ${m} ${detectedYear}`;
-              }
-            }
-          });
+          const match = extractBestMonth(rowStr);
+          if (match && !detectedMonth) {
+            detectedMonth = match.month;
+            detectedPeriodText = `s.d. ${match.month} ${detectedYear}`;
+          }
         }
 
         if (!detectedMonth) {
-          monthsList.forEach(m => {
-            if (file.name.toLowerCase().includes(m.toLowerCase()) && !detectedMonth) {
-              detectedMonth = m;
-            }
-          });
+          const match = extractBestMonth(file.name);
+          if (match) {
+            detectedMonth = match.month;
+            detectedPeriodText = `s.d. ${match.month} ${detectedYear}`;
+          }
           const fileYearMatch = file.name.match(/\b(202[4-9])\b/);
           if (fileYearMatch) detectedYear = fileYearMatch[1];
         }
 
         if (!detectedMonth) {
-          detectedMonth = 'Januari';
+          detectedMonth = 'Juli';
         }
 
         const periodeFormatted = detectedPeriodText || `s.d. ${detectedMonth} ${detectedYear}`;

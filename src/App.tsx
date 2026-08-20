@@ -375,7 +375,7 @@ export default function App() {
       getDocFromServer(doc(db, 'data', 'satkers')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(data.list);
             localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
           }
@@ -406,7 +406,8 @@ export default function App() {
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
+          // Only overwrite if incoming list has items or if server deliberately emptied
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(data.list);
             localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
           }
@@ -909,9 +910,9 @@ export default function App() {
     if (appendMode) {
       result = [...newSatkers, ...satkers];
     } else {
-      // Smart Multi-Month Merger with Contact & Master Protection:
-      // If satkers already have history for previous months (e.g. Januari),
-      // and newSatkers brings February or subsequent months, preserve & merge history and all contacts!
+      // Smart Multi-Month & Multi-Module Merger with Contact & Master Protection:
+      // If satkers already have data for IKPA and user uploads Capaian Output, PRESERVE IKPA!
+      // If satkers already have data for Capaian Output and user uploads IKPA, PRESERVE Capaian Output!
       const existingSatkerMap = new Map<string, SatkerIKPA>();
       satkers.forEach(s => {
         if (s.kodeSatker) {
@@ -946,6 +947,36 @@ export default function App() {
           };
         }
 
+        // Determine if newS is predominantly IKPA or Capaian Output
+        const isNewIKPA = newS.hasIKPAData === true || (newS.hasIKPAData !== false && (newS.nilaiTotalIKPA > 0 || newS.paguAnggaran > 0));
+        const isNewCaput = newS.hasCapaianOutputData === true || (newS.statusCapaianOutput && newS.statusCapaianOutput !== 'Belum Terlaporkan') || (newS.indikator && typeof newS.indikator.capaianOutput === 'number' && newS.indikator.capaianOutput > 0);
+
+        const existingHasIKPA = existing.hasIKPAData === true || (existing.hasIKPAData !== false && (existing.nilaiTotalIKPA > 0 || existing.paguAnggaran > 0));
+        const existingHasCaput = existing.hasCapaianOutputData === true;
+
+        const effectiveHasIKPA = isNewIKPA || existingHasIKPA;
+        const effectiveHasCaput = isNewCaput || existingHasCaput;
+
+        const effectivePagu = isNewIKPA ? newS.paguAnggaran : existing.paguAnggaran;
+        const effectiveRealisasi = isNewIKPA ? newS.realisasiAnggaran : existing.realisasiAnggaran;
+        const effectivePersen = isNewIKPA ? newS.persenPenyerapan : existing.persenPenyerapan;
+
+        const effectiveStatusCaput = isNewCaput ? newS.statusCapaianOutput : existing.statusCapaianOutput;
+
+        const mergedIndikator = {
+          revisiDipa: isNewIKPA ? newS.indikator.revisiDipa : (existing.indikator?.revisiDipa || 0),
+          deviasiHal3Dipa: isNewIKPA ? newS.indikator.deviasiHal3Dipa : (existing.indikator?.deviasiHal3Dipa || 0),
+          penyerapanAnggaran: isNewIKPA ? newS.indikator.penyerapanAnggaran : (existing.indikator?.penyerapanAnggaran || 0),
+          belanjaKontraktual: isNewIKPA ? newS.indikator.belanjaKontraktual : (existing.indikator?.belanjaKontraktual || 0),
+          penyelesaianTagihan: isNewIKPA ? newS.indikator.penyelesaianTagihan : (existing.indikator?.penyelesaianTagihan || 0),
+          pengelolaanUpTup: isNewIKPA ? newS.indikator.pengelolaanUpTup : (existing.indikator?.pengelolaanUpTup || 0),
+          dispensasiSpm: isNewIKPA ? newS.indikator.dispensasiSpm : (existing.indikator?.dispensasiSpm || 0),
+          capaianOutput: isNewCaput ? (newS.indikator?.capaianOutput || 0) : (existing.indikator?.capaianOutput || 0)
+        };
+
+        const calculatedIKPATotal = effectiveHasIKPA ? hitungTotalIKPA(mergedIndikator) : 0;
+        const calculatedPredikat = effectiveHasIKPA ? getPredikatIKPA(calculatedIKPATotal) : 'Cukup';
+
         const existingHistory = existing.riwayatBulanan || [];
         const newHistory = newS.riwayatBulanan || [];
 
@@ -970,20 +1001,44 @@ export default function App() {
           return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
         });
 
+        const mergedIssues = [...(isNewIKPA ? (newS.issues || []) : (existing.issues || []))];
+        if (effectiveStatusCaput === 'Belum Terlaporkan' && !mergedIssues.some(i => i.toLowerCase().includes('capaian output'))) {
+          mergedIssues.push('Capaian Output Belum Diselesaikan (0%)');
+        }
+
         return {
           ...existing,
           ...newS,
+          hasIKPAData: effectiveHasIKPA,
+          hasCapaianOutputData: effectiveHasCaput,
+          nilaiTotalIKPA: calculatedIKPATotal,
+          predikat: calculatedPredikat,
+          paguAnggaran: effectivePagu,
+          realisasiAnggaran: effectiveRealisasi,
+          persenPenyerapan: effectivePersen,
+          statusCapaianOutput: effectiveStatusCaput,
+          indikator: mergedIndikator,
+          issues: mergedIssues,
           namaPic: preservedNamaPic,
           noHpPic: preservedNoHpPic,
           emailPic: preservedEmailPic,
           passwordSatker: preservedPassword,
           alamatSatker: preservedAlamat,
           pejabatOperator: preservedPejabat,
-          riwayatBulanan: sortedHistory.length > 0 ? sortedHistory : newS.riwayatBulanan
+          riwayatBulanan: sortedHistory.length > 0 ? sortedHistory : (newS.riwayatBulanan || existing.riwayatBulanan)
         };
+      });
+
+      // Also retain any satkers that were in existing satkers list but not present in newSatkers
+      const newKodes = new Set(result.map(r => r.kodeSatker?.trim()));
+      satkers.forEach(s => {
+        if (s.kodeSatker && !newKodes.has(s.kodeSatker.trim())) {
+          result.push(s);
+        }
       });
     }
     setSatkers(result);
+    localStorage.setItem('kppn_satker_data', JSON.stringify(result));
     syncSatkersToFirebase(result);
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
     setActiveTab(targetTab);
@@ -1139,6 +1194,22 @@ export default function App() {
                   satkers={searchedSatkers}
                   onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
                   onOpenReminder={handleOpenReminderSingle}
+                  onGoToUpload={() => setActiveTab('admin')}
+                  onActivatePeriod={(historyItem) => {
+                    handleApplyNewSatkers(historyItem.satkersData, false, 'capaian-output');
+                    const newHistoryList = (dashboardConfig.historicalUploads || []).map(h => {
+                      const isCaput = h.category === 'CAPAIAN_OUTPUT';
+                      return isCaput ? { ...h, isActive: h.id === historyItem.id } : h;
+                    });
+                    handleUpdateDashboardConfig({
+                      ...dashboardConfig,
+                      historicalUploads: newHistoryList,
+                      updateDates: {
+                        ...dashboardConfig.updateDates,
+                        capaianOutput: `Periode ${historyItem.periode}`
+                      }
+                    });
+                  }}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
                 />

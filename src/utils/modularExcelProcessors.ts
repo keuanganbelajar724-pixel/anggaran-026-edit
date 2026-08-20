@@ -5,9 +5,11 @@ import {
   CapaianOutputRecord,
   PejabatSertifikasi,
   PengelolaanUPRecord,
+  KarwasTUPRecord,
   ExcelValidationPreview
 } from '../types';
 import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
+import { evaluateDeadlineDate } from '../data/initialUPData';
 
 function cleanText(val: any): string {
   if (val === null || val === undefined) return '';
@@ -494,7 +496,7 @@ export async function validateCapaianOutputExcelFile(
 }
 
 /**
- * 3. VALIDASI & PREVIEW EXCEL PENGELOLAAN UP / TUP TERISOLASI
+ * 3. VALIDASI & PREVIEW EXCEL PENGELOLAAN UP TERISOLASI (FOKUS KOLOM N: BATAS REVOLVING)
  */
 export async function validatePengelolaanUPExcelFile(
   file: File,
@@ -536,40 +538,48 @@ export async function validatePengelolaanUPExcelFile(
         let colPersenRevolving = -1;
         let colFrekuensi = -1;
         let colTglSP2D = -1;
+        let colNoSP2D = -1;
+        let colBatasRevolving = -1; // Kolom N (Batas Revolving / Jatuh Tempo)
 
         for (let r = 0; r < Math.min(25, matrix.length); r++) {
           const row = matrix[r];
           if (!row) continue;
           const rowLower = row.map(c => String(c).toLowerCase().trim());
-          if (rowLower.some(c => c.includes('satker') || c.includes('up') || c.includes('gup') || c.includes('revolving'))) {
+          if (rowLower.some(c => c.includes('satker') || c.includes('up') || c.includes('gup') || c.includes('revolving') || c.includes('batas'))) {
             headerRow = r;
             rowLower.forEach((val, idx) => {
               if (val.includes('kode') || val === 'kdsatker' || val === 'kd satker') {
                 if (colKode === -1) colKode = idx;
-              } else if (val.includes('nama satker') || val === 'uraian') {
+              } else if (val.includes('nama satker') || val === 'uraian' || val === 'satker') {
                 if (colNama === -1) colNama = idx;
-              } else if (val.includes('pagu up') || val.includes('dipa up')) {
+              } else if (val.includes('pagu up') || val.includes('dipa up') || val.includes('pagu')) {
                 if (colPaguUP === -1) colPaguUP = idx;
-              } else if (val.includes('nilai up') || val.includes('besaran up') || val === 'up') {
+              } else if (val.includes('nilai up') || val.includes('besaran up') || val === 'up' || val.includes('jumlah up')) {
                 if (colNilaiUP === -1) colNilaiUP = idx;
-              } else if (val.includes('gup') || val.includes('realisasi gup') || val.includes('pertanggungjawaban')) {
+              } else if (val.includes('gup') || val.includes('realisasi gup') || val.includes('revolving gup') || val.includes('pertanggungjawaban')) {
                 if (colRealisasiGUP === -1) colRealisasiGUP = idx;
               } else if (val.includes('sisa') || val.includes('saldo')) {
                 if (colSisaUP === -1) colSisaUP = idx;
-              } else if (val.includes('revolving') || val.includes('persen') || val.includes('%')) {
+              } else if (val.includes('revolving') && (val.includes('persen') || val.includes('%') || val.includes('rasio'))) {
                 if (colPersenRevolving === -1) colPersenRevolving = idx;
               } else if (val.includes('frekuensi') || val.includes('kali') || val.includes('jumlah gup')) {
                 if (colFrekuensi === -1) colFrekuensi = idx;
-              } else if (val.includes('tanggal') || val.includes('sp2d') || val.includes('terakhir')) {
+              } else if (val.includes('no sp2d') || val.includes('nomor sp2d')) {
+                if (colNoSP2D === -1) colNoSP2D = idx;
+              } else if (val.includes('tgl sp2d') || val.includes('tanggal sp2d') || val.includes('sp2d terakhir')) {
                 if (colTglSP2D === -1) colTglSP2D = idx;
+              } else if (val.includes('batas revolving') || val.includes('batas akhir') || val.includes('jatuh tempo') || val.includes('batas waktu')) {
+                if (colBatasRevolving === -1) colBatasRevolving = idx;
               }
             });
             break;
           }
         }
 
+        // Fallback default columns: Kolom N is index 13 (0-based)
         if (colKode === -1) colKode = 1;
         if (colNama === -1) colNama = 2;
+        if (colBatasRevolving === -1) colBatasRevolving = 13; // Kolom N (14th column = index 13)
 
         const validData: PengelolaanUPRecord[] = [];
         const invalidRows: any[] = [];
@@ -581,6 +591,11 @@ export async function validatePengelolaanUPExcelFile(
         for (let r = startRow; r < matrix.length; r++) {
           const row = matrix[r];
           if (!row || row.length === 0) continue;
+
+          const rowUpper = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
+          if (rowUpper.includes('JUMLAH') || rowUpper.includes('TOTAL') || rowUpper.includes('RATA-RATA')) {
+            continue;
+          }
 
           const rawKode = row[colKode] || row[0] || '';
           const kodeSatker = normalizeKodeSatker(rawKode);
@@ -625,13 +640,28 @@ export async function validatePengelolaanUPExcelFile(
           persenRevolving = Number(persenRevolving.toFixed(1));
 
           const frekuensiGUP = colFrekuensi !== -1 ? Math.max(0, parseInt(String(row[colFrekuensi])) || 1) : 1;
+          const nomorSp2dTerakhir = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : undefined;
           const tglTerakhirSP2D = colTglSP2D !== -1 ? cleanText(row[colTglSP2D]) : '15-08-2026';
 
+          // PARSE KOLOM N (BATAS REVOLVING)
+          const rawBatas = colBatasRevolving !== -1 && row[colBatasRevolving] !== undefined && row[colBatasRevolving] !== '' 
+            ? row[colBatasRevolving] 
+            : (row[13] !== undefined && row[13] !== '' ? row[13] : '25-08-2026');
+
+          const deadlineEval = evaluateDeadlineDate(rawBatas);
+
           let statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' = 'Optimal';
-          if (persenRevolving >= 100) statusRevolving = 'Sangat Baik';
-          else if (persenRevolving >= 75) statusRevolving = 'Optimal';
-          else if (persenRevolving > 0) statusRevolving = 'Lambat / Kritis';
-          else statusRevolving = 'Belum Revolving';
+          if (deadlineEval.isOverdue) {
+            statusRevolving = 'Lambat / Kritis';
+          } else if (persenRevolving >= 100) {
+            statusRevolving = 'Sangat Baik';
+          } else if (persenRevolving >= 75) {
+            statusRevolving = 'Optimal';
+          } else if (persenRevolving > 0) {
+            statusRevolving = 'Lambat / Kritis';
+          } else {
+            statusRevolving = 'Belum Revolving';
+          }
 
           const record: PengelolaanUPRecord = {
             id: `up-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -642,13 +672,29 @@ export async function validatePengelolaanUPExcelFile(
             paguUP,
             nilaiUP,
             realisasiGUP,
+            totalRevolvingGUP: realisasiGUP,
+            persenRevolving,
             sisaUP,
             persentaseRevolving: persenRevolving,
             frekuensiGUP,
             statusRevolving,
+            nomorSp2dTerakhir,
             tglTerakhirSP2D,
-            hariTanpaRevolving: persenRevolving < 50 ? 32 : 12,
-            peringatanKritis: statusRevolving === 'Lambat / Kritis' || statusRevolving === 'Belum Revolving',
+            batasRevolving: deadlineEval.formattedDate,
+            sisaHariBatasRevolving: deadlineEval.sisaHari,
+            isJatuhTempo1Minggu: deadlineEval.is1Minggu,
+            isOverdue: deadlineEval.isOverdue,
+            isHariLibur: deadlineEval.isWeekend,
+            saranTglPengajuan: deadlineEval.saranTglPengajuan,
+            hariTanpaRevolving: deadlineEval.isOverdue ? Math.abs(deadlineEval.sisaHari) + 30 : (persenRevolving < 50 ? 32 : 12),
+            peringatanKritis: statusRevolving === 'Lambat / Kritis' || statusRevolving === 'Belum Revolving' || deadlineEval.isOverdue || (deadlineEval.is1Minggu && persenRevolving < 75),
+            keterangan: deadlineEval.isOverdue
+              ? 'TELAH MELEWATI BATAS REVOLVING! Segera ajukan SPM GUP.'
+              : deadlineEval.isWeekend
+              ? `Jatuh tempo bertepatan hari ${deadlineEval.dayName}. Wajib diajukan hari kerja sebelum libur (${deadlineEval.saranTglPengajuan})!`
+              : deadlineEval.is1Minggu
+              ? `Jatuh tempo dalam ${deadlineEval.sisaHari} hari (${deadlineEval.formattedDate}). Segera ajukan SPM GUP.`
+              : 'Revolving berjalan normal.',
             periode: periodeFormatted,
             tahun,
             updatedAt: new Date().toISOString()
@@ -669,7 +715,7 @@ export async function validatePengelolaanUPExcelFile(
           invalidRows,
           unregisteredSatkers,
           isValidFormat: validData.length > 0,
-          formatErrors: validData.length === 0 ? ['Format file Pengelolaan UP tidak sesuai.'] : []
+          formatErrors: validData.length === 0 ? ['Format file Pengelolaan UP tidak sesuai atau kosong.'] : []
         });
 
       } catch (err: any) {
@@ -677,6 +723,232 @@ export async function validatePengelolaanUPExcelFile(
       }
     };
     reader.onerror = () => reject(new Error('Gagal membaca file Pengelolaan UP.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * 3B. VALIDASI & PREVIEW EXCEL KARWAS TUP TERISOLASI (FOKUS KOLOM H: BATAS WAKTU PERTANGGUNGJAWABAN)
+ */
+export async function validateKarwasTUPExcelFile(
+  file: File,
+  masterSatkers: MasterSatker[],
+  forcedPeriod?: string,
+  forcedYear?: number
+): Promise<ExcelValidationPreview<KarwasTUPRecord>> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (!matrix || matrix.length === 0) {
+          throw new Error('File Excel Karwas TUP kosong.');
+        }
+
+        const masterMap = new Map<string, MasterSatker>();
+        masterSatkers.forEach(m => {
+          if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
+        });
+
+        let detectedMonth = forcedPeriod || 'Agustus';
+        const tahun = forcedYear || 2026;
+        const periodeFormatted = `${detectedMonth} ${tahun}`;
+
+        // Find headers
+        let headerRow = -1;
+        let colKode = -1;
+        let colNama = -1;
+        let colNoSurat = -1;
+        let colTglSurat = -1;
+        let colNoSP2D = -1;
+        let colTglSP2D = -1;
+        let colNilaiTUP = -1;
+        let colBatasWaktuTUP = -1; // Kolom H (Batas Waktu TUP / Pertanggungjawaban)
+        let colRealisasi = -1;
+        let colSisaTUP = -1;
+        let colStatus = -1;
+
+        for (let r = 0; r < Math.min(25, matrix.length); r++) {
+          const row = matrix[r];
+          if (!row) continue;
+          const rowLower = row.map(c => String(c).toLowerCase().trim());
+          if (rowLower.some(c => c.includes('satker') || c.includes('tup') || c.includes('surat') || c.includes('sp2d') || c.includes('batas'))) {
+            headerRow = r;
+            rowLower.forEach((val, idx) => {
+              if (val.includes('kode') || val === 'kdsatker' || val === 'kd satker') {
+                if (colKode === -1) colKode = idx;
+              } else if (val.includes('nama satker') || val === 'uraian' || val === 'satker') {
+                if (colNama === -1) colNama = idx;
+              } else if (val.includes('surat') || val.includes('persetujuan') || val.includes('no surat')) {
+                if (colNoSurat === -1) colNoSurat = idx;
+              } else if (val.includes('tgl surat') || val.includes('tgl persetujuan')) {
+                if (colTglSurat === -1) colTglSurat = idx;
+              } else if (val.includes('no sp2d') || val.includes('nomor sp2d')) {
+                if (colNoSP2D === -1) colNoSP2D = idx;
+              } else if (val.includes('tgl sp2d') || val.includes('tanggal sp2d')) {
+                if (colTglSP2D === -1) colTglSP2D = idx;
+              } else if (val.includes('nilai tup') || val.includes('jumlah tup') || val === 'tup' || val.includes('besaran')) {
+                if (colNilaiTUP === -1) colNilaiTUP = idx;
+              } else if (val.includes('batas') || val.includes('jatuh tempo') || val.includes('batas waktu') || val.includes('tenggat')) {
+                if (colBatasWaktuTUP === -1) colBatasWaktuTUP = idx;
+              } else if (val.includes('realisasi') || val.includes('pertanggungjawaban') || val.includes('gtup') || val.includes('ptup')) {
+                if (colRealisasi === -1) colRealisasi = idx;
+              } else if (val.includes('sisa') || val.includes('saldo')) {
+                if (colSisaTUP === -1) colSisaTUP = idx;
+              } else if (val.includes('status') || val.includes('keterangan')) {
+                if (colStatus === -1) colStatus = idx;
+              }
+            });
+            break;
+          }
+        }
+
+        // Fallback default columns: Kolom H is index 7 (0-based)
+        if (colKode === -1) colKode = 1;
+        if (colNama === -1) colNama = 2;
+        if (colBatasWaktuTUP === -1) colBatasWaktuTUP = 7; // Kolom H (8th column = index 7)
+
+        const validData: KarwasTUPRecord[] = [];
+        const invalidRows: any[] = [];
+        const unregisteredSatkers: any[] = [];
+        const seenKodes = new Set<string>();
+
+        const startRow = headerRow !== -1 ? headerRow + 1 : 1;
+
+        for (let r = startRow; r < matrix.length; r++) {
+          const row = matrix[r];
+          if (!row || row.length === 0) continue;
+
+          const rowUpper = row.map(c => String(c || '').trim().toUpperCase()).join(' ');
+          if (rowUpper.includes('JUMLAH') || rowUpper.includes('TOTAL') || rowUpper.includes('RATA-RATA')) {
+            continue;
+          }
+
+          const rawKode = row[colKode] || row[0] || '';
+          const kodeSatker = normalizeKodeSatker(rawKode);
+          const rawNama = cleanText(row[colNama] || '');
+
+          if (!kodeSatker || kodeSatker.length < 5) continue;
+          if (seenKodes.has(kodeSatker)) continue;
+          seenKodes.add(kodeSatker);
+
+          const master = masterMap.get(kodeSatker);
+          if (!master) {
+            unregisteredSatkers.push({
+              kodeSatker,
+              namaSatker: rawNama || `Satker ${kodeSatker}`,
+              reason: 'Kode Satker tidak ditemukan dalam Master Data Referensi'
+            });
+            invalidRows.push({
+              rowNumber: r + 1,
+              kodeSatker,
+              namaSatker: rawNama,
+              reason: 'Satker belum terdaftar di Master Referensi'
+            });
+            continue;
+          }
+
+          if (!master.isActive) {
+            invalidRows.push({
+              rowNumber: r + 1,
+              kodeSatker,
+              namaSatker: master.namaSatker,
+              reason: 'Satker berstatus Nonaktif'
+            });
+            continue;
+          }
+
+          const nilaiTUP = colNilaiTUP !== -1 ? parseFormattedNumber(row[colNilaiTUP], 100000000) : 100000000;
+          const realisasiPertanggungjawaban = colRealisasi !== -1 ? parseFormattedNumber(row[colRealisasi], 0) : 0;
+          const sisaTUP = colSisaTUP !== -1 ? parseFormattedNumber(row[colSisaTUP], Math.max(0, nilaiTUP - realisasiPertanggungjawaban)) : Math.max(0, nilaiTUP - realisasiPertanggungjawaban);
+          const persenPertanggungjawaban = nilaiTUP > 0 ? Number(((realisasiPertanggungjawaban / nilaiTUP) * 100).toFixed(1)) : 0;
+
+          const nomorSuratPersetujuan = colNoSurat !== -1 ? cleanText(row[colNoSurat]) : '-';
+          const tglPersetujuan = colTglSurat !== -1 ? cleanText(row[colTglSurat]) : '-';
+          const nomorSp2dTUP = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : '-';
+          const tglSp2dTUP = colTglSP2D !== -1 ? cleanText(row[colTglSP2D]) : '-';
+
+          // PARSE KOLOM H (BATAS WAKTU TUP)
+          const rawBatas = colBatasWaktuTUP !== -1 && row[colBatasWaktuTUP] !== undefined && row[colBatasWaktuTUP] !== ''
+            ? row[colBatasWaktuTUP]
+            : (row[7] !== undefined && row[7] !== '' ? row[7] : '25-08-2026');
+
+          const deadlineEval = evaluateDeadlineDate(rawBatas);
+
+          let statusTUP: 'Lunas / Selesai' | 'Dalam Proses' | 'Kritis / Segera Jatuh Tempo' | 'Lewat Batas Waktu' = 'Dalam Proses';
+          if (persenPertanggungjawaban >= 100 || sisaTUP <= 0) {
+            statusTUP = 'Lunas / Selesai';
+          } else if (deadlineEval.isOverdue) {
+            statusTUP = 'Lewat Batas Waktu';
+          } else if (deadlineEval.is1Minggu) {
+            statusTUP = 'Kritis / Segera Jatuh Tempo';
+          } else {
+            statusTUP = 'Dalam Proses';
+          }
+
+          const record: KarwasTUPRecord = {
+            id: `tup-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            kodeSatker,
+            namaSatker: master.namaSatker,
+            kementerianLembaga: master.kementerianLembaga || '',
+            kodeBa: master.kodeBa || '',
+            nomorSuratPersetujuan,
+            tglPersetujuan,
+            nomorSp2dTUP,
+            tglSp2dTUP,
+            nilaiTUP,
+            realisasiPertanggungjawaban,
+            sisaTUP,
+            persenPertanggungjawaban,
+            batasWaktuTUP: deadlineEval.formattedDate,
+            sisaHariBatasWaktuTUP: deadlineEval.sisaHari,
+            isJatuhTempo1Minggu: deadlineEval.is1Minggu,
+            isOverdue: deadlineEval.isOverdue,
+            isHariLibur: deadlineEval.isWeekend,
+            saranTglPengajuan: deadlineEval.saranTglPengajuan,
+            statusTUP,
+            keterangan: statusTUP === 'Lunas / Selesai'
+              ? 'TUP telah lunas dan dipertanggungjawabkan 100%.'
+              : deadlineEval.isOverdue
+              ? 'MELEWATI BATAS WAKTU 30 HARI! Wajib segera menyetorkan sisa dana TUP ke Kas Negara.'
+              : deadlineEval.isWeekend
+              ? `Jatuh tempo hari ${deadlineEval.dayName}. Harap diajukan SPM PTUP / Setor pada hari kerja sebelum libur (${deadlineEval.saranTglPengajuan})!`
+              : deadlineEval.is1Minggu
+              ? `Batas waktu tersisa ${deadlineEval.sisaHari} hari (${deadlineEval.formattedDate}). Segera pertanggungjawabkan.`
+              : 'Dalam masa pertanggungjawaban 30 hari.',
+            periode: periodeFormatted,
+            tahun,
+            updatedAt: new Date().toISOString()
+          };
+
+          validData.push(record);
+        }
+
+        resolve({
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          modul: 'PENGELOLAAN_UP',
+          tahun,
+          periode: periodeFormatted,
+          totalRows: validData.length + invalidRows.length,
+          validData: validData as any,
+          invalidRows,
+          unregisteredSatkers,
+          isValidFormat: validData.length > 0,
+          formatErrors: validData.length === 0 ? ['Format file Karwas TUP tidak sesuai atau kosong.'] : []
+        });
+
+      } catch (err: any) {
+        reject(new Error(err.message || 'Gagal memproses file Excel Karwas TUP'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file Karwas TUP.'));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -912,33 +1184,111 @@ export function downloadCapaianOutputTemplate() {
 export function downloadPengelolaanUPTemplate() {
   const sampleData = [
     {
+      'No': 1,
       'Kode Satker': '652189',
       'Nama Satker': 'POLRESTABES SEMARANG',
+      'Kementerian Lembaga': 'Kepolisian Negara Republik Indonesia',
       'Pagu UP (Rp)': 1200000000,
       'Nilai Besaran UP (Rp)': 100000000,
       'Realisasi GUP (Rp)': 85000000,
       'Sisa UP (Rp)': 15000000,
       'Persentase Revolving (%)': 85.0,
       'Frekuensi GUP': 4,
-      'Tanggal Terakhir SP2D': '15-08-2026'
+      'No SP2D Terakhir': '2602613010045231',
+      'Tanggal SP2D Terakhir': '25-07-2026',
+      'Hari Tanpa Revolving': 26,
+      'Batas Revolving (Kolom N)': '24-08-2026' // Kolom N (Batas Revolving / Jatuh Tempo)
     },
     {
+      'No': 2,
       'Kode Satker': '015432',
       'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'Kementerian Lembaga': 'Kementerian Agama',
       'Pagu UP (Rp)': 600000000,
       'Nilai Besaran UP (Rp)': 50000000,
       'Realisasi GUP (Rp)': 12500000,
       'Sisa UP (Rp)': 37500000,
       'Persentase Revolving (%)': 25.0,
       'Frekuensi GUP': 1,
-      'Tanggal Terakhir SP2D': '02-07-2026'
+      'No SP2D Terakhir': '2602613010021445',
+      'Tanggal SP2D Terakhir': '15-07-2026',
+      'Hari Tanpa Revolving': 35,
+      'Batas Revolving (Kolom N)': '23-08-2026' // Kolom N (Hari Minggu -> ajukan hari kerja sebelumnya)
+    },
+    {
+      'No': 3,
+      'Kode Satker': '415263',
+      'Nama Satker': 'KEJAKSAAN TINGGI JAWA TENGAH',
+      'Kementerian Lembaga': 'Kejaksaan Republik Indonesia',
+      'Pagu UP (Rp)': 800000000,
+      'Nilai Besaran UP (Rp)': 70000000,
+      'Realisasi GUP (Rp)': 62000000,
+      'Sisa UP (Rp)': 8000000,
+      'Persentase Revolving (%)': 88.6,
+      'Frekuensi GUP': 3,
+      'No SP2D Terakhir': '2602613010034112',
+      'Tanggal SP2D Terakhir': '28-07-2026',
+      'Hari Tanpa Revolving': 23,
+      'Batas Revolving (Kolom N)': '27-08-2026'
     }
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(sampleData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Pengelolaan UP TUP');
-  XLSX.writeFile(workbook, 'Template_Excel_Pengelolaan_UP_TUP.xlsx');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Pengelolaan UP');
+  XLSX.writeFile(workbook, 'Template_Excel_Pengelolaan_UP_KolomN.xlsx');
+}
+
+export function downloadKarwasTUPTemplate() {
+  const sampleData = [
+    {
+      'No': 1,
+      'Kode Satker': '652189',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'No Surat Persetujuan TUP': 'S-452/KPN.1401/2026',
+      'Tanggal Surat': '22-07-2026',
+      'Nomor SP2D TUP': '2602613020011928',
+      'Tanggal SP2D TUP': '25-07-2026',
+      'Batas Waktu TUP (Kolom H)': '25-08-2026', // Kolom H (Batas Waktu TUP / Pertanggungjawaban)
+      'Nilai TUP (Rp)': 350000000,
+      'Realisasi Pertanggungjawaban (Rp)': 280000000,
+      'Sisa TUP (Rp)': 70000000,
+      'Status TUP': 'Dalam Proses'
+    },
+    {
+      'No': 2,
+      'Kode Satker': '015432',
+      'Nama Satker': 'KANWIL KEMENTERIAN AGAMA PROVINSI JAWA TENGAH',
+      'No Surat Persetujuan TUP': 'S-412/KPN.1401/2026',
+      'Tanggal Surat': '20-07-2026',
+      'Nomor SP2D TUP': '2602613020009841',
+      'Tanggal SP2D TUP': '23-07-2026',
+      'Batas Waktu TUP (Kolom H)': '23-08-2026', // Kolom H (Hari Minggu -> Harap diajukan hari kerja sebelumnya)
+      'Nilai TUP (Rp)': 500000000,
+      'Realisasi Pertanggungjawaban (Rp)': 150000000,
+      'Sisa TUP (Rp)': 350000000,
+      'Status TUP': 'Kritis / Segera Jatuh Tempo'
+    },
+    {
+      'No': 3,
+      'Kode Satker': '652341',
+      'Nama Satker': 'PENGADILAN TINGGI SEMARANG',
+      'No Surat Persetujuan TUP': 'S-380/KPN.1401/2026',
+      'Tanggal Surat': '15-07-2026',
+      'Nomor SP2D TUP': '2602613020007621',
+      'Tanggal SP2D TUP': '18-07-2026',
+      'Batas Waktu TUP (Kolom H)': '18-08-2026',
+      'Nilai TUP (Rp)': 180000000,
+      'Realisasi Pertanggungjawaban (Rp)': 180000000,
+      'Sisa TUP (Rp)': 0,
+      'Status TUP': 'Lunas / Selesai'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Karwas TUP');
+  XLSX.writeFile(workbook, 'Template_Excel_Karwas_TUP_KolomH.xlsx');
 }
 
 export function downloadPejabatTemplate() {

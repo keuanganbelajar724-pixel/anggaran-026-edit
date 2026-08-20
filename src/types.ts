@@ -144,6 +144,13 @@ export interface PengelolaanUPRecord {
   nomorSp2dTerakhir?: string;
   nilaiSp2dTerakhir?: number;
   batasRevolving?: string; // Batas Revolving di Kolom N Excel
+  batasRevolvingKolomN?: string; // Alias for Kolom N
+  batasWaktuTUPKolomH?: string; // Alias for Kolom H
+  jenisDana?: 'UP' | 'TUP';
+  tanggalTerakhirSP2D?: string;
+  sisaHariRevolving?: number;
+  sisaHariTUP?: number;
+  isJatuhTempoLibur?: boolean;
   sisaHariBatasRevolving?: number; // Hitungan sisa hari menuju jatuh tempo
   isJatuhTempo1Minggu?: boolean; // Jatuh tempo dalam kurun waktu 1 minggu (<= 7 hari)
   isOverdue?: boolean; // Melewati batas revolving

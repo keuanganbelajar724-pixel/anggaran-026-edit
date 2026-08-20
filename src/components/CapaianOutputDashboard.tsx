@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SatkerIKPA, AppTheme, DashboardConfig } from '../types';
+import { SatkerIKPA, AppTheme, DashboardConfig, ExcelUploadHistory } from '../types';
 import { 
   FileCheck, 
   AlertCircle, 
@@ -16,7 +16,10 @@ import {
   ArrowUpRight,
   Zap,
   Info,
-  Calendar
+  Calendar,
+  Layers,
+  Check,
+  FolderArchive
 } from 'lucide-react';
 
 interface CapaianOutputDashboardProps {
@@ -24,6 +27,7 @@ interface CapaianOutputDashboardProps {
   onSelectSatker?: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
   onGoToUpload?: () => void;
+  onActivatePeriod?: (historyItem: ExcelUploadHistory) => void;
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
 }
@@ -33,14 +37,31 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   onSelectSatker,
   onOpenReminder,
   onGoToUpload,
+  onActivatePeriod,
   theme = 'light',
   dashboardConfig
 }) => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedHistoricalId, setSelectedHistoricalId] = useState<string>('ACTIVE');
+
+  // Available Capaian Output archives
+  const caputArchives = (dashboardConfig?.historicalUploads || []).filter(
+    h => h.category === 'CAPAIAN_OUTPUT'
+  );
+
+  // Active or selected archive
+  const selectedArchive = selectedHistoricalId === 'ACTIVE' 
+    ? null 
+    : caputArchives.find(h => h.id === selectedHistoricalId);
+
+  // Dataset to display: either from selected archive or current active satkers
+  const baseSatkers = selectedArchive && selectedArchive.satkersData && selectedArchive.satkersData.length > 0
+    ? selectedArchive.satkersData
+    : satkers;
 
   // Filter satkers yang memang memiliki data Capaian Output SAKTI (terisolasi dari IKPA)
-  const satkersWithOutput = satkers.filter(s => s.hasCapaianOutputData === true);
+  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData === true || (s.statusCapaianOutput && s.statusCapaianOutput !== 'Belum Terlaporkan') || (s.indikator && typeof s.indikator.capaianOutput === 'number'));
   const hasAnyOutput = satkersWithOutput.length > 0;
 
   // Statistics & Classification
@@ -109,7 +130,11 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               </div>
               <div className="inline-flex items-center gap-1.5 bg-slate-900/80 text-sky-200 border border-sky-500/30 px-3 py-1 rounded-full text-xs font-semibold">
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
-                <span>Data Diperbarui: <strong className="text-white">{dashboardConfig?.updateDates?.capaianOutput || 'Periode Juli 2026 (Diperbarui 07 Aug 2026)'}</strong></span>
+                <span>
+                  Periode Laporan: <strong className="text-white">
+                    {selectedArchive ? selectedArchive.periode : (dashboardConfig?.updateDates?.capaianOutput || 'Periode Juli 2026')}
+                  </strong>
+                </span>
               </div>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
@@ -137,6 +162,60 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Multi-Period Switcher Bar if archives exist */}
+        {caputArchives.length > 0 && (
+          <div className="pt-3 border-t border-sky-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-sky-300 font-bold flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5" />
+                Pilih Periode Capaian Output:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoricalId('ACTIVE')}
+                  className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+                    selectedHistoricalId === 'ACTIVE'
+                      ? 'bg-sky-500 text-white shadow-md'
+                      : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                  }`}
+                >
+                  ⚡ Periode Aktif
+                </button>
+                {caputArchives.map(arch => (
+                  <button
+                    key={arch.id}
+                    type="button"
+                    onClick={() => setSelectedHistoricalId(arch.id)}
+                    className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      selectedHistoricalId === arch.id
+                        ? 'bg-emerald-500 text-white shadow-md'
+                        : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span>{arch.periode}</span>
+                    {arch.isActive && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {selectedArchive && !selectedArchive.isActive && onActivatePeriod && (
+              <button
+                type="button"
+                onClick={() => {
+                  onActivatePeriod(selectedArchive);
+                  setSelectedHistoricalId('ACTIVE');
+                }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Jadikan Periode Aktif Utama</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Empty State Banner if no Capaian Output file uploaded */}
