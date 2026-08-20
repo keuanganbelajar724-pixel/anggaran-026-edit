@@ -26,7 +26,18 @@ export const INITIAL_SATKER_DATA: SatkerIKPA[] = [];
 export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] {
   if (!Array.isArray(histories) || histories.length === 0) return [];
   const ikpaHistories = histories.filter(h => (!h.category || h.category === 'IKPA') && Array.isArray(h.satkersData) && h.satkersData.length > 0);
-  if (ikpaHistories.length === 0) return [];
+  const caputHistories = histories.filter(h => h.category === 'CAPAIAN_OUTPUT' && Array.isArray(h.satkersData) && h.satkersData.length > 0);
+
+  if (ikpaHistories.length === 0 && caputHistories.length === 0) return [];
+
+  // Active or latest Capaian Output archive
+  const activeCaputHistory = caputHistories.find(h => h.isActive) || (caputHistories.length > 0 ? caputHistories[0] : null);
+  const caputMap = new Map<string, any>();
+  if (activeCaputHistory && Array.isArray(activeCaputHistory.satkersData)) {
+    activeCaputHistory.satkersData.forEach((c: any) => {
+      if (c.kodeSatker) caputMap.set(c.kodeSatker.trim(), c);
+    });
+  }
 
   const monthsOrder = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
@@ -85,6 +96,14 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         ? s.nilaiTotalIKPA 
         : (existing?.nilaiTotalIKPA || hitungTotalIKPA(effectiveIndikator));
 
+      const caputMatch = caputMap.get(kode);
+      const hasCaput = Boolean(activeCaputHistory && caputMatch);
+
+      const mergedIndikator = {
+        ...effectiveIndikator,
+        capaianOutput: hasCaput ? (caputMatch.indikator?.capaianOutput ?? 0) : 0
+      };
+
       const mergedSatker: SatkerIKPA = {
         ...(existing || {}),
         ...s,
@@ -93,20 +112,55 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         namaSatker: s.namaSatker || existing?.namaSatker || kode,
         kementerianLembaga: s.kementerianLembaga || existing?.kementerianLembaga || '-',
         hasIKPAData: true,
-        hasCapaianOutputData: existing ? existing.hasCapaianOutputData : (s.hasCapaianOutputData || false),
+        hasCapaianOutputData: hasCaput,
         nilaiTotalIKPA: finalIKPA,
         predikat: s.predikat || (existing?.predikat) || getPredikatIKPA(finalIKPA),
         paguAnggaran: s.paguAnggaran || existing?.paguAnggaran || 0,
         realisasiAnggaran: s.realisasiAnggaran || existing?.realisasiAnggaran || 0,
         persenPenyerapan: s.persenPenyerapan || existing?.persenPenyerapan || 0,
-        statusCapaianOutput: existing?.statusCapaianOutput || s.statusCapaianOutput || 'Belum Terlaporkan',
-        indikator: effectiveIndikator,
+        statusCapaianOutput: hasCaput ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') : 'Belum Terlaporkan',
+        indikator: mergedIndikator,
         riwayatBulanan: mergedHistory
       };
 
       satkerMap.set(kode, mergedSatker);
     });
   });
+
+  // If there are Capaian Output satkers not in IKPA, also include them
+  if (activeCaputHistory) {
+    (activeCaputHistory.satkersData || []).forEach((c: any) => {
+      const kode = c.kodeSatker?.trim();
+      if (kode && !satkerMap.has(kode)) {
+        satkerMap.set(kode, {
+          ...c,
+          id: c.id || `satker-${kode}`,
+          kodeSatker: kode,
+          namaSatker: c.namaSatker || kode,
+          kementerianLembaga: c.kementerianLembaga || '-',
+          hasIKPAData: false,
+          hasCapaianOutputData: true,
+          nilaiTotalIKPA: 0,
+          predikat: 'Cukup',
+          paguAnggaran: 0,
+          realisasiAnggaran: 0,
+          persenPenyerapan: 0,
+          statusCapaianOutput: c.statusCapaianOutput || 'Belum Terlaporkan',
+          indikator: c.indikator || {
+            revisiDipa: 0,
+            deviasiHal3Dipa: 0,
+            penyerapanAnggaran: 0,
+            belanjaKontraktual: 0,
+            penyelesaianTagihan: 0,
+            pengelolaanUpTup: 0,
+            dispensasiSpm: 0,
+            capaianOutput: c.indikator?.capaianOutput || 0
+          },
+          riwayatBulanan: []
+        });
+      }
+    });
+  }
 
   return Array.from(satkerMap.values());
 }

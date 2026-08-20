@@ -142,6 +142,22 @@ export function evaluateDeadlineDate(rawDateVal: any, referenceDate: Date = new 
   };
 }
 
+/**
+ * Format any deadline value into full day and date string (e.g. "Senin, 24 Agustus 2026")
+ */
+export function formatBatasHariTanggal(rawDate?: any): string {
+  if (!rawDate || String(rawDate).trim() === '' || String(rawDate).trim() === '-') return '-';
+  const str = String(rawDate).trim();
+  if (/^(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu)/i.test(str)) {
+    return str;
+  }
+  const evalRes = evaluateDeadlineDate(str);
+  if (evalRes.dayName && evalRes.formattedDate && evalRes.formattedDate !== '-') {
+    return `${evalRes.dayName}, ${evalRes.formattedDate}`;
+  }
+  return evalRes.formattedDate || str;
+}
+
 export const INITIAL_PENGELOLAAN_UP_RECORDS: PengelolaanUPRecord[] = [
   {
     id: 'up-652189-demo',

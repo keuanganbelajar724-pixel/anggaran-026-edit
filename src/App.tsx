@@ -977,19 +977,38 @@ export default function App() {
 
         // Determine if newS is predominantly IKPA or Capaian Output
         const isNewIKPA = newS.hasIKPAData === true || (newS.hasIKPAData !== false && (newS.nilaiTotalIKPA > 0 || newS.paguAnggaran > 0));
-        const isNewCaput = newS.hasCapaianOutputData === true || (newS.statusCapaianOutput && newS.statusCapaianOutput !== 'Belum Terlaporkan') || (newS.indikator && typeof newS.indikator.capaianOutput === 'number' && newS.indikator.capaianOutput > 0);
+        const isNewCaput = newS.hasCapaianOutputData === true;
 
         const existingHasIKPA = existing.hasIKPAData === true || (existing.hasIKPAData !== false && (existing.nilaiTotalIKPA > 0 || existing.paguAnggaran > 0));
         const existingHasCaput = existing.hasCapaianOutputData === true;
 
-        const effectiveHasIKPA = isNewIKPA || existingHasIKPA;
-        const effectiveHasCaput = isNewCaput || existingHasCaput;
+        // Tab-specific isolated data control:
+        // When managing Capaian Output tab: newSatkers has authoritative control over hasCapaianOutputData
+        let effectiveHasCaput = false;
+        if (targetTab === 'capaian-output') {
+          effectiveHasCaput = newS.hasCapaianOutputData === true;
+        } else {
+          effectiveHasCaput = isNewCaput || existingHasCaput;
+        }
+
+        let effectiveHasIKPA = false;
+        if (targetTab === 'dashboard') {
+          effectiveHasIKPA = newS.hasIKPAData !== false;
+        } else {
+          effectiveHasIKPA = isNewIKPA || existingHasIKPA;
+        }
 
         const effectivePagu = isNewIKPA ? newS.paguAnggaran : existing.paguAnggaran;
         const effectiveRealisasi = isNewIKPA ? newS.realisasiAnggaran : existing.realisasiAnggaran;
         const effectivePersen = isNewIKPA ? newS.persenPenyerapan : existing.persenPenyerapan;
 
-        const effectiveStatusCaput = isNewCaput ? newS.statusCapaianOutput : existing.statusCapaianOutput;
+        const effectiveStatusCaput = targetTab === 'capaian-output'
+          ? (effectiveHasCaput ? (newS.statusCapaianOutput || 'Belum Terlaporkan') : 'Belum Terlaporkan')
+          : (existingHasCaput ? existing.statusCapaianOutput : (newS.statusCapaianOutput || 'Belum Terlaporkan'));
+
+        const effectiveCaputValue = targetTab === 'capaian-output'
+          ? (effectiveHasCaput ? (newS.indikator?.capaianOutput || 0) : 0)
+          : (existingHasCaput ? (existing.indikator?.capaianOutput || 0) : (newS.indikator?.capaianOutput || 0));
 
         const mergedIndikator = {
           revisiDipa: isNewIKPA ? newS.indikator.revisiDipa : (existing.indikator?.revisiDipa || 0),
@@ -999,14 +1018,14 @@ export default function App() {
           penyelesaianTagihan: isNewIKPA ? newS.indikator.penyelesaianTagihan : (existing.indikator?.penyelesaianTagihan || 0),
           pengelolaanUpTup: isNewIKPA ? newS.indikator.pengelolaanUpTup : (existing.indikator?.pengelolaanUpTup || 0),
           dispensasiSpm: isNewIKPA ? newS.indikator.dispensasiSpm : (existing.indikator?.dispensasiSpm || 0),
-          capaianOutput: isNewCaput ? (newS.indikator?.capaianOutput || 0) : (existing.indikator?.capaianOutput || 0)
+          capaianOutput: effectiveCaputValue
         };
 
         const calculatedIKPATotal = effectiveHasIKPA 
           ? (isNewIKPA && typeof newS.nilaiTotalIKPA === 'number' && newS.nilaiTotalIKPA > 0
-              ? (isNewCaput ? hitungTotalIKPA(mergedIndikator) : newS.nilaiTotalIKPA)
+              ? (effectiveHasCaput ? hitungTotalIKPA(mergedIndikator) : newS.nilaiTotalIKPA)
               : (existing && existing.nilaiTotalIKPA > 0 
-                  ? (isNewCaput ? hitungTotalIKPA(mergedIndikator) : existing.nilaiTotalIKPA) 
+                  ? (effectiveHasCaput ? hitungTotalIKPA(mergedIndikator) : existing.nilaiTotalIKPA) 
                   : hitungTotalIKPA(mergedIndikator)
                 )
             ) 
@@ -1039,8 +1058,10 @@ export default function App() {
           return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
         });
 
-        const mergedIssues = [...(isNewIKPA ? (newS.issues || []) : (existing.issues || []))];
-        if (effectiveStatusCaput === 'Belum Terlaporkan' && !mergedIssues.some(i => i.toLowerCase().includes('capaian output'))) {
+        const mergedIssues = [...(isNewIKPA ? (newS.issues || []) : (existing.issues || []))].filter(
+          i => !i.toLowerCase().includes('capaian output')
+        );
+        if (effectiveHasCaput && effectiveStatusCaput === 'Belum Terlaporkan') {
           mergedIssues.push('Capaian Output Belum Diselesaikan (0%)');
         }
 
@@ -1365,6 +1386,9 @@ export default function App() {
                   onToggleActiveMasterSatker={handleToggleActiveMasterSatker}
                   pejabatList={pejabatSertifikasiList}
                   onUpdatePejabatList={handleUpdatePejabatList}
+                  pengelolaanUpRecords={pengelolaanUPList}
+                  onApplyPengelolaanUp={handleUpdatePengelolaanUP}
+                  onClearPengelolaanUp={() => handleUpdatePengelolaanUP([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

@@ -1,52 +1,51 @@
 import React, { useState, useMemo } from 'react';
 import {
   CreditCard,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
   Search,
-  Filter,
-  Download,
-  FileSpreadsheet,
+  Clock,
   Building2,
-  DollarSign,
-  ArrowUpRight,
-  ShieldAlert,
-  ChevronRight,
-  RotateCcw,
-  Sparkles,
-  Info,
   Calendar,
-  AlertCircle,
+  Sparkles,
   CalendarDays,
-  BellRing
+  FileSpreadsheet,
+  RotateCcw
 } from 'lucide-react';
 import { PengelolaanUPRecord, MasterSatker } from '../types';
+import { formatBatasHariTanggal } from '../data/initialUPData';
 
 interface PengelolaanUPDashboardProps {
   records?: PengelolaanUPRecord[];
+  upRecords?: PengelolaanUPRecord[];
   masterSatkers?: MasterSatker[];
   userRole?: 'ADMIN' | 'PESERTA' | 'GUEST';
   userSatkerCode?: string;
   onOpenUploadModal?: () => void;
+  onGoToAdmin?: () => void;
+  onOpenReminder?: (record: PengelolaanUPRecord) => void;
+  theme?: any;
+  isAdminAuthenticated?: boolean;
   customTexts?: any;
 }
 
 export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
-  records = [],
+  records,
+  upRecords,
   masterSatkers = [],
   userRole = 'GUEST',
   userSatkerCode,
   onOpenUploadModal,
+  onGoToAdmin,
+  isAdminAuthenticated,
   customTexts
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  // Default to 1-week filter as requested: "yang tampil di dashboard cukup yang masih ada di excel dalam kurun waktu 1 minggu"
-  const [activeFilter, setActiveFilter] = useState<'1_MINGGU' | 'ALL' | 'UP_ONLY' | 'TUP_ONLY' | 'KRITIS'>('1_MINGGU');
-  const [selectedRecord, setSelectedRecord] = useState<PengelolaanUPRecord | null>(null);
+  const activeRecords = useMemo(() => {
+    return (records && records.length > 0) ? records : (upRecords || []);
+  }, [records, upRecords]);
 
-  // Active Master Satker Map
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
+
+  // Active Master Satker Map for enrichment
   const activeSatkerMap = useMemo(() => {
     const map = new Map<string, MasterSatker>();
     if (masterSatkers && masterSatkers.length > 0) {
@@ -59,75 +58,57 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
     return map;
   }, [masterSatkers]);
 
-  // Filtered by role (if peserta, isolate to their own satker only)
+  // Role scoped records
   const scopedRecords = useMemo(() => {
-    let list = records;
+    let list = activeRecords;
     if (userRole === 'PESERTA' && userSatkerCode) {
       list = list.filter(r => r.kodeSatker === userSatkerCode);
     }
-    // Filter against master satkers if available
     if (activeSatkerMap.size > 0) {
       list = list.filter(r => activeSatkerMap.has(r.kodeSatker));
     }
     return list;
-  }, [records, userRole, userSatkerCode, activeSatkerMap]);
+  }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
 
   // Filtered by search & activeFilter
   const displayedRecords = useMemo(() => {
     return scopedRecords.filter(item => {
+      const q = searchTerm.toLowerCase();
       const matchSearch =
-        item.kodeSatker.includes(searchTerm) ||
-        item.namaSatker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.kementerianLembaga && item.kementerianLembaga.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.batasRevolvingKolomN && item.batasRevolvingKolomN.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.batasWaktuTUPKolomH && item.batasWaktuTUPKolomH.toLowerCase().includes(searchTerm.toLowerCase()));
+        item.kodeSatker.includes(q) ||
+        item.namaSatker.toLowerCase().includes(q) ||
+        (item.kementerianLembaga && item.kementerianLembaga.toLowerCase().includes(q)) ||
+        (item.batasRevolvingKolomN && item.batasRevolvingKolomN.toLowerCase().includes(q)) ||
+        (item.batasWaktuTUPKolomH && item.batasWaktuTUPKolomH.toLowerCase().includes(q)) ||
+        (item.batasRevolving && item.batasRevolving.toLowerCase().includes(q));
 
       let matchFilter = true;
       if (activeFilter === '1_MINGGU') {
-        // Kurun waktu 1 minggu (jatuh tempo <= 7 hari atau bertanda isJatuhTempo1Minggu)
         matchFilter = item.isJatuhTempo1Minggu === true || (item.sisaHariRevolving !== undefined && item.sisaHariRevolving >= 0 && item.sisaHariRevolving <= 7);
       } else if (activeFilter === 'UP_ONLY') {
-        matchFilter = !item.jenisDana || item.jenisDana === 'UP' || !!item.batasRevolvingKolomN;
+        matchFilter = !!(item.batasRevolvingKolomN || (item.jenisDana !== 'TUP' && item.batasRevolving));
       } else if (activeFilter === 'TUP_ONLY') {
-        matchFilter = item.jenisDana === 'TUP' || !!item.batasWaktuTUPKolomH;
-      } else if (activeFilter === 'KRITIS') {
-        matchFilter = item.peringatanKritis === true || item.statusRevolving === 'Lambat / Kritis' || item.statusRevolving === 'Belum Revolving';
+        matchFilter = !!(item.batasWaktuTUPKolomH || (item.jenisDana === 'TUP' || (item as any).batasWaktuTUP));
       }
 
       return matchSearch && matchFilter;
     });
   }, [scopedRecords, searchTerm, activeFilter]);
 
-  // Aggregated Stats
+  // Summary counts
   const stats = useMemo(() => {
-    const totalSatker = scopedRecords.length;
-    const totalPaguUP = scopedRecords.reduce((acc, curr) => acc + (curr.paguUP || 0), 0);
-    const totalRealisasiGUP = scopedRecords.reduce((acc, curr) => acc + (curr.realisasiGUP || 0), 0);
-    const avgRevolving = totalSatker > 0 ? (scopedRecords.reduce((acc, curr) => acc + (curr.persentaseRevolving || 0), 0) / totalSatker) : 0;
-    
-    // Count records with 1 week deadline
-    const satuMingguCount = scopedRecords.filter(r => r.isJatuhTempo1Minggu || (r.sisaHariRevolving !== undefined && r.sisaHariRevolving >= 0 && r.sisaHariRevolving <= 7)).length;
-    // Count records with weekend warning
-    const weekendWarningCount = scopedRecords.filter(r => r.isJatuhTempoLibur).length;
-    const kritisCount = scopedRecords.filter(r => r.statusRevolving === 'Lambat / Kritis' || r.statusRevolving === 'Belum Revolving' || r.peringatanKritis).length;
-    const optimalCount = scopedRecords.filter(r => r.statusRevolving === 'Optimal' || r.statusRevolving === 'Sangat Baik' || r.statusRevolving === 'Lancar / Normal').length;
+    const total = scopedRecords.length;
+    const countUP = scopedRecords.filter(r => r.batasRevolvingKolomN || (r.jenisDana !== 'TUP' && r.batasRevolving)).length;
+    const countTUP = scopedRecords.filter(r => r.batasWaktuTUPKolomH || (r.jenisDana === 'TUP' || (r as any).batasWaktuTUP)).length;
+    const satuMinggu = scopedRecords.filter(r => r.isJatuhTempo1Minggu || (r.sisaHariRevolving !== undefined && r.sisaHariRevolving >= 0 && r.sisaHariRevolving <= 7)).length;
 
     return {
-      totalSatker,
-      totalPaguUP,
-      totalRealisasiGUP,
-      avgRevolving: avgRevolving.toFixed(1),
-      satuMingguCount,
-      weekendWarningCount,
-      kritisCount,
-      optimalCount
+      total,
+      countUP,
+      countTUP,
+      satuMinggu
     };
   }, [scopedRecords]);
-
-  const formatRupiah = (num?: number) => {
-    if (!num) return 'Rp 0';
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num);
-  };
 
   return (
     <div className="space-y-6">
@@ -138,124 +119,116 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-black uppercase tracking-wider">
               <CreditCard className="w-3.5 h-3.5" />
-              <span>{customTexts?.pengelolaanUpBadge || 'MODUL PENGELOLAAN UP / TUP & GUP'}</span>
+              <span>{customTexts?.pengelolaanUpBadge || 'MODUL BATAS WAKTU UP & TUP'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              {customTexts?.pengelolaanUpTitle || 'Pengelolaan & Batas Revolving UP / Karwas TUP'}
+              {customTexts?.pengelolaanUpTitle || 'Monitoring Batas Waktu UP & TUP'}
             </h1>
             <p className="text-sm text-slate-300">
-              {customTexts?.pengelolaanUpSubtitle || 'Monitoring batas revolving Uang Persediaan (Kolom N) & Karwas TUP (Kolom H) dalam kurun waktu 1 minggu untuk mitigasi keterlambatan SPM.'}
+              {customTexts?.pengelolaanUpSubtitle || 'Monitoring batas waktu UP (Kolom N) & Karwas TUP (Kolom H) per Satker dalam format hari dan tanggal.'}
             </p>
           </div>
 
-          {userRole === 'ADMIN' && onOpenUploadModal && (
+          {(userRole === 'ADMIN' || isAdminAuthenticated) && onGoToAdmin && (
             <button
-              onClick={onOpenUploadModal}
+              onClick={onGoToAdmin}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black px-5 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all cursor-pointer text-sm shrink-0"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>Upload Data UP (Kolom N) / TUP (Kolom H)</span>
+              <span>Kelola / Upload UP &amp; TUP</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* MANDATORY WARNING BANNER: HARI LIBUR & JATUH TEMPO */}
-      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-0.5 rounded-3xl shadow-lg">
-        <div className="bg-amber-50 dark:bg-slate-950 p-5 sm:p-6 rounded-[22px] flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="p-3 bg-amber-500 text-slate-950 rounded-2xl shrink-0 shadow-md font-black">
-            <BellRing className="w-7 h-7 animate-bounce" />
-          </div>
-          <div className="space-y-1 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wide">
-                PERINGATAN RESMI JATUH TEMPO REVOLVING
-              </span>
-              <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                Seksi MSKI KPPN Semarang I
-              </span>
-            </div>
-            <h3 className="text-base sm:text-lg font-black text-amber-950 dark:text-amber-200 uppercase tracking-tight">
-              Tolong perhatikan hari libur apabila jatuh tempo harap diajukan HARI KERJA sebelum libur
-            </h3>
-            <p className="text-xs text-amber-900 dark:text-slate-300 leading-relaxed">
-              Batas revolving UP tercantum pada <strong>Kolom N</strong> dan Karwas TUP pada <strong>Kolom H</strong>. Apabila tanggal batas revolving jatuh pada hari Sabtu, Minggu, atau Hari Libur Nasional, SPM GUP / Pertanggungjawaban TUP wajib diajukan ke KPPN pada <strong>HARI KERJA TERAKHIR SEBELUM LIBUR</strong>.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: 1 Minggu Jatuh Tempo */}
-        <div className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
-          activeFilter === '1_MINGGU'
-            ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-        }`} onClick={() => setActiveFilter('1_MINGGU')}>
+        {/* Card 1: Total Satker */}
+        <div
+          onClick={() => setActiveFilter('ALL')}
+          className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
+            activeFilter === 'ALL'
+              ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/30'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Jatuh Tempo Kurun 1 Minggu</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
-            {stats.satuMingguCount} <span className="text-xs font-semibold text-slate-400">Satker</span>
-          </div>
-          <div className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Tampil default di dashboard (Kolom N / H)</div>
-        </div>
-
-        {/* Card 2: Weekend/Holiday Warning */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-2">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">Jatuh Tempo Hari Libur</span>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-rose-600 dark:text-rose-400">
-            {stats.weekendWarningCount} <span className="text-xs font-semibold text-slate-400">Satker</span>
-          </div>
-          <div className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold">Wajib diajukan HARI KERJA sebelumnya</div>
-        </div>
-
-        {/* Card 3: Total Satker UP/TUP */}
-        <div className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
-          activeFilter === 'ALL'
-            ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/30'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-        }`} onClick={() => setActiveFilter('ALL')}>
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Satker UP & TUP</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Total Satker</span>
             <Building2 className="w-4 h-4 text-purple-500" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100">
-            {stats.totalSatker} <span className="text-xs font-semibold text-slate-400">Satker</span>
+            {stats.total} <span className="text-xs font-semibold text-slate-400">Satker</span>
           </div>
-          <div className="text-[11px] text-slate-500">Seluruh satker yang mengelola UP/TUP</div>
+          <div className="text-[11px] text-slate-500">Seluruh Satker terdaftar</div>
         </div>
 
-        {/* Card 4: Total Realisasi GUP */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-2">
+        {/* Card 2: Batas Waktu UP */}
+        <div
+          onClick={() => setActiveFilter('UP_ONLY')}
+          className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
+            activeFilter === 'UP_ONLY'
+              ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/30'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Total Realisasi GUP</span>
-            <DollarSign className="w-4 h-4 text-emerald-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">Batas Waktu UP</span>
+            <Calendar className="w-4 h-4 text-purple-500" />
           </div>
-          <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-slate-100 truncate" title={formatRupiah(stats.totalRealisasiGUP)}>
-            {formatRupiah(stats.totalRealisasiGUP)}
+          <div className="text-2xl sm:text-3xl font-black text-purple-600 dark:text-purple-400">
+            {stats.countUP} <span className="text-xs font-semibold text-slate-400">Satker</span>
           </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" />
-            <span>Rata-rata revolving: {stats.avgRevolving}%</span>
+          <div className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold">Memiliki batas revolving UP</div>
+        </div>
+
+        {/* Card 3: Batas Waktu TUP */}
+        <div
+          onClick={() => setActiveFilter('TUP_ONLY')}
+          className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
+            activeFilter === 'TUP_ONLY'
+              ? 'bg-sky-500/10 border-sky-500 ring-2 ring-sky-500/30'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400">Batas Waktu TUP</span>
+            <CalendarDays className="w-4 h-4 text-sky-500" />
           </div>
+          <div className="text-2xl sm:text-3xl font-black text-sky-600 dark:text-sky-400">
+            {stats.countTUP} <span className="text-xs font-semibold text-slate-400">Satker</span>
+          </div>
+          <div className="text-[11px] text-sky-700 dark:text-sky-300 font-semibold">Memiliki batas waktu TUP</div>
+        </div>
+
+        {/* Card 4: 1 Minggu Jatuh Tempo */}
+        <div
+          onClick={() => setActiveFilter('1_MINGGU')}
+          className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
+            activeFilter === '1_MINGGU'
+              ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+          }`}
+        >
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Kurun 1 Minggu</span>
+            <Clock className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
+            {stats.satuMinggu} <span className="text-xs font-semibold text-slate-400">Satker</span>
+          </div>
+          <div className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Jatuh tempo &le; 7 hari</div>
         </div>
       </div>
 
-      {/* Main Table & Filters */}
+      {/* Main Table Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        {/* Filter Toolbar */}
+        {/* Toolbar & Filters */}
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           <div className="relative w-full md:w-80">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari kode, nama satker, tanggal..."
+              placeholder="Cari kode, nama satker, hari, tanggal..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-slate-100"
@@ -264,26 +237,26 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
             <button
-              onClick={() => setActiveFilter('1_MINGGU')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeFilter === '1_MINGGU'
-                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
-                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
-              }`}
-            >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Kurun 1 Minggu ({stats.satuMingguCount})</span>
-            </button>
-
-            <button
               onClick={() => setActiveFilter('ALL')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 activeFilter === 'ALL'
                   ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
               }`}
             >
               Semua ({scopedRecords.length})
+            </button>
+
+            <button
+              onClick={() => setActiveFilter('1_MINGGU')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeFilter === '1_MINGGU'
+                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Kurun 1 Minggu ({stats.satuMinggu})</span>
             </button>
 
             <button
@@ -294,7 +267,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                   : 'bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900'
               }`}
             >
-              Pengelolaan UP (Kolom N)
+              Batas Waktu UP ({stats.countUP})
             </button>
 
             <button
@@ -305,19 +278,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                   : 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-900'
               }`}
             >
-              Karwas TUP (Kolom H)
-            </button>
-
-            <button
-              onClick={() => setActiveFilter('KRITIS')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                activeFilter === 'KRITIS'
-                  ? 'bg-rose-600 text-white shadow-sm'
-                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900'
-              }`}
-            >
-              <AlertTriangle className="w-3 h-3" />
-              <span>Kritis ({stats.kritisCount})</span>
+              Batas Waktu TUP ({stats.countTUP})
             </button>
           </div>
         </div>
@@ -327,7 +288,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Menampilkan satker yang memiliki batas revolving / jatuh tempo dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong>.</span>
+              <span>Menampilkan satker yang memiliki batas waktu dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong>.</span>
             </div>
             <button
               onClick={() => setActiveFilter('ALL')}
@@ -344,8 +305,8 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             <CreditCard className="w-12 h-12 text-slate-300 mx-auto" />
             <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
               {activeFilter === '1_MINGGU'
-                ? 'Tidak ada satker dengan batas revolving dalam kurun waktu 1 minggu.'
-                : 'Belum ada data Pengelolaan UP / Karwas TUP.'}
+                ? 'Tidak ada satker dengan batas waktu dalam kurun waktu 1 minggu.'
+                : 'Belum ada data Batas Waktu UP & TUP.'}
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {activeFilter === '1_MINGGU' ? (
@@ -356,7 +317,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                   Klik di sini untuk melihat semua data ({scopedRecords.length} Satker)
                 </button>
               ) : (
-                'Silakan unggah file Excel Pengelolaan UP (Kolom N) atau Karwas TUP (Kolom H).'
+                'Silakan unggah data batas waktu UP (Kolom N) atau TUP (Kolom H) melalui menu Kelola Data.'
               )}
             </p>
           </div>
@@ -365,100 +326,49 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700 uppercase">
-                  <th className="py-3 px-3">KODE &amp; SATKER</th>
-                  <th className="py-3 px-3">JENIS</th>
-                  <th className="py-3 px-3">BATAS REVOLVING / TUP</th>
-                  <th className="py-3 px-3 text-right">NILAI UP / TUP</th>
-                  <th className="py-3 px-3 text-right">REALISASI GUP</th>
-                  <th className="py-3 px-3 text-right">SISA KAS</th>
-                  <th className="py-3 px-3 text-center">% REVOLVING</th>
-                  <th className="py-3 px-3 text-center">STATUS &amp; SARAN HARI KERJA</th>
-                  <th className="py-3 px-3 text-center">AKSI</th>
+                  <th className="py-3 px-3 w-12 text-center">NO</th>
+                  <th className="py-3 px-4">KODE &amp; SATKER</th>
+                  <th className="py-3 px-4">BATAS WAKTU UP</th>
+                  <th className="py-3 px-4">BATAS WAKTU TUP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedRecords.map((item) => {
-                  const isKritis = item.statusRevolving === 'Lambat / Kritis' || item.statusRevolving === 'Belum Revolving' || item.peringatanKritis;
-                  const deadlineDate = item.batasRevolvingKolomN || item.batasWaktuTUPKolomH || item.tanggalTerakhirSP2D || '-';
+                {displayedRecords.map((item, idx) => {
+                  const upDeadline = formatBatasHariTanggal(item.batasRevolvingKolomN || (item.jenisDana !== 'TUP' ? item.batasRevolving : undefined));
+                  const tupDeadline = formatBatasHariTanggal(item.batasWaktuTUPKolomH || (item.jenisDana === 'TUP' ? (item as any).batasWaktuTUP || item.batasRevolving : undefined));
 
                   return (
                     <tr
-                      key={item.id}
-                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
-                        item.isJatuhTempoLibur ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
-                      }`}
+                      key={item.id || idx}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="py-3 px-3">
-                        <div className="font-mono font-black text-slate-900 dark:text-slate-100">{item.kodeSatker}</div>
-                        <div className="text-slate-800 dark:text-slate-200 font-semibold line-clamp-1">{item.namaSatker}</div>
-                        <div className="text-[10px] text-slate-400">{item.kementerianLembaga || '-'}</div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                          item.jenisDana === 'TUP' || item.batasWaktuTUPKolomH
-                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300'
-                            : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                        }`}>
-                          {item.jenisDana || (item.batasWaktuTUPKolomH ? 'TUP' : 'UP')}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="font-mono font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-purple-600" />
-                          <span>{deadlineDate}</span>
-                        </div>
-                        {item.isJatuhTempo1Minggu && (
-                          <span className="inline-block mt-0.5 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded">
-                            ⏳ &le; 1 Minggu
-                          </span>
+                      <td className="py-3 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-slate-900 dark:text-slate-100">{item.namaSatker}</div>
+                        <div className="font-mono text-purple-600 dark:text-purple-400 font-semibold">{item.kodeSatker}</div>
+                        {item.kementerianLembaga && (
+                          <div className="text-[10px] text-slate-400">{item.kementerianLembaga}</div>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-800 dark:text-slate-200">
-                        {formatRupiah(item.nilaiUP || item.paguUP)}
+                      <td className="py-3 px-4">
+                        {upDeadline !== '-' ? (
+                          <div className="font-mono font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                            <span>{upDeadline}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-mono">-</span>
+                        )}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                        {formatRupiah(item.realisasiGUP)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono font-bold text-slate-600 dark:text-slate-400">
-                        {formatRupiah(item.sisaUP)}
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className={`inline-block px-2.5 py-1 rounded-full font-black text-[11px] ${
-                          item.persentaseRevolving >= 75
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : item.persentaseRevolving >= 50
-                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                        }`}>
-                          {item.persentaseRevolving}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            !isKritis
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                              : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                          }`}>
-                            {!isKritis ? <CheckCircle2 className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
-                            <span>{item.statusRevolving}</span>
-                          </span>
-
-                          {/* Weekend & Holiday Notice */}
-                          {item.isJatuhTempoLibur && (
-                            <div className="text-[10px] text-amber-700 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-800">
-                              ⚠️ Harap ajukan: <strong>{item.saranTglPengajuan || 'Hari kerja sebelumnya'}</strong>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <button
-                          onClick={() => setSelectedRecord(item)}
-                          className="px-2.5 py-1 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-200 dark:hover:bg-purple-900 transition-colors cursor-pointer text-xs"
-                        >
-                          Detail
-                        </button>
+                      <td className="py-3 px-4">
+                        {tupDeadline !== '-' ? (
+                          <div className="font-mono font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <span>{tupDeadline}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 font-mono">-</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -468,97 +378,6 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           </div>
         )}
       </div>
-
-      {/* Detail Modal */}
-      {selectedRecord && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-lg w-full p-6 space-y-4 shadow-2xl animate-scale-in">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-purple-600 bg-purple-50 dark:bg-purple-950 px-2 py-0.5 rounded-full">
-                  DETAIL PENGELOLAAN UP &amp; BATAS REVOLVING
-                </span>
-                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100 mt-1">
-                  [{selectedRecord.kodeSatker}] {selectedRecord.namaSatker}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold p-1 cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              {/* Peringatan Libur if applicable */}
-              {selectedRecord.isJatuhTempoLibur && (
-                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-500 rounded-2xl text-amber-900 dark:text-amber-200 space-y-1">
-                  <div className="font-extrabold flex items-center gap-1.5 text-amber-800 dark:text-amber-300">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <span>PERHATIAN HARI LIBUR / AKHIR PEKAN:</span>
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Tanggal jatuh tempo ({selectedRecord.batasRevolvingKolomN || selectedRecord.batasWaktuTUPKolomH}) jatuh pada akhir pekan/libur. Harap ajukan SPM pada hari kerja sebelum libur: <strong>{selectedRecord.saranTglPengajuan}</strong>.
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div>
-                  <span className="text-slate-500 block">Batas Revolving (Kolom N / H):</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100">
-                    {selectedRecord.batasRevolvingKolomN || selectedRecord.batasWaktuTUPKolomH || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Saran Tgl Pengajuan SPM:</span>
-                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                    {selectedRecord.saranTglPengajuan || '-'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Besaran Nilai UP / TUP:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{formatRupiah(selectedRecord.nilaiUP || selectedRecord.paguUP)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Realisasi GUP:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatRupiah(selectedRecord.realisasiGUP)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Sisa Saldo Kas:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{formatRupiah(selectedRecord.sisaUP)}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Persentase Revolving:</span>
-                  <span className="font-extrabold text-purple-600 dark:text-purple-400">{selectedRecord.persentaseRevolving}%</span>
-                </div>
-              </div>
-
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <Info className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Rekomendasi Petugas KPPN Semarang I:</span>
-                </div>
-                <p className="text-[11px] leading-relaxed">
-                  {selectedRecord.persentaseRevolving < 75
-                    ? 'Satker belum mencapai revolving minimal (75%). Harap segera menyusun dan mengajukan SPM GUP ke KPPN Semarang I sebelum tanggal batas akhir.'
-                    : 'Pengelolaan dana UP/TUP terpantau lancar dan telah memenuhi ketentuan regulasi perbendaharaan.'}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setSelectedRecord(null)}
-                className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer"
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

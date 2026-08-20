@@ -61,7 +61,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     : satkers;
 
   // Filter satkers yang memang memiliki data Capaian Output SAKTI (terisolasi dari IKPA)
-  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData === true || (s.statusCapaianOutput && s.statusCapaianOutput !== 'Belum Terlaporkan') || (s.indikator && typeof s.indikator.capaianOutput === 'number'));
+  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData === true);
   const hasAnyOutput = satkersWithOutput.length > 0;
 
   // Statistics & Classification

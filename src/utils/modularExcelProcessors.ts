@@ -649,6 +649,9 @@ export async function validatePengelolaanUPExcelFile(
             : (row[13] !== undefined && row[13] !== '' ? row[13] : '25-08-2026');
 
           const deadlineEval = evaluateDeadlineDate(rawBatas);
+          const formattedHariTanggal = deadlineEval.dayName && deadlineEval.formattedDate && deadlineEval.formattedDate !== '-'
+            ? `${deadlineEval.dayName}, ${deadlineEval.formattedDate}`
+            : deadlineEval.formattedDate;
 
           let statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' = 'Optimal';
           if (deadlineEval.isOverdue) {
@@ -669,6 +672,7 @@ export async function validatePengelolaanUPExcelFile(
             namaSatker: master.namaSatker,
             kementerianLembaga: master.kementerianLembaga || '',
             kodeBa: master.kodeBa || '',
+            jenisDana: 'UP',
             paguUP,
             nilaiUP,
             realisasiGUP,
@@ -680,7 +684,8 @@ export async function validatePengelolaanUPExcelFile(
             statusRevolving,
             nomorSp2dTerakhir,
             tglTerakhirSP2D,
-            batasRevolving: deadlineEval.formattedDate,
+            batasRevolving: formattedHariTanggal,
+            batasRevolvingKolomN: formattedHariTanggal,
             sisaHariBatasRevolving: deadlineEval.sisaHari,
             isJatuhTempo1Minggu: deadlineEval.is1Minggu,
             isOverdue: deadlineEval.isOverdue,
@@ -693,7 +698,7 @@ export async function validatePengelolaanUPExcelFile(
               : deadlineEval.isWeekend
               ? `Jatuh tempo bertepatan hari ${deadlineEval.dayName}. Wajib diajukan hari kerja sebelum libur (${deadlineEval.saranTglPengajuan})!`
               : deadlineEval.is1Minggu
-              ? `Jatuh tempo dalam ${deadlineEval.sisaHari} hari (${deadlineEval.formattedDate}). Segera ajukan SPM GUP.`
+              ? `Jatuh tempo dalam ${deadlineEval.sisaHari} hari (${formattedHariTanggal}). Segera ajukan SPM GUP.`
               : 'Revolving berjalan normal.',
             periode: periodeFormatted,
             tahun,
@@ -879,6 +884,9 @@ export async function validateKarwasTUPExcelFile(
             : (row[7] !== undefined && row[7] !== '' ? row[7] : '25-08-2026');
 
           const deadlineEval = evaluateDeadlineDate(rawBatas);
+          const formattedHariTanggal = deadlineEval.dayName && deadlineEval.formattedDate && deadlineEval.formattedDate !== '-'
+            ? `${deadlineEval.dayName}, ${deadlineEval.formattedDate}`
+            : deadlineEval.formattedDate;
 
           let statusTUP: 'Lunas / Selesai' | 'Dalam Proses' | 'Kritis / Segera Jatuh Tempo' | 'Lewat Batas Waktu' = 'Dalam Proses';
           if (persenPertanggungjawaban >= 100 || sisaTUP <= 0) {
@@ -897,6 +905,7 @@ export async function validateKarwasTUPExcelFile(
             namaSatker: master.namaSatker,
             kementerianLembaga: master.kementerianLembaga || '',
             kodeBa: master.kodeBa || '',
+            jenisDana: 'TUP',
             nomorSuratPersetujuan,
             tglPersetujuan,
             nomorSp2dTUP,
@@ -905,7 +914,8 @@ export async function validateKarwasTUPExcelFile(
             realisasiPertanggungjawaban,
             sisaTUP,
             persenPertanggungjawaban,
-            batasWaktuTUP: deadlineEval.formattedDate,
+            batasWaktuTUP: formattedHariTanggal,
+            batasWaktuTUPKolomH: formattedHariTanggal,
             sisaHariBatasWaktuTUP: deadlineEval.sisaHari,
             isJatuhTempo1Minggu: deadlineEval.is1Minggu,
             isOverdue: deadlineEval.isOverdue,
@@ -919,7 +929,7 @@ export async function validateKarwasTUPExcelFile(
               : deadlineEval.isWeekend
               ? `Jatuh tempo hari ${deadlineEval.dayName}. Harap diajukan SPM PTUP / Setor pada hari kerja sebelum libur (${deadlineEval.saranTglPengajuan})!`
               : deadlineEval.is1Minggu
-              ? `Batas waktu tersisa ${deadlineEval.sisaHari} hari (${deadlineEval.formattedDate}). Segera pertanggungjawabkan.`
+              ? `Batas waktu tersisa ${deadlineEval.sisaHari} hari (${formattedHariTanggal}). Segera pertanggungjawabkan.`
               : 'Dalam masa pertanggungjawaban 30 hari.',
             periode: periodeFormatted,
             tahun,

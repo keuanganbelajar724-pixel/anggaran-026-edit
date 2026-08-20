@@ -186,6 +186,7 @@ export interface PengelolaanUPUploadBatch {
 export interface KarwasTUPRecord {
   id: string;
   batchId?: string;
+  jenisDana?: 'UP' | 'TUP';
   kodeSatker: string;
   namaSatker: string;
   kementerianLembaga?: string;
@@ -199,6 +200,7 @@ export interface KarwasTUPRecord {
   sisaTUP: number;
   persenPertanggungjawaban: number;
   batasWaktuTUP: string; // Batas Waktu TUP di Kolom H Excel
+  batasWaktuTUPKolomH?: string; // Batas Waktu TUP di Kolom H Excel (Formatted Day & Date)
   sisaHariBatasWaktuTUP?: number; // Hitungan sisa hari
   isJatuhTempo1Minggu?: boolean; // Dalam kurun waktu 1 minggu (<= 7 hari)
   isOverdue?: boolean; // Melewati batas waktu TUP

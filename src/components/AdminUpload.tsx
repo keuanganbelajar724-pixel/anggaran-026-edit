@@ -2276,7 +2276,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 capaianOutput: 0
               }
             }));
-            onApplyNewSatkers(resetSatkers, false);
+            onApplyNewSatkers(resetSatkers, false, 'capaian-output');
           } else if (target?.isActive) {
             const nextActive = remainingCaput[0];
             const updatedWithActive = newHistoryList.map(h => {
@@ -2302,7 +2302,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               }
               return s;
             });
-            onApplyNewSatkers(updatedSatkers, false);
+            onApplyNewSatkers(updatedSatkers, false, 'capaian-output');
           }
         } else if (targetCat === 'SERTIFIKASI') {
           const remainingSert = newHistoryList.filter(h => h.category === 'SERTIFIKASI');
@@ -8044,6 +8044,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               onClearCapaianOutputData={() => {
                 const resetSatkers = satkers.map(s => ({
                   ...s,
+                  hasCapaianOutputData: false,
                   statusCapaianOutput: 'Belum Terlaporkan' as const,
                   indikator: { ...s.indikator, capaianOutput: 0 }
                 }));
