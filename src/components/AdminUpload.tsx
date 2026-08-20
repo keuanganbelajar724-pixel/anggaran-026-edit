@@ -18,12 +18,14 @@ import {
   PesertaPresensi,
   NavigationTab,
   MasterSatker,
-  PengelolaanUPRecord
+  PengelolaanUPRecord,
+  TransaksiKKPRecord
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
 import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
 import { UploadTUPSection } from './admin/UploadTUPSection';
+import { UploadKKPSection } from './admin/UploadKKPSection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
@@ -114,7 +116,8 @@ import {
   PenTool,
   Unlock,
   FileDown,
-  UserCheck
+  UserCheck,
+  CreditCard
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -150,6 +153,9 @@ interface AdminUploadProps {
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   onApplyPengelolaanUp?: (records: PengelolaanUPRecord[]) => void;
   onClearPengelolaanUp?: () => void;
+  transaksiKkpRecords?: TransaksiKKPRecord[];
+  onApplyTransaksiKkp?: (records: TransaksiKKPRecord[]) => void;
+  onClearTransaksiKkp?: () => void;
   onClearMasterSatkers?: () => void;
 }
 
@@ -317,6 +323,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   pengelolaanUpRecords = [],
   onApplyPengelolaanUp,
   onClearPengelolaanUp,
+  transaksiKkpRecords = [],
+  onApplyTransaksiKkp,
+  onClearTransaksiKkp,
   onClearMasterSatkers
 }) => {
   const isDark = theme === 'dark';
@@ -324,8 +333,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   // Navigation inside Admin Panel
   const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs'>('upload');
   
-  // Dedicated Upload Sub-Tabs (3 Main Tabs + TUP)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp'>('ikpa');
 
   // Presensi Admin State
   const [selectedPresensiKegiatanId, setSelectedPresensiKegiatanId] = useState<string | null>(null);
@@ -8014,6 +8023,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {pengelolaanUpRecords.length} Catatan UP/TUP
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('kkp')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'kkp'
+                    ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
+                  <CreditCard className="w-5 h-5 text-blue-600 shrink-0" />
+                  <span>5. Transaksi KKP (GUP)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Rekap Transaksi Kartu Kredit Pemerintah &amp; GUP KKP Satker.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400">
+                  {transaksiKkpRecords.length} Transaksi KKP
+                </div>
+              </button>
             </div>
           </div>
 
@@ -8080,6 +8110,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               pengelolaanUpRecords={pengelolaanUpRecords}
               onApplyPengelolaanUp={onApplyPengelolaanUp || (() => {})}
               onClearPengelolaanUp={onClearPengelolaanUp || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'kkp' && (
+            <UploadKKPSection
+              isDark={isDark}
+              satkers={satkers}
+              masterSatkers={masterSatkers}
+              transaksiKkpRecords={transaksiKkpRecords}
+              onApplyTransaksiKkp={onApplyTransaksiKkp || (() => {})}
+              onClearTransaksiKkp={onClearTransaksiKkp || (() => {})}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}

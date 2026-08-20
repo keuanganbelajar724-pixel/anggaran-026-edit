@@ -999,14 +999,85 @@ export async function processSertifikasiExcel(file: File): Promise<{
           const nip = cleanText(getVal('nip', 'nipofficer', 'nippejabat'));
           const nama = cleanText(getVal('namapejabat', 'nama', 'nmpejabat')) || `Pejabat Satker ${idx + 1}`;
           const kdSatker = cleanText(getVal('kodesatker', 'kdsatker', 'satker', 'kode')).padStart(6, '0');
-          const nmSatker = cleanText(getVal('namasatker', 'nmsatker')) || `SATKER KPPN ${kdSatker}`;
+          const nmSatker = cleanText(getVal('namasatker', 'nmsatker', 'satker')) || `SATKER KPPN ${kdSatker}`;
           const nmJabatan = cleanText(getVal('namajabatan', 'nmjabatan', 'jabatan', 'role')) || 'Pejabat Perbendaharaan';
           let noSertifikat = cleanText(getVal('nomorsertifikat', 'nosertifikat', 'sertifikat', 'nosert'));
-          if (!noSertifikat || noSertifikat === '-' || noSertifikat === '0') {
-            noSertifikat = 'Tidak Ada';
-          }
           const tglSertifikat = cleanText(getVal('tanggalsertifikat', 'tglsertifikat', 'tglterbit'));
           const tglKadaluarsa = cleanText(getVal('tanggalkadaluarsa', 'tglkadaluarsa', 'exp'));
+          const statusJabatan = cleanText(getVal('statusjabatan', 'stsjabatan')) || 'Aktif';
+          const statusUsulan = cleanText(getVal('statususulan', 'usulan')) || (noSertifikat ? 'Belum Diusulkan' : 'Belum rekam usulan');
+          const kppn = cleanText(getVal('kppn', 'namakppn')) || 'SEMARANG I';
+          const kl = cleanText(getVal('kl', 'kementerianlembaga', 'kementerian'));
+          const tglDownload = cleanText(getVal('tanggaldownload', 'tgldownload')) || new Date().toLocaleDateString('id-ID');
+
+          let kategoriData: 'BELUM_SERTIFIKAT' | 'BELUM_PERPANJANGAN' | 'TERSERTIFIKASI_AKTIF' = 'BELUM_SERTIFIKAT';
+          let statusSertifikasi: 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Tersertifikasi' | 'Kadaluarsa' = 'Belum Tersertifikasi';
+          let sisaHari = 0;
+          let isKadaluarsa = false;
+          let isMendekatiKadaluarsa = false;
+
+          if (tglKadaluarsa || (noSertifikat && noSertifikat !== '-' && noSertifikat.toUpperCase() !== 'BELUM ADA' && noSertifikat.toUpperCase() !== 'TIDAK ADA')) {
+            kategoriData = 'BELUM_PERPANJANGAN';
+            statusSertifikasi = 'Belum Perpanjangan';
+
+            if (tglKadaluarsa) {
+              let expDate: Date | null = null;
+              if (tglKadaluarsa.includes('-')) {
+                const parts = tglKadaluarsa.split('-');
+                if (parts[0].length === 4) {
+                  expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                } else if (parts[2].length === 4) {
+                  expDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                }
+              } else if (tglKadaluarsa.includes('/')) {
+                const parts = tglKadaluarsa.split('/');
+                if (parts[2].length === 4) {
+                  expDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                }
+              }
+
+              if (expDate && !isNaN(expDate.getTime())) {
+                const today = new Date();
+                const diffTime = expDate.getTime() - today.getTime();
+                sisaHari = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (sisaHari <= 0) {
+                  isKadaluarsa = true;
+                  statusSertifikasi = 'Kadaluarsa';
+                } else if (sisaHari <= 60) {
+                  isMendekatiKadaluarsa = true;
+                }
+              }
+            }
+          } else {
+            kategoriData = 'BELUM_SERTIFIKAT';
+            statusSertifikasi = 'Belum Tersertifikasi';
+            noSertifikat = 'Belum Ada';
+          }
+
+          let catatanRekomendasi = '';
+          if (kategoriData === 'BELUM_SERTIFIKAT') {
+            if (statusUsulan.toLowerCase().includes('antrean diklat')) {
+              catatanRekomendasi = 'Pantau pemanggilan diklat e-learning BNT/PNT di Kemenkeu Learning Center.';
+            } else if (statusUsulan.toLowerCase().includes('verifikasi')) {
+              catatanRekomendasi = 'Berkas usulan sedang diverifikasi unit pembina di SIMASPATI.';
+            } else if (statusUsulan.toLowerCase().includes('jadwal') || statusUsulan.toLowerCase().includes('uji kompetensi')) {
+              catatanRekomendasi = 'Pejabat dijadwalkan Ujian Kompetensi. Harap hadir tepat waktu.';
+            } else {
+              catatanRekomendasi = 'Segera rekam usulan penilaian kompetensi di aplikasi SIMASPATI.';
+            }
+          } else {
+            if (statusJabatan.toLowerCase() === 'aktif') {
+              if (isKadaluarsa) {
+                catatanRekomendasi = 'URGENT: Pejabat Aktif masa berlaku telah habis. Segera perpanjang!';
+              } else if (isMendekatiKadaluarsa) {
+                catatanRekomendasi = `PRIORITAS TINGGI: Sisa waktu ${sisaHari} hari. Segera rekam perpanjangan di SIMASPATI.`;
+              } else {
+                catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATI.';
+              }
+            } else {
+              catatanRekomendasi = 'Pejabat Non-Aktif. Dapat diperpanjang jika ditugaskan kembali.';
+            }
+          }
 
           pejabatList.push({
             id: `pejabat-excel-${Date.now()}-${idx}`,
@@ -1018,7 +1089,20 @@ export async function processSertifikasiExcel(file: File): Promise<{
             nmJabatan,
             noSertifikat,
             tglSertifikat,
-            tglKadaluarsa
+            tglKadaluarsa,
+            statusJabatan,
+            statusUsulan,
+            status: statusSertifikasi,
+            statusSertifikasi,
+            kategoriData,
+            kppn,
+            tglDownload,
+            sisaHariMasaBerlaku: sisaHari,
+            isKadaluarsa,
+            isMendekatiKadaluarsa,
+            kementerianLembaga: kl,
+            catatanRekomendasi,
+            keterangan: `${statusSertifikasi} - ${statusUsulan}`
           });
           count++;
         });
@@ -1030,7 +1114,7 @@ export async function processSertifikasiExcel(file: File): Promise<{
           rowCount: rawRows.length,
           cleanedCount: count,
           status: 'Success',
-          notes: [`Berhasil mengimpor ${count} data Pejabat Perbendaharaan & Sertifikasi PTP/PPK/PPSPM.`]
+          notes: [`Berhasil mengimpor ${count} data Pejabat Perbendaharaan (Belum Tersertifikasi & Belum Perpanjangan).`]
         };
 
         resolve({ pejabatList, log: uploadLog });

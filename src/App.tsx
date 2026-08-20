@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
+import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
+import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
@@ -23,6 +25,7 @@ import { AdminUpload } from './components/AdminUpload';
 import { ReminderGenerator } from './components/ReminderGenerator';
 import { SatkerDetailModal } from './components/SatkerDetailModal';
 import { ExcelGuideModal } from './components/ExcelGuideModal';
+import { BroadcastTemplateLibraryModal } from './components/BroadcastTemplateLibraryModal';
 
 import { ToastProvider } from './components/ToastNotification';
 
@@ -330,6 +333,7 @@ export default function App() {
           'dashboard',
           'capaian-output',
           'pengelolaan-up',
+          'transaksi-kkp',
           'kelola-satker',
           'sertifikasi',
           'per5-analisis',
@@ -494,6 +498,19 @@ export default function App() {
         console.warn("Firebase UP listener notice:", error);
       });
 
+      // 8. Realtime Transaksi KKP Data
+      const unsubKKP = onSnapshot(doc(db, 'data', 'transaksi_kkp'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setTransaksiKkpList(data.list);
+            localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase KKP listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubSatkers();
@@ -501,6 +518,7 @@ export default function App() {
         unsubPresensi();
         unsubMaster();
         unsubUP();
+        unsubKKP();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -803,6 +821,40 @@ export default function App() {
       console.warn("Error syncing UP to Firebase:", e);
     }
   };
+
+  // Transaksi KKP (GUP) State & Persistence
+  const [transaksiKkpList, setTransaksiKkpList] = useState<TransaksiKKPRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_transaksi_kkp');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved KKP data:', e);
+      }
+    }
+    return INITIAL_TRANSAKSI_KKP_DATA;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(transaksiKkpList));
+    } catch (e) {
+      console.warn('Error saving KKP data to localStorage:', e);
+    }
+  }, [transaksiKkpList]);
+
+  const handleUpdateTransaksiKKP = (newList: TransaksiKKPRecord[]) => {
+    setTransaksiKkpList(newList);
+    try {
+      setDoc(doc(db, 'data', 'transaksi_kkp'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn("Error syncing KKP to Firebase:", e);
+    }
+  };
+
+  // Broadcast Template Library Global Modal State
+  const [isGlobalBroadcastLibraryOpen, setIsGlobalBroadcastLibraryOpen] = useState<boolean>(false);
 
   const handleAuthenticateAdmin = (pin: string): boolean => {
     if (pin === adminPin || pin === '527272' || pin === 'admin123' || pin === 'kppn026' || pin === 'kppn033' || pin === 'admin') {
@@ -1164,6 +1216,8 @@ export default function App() {
         belumCapaianCount={belumCapaianCount}
         sertifikasiUnapprovedCount={sertifikasiUnapprovedCount}
         announcementsCount={dashboardConfig.announcements.length}
+        transaksiKkpCount={transaksiKkpList.length}
+        onOpenBroadcastLibrary={() => setIsGlobalBroadcastLibraryOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         lastUpdateDate={lastUpdateDate}
@@ -1293,6 +1347,18 @@ export default function App() {
                 />
               )}
 
+              {/* Tab: Transaksi KKP (GUP) Monitoring */}
+              {activeTab === 'transaksi-kkp' && (
+                <TransaksiKKPDashboard
+                  records={transaksiKkpList}
+                  masterSatkers={masterSatkers}
+                  theme={theme}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onApplyRecords={(newRecords) => handleUpdateTransaksiKKP(newRecords)}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
               {/* Tab Dedicated: Kelola Data Satker (Master & Kontak PIC) */}
               {activeTab === 'kelola-satker' && (
                 <KelolaDataSatkerDashboard
@@ -1389,6 +1455,9 @@ export default function App() {
                   pengelolaanUpRecords={pengelolaanUPList}
                   onApplyPengelolaanUp={handleUpdatePengelolaanUP}
                   onClearPengelolaanUp={() => handleUpdatePengelolaanUP([])}
+                  transaksiKkpRecords={transaksiKkpList}
+                  onApplyTransaksiKkp={handleUpdateTransaksiKKP}
+                  onClearTransaksiKkp={() => handleUpdateTransaksiKKP([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}
@@ -1441,6 +1510,7 @@ export default function App() {
                   }}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  masterSatkers={masterSatkers}
                 />
               )}
 
@@ -1500,6 +1570,13 @@ export default function App() {
           setSelectedSatkerForDetail(null);
           setActiveTab('admin');
         }}
+        theme={theme}
+      />
+
+      {/* Global Broadcast Template Library Modal */}
+      <BroadcastTemplateLibraryModal
+        isOpen={isGlobalBroadcastLibraryOpen}
+        onClose={() => setIsGlobalBroadcastLibraryOpen(false)}
         theme={theme}
       />
 

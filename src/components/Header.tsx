@@ -51,6 +51,8 @@ interface HeaderProps {
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
   masterSatkers?: MasterSatker[];
+  transaksiKkpCount?: number;
+  onOpenBroadcastLibrary?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -71,7 +73,9 @@ export const Header: React.FC<HeaderProps> = ({
   isAdminAuthenticated = false,
   onAuthenticateAdmin,
   onLogoutAdmin,
-  masterSatkers = []
+  masterSatkers = [],
+  transaksiKkpCount = 0,
+  onOpenBroadcastLibrary
 }) => {
   const isDark = theme === 'dark';
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
@@ -104,6 +108,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <CreditCard className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">UP</span>,
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+    },
+    {
+      id: 'transaksi-kkp',
+      label: 'Transaksi KKP / GUP',
+      icon: <CreditCard className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">KKP</span>,
+      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
     },
     {
       id: 'kelola-satker',
@@ -267,6 +278,18 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               />
             </div>
+
+            {/* Template Broadcast Quick Access (Admin Only) */}
+            {isAdminAuthenticated && onOpenBroadcastLibrary && (
+              <button
+                onClick={onOpenBroadcastLibrary}
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-md border border-rose-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
+                title="Buka Katalog Template Broadcast Siap Salin"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Template Broadcast</span>
+              </button>
+            )}
 
             {/* Admin Login / Logout Button */}
             {!isAdminAuthenticated ? (

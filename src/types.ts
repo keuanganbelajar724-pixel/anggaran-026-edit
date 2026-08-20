@@ -267,10 +267,10 @@ export interface AuditLogEntry {
 // PREVIEW VALIDASI EXCEL MODEL (2-Step Import Workflow)
 // -------------------------------------------------------------
 export interface ExcelValidationPreview<T> {
-  file: File;
+  file?: File;
   fileName: string;
-  fileSize: number;
-  modul: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP';
+  fileSize?: number;
+  modul?: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP' | 'KARWAS_TUP' | 'TRANSAKSI_KKP' | string;
   tahun: number;
   periode: string;
   totalRows: number;
@@ -282,7 +282,7 @@ export interface ExcelValidationPreview<T> {
     reason: string;
     raw?: any;
   }[];
-  unregisteredSatkers: {
+  unregisteredSatkers?: {
     kodeSatker: string;
     namaSatker?: string;
     reason: string;
@@ -455,7 +455,7 @@ export interface ExcelUploadHistory {
 
 export interface TemplateMessage {
   id: string;
-  jenis: 'Capaian Output' | 'IKPA Rendah' | 'Penyerapan Rendah' | 'Deviasi Hal III DIPA' | 'General';
+  jenis: 'Capaian Output' | 'IKPA Rendah' | 'Penyerapan Rendah' | 'Deviasi Hal III DIPA' | 'General' | 'Pengelolaan UP/TUP' | 'Sertifikasi Pejabat' | 'Transaksi KKP & Digipay' | 'Portal Mandiri Satker' | string;
   judul: string;
   subjekEmail: string;
   isiWa: string;
@@ -490,12 +490,27 @@ export interface PejabatSertifikasi {
   nama: string;
   kdSatker: string;
   nmSatker: string;
-  nmJabatan: string; // e.g. Pejabat Pembuat Komitmen, Pejabat Penanda Tangan Surat Perintah Membayar, Bendahara Penerimaan, Bendahara Pengeluaran
-  noSertifikat: string; // e.g. PNT-06134/026/044/2021 or "Tidak Ada"
-  tglSertifikat?: string; // e.g. 30/06/2021 or ""
-  tglKadaluarsa?: string; // e.g. 30/06/2026 or ""
-  status?: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi';
+  nmJabatan: string; // e.g. Pejabat Pembuat Komitmen, Pejabat Penanda Tangan Surat Perintah Membayar, Bendahara Penerimaan, Bendahara Pengeluaran, Calon PPK/PPSPM/Bendahara
+  noSertifikat: string; // e.g. PNT-08581/026/912/2021, BNT-03762/185/518/2021 or "Belum Ada" / "Tidak Ada"
+  tglSertifikat?: string; // e.g. 17-09-2021
+  tglKadaluarsa?: string; // e.g. 17-09-2026
+  statusJabatan?: 'Aktif' | 'Non Aktif' | string; // Status jabatan: Aktif vs Non Aktif
+  statusUsulan?: string; // e.g. 'Belum rekam usulan', 'Antrean Diklat', 'Proses Verifikasi', 'Dijadwalkan Uji Kompetensi', 'Belum Diusulkan', 'Di Kirim Ke Admin DSP', 'Sertifikat Kadaluarsa', 'Tidak Memenuhi Syarat', 'Tidak Lulus Ujian Komprehensif'
+  status?: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Mendekati Kadaluarsa';
+  statusSertifikasi?: 'Tersertifikasi' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Kadaluarsa';
+  kategoriData?: 'BELUM_SERTIFIKAT' | 'BELUM_PERPANJANGAN' | 'TERSERTIFIKASI_AKTIF' | 'SEMUA';
+  kppn?: string; // e.g. 'SEMARANG I'
+  tglDownload?: string;
+  sisaHariMasaBerlaku?: number;
+  isKadaluarsa?: boolean;
+  isMendekatiKadaluarsa?: boolean;
   keterangan?: string;
+  catatanRekomendasi?: string;
+  noHp?: string;
+  email?: string;
+  kementerianLembaga?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type KnowledgeCategory = 
@@ -612,10 +627,45 @@ export interface PesertaPresensi {
   createdAt?: string;
 }
 
+export interface TransaksiKKPRecord {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  unitEselon1?: string;
+  jumlahTransaksi: number; // Frekuensi transaksi / SP2D GUP KKP
+  totalNominal: number; // Total nominal rupiah transaksi KKP
+  bankPenerbit?: string; // BRI, Bank Mandiri, BNI, BSI, dll.
+  noSp2dTerakhir?: string;
+  tglSp2dTerakhir?: string;
+  tglTransaksiTerakhir?: string;
+  statusKeaktifan?: 'Sangat Aktif' | 'Aktif' | 'Perlu Akselerasi';
+  periode?: string;
+  tahun?: number;
+  catatan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface KKPUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  totalNominal?: number;
+  totalTransaksi?: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+}
+
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
   'pengelolaan-up'?: boolean;
+  'transaksi-kkp'?: boolean;
   'kelola-satker'?: boolean;
   'redflags': boolean;
   'sertifikasi': boolean;
@@ -804,6 +854,7 @@ export interface DashboardConfig {
     portalLink?: string;
     presensi?: string;
     pengelolaanUp?: string;
+    transaksiKkp?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -815,6 +866,8 @@ export interface DashboardConfig {
   pejabatUploads?: PejabatUploadBatch[];
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   pengelolaanUpUploads?: PengelolaanUPUploadBatch[];
+  transaksiKkpRecords?: TransaksiKKPRecord[];
+  transaksiKkpUploads?: KKPUploadBatch[];
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
@@ -825,6 +878,7 @@ export type NavigationTab =
   | 'dashboard' 
   | 'capaian-output' 
   | 'pengelolaan-up'
+  | 'transaksi-kkp'
   | 'kelola-satker'
   | 'redflags' 
   | 'sertifikasi'

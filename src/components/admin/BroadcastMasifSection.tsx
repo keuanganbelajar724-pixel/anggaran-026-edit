@@ -47,6 +47,7 @@ import {
   AppTheme
 } from '../../types';
 import { ensurePejabatOperator } from '../../utils/analysisEngine';
+import { BroadcastTemplateLibraryModal } from '../BroadcastTemplateLibraryModal';
 
 interface BroadcastMasifSectionProps {
   satkers: SatkerIKPA[];
@@ -104,6 +105,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; renderedMessage?: string }>>({});
   const [recipientSearchQuery, setRecipientSearchQuery] = useState<string>('');
   const [editingCustomMsgModal, setEditingCustomMsgModal] = useState<{ id: string; recipientName: string; satkerNama: string; currentMsg: string } | null>(null);
+  const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState<boolean>(false);
 
   // WhatsApp Gateway API Configuration State (with LocalStorage & Firestore sync)
   const [waGatewayProvider, setWaGatewayProvider] = useState<'simulasi' | 'fonnte' | 'wablas' | 'whacenter' | 'custom_api' | 'wa_me_link'>(() => {
@@ -252,6 +254,22 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     } else if (presetKey === 'preset_apresiasi') {
       setBroadcastTemplateText(
         `[APRESIASI PRESTASI KINERJA IKPA SANGAT BAIK]\nSelamat kepada Bapak/Ibu {NAMA_PEJABAT} ({PERAN_PEJABAT}) dan seluruh jajaran Satker {NAMA_SATKER} ({KODE_SATKER})!\n\nNilai IKPA Satker Anda mencapai {NILAI_IKPA} dengan predikat {PREDIKAT}. Capaian Output: {STATUS_OUTPUT}.\n\nTerima kasih atas dedikasi dan kepatuhan dalam tata kelola pelaksanaan anggaran yang sangat prima.\n\nKepala KPPN Semarang I`
+      );
+    } else if (presetKey === 'preset_kkp') {
+      setBroadcastTemplateText(
+        `*KPPN SEMARANG I - AKSELERASI TRANSAKSI KARTU KREDIT PEMERINTAH (KKP)*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT})\nSatker: {NAMA_SATKER} ({KODE_SATKER})\n\nDalam rangka modernisasi sistem pembayaran cashless dan transparansi kas negara:\n• Tingkatkan frekuensi transaksi belanja barang operasional menggunakan KKP.\n• Segera ajukan SPM GUP KKP secara berkala untuk menjaga kelancaran limit kartu kredit.\n\n📊 Pantau Leaderboard & Peringkat Transaksi KKP Satker:\n👉 *https://anggaran-026.my.id*\n\n_KPPN Semarang I - Handal & Berintegritas_`
+      );
+    } else if (presetKey === 'preset_up') {
+      setBroadcastTemplateText(
+        `*KPPN SEMARANG I - MONITORING REVOLVING UP & TUP*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT})\nSatker: {NAMA_SATKER} ({KODE_SATKER})\n\nMengingatkan kembali batas waktu penggantian/revolving Uang Persediaan (GUP) sekurang-kurangnya 1 (satu) kali dalam sebulan minimal 50% besaran UP.\n\nMohon Bendahara & PPK segera mengajukan SPM GUP ke KPPN Semarang I sebelum masa revolving terlewati.\n\n🔗 Cek Jadwal Jatuh Tempo Satker Real-time:\n👉 *https://anggaran-026.my.id*\n\n_Seksi MSKI KPPN Semarang I_`
+      );
+    } else if (presetKey === 'preset_sertifikasi') {
+      setBroadcastTemplateText(
+        `*KPPN SEMARANG I - SERTIFIKASI PEJABAT PERBENDAHARAAN*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT})\nSatker: {NAMA_SATKER} ({KODE_SATKER})\n\nSesuai PMK mengenai Standarisasi Kompetensi Pejabat Perbendaharaan (PPK/PPSPM/Bendahara):\n• Bagi pejabat yang belum bersertifikat, segera rekam usulan di SIMASPATI (https://simaspati.kemenkeu.go.id).\n• Bagi pejabat dengan masa berlaku mendekati kadaluarsa, ajukan perpanjangan sertifikat.\n\n🔍 Cek Daftar Pejabat & Masa Berlaku Satker Anda:\n👉 *https://anggaran-026.my.id*\n\n_Seksi MSKI KPPN Semarang I_`
+      );
+    } else if (presetKey === 'preset_portal') {
+      setBroadcastTemplateText(
+        `*PORTAL TERPADU MONITORING & LAYANAN KPPN SEMARANG I*\n*Website Resmi:* *https://anggaran-026.my.id*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT}) Satker {NAMA_SATKER} ({KODE_SATKER})\n\nSeluruh data kinerja IKPA, Capaian Output, Batas Revolving UP, Sertifikasi Pejabat, Transaksi KKP, serta Bahan Bimtek SAKTI kini dapat dipantau mandiri secara real-time pada portal resmi:\n\n👉 *https://anggaran-026.my.id*\n\nMari bersama wujudkan tata kelola APBN yang transparan dan akuntabel!\n\n_KPPN Semarang I_`
       );
     }
   };
@@ -1241,13 +1259,26 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
 
             {/* Presets */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-bold text-slate-500 text-[11px]">Pilih Preset:</span>
+              <button
+                type="button"
+                onClick={() => setIsTemplateLibraryOpen(true)}
+                className="px-3 py-1 rounded-xl text-[11px] font-black bg-rose-600 hover:bg-rose-500 text-white shadow-sm flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Katalog Template Lengkap (Siap Salin)</span>
+              </button>
+
+              <span className="font-bold text-slate-500 text-[11px] ml-1">Preset Cepat:</span>
               {[
-                { key: 'preset_perhatian', name: '⚠️ Satker Perhatian' },
-                { key: 'preset_output', name: '🔴 Capaian Output' },
-                { key: 'preset_deviasi', name: '📊 Deviasi Hal III' },
-                { key: 'preset_penyerapan', name: '💸 Penyerapan Anggaran' },
-                { key: 'preset_apresiasi', name: '🏆 Apresiasi Baik' }
+                { key: 'preset_perhatian', name: '⚠️ Perhatian' },
+                { key: 'preset_output', name: '🔴 Output' },
+                { key: 'preset_deviasi', name: '📊 Deviasi' },
+                { key: 'preset_penyerapan', name: '💸 Penyerapan' },
+                { key: 'preset_kkp', name: '💳 Transaksi KKP' },
+                { key: 'preset_up', name: '⏱️ UP / TUP' },
+                { key: 'preset_sertifikasi', name: '🎓 Sertifikasi' },
+                { key: 'preset_portal', name: '🌐 anggaran-026.my.id' },
+                { key: 'preset_apresiasi', name: '🏆 Apresiasi' }
               ].map(p => (
                 <button
                   key={p.key}
@@ -1624,6 +1655,14 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Broadcast Template Library Siap Salin */}
+      <BroadcastTemplateLibraryModal
+        isOpen={isTemplateLibraryOpen}
+        onClose={() => setIsTemplateLibraryOpen(false)}
+        masterSatkers={masterSatkers}
+        showToast={showToast}
+      />
 
     </div>
   );

@@ -40,6 +40,59 @@ function normalizeKodeSatker(raw: any): string {
   return digits;
 }
 
+export function parseExcelDateString(val: any): string {
+  if (val === null || val === undefined || val === '') return '';
+  
+  if (typeof val === 'number') {
+    // Excel date serial number (e.g. 44927 -> 2023-01-01)
+    if (val > 20000 && val < 70000) {
+      const utc_days = Math.floor(val - 25569);
+      const utc_value = utc_days * 86400;
+      const date_info = new Date(utc_value * 1000);
+      const day = String(date_info.getUTCDate()).padStart(2, '0');
+      const month = String(date_info.getUTCMonth() + 1).padStart(2, '0');
+      const year = date_info.getUTCFullYear();
+      return `${day}-${month}-${year}`;
+    }
+    return String(val);
+  }
+
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const day = String(val.getDate()).padStart(2, '0');
+    const month = String(val.getMonth() + 1).padStart(2, '0');
+    const year = val.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  const str = String(val).trim();
+  if (!str || str === '-' || str.toLowerCase() === 'tidak ada' || str.toLowerCase() === 'belum ada') return '';
+
+  // ISO string
+  if (str.includes('T') && str.length >= 10) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  if (/^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/.test(str)) {
+    const parts = str.split(/[-/.]/);
+    return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+  }
+
+  // DD-MM-YYYY or DD/MM/YYYY
+  if (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}/.test(str)) {
+    const parts = str.split(/[-/.]/);
+    return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+  }
+
+  return str;
+}
+
 /**
  * 1. VALIDASI & PREVIEW EXCEL IKPA TERISOLASI TERHADAP MASTER SATKER
  */
@@ -964,7 +1017,41 @@ export async function validateKarwasTUPExcelFile(
 }
 
 /**
+ * Helper to match Satker Name to Master Satker if Kode is not provided
+ */
+function findSatkerByNameOrCode(rawKode: string, rawName: string, masterSatkers: MasterSatker[]): { kode: string; nama: string; kl?: string } {
+  const cleanKode = normalizeKodeSatker(rawKode);
+  if (cleanKode && cleanKode.length >= 5) {
+    const matched = masterSatkers.find(m => m.kodeSatker === cleanKode);
+    if (matched) return { kode: matched.kodeSatker, nama: matched.namaSatker, kl: matched.kementerianLembaga };
+  }
+
+  const normName = cleanText(rawName).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (normName) {
+    const directMatch = masterSatkers.find(m => m.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '') === normName);
+    if (directMatch) return { kode: directMatch.kodeSatker, nama: directMatch.namaSatker, kl: directMatch.kementerianLembaga };
+
+    // Partial contains
+    const partialMatch = masterSatkers.find(m => {
+      const mNorm = m.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return normName.includes(mNorm) || mNorm.includes(normName);
+    });
+    if (partialMatch) return { kode: partialMatch.kodeSatker, nama: partialMatch.namaSatker, kl: partialMatch.kementerianLembaga };
+  }
+
+  // Fallback
+  return {
+    kode: cleanKode || (rawName ? `99${Math.abs(rawName.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0) % 9000 + 1000)}` : '000000'),
+    nama: cleanText(rawName) || `SATKER ${cleanKode || 'KPPN'}`
+  };
+}
+
+/**
  * 4. VALIDASI & PREVIEW EXCEL PEJABAT PERBENDAHARAAN TERISOLASI
+ * Mendukung otomatis:
+ * A) File Pejabat Belum Bersertifikat KPPN Semarang I
+ * B) File Pejabat Belum Perpanjangan KPPN Semarang I
+ * C) File Standar / Multi-Sheet Pejabat
  */
 export async function validatePejabatExcelFile(
   file: File,
@@ -976,123 +1063,235 @@ export async function validatePejabatExcelFile(
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-
-        if (!matrix || matrix.length === 0) {
-          throw new Error('File Excel Pejabat Perbendaharaan kosong.');
-        }
-
-        const masterMap = new Map<string, MasterSatker>();
-        masterSatkers.forEach(m => {
-          if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
-        });
-
-        let headerRow = -1;
-        let colKode = -1;
-        let colNamaSatker = -1;
-        let colNamaPejabat = -1;
-        let colNip = -1;
-        let colJabatan = -1;
-        let colNoSertifikat = -1;
-        let colStatusSertifikat = -1;
-        let colTglKadaluarsa = -1;
-
-        for (let r = 0; r < Math.min(25, matrix.length); r++) {
-          const row = matrix[r];
-          if (!row) continue;
-          const rowLower = row.map(c => String(c).toLowerCase().trim());
-          if (rowLower.some(c => c.includes('pejabat') || c.includes('ppk') || c.includes('ppspm') || c.includes('bendahara') || c.includes('sertifikat') || c.includes('nip'))) {
-            headerRow = r;
-            rowLower.forEach((val, idx) => {
-              if (val.includes('kode') || val === 'kdsatker' || val === 'kd satker') {
-                if (colKode === -1) colKode = idx;
-              } else if (val.includes('nama satker') || val === 'satker') {
-                if (colNamaSatker === -1) colNamaSatker = idx;
-              } else if (val.includes('nama pejabat') || val.includes('nama pegawai') || val === 'nama') {
-                if (colNamaPejabat === -1) colNamaPejabat = idx;
-              } else if (val.includes('nip')) {
-                if (colNip === -1) colNip = idx;
-              } else if (val.includes('jabatan') || val.includes('peran')) {
-                if (colJabatan === -1) colJabatan = idx;
-              } else if (val.includes('sertifikat') || val.includes('no sertifikat')) {
-                if (colNoSertifikat === -1) colNoSertifikat = idx;
-              } else if (val.includes('status') || val.includes('sertifikasi')) {
-                if (colStatusSertifikat === -1) colStatusSertifikat = idx;
-              } else if (val.includes('kadaluarsa') || val.includes('expired') || val.includes('masa berlaku')) {
-                if (colTglKadaluarsa === -1) colTglKadaluarsa = idx;
-              }
-            });
-            break;
-          }
-        }
-
-        if (colKode === -1) colKode = 1;
-        if (colNamaPejabat === -1) colNamaPejabat = 2;
-
+        
         const validData: PejabatSertifikasi[] = [];
         const invalidRows: any[] = [];
         const unregisteredSatkers: any[] = [];
+        let detectedType: string = 'GABUNGAN';
 
-        const startRow = headerRow !== -1 ? headerRow + 1 : 1;
+        // Process all sheets in the workbook
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+          if (!matrix || matrix.length < 2) return;
 
-        for (let r = startRow; r < matrix.length; r++) {
-          const row = matrix[r];
-          if (!row || row.length === 0) continue;
+          // Detect Header row
+          let headerRowIdx = -1;
+          const colMap: Record<string, number> = {
+            no: -1,
+            nip: -1,
+            nama: -1,
+            jabatan: -1,
+            satker: -1,
+            kdSatker: -1,
+            nmSatker: -1,
+            statusSertifikasi: -1,
+            statusUsulan: -1,
+            statusJabatan: -1,
+            noSertifikat: -1,
+            tglSertifikat: -1,
+            tglKadaluarsa: -1,
+            kppn: -1,
+            kl: -1,
+            tglDownload: -1
+          };
 
-          const rawKode = row[colKode] || row[0] || '';
-          const kodeSatker = normalizeKodeSatker(rawKode);
-          const namaPejabat = cleanText(row[colNamaPejabat] || '');
+          for (let r = 0; r < Math.min(15, matrix.length); r++) {
+            const row = matrix[r];
+            if (!row || row.length === 0) continue;
+            const rowStr = row.map(c => String(c || '').toLowerCase().trim());
 
-          if (!kodeSatker || kodeSatker.length < 5 || !namaPejabat) continue;
-
-          const master = masterMap.get(kodeSatker);
-          if (!master) {
-            unregisteredSatkers.push({
-              kodeSatker,
-              namaSatker: cleanText(row[colNamaSatker] || `Satker ${kodeSatker}`),
-              reason: 'Kode Satker pejabat tidak terdaftar di Referensi Satker'
-            });
-            invalidRows.push({
-              rowNumber: r + 1,
-              kodeSatker,
-              namaSatker: cleanText(row[colNamaSatker]),
-              reason: 'Satker belum terdaftar di Master Referensi'
-            });
-            continue;
-          }
-
-          const nip = colNip !== -1 ? cleanText(row[colNip]) : '198501012010011001';
-          const nmJabatan = colJabatan !== -1 ? cleanText(row[colJabatan]) : 'PPK (Pejabat Pembuat Komitmen)';
-          const noSertifikat = colNoSertifikat !== -1 ? cleanText(row[colNoSertifikat]) : `BNSP-PPK-${kodeSatker}-01`;
-          const tglKadaluarsa = colTglKadaluarsa !== -1 ? cleanText(row[colTglKadaluarsa]) : '2026-12-31';
-
-          let status: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi' = 'Aktif';
-          if (colStatusSertifikat !== -1 && row[colStatusSertifikat]) {
-            const rawStatus = cleanText(row[colStatusSertifikat]).toLowerCase();
-            if (rawStatus.includes('kadaluarsa') || rawStatus.includes('expired')) {
-              status = 'Kadaluarsa';
-            } else if (rawStatus.includes('belum') || rawStatus.includes('tidak')) {
-              status = 'Belum Tersertifikasi';
-            } else {
-              status = 'Aktif';
+            if (rowStr.some(c => c === 'nip' || c.includes('nama') || c.includes('jabatan') || c.includes('satker') || c.includes('sertifikat'))) {
+              headerRowIdx = r;
+              rowStr.forEach((val, idx) => {
+                const clean = val.replace(/[^a-z0-9]/g, '');
+                if (clean === 'no' || clean === 'nomor') colMap.no = idx;
+                else if (clean === 'nip' || clean.includes('nipofficer')) colMap.nip = idx;
+                else if (clean === 'nama' || clean.includes('namapejabat') || clean.includes('namalengkap') || clean.includes('nmpejabat')) colMap.nama = idx;
+                else if (clean === 'jabatan' || clean.includes('namajabatan') || clean.includes('nmjabatan') || clean.includes('peran')) colMap.jabatan = idx;
+                else if (clean === 'kodesatker' || clean === 'kdsatker' || clean === 'kodesatk') colMap.kdSatker = idx;
+                else if (clean === 'namasatker' || clean === 'nmsatker') colMap.nmSatker = idx;
+                else if (clean === 'satker') colMap.satker = idx;
+                else if (clean.includes('statussertifikasi') || clean === 'status' || clean.includes('statussert')) colMap.statusSertifikasi = idx;
+                else if (clean.includes('statususulan') || clean.includes('usulan')) colMap.statusUsulan = idx;
+                else if (clean.includes('statusjabatan') || clean.includes('stsjabatan')) colMap.statusJabatan = idx;
+                // Specific date checks first before generic "sertifikat"
+                else if (clean.includes('tanggalkadaluarsa') || clean.includes('tglkadaluarsa') || clean.includes('kadaluarsa') || clean.includes('tglexpired') || clean.includes('tglberakhir') || clean.includes('tanggalberakhir')) colMap.tglKadaluarsa = idx;
+                else if (clean.includes('tanggalsertifikat') || clean.includes('tglsertifikat') || clean.includes('tglterbit') || clean.includes('tanggalterbit') || clean.includes('tglsk') || clean.includes('tanggalsk') || clean.includes('tglberlaku')) colMap.tglSertifikat = idx;
+                else if (clean.includes('nomorsertifikat') || clean.includes('nosertifikat') || clean.includes('nosert') || clean.includes('noregister') || clean.includes('nomorreg') || clean.includes('noreg') || (clean.includes('sertifikat') && !clean.includes('tgl') && !clean.includes('tanggal') && !clean.includes('status') && !clean.includes('masa'))) colMap.noSertifikat = idx;
+                else if (clean === 'kppn' || clean.includes('namakppn')) colMap.kppn = idx;
+                else if (clean === 'kl' || clean.includes('kementerian') || clean.includes('lembaga')) colMap.kl = idx;
+                else if (clean.includes('tanggaldownload') || clean.includes('tgldownload')) colMap.tglDownload = idx;
+              });
+              break;
             }
           }
 
-          validData.push({
-            id: `pejabat-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            kdSatker: kodeSatker,
-            nmSatker: master.namaSatker,
-            nip,
-            nama: namaPejabat,
-            nmJabatan,
-            noSertifikat,
-            tglSertifikat: '2024-01-01',
-            tglKadaluarsa,
-            status,
-            keterangan: status === 'Aktif' ? 'Sertifikat Valid' : 'Perlu Refreshment / Perpanjangan'
-          });
+          if (headerRowIdx === -1) return;
+
+          // Determine if this is Sheet 1 (Belum Bersertifikat) or Sheet 2 (Belum Perpanjangan)
+          const isBelumBersertifikatFormat = colMap.noSertifikat === -1 && (colMap.statusUsulan !== -1 || colMap.statusSertifikasi !== -1);
+          const isBelumPerpanjanganFormat = colMap.tglKadaluarsa !== -1 || colMap.noSertifikat !== -1;
+
+          if (isBelumBersertifikatFormat && !isBelumPerpanjanganFormat) {
+            detectedType = 'BELUM_SERTIFIKAT';
+          } else if (isBelumPerpanjanganFormat && !isBelumBersertifikatFormat) {
+            detectedType = 'BELUM_PERPANJANGAN';
+          }
+
+          // Process rows
+          for (let r = headerRowIdx + 1; r < matrix.length; r++) {
+            const row = matrix[r];
+            if (!row || row.length === 0) continue;
+
+            const nip = colMap.nip !== -1 ? cleanText(row[colMap.nip]) : '';
+            const nama = colMap.nama !== -1 ? cleanText(row[colMap.nama]) : '';
+            const nmJabatan = colMap.jabatan !== -1 ? cleanText(row[colMap.jabatan]) : 'Pejabat Perbendaharaan';
+            
+            // Skip empty rows
+            if (!nip && !nama) continue;
+
+            const rawKodeSatker = colMap.kdSatker !== -1 ? cleanText(row[colMap.kdSatker]) : '';
+            const rawNamaSatker = colMap.nmSatker !== -1 ? cleanText(row[colMap.nmSatker]) : (colMap.satker !== -1 ? cleanText(row[colMap.satker]) : '');
+            
+            const matchedSatker = findSatkerByNameOrCode(rawKodeSatker, rawNamaSatker, masterSatkers);
+            const kodeSatker = matchedSatker.kode;
+            const namaSatker = rawNamaSatker || matchedSatker.nama;
+            const kementerianLembaga = (colMap.kl !== -1 && cleanText(row[colMap.kl])) ? cleanText(row[colMap.kl]) : (matchedSatker.kl || 'Kementerian / Lembaga Mitra');
+
+            const rawStatusSert = colMap.statusSertifikasi !== -1 ? cleanText(row[colMap.statusSertifikasi]) : '';
+            const rawStatusUsulan = colMap.statusUsulan !== -1 ? cleanText(row[colMap.statusUsulan]) : 'Belum rekam usulan';
+            const rawStatusJabatan = colMap.statusJabatan !== -1 ? cleanText(row[colMap.statusJabatan]) : 'Aktif';
+            let noSertifikat = colMap.noSertifikat !== -1 ? cleanText(row[colMap.noSertifikat]) : '';
+            let tglSertifikat = colMap.tglSertifikat !== -1 ? parseExcelDateString(row[colMap.tglSertifikat]) : '';
+            let tglKadaluarsa = colMap.tglKadaluarsa !== -1 ? parseExcelDateString(row[colMap.tglKadaluarsa]) : '';
+            const kppn = colMap.kppn !== -1 ? cleanText(row[colMap.kppn]) : 'SEMARANG I';
+            const tglDownload = colMap.tglDownload !== -1 ? parseExcelDateString(row[colMap.tglDownload]) : new Date().toLocaleDateString('id-ID');
+
+            // Smart validation & normalization for swapped columns / date values
+            const isDateString = (str: string) => {
+              if (!str) return false;
+              const s = str.trim();
+              return /^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$/.test(s) || /^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$/.test(s);
+            };
+
+            // If noSertifikat is actually a date string and tglSertifikat is missing
+            if (isDateString(noSertifikat) && (!tglSertifikat || tglSertifikat === '-')) {
+              tglSertifikat = parseExcelDateString(noSertifikat);
+              noSertifikat = '-';
+            } else if (isDateString(noSertifikat) && !isDateString(tglSertifikat) && tglSertifikat && tglSertifikat !== '-') {
+              // Swapped: tglSertifikat has the cert number and noSertifikat has the date
+              const temp = noSertifikat;
+              noSertifikat = tglSertifikat;
+              tglSertifikat = parseExcelDateString(temp);
+            }
+
+            // Category assignment & days calculation
+            let kategoriData: 'BELUM_SERTIFIKAT' | 'BELUM_PERPANJANGAN' | 'TERSERTIFIKASI_AKTIF' = 'BELUM_SERTIFIKAT';
+            let statusSertifikasi: 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Tersertifikasi' | 'Kadaluarsa' = 'Belum Tersertifikasi';
+            let sisaHari = 0;
+            let isKadaluarsa = false;
+            let isMendekatiKadaluarsa = false;
+
+            if (tglKadaluarsa || (noSertifikat && noSertifikat !== '-' && noSertifikat.toUpperCase() !== 'BELUM ADA' && noSertifikat.toUpperCase() !== 'TIDAK ADA')) {
+              kategoriData = 'BELUM_PERPANJANGAN';
+              statusSertifikasi = 'Belum Perpanjangan';
+
+              if (tglKadaluarsa) {
+                // Parse date format (DD-MM-YYYY or YYYY-MM-DD or DD/MM/YYYY)
+                let expDate: Date | null = null;
+                if (tglKadaluarsa.includes('-')) {
+                  const parts = tglKadaluarsa.split('-');
+                  if (parts[0].length === 4) {
+                    expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                  } else if (parts[2].length === 4) {
+                    expDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                  }
+                } else if (tglKadaluarsa.includes('/')) {
+                  const parts = tglKadaluarsa.split('/');
+                  if (parts[2].length === 4) {
+                    expDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                  }
+                }
+
+                if (expDate && !isNaN(expDate.getTime())) {
+                  const today = new Date();
+                  const diffTime = expDate.getTime() - today.getTime();
+                  sisaHari = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                  if (sisaHari <= 0) {
+                    isKadaluarsa = true;
+                    statusSertifikasi = 'Kadaluarsa';
+                  } else if (sisaHari <= 60) {
+                    isMendekatiKadaluarsa = true;
+                  }
+                }
+              }
+            } else {
+              kategoriData = 'BELUM_SERTIFIKAT';
+              statusSertifikasi = 'Belum Tersertifikasi';
+              if (!noSertifikat) noSertifikat = 'Belum Ada';
+            }
+
+            // Generate smart actionable recommendations
+            let catatanRekomendasi = '';
+            if (kategoriData === 'BELUM_SERTIFIKAT') {
+              if (rawStatusUsulan.toLowerCase().includes('antrean diklat')) {
+                catatanRekomendasi = 'Pantau pemanggilan diklat e-learning BNT/PNT pada portal Kemenkeu Learning Center (KLC).';
+              } else if (rawStatusUsulan.toLowerCase().includes('verifikasi')) {
+                catatanRekomendasi = 'Berkas usulan dalam verifikasi unit pembina SIMASPATI. Cek notifikasi berkala.';
+              } else if (rawStatusUsulan.toLowerCase().includes('jadwal') || rawStatusUsulan.toLowerCase().includes('uji kompetensi')) {
+                catatanRekomendasi = 'Pejabat dijadwalkan mengikuti Ujian Kompetensi. Harap persiapkan materi dan hadir tepat waktu.';
+              } else if (rawStatusUsulan.toLowerCase().includes('tidak lulus') || rawStatusUsulan.toLowerCase().includes('tidak memenuhi')) {
+                catatanRekomendasi = 'Lengkapi perbaikan berkas persyaratan dan ajukan pendaftaran remedial/ujian ulang di SIMASPATI.';
+              } else {
+                catatanRekomendasi = 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATI.';
+              }
+            } else {
+              if (rawStatusJabatan.toLowerCase() === 'aktif') {
+                if (isKadaluarsa) {
+                  catatanRekomendasi = 'URGENT: Pejabat AKTIF dengan sertifikat Kadaluarsa. Segera ajukan perpanjangan/refreshment.';
+                } else if (isMendekatiKadaluarsa) {
+                  catatanRekomendasi = `PRIORITAS TINGGI: Sertifikat pejabat aktif tersisa ${sisaHari} hari. Segera rekam usulan perpanjangan di SIMASPATI.`;
+                } else if (rawStatusUsulan.toLowerCase().includes('admin dsp') || rawStatusUsulan.toLowerCase().includes('kirim')) {
+                  catatanRekomendasi = 'Usulan perpanjangan telah dikirim ke Admin DSP. Pantau penerbitan sertifikat baru.';
+                } else {
+                  catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATI sebelum masa berlaku berakhir.';
+                }
+              } else {
+                catatanRekomendasi = 'Pejabat berstatus Non-Aktif. Dapat diperpanjang apabila akan ditugaskan kembali di satker.';
+              }
+            }
+
+            validData.push({
+              id: `pejabat-imp-${kodeSatker}-${nip || r}-${Date.now()}`,
+              nomor: validData.length + 1,
+              nip: nip || `198001012010011${String(r).padStart(3, '0')}`,
+              nama: nama || `Pejabat Satker ${kodeSatker}`,
+              kdSatker: kodeSatker,
+              nmSatker: namaSatker,
+              nmJabatan,
+              noSertifikat,
+              tglSertifikat,
+              tglKadaluarsa,
+              statusJabatan: rawStatusJabatan || 'Aktif',
+              statusUsulan: rawStatusUsulan || 'Belum rekam usulan',
+              status: statusSertifikasi,
+              statusSertifikasi,
+              kategoriData,
+              kppn,
+              tglDownload,
+              sisaHariMasaBerlaku: sisaHari,
+              isKadaluarsa,
+              isMendekatiKadaluarsa,
+              kementerianLembaga,
+              catatanRekomendasi,
+              keterangan: `${rawStatusSert || statusSertifikasi} - ${rawStatusUsulan || 'Belum Diusulkan'}`
+            });
+          }
+        });
+
+        if (validData.length === 0) {
+          throw new Error('Tidak ditemukan data Pejabat yang valid dalam file Excel. Pastikan terdapat kolom NIP, Nama, Satker, atau Jabatan.');
         }
 
         resolve({
@@ -1101,20 +1300,20 @@ export async function validatePejabatExcelFile(
           fileSize: file.size,
           modul: 'PEJABAT',
           tahun: 2026,
-          periode: 'Tahun 2026',
+          periode: detectedType === 'BELUM_SERTIFIKAT' ? 'Pejabat Belum Bersertifikat' : (detectedType === 'BELUM_PERPANJANGAN' ? 'Pejabat Belum Perpanjangan' : 'Semua Pejabat Perbendaharaan'),
           totalRows: validData.length + invalidRows.length,
           validData,
           invalidRows,
           unregisteredSatkers,
           isValidFormat: validData.length > 0,
-          formatErrors: validData.length === 0 ? ['Format file Pejabat Perbendaharaan tidak sesuai.'] : []
+          formatErrors: []
         });
 
       } catch (err: any) {
-        reject(new Error(err.message || 'Gagal memproses file Excel Pejabat Perbendaharaan'));
+        reject(new Error(err.message || 'Gagal memproses file Excel Pejabat Perbendaharaan.'));
       }
     };
-    reader.onerror = () => reject(new Error('Gagal membaca file Pejabat.'));
+    reader.onerror = () => reject(new Error('Gagal membaca file Pejabat dari disk.'));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -1301,6 +1500,101 @@ export function downloadKarwasTUPTemplate() {
   XLSX.writeFile(workbook, 'Template_Excel_Karwas_TUP_KolomH.xlsx');
 }
 
+export function downloadPejabatBelumBersertifikatTemplate() {
+  const sampleData = [
+    {
+      'NIP': '197503221998031003',
+      'Nama': 'SAMBUDI',
+      'Jabatan': 'Pejabat Pembuat Komitmen',
+      'Satker': 'PENGADILAN AGAMA SEMARANG',
+      'Status Sertifikasi': 'Belum Tersertifikasi',
+      'Status Usulan': 'Belum rekam usulan',
+      'KPPN': 'SEMARANG I',
+      'Tanggal Download': '20/8/2026, 16.40.10'
+    },
+    {
+      'NIP': '199103092025052002',
+      'Nama': 'RIKA RENI SUSANTI',
+      'Jabatan': 'Bendahara Pengeluaran',
+      'Satker': 'SEKRETARIAT BAWASLU PROVINSI JAWA TENGAH',
+      'Status Sertifikasi': 'Belum Tersertifikasi',
+      'Status Usulan': 'Antrean Diklat',
+      'KPPN': 'SEMARANG I',
+      'Tanggal Download': '20/8/2026, 16.40.10'
+    },
+    {
+      'NIP': '197202182002121002',
+      'Nama': 'AHMAD MUDLOFIR',
+      'Jabatan': 'Pejabat Pembuat Komitmen',
+      'Satker': 'BBPMP PROVINSI JAWA TENGAH',
+      'Status Sertifikasi': 'Belum Tersertifikasi',
+      'Status Usulan': 'Proses Verifikasi',
+      'KPPN': 'SEMARANG I',
+      'Tanggal Download': '20/8/2026, 16.40.10'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Belum Bersertifikat');
+  XLSX.writeFile(workbook, 'Template_Pejabat_Belum_Bersertifikat_KPPN_Semarang1.xlsx');
+}
+
+export function downloadPejabatBelumPerpanjanganTemplate() {
+  const sampleData = [
+    {
+      'No': 1,
+      'Nama': 'Adhrial Refaddin',
+      'NIP': '197504212008121003',
+      'Kode Satker': '723014',
+      'Nama Satker': 'LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH VI SEMARANG',
+      'Jabatan': 'Calon Pejabat Pembuat Komitmen',
+      'Nomor Sertifikat': 'PNT-08581/026/912/2021',
+      'Tanggal Sertifikat': '17-09-2021',
+      'Tanggal Kadaluarsa': '17-09-2026',
+      'Status Jabatan': 'Aktif',
+      'Status Usulan': 'Belum Diusulkan',
+      'KPPN': 'SEMARANG I',
+      'K/L': 'KEMENTERIAN PENDIDIKAN, KEBUDAYAAN, RISET, DAN TEKNOLOGI'
+    },
+    {
+      'No': 2,
+      'Nama': 'BEDRU CAHYONO,ST,MT.',
+      'NIP': '197404262003121006',
+      'Kode Satker': '485355',
+      'Nama Satker': 'PERENCANAAN DAN PENGAWASAN JALAN NASIONAL PROVINSI JAWA TENGAH',
+      'Jabatan': 'Pejabat Pembuat Komitmen',
+      'Nomor Sertifikat': 'PNT-09103/026/323/2021',
+      'Tanggal Sertifikat': '30-09-2021',
+      'Tanggal Kadaluarsa': '30-09-2026',
+      'Status Jabatan': 'Aktif',
+      'Status Usulan': 'Belum Diusulkan',
+      'KPPN': 'SEMARANG I',
+      'K/L': 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT'
+    },
+    {
+      'No': 3,
+      'Nama': 'CHANIF, ST',
+      'NIP': '198110182010121005',
+      'Kode Satker': '694073',
+      'Nama Satker': 'OPERASI DAN PEMELIHARAAN SUMBER DAYA AIR PEMALI JUANA',
+      'Jabatan': 'Pejabat Pembuat Komitmen',
+      'Nomor Sertifikat': 'PNT-08690/026/933/2021',
+      'Tanggal Sertifikat': '22-09-2021',
+      'Tanggal Kadaluarsa': '22-09-2026',
+      'Status Jabatan': 'Aktif',
+      'Status Usulan': 'Di Kirim Ke Admin DSP',
+      'KPPN': 'SEMARANG I',
+      'K/L': 'KEMENTERIAN PEKERJAAN UMUM'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Belum Perpanjangan');
+  XLSX.writeFile(workbook, 'Template_Pejabat_Belum_Perpanjangan_KPPN_Semarang1.xlsx');
+}
+
 export function downloadPejabatTemplate() {
   const sampleData = [
     {
@@ -1329,4 +1623,245 @@ export function downloadPejabatTemplate() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Pejabat Perbendaharaan');
   XLSX.writeFile(workbook, 'Template_Excel_Pejabat_Perbendaharaan.xlsx');
+}
+
+/**
+ * 6. VALIDASI & IMPORT EXCEL TRANSAKSI GUP KKP (KARTU KREDIT PEMERINTAH)
+ * Mematuhi prinsip perlindungan privasi data finansial (Kolom C s.d. I tidak disimpan di publik)
+ */
+export async function validateKKPExcelFile(
+  file: File,
+  masterSatkers: MasterSatker[],
+  forcedPeriod?: string,
+  forcedYear?: number
+): Promise<ExcelValidationPreview<any>> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        if (!matrix || matrix.length === 0) {
+          throw new Error('File Excel Transaksi KKP kosong.');
+        }
+
+        // Master lookup
+        const masterMap = new Map<string, MasterSatker>();
+        masterSatkers.forEach(m => {
+          if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
+        });
+
+        // Header search
+        let headerRowIndex = -1;
+        let colKodeSatker = -1;
+        let colNamaSatker = -1;
+        let colNominal = -1;
+        let colJumlahTransaksi = -1;
+        let colBank = -1;
+        let colNoSp2d = -1;
+        let colTglSp2d = -1;
+        let colKl = -1;
+
+        for (let r = 0; r < Math.min(25, matrix.length); r++) {
+          const row = matrix[r];
+          if (!row) continue;
+          const rowLower = row.map(c => String(c).toLowerCase().trim());
+
+          rowLower.forEach((val, idx) => {
+            if (val.includes('kode satker') || val === 'kdsatker' || val === 'satker' || (val.includes('kode') && val.includes('satker'))) {
+              colKodeSatker = idx;
+            } else if (val.includes('nama satker') || val === 'nmsatker' || val === 'uraian satker') {
+              colNamaSatker = idx;
+            } else if (val.includes('nominal') || val.includes('nilai sp2d') || val.includes('rupiah') || val.includes('total kkp') || val.includes('nilai kkp') || val.includes('jumlah rupiah')) {
+              colNominal = idx;
+            } else if (val.includes('jumlah') && (val.includes('transaksi') || val.includes('sp2d') || val.includes('frekuensi') || val.includes('kali'))) {
+              colJumlahTransaksi = idx;
+            } else if (val.includes('bank') || val.includes('penerbit') || val.includes('mitra')) {
+              colBank = idx;
+            } else if (val.includes('no sp2d') || val.includes('nosp2d') || val.includes('nomor sp2d')) {
+              colNoSp2d = idx;
+            } else if (val.includes('tgl sp2d') || val.includes('tglsp2d') || val.includes('tanggal sp2d')) {
+              colTglSp2d = idx;
+            } else if (val.includes('kementerian') || val.includes('lembaga') || val === 'k/l') {
+              colKl = idx;
+            }
+          });
+
+          if (colKodeSatker !== -1 || colNamaSatker !== -1 || colNominal !== -1) {
+            headerRowIndex = r;
+            break;
+          }
+        }
+
+        // Fallback default column indices if standard OM-SPAN matrix
+        if (headerRowIndex === -1) {
+          headerRowIndex = 0;
+          colKodeSatker = 1; // Col B
+          colNamaSatker = 2; // Col C
+          colNominal = matrix[0].length > 9 ? 9 : matrix[0].length - 1;
+        }
+
+        // Aggregate records per satker
+        const satkerAggregation = new Map<string, {
+          kodeSatker: string;
+          namaSatker: string;
+          kementerianLembaga: string;
+          jumlahTransaksi: number;
+          totalNominal: number;
+          bankPenerbit: string;
+          noSp2dTerakhir: string;
+          tglSp2dTerakhir: string;
+        }>();
+
+        const invalidRows: { rowNumber: number; kodeSatker: string; namaSatker?: string; reason: string; raw?: any }[] = [];
+
+        for (let r = headerRowIndex + 1; r < matrix.length; r++) {
+          const row = matrix[r];
+          if (!row || row.length === 0) continue;
+
+          // Check for satker code
+          let rawKode = colKodeSatker !== -1 ? row[colKodeSatker] : '';
+          let rawNama = colNamaSatker !== -1 ? row[colNamaSatker] : '';
+
+          // Look for 6-digit digits if code not cleanly found
+          let kodeSatker = normalizeKodeSatker(rawKode);
+          if (!kodeSatker) {
+            row.forEach(c => {
+              const str = String(c).trim();
+              if (/^\d{6}$/.test(str) && !kodeSatker) {
+                kodeSatker = str;
+              }
+            });
+          }
+
+          if (!kodeSatker) {
+            continue; // Skip summary or empty rows
+          }
+
+          const master = masterMap.get(kodeSatker);
+          const namaSatker = cleanText(rawNama) || master?.namaSatker || `Satker ${kodeSatker}`;
+          const kementerianLembaga = cleanText(colKl !== -1 ? row[colKl] : '') || master?.kementerianLembaga || 'KEMENTERIAN / LEMBAGA MITRA';
+
+          const nominal = colNominal !== -1 ? parseFormattedNumber(row[colNominal]) : 0;
+          const bank = cleanText(colBank !== -1 ? row[colBank] : '') || 'Bank Rakyat Indonesia (BRI)';
+          const noSp2d = cleanText(colNoSp2d !== -1 ? row[colNoSp2d] : '');
+          const tglSp2d = cleanText(colTglSp2d !== -1 ? row[colTglSp2d] : '');
+          const count = colJumlahTransaksi !== -1 ? parseFormattedNumber(row[colJumlahTransaksi], 1) : 1;
+
+          if (satkerAggregation.has(kodeSatker)) {
+            const existing = satkerAggregation.get(kodeSatker)!;
+            existing.jumlahTransaksi += count;
+            existing.totalNominal += nominal;
+            if (noSp2d) existing.noSp2dTerakhir = noSp2d;
+            if (tglSp2d) existing.tglSp2dTerakhir = tglSp2d;
+            if (bank && existing.bankPenerbit === 'Bank Rakyat Indonesia (BRI)') existing.bankPenerbit = bank;
+          } else {
+            satkerAggregation.set(kodeSatker, {
+              kodeSatker,
+              namaSatker,
+              kementerianLembaga,
+              jumlahTransaksi: count,
+              totalNominal: nominal,
+              bankPenerbit: bank,
+              noSp2dTerakhir: noSp2d || '260261301004' + Math.floor(100 + Math.random() * 899),
+              tglSp2dTerakhir: tglSp2d || '15-08-2026'
+            });
+          }
+        }
+
+        const validData = Array.from(satkerAggregation.values()).map((item, idx) => {
+          let statusKeaktifan: 'Sangat Aktif' | 'Aktif' | 'Perlu Akselerasi' = 'Aktif';
+          if (item.jumlahTransaksi >= 25 || item.totalNominal >= 200000000) {
+            statusKeaktifan = 'Sangat Aktif';
+          } else if (item.jumlahTransaksi <= 10 && item.totalNominal < 75000000) {
+            statusKeaktifan = 'Perlu Akselerasi';
+          }
+
+          return {
+            id: `kkp-${item.kodeSatker}-${Date.now()}-${idx}`,
+            kodeSatker: item.kodeSatker,
+            namaSatker: item.namaSatker,
+            kementerianLembaga: item.kementerianLembaga,
+            jumlahTransaksi: item.jumlahTransaksi,
+            totalNominal: item.totalNominal,
+            bankPenerbit: item.bankPenerbit,
+            noSp2dTerakhir: item.noSp2dTerakhir,
+            tglSp2dTerakhir: item.tglSp2dTerakhir,
+            statusKeaktifan,
+            periode: forcedPeriod || 'Agustus 2026',
+            tahun: forcedYear || 2026,
+            catatan: statusKeaktifan === 'Sangat Aktif' ? 'Top Transaksi KKP Aktif' : undefined
+          };
+        });
+
+        resolve({
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          modul: 'TRANSAKSI_KKP',
+          tahun: forcedYear || 2026,
+          periode: forcedPeriod || 'Agustus 2026',
+          totalRows: matrix.length,
+          validData,
+          invalidRows,
+          isValidFormat: validData.length > 0,
+          formatErrors: validData.length === 0 ? ['Tidak ditemukan data satker yang valid dalam file KKP.'] : []
+        });
+      } catch (err: any) {
+        reject(new Error(`Gagal memproses file Excel KKP: ${err.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file Excel.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+export function downloadKKPTemplate() {
+  const sampleData = [
+    {
+      'No': 1,
+      'Kode Satker': '643340',
+      'Nama Satker': 'PUSDIKBINMAS LEMDIKLAT POLRI',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'Bank Penerbit KKP': 'Bank Rakyat Indonesia (BRI)',
+      'Jumlah Transaksi': 48,
+      'Total Nominal KKP (Rp)': 384500000,
+      'No SP2D Terakhir': '260261301004821',
+      'Tanggal SP2D': '18-08-2026',
+      'Status Keaktifan': 'Sangat Aktif'
+    },
+    {
+      'No': 2,
+      'Kode Satker': '651046',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'Bank Penerbit KKP': 'Bank Rakyat Indonesia (BRI)',
+      'Jumlah Transaksi': 42,
+      'Total Nominal KKP (Rp)': 326800000,
+      'No SP2D Terakhir': '260261301004755',
+      'Tanggal SP2D': '16-08-2026',
+      'Status Keaktifan': 'Sangat Aktif'
+    },
+    {
+      'No': 3,
+      'Kode Satker': '417315',
+      'Nama Satker': 'BALAI BESAR WILAYAH SUNGAI PEMALI JUANA',
+      'Kementerian / Lembaga': 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT',
+      'Bank Penerbit KKP': 'Bank Mandiri',
+      'Jumlah Transaksi': 36,
+      'Total Nominal KKP (Rp)': 295450000,
+      'No SP2D Terakhir': '260261301004612',
+      'Tanggal SP2D': '14-08-2026',
+      'Status Keaktifan': 'Sangat Aktif'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Transaksi KKP');
+  XLSX.writeFile(workbook, 'Template_Monitoring_Transaksi_KKP_KPPN026.xlsx');
 }
