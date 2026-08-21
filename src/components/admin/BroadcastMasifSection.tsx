@@ -104,6 +104,10 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   const [unselectedRecipientIds, setUnselectedRecipientIds] = useState<string[]>([]);
   const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; renderedMessage?: string }>>({});
   const [recipientSearchQuery, setRecipientSearchQuery] = useState<string>('');
+  const [contactStatusFilter, setContactStatusFilter] = useState<'ALL' | 'WITH_PHONE' | 'NO_PHONE'>('ALL');
+  const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
+  const [showBulkContactModal, setShowBulkContactModal] = useState<boolean>(false);
+  const [bulkContactInputText, setBulkContactInputText] = useState<string>('');
   const [editingCustomMsgModal, setEditingCustomMsgModal] = useState<{ id: string; recipientName: string; satkerNama: string; currentMsg: string } | null>(null);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState<boolean>(false);
 
@@ -363,33 +367,39 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       const isPerhatian = s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75;
 
       selectedBroadcastRoles.forEach(roleKey => {
-        let pejabatNama = 'Bapak/Ibu Pejabat';
-        let pejabatNoHp = s.noHpPic || '081234567890';
+        let pejabatNama = '';
+        let pejabatNoHp = '';
 
+        // Extract real contact information if recorded in Satker or Pejabat data
         if (roleKey === 'kpa' && pejo.kpa) {
-          pejabatNama = pejo.kpa.nama || 'KPA Satker';
-          pejabatNoHp = pejo.kpa.noHp || pejabatNoHp;
+          pejabatNama = pejo.kpa.nama?.trim() || '';
+          pejabatNoHp = pejo.kpa.noHp?.trim() || '';
         } else if (roleKey === 'ppk' && pejo.ppk) {
-          pejabatNama = pejo.ppk.nama || 'PPK Satker';
-          pejabatNoHp = pejo.ppk.noHp || pejabatNoHp;
+          pejabatNama = pejo.ppk.nama?.trim() || '';
+          pejabatNoHp = pejo.ppk.noHp?.trim() || '';
         } else if (roleKey === 'ppspm' && pejo.ppspm) {
-          pejabatNama = pejo.ppspm.nama || 'PPSPM Satker';
-          pejabatNoHp = pejo.ppspm.noHp || pejabatNoHp;
+          pejabatNama = pejo.ppspm.nama?.trim() || '';
+          pejabatNoHp = pejo.ppspm.noHp?.trim() || '';
         } else if (roleKey === 'bendahara' && pejo.bendahara) {
-          pejabatNama = pejo.bendahara.nama || 'Bendahara Satker';
-          pejabatNoHp = pejo.bendahara.noHp || pejabatNoHp;
+          pejabatNama = pejo.bendahara.nama?.trim() || '';
+          pejabatNoHp = pejo.bendahara.noHp?.trim() || '';
         } else if (roleKey === 'operatorKomitmen' && pejo.operatorKomitmen) {
-          pejabatNama = pejo.operatorKomitmen.nama || 'Operator Komitmen';
-          pejabatNoHp = pejo.operatorKomitmen.noHp || pejabatNoHp;
+          pejabatNama = pejo.operatorKomitmen.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorKomitmen.noHp?.trim() || '';
         } else if (roleKey === 'operatorPembayaran' && pejo.operatorPembayaran) {
-          pejabatNama = pejo.operatorPembayaran.nama || 'Operator Pembayaran';
-          pejabatNoHp = pejo.operatorPembayaran.noHp || pejabatNoHp;
+          pejabatNama = pejo.operatorPembayaran.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorPembayaran.noHp?.trim() || '';
         } else if (roleKey === 'operatorPelaporan' && pejo.operatorPelaporan) {
-          pejabatNama = pejo.operatorPelaporan.nama || 'Operator Pelaporan';
-          pejabatNoHp = pejo.operatorPelaporan.noHp || pejabatNoHp;
+          pejabatNama = pejo.operatorPelaporan.nama?.trim() || s.namaPic?.trim() || '';
+          pejabatNoHp = pejo.operatorPelaporan.noHp?.trim() || s.noHpPic?.trim() || '';
         } else if (roleKey === 'operatorGaji' && pejo.operatorGaji) {
-          pejabatNama = pejo.operatorGaji.nama || 'Operator Gaji';
-          pejabatNoHp = pejo.operatorGaji.noHp || pejabatNoHp;
+          pejabatNama = pejo.operatorGaji.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorGaji.noHp?.trim() || '';
+        }
+
+        // If specific role has no phone, check if general satker PIC phone exists
+        if (!pejabatNoHp && s.noHpPic) {
+          pejabatNoHp = s.noHpPic.trim();
         }
 
         const recId = `${s.id}-${roleKey}`;
@@ -399,10 +409,12 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           if (override.pejabatNama !== undefined && override.pejabatNama.trim() !== '') {
             pejabatNama = override.pejabatNama;
           }
-          if (override.pejabatNoHp !== undefined && override.pejabatNoHp.trim() !== '') {
-            pejabatNoHp = override.pejabatNoHp;
+          if (override.pejabatNoHp !== undefined) {
+            pejabatNoHp = override.pejabatNoHp.trim();
           }
         }
+
+        const displayPejabatNama = pejabatNama || `Pejabat / ${roleLabelMap[roleKey] || roleKey}`;
 
         let text = customExcelItem?.customMessage || broadcastTemplateText;
         text = text
@@ -410,7 +422,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           .replace(/\{KODE_SATKER\}/g, s.kodeSatker)
           .replace(/\{NILAI_IKPA\}/g, String(s.nilaiTotalIKPA))
           .replace(/\{PREDIKAT\}/g, s.predikat)
-          .replace(/\{NAMA_PEJABAT\}/g, pejabatNama)
+          .replace(/\{NAMA_PEJABAT\}/g, displayPejabatNama)
           .replace(/\{PERAN_PEJABAT\}/g, roleLabelMap[roleKey] || roleKey)
           .replace(/\{STATUS_OUTPUT\}/g, s.statusCapaianOutput)
           .replace(/\{PENYERAPAN\}/g, `${s.persenPenyerapan}%`)
@@ -439,18 +451,34 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     return recipients;
   }, [targetSatkers, selectedBroadcastRoles, recipientOverrides, customBroadcastExcelList, broadcastTemplateText]);
 
-  // Filtered Recipients by Search Bar
+  // Overall Contact Stats
+  const contactStats = useMemo(() => {
+    const total = calculatedRecipients.length;
+    const withPhone = calculatedRecipients.filter(r => r.pejabatNoHp && r.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8).length;
+    const withoutPhone = total - withPhone;
+    return { total, withPhone, withoutPhone };
+  }, [calculatedRecipients]);
+
+  // Filtered Recipients by Search Bar & Contact Status Filter
   const filteredRecipients = useMemo(() => {
-    if (!recipientSearchQuery.trim()) return calculatedRecipients;
-    const q = recipientSearchQuery.toLowerCase();
-    return calculatedRecipients.filter(rec => (
-      rec.satkerNama.toLowerCase().includes(q) ||
-      rec.satkerKode.toLowerCase().includes(q) ||
-      rec.pejabatNama.toLowerCase().includes(q) ||
-      rec.pejabatNoHp.toLowerCase().includes(q) ||
-      rec.roleLabel.toLowerCase().includes(q)
-    ));
-  }, [calculatedRecipients, recipientSearchQuery]);
+    return calculatedRecipients.filter(rec => {
+      // 1. Contact Status Filter
+      const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+      if (contactStatusFilter === 'WITH_PHONE' && !hasPhone) return false;
+      if (contactStatusFilter === 'NO_PHONE' && hasPhone) return false;
+
+      // 2. Search Query Filter
+      if (!recipientSearchQuery.trim()) return true;
+      const q = recipientSearchQuery.toLowerCase();
+      return (
+        rec.satkerNama.toLowerCase().includes(q) ||
+        rec.satkerKode.toLowerCase().includes(q) ||
+        rec.pejabatNama.toLowerCase().includes(q) ||
+        rec.pejabatNoHp.toLowerCase().includes(q) ||
+        rec.roleLabel.toLowerCase().includes(q)
+      );
+    });
+  }, [calculatedRecipients, recipientSearchQuery, contactStatusFilter]);
 
   const selectedRecipients = useMemo(() => {
     return filteredRecipients.filter(r => !unselectedRecipientIds.includes(r.id));
@@ -483,6 +511,61 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       delete next[id];
       return next;
     });
+  };
+
+  // Bulk Apply Pasted Contacts (KodeSatker, NoHp, NamaPejabat)
+  const handleApplyBulkContacts = () => {
+    if (!bulkContactInputText.trim()) return;
+
+    const lines = bulkContactInputText.split('\n');
+    let updatedCount = 0;
+    const newOverrides: Record<string, any> = { ...recipientOverrides };
+
+    lines.forEach(line => {
+      const parts = line.split(/[,\t;|]/).map(p => p.trim());
+      if (parts.length >= 2) {
+        const kode = parts[0];
+        const phone = parts[1].replace(/[^0-9+]/g, '');
+        const name = parts[2] || '';
+
+        // Match recipients by kode satker
+        calculatedRecipients.forEach(rec => {
+          if (rec.satkerKode === kode) {
+            newOverrides[rec.id] = {
+              ...newOverrides[rec.id],
+              pejabatNoHp: phone,
+              ...(name ? { pejabatNama: name } : {})
+            };
+            updatedCount++;
+          }
+        });
+      }
+    });
+
+    setRecipientOverrides(newOverrides);
+    setShowBulkContactModal(false);
+    setBulkContactInputText('');
+
+    if (showToast) {
+      showToast({
+        type: 'success',
+        title: 'Kontak Massal Diperbarui',
+        message: `Berhasil memperbarui ${updatedCount} entri kontak dari teks yang dimasukkan.`
+      });
+    }
+  };
+
+  const handleCopyMessage = (id: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedRecipientId(id);
+    setTimeout(() => setCopiedRecipientId(null), 2500);
+    if (showToast) {
+      showToast({
+        type: 'info',
+        title: 'Teks Disalin',
+        message: 'Isi pesan WhatsApp berhasil disalin ke clipboard.'
+      });
+    }
   };
 
   // Helper formatting phone
@@ -1385,34 +1468,85 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           </div>
 
           {/* Filter & Selection Bar */}
-          <div className="bg-slate-100 dark:bg-slate-950 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="bg-slate-100 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row items-center justify-between gap-3 text-xs">
             
-            {/* Search Box */}
-            <div className="relative w-full sm:w-80">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={recipientSearchQuery}
-                onChange={(e) => setRecipientSearchQuery(e.target.value)}
-                placeholder="Cari Satker, Pejabat, No HP, Peran..."
-                className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500"
-              />
-              {recipientSearchQuery && (
-                <button onClick={() => setRecipientSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                  <X className="w-3.5 h-3.5" />
+            {/* Search Box & Contact Status Filter */}
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={recipientSearchQuery}
+                  onChange={(e) => setRecipientSearchQuery(e.target.value)}
+                  placeholder="Cari Satker, Pejabat, No HP..."
+                  className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+                {recipientSearchQuery && (
+                  <button onClick={() => setRecipientSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filter Badges */}
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-300 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setContactStatusFilter('ALL')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer ${
+                    contactStatusFilter === 'ALL'
+                      ? 'bg-slate-800 text-white dark:bg-slate-700'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Semua ({contactStats.total})
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => setContactStatusFilter('WITH_PHONE')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 ${
+                    contactStatusFilter === 'WITH_PHONE'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                  }`}
+                >
+                  <span>🟢 Ada No HP</span>
+                  <span className="font-mono font-bold">({contactStats.withPhone})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContactStatusFilter('NO_PHONE')}
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-all cursor-pointer flex items-center gap-1 ${
+                    contactStatusFilter === 'NO_PHONE'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                  }`}
+                >
+                  <span>⚠️ No HP Kosong</span>
+                  <span className="font-mono font-bold">({contactStats.withoutPhone})</span>
+                </button>
+              </div>
             </div>
 
-            {/* Bulk Selection Actions */}
-            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-end">
+            {/* Bulk Actions & Import Helper */}
+            <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => setShowBulkContactModal(true)}
+                className="px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/60 font-bold text-sky-800 dark:text-sky-300 hover:bg-sky-100 flex items-center gap-1.5 cursor-pointer text-xs shadow-xs"
+                title="Perbarui nomor telepon satker secara massal melalui teks salin-tempel"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Impor / Isi No. HP Cepat</span>
+              </button>
+
               <button
                 type="button"
                 onClick={toggleSelectAll}
                 className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer text-xs"
               >
                 {isAllChecked ? <CheckSquare className="w-3.5 h-3.5 text-rose-500" /> : <Square className="w-3.5 h-3.5 text-slate-400" />}
-                <span>{isAllChecked ? 'Hapus Centang Semua' : 'Centang Semua (' + filteredRecipients.length + ')'}</span>
+                <span>{isAllChecked ? 'Batal Semua' : 'Centang Semua (' + filteredRecipients.length + ')'}</span>
               </button>
 
               {Object.keys(recipientOverrides).length > 0 && (
@@ -1423,7 +1557,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
                   title="Kembalikan semua nama, nomor HP, dan pesan yang pernah diedit ke data asli"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset ({Object.keys(recipientOverrides).length}) Edit Manual</span>
+                  <span>Reset Edit ({Object.keys(recipientOverrides).length})</span>
                 </button>
               )}
 
@@ -1474,7 +1608,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           )}
 
           {/* Recipient Table */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 max-h-[460px] overflow-y-auto shadow-sm">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 max-h-[480px] overflow-y-auto shadow-sm">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700">
                 <tr>
@@ -1486,23 +1620,30 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
                       className="rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
                     />
                   </th>
-                  <th className="py-2.5 px-3 min-w-[200px]">Satker Target</th>
+                  <th className="py-2.5 px-3 min-w-[190px]">Satker Target</th>
                   <th className="py-2.5 px-3 min-w-[180px]">Peran &amp; Nama Pejabat</th>
-                  <th className="py-2.5 px-3 min-w-[140px]">No WhatsApp</th>
-                  <th className="py-2.5 px-3 min-w-[260px]">Teks Pesan Ter-render</th>
-                  <th className="py-2.5 px-3 text-center">Status Data</th>
+                  <th className="py-2.5 px-3 min-w-[170px]">No. WhatsApp &amp; Status</th>
+                  <th className="py-2.5 px-3 min-w-[280px]">Teks Pesan Ter-render</th>
+                  <th className="py-2.5 px-3 text-center min-w-[100px]">Aksi Cepat</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {filteredRecipients.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
-                      Tidak ada penerima yang cocok dengan filter / pencarian.
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <AlertCircle className="w-6 h-6 text-slate-400" />
+                        <p className="font-semibold">Tidak ada penerima yang cocok dengan filter kontak atau pencarian.</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   filteredRecipients.map(rec => {
                     const isSelected = !unselectedRecipientIds.includes(rec.id);
+                    const hasValidPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+                    const formattedPhone = hasValidPhone ? formatPhone62(rec.pejabatNoHp) : '';
+                    const waWebUrl = hasValidPhone ? `https://wa.me/${formattedPhone}?text=${encodeURIComponent(rec.renderedMessage)}` : '';
+
                     return (
                       <tr key={rec.id} className={`transition-all ${isSelected ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50' : 'bg-slate-100/50 dark:bg-slate-950/40 opacity-60'}`}>
                         <td className="py-2.5 px-3 text-center">
@@ -1521,69 +1662,118 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                            <span>{rec.satkerNama}</span>
+                            <span className="line-clamp-1">{rec.satkerNama}</span>
                             {rec.isPerhatian && (
                               <span className="bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 text-[9px] font-black px-1.5 py-0.5 rounded border border-rose-300 shrink-0">
                                 Perhatian
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-mono">Kode: {rec.satkerKode} | Skor IKPA: {rec.nilaiIkpa}</div>
+                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            Kode: <strong className="text-slate-700 dark:text-slate-300">{rec.satkerKode}</strong> | Nilai IKPA: <span className="font-bold text-rose-600">{rec.nilaiIkpa.toFixed(2)}</span>
+                          </div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <div className="font-bold text-rose-600 dark:text-rose-400 mb-0.5">{rec.roleLabel}</div>
+                          <div className="font-bold text-rose-600 dark:text-rose-400 mb-1 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            <span>{rec.roleLabel}</span>
+                          </div>
                           <input
                             type="text"
                             value={rec.pejabatNama}
                             onChange={(e) => handleUpdateOverride(rec.id, 'pejabatNama', e.target.value)}
-                            placeholder="Masukkan nama pejabat..."
+                            placeholder="Nama pejabat / PIC (Ketik bila ada)..."
                             className="w-full px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-rose-500"
                           />
                         </td>
                         <td className="py-2.5 px-3">
-                          <div className="text-[10px] text-slate-400 mb-0.5 font-bold">No. WA Tujuan:</div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] text-slate-400 font-bold">No. WhatsApp:</span>
+                            {hasValidPhone ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.2 rounded border border-emerald-300">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                                Siap Kirim
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950 px-1.5 py-0.2 rounded border border-amber-300">
+                                <AlertTriangle className="w-2.5 h-2.5 text-amber-600" />
+                                Belum Ada Nomor
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="text"
                             value={rec.pejabatNoHp}
                             onChange={(e) => handleUpdateOverride(rec.id, 'pejabatNoHp', e.target.value)}
-                            placeholder="081234567890"
-                            className="w-full px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                            placeholder="Ketik No HP WhatsApp..."
+                            className={`w-full px-2 py-1 rounded-lg border font-mono text-xs font-bold focus:outline-none focus:ring-1 ${
+                              hasValidPhone 
+                                ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200 focus:ring-emerald-500'
+                                : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 focus:ring-rose-500'
+                            }`}
                           />
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="bg-slate-100 dark:bg-slate-950 p-2 rounded-xl text-[11px] font-sans text-slate-800 dark:text-slate-200 max-w-md line-clamp-2 whitespace-pre-line border border-slate-200 dark:border-slate-800">
                             {rec.renderedMessage}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setEditingCustomMsgModal({
-                              id: rec.id,
-                              recipientName: rec.pejabatNama,
-                              satkerNama: rec.satkerNama,
-                              currentMsg: rec.renderedMessage
-                            })}
-                            className="mt-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <Edit3 className="w-3 h-3" />
-                            <span>Edit Pesan Khusus Satker Ini</span>
-                          </button>
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyMessage(rec.id, rec.renderedMessage)}
+                              className="text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:text-rose-600 flex items-center gap-1 cursor-pointer"
+                              title="Salin isi pesan yang terisi lengkap"
+                            >
+                              {copiedRecipientId === rec.id ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedRecipientId === rec.id ? 'Tersalin!' : 'Salin Pesan'}</span>
+                            </button>
+                            <span className="text-slate-300">|</span>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCustomMsgModal({
+                                id: rec.id,
+                                recipientName: rec.pejabatNama,
+                                satkerNama: rec.satkerNama,
+                                currentMsg: rec.renderedMessage
+                              })}
+                              className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit Khusus</span>
+                            </button>
+                          </div>
                         </td>
-                        <td className="py-2.5 px-3 text-center">
-                          {rec.isEdited ? (
-                            <div className="space-y-1">
-                              <span className="inline-block bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[10px] px-2 py-0.5 rounded font-bold">
+                        <td className="py-2.5 px-3 text-center space-y-1">
+                          {hasValidPhone ? (
+                            <a
+                              href={waWebUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black shadow-xs transition-all"
+                              title="Buka obrolan langsung di WhatsApp Web"
+                            >
+                              <Send className="w-2.5 h-2.5" />
+                              <span>WA Web</span>
+                            </a>
+                          ) : (
+                            <span className="inline-block text-[10px] text-slate-400 font-semibold italic">
+                              Nomor Kosong
+                            </span>
+                          )}
+
+                          {rec.isEdited && (
+                            <div className="pt-0.5">
+                              <span className="inline-block bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[9px] px-1.5 py-0.2 rounded font-bold">
                                 Diedit
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleResetOverride(rec.id)}
-                                className="block mx-auto text-[10px] text-slate-500 hover:text-rose-600 underline font-bold cursor-pointer"
+                                className="block mx-auto text-[9px] text-slate-400 hover:text-rose-600 underline font-bold cursor-pointer"
                               >
                                 Reset
                               </button>
                             </div>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 font-mono">Bawaan</span>
                           )}
                         </td>
                       </tr>
@@ -1597,6 +1787,72 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         </div>
 
       </div>
+
+      {/* Modal Bulk Contact Importer */}
+      {showBulkContactModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-xl w-full space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Edit3 className="w-4 h-4 text-sky-500" />
+                  Impor / Lengkapi Kontak WhatsApp Massal
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Tempelkan daftar nomor telepon satker untuk melengkapi penerima yang belum memiliki nomor.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowBulkContactModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="bg-sky-50 dark:bg-sky-950/60 p-3 rounded-2xl border border-sky-200 dark:border-sky-800 text-xs text-sky-900 dark:text-sky-200 leading-relaxed">
+                <strong>Format Salin-Tempel (1 Baris per Satker):</strong>
+                <div className="font-mono text-[11px] bg-white dark:bg-slate-900 p-2 rounded-xl border border-sky-300 dark:border-sky-700 mt-1">
+                  KODE_SATKER, NO_WHATSAPP, NAMA_PEJABAT<br />
+                  Contoh: 412345, 081234567890, Bambang Sutrisno<br />
+                  Contoh: 654321, 081987654321
+                </div>
+              </div>
+
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Tempel Data di Sini:
+              </label>
+              <textarea
+                rows={7}
+                value={bulkContactInputText}
+                onChange={(e) => setBulkContactInputText(e.target.value)}
+                placeholder="412345, 081234567890, Nama Pejabat&#10;654321, 081987654321"
+                className="w-full p-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-xs leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkContactModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyBulkContacts}
+                disabled={!bulkContactInputText.trim()}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Terapkan ke Daftar Penerima</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Edit Custom Message Per Recipient */}
       {editingCustomMsgModal && (

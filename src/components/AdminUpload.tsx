@@ -20,13 +20,16 @@ import {
   MasterSatker,
   PengelolaanUPRecord,
   TransaksiKKPRecord,
-  PopUpAnnouncementConfig
+  DigipayRecord,
+  PopUpAnnouncementConfig,
+  PresensiPrintConfig
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
 import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
 import { UploadTUPSection } from './admin/UploadTUPSection';
 import { UploadKKPSection } from './admin/UploadKKPSection';
+import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
@@ -118,7 +121,8 @@ import {
   Unlock,
   FileDown,
   UserCheck,
-  CreditCard
+  CreditCard,
+  Settings
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -157,6 +161,9 @@ interface AdminUploadProps {
   transaksiKkpRecords?: TransaksiKKPRecord[];
   onApplyTransaksiKkp?: (records: TransaksiKKPRecord[]) => void;
   onClearTransaksiKkp?: () => void;
+  transaksiDigipayRecords?: DigipayRecord[];
+  onApplyTransaksiDigipay?: (records: DigipayRecord[]) => void;
+  onClearTransaksiDigipay?: () => void;
   onClearMasterSatkers?: () => void;
 }
 
@@ -327,6 +334,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   transaksiKkpRecords = [],
   onApplyTransaksiKkp,
   onClearTransaksiKkp,
+  transaksiDigipayRecords = [],
+  onApplyTransaksiDigipay,
+  onClearTransaksiDigipay,
   onClearMasterSatkers
 }) => {
   const isDark = theme === 'dark';
@@ -334,14 +344,42 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   // Navigation inside Admin Panel
   const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs'>('upload');
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay'>('ikpa');
 
   // Presensi Admin State
+  const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
+    kopBaris1: 'KEMENTERIAN KEUANGAN REPUBLIK INDONESIA',
+    kopBaris2: 'DIREKTORAT JENDERAL PERBENDAHARAAN',
+    kopBaris3: 'KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH',
+    kopBaris4: 'KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I',
+    kopAlamatKontak: 'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1',
+    kotaTandaTangan: 'Semarang',
+    jabatanPenandatangan: 'Penanggung Jawab Kegiatan / Kepala Seksi MSKI',
+    namaPenandatangan: '',
+    nipPenandatangan: '',
+    customTitle: 'DAFTAR HADIR PESERTA KEGIATAN'
+  };
+
   const [selectedPresensiKegiatanId, setSelectedPresensiKegiatanId] = useState<string | null>(null);
   const [searchPresensiQuery, setSearchPresensiQuery] = useState<string>('');
   const [previewPresensiSignature, setPreviewPresensiSignature] = useState<string | null>(null);
   const [showPrintPresensiModal, setShowPrintPresensiModal] = useState<boolean>(false);
+  const [showPresensiConfigCard, setShowPresensiConfigCard] = useState<boolean>(false);
+  const [isEditingPrintHeader, setIsEditingPrintHeader] = useState<boolean>(false);
+  
+  const [presensiPrintConfig, setPresensiPrintConfig] = useState<PresensiPrintConfig>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_presensi_print_config');
+      if (saved) {
+        return { ...DEFAULT_PRESENSI_PRINT_CONFIG, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.warn('Failed to parse kppn_presensi_print_config', e);
+    }
+    return dashboardConfig?.presensiPrintConfig || DEFAULT_PRESENSI_PRINT_CONFIG;
+  });
+
   const [editingPresensiKegiatanId, setEditingPresensiKegiatanId] = useState<string | null>(null);
   const [presensiKegiatanForm, setPresensiKegiatanForm] = useState<Partial<PresensiKegiatan>>({
     judulKegiatan: '',
@@ -3521,6 +3559,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   { key: 'dashboard', label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker' },
                   { key: 'capaian-output', label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload output' },
                   { key: 'pengelolaan-up', label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP' },
+                  { key: 'transaksi-kkp', label: 'Transaksi KKP / GUP KKP', desc: 'Monitoring Transaksi & Frekuensi KKP Bank' },
+                  { key: 'transaksi-digipay', label: 'Transaksi Digipay (VA & KKP)', desc: 'Monitoring Transaksi Marketplace Digipay Satu' },
                   { key: 'kelola-satker', label: 'Kelola Data Satker (Master)', desc: 'Pusat Master Satker & Database No Telepon' },
                   { key: 'sertifikasi', label: 'Sertifikasi Pejabat', desc: 'Status PTP/PPK/PPSPM' },
                   { key: 'per5-analisis', label: 'Analisis PER-5/PB/2024', desc: 'Simulasi proyeksi nilai IKPA' },
@@ -3561,6 +3601,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                               'dashboard': true,
                               'capaian-output': true,
                               'pengelolaan-up': true,
+                              'transaksi-kkp': true,
+                              'kelola-satker': true,
                               'redflags': true,
                               'sertifikasi': true,
                               'per5-analisis': true,
@@ -6800,6 +6842,19 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setShowPresensiConfigCard(!showPresensiConfigCard)}
+                  className={`font-bold text-xs sm:text-sm px-3.5 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer ${
+                    showPresensiConfigCard
+                      ? 'bg-amber-600 hover:bg-amber-500 text-white ring-2 ring-amber-400'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>{showPresensiConfigCard ? 'Tutup Pengaturan Cetak' : '⚙️ Atur KOP & Penandatangan'}</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     const activeEvt = presensiKegiatanList.find(k => k.id === selectedPresensiKegiatanId) || presensiKegiatanList[0];
                     if (!activeEvt) {
@@ -6846,6 +6901,259 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Config Card: KOP & Penandatangan Presensi Online */}
+            {showPresensiConfigCard && (
+              <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-indigo-50/80 via-white to-slate-50 dark:from-slate-900 dark:via-slate-850 dark:to-slate-900 border-2 border-indigo-200 dark:border-indigo-800/60 shadow-xl space-y-5 animate-in fade-in duration-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-100 dark:border-slate-750 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-indigo-600 text-white shadow-md">
+                      <Sliders className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-black text-slate-900 dark:text-white">
+                        Pengaturan KOP Surat, Alamat, Telepon &amp; Penandatangan Cetak Presensi
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Ubah data header surat resmi, alamat kantor, kontak, dan nama pejabat penandatangan lembar daftar hadir.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm('Kembalikan semua pengaturan KOP & Penandatangan ke format standar Kemenkeu?')) {
+                          setPresensiPrintConfig(DEFAULT_PRESENSI_PRINT_CONFIG);
+                          try {
+                            localStorage.setItem('kppn_presensi_print_config', JSON.stringify(DEFAULT_PRESENSI_PRINT_CONFIG));
+                          } catch (e) {}
+                          const updated = {
+                            ...tempConfig,
+                            presensiPrintConfig: DEFAULT_PRESENSI_PRINT_CONFIG
+                          };
+                          setTempConfig(updated);
+                          onUpdateDashboardConfig(updated);
+                          addToast('Pengaturan KOP & Penandatangan direset ke default!', 'info');
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset Default</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
+                  {/* Left Column: KOP Surat Header & Alamat/Telepon */}
+                  <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-3 shadow-xs">
+                    <div className="font-black text-xs uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4" />
+                      <span>1. KOP Surat &amp; Identitas Kantor</span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        KOP Baris 1 (Kementerian / Lembaga):
+                      </label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopBaris1 || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopBaris1: e.target.value }))}
+                        placeholder="KEMENTERIAN KEUANGAN REPUBLIK INDONESIA"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        KOP Baris 2 (Unit Eselon I):
+                      </label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopBaris2 || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopBaris2: e.target.value }))}
+                        placeholder="DIREKTORAT JENDERAL PERBENDAHARAAN"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        KOP Baris 3 (Kantor Wilayah):
+                      </label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopBaris3 || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopBaris3: e.target.value }))}
+                        placeholder="KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        KOP Baris 4 (Kantor Pelayanan / Satker):
+                      </label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopBaris4 || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopBaris4: e.target.value }))}
+                        placeholder="KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Alamat Kantor, No. Telepon, Fax &amp; Laman (Header Bawah):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={presensiPrintConfig.kopAlamatKontak || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopAlamatKontak: e.target.value }))}
+                        placeholder="Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                      />
+                      <span className="text-[10px] text-slate-500">
+                        * Ubah kolom ini apabila ada perubahan alamat kantor, nomor telepon, atau link website.
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        Judul Dokumen Lembar Cetak:
+                      </label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.customTitle || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, customTitle: e.target.value }))}
+                        placeholder="DAFTAR HADIR PESERTA KEGIATAN"
+                        className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Penandatangan Pejabat & Preview */}
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-3 shadow-xs">
+                      <div className="font-black text-xs uppercase tracking-wider text-teal-700 dark:text-teal-400 flex items-center gap-1.5">
+                        <PenTool className="w-4 h-4" />
+                        <span>2. Pejabat Penandatangan Lembar Presensi</span>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Kota / Tempat Penandatanganan:
+                        </label>
+                        <input
+                          type="text"
+                          value={presensiPrintConfig.kotaTandaTangan || ''}
+                          onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kotaTandaTangan: e.target.value }))}
+                          placeholder="Semarang"
+                          className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Jabatan Penandatangan:
+                        </label>
+                        <input
+                          type="text"
+                          value={presensiPrintConfig.jabatanPenandatangan || ''}
+                          onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, jabatanPenandatangan: e.target.value }))}
+                          placeholder="Penanggung Jawab Kegiatan / Kepala Seksi MSKI"
+                          className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Nama Lengkap Pejabat / Pegawai (Beserta Gelar):
+                        </label>
+                        <input
+                          type="text"
+                          value={presensiPrintConfig.namaPenandatangan || ''}
+                          onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, namaPenandatangan: e.target.value }))}
+                          placeholder="Contoh: Budi Santoso, S.E., M.Si."
+                          className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                        />
+                        <span className="text-[10px] text-slate-500">
+                          * Kosongkan jika ingin tanda tangan format garis kosong ( .................... )
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          NIP Penandatangan:
+                        </label>
+                        <input
+                          type="text"
+                          value={presensiPrintConfig.nipPenandatangan || ''}
+                          onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, nipPenandatangan: e.target.value }))}
+                          placeholder="Contoh: 19820514 200412 1 001"
+                          className="w-full p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live Preview of Signature block */}
+                    <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-center space-y-3">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        Pratinjau Format Tanda Tangan:
+                      </div>
+                      <div className="text-xs space-y-6 bg-white dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <div>
+                          <p>{presensiPrintConfig.kotaTandaTangan || 'Semarang'}, 18 Agustus 2026</p>
+                          <p className="font-bold">{presensiPrintConfig.jabatanPenandatangan || 'Penanggung Jawab Kegiatan / Kepala Seksi MSKI'},</p>
+                        </div>
+                        <div className="pt-2">
+                          <p className="font-bold underline">
+                            {presensiPrintConfig.namaPenandatangan ? presensiPrintConfig.namaPenandatangan : '( .................................................... )'}
+                          </p>
+                          <p className="text-[11px] font-mono text-slate-600 dark:text-slate-400">
+                            NIP. {presensiPrintConfig.nipPenandatangan ? presensiPrintConfig.nipPenandatangan : '.............................................'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-indigo-100 dark:border-slate-800">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 italic">
+                    Perubahan langsung tersimpan di sistem dan otomatis diterapkan pada cetakan rekap PDF/Print.
+                  </span>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          localStorage.setItem('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
+                        } catch (e) {
+                          console.warn(e);
+                        }
+                        const updated = {
+                          ...tempConfig,
+                          presensiPrintConfig
+                        };
+                        setTempConfig(updated);
+                        onUpdateDashboardConfig(updated);
+                        addToast('Pengaturan KOP & Penandatangan Cetak Presensi berhasil disimpan!', 'success');
+                      }}
+                      className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2.5 rounded-xl text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Simpan Pengaturan Cetak</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Event Selector & Stats Bar */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -7294,7 +7602,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       )}
 
-      {/* Official Print Modal (Ber-KOP Kemenkeu) */}
+      {/* Official Print Modal (Ber-KOP Kemenkeu & Pejabat Penandatangan Dinamis) */}
       {showPrintPresensiModal && (() => {
         const activeEvt = presensiKegiatanList.find(k => k.id === (selectedPresensiKegiatanId || presensiKegiatanList[0]?.id)) || presensiKegiatanList[0];
         const attendees = presensiPesertaList.filter(p => !activeEvt || p.kegiatanId === activeEvt.id);
@@ -7304,12 +7612,25 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             <div className="bg-white text-slate-900 rounded-3xl max-w-4xl w-full p-8 sm:p-10 shadow-2xl space-y-6 print:shadow-none print:p-0 print:rounded-none">
               
               {/* Top Controls (Hidden during print) */}
-              <div className="flex items-center justify-between border-b pb-4 print:hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 print:hidden">
                 <div className="flex items-center gap-2">
                   <Printer className="w-5 h-5 text-teal-600" />
                   <span className="font-extrabold text-sm">Pratinjau Cetak Lembar Presensi Resmi</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingPrintHeader(!isEditingPrintHeader)}
+                    className={`font-bold px-3 py-2 rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isEditingPrintHeader 
+                        ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{isEditingPrintHeader ? 'Tutup Edit KOP / TTD' : '✏️ Ubah KOP & Penandatangan'}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => window.print()}
@@ -7318,6 +7639,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     <Printer className="w-4 h-4" />
                     <span>Cetak Sekarang (Print / PDF)</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setShowPrintPresensiModal(false)}
@@ -7328,21 +7650,122 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </div>
               </div>
 
+              {/* In-Modal Quick Header & Signatory Editor (Hidden on Print) */}
+              {isEditingPrintHeader && (
+                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 text-slate-800 space-y-3 print:hidden animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase text-indigo-900 flex items-center gap-1.5">
+                      <Sliders className="w-4 h-4 text-indigo-600" />
+                      Sesuaikan KOP Surat &amp; Pejabat Penandatangan untuk Cetakan Ini:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          localStorage.setItem('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
+                        } catch (e) {}
+                        const updated = {
+                          ...tempConfig,
+                          presensiPrintConfig
+                        };
+                        setTempConfig(updated);
+                        onUpdateDashboardConfig(updated);
+                        addToast('Format KOP & Penandatangan tersimpan!', 'success');
+                      }}
+                      className="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1 cursor-pointer"
+                    >
+                      <Save className="w-3 h-3" />
+                      <span>Simpan Sebagai Format Tetap</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">KOP Baris 4 (Satker):</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopBaris4 || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopBaris4: e.target.value }))}
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">Alamat &amp; No. Telepon Kontak:</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kopAlamatKontak || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kopAlamatKontak: e.target.value }))}
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">Jabatan Penandatangan:</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.jabatanPenandatangan || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, jabatanPenandatangan: e.target.value }))}
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">Nama Pejabat Penandatangan &amp; Gelar:</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.namaPenandatangan || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, namaPenandatangan: e.target.value }))}
+                        placeholder="Contoh: Budi Santoso, S.E., M.Si."
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">NIP Pejabat:</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.nipPenandatangan || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, nipPenandatangan: e.target.value }))}
+                        placeholder="Contoh: 19820514 200412 1 001"
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700">Kota Penandatanganan:</label>
+                      <input
+                        type="text"
+                        value={presensiPrintConfig.kotaTandaTangan || ''}
+                        onChange={(e) => setPresensiPrintConfig(prev => ({ ...prev, kotaTandaTangan: e.target.value }))}
+                        placeholder="Semarang"
+                        className="w-full p-1.5 bg-white border border-slate-300 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Official Document Body */}
               <div className="space-y-6 text-slate-900">
                 {/* Formal KOP Kemenkeu */}
                 <div className="text-center border-b-2 border-slate-900 pb-3 space-y-0.5">
-                  <h4 className="font-extrabold text-xs uppercase tracking-wider">KEMENTERIAN KEUANGAN REPUBLIK INDONESIA</h4>
-                  <h3 className="font-bold text-xs uppercase tracking-wider">DIREKTORAT JENDERAL PERBENDAHARAAN</h3>
-                  <h3 className="font-bold text-xs uppercase tracking-wider">KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH</h3>
-                  <h2 className="font-black text-sm uppercase tracking-wider">KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I</h2>
-                  <p className="text-[10px] text-slate-600">Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1</p>
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider">
+                    {presensiPrintConfig.kopBaris1 || 'KEMENTERIAN KEUANGAN REPUBLIK INDONESIA'}
+                  </h4>
+                  <h3 className="font-bold text-xs uppercase tracking-wider">
+                    {presensiPrintConfig.kopBaris2 || 'DIREKTORAT JENDERAL PERBENDAHARAAN'}
+                  </h3>
+                  <h3 className="font-bold text-xs uppercase tracking-wider">
+                    {presensiPrintConfig.kopBaris3 || 'KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH'}
+                  </h3>
+                  <h2 className="font-black text-sm uppercase tracking-wider">
+                    {presensiPrintConfig.kopBaris4 || 'KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I'}
+                  </h2>
+                  <p className="text-[10px] text-slate-600">
+                    {presensiPrintConfig.kopAlamatKontak || 'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1'}
+                  </p>
                 </div>
 
                 {/* Event Title */}
                 <div className="text-center space-y-1">
                   <h2 className="text-base font-black uppercase underline tracking-wide">
-                    DAFTAR HADIR PESERTA KEGIATAN
+                    {presensiPrintConfig.customTitle || 'DAFTAR HADIR PESERTA KEGIATAN'}
                   </h2>
                   <p className="text-xs font-bold">{activeEvt?.judulKegiatan}</p>
                   {activeEvt?.subJudul && <p className="text-[11px] text-slate-600 italic">{activeEvt.subJudul}</p>}
@@ -7399,14 +7822,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 {/* Formal Approval Signature Block */}
                 <div className="pt-8 flex justify-between text-xs break-inside-avoid">
                   <div></div>
-                  <div className="text-center space-y-16">
+                  <div className="text-center space-y-14 min-w-56">
                     <div>
-                      <p>Semarang, {activeEvt?.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                      <p className="font-bold">Penanggung Jawab Kegiatan / Kepala Seksi MSKI,</p>
+                      <p>{presensiPrintConfig.kotaTandaTangan || 'Semarang'}, {activeEvt?.tanggal || new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p className="font-bold">{presensiPrintConfig.jabatanPenandatangan || 'Penanggung Jawab Kegiatan / Kepala Seksi MSKI'},</p>
                     </div>
-                    <div className="border-t border-slate-900 pt-1 font-bold">
-                      <p>( .................................................... )</p>
-                      <p className="text-[10px] font-normal text-slate-600">NIP. .............................................</p>
+                    <div className="border-t border-slate-900 pt-1">
+                      <p className="font-bold underline">
+                        {presensiPrintConfig.namaPenandatangan 
+                          ? presensiPrintConfig.namaPenandatangan 
+                          : '( .................................................... )'}
+                      </p>
+                      <p className="text-[10px] font-normal text-slate-600">
+                        NIP. {presensiPrintConfig.nipPenandatangan 
+                          ? presensiPrintConfig.nipPenandatangan 
+                          : '.............................................'}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -8364,6 +8795,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {transaksiKkpRecords.length} Transaksi KKP
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('digipay')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'digipay'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                  <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>6. Transaksi Digipay (VA &amp; KKP)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Multi-Tab Excel Pembayaran VA &amp; Kartu Kredit Pemerintah.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  {transaksiDigipayRecords.length} Transaksi Digipay
+                </div>
+              </button>
             </div>
           </div>
 
@@ -8444,6 +8896,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               transaksiKkpRecords={transaksiKkpRecords}
               onApplyTransaksiKkp={onApplyTransaksiKkp || (() => {})}
               onClearTransaksiKkp={onClearTransaksiKkp || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'digipay' && (
+            <UploadDigipaySection
+              isDark={isDark}
+              satkers={satkers}
+              masterSatkers={masterSatkers}
+              transaksiDigipayRecords={transaksiDigipayRecords}
+              onApplyTransaksiDigipay={onApplyTransaksiDigipay || (() => {})}
+              onClearTransaksiDigipay={onClearTransaksiDigipay || (() => {})}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}

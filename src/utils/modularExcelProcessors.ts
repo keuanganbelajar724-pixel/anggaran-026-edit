@@ -6,6 +6,7 @@ import {
   PejabatSertifikasi,
   PengelolaanUPRecord,
   KarwasTUPRecord,
+  DigipayRecord,
   ExcelValidationPreview
 } from '../types';
 import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
@@ -20,12 +21,39 @@ function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   if (val === null || val === undefined || val === '') return defaultValue;
   if (typeof val === 'number') return isNaN(val) ? defaultValue : val;
   
-  let str = String(val).trim().replace(/Rp|\$|%|\s/gi, '');
-  if (str.includes(',') && str.includes('.')) {
-    str = str.replace(/\./g, '').replace(',', '.');
+  let str = String(val).trim().replace(/Rp|\$|IDR|%|\s/gi, '');
+  if (!str) return defaultValue;
+
+  // Case 1: Contains both dot and comma
+  if (str.includes('.') && str.includes(',')) {
+    const lastDot = str.lastIndexOf('.');
+    const lastComma = str.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      // Indonesian format: 1.500.000,50 -> 1500000.50
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // US format: 1,500,000.50 -> 1500000.50
+      str = str.replace(/,/g, '');
+    }
+  } else if (str.includes('.')) {
+    // Case 2: Contains only dot(s)
+    // If multiple dots (e.g. 1.500.000) or single dot with 3 digits at end (e.g. 250.000, 25.000)
+    const dotParts = str.split('.');
+    if (dotParts.length > 2 || (dotParts.length === 2 && dotParts[1].length === 3 && dotParts[0].length >= 1)) {
+      str = str.replace(/\./g, '');
+    }
   } else if (str.includes(',')) {
-    str = str.replace(',', '.');
+    // Case 3: Contains only comma(s)
+    const commaParts = str.split(',');
+    if (commaParts.length > 2 || (commaParts.length === 2 && commaParts[1].length === 3)) {
+      // Thousand separator comma: 1,500,000
+      str = str.replace(/,/g, '');
+    } else {
+      // Decimal comma: 1500000,50 -> 1500000.50
+      str = str.replace(',', '.');
+    }
   }
+
   const num = parseFloat(str);
   return isNaN(num) ? defaultValue : num;
 }
@@ -1865,3 +1893,404 @@ export function downloadKKPTemplate() {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Transaksi KKP');
   XLSX.writeFile(workbook, 'Template_Monitoring_Transaksi_KKP_KPPN026.xlsx');
 }
+
+/**
+ * 7. VALIDASI & IMPORT EXCEL TRANSAKSI DIGIPAY (MULTI-TAB: PEMBAYARAN VA & PEMBAYARAN KKP)
+ * Mendukung tab "Pembayaran VA" dan "Pembayaran KKP" dari format monitoring Digipay Satu / Kemenkeu.
+ * Kolom Nominal Invoice dideteksi pada Kolom I (index 8) dan berbagai variasi nama header.
+ */
+export async function validateDigipayExcelFile(
+  file: File,
+  masterSatkers: MasterSatker[],
+  forcedPeriod?: string,
+  forcedYear?: number
+): Promise<ExcelValidationPreview<DigipayRecord>> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('File Excel Digipay kosong atau tidak memiliki lembar kerja.');
+        }
+
+        // Master lookup map
+        const masterMap = new Map<string, MasterSatker>();
+        masterSatkers.forEach(m => {
+          if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
+        });
+
+        const validData: DigipayRecord[] = [];
+        const invalidRows: { rowNumber: number; kodeSatker: string; namaSatker?: string; reason: string; raw?: any }[] = [];
+
+        // Iterate through all sheets (Supports "Pembayaran VA", "Pembayaran KKP", or single combined sheet)
+        workbook.SheetNames.forEach((sheetName) => {
+          const worksheet = workbook.Sheets[sheetName];
+          const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+          if (!matrix || matrix.length === 0) return;
+
+          const sheetLower = sheetName.toLowerCase();
+          // Determine default payment type from sheet name
+          let defaultType: 'VA' | 'KKP' = 'VA';
+          if (sheetLower.includes('kkp') || sheetLower.includes('kartu') || sheetLower.includes('kredit')) {
+            defaultType = 'KKP';
+          } else if (sheetLower.includes('va') || sheetLower.includes('virtual') || sheetLower.includes('cms')) {
+            defaultType = 'VA';
+          }
+
+          // Header search
+          let headerRowIndex = -1;
+          let colKodeSatker = -1;
+          let colNamaSatker = -1;
+          let colTipe = -1;
+          let colNoTransaksi = -1;
+          let colTglTransaksi = -1;
+          let colVendor = -1;
+          let colBank = -1;
+          let colNominal = -1;
+          let colStatus = -1;
+          let colUraian = -1;
+          let colKl = -1;
+
+          for (let r = 0; r < Math.min(25, matrix.length); r++) {
+            const row = matrix[r];
+            if (!row) continue;
+            const rowLower = row.map(c => String(c).toLowerCase().trim().replace(/[^a-z0-9]/g, ''));
+
+            rowLower.forEach((val, idx) => {
+              if (['kodesatker', 'kdsatker', 'satker', 'kodesatkerinduk', 'kdsatkerinduk', 'satkerkode'].some(k => val.includes(k))) {
+                if (colKodeSatker === -1) colKodeSatker = idx;
+              } else if (['namasatker', 'nmsatker', 'uraiansatker', 'satkernama', 'satkeruraian'].some(k => val.includes(k))) {
+                if (colNamaSatker === -1) colNamaSatker = idx;
+              } else if (['tipepembayaran', 'metodepembayaran', 'metode', 'jenis', 'jenispembayaran', 'tipe', 'jenistransaksi'].some(k => val.includes(k))) {
+                if (colTipe === -1) colTipe = idx;
+              } else if (
+                (val.includes('nominal') || val.includes('nilai') || val.includes('rupiah') || val.includes('tagihan') || val.includes('harga') || val.includes('total') || val.includes('jumlah')) &&
+                (val.includes('invoice') || val.includes('nominal') || val.includes('nilai') || val.includes('rp') || val.includes('tagihan') || val.includes('transaksi') || val.includes('belanja') || val.includes('bayar') || val === 'nominal' || val === 'nilai' || val === 'rupiah' || val === 'total' || val === 'jumlah' || val === 'nominalinvoice' || val === 'nilaiinvoice' || val === 'totalinvoice')
+              ) {
+                if (colNominal === -1) colNominal = idx;
+              } else if (
+                ['notransaksi', 'nomortransaksi', 'noorder', 'orderid', 'noinvoice', 'nomorinvoice', 'kodedigipay', 'notrans', 'idtransaksi', 'nopesanan', 'kodepesanan'].some(k => val.includes(k)) ||
+                (val.includes('invoice') && !val.includes('nominal') && !val.includes('nilai') && !val.includes('total'))
+              ) {
+                if (colNoTransaksi === -1) colNoTransaksi = idx;
+              } else if (['tgltransaksi', 'tanggaltransaksi', 'tglpesanan', 'tanggalpesanan', 'tglbayar', 'tanggalbayar', 'tgl', 'tanggal', 'tglinvoice', 'tanggalinvoice'].some(k => val.includes(k))) {
+                if (colTglTransaksi === -1) colTglTransaksi = idx;
+              } else if (['namavendor', 'vendor', 'rekanan', 'namarekanan', 'umkm', 'penyedia', 'merchant', 'toko', 'penjual'].some(k => val.includes(k))) {
+                if (colVendor === -1) colVendor = idx;
+              } else if (['namabank', 'bank', 'bankpembayar', 'bankmitra', 'bankpenerbit', 'mitrabank'].some(k => val.includes(k))) {
+                if (colBank === -1) colBank = idx;
+              } else if (['statustransaksi', 'status', 'statuspesanan', 'statusbayar', 'statusinvoice'].some(k => val.includes(k))) {
+                if (colStatus === -1) colStatus = idx;
+              } else if (['uraianbarang', 'uraian', 'deskripsi', 'namabarang', 'keterangan', 'rincian', 'belanja'].some(k => val.includes(k)) && !val.includes('nominal') && !val.includes('total')) {
+                if (colUraian === -1) colUraian = idx;
+              } else if (['kementerianlembaga', 'kl', 'kementerian', 'namaba', 'lembaga'].some(k => val.includes(k))) {
+                if (colKl === -1) colKl = idx;
+              }
+            });
+
+            if (colKodeSatker !== -1 || colNamaSatker !== -1 || colNominal !== -1) {
+              headerRowIndex = r;
+              break;
+            }
+          }
+
+          if (headerRowIndex === -1) {
+            headerRowIndex = 0;
+            colKodeSatker = 1; // Default Col B
+            colNamaSatker = 2; // Default Col C
+            // Kolom I (index 8 in 0-based) is the standard Digipay nominal invoice column!
+            colNominal = matrix[0] && matrix[0].length > 8 ? 8 : (matrix[0] && matrix[0].length > 6 ? 6 : 8);
+          }
+
+          // If colNominal is still not detected, default to Kolom I (index 8)
+          if (colNominal === -1) {
+            colNominal = 8;
+          }
+
+          for (let r = headerRowIndex + 1; r < matrix.length; r++) {
+            const row = matrix[r];
+            if (!row || row.length === 0) continue;
+
+            let rawKode = colKodeSatker !== -1 ? row[colKodeSatker] : '';
+            let rawNama = colNamaSatker !== -1 ? row[colNamaSatker] : '';
+
+            let kodeSatker = normalizeKodeSatker(rawKode);
+            if (!kodeSatker) {
+              row.forEach(c => {
+                const str = String(c).trim();
+                if (/^\d{6}$/.test(str) && !kodeSatker) {
+                  kodeSatker = str;
+                }
+              });
+            }
+
+            if (!kodeSatker) continue;
+
+            const master = masterMap.get(kodeSatker);
+            const namaSatker = cleanText(rawNama) || master?.namaSatker || `Satker ${kodeSatker}`;
+            const kementerianLembaga = cleanText(colKl !== -1 ? row[colKl] : '') || master?.kementerianLembaga || 'KEMENTERIAN / LEMBAGA MITRA';
+
+            // Determine payment type
+            let tipe: 'VA' | 'KKP' = defaultType;
+            if (colTipe !== -1 && row[colTipe]) {
+              const rawTipe = String(row[colTipe]).toUpperCase();
+              if (rawTipe.includes('KKP') || rawTipe.includes('KREDIT')) {
+                tipe = 'KKP';
+              } else if (rawTipe.includes('VA') || rawTipe.includes('VIRTUAL') || rawTipe.includes('CMS')) {
+                tipe = 'VA';
+              }
+            }
+
+            // Parse nominal invoice: Primary column from header detection
+            let nominal = colNominal !== -1 ? parseFormattedNumber(row[colNominal]) : 0;
+
+            // Fallback: If nominal is 0, check Kolom I (index 8 = Tab I) or other numeric columns
+            if (nominal <= 0 && row.length > 8 && parseFormattedNumber(row[8]) > 0) {
+              nominal = parseFormattedNumber(row[8]);
+            }
+            if (nominal <= 0 && row.length > 7 && parseFormattedNumber(row[7]) > 0 && typeof row[7] === 'number') {
+              nominal = parseFormattedNumber(row[7]);
+            }
+            if (nominal <= 0 && row.length > 6 && parseFormattedNumber(row[6]) > 0 && typeof row[6] === 'number') {
+              nominal = parseFormattedNumber(row[6]);
+            }
+            if (nominal <= 0 && row.length > 9 && parseFormattedNumber(row[9]) > 0 && typeof row[9] === 'number') {
+              nominal = parseFormattedNumber(row[9]);
+            }
+
+            const noTrans = cleanText(colNoTransaksi !== -1 ? row[colNoTransaksi] : '') || 
+              (row[4] ? cleanText(row[4]) : `DGP-${Date.now().toString().slice(-5)}-${validData.length + 1}`);
+            
+            const tglTrans = parseExcelDateString(colTglTransaksi !== -1 ? row[colTglTransaksi] : (row[5] ? row[5] : '')) || '18-08-2026';
+            const vendor = cleanText(colVendor !== -1 ? row[colVendor] : (row[6] ? row[6] : '')) || 'Penyedia UMKM Terdaftar';
+            const bank = cleanText(colBank !== -1 ? row[colBank] : (row[7] && isNaN(Number(row[7])) ? row[7] : '')) || (tipe === 'KKP' ? 'Bank Rakyat Indonesia (BRI)' : 'Bank Mandiri');
+            const status = cleanText(colStatus !== -1 ? row[colStatus] : (row[9] ? row[9] : '')) || 'Selesai';
+            const uraian = cleanText(colUraian !== -1 ? row[colUraian] : (row[10] ? row[10] : '')) || 'Belanja Pengadaan Barang & Operasional Digipay';
+
+            // Skip only if both nominal <= 0 and no identifiable transaction info
+            if (nominal <= 0 && (!noTrans || noTrans.startsWith('DGP-'))) {
+              continue;
+            }
+
+            validData.push({
+              id: `digipay-${kodeSatker}-${tipe}-${Date.now().toString().slice(-4)}-${validData.length + 1}`,
+              kodeSatker,
+              namaSatker,
+              kementerianLembaga,
+              tipePembayaran: tipe,
+              noTransaksi: noTrans,
+              tglTransaksi: tglTrans,
+              namaVendor: vendor,
+              namaBank: bank,
+              nominalTransaksi: nominal,
+              statusTransaksi: status,
+              uraianBarang: uraian,
+              periode: forcedPeriod || 'Agustus 2026',
+              tahun: forcedYear || 2026,
+              createdAt: new Date().toISOString()
+            });
+          }
+        });
+
+        resolve({
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          modul: 'TRANSAKSI_DIGIPAY' as any,
+          tahun: forcedYear || 2026,
+          periode: forcedPeriod || 'Agustus 2026',
+          totalRows: validData.length,
+          validData,
+          invalidRows,
+          isValidFormat: validData.length > 0,
+          formatErrors: validData.length === 0 ? ['Tidak ditemukan transaksi Digipay yang valid pada tab Pembayaran VA ataupun KKP. Pastikan file Excel berisi data transaksi dengan Kolom Nominal Invoice (Kolom I).'] : []
+        });
+      } catch (err: any) {
+        reject(new Error(`Gagal memproses file Excel Digipay: ${err.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file Excel.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Download Template Excel Multi-Tab Monitoring Digipay (Tab 1: Pembayaran VA, Tab 2: Pembayaran KKP)
+ */
+export function downloadDigipayTemplate() {
+  // Tab 1: Pembayaran VA
+  const dataVA = [
+    {
+      'No': 1,
+      'Kode Satker': '643340',
+      'Nama Satker': 'PUSDIKBINMAS LEMDIKLAT POLRI',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'No Transaksi / Order ID': 'DGP-202608-00129',
+      'Tanggal Transaksi': '18-08-2026',
+      'Nama Rekanan / UMKM': 'CV. Pustaka Mulia Semarang',
+      'Nama Bank': 'Bank Rakyat Indonesia (BRI)',
+      'Nominal Transaksi (Rp)': 18500000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Pengadaan Modul Pelatihan dan ATK Diklat Angkatan III 2026'
+    },
+    {
+      'No': 2,
+      'Kode Satker': '651046',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'No Transaksi / Order ID': 'DGP-202608-00210',
+      'Tanggal Transaksi': '16-08-2026',
+      'Nama Rekanan / UMKM': 'CV. Aneka Jaya Kertas',
+      'Nama Bank': 'Bank Rakyat Indonesia (BRI)',
+      'Nominal Transaksi (Rp)': 16400000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Kertas F4/A4 dan Perlengkapan Administrasi SPKT & Reskrim'
+    },
+    {
+      'No': 3,
+      'Kode Satker': '417315',
+      'Nama Satker': 'BALAI BESAR WILAYAH SUNGAI PEMALI JUANA',
+      'Kementerian / Lembaga': 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT',
+      'No Transaksi / Order ID': 'DGP-202608-00340',
+      'Tanggal Transaksi': '13-08-2026',
+      'Nama Rekanan / UMKM': 'CV. Bintang Mas Stationery',
+      'Nama Bank': 'Bank Mandiri',
+      'Nominal Transaksi (Rp)': 15300000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Toner Printer Plotter Pemetaan dan Kertas Kalkir'
+    },
+    {
+      'No': 4,
+      'Kode Satker': '018012',
+      'Nama Satker': 'BPS PROVINSI JAWA TENGAH',
+      'Kementerian / Lembaga': 'BADAN PUSAT STATISTIK',
+      'No Transaksi / Order ID': 'DGP-202608-00412',
+      'Tanggal Transaksi': '14-08-2026',
+      'Nama Rekanan / UMKM': 'CV. Mitra Prima Grafika',
+      'Nama Bank': 'Bank Negara Indonesia (BNI)',
+      'Nominal Transaksi (Rp)': 21500000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Pencetakan Kuesioner Survei Sosial Ekonomi & Publikasi Statistik'
+    }
+  ];
+
+  // Tab 2: Pembayaran KKP
+  const dataKKP = [
+    {
+      'No': 1,
+      'Kode Satker': '643340',
+      'Nama Satker': 'PUSDIKBINMAS LEMDIKLAT POLRI',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'No Transaksi / Order ID': 'DGP-202608-00142',
+      'Tanggal Transaksi': '17-08-2026',
+      'Nama Rekanan / UMKM': 'PT. Java Komputer Mandiri',
+      'Nama Bank': 'Bank Rakyat Indonesia (BRI)',
+      'Nominal Transaksi (Rp)': 24750000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Peralatan IT Scanner & Maintenance Printer Jaringan'
+    },
+    {
+      'No': 2,
+      'Kode Satker': '651046',
+      'Nama Satker': 'POLRESTABES SEMARANG',
+      'Kementerian / Lembaga': 'KEPOLISIAN NEGARA REPUBLIK INDONESIA',
+      'No Transaksi / Order ID': 'DGP-202608-00234',
+      'Tanggal Transaksi': '15-08-2026',
+      'Nama Rekanan / UMKM': 'Toko Elektronik Sinar Terang',
+      'Nama Bank': 'Bank Rakyat Indonesia (BRI)',
+      'Nominal Transaksi (Rp)': 28500000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Perangkat CCTV Tambahan & UPS Server Database SIM Online'
+    },
+    {
+      'No': 3,
+      'Kode Satker': '417315',
+      'Nama Satker': 'BALAI BESAR WILAYAH SUNGAI PEMALI JUANA',
+      'Kementerian / Lembaga': 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT',
+      'No Transaksi / Order ID': 'DGP-202608-00305',
+      'Tanggal Transaksi': '15-08-2026',
+      'Nama Rekanan / UMKM': 'PT. Surveyor Teknik Persada',
+      'Nama Bank': 'Bank Mandiri',
+      'Nominal Transaksi (Rp)': 32400000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Alat Ukur Debit Air Sungai & Sparepart Sensor Telemetri'
+    },
+    {
+      'No': 4,
+      'Kode Satker': '089014',
+      'Nama Satker': 'KANWIL KEMENTERIAN HUKUM DAN HAM JAWA TENGAH',
+      'Kementerian / Lembaga': 'KEMENTERIAN HUKUM DAN HAK ASASI MANUSIA',
+      'No Transaksi / Order ID': 'DGP-202608-00523',
+      'Tanggal Transaksi': '08-08-2026',
+      'Nama Rekanan / UMKM': 'UD. Gemilang Meubel Jaya',
+      'Nama Bank': 'Bank Mandiri',
+      'Nominal Transaksi (Rp)': 14600000,
+      'Status Transaksi': 'Selesai',
+      'Uraian Barang / Belanja': 'Kursi Kerja Rapat Pelayanan Hak Cipta & Merek'
+    }
+  ];
+
+  const workbook = XLSX.utils.book_new();
+
+  const wsVA = XLSX.utils.json_to_sheet(dataVA);
+  wsVA['!cols'] = [
+    { wch: 6 }, { wch: 15 }, { wch: 45 }, { wch: 35 }, { wch: 22 }, { wch: 16 }, { wch: 30 }, { wch: 25 }, { wch: 22 }, { wch: 16 }, { wch: 50 }
+  ];
+  XLSX.utils.book_append_sheet(workbook, wsVA, 'Pembayaran VA');
+
+  const wsKKP = XLSX.utils.json_to_sheet(dataKKP);
+  wsKKP['!cols'] = [
+    { wch: 6 }, { wch: 15 }, { wch: 45 }, { wch: 35 }, { wch: 22 }, { wch: 16 }, { wch: 30 }, { wch: 25 }, { wch: 22 }, { wch: 16 }, { wch: 50 }
+  ];
+  XLSX.utils.book_append_sheet(workbook, wsKKP, 'Pembayaran KKP');
+
+  XLSX.writeFile(workbook, 'Template_Monitoring_Transaksi_Digipay_VA_dan_KKP.xlsx');
+}
+
+/**
+ * Export Digipay Records to Excel
+ */
+export function exportDigipayToExcel(records: DigipayRecord[], fileName: string = 'Rekapitulasi_Transaksi_Digipay_KPPN026.xlsx') {
+  const dataVA = records.filter(r => r.tipePembayaran === 'VA').map((r, idx) => ({
+    'No': idx + 1,
+    'Kode Satker': r.kodeSatker,
+    'Nama Satker': r.namaSatker,
+    'Kementerian / Lembaga': r.kementerianLembaga || '',
+    'No Transaksi / Order': r.noTransaksi || '',
+    'Tanggal Transaksi': r.tglTransaksi || '',
+    'Nama Rekanan / UMKM': r.namaVendor || '',
+    'Bank Pembayar': r.namaBank || '',
+    'Nominal Transaksi (Rp)': r.nominalTransaksi,
+    'Status': r.statusTransaksi || 'Selesai',
+    'Uraian Belanja': r.uraianBarang || ''
+  }));
+
+  const dataKKP = records.filter(r => r.tipePembayaran === 'KKP').map((r, idx) => ({
+    'No': idx + 1,
+    'Kode Satker': r.kodeSatker,
+    'Nama Satker': r.namaSatker,
+    'Kementerian / Lembaga': r.kementerianLembaga || '',
+    'No Transaksi / Order': r.noTransaksi || '',
+    'Tanggal Transaksi': r.tglTransaksi || '',
+    'Nama Rekanan / UMKM': r.namaVendor || '',
+    'Bank Pembayar': r.namaBank || '',
+    'Nominal Transaksi (Rp)': r.nominalTransaksi,
+    'Status': r.statusTransaksi || 'Selesai',
+    'Uraian Belanja': r.uraianBarang || ''
+  }));
+
+  const workbook = XLSX.utils.book_new();
+
+  const wsVA = XLSX.utils.json_to_sheet(dataVA.length > 0 ? dataVA : [{ 'Info': 'Tidak ada data transaksi VA' }]);
+  XLSX.utils.book_append_sheet(workbook, wsVA, 'Pembayaran VA');
+
+  const wsKKP = XLSX.utils.json_to_sheet(dataKKP.length > 0 ? dataKKP : [{ 'Info': 'Tidak ada data transaksi KKP' }]);
+  XLSX.utils.book_append_sheet(workbook, wsKKP, 'Pembayaran KKP');
+
+  const finalFileName = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`;
+  XLSX.writeFile(workbook, finalFileName);
+}
+

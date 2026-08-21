@@ -26,6 +26,7 @@ import {
   Link2,
   ClipboardCheck,
   CreditCard,
+  ShoppingBag,
   User,
   Phone
 } from 'lucide-react';
@@ -52,6 +53,7 @@ interface HeaderProps {
   onLogoutAdmin?: () => void;
   masterSatkers?: MasterSatker[];
   transaksiKkpCount?: number;
+  transaksiDigipayCount?: number;
   onOpenBroadcastLibrary?: () => void;
 }
 
@@ -75,6 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
   onLogoutAdmin,
   masterSatkers = [],
   transaksiKkpCount = 0,
+  transaksiDigipayCount = 0,
   onOpenBroadcastLibrary
 }) => {
   const isDark = theme === 'dark';
@@ -115,6 +118,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <CreditCard className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">KKP</span>,
       activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+    },
+    {
+      id: 'transaksi-digipay',
+      label: 'Transaksi Digipay',
+      icon: <ShoppingBag className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Digipay</span>,
+      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
     },
     {
       id: 'kelola-satker',

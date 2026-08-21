@@ -19,7 +19,8 @@ import {
   Download,
   ArrowRight,
   ShieldCheck,
-  QrCode
+  QrCode,
+  Printer
 } from 'lucide-react';
 import { 
   PresensiKegiatan, 
@@ -735,6 +736,14 @@ export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-3 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm border border-slate-300 dark:border-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4 text-teal-600" />
+                <span>Cetak Bukti</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setShowSuccessModal(false)}

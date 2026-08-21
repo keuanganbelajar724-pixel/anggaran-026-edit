@@ -594,6 +594,19 @@ export interface KegiatanSosialisasi {
 
 export type JenisPelaksanaanPresensi = 'Online' | 'Offline' | 'Hybrid';
 
+export interface PresensiPrintConfig {
+  kopBaris1: string;
+  kopBaris2: string;
+  kopBaris3: string;
+  kopBaris4: string;
+  kopAlamatKontak: string;
+  kotaTandaTangan: string;
+  jabatanPenandatangan: string;
+  namaPenandatangan: string;
+  nipPenandatangan: string;
+  customTitle?: string;
+}
+
 export interface PresensiKegiatan {
   id: string;
   judulKegiatan: string;
@@ -607,6 +620,7 @@ export interface PresensiKegiatan {
   penyelenggara?: string;
   isActive: boolean;
   isLocked?: boolean;
+  printConfig?: Partial<PresensiPrintConfig>;
   createdAt?: string;
 }
 
@@ -661,11 +675,66 @@ export interface KKPUploadBatch {
   status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
 }
 
+export interface DigipayRecord {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  tipePembayaran: 'VA' | 'KKP'; // VA (Virtual Account CMS) atau KKP (Kartu Kredit Pemerintah)
+  noTransaksi?: string; // Nomor Pesanan / Order ID / Invoice
+  tglTransaksi?: string; // Tanggal Transaksi / Pembayaran
+  namaVendor?: string; // Nama Rekanan UMKM / Merchant Penyedia
+  namaBank?: string; // Bank Pembayar (BRI, Mandiri, BNI, BTN, BSI)
+  nominalTransaksi: number; // Nilai Transaksi (Rp)
+  statusTransaksi?: string; // Selesai / Paid / Success / Proses
+  uraianBarang?: string; // Rincian Barang / Belanja Operasional
+  noSp2d?: string;
+  periode?: string;
+  tahun?: number;
+  catatan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DigipaySatkerSummary {
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  totalTransaksiVA: number;
+  totalNominalVA: number;
+  totalTransaksiKKP: number;
+  totalNominalKKP: number;
+  totalSemuaTransaksi: number; // Total Transaksi VA + KKP
+  totalSemuaNominal: number; // Total Nominal VA + KKP
+  bankTerbanyak?: string;
+  vendorTerbanyak?: string;
+  tglTransaksiTerakhir?: string;
+  statusKeaktifan: 'Sangat Aktif' | 'Aktif' | 'Perlu Akselerasi' | 'Belum Ada Transaksi';
+  rankByCount?: number;
+  rankByNominal?: number;
+}
+
+export interface DigipayUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  totalNominal?: number;
+  totalTransaksi?: number;
+  totalVA?: number;
+  totalKKP?: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+}
+
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
   'pengelolaan-up'?: boolean;
   'transaksi-kkp'?: boolean;
+  'transaksi-digipay'?: boolean;
   'kelola-satker'?: boolean;
   'redflags': boolean;
   'sertifikasi': boolean;
@@ -874,6 +943,7 @@ export interface DashboardConfig {
     presensi?: string;
     pengelolaanUp?: string;
     transaksiKkp?: string;
+    transaksiDigipay?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -887,10 +957,13 @@ export interface DashboardConfig {
   pengelolaanUpUploads?: PengelolaanUPUploadBatch[];
   transaksiKkpRecords?: TransaksiKKPRecord[];
   transaksiKkpUploads?: KKPUploadBatch[];
+  transaksiDigipayRecords?: DigipayRecord[];
+  transaksiDigipayUploads?: DigipayUploadBatch[];
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
   presensiPesertaList?: PesertaPresensi[];
+  presensiPrintConfig?: PresensiPrintConfig;
 }
 
 export type NavigationTab = 
@@ -898,6 +971,7 @@ export type NavigationTab =
   | 'capaian-output' 
   | 'pengelolaan-up'
   | 'transaksi-kkp'
+  | 'transaksi-digipay'
   | 'kelola-satker'
   | 'redflags' 
   | 'sertifikasi'

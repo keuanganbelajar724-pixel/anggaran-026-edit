@@ -1,23 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, PresensiPrintConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import {
   compactSatkersForFirestore,
   compactHistoricalUploadsForFirestore,
   mergeSatkersAntiDowngrade,
   mergePengelolaanUPAntiDowngrade,
-  mergeHistoricalUploadsAntiDowngrade
+  mergeHistoricalUploadsAntiDowngrade,
+  compactDigipayForFirestore,
+  mergeDigipayAntiDowngrade
 } from './utils/firebaseStorageOptimizer';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
+import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
+import { TransaksiDigipayDashboard } from './components/TransaksiDigipayDashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
@@ -38,6 +42,19 @@ import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
 import { ToastProvider } from './components/ToastNotification';
 
 const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
+
+export const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
+  kopBaris1: 'KEMENTERIAN KEUANGAN REPUBLIK INDONESIA',
+  kopBaris2: 'DIREKTORAT JENDERAL PERBENDAHARAAN',
+  kopBaris3: 'KANTOR WILAYAH DIREKTORAT JENDERAL PERBENDAHARAAN PROVINSI JAWA TENGAH',
+  kopBaris4: 'KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I',
+  kopAlamatKontak: 'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Laman: djpb.kemenkeu.go.id/kppn/semarang1',
+  kotaTandaTangan: 'Semarang',
+  jabatanPenandatangan: 'Penanggung Jawab Kegiatan / Kepala Seksi MSKI',
+  namaPenandatangan: '',
+  nipPenandatangan: '',
+  customTitle: 'DAFTAR HADIR PESERTA KEGIATAN'
+};
 
 const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
   {
@@ -154,8 +171,19 @@ export default function App() {
     }
 
     if (savedConfig) {
+      let savedPresensiPrint: PresensiPrintConfig | undefined = savedConfig.presensiPrintConfig;
+      try {
+        const localPrint = localStorage.getItem('kppn_presensi_print_config');
+        if (localPrint) {
+          savedPresensiPrint = { ...DEFAULT_PRESENSI_PRINT_CONFIG, ...JSON.parse(localPrint) };
+        }
+      } catch (e) {
+        console.warn('Error reading kppn_presensi_print_config', e);
+      }
+
       return {
         ...savedConfig,
+        presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         aduanList: savedConfig.aduanList && savedConfig.aduanList.length > 0 
           ? savedConfig.aduanList 
           : INITIAL_ADUAN_RECORDS,
@@ -166,10 +194,22 @@ export default function App() {
         menuVisibility: {
           'portal-link': true,
           'pengelolaan-up': true,
+          'transaksi-kkp': true,
+          'transaksi-digipay': true,
           'kelola-satker': true,
           ...savedConfig.menuVisibility
         }
       };
+    }
+
+    let initialPresensiPrint = DEFAULT_PRESENSI_PRINT_CONFIG;
+    try {
+      const localPrint = localStorage.getItem('kppn_presensi_print_config');
+      if (localPrint) {
+        initialPresensiPrint = { ...DEFAULT_PRESENSI_PRINT_CONFIG, ...JSON.parse(localPrint) };
+      }
+    } catch (e) {
+      console.warn('Error reading kppn_presensi_print_config', e);
     }
 
     return {
@@ -181,10 +221,13 @@ export default function App() {
       kegiatanSosialisasi: INITIAL_KEGIATAN_SOSIALISASI,
       aduanList: INITIAL_ADUAN_RECORDS,
       historicalUploads: savedHist,
+      presensiPrintConfig: initialPresensiPrint,
       menuVisibility: {
         'dashboard': true,
         'capaian-output': true,
         'pengelolaan-up': true,
+        'transaksi-kkp': true,
+        'transaksi-digipay': true,
         'kelola-satker': true,
         'redflags': true,
         'sertifikasi': true,
@@ -192,6 +235,7 @@ export default function App() {
         'announcements': true,
         'materi-slide': true,
         'portal-link': true,
+        'presensi': true,
         'pengetahuan': true,
         'aduan': true,
         'reminder': true,
@@ -342,6 +386,7 @@ export default function App() {
           'capaian-output',
           'pengelolaan-up',
           'transaksi-kkp',
+          'transaksi-digipay',
           'kelola-satker',
           'sertifikasi',
           'per5-analisis',
@@ -460,6 +505,34 @@ export default function App() {
           }
         }
       }).catch(err => console.warn("Initial Firestore KKP fetch notice:", err));
+
+      getDocFromServer(doc(db, 'data', 'transaksi_digipay')).then(snap => {
+        const hasPurged = localStorage.getItem('kppn_digipay_emptied_v3') === 'true';
+        if (!hasPurged) {
+          // Force wipe old corrupted/unwanted digipay data on first load
+          setTransaksiDigipayList([]);
+          localStorage.setItem('kppn_transaksi_digipay', '[]');
+          localStorage.setItem('kppn_digipay_emptied_v3', 'true');
+          setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() });
+          return;
+        }
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list)) {
+            // If data consists of old 0-nominal dummy or corrupted data, wipe it
+            const totalNominal = data.list.reduce((acc: number, r: any) => acc + (Number(r.nominalTransaksi) || 0), 0);
+            if (data.list.length > 0 && totalNominal === 0) {
+              setTransaksiDigipayList([]);
+              localStorage.setItem('kppn_transaksi_digipay', '[]');
+              setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() });
+            } else {
+              setTransaksiDigipayList(data.list);
+              localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(data.list));
+            }
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Digipay fetch notice:", err));
 
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -585,6 +658,19 @@ export default function App() {
         console.warn("Firebase KKP listener notice:", error);
       });
 
+      // 9. Realtime Transaksi Digipay Data
+      const unsubDigipay = onSnapshot(doc(db, 'data', 'transaksi_digipay'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setTransaksiDigipayList(data.list);
+            localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Digipay listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubHistorical();
@@ -594,6 +680,7 @@ export default function App() {
         unsubMaster();
         unsubUP();
         unsubKKP();
+        unsubDigipay();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -920,6 +1007,53 @@ export default function App() {
       setDoc(doc(db, 'data', 'transaksi_kkp'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
       console.warn("Error syncing KKP to Firebase:", e);
+    }
+  };
+
+  // Transaksi Digipay (VA & KKP) State & Persistence - Defaults to empty array
+  const [transaksiDigipayList, setTransaksiDigipayList] = useState<DigipayRecord[]>(() => {
+    const hasPurged = localStorage.getItem('kppn_digipay_emptied_v3') === 'true';
+    if (!hasPurged) {
+      localStorage.setItem('kppn_transaksi_digipay', '[]');
+      localStorage.setItem('kppn_digipay_emptied_v3', 'true');
+      return [];
+    }
+
+    const saved = localStorage.getItem('kppn_transaksi_digipay');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // If contains old sample records or zero-nominal records, purge it
+          const totalNominal = parsed.reduce((acc: number, r: any) => acc + (Number(r.nominalTransaksi) || 0), 0);
+          if (parsed.some(r => r.id && r.id.startsWith('dgp-sample-')) || (parsed.length > 0 && totalNominal === 0)) {
+            localStorage.setItem('kppn_transaksi_digipay', '[]');
+            return [];
+          }
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Error parsing saved Digipay data:', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(transaksiDigipayList));
+    } catch (e) {
+      console.warn('Error saving Digipay data to localStorage:', e);
+    }
+  }, [transaksiDigipayList]);
+
+  const handleUpdateTransaksiDigipay = (newList: DigipayRecord[]) => {
+    setTransaksiDigipayList(newList);
+    try {
+      const compacted = compactDigipayForFirestore(newList);
+      setDoc(doc(db, 'data', 'transaksi_digipay'), { list: compacted, updatedAt: new Date().toISOString() });
+    } catch (e) {
+      console.warn("Error syncing Digipay to Firebase:", e);
     }
   };
 
@@ -1287,6 +1421,7 @@ export default function App() {
         sertifikasiUnapprovedCount={sertifikasiUnapprovedCount}
         announcementsCount={dashboardConfig.announcements.length}
         transaksiKkpCount={transaksiKkpList.length}
+        transaksiDigipayCount={transaksiDigipayList.length}
         onOpenBroadcastLibrary={() => setIsGlobalBroadcastLibraryOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -1329,6 +1464,7 @@ export default function App() {
                       'dashboard',
                       'capaian-output',
                       'pengelolaan-up',
+                      'transaksi-kkp',
                       'kelola-satker',
                       'sertifikasi',
                       'per5-analisis',
@@ -1425,6 +1561,18 @@ export default function App() {
                   theme={theme}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onApplyRecords={(newRecords) => handleUpdateTransaksiKKP(newRecords)}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab: Transaksi Digipay (VA & KKP) Monitoring */}
+              {activeTab === 'transaksi-digipay' && (
+                <TransaksiDigipayDashboard
+                  records={transaksiDigipayList}
+                  masterSatkers={masterSatkers}
+                  theme={theme}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onApplyRecords={(newRecords) => handleUpdateTransaksiDigipay(newRecords)}
                   onGoToAdmin={() => setActiveTab('admin')}
                 />
               )}
@@ -1528,6 +1676,9 @@ export default function App() {
                   transaksiKkpRecords={transaksiKkpList}
                   onApplyTransaksiKkp={handleUpdateTransaksiKKP}
                   onClearTransaksiKkp={() => handleUpdateTransaksiKKP([])}
+                  transaksiDigipayRecords={transaksiDigipayList}
+                  onApplyTransaksiDigipay={handleUpdateTransaksiDigipay}
+                  onClearTransaksiDigipay={() => handleUpdateTransaksiDigipay([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

@@ -1,4 +1,4 @@
-import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord } from '../types';
+import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord, DigipayRecord } from '../types';
 
 const MONTHS_ORDER = [
   'januari', 'februari', 'maret', 'april', 'mei', 'juni',
@@ -242,3 +242,52 @@ export function mergeHistoricalUploadsAntiDowngrade(serverList: ExcelUploadHisto
     return (idxA !== -1 ? idxA : 0) - (idxB !== -1 ? idxB : 0);
   });
 }
+
+/**
+ * Compacts Digipay records for Firestore
+ */
+export function compactDigipayForFirestore(records: DigipayRecord[]): any[] {
+  if (!Array.isArray(records)) return [];
+  return records.map(r => ({
+    id: r.id,
+    kodeSatker: r.kodeSatker || '',
+    namaSatker: r.namaSatker || '',
+    kementerianLembaga: r.kementerianLembaga || '',
+    tipePembayaran: r.tipePembayaran || 'VA',
+    noTransaksi: r.noTransaksi || '',
+    tglTransaksi: r.tglTransaksi || '',
+    namaVendor: r.namaVendor || '',
+    namaBank: r.namaBank || '',
+    nominalTransaksi: r.nominalTransaksi || 0,
+    statusTransaksi: r.statusTransaksi || 'Selesai',
+    uraianBarang: r.uraianBarang || '',
+    periode: r.periode || '',
+    tahun: r.tahun || 2026
+  }));
+}
+
+/**
+ * Merge Digipay records anti-downgrade
+ */
+export function mergeDigipayAntiDowngrade(serverList: DigipayRecord[], localList: DigipayRecord[]): DigipayRecord[] {
+  if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
+  if (!Array.isArray(localList) || localList.length === 0) return serverList;
+
+  const itemMap = new Map<string, DigipayRecord>();
+  serverList.forEach(r => {
+    if (r && (r.id || r.noTransaksi)) {
+      const key = r.id || `${r.kodeSatker}_${r.noTransaksi}`;
+      itemMap.set(key, r);
+    }
+  });
+
+  localList.forEach(r => {
+    if (r && (r.id || r.noTransaksi)) {
+      const key = r.id || `${r.kodeSatker}_${r.noTransaksi}`;
+      itemMap.set(key, r);
+    }
+  });
+
+  return Array.from(itemMap.values());
+}
+

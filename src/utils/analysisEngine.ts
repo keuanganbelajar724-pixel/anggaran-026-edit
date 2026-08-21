@@ -9,56 +9,55 @@ export function ensurePejabatOperator(satker: SatkerIKPA): PejabatDanOperator {
   }
 
   const kode = satker.kodeSatker;
-  const suffix = kode.slice(-3);
 
   return {
     kpa: {
-      nama: `Drs. H. M. Sholahuddin, M.Si.`,
-      nip: `19720512 199803 1 0${suffix}`,
-      noHp: satker.noHpPic || '081234567890',
-      email: `kpa.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     ppk: {
-      nama: `Bambang Setyawan, S.E., M.M.`,
-      nip: `19790815 200212 1 0${suffix}`,
-      noHp: '081398765432',
-      email: `ppk.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     ppspm: {
-      nama: `Sri Wahyuni, S.Sos.`,
-      nip: `19820320 200412 2 0${suffix}`,
-      noHp: '081567890123',
-      email: `ppspm.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     bendahara: {
-      nama: `Dewi Lestari, A.Md.`,
-      nip: `19881105 200912 2 0${suffix}`,
-      noHp: '081789012345',
-      email: `bendahara.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     operatorKomitmen: {
-      nama: `Rizal Pratama, A.Md.Ak.`,
-      nip: `19920110 201402 1 0${suffix}`,
-      noHp: '082123456789',
-      email: `opr.komitmen.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     operatorPembayaran: {
-      nama: `Anisa Rahmawati, S.Kom.`,
-      nip: `19940618 201602 2 0${suffix}`,
-      noHp: '082234567890',
-      email: `opr.pembayaran.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     },
     operatorPelaporan: {
-      nama: satker.namaPic || `Fajar Hidayat (SAKTI Output)`,
-      nip: `19950925 201802 1 0${suffix}`,
-      noHp: satker.noHpPic || '082345678901',
-      email: satker.emailPic || `opr.pelaporan.${kode}@kemenkeu.go.id`
+      nama: satker.namaPic || '',
+      nip: '',
+      noHp: satker.noHpPic || '',
+      email: satker.emailPic || ''
     },
     operatorGaji: {
-      nama: `Hendra Wijaya, S.E.`,
-      nip: `19910404 201302 1 0${suffix}`,
-      noHp: '082456789012',
-      email: `opr.gaji.${kode}@kemenkeu.go.id`
+      nama: '',
+      nip: '',
+      noHp: '',
+      email: ''
     }
   };
 }
