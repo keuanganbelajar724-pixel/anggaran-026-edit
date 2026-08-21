@@ -89,8 +89,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Period Filter State (Default: LATEST / s.d. Bulan Terakhir yang diupload)
-  const [selectedMonthPeriod, setSelectedMonthPeriod] = useState<string>('LATEST');
+  // Period Filter State (Defaults directly to the latest available month, e.g. Juli)
+  const [selectedMonthPeriod, setSelectedMonthPeriod] = useState<string>('');
 
   const isDark = theme === 'dark';
 
@@ -132,18 +132,27 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'];
   }, [satkersWithIKPA]);
 
-  const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Maret';
+  const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Juli';
   const latestUploadedMonth = `s.d. ${latestMonthName} 2026`;
+  const activeMonthPeriod = selectedMonthPeriod && availableUploadedMonths.includes(selectedMonthPeriod)
+    ? selectedMonthPeriod
+    : latestMonthName;
 
-  // Dynamically map satker data based on the selected period filter
+  // Auto-sync selected month when available months change
+  useEffect(() => {
+    if (availableUploadedMonths.length > 0 && (!selectedMonthPeriod || !availableUploadedMonths.includes(selectedMonthPeriod))) {
+      setSelectedMonthPeriod(availableUploadedMonths[availableUploadedMonths.length - 1]);
+    }
+  }, [availableUploadedMonths, selectedMonthPeriod]);
+
+  // Dynamically map satker data strictly based on the selected period month
   const effectiveSatkers = React.useMemo(() => {
-    if (selectedMonthPeriod === 'LATEST') return satkersWithIKPA;
-    const targetMonth = selectedMonthPeriod.toLowerCase();
+    const targetMonth = (activeMonthPeriod || latestMonthName).toLowerCase();
     return satkersWithIKPA.map(s => {
-      const hist = s.riwayatBulanan?.find(r => r.bulan.toLowerCase().includes(targetMonth));
+      const hist = s.riwayatBulanan?.find(r => r && r.bulan && r.bulan.toLowerCase().includes(targetMonth));
       if (!hist) return s;
       const cur = s.indikator;
-      const histIKPA = typeof hist.nilaiIKPA === 'number' ? hist.nilaiIKPA : s.nilaiTotalIKPA;
+      const histIKPA = typeof hist.nilaiIKPA === 'number' && hist.nilaiIKPA > 0 ? hist.nilaiIKPA : s.nilaiTotalIKPA;
       let histPredikat = s.predikat;
       if (histIKPA >= 95.0) histPredikat = 'Sangat Baik';
       else if (histIKPA >= 89.0) histPredikat = 'Baik';
@@ -164,16 +173,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           dispensasiSpm: hist.dispensasiSpm ?? cur.dispensasiSpm,
           capaianOutput: hist.capaianOutput ?? cur.capaianOutput,
         },
-        periodeUpdate: `s.d. ${selectedMonthPeriod} 2026`
+        periodeUpdate: `s.d. ${activeMonthPeriod} 2026`
       };
     });
-  }, [satkersWithIKPA, selectedMonthPeriod]);
+  }, [satkersWithIKPA, activeMonthPeriod, latestMonthName]);
 
   const totalSatker = effectiveSatkers.length;
 
-  const currentDisplayPeriodLabel = selectedMonthPeriod === 'LATEST' 
-    ? `s.d. ${latestMonthName} 2026 (Terbaru)`
-    : `s.d. ${selectedMonthPeriod} 2026`;
+  const currentDisplayPeriodLabel = `s.d. ${activeMonthPeriod} 2026`;
 
   const avgIKPA = hasAnyIKPA 
     ? (effectiveSatkers.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / (effectiveSatkers.length || 1)).toFixed(2)
@@ -342,13 +349,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <CalendarRange className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Posisi Periode:</span>
                 <select
-                  value={selectedMonthPeriod}
+                  value={activeMonthPeriod}
                   onChange={(e) => setSelectedMonthPeriod(e.target.value)}
-                  className="bg-emerald-900/90 text-white font-extrabold text-xs rounded-md px-1.5 py-0.5 border border-emerald-400/50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                  className="bg-emerald-900/90 text-white font-extrabold text-xs rounded-md px-2 py-0.5 border border-emerald-400/50 cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-400"
                 >
-                  <option value="LATEST" className="bg-slate-900 text-white">⭐ Posisi Terbaru ({latestMonthName} 2026)</option>
                   {availableUploadedMonths.map(m => (
-                    <option key={m} value={m} className="bg-slate-900 text-white">📅 s.d. {m} 2026</option>
+                    <option key={m} value={m} className="bg-slate-900 text-white font-semibold">
+                      s.d. {m} 2026 {m === latestMonthName ? '✓' : ''}
+                    </option>
                   ))}
                 </select>
               </div>

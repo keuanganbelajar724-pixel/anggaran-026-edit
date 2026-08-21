@@ -60,6 +60,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   }, [records]);
 
   // Filters & State
+  const [rankingCategory, setRankingCategory] = useState<'transaksi' | 'nominal'>('transaksi');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKl, setSelectedKl] = useState('ALL');
   const [selectedBank, setSelectedBank] = useState('ALL');
@@ -80,8 +81,8 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
     return map;
   }, [masterSatkers]);
 
-  // Role scoped records & sorting by transaction count desc then nominal desc
-  const sortedRecords = useMemo(() => {
+  // Base enriched records
+  const baseEnrichedRecords = useMemo(() => {
     let list = [...activeRecords];
 
     if (userRole === 'PESERTA' && userSatkerCode) {
@@ -89,7 +90,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
     }
 
     // Enrich missing satker names from masterSatkers if available
-    list = list.map(item => {
+    return list.map(item => {
       const master = activeSatkerMap.get(item.kodeSatker);
       return {
         ...item,
@@ -97,14 +98,28 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
         kementerianLembaga: master?.kementerianLembaga || item.kementerianLembaga || 'KEMENTERIAN / LEMBAGA MITRA'
       };
     });
+  }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
 
-    return list.sort((a, b) => {
-      if (b.jumlahTransaksi !== a.jumlahTransaksi) {
-        return b.jumlahTransaksi - a.jumlahTransaksi;
-      }
+  // Top 3 for Transaksi Terbanyak
+  const topByTransaksi = useMemo(() => {
+    return [...baseEnrichedRecords].sort((a, b) => {
+      if (b.jumlahTransaksi !== a.jumlahTransaksi) return b.jumlahTransaksi - a.jumlahTransaksi;
       return b.totalNominal - a.totalNominal;
     });
-  }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
+  }, [baseEnrichedRecords]);
+
+  // Top 3 for Nominal Terbanyak
+  const topByNominal = useMemo(() => {
+    return [...baseEnrichedRecords].sort((a, b) => {
+      if (b.totalNominal !== a.totalNominal) return b.totalNominal - a.totalNominal;
+      return b.jumlahTransaksi - a.jumlahTransaksi;
+    });
+  }, [baseEnrichedRecords]);
+
+  // Active sorted records based on active ranking category tab
+  const sortedRecords = useMemo(() => {
+    return rankingCategory === 'nominal' ? topByNominal : topByTransaksi;
+  }, [rankingCategory, topByNominal, topByTransaksi]);
 
   // Unique Filter Options
   const klList = useMemo(() => {
@@ -302,71 +317,107 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
         </div>
       </div>
 
-      {/* 2. Podium Juara 1, 2, 3 (Top 3 Satker Terbanyak Transaksi KKP) */}
+      {/* 2. Top 1, 2, 3 Ranking Section dengan Pemilihan Kategori (Transaksi Terbanyak vs Nominal Terbanyak) */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-amber-500/20 rounded-lg text-amber-500">
-              <Trophy className="w-5 h-5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-500/20">
+              <Award className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-black text-slate-900 dark:text-slate-100 text-base sm:text-lg">
-                Podium Juara Transaksi KKP Terbanyak
+                Peringkat 1, 2 & 3 Transaksi KKP
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Top 3 Satker dengan frekuensi dan komitmen pemanfaatan Kartu Kredit Pemerintah tertinggi
+                Apresiasi komitmen Satker mitra kerja KPPN Semarang I dalam akselerasi digitalisasi pembayaran
               </p>
             </div>
           </div>
 
-          <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 px-3 py-1 rounded-full">
-            Periode: Agustus 2026
-          </span>
+          {/* Category Toggle Switch: Transaksi Terbanyak vs Nominal Terbanyak */}
+          <div className="flex items-center p-1 bg-slate-200/80 dark:bg-slate-800 rounded-2xl border border-slate-300 dark:border-slate-700 shrink-0 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setRankingCategory('transaksi')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                rankingCategory === 'transaksi'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>Jumlah Transaksi Terbanyak</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRankingCategory('nominal')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                rankingCategory === 'nominal'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <DollarSign className="w-3.5 h-3.5" />
+              <span>Nominal Rupiah Terbanyak</span>
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+        {/* Top 1, 2, 3 Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
           
-          {/* JUARA 2 (Silver) */}
+          {/* PERINGKAT 2 */}
           {top2 && (
-            <div className="order-2 md:order-1 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-5 border-2 border-slate-300 dark:border-slate-700 shadow-lg relative overflow-hidden transition-all hover:scale-102">
-              <div className="absolute top-3 right-3 text-slate-400 dark:text-slate-500 font-black text-4xl opacity-40">
+            <div className="order-2 md:order-1 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800/90 dark:to-slate-900 rounded-3xl p-5 border-2 border-slate-300 dark:border-slate-700 shadow-md relative overflow-hidden transition-all hover:scale-102 flex flex-col justify-between">
+              <div className="absolute top-3 right-3 text-slate-300 dark:text-slate-700 font-black text-4xl opacity-50 select-none">
                 #2
               </div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-slate-400 to-slate-200 text-slate-900 flex items-center justify-center font-black shadow-md text-xl">
-                  🥈
-                </div>
-                <div>
-                  <span className="bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                    Runner Up (Juara 2)
-                  </span>
-                  <div className="font-mono text-xs font-bold text-slate-500">
-                    Kode: {top2.kodeSatker}
+
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center font-black shadow-sm text-base border border-slate-300 dark:border-slate-600">
+                    🥈
+                  </div>
+                  <div>
+                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Peringkat 2 ({rankingCategory === 'transaksi' ? 'Transaksi Terbanyak' : 'Nominal Terbanyak'})
+                    </span>
+                    <div className="font-mono text-xs font-bold text-slate-500 mt-0.5">
+                      Kode: {top2.kodeSatker}
+                    </div>
                   </div>
                 </div>
+
+                <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 line-clamp-2 min-h-[40px]" title={top2.namaSatker}>
+                  {top2.namaSatker}
+                </h4>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                  {top2.kementerianLembaga}
+                </div>
               </div>
 
-              <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 line-clamp-2 min-h-[40px]" title={top2.namaSatker}>
-                {top2.namaSatker}
-              </h4>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                {top2.kementerianLembaga}
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-slate-300 dark:border-slate-700 space-y-1.5 text-xs">
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-[11px]">Frekuensi Transaksi:</span>
-                  <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-950 px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700">
-                    {top2.jumlahTransaksi} Transaksi
+                  <span className="text-slate-500 text-[11px]">Jumlah Transaksi:</span>
+                  <span className={`font-black font-mono px-2 py-0.5 rounded-md border ${
+                    rankingCategory === 'transaksi'
+                      ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                      : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                  }`}>
+                    {top2.jumlahTransaksi} SP2D
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-[11px]">Total Nilai KKP:</span>
-                  <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                  <span className="text-slate-500 text-[11px]">Total Nominal KKP:</span>
+                  <span className={`font-black font-mono ${
+                    rankingCategory === 'nominal'
+                      ? 'text-emerald-600 dark:text-emerald-400 text-sm'
+                      : 'text-indigo-600 dark:text-indigo-400'
+                  }`}>
                     Rp {top2.totalNominal.toLocaleString('id-ID')}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-slate-400">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 pt-0.5">
                   <span>Bank Mitra:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{top2.bankPenerbit || 'BRI'}</span>
                 </div>
@@ -374,96 +425,117 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             </div>
           )}
 
-          {/* JUARA 1 (Gold - Taller & Highlighted) */}
+          {/* PERINGKAT 1 (Highlighted) */}
           {top1 && (
-            <div className="order-1 md:order-2 bg-gradient-to-b from-amber-50 via-amber-100/60 to-amber-200/80 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-slate-900 rounded-3xl p-6 border-3 border-amber-400 dark:border-amber-500 shadow-2xl relative overflow-hidden transition-all hover:scale-104 -translate-y-2">
-              <div className="absolute top-0 right-0 bg-amber-500 text-slate-950 font-black text-[10px] px-4 py-1 rounded-bl-2xl shadow-sm uppercase tracking-wider">
-                🏆 JUARA 1 UTAMA
+            <div className="order-1 md:order-2 bg-gradient-to-b from-indigo-50/80 via-white to-indigo-50/40 dark:from-indigo-950/50 dark:via-slate-900 dark:to-slate-900 rounded-3xl p-6 border-2 border-indigo-500/50 dark:border-indigo-500 shadow-xl relative overflow-hidden transition-all hover:scale-102 flex flex-col justify-between ring-2 ring-indigo-400/20">
+              <div className="absolute top-0 right-0 bg-indigo-600 text-white font-black text-[10px] px-3.5 py-1 rounded-bl-2xl shadow-sm uppercase tracking-wider">
+                ⭐ PERINGKAT 1
               </div>
 
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 via-yellow-400 to-amber-200 text-slate-950 flex items-center justify-center font-black shadow-lg text-2xl">
-                  🥇
-                </div>
-                <div>
-                  <span className="bg-amber-500 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase shadow-xs">
-                    Pelopor Transaksi KKP Terbanyak
-                  </span>
-                  <div className="font-mono text-xs font-bold text-amber-800 dark:text-amber-300">
-                    Kode: {top1.kodeSatker}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-amber-200 text-slate-950 flex items-center justify-center font-black shadow-md text-xl border border-amber-300">
+                    🥇
+                  </div>
+                  <div>
+                    <span className="bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Peringkat 1 ({rankingCategory === 'transaksi' ? 'Transaksi Terbanyak' : 'Nominal Terbanyak'})
+                    </span>
+                    <div className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-400 mt-0.5">
+                      Kode: {top1.kodeSatker}
+                    </div>
                   </div>
                 </div>
+
+                <h4 className="font-black text-base text-slate-900 dark:text-white line-clamp-2 min-h-[44px]" title={top1.namaSatker}>
+                  {top1.namaSatker}
+                </h4>
+                <div className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-1 mt-0.5">
+                  {top1.kementerianLembaga}
+                </div>
               </div>
 
-              <h4 className="font-black text-base text-slate-950 dark:text-amber-100 line-clamp-2 min-h-[44px]" title={top1.namaSatker}>
-                {top1.namaSatker}
-              </h4>
-              <div className="text-[11px] text-slate-700 dark:text-amber-200/80 line-clamp-1 mt-0.5">
-                {top1.kementerianLembaga}
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-amber-300 dark:border-amber-700/60 space-y-2 text-xs">
+              <div className="mt-4 pt-3 border-t border-indigo-100 dark:border-indigo-900/60 space-y-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">Total Transaksi:</span>
-                  <span className="font-black text-slate-950 dark:text-white font-mono bg-amber-400/50 dark:bg-amber-950 px-2.5 py-1 rounded-lg border border-amber-500 text-sm">
+                  <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">Jumlah Transaksi:</span>
+                  <span className={`font-black font-mono px-2.5 py-1 rounded-lg border text-sm ${
+                    rankingCategory === 'transaksi'
+                      ? 'bg-indigo-600 text-white border-indigo-700'
+                      : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                  }`}>
                     {top1.jumlahTransaksi} SP2D
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">Total Nilai KKP:</span>
-                  <span className="font-black text-rose-700 dark:text-amber-300 font-mono text-sm">
+                  <span className="text-slate-700 dark:text-slate-300 text-xs font-bold">Total Nominal KKP:</span>
+                  <span className={`font-black font-mono ${
+                    rankingCategory === 'nominal'
+                      ? 'text-emerald-600 dark:text-emerald-400 text-base'
+                      : 'text-indigo-700 dark:text-indigo-300 text-sm'
+                  }`}>
                     Rp {top1.totalNominal.toLocaleString('id-ID')}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-[11px] text-slate-600 dark:text-slate-400">
+                <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
                   <span>Bank Penerbit:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-200">{top1.bankPenerbit || 'BRI'}</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">{top1.bankPenerbit || 'BRI'}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* JUARA 3 (Bronze) */}
+          {/* PERINGKAT 3 */}
           {top3 && (
-            <div className="order-3 bg-gradient-to-b from-amber-100/40 to-amber-200/50 dark:from-amber-950/40 dark:to-slate-900 rounded-3xl p-5 border-2 border-amber-600/40 dark:border-amber-800 shadow-lg relative overflow-hidden transition-all hover:scale-102">
-              <div className="absolute top-3 right-3 text-amber-700 dark:text-amber-600 font-black text-4xl opacity-30">
+            <div className="order-3 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800/90 dark:to-slate-900 rounded-3xl p-5 border-2 border-slate-300 dark:border-slate-700 shadow-md relative overflow-hidden transition-all hover:scale-102 flex flex-col justify-between">
+              <div className="absolute top-3 right-3 text-slate-300 dark:text-slate-700 font-black text-4xl opacity-50 select-none">
                 #3
               </div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-700 to-amber-400 text-white flex items-center justify-center font-black shadow-md text-xl">
-                  🥉
-                </div>
-                <div>
-                  <span className="bg-amber-200 dark:bg-amber-950 text-amber-900 dark:text-amber-200 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
-                    Juara 3
-                  </span>
-                  <div className="font-mono text-xs font-bold text-slate-500">
-                    Kode: {top3.kodeSatker}
+
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 flex items-center justify-center font-black shadow-sm text-base border border-amber-200 dark:border-amber-800">
+                    🥉
+                  </div>
+                  <div>
+                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      Peringkat 3 ({rankingCategory === 'transaksi' ? 'Transaksi Terbanyak' : 'Nominal Terbanyak'})
+                    </span>
+                    <div className="font-mono text-xs font-bold text-slate-500 mt-0.5">
+                      Kode: {top3.kodeSatker}
+                    </div>
                   </div>
                 </div>
+
+                <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 line-clamp-2 min-h-[40px]" title={top3.namaSatker}>
+                  {top3.namaSatker}
+                </h4>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                  {top3.kementerianLembaga}
+                </div>
               </div>
 
-              <h4 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 line-clamp-2 min-h-[40px]" title={top3.namaSatker}>
-                {top3.namaSatker}
-              </h4>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                {top3.kementerianLembaga}
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-amber-300/60 dark:border-amber-800 space-y-1.5 text-xs">
+              <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-700/80 space-y-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-[11px]">Frekuensi Transaksi:</span>
-                  <span className="font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-950 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
-                    {top3.jumlahTransaksi} Transaksi
+                  <span className="text-slate-500 text-[11px]">Jumlah Transaksi:</span>
+                  <span className={`font-black font-mono px-2 py-0.5 rounded-md border ${
+                    rankingCategory === 'transaksi'
+                      ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+                      : 'bg-white dark:bg-slate-950 text-slate-900 dark:text-white border-slate-300 dark:border-slate-700'
+                  }`}>
+                    {top3.jumlahTransaksi} SP2D
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500 text-[11px]">Total Nilai KKP:</span>
-                  <span className="font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                  <span className="text-slate-500 text-[11px]">Total Nominal KKP:</span>
+                  <span className={`font-black font-mono ${
+                    rankingCategory === 'nominal'
+                      ? 'text-emerald-600 dark:text-emerald-400 text-sm'
+                      : 'text-indigo-600 dark:text-indigo-400'
+                  }`}>
                     Rp {top3.totalNominal.toLocaleString('id-ID')}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-[10px] text-slate-400">
+                <div className="flex justify-between items-center text-[10px] text-slate-400 pt-0.5">
                   <span>Bank Mitra:</span>
                   <span className="font-semibold text-slate-700 dark:text-slate-300">{top3.bankPenerbit || 'Mandiri'}</span>
                 </div>

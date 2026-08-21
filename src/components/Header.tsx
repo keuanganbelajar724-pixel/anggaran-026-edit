@@ -205,9 +205,11 @@ export const Header: React.FC<HeaderProps> = ({
                {/* Identity & Sub-header */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
             <div 
-              className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white font-bold shadow-lg shadow-emerald-900/40 shrink-0 cursor-pointer hover:scale-105 transition-transform"
+              onClick={() => setActiveTab('dashboard')}
+              className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 p-1 flex items-center justify-center shadow-lg shadow-indigo-950/50 ring-2 ring-indigo-500/30 shrink-0 cursor-pointer hover:scale-105 transition-all overflow-hidden"
+              title="ANGKASA - Dashboard Utama"
             >
-              <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
+              <img src="/favicon.svg" alt="ANGKASA Logo" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -218,7 +220,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <Sparkles className="w-4 h-4 text-amber-500 animate-pulse hidden sm:inline-block" />
                 </h1>
                 <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-xs ${
-                  isDark ? 'bg-emerald-950/90 text-emerald-300 border-emerald-700/60' : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  isDark ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/60' : 'bg-indigo-50 text-indigo-800 border-indigo-300'
                 }`}>
                   KPPN Semarang I (026)
                 </span>

@@ -3,6 +3,13 @@ import { Lock, Database } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
 import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
+import {
+  compactSatkersForFirestore,
+  compactHistoricalUploadsForFirestore,
+  mergeSatkersAntiDowngrade,
+  mergePengelolaanUPAntiDowngrade,
+  mergeHistoricalUploadsAntiDowngrade
+} from './utils/firebaseStorageOptimizer';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
@@ -26,6 +33,7 @@ import { ReminderGenerator } from './components/ReminderGenerator';
 import { SatkerDetailModal } from './components/SatkerDetailModal';
 import { ExcelGuideModal } from './components/ExcelGuideModal';
 import { BroadcastTemplateLibraryModal } from './components/BroadcastTemplateLibraryModal';
+import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
 
 import { ToastProvider } from './components/ToastNotification';
 
@@ -93,8 +101,8 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((s: SatkerIKPA) => !s.id?.startsWith('satker-smg1-'));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker));
         }
       } catch (e) {
         console.warn('Error parsing saved satker data:', e);
@@ -355,10 +363,10 @@ export default function App() {
     }
   }, [activeTab, dashboardConfig.menuVisibility, isAdminAuthenticated]);
 
-  // Real-time Firebase Sync for Satkers, Pejabat & Global Settings
+  // Real-time Firebase Sync for Satkers, Pejabat, UP/TUP, KKP & Global Settings
   useEffect(() => {
     try {
-      // 1. Initial Force Fetch from Firestore Server to ensure fresh data on Vercel / new browser
+      // 1. Initial Force Fetch from Firestore Server to ensure fresh data
       getDocFromServer(doc(db, 'settings', 'global')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
@@ -367,51 +375,91 @@ export default function App() {
             localStorage.setItem('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
-            setDashboardConfig(data.dashboardConfig);
+            setDashboardConfig(prev => ({
+              ...prev,
+              ...data.dashboardConfig,
+              historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+            }));
             localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
-            if (data.dashboardConfig.historicalUploads) {
-              localStorage.setItem('kppn_historical_uploads', JSON.stringify(data.dashboardConfig.historicalUploads));
-              
-              // If satkers state is currently empty, auto-hydrate from historical uploads
-              setSatkers(curr => {
-                if (curr.length === 0 && Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0) {
-                  const restored = mergeHistoricalUploadsToSatkers(data.dashboardConfig.historicalUploads);
-                  if (restored.length > 0) {
-                    localStorage.setItem('kppn_satker_data', JSON.stringify(restored));
-                    syncSatkersToFirebase(restored);
-                    return restored;
-                  }
-                }
-                return curr;
-              });
-            }
           }
         }
       }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
+
+      // Separate dedicated document for historical archives with anti-downgrade merge
+      getDocFromServer(doc(db, 'data', 'historical_uploads')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDashboardConfig(prev => {
+              const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
+              localStorage.setItem('kppn_historical_uploads', JSON.stringify(merged));
+              return {
+                ...prev,
+                historicalUploads: merged
+              };
+            });
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
 
       getDocFromServer(doc(db, 'data', 'satkers')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
-            setSatkers(data.list);
-            localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
+            setSatkers(currentLocal => {
+              const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
+              return merged;
+            });
           } else {
-            // Check if we can recover from historical uploads
-            const savedHistorical = localStorage.getItem('kppn_historical_uploads');
-            if (savedHistorical) {
+            // Recover from localStorage or historical uploads if server is empty
+            const savedLocal = localStorage.getItem('kppn_satker_data');
+            if (savedLocal) {
               try {
-                const parsed = JSON.parse(savedHistorical);
-                const restored = mergeHistoricalUploadsToSatkers(parsed);
-                if (restored.length > 0) {
-                  setSatkers(restored);
-                  localStorage.setItem('kppn_satker_data', JSON.stringify(restored));
-                  syncSatkersToFirebase(restored);
+                const parsed = JSON.parse(savedLocal);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setSatkers(parsed);
+                  syncSatkersToFirebase(parsed);
                 }
               } catch (e) {}
             }
           }
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
+
+      getDocFromServer(doc(db, 'data', 'pengelolaan_up')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setPengelolaanUPList(currentLocal => {
+              const merged = mergePengelolaanUPAntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(merged));
+              return merged;
+            });
+          } else {
+            const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
+            if (savedLocal) {
+              try {
+                const parsed = JSON.parse(savedLocal);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setPengelolaanUPList(parsed);
+                  handleUpdatePengelolaanUP(parsed);
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore UP fetch notice:", err));
+
+      getDocFromServer(doc(db, 'data', 'transaksi_kkp')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setTransaksiKkpList(data.list);
+            localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore KKP fetch notice:", err));
 
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -422,24 +470,47 @@ export default function App() {
             localStorage.setItem('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
-            setDashboardConfig(data.dashboardConfig);
+            setDashboardConfig(prev => ({
+              ...prev,
+              ...data.dashboardConfig,
+              historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+            }));
             localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
-            if (data.dashboardConfig.historicalUploads) {
-              localStorage.setItem('kppn_historical_uploads', JSON.stringify(data.dashboardConfig.historicalUploads));
-            }
           }
         }
       }, (error) => {
         console.warn("Firebase Firestore settings notice:", error);
       });
 
-      // 3. Realtime Satkers Data
+      // Realtime Historical Uploads Listener with anti-downgrade
+      const unsubHistorical = onSnapshot(doc(db, 'data', 'historical_uploads'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDashboardConfig(prev => {
+              const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
+              localStorage.setItem('kppn_historical_uploads', JSON.stringify(merged));
+              return {
+                ...prev,
+                historicalUploads: merged
+              };
+            });
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase historical uploads listener notice:", error);
+      });
+
+      // 3. Realtime Satkers Data with anti-downgrade
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
-            setSatkers(data.list);
-            localStorage.setItem('kppn_satker_data', JSON.stringify(data.list));
+            setSatkers(currentLocal => {
+              const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
+              return merged;
+            });
           }
         }
       }, (error) => {
@@ -450,7 +521,7 @@ export default function App() {
       const unsubPejabat = onSnapshot(doc(db, 'data', 'pejabat'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setPejabatSertifikasiList(data.list);
             localStorage.setItem('kppn_pejabat_data', JSON.stringify(data.list));
           }
@@ -476,7 +547,7 @@ export default function App() {
       const unsubMaster = onSnapshot(doc(db, 'data', 'master_satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setMasterSatkers(data.list);
             localStorage.setItem('kppn_master_satkers', JSON.stringify(data.list));
           }
@@ -485,13 +556,16 @@ export default function App() {
         console.warn("Firebase Master Satkers listener notice:", error);
       });
 
-      // 7. Realtime Pengelolaan UP/TUP Data
+      // 7. Realtime Pengelolaan UP/TUP Data with anti-downgrade
       const unsubUP = onSnapshot(doc(db, 'data', 'pengelolaan_up'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
-            setPengelolaanUPList(data.list);
-            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setPengelolaanUPList(currentLocal => {
+              const merged = mergePengelolaanUPAntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(merged));
+              return merged;
+            });
           }
         }
       }, (error) => {
@@ -502,7 +576,7 @@ export default function App() {
       const unsubKKP = onSnapshot(doc(db, 'data', 'transaksi_kkp'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setTransaksiKkpList(data.list);
             localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
           }
@@ -513,6 +587,7 @@ export default function App() {
 
       return () => {
         unsubSettings();
+        unsubHistorical();
         unsubSatkers();
         unsubPejabat();
         unsubPresensi();
@@ -525,10 +600,11 @@ export default function App() {
     }
   }, []);
 
-  // Sync Helpers to Firebase Cloud Database
+  // Sync Helpers to Firebase Cloud Database with automatic compaction
   const syncSatkersToFirebase = (newList: SatkerIKPA[]) => {
     try {
-      setDoc(doc(db, 'data', 'satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      const compacted = compactSatkersForFirestore(newList);
+      setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (e) {
       console.warn("Error syncing satkers to Firebase:", e);
     }
@@ -743,8 +819,20 @@ export default function App() {
     try {
       localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
 
-      // Optimize historicalUploads payload for Firestore while preserving all critical values
-      const sanitizedHistorical = (newConfig.historicalUploads || []).map(h => ({
+      // 1. Save compact historical upload archives to dedicated collection document (fits >50 months easily)
+      if (Array.isArray(newConfig.historicalUploads)) {
+        localStorage.setItem('kppn_historical_uploads', JSON.stringify(newConfig.historicalUploads));
+        const compactList = compactHistoricalUploadsForFirestore(newConfig.historicalUploads);
+        setDoc(doc(db, 'data', 'historical_uploads'), {
+          list: compactList,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(err => {
+          console.warn("Error persisting historical_uploads to Firebase:", err);
+        });
+      }
+
+      // 2. Optimize settings/global payload so it never exceeds Firestore 1MB document limit
+      const summaryHistorical = (newConfig.historicalUploads || []).map(h => ({
         id: h.id,
         fileName: h.fileName,
         periode: h.periode,
@@ -754,30 +842,12 @@ export default function App() {
         averageIKPA: h.averageIKPA,
         notes: h.notes,
         category: h.category,
-        isActive: !!h.isActive,
-        satkersData: (h.satkersData || []).map(s => ({
-          id: s.id,
-          kodeSatker: s.kodeSatker,
-          namaSatker: s.namaSatker,
-          kementerianLembaga: s.kementerianLembaga,
-          nilaiTotalIKPA: s.nilaiTotalIKPA || 0,
-          paguAnggaran: s.paguAnggaran || 0,
-          realisasiAnggaran: s.realisasiAnggaran || 0,
-          predikat: s.predikat,
-          persenPenyerapan: s.persenPenyerapan || 0,
-          statusCapaianOutput: s.statusCapaianOutput,
-          hasIKPAData: s.hasIKPAData !== false,
-          hasCapaianOutputData: !!s.hasCapaianOutputData,
-          periodeUpdate: s.periodeUpdate,
-          indikator: s.indikator,
-          riwayatBulanan: s.riwayatBulanan || [],
-          issues: (s.issues || []).slice(0, 3)
-        }))
+        isActive: !!h.isActive
       }));
 
       const cleanConfig = {
         ...newConfig,
-        historicalUploads: sanitizedHistorical
+        historicalUploads: summaryHistorical
       };
 
       setDoc(doc(db, 'settings', 'global'), { 
@@ -1578,6 +1648,13 @@ export default function App() {
         isOpen={isGlobalBroadcastLibraryOpen}
         onClose={() => setIsGlobalBroadcastLibraryOpen(false)}
         theme={theme}
+      />
+
+      {/* Pop-Up Awal Pengumuman Mandatori Modal */}
+      <PopUpAnnouncementModal
+        config={dashboardConfig.popUpAnnouncement}
+        theme={theme}
+        onNavigateToTab={(tab) => setActiveTab(tab as NavigationTab)}
       />
 
       {/* Footer */}

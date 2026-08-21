@@ -824,9 +824,28 @@ export interface AduanSatkerRecord {
   riwayatTindakLanjut?: AduanRiwayatTindakLanjut[];
 }
 
+export interface PopUpAnnouncementConfig {
+  isEnabled: boolean; // Aktif / Nonaktifkan Pop-up Awal
+  id?: string; // ID unik pengumuman (jika diubah, popup akan muncul lagi)
+  title: string; // Judul Popup
+  subtitle?: string; // Sub judul
+  badge?: string; // e.g. "PENGUMUMAN PENTING KPPN"
+  content: string; // Teks isi pengumuman
+  category?: 'Penting' | 'Batas Waktu' | 'Surat Edaran' | 'Jadwal' | 'Sistem' | 'Info Khusus';
+  bannerImageUrl?: string; // Optional gambar banner
+  linkUrl?: string; // Link tindakan
+  linkLabel?: string; // Label tombol link
+  secondaryLinkUrl?: string;
+  secondaryLinkLabel?: string;
+  showDontShowAgainOption?: boolean; // Izinkan user menutup "Jangan tampilkan lagi hari ini"
+  autoCloseSeconds?: number; // Tutup otomatis jika diisi (opsional)
+  updatedAt?: string;
+}
+
 export interface DashboardConfig {
   defaultFilter: 'ALL' | 'BELUM_OUTPUT' | 'SUDAH_OUTPUT' | 'IKPA_KURANG' | 'PENYERAPAN_RENDAH' | 'DEVIASI_TINGGI';
   customAnnouncement: string;
+  popUpAnnouncement?: PopUpAnnouncementConfig;
   hideIKPAWhenOnlyCapaianOutput?: boolean;
   showKpiCards: boolean;
   showBarChart: boolean;

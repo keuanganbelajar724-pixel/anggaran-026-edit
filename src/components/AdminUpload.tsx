@@ -19,7 +19,8 @@ import {
   NavigationTab,
   MasterSatker,
   PengelolaanUPRecord,
-  TransaksiKKPRecord
+  TransaksiKKPRecord,
+  PopUpAnnouncementConfig
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
@@ -1055,6 +1056,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   }, [dashboardConfig]);
 
   // Announcement Manager Form State
+  const [announcementSubTab, setAnnouncementSubTab] = useState<'daftar' | 'popup-tools'>('daftar');
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
   const [annForm, setAnnForm] = useState<{
     title: string;
@@ -1089,6 +1091,30 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     surveyUrl: '',
     surveyLabel: ''
   });
+
+  // Pop-up Tools Announcement Form State
+  const [popForm, setPopForm] = useState<PopUpAnnouncementConfig>({
+    isEnabled: false,
+    id: 'popup-' + Date.now(),
+    title: 'Informasi Penting & Pengumuman KPPN Semarang I',
+    subtitle: 'Wajib menjadi perhatian bagi seluruh KPA, PPK, PPSPM, Bendahara & Operator Satker.',
+    badge: 'PENGUMUMAN UTAMA KPPN',
+    content: 'Yth. Satuan Kerja Mitra Kerja KPPN Semarang I,\n\nMohon pastikan seluruh SPM dan pelaporan Capaian Output SAKTI telah dikonfirmasi sebelum batas waktu periode berjalan.\n\nInformasi lebih lanjut dapat menghubungi Customer Service Officer (CSO) Seksi MSKI.',
+    category: 'Penting',
+    bannerImageUrl: '',
+    linkUrl: '',
+    linkLabel: 'Buka Surat / Dokumen PDF',
+    secondaryLinkUrl: '',
+    secondaryLinkLabel: 'Pelajari Juknis SAKTI',
+    showDontShowAgainOption: true
+  });
+
+  // Sync popForm when dashboardConfig changes
+  useEffect(() => {
+    if (dashboardConfig.popUpAnnouncement) {
+      setPopForm(dashboardConfig.popUpAnnouncement);
+    }
+  }, [dashboardConfig.popUpAnnouncement]);
 
   // File Upload State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -2700,17 +2726,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           onClick={() => setAdminTab('announcements')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'announcements'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-purple-500/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
           }`}
         >
           <Megaphone className="w-4 h-4 text-amber-600" />
-          <span>7. Pengumuman</span>
-          {(tempConfig.announcements?.length || 0) > 0 && (
+          <span>7. Pengumuman &amp; Pop-Up Tools</span>
+          {tempConfig.popUpAnnouncement?.isEnabled ? (
+            <span className="bg-emerald-500 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
+              POP-UP ON
+            </span>
+          ) : (tempConfig.announcements?.length || 0) > 0 ? (
             <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
               {tempConfig.announcements.length}
             </span>
-          )}
+          ) : null}
         </button>
 
         <button
@@ -4237,8 +4267,45 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       {adminTab === 'announcements' && (
         <div className="space-y-6">
           
-          {/* Form Card */}
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
+          {/* Sub-Tab Navigation: Daftar Pengumuman vs Pop-Up Tools Pengumuman Awal */}
+          <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => setAnnouncementSubTab('daftar')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                announcementSubTab === 'daftar'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Megaphone className="w-4 h-4" />
+              <span>Daftar Pengumuman &amp; Surat Edaran</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAnnouncementSubTab('popup-tools')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                announcementSubTab === 'popup-tools'
+                  ? 'bg-purple-600 text-white shadow-md font-black'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>Pop-Up Tools Awal (Wajib Lihat Saat Satker Buka Dashboard)</span>
+              {popForm.isEnabled && (
+                <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full">
+                  AKTIF
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* TAB 1: DAFTAR PENGUMUMAN REGULER */}
+          {announcementSubTab === 'daftar' && (
+            <div className="space-y-6">
+              {/* Form Card */}
+              <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <div className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold mb-1">
@@ -4812,6 +4879,259 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </div>
 
           </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: POP-UP TOOLS AWAL DASHBOARD */}
+          {announcementSubTab === 'popup-tools' && (
+            <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 px-3 py-1 rounded-full text-xs font-bold mb-1">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    POP-UP TOOLS PENGUMUMAN MANDATORI AWAL
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight">
+                    Pengaturan Pop-up Informasi Penting Saat Akses Awal
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
+                    Fitur interaktif ini memunculkan jendela Pop-up penting seketika saat Satker membuka dashboard. Sangat efektif agar informasi batas waktu atau instruksi penting tidak terlewatkan. Pop-up dapat diaktifkan atau dinonaktifkan kapan saja.
+                  </p>
+                </div>
+
+                {/* Quick Toggle On / Off */}
+                <div className="flex items-center gap-2 p-2 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-300">Status Pop-up:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatedPop = { ...popForm, isEnabled: !popForm.isEnabled, id: 'popup-' + Date.now() };
+                      setPopForm(updatedPop);
+                      const newCfg = { ...tempConfig, popUpAnnouncement: updatedPop };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                      addLog('Ubah Status Pop-up Awal', 'SETTINGS', `Pop-up pengumuman awal diubah menjadi ${!popForm.isEnabled ? 'AKTIF' : 'NON-AKTIF'}.`, 'INFO');
+                    }}
+                    className={`px-4 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm ${
+                      popForm.isEnabled
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        : 'bg-rose-600 hover:bg-rose-500 text-white'
+                    }`}
+                  >
+                    {popForm.isEnabled ? '🟢 AKTIF (Tampil ke Satker)' : '🔴 NON-AKTIF (Mati)'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Pop-up Edit Form */}
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const updatedPop = { 
+                    ...popForm, 
+                    id: 'popup-' + Date.now(),
+                    updatedAt: new Date().toISOString()
+                  };
+                  setPopForm(updatedPop);
+                  const newCfg = { ...tempConfig, popUpAnnouncement: updatedPop };
+                  setTempConfig(newCfg);
+                  onUpdateDashboardConfig(newCfg);
+                  setConfigSaveSuccess(true);
+                  addLog('Simpan Pop-up Awal', 'SETTINGS', `Konfigurasi pop-up awal "${popForm.title}" berhasil disimpan.`, 'SUCCESS');
+                  setTimeout(() => setConfigSaveSuccess(false), 3500);
+                }} 
+                className="space-y-5"
+              >
+                {/* Form Fields Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                  {/* Badge Label */}
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                      Badge / Tag Header Pop-up
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: PENGUMUMAN PENTING KPPN"
+                      value={popForm.badge || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, badge: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-3 border font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Kategori Pop-up */}
+                  <div className="sm:col-span-4">
+                    <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                      Kategori Pengumuman
+                    </label>
+                    <select
+                      value={popForm.category || 'Penting'}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, category: e.target.value as any }))}
+                      className={`w-full text-xs rounded-xl p-3 border font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    >
+                      <option value="Penting">⚡ Penting / Pengumuman KPPN</option>
+                      <option value="Batas Waktu">⏳ Batas Waktu / Deadline SPM &amp; LPJ</option>
+                      <option value="Surat Edaran">📄 Surat Edaran &amp; Nota Dinas</option>
+                      <option value="Jadwal">📅 Sosialisasi / FGD / Bimtek</option>
+                      <option value="Sistem">⚙️ Pemeliharaan Sistem / SAKTI</option>
+                    </select>
+                  </div>
+
+                  {/* Toggle Aktifkan */}
+                  <div className="sm:col-span-4 flex items-end">
+                    <label className="flex items-center gap-2 p-2.5 w-full rounded-xl border border-purple-500/30 bg-purple-500/5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={popForm.isEnabled}
+                        onChange={(e) => setPopForm(prev => ({ ...prev, isEnabled: e.target.checked }))}
+                        className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4"
+                      />
+                      <div>
+                        <div className="text-xs font-black text-purple-700 dark:text-purple-300">Pop-up Aktif</div>
+                        <div className="text-[10px] text-slate-500">Centang agar muncul di satker</div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Judul Utama */}
+                  <div className="sm:col-span-6">
+                    <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                      Judul Pop-up <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Contoh: Batas Akhir Rekonsiliasi & Konfirmasi Capaian Output"
+                      value={popForm.title}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, title: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-3 border font-bold focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Subtitle */}
+                  <div className="sm:col-span-6">
+                    <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                      Sub-Judul / Keterangan Singkat
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: Wajib ditindaklanjuti seluruh Kuasa Pengguna Anggaran & Operator"
+                      value={popForm.subtitle || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, subtitle: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-3 border font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Isi Narasi Pop-up */}
+                <div>
+                  <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                    Isi / Teks Pengumuman Pop-up <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={5}
+                    placeholder="Tuliskan pesan lengkap yang wajib dibaca Satker saat pertama kali masuk..."
+                    value={popForm.content}
+                    onChange={(e) => setPopForm(prev => ({ ...prev, content: e.target.value }))}
+                    className={`w-full text-xs rounded-xl p-3 border font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                {/* Banner Image URL (Opsional) */}
+                <div>
+                  <label className="block text-xs font-extrabold uppercase tracking-wider mb-1">
+                    Link Gambar / Banner Pengumuman (Opsional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://... (URL gambar banner pengumuman jika ada)"
+                    value={popForm.bannerImageUrl || ''}
+                    onChange={(e) => setPopForm(prev => ({ ...prev, bannerImageUrl: e.target.value }))}
+                    className={`w-full text-xs rounded-xl p-3 border font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                      isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
+                    }`}
+                  />
+                </div>
+
+                {/* Action Buttons Link */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-purple-500/5 border border-purple-500/20">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Tautan Utama (Link URL):
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://drive.google.com/... atau https://bit.ly/..."
+                      value={popForm.linkUrl || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, linkUrl: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-2.5 border font-medium ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Label Tombol Utama (contoh: 📄 Unduh Surat Edaran PDF)"
+                      value={popForm.linkLabel || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, linkLabel: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-2.5 border font-bold ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Tautan Sekunder (Opsional):
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={popForm.secondaryLinkUrl || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, secondaryLinkUrl: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-2.5 border font-medium ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Label Tombol Sekunder (contoh: 💡 Petunjuk Teknis)"
+                      value={popForm.secondaryLinkLabel || ''}
+                      onChange={(e) => setPopForm(prev => ({ ...prev, secondaryLinkLabel: e.target.value }))}
+                      className={`w-full text-xs rounded-xl p-2.5 border font-bold ${
+                        isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-800'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit & Save Button */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="text-xs font-semibold text-slate-500">
+                    * Menyimpan pengaturan ini akan langsung memperbarui pop-up realtime di seluruh browser Satker.
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Simpan &amp; Terapkan Pop-Up Awal</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
 
         </div>
       )}

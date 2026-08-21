@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#311042"/>
+    </linearGradient>
+
+    <!-- Wing / Letter A Left Wing Gradient -->
+    <linearGradient id="leftWing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="60%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- Wing / Letter A Right Wing Gradient (Treasury Gold) -->
+    <linearGradient id="rightWing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="30%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+
+    <!-- Rocket / Center Arrow Gradient -->
+    <linearGradient id="centerRocket" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="40%" stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+
+    <!-- Core Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Rounded App Icon Background (Squircle) -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Outer Rim Border -->
+  <rect width="504" height="504" x="4" y="4" rx="124" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="8"/>
+
+  <!-- Background Radar / Orbit Ring -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="rgba(99, 102, 241, 0.25)" stroke-width="5" stroke-dasharray="16 12"/>
+  <circle cx="256" cy="256" r="115" fill="none" stroke="rgba(245, 158, 11, 0.2)" stroke-width="4"/>
+
+  <!-- Compass Star Sparkle Top Right -->
+  <path d="M380 120 L388 138 L406 146 L388 154 L380 172 L372 154 L354 146 L372 138 Z" fill="#fbbf24" opacity="0.9"/>
+  <circle cx="380" cy="146" r="3" fill="#ffffff"/>
+
+  <g transform="translate(0, 8)">
+    <!-- Left Wing (Dynamic Aero / Treasury Blue) -->
+    <path d="M128 368 L224 160 C234 138 244 116 256 96 C240 160 210 248 168 332 C158 352 144 366 128 368 Z" fill="url(#leftWing)" filter="url(#glow)"/>
+
+    <!-- Right Wing (Dynamic Aero / Gold Treasury IKPA) -->
+    <path d="M384 368 L288 160 C278 138 268 116 256 96 C272 160 302 248 344 332 C354 352 368 366 384 368 Z" fill="url(#rightWing)" filter="url(#glow)"/>
+
+    <!-- Center Navigational Rocket Arrow (ANGKASA Rocket Launch) -->
+    <path d="M256 96 L292 240 L256 220 L220 240 Z" fill="url(#centerRocket)"/>
+
+    <!-- Crossbar of 'A' / Golden Orbit Arc -->
+    <path d="M185 292 C230 268 282 268 327 292 L308 324 C275 306 237 306 204 324 Z" fill="url(#rightWing)"/>
+
+    <!-- Center Propulsion Core -->
+    <circle cx="256" cy="245" r="16" fill="#ffffff" filter="url(#glow)"/>
+    <circle cx="256" cy="245" r="8" fill="#4f46e5"/>
+
+    <!-- Thrust / Flame Particle Accents -->
+    <path d="M256 265 L268 340 L256 380 L244 340 Z" fill="#f59e0b" opacity="0.85"/>
+    <path d="M256 270 L262 320 L256 350 L250 320 Z" fill="#ffffff"/>
+  </g>
+</svg>
