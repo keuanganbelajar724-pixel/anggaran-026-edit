@@ -893,6 +893,34 @@ export interface AduanSatkerRecord {
   riwayatTindakLanjut?: AduanRiwayatTindakLanjut[];
 }
 
+export interface SlideShowBannerItem {
+  id: string;
+  title?: string; // Judul Event / Informasi / Pengumuman (Opsional)
+  subtitle?: string; // Sub judul / Tema
+  imageUrl: string; // URL Gambar Banner / Base64 / GIF Animasi
+  badge?: string; // e.g. "EVENT", "INFO RESMI", "SOSIALISASI", "KAJIAN", "BIMTEK"
+  eventDate?: string; // e.g. "Jumat, 21 Februari 2025"
+  eventTime?: string; // e.g. "09.30 s.d 12.15 WIB"
+  eventLocation?: string; // e.g. "Zoom ID: 432 277 387 738 (Pass: iu63Po97) • Aula KPPN"
+  linkUrl?: string; // Link Zoom / Form / Unduhan
+  linkLabel?: string; // Label Tombol (e.g. "Buka Tautan / Gabung", "Lihat Detail")
+  targetTabs?: string[]; // Tab mana saja yang menampilkan banner ini (default: ['ALL'])
+  isActive: boolean;
+  order?: number;
+  createdAt?: string;
+}
+
+export interface SlideShowConfig {
+  isEnabled: boolean; // Saklar Global Slide Show (ON / OFF)
+  autoPlay: boolean; // Auto play pergantian slide
+  intervalSeconds: number; // Durasi per slide (e.g. 5 detik)
+  aspectRatioMode?: 'responsive' | 'landscape' | 'wide' | 'custom';
+  slides: SlideShowBannerItem[];
+  showOnTabs?: string[]; // Tab mana saja yang menampilkan slide show (default: ['ALL'])
+  pauseOnHover?: boolean;
+  updatedAt?: string;
+}
+
 export interface PopUpAnnouncementConfig {
   isEnabled: boolean; // Aktif / Nonaktifkan Pop-up Awal
   id?: string; // ID unik pengumuman (jika diubah, popup akan muncul lagi)
@@ -915,6 +943,7 @@ export interface DashboardConfig {
   defaultFilter: 'ALL' | 'BELUM_OUTPUT' | 'SUDAH_OUTPUT' | 'IKPA_KURANG' | 'PENYERAPAN_RENDAH' | 'DEVIASI_TINGGI';
   customAnnouncement: string;
   popUpAnnouncement?: PopUpAnnouncementConfig;
+  slideShowConfig?: SlideShowConfig;
   hideIKPAWhenOnlyCapaianOutput?: boolean;
   showKpiCards: boolean;
   showBarChart: boolean;

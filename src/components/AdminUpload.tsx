@@ -22,6 +22,7 @@ import {
   TransaksiKKPRecord,
   DigipayRecord,
   PopUpAnnouncementConfig,
+  SlideShowConfig,
   PresensiPrintConfig
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
@@ -33,6 +34,7 @@ import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
+import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -130,6 +132,8 @@ import {
   GripVertical,
   ShoppingBag,
   BookOpen,
+  Image as ImageIcon,
+  Film,
   LifeBuoy
 } from 'lucide-react';
 
@@ -1102,7 +1106,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   }, [dashboardConfig]);
 
   // Announcement Manager Form State
-  const [announcementSubTab, setAnnouncementSubTab] = useState<'daftar' | 'popup-tools'>('daftar');
+  const [announcementSubTab, setAnnouncementSubTab] = useState<'daftar' | 'popup-tools' | 'slideshow'>('daftar');
+
+  const handleUpdateSlideShowConfig = (newSlideShowConfig: SlideShowConfig) => {
+    const newCfg = { ...tempConfig, slideShowConfig: newSlideShowConfig };
+    setTempConfig(newCfg);
+    onUpdateDashboardConfig(newCfg);
+    addLog('Kelola Slide Show Banner', 'SETTINGS', `Slide show banner diperbarui (${newSlideShowConfig.slides?.length || 0} slide, Status: ${newSlideShowConfig.isEnabled ? 'AKTIF' : 'NONAKTIF'}).`, 'SUCCESS');
+  };
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
   const [annForm, setAnnForm] = useState<{
     title: string;
@@ -2778,7 +2789,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         >
           <Megaphone className="w-4 h-4 text-amber-600" />
           <span>7. Pengumuman &amp; Pop-Up Tools</span>
-          {tempConfig.popUpAnnouncement?.isEnabled ? (
+          {tempConfig.slideShowConfig?.isEnabled ? (
+            <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm">
+              SLIDE ON
+            </span>
+          ) : tempConfig.popUpAnnouncement?.isEnabled ? (
             <span className="bg-emerald-500 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
               POP-UP ON
             </span>
@@ -4661,6 +4676,28 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </span>
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={() => setAnnouncementSubTab('slideshow')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                announcementSubTab === 'slideshow'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md font-black'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4 text-amber-300" />
+              <span>Slide Show Banner (Carousel Gambar Bergerak)</span>
+              {tempConfig.slideShowConfig?.isEnabled ? (
+                <span className="bg-emerald-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                  SLIDE ON
+                </span>
+              ) : (
+                <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  OFF
+                </span>
+              )}
+            </button>
           </div>
 
           {/* TAB 1: DAFTAR PENGUMUMAN REGULER */}
@@ -5493,6 +5530,17 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </div>
               </form>
             </div>
+          )}
+
+          {/* TAB 3: SLIDE SHOW / BANNER GAMBAR BERGERAK */}
+          {announcementSubTab === 'slideshow' && (
+            <SlideShowAdminSection
+              slideShowConfig={tempConfig.slideShowConfig}
+              onUpdateConfig={handleUpdateSlideShowConfig}
+              isDark={isDark}
+              addLog={addLog}
+              showToast={showToast}
+            />
           )}
 
         </div>

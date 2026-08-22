@@ -32,8 +32,9 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker } from '../types';
+import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
+import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
 
 interface HeaderProps {
   activeTab: NavigationTab;
@@ -58,6 +59,8 @@ interface HeaderProps {
   transaksiKkpCount?: number;
   transaksiDigipayCount?: number;
   onOpenBroadcastLibrary?: () => void;
+  slideShowConfig?: SlideShowConfig;
+  onOpenAdminSlideShow?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -82,7 +85,9 @@ export const Header: React.FC<HeaderProps> = ({
   masterSatkers = [],
   transaksiKkpCount = 0,
   transaksiDigipayCount = 0,
-  onOpenBroadcastLibrary
+  onOpenBroadcastLibrary,
+  slideShowConfig,
+  onOpenAdminSlideShow
 }) => {
   const isDark = theme === 'dark';
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
@@ -547,6 +552,19 @@ export const Header: React.FC<HeaderProps> = ({
                 {activeTab === 'admin' ? '✓ Sedang di Tab Admin' : 'Ke Tab Admin →'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Responsive Slide Show Banner Carousel (Placed ABOVE Navigation Tabs) */}
+        {activeTab !== 'admin' && slideShowConfig?.isEnabled && (
+          <div className="mt-2.5">
+            <SlideShowBannerCarousel
+              config={slideShowConfig}
+              activeTab={activeTab}
+              isDark={isDark}
+              isAdmin={isAdminAuthenticated}
+              onOpenAdminSlideShow={onOpenAdminSlideShow}
+            />
           </div>
         )}
 

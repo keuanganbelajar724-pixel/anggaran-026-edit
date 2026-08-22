@@ -24,6 +24,7 @@ import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
+import { INITIAL_SLIDESHOW_CONFIG } from './data/initialSlideShowData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
@@ -46,6 +47,7 @@ import { SatkerDetailModal } from './components/SatkerDetailModal';
 import { ExcelGuideModal } from './components/ExcelGuideModal';
 import { BroadcastTemplateLibraryModal } from './components/BroadcastTemplateLibraryModal';
 import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
+import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 
 import { ToastProvider } from './components/ToastNotification';
 
@@ -237,6 +239,7 @@ export default function App() {
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
+      slideShowConfig: savedConfig?.slideShowConfig || INITIAL_SLIDESHOW_CONFIG,
       announcements: INITIAL_ANNOUNCEMENTS,
       kegiatanSosialisasi: INITIAL_KEGIATAN_SOSIALISASI,
       aduanList: INITIAL_ADUAN_RECORDS,
@@ -1513,6 +1516,8 @@ export default function App() {
         onAuthenticateAdmin={handleAuthenticateAdmin}
         onLogoutAdmin={handleLogoutAdmin}
         masterSatkers={masterSatkers}
+        slideShowConfig={dashboardConfig.slideShowConfig}
+        onOpenAdminSlideShow={() => setActiveTab('admin')}
       />
 
       {/* Main Content View Container - Full Widescreen Responsive */}
