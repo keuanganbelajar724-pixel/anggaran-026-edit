@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -28,7 +28,9 @@ import {
   CreditCard,
   ShoppingBag,
   User,
-  Phone
+  Phone,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -48,6 +50,7 @@ interface HeaderProps {
   theme: AppTheme;
   toggleTheme: () => void;
   menuVisibility?: MenuVisibilityConfig;
+  tabOrder?: NavigationTab[];
   isAdminAuthenticated?: boolean;
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
@@ -72,6 +75,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   toggleTheme,
   menuVisibility,
+  tabOrder,
   isAdminAuthenticated = false,
   onAuthenticateAdmin,
   onLogoutAdmin,
@@ -83,8 +87,21 @@ export const Header: React.FC<HeaderProps> = ({
   const isDark = theme === 'dark';
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
   const [isSatkerPreviewMode, setIsSatkerPreviewMode] = useState<boolean>(false);
+  const navScrollRef = useRef<HTMLDivElement>(null);
 
-  const tabs: { id: NavigationTab; label: string; icon: React.ReactNode; badge?: React.ReactNode; activeColor: string }[] = [
+  const scrollNav = (direction: 'left' | 'right') => {
+    if (navScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -280 : 280;
+      navScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const handleTabClick = (tabId: NavigationTab) => {
+    setActiveTab(tabId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const rawTabs: { id: NavigationTab; label: string; icon: React.ReactNode; badge?: React.ReactNode; activeColor: string }[] = [
     {
       id: 'dashboard',
       label: 'Dashboard IKPA',
@@ -196,27 +213,62 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <ClipboardCheck className="w-4 h-4 text-teal-300" />,
       badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Absen</span>,
       activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
-    },
-    {
-      id: 'guide',
-      label: 'Panduan',
-      icon: <BookOpen className="w-4 h-4" />,
-      activeColor: 'bg-slate-700 text-white shadow-md shadow-slate-900/50'
     }
   ];
 
+  // Dynamic tab ordering based on tabOrder config
+  const tabs = useMemo(() => {
+    const adminTabItem = {
+      id: 'admin' as NavigationTab,
+      label: '🛡️ Modul Admin (Control Center)',
+      icon: <ShieldCheck className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-amber-950 text-amber-200 border border-amber-500/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black">Admin</span>,
+      activeColor: 'bg-gradient-to-r from-indigo-700 via-purple-700 to-slate-900 text-white shadow-lg shadow-indigo-700/40 ring-2 ring-amber-400/60'
+    };
+
+    let baseList = rawTabs;
+    if (tabOrder && Array.isArray(tabOrder) && tabOrder.length > 0) {
+      const tabMap = new Map(rawTabs.map(t => [t.id, t]));
+      const ordered: typeof rawTabs = [];
+      
+      // First add tabs in configured order
+      tabOrder.forEach(tabId => {
+        if (tabId !== 'guide' && tabMap.has(tabId)) {
+          ordered.push(tabMap.get(tabId)!);
+          tabMap.delete(tabId);
+        }
+      });
+
+      // Append any remaining tabs that weren't in tabOrder (excluding guide)
+      tabMap.forEach((t) => {
+        if (t.id !== 'guide') {
+          ordered.push(t);
+        }
+      });
+      baseList = ordered;
+    }
+
+    if (isAdminAuthenticated && !isSatkerPreviewMode) {
+      return [adminTabItem, ...baseList];
+    }
+
+    return baseList;
+  }, [tabOrder, satkerCount, belumCapaianCount, sertifikasiUnapprovedCount, announcementsCount, masterSatkers.length, isAdminAuthenticated, isSatkerPreviewMode]);
+
   return (
     <header className={`${
-      isDark ? 'bg-slate-950/95 border-slate-800/90 text-white backdrop-blur-md' : 'bg-white/95 border-slate-200 text-slate-900 backdrop-blur-md shadow-xs'
+      isDark 
+        ? 'bg-slate-950/95 border-slate-800/90 text-white backdrop-blur-xl' 
+        : 'bg-white/95 border-slate-200/90 text-slate-900 backdrop-blur-xl shadow-xs'
     } border-b sticky top-0 z-30 shadow-md transition-colors duration-300 ease-in-out`}>
-      {/* Top Bar Banner */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-               {/* Identity & Sub-header */}
-          <div className="flex items-center space-x-2.5 sm:space-x-3">
+      {/* Top Bar Banner with Government Institutional Badge */}
+      <div className="max-w-[1680px] 2xl:max-w-[1840px] mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 py-2 sm:py-2.5">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+          {/* Identity & Sub-header */}
+          <div className="flex items-center space-x-3 shrink-0">
             <div 
               onClick={() => setActiveTab('dashboard')}
-              className="h-10 w-10 sm:h-11 sm:w-11 rounded-2xl bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 p-1 flex items-center justify-center shadow-lg shadow-indigo-950/50 ring-2 ring-indigo-500/30 shrink-0 cursor-pointer hover:scale-105 transition-all overflow-hidden"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-sky-950 p-1 flex items-center justify-center shadow-lg shadow-indigo-950/40 ring-1 ring-amber-500/40 shrink-0 cursor-pointer hover:scale-105 transition-all overflow-hidden border border-slate-700/50"
               title="ANGKASA - Dashboard Utama"
             >
               <img src="/favicon.svg" alt="ANGKASA Logo" className="w-full h-full object-contain" />
@@ -227,24 +279,45 @@ export const Header: React.FC<HeaderProps> = ({
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}>
                   ANGKASA
-                  <Sparkles className="w-4 h-4 text-amber-500 animate-pulse hidden sm:inline-block" />
+                  <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                    V3.2
+                  </span>
                 </h1>
-                <span className={`text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border shadow-xs ${
-                  isDark ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/60' : 'bg-indigo-50 text-indigo-800 border-indigo-300'
+                <span className={`text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full border shadow-2xs ${
+                  isDark ? 'bg-indigo-950/90 text-indigo-300 border-indigo-700/60' : 'bg-slate-900 text-amber-300 border-slate-800'
                 }`}>
                   KPPN Semarang I (026)
                 </span>
               </div>
-              <p className={`text-[10px] sm:text-xs truncate max-w-[320px] sm:max-w-none ${
-                isDark ? 'text-slate-400' : 'text-slate-500'
+              <p className={`text-[10px] sm:text-xs truncate max-w-[320px] sm:max-w-none font-medium ${
+                isDark ? 'text-slate-400' : 'text-slate-600'
               }`}>
-                Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja • DJPb Kemenkeu
+                Aplikasi Navigasi Keuangan &amp; Akselerasi Satuan Kerja • DJPb Kementerian Keuangan
               </p>
             </div>
           </div>
 
+          {/* Center Executive Live Metric Ticker for Wide Screens */}
+          <div className="hidden xl:flex items-center gap-2.5 py-1 px-3.5 rounded-2xl border bg-slate-900/5 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 text-xs">
+            <div className="flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-slate-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">DJPb SAKTI:</span>
+              <span className="font-black text-emerald-600 dark:text-emerald-400 text-[11px]">Online</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-slate-800">
+              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">Mitra KPPN:</span>
+              <span className="font-black text-slate-900 dark:text-slate-100 text-[11px]">{masterSatkers.length > 0 ? `${masterSatkers.length} Satker` : '127 Satker'}</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">Target IKPA:</span>
+              <span className="font-black text-amber-600 dark:text-amber-400 text-[11px]">≥ 95.00 (Sangat Baik)</span>
+            </div>
+          </div>
+
           {/* Controls & Quick Stats */}
-          <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">
+          <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
             
             {/* Theme Toggle Button (Light/Dark Mode) */}
             <button
@@ -315,8 +388,12 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
-                  onClick={() => setActiveTab('admin')}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-black rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
+                  onClick={() => handleTabClick('admin')}
+                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-black rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] ${
+                    activeTab === 'admin'
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md ring-2 ring-emerald-400/50'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                  }`}
                   title="Masuk ke Modul Admin"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
@@ -349,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Admin Exclusive Status & Simulator Strip */}
         {isAdminAuthenticated && (
-          <div className="mt-2.5 bg-gradient-to-r from-sky-950 via-slate-900 to-indigo-950 p-2.5 rounded-2xl border border-sky-500/30 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-md">
+          <div className="mt-2 bg-gradient-to-r from-sky-950 via-slate-900 to-indigo-950 px-3 py-2 rounded-2xl border border-sky-500/30 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-md">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
               <span className="font-extrabold text-sky-200 flex items-center gap-1.5">
@@ -375,65 +452,94 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               <button
-                onClick={() => setActiveTab('admin')}
-                className="px-3 py-1 rounded-xl text-[11px] font-extrabold bg-sky-600 hover:bg-sky-500 text-white border border-sky-400/40 cursor-pointer"
+                onClick={() => handleTabClick('admin')}
+                className={`px-3 py-1 rounded-xl text-[11px] font-extrabold border cursor-pointer transition-all ${
+                  activeTab === 'admin'
+                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-sm'
+                    : 'bg-sky-600 hover:bg-sky-500 text-white border-sky-400/40'
+                }`}
               >
-                Ke Tab Admin &rarr;
+                {activeTab === 'admin' ? '✓ Sedang di Tab Admin' : 'Ke Tab Admin →'}
               </button>
             </div>
           </div>
         )}
 
-        {/* Navigation Tabs - Responsive Flex Wrap so all tabs including Pengumuman are clearly visible */}
-        <nav className={`mt-3 flex flex-wrap items-center gap-1.5 border-t pt-2.5 pb-1 ${
-          isDark ? 'border-slate-800/80' : 'border-slate-200'
-        }`}>
-          {tabs
-            .filter((t) => {
-              if (t.id === 'admin') return true;
-              if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all tabs unless simulating Satker
-              if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
-                return false; // Hide disabled tabs for Satker users
-              }
-              return true;
-            })
-            .map((t) => {
-              const isActive = activeTab === t.id;
-              const isDisabledForSatker = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
+        {/* Navigation Tabs - Horizontally Scrollable Bar on small screens, Flexible Fluid Wrap on wide screens */}
+        <div className="relative mt-2 border-t pt-1.5 group">
+          {/* Left Arrow Scroll (for smaller / scrollable viewports) */}
+          <button
+            type="button"
+            onClick={() => scrollNav('left')}
+            className="hidden sm:flex xl:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-slate-900/90 text-white items-center justify-center shadow-md border border-slate-700 hover:bg-indigo-600 transition-all cursor-pointer opacity-70 hover:opacity-100"
+            title="Geser Menu ke Kiri"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
 
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTab(t.id)}
-                  className={`relative flex items-center gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap snap-start min-h-[42px] touch-manipulation ${
-                    isActive
-                      ? t.activeColor
-                      : t.id === 'admin'
-                        ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-indigo-200 border-2 border-indigo-500/60 hover:border-indigo-400 shadow-md hover:bg-indigo-900/80 font-black'
-                        : isDark 
-                          ? 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  {isActive && (
-                    <div
-                      className="absolute inset-0 rounded-xl bg-white/10"
-                    />
-                  )}
-                  <span className="relative z-10 flex items-center gap-2">
-                    {t.icon}
-                    <span>{t.label}</span>
-                    {t.badge}
-                    {isAdminAuthenticated && isDisabledForSatker && (
-                      <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5" title="Menu ini saat ini dinonaktifkan untuk Satker">
-                        <Lock className="w-2.5 h-2.5" /> Off
-                      </span>
+          {/* Right Arrow Scroll (for smaller / scrollable viewports) */}
+          <button
+            type="button"
+            onClick={() => scrollNav('right')}
+            className="hidden sm:flex xl:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-slate-900/90 text-white items-center justify-center shadow-md border border-slate-700 hover:bg-indigo-600 transition-all cursor-pointer opacity-70 hover:opacity-100"
+            title="Geser Menu ke Kanan"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+
+          <nav
+            ref={navScrollRef}
+            className={`flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-1 sm:px-2 xl:px-0 snap-x snap-mandatory ${
+              isDark ? 'border-slate-800/80' : 'border-slate-200'
+            }`}
+          >
+            {tabs
+              .filter((t) => {
+                if (t.id === 'admin') return true;
+                if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all tabs unless simulating Satker
+                if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
+                  return false; // Hide disabled tabs for Satker users
+                }
+                return true;
+              })
+              .map((t) => {
+                const isActive = activeTab === t.id;
+                const isDisabledForSatker = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
+
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => handleTabClick(t.id)}
+                    className={`relative flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap snap-start shrink-0 min-h-[38px] touch-manipulation select-none ${
+                      isActive
+                        ? t.activeColor
+                        : t.id === 'admin'
+                          ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-amber-300 border border-amber-500/60 hover:border-amber-400 shadow-md hover:bg-indigo-900/80 font-black'
+                          : isDark 
+                            ? 'text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700'
+                            : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 bg-white/60 shadow-2xs'
+                    }`}
+                  >
+                    {isActive && (
+                      <div
+                        className="absolute inset-0 rounded-xl bg-white/10"
+                      />
                     )}
-                  </span>
-                </button>
-              );
-            })}
-        </nav>
+                    <span className="relative z-10 flex items-center gap-2">
+                      {t.icon}
+                      <span>{t.label}</span>
+                      {t.badge}
+                      {isAdminAuthenticated && isDisabledForSatker && (
+                        <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5" title="Menu ini saat ini dinonaktifkan untuk Satker">
+                          <Lock className="w-2.5 h-2.5" /> Off
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+          </nav>
+        </div>
       </div>
 
       {/* Admin Login Modal */}

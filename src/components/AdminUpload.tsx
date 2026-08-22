@@ -122,7 +122,15 @@ import {
   FileDown,
   UserCheck,
   CreditCard,
-  Settings
+  Settings,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpToLine,
+  ArrowDownToLine,
+  GripVertical,
+  ShoppingBag,
+  BookOpen,
+  LifeBuoy
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -3542,99 +3550,360 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </p>
             </div>
 
-            {/* Setting 3: Menu Visibility Lock (Nonaktifkan Menu Satker) */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-rose-600" />
-                  Atur Visibilitas Menu Satker (Kunci / Sembunyikan Menu Navigasi):
-                </label>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Nonaktifkan menu tertentu apabila Admin KPPN ingin seluruh Satker mitra fokus mengerjakan satu tugas utama (misalnya pengisian Capaian Output SAKTI). Menu yang dimatikan tidak akan muncul bagi pengunjung Satker.
-                </p>
+            {/* Setting 3: Atur Urutan & Visibilitas Menu Navigasi Dashboard */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200/80 pb-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1">
+                    <SlidersHorizontal className="w-3 h-3" />
+                    KUSTOMISASI NAVIGASI UTAMA
+                  </div>
+                  <label className="block text-sm font-black text-slate-900 flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-600" />
+                    Atur Urutan &amp; Visibilitas Menu Navigasi Dashboard
+                  </label>
+                  <p className="text-[11px] text-slate-500 mt-0.5 max-w-2xl">
+                    Sesuaikan tata letak dan urutan tab menu navigasi di header sesuai prioritas satker KPPN Semarang I. Gunakan tombol panah untuk memindahkan posisi tab ke atas/bawah, dan aktifkan/kunci menu untuk mengarahkan fokus pengguna.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const defaultOrder: NavigationTab[] = [
+                        'dashboard',
+                        'capaian-output',
+                        'pengelolaan-up',
+                        'transaksi-kkp',
+                        'transaksi-digipay',
+                        'kelola-satker',
+                        'sertifikasi',
+                        'per5-analisis',
+                        'announcements',
+                        'materi-slide',
+                        'portal-link',
+                        'pengetahuan',
+                        'aduan',
+                        'presensi'
+                      ];
+                      setTempConfig(prev => ({
+                        ...prev,
+                        tabOrder: defaultOrder
+                      }));
+                      addToast('Urutan menu berhasil dikembalikan ke standar KPPN!', 'info');
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Reset Urutan Standar</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[
-                  { key: 'dashboard', label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker' },
-                  { key: 'capaian-output', label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload output' },
-                  { key: 'pengelolaan-up', label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP' },
-                  { key: 'transaksi-kkp', label: 'Transaksi KKP / GUP KKP', desc: 'Monitoring Transaksi & Frekuensi KKP Bank' },
-                  { key: 'transaksi-digipay', label: 'Transaksi Digipay (VA & KKP)', desc: 'Monitoring Transaksi Marketplace Digipay Satu' },
-                  { key: 'kelola-satker', label: 'Kelola Data Satker (Master)', desc: 'Pusat Master Satker & Database No Telepon' },
-                  { key: 'sertifikasi', label: 'Sertifikasi Pejabat', desc: 'Status PTP/PPK/PPSPM' },
-                  { key: 'per5-analisis', label: 'Analisis PER-5/PB/2024', desc: 'Simulasi proyeksi nilai IKPA' },
-                  { key: 'pengetahuan', label: 'Pengetahuan & Juknis', desc: 'Pusat Juknis & Regulasi SAKTI' },
-                  { key: 'announcements', label: 'Pengumuman & Surat', desc: 'Surat Edaran & pengumuman KPPN' },
-                  { key: 'materi-slide', label: 'Materi Slide Presentation', desc: 'Galeri PowerPoint & Slide Show (No Download)' },
-                  { key: 'portal-link', label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi' },
-                  { key: 'presensi', label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi' },
-                  { key: 'aduan', label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker' },
-                  { key: 'guide', label: 'Panduan Excel', desc: 'Instruksi format & kolom' }
-                ].map((menu) => {
-                  const isVisible = tempConfig.menuVisibility?.[menu.key as keyof MenuVisibilityConfig] ?? true;
+              {/* Live Mini Preview Bar */}
+              <div className="bg-slate-900 rounded-xl p-3 text-white border border-slate-800 shadow-inner">
+                <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-slate-800 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <Eye className="w-3 h-3" />
+                    Preview Tampilan Bar Navigasi Satker:
+                  </span>
+                  <span>
+                    {(tempConfig.tabOrder || [
+                      'dashboard',
+                      'capaian-output',
+                      'pengelolaan-up',
+                      'transaksi-kkp',
+                      'transaksi-digipay',
+                      'kelola-satker',
+                      'sertifikasi',
+                      'per5-analisis',
+                      'announcements',
+                      'materi-slide',
+                      'portal-link',
+                      'pengetahuan',
+                      'aduan',
+                      'presensi'
+                    ]).filter(k => k !== 'guide' && tempConfig.menuVisibility?.[k as keyof MenuVisibilityConfig] !== false).length} Menu Aktif
+                  </span>
+                </div>
 
-                  return (
-                    <div
-                      key={menu.key}
-                      className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                        isVisible
-                          ? 'bg-white border-emerald-300 ring-1 ring-emerald-500/20 shadow-xs'
-                          : 'bg-rose-50/70 border-rose-200'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs font-extrabold text-slate-900 block flex items-center gap-1.5">
-                          {!isVisible && <Lock className="w-3 h-3 text-rose-600 inline" />}
-                          {menu.label}
-                        </span>
-                        <span className="text-[10px] text-slate-500 block">
-                          {menu.desc}
-                        </span>
-                      </div>
+                <div className="flex flex-wrap items-center gap-1.5 max-h-24 overflow-y-auto pr-1">
+                  {(() => {
+                    const navLabels: Record<string, string> = {
+                      'dashboard': 'Dashboard IKPA',
+                      'capaian-output': 'Capaian Output',
+                      'pengelolaan-up': 'Pengelolaan UP',
+                      'transaksi-kkp': 'Transaksi KKP',
+                      'transaksi-digipay': 'Digipay',
+                      'kelola-satker': 'Kelola Satker',
+                      'sertifikasi': 'Sertifikasi',
+                      'per5-analisis': 'PER-5 PB 2024',
+                      'announcements': 'Pengumuman',
+                      'materi-slide': 'Materi Slide',
+                      'portal-link': 'Link Sosialisasi',
+                      'pengetahuan': 'Juknis SAKTI',
+                      'aduan': 'Lapor Aduan',
+                      'presensi': 'Presensi Online'
+                    };
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTempConfig(prev => {
-                            const currVis = prev.menuVisibility || {
-                              'dashboard': true,
-                              'capaian-output': true,
-                              'pengelolaan-up': true,
-                              'transaksi-kkp': true,
-                              'kelola-satker': true,
-                              'redflags': true,
-                              'sertifikasi': true,
-                              'per5-analisis': true,
-                              'pengetahuan': true,
-                              'announcements': true,
-                              'materi-slide': true,
-                              'portal-link': true,
-                              'presensi': true,
-                              'aduan': true,
-                              'reminder': true,
-                              'guide': true
-                            };
-                            return {
-                              ...prev,
-                              menuVisibility: {
-                                ...currVis,
-                                [menu.key]: !isVisible
-                              }
-                            };
-                          });
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer border ${
+                    const order = (tempConfig.tabOrder || [
+                      'dashboard',
+                      'capaian-output',
+                      'pengelolaan-up',
+                      'transaksi-kkp',
+                      'transaksi-digipay',
+                      'kelola-satker',
+                      'sertifikasi',
+                      'per5-analisis',
+                      'announcements',
+                      'materi-slide',
+                      'portal-link',
+                      'pengetahuan',
+                      'aduan',
+                      'presensi'
+                    ]).filter(k => k !== 'guide');
+
+                    return order.map((key, idx) => {
+                      const isVisible = tempConfig.menuVisibility?.[key as keyof MenuVisibilityConfig] !== false;
+                      return (
+                        <div
+                          key={key}
+                          className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-lg border transition-all ${
+                            isVisible
+                              ? 'bg-slate-800 text-emerald-300 border-slate-700'
+                              : 'bg-rose-950/40 text-rose-400 border-rose-800/60 line-through opacity-50'
+                          }`}
+                        >
+                          <span className="text-[9px] text-slate-500 font-mono">#{idx + 1}</span>
+                          <span>{navLabels[key] || key}</span>
+                          {!isVisible && <Lock className="w-2.5 h-2.5 text-rose-400 ml-0.5 shrink-0" />}
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Tab Reordering and Visibility Control List */}
+              <div className="space-y-2">
+                {(() => {
+                  const menuMeta: Record<string, { label: string; desc: string; category: string; badgeColor: string }> = {
+                    'dashboard': { label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker', category: 'Utama', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'capaian-output': { label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload konfirmasi output', category: 'Prioritas', badgeColor: 'bg-sky-100 text-sky-800' },
+                    'pengelolaan-up': { label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP', category: 'Kas & UP', badgeColor: 'bg-indigo-100 text-indigo-800' },
+                    'transaksi-kkp': { label: 'Transaksi KKP / GUP KKP', desc: 'Monitoring Transaksi & Frekuensi KKP Bank', category: 'Kas & UP', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'transaksi-digipay': { label: 'Transaksi Digipay (VA & KKP)', desc: 'Monitoring Transaksi Marketplace Digipay Satu', category: 'Digitalisasi', badgeColor: 'bg-purple-100 text-purple-800' },
+                    'kelola-satker': { label: 'Kelola Data Satker (Master)', desc: 'Pusat Master Satker & Database Kontak Pejabat', category: 'Database', badgeColor: 'bg-blue-100 text-blue-800' },
+                    'sertifikasi': { label: 'Sertifikasi Pejabat', desc: 'Status PTP / PPK / PPSPM Satker', category: 'Pejabat', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'per5-analisis': { label: 'Analisis PER-5/PB/2024', desc: 'Simulasi proyeksi nilai IKPA & regulasi', category: 'Analisis', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'announcements': { label: 'Pengumuman & Surat', desc: 'Surat Edaran & pengumuman resmi KPPN', category: 'Informasi', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'materi-slide': { label: 'Materi Slide Presentation', desc: 'Galeri PowerPoint & Slide Show (No Download)', category: 'Materi', badgeColor: 'bg-indigo-100 text-indigo-800' },
+                    'portal-link': { label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi', category: 'Sosialisasi', badgeColor: 'bg-teal-100 text-teal-800' },
+                    'pengetahuan': { label: 'Pengetahuan & Juknis', desc: 'Pusat Juknis & Regulasi SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
+                    'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
+                    'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' }
+                  };
+
+                  const defaultTabKeys: NavigationTab[] = [
+                    'dashboard',
+                    'capaian-output',
+                    'pengelolaan-up',
+                    'transaksi-kkp',
+                    'transaksi-digipay',
+                    'kelola-satker',
+                    'sertifikasi',
+                    'per5-analisis',
+                    'announcements',
+                    'materi-slide',
+                    'portal-link',
+                    'pengetahuan',
+                    'aduan',
+                    'presensi'
+                  ];
+
+                  // Build unified order without guide
+                  const currentKeys = (tempConfig.tabOrder || defaultTabKeys).filter(k => k !== 'guide' && menuMeta[k]);
+                  defaultTabKeys.forEach(k => {
+                    if (!currentKeys.includes(k) && menuMeta[k]) currentKeys.push(k);
+                  });
+
+                  const moveTabItem = (index: number, direction: 'up' | 'down' | 'top' | 'bottom') => {
+                    const list = [...currentKeys];
+                    if (direction === 'up' && index > 0) {
+                      const temp = list[index - 1];
+                      list[index - 1] = list[index];
+                      list[index] = temp;
+                    } else if (direction === 'down' && index < list.length - 1) {
+                      const temp = list[index + 1];
+                      list[index + 1] = list[index];
+                      list[index] = temp;
+                    } else if (direction === 'top' && index > 0) {
+                      const [item] = list.splice(index, 1);
+                      list.unshift(item);
+                    } else if (direction === 'bottom' && index < list.length - 1) {
+                      const [item] = list.splice(index, 1);
+                      list.push(item);
+                    }
+                    setTempConfig(prev => ({ ...prev, tabOrder: list }));
+                  };
+
+                  return currentKeys.map((menuKey, index) => {
+                    const meta = menuMeta[menuKey];
+                    if (!meta) return null;
+                    const isVisible = tempConfig.menuVisibility?.[menuKey as keyof MenuVisibilityConfig] ?? true;
+
+                    return (
+                      <div
+                        key={menuKey}
+                        className={`p-3.5 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                           isVisible
-                            ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-500'
-                            : 'bg-rose-600 text-white border-rose-700 hover:bg-rose-500'
+                            ? 'bg-white border-slate-200 hover:border-slate-300 shadow-2xs'
+                            : 'bg-rose-50/60 border-rose-200 shadow-2xs'
                         }`}
                       >
-                        {isVisible ? 'Aktif 🟢' : 'Terkunci 🔒'}
-                      </button>
-                    </div>
-                  );
-                })}
+                        {/* Order Number & Tab Details */}
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="w-7 h-7 rounded-lg bg-slate-900 text-amber-300 font-mono font-black text-xs flex items-center justify-center shadow-xs">
+                              #{index + 1}
+                            </span>
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                                {!isVisible && <Lock className="w-3.5 h-3.5 text-rose-600 inline shrink-0" />}
+                                {meta.label}
+                              </span>
+                              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${meta.badgeColor}`}>
+                                {meta.category}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {meta.desc}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Control Buttons (Reorder + Visibility Toggle) */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                          {/* Move to Top */}
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => moveTabItem(index, 'top')}
+                            title="Pindahkan ke Posisi Teratas"
+                            className={`p-1.5 rounded-lg border text-xs font-bold transition-all ${
+                              index === 0
+                                ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                : 'bg-white hover:bg-indigo-50 text-indigo-700 border-slate-200 hover:border-indigo-300 cursor-pointer shadow-2xs'
+                            }`}
+                          >
+                            <ArrowUpToLine className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Move Up */}
+                          <button
+                            type="button"
+                            disabled={index === 0}
+                            onClick={() => moveTabItem(index, 'up')}
+                            title="Naikkan 1 Posisi"
+                            className={`p-1.5 rounded-lg border text-xs font-bold transition-all ${
+                              index === 0
+                                ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300 cursor-pointer shadow-2xs'
+                            }`}
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Move Down */}
+                          <button
+                            type="button"
+                            disabled={index === currentKeys.length - 1}
+                            onClick={() => moveTabItem(index, 'down')}
+                            title="Turunkan 1 Posisi"
+                            className={`p-1.5 rounded-lg border text-xs font-bold transition-all ${
+                              index === currentKeys.length - 1
+                                ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 hover:border-slate-300 cursor-pointer shadow-2xs'
+                            }`}
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Move to Bottom */}
+                          <button
+                            type="button"
+                            disabled={index === currentKeys.length - 1}
+                            onClick={() => moveTabItem(index, 'bottom')}
+                            title="Pindahkan ke Posisi Terbawah"
+                            className={`p-1.5 rounded-lg border text-xs font-bold transition-all ${
+                              index === currentKeys.length - 1
+                                ? 'bg-slate-100 text-slate-300 border-slate-200 cursor-not-allowed'
+                                : 'bg-white hover:bg-indigo-50 text-indigo-700 border-slate-200 hover:border-indigo-300 cursor-pointer shadow-2xs'
+                            }`}
+                          >
+                            <ArrowDownToLine className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Visibility Toggle Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTempConfig(prev => {
+                                const currVis = prev.menuVisibility || {
+                                  'dashboard': true,
+                                  'capaian-output': true,
+                                  'pengelolaan-up': true,
+                                  'transaksi-kkp': true,
+                                  'transaksi-digipay': true,
+                                  'kelola-satker': true,
+                                  'redflags': true,
+                                  'sertifikasi': true,
+                                  'per5-analisis': true,
+                                  'pengetahuan': true,
+                                  'announcements': true,
+                                  'materi-slide': true,
+                                  'portal-link': true,
+                                  'presensi': true,
+                                  'aduan': true,
+                                  'reminder': true,
+                                  'guide': false
+                                };
+                                return {
+                                  ...prev,
+                                  menuVisibility: {
+                                    ...currVis,
+                                    [menuKey]: !isVisible
+                                  }
+                                };
+                              });
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs ml-1.5 ${
+                              isVisible
+                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-500'
+                                : 'bg-rose-600 text-white border-rose-700 hover:bg-rose-500'
+                            }`}
+                          >
+                            {isVisible ? (
+                              <>
+                                <Check className="w-3 h-3" />
+                                <span>Aktif</span>
+                              </>
+                            ) : (
+                              <>
+                                <Lock className="w-3 h-3" />
+                                <span>Terkunci</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 

@@ -788,9 +788,9 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               hasIKPAData: hasIKPAInFile,
               hasCapaianOutputData: !hasIKPAInFile && isCaputFormat,
               issues,
-              namaPic: colMap.picNama !== -1 && cleanText(row[colMap.picNama]) ? cleanText(row[colMap.picNama]) : `Operator ${kodeSatker}`,
-              noHpPic: colMap.picHp !== -1 && cleanText(row[colMap.picHp]) ? cleanText(row[colMap.picHp]) : '081234567890',
-              emailPic: colMap.picEmail !== -1 && cleanText(row[colMap.picEmail]) ? cleanText(row[colMap.picEmail]) : `satker.${kodeSatker}@kemenkeu.go.id`,
+              namaPic: colMap.picNama !== -1 && cleanText(row[colMap.picNama]) ? cleanText(row[colMap.picNama]) : '',
+              noHpPic: colMap.picHp !== -1 && cleanText(row[colMap.picHp]) ? cleanText(row[colMap.picHp]) : '',
+              emailPic: colMap.picEmail !== -1 && cleanText(row[colMap.picEmail]) ? cleanText(row[colMap.picEmail]) : '',
               alamatSatker: 'Kota Semarang',
               periodeUpdate: satkerPeriode,
               riwayatBulanan: [
@@ -1250,16 +1250,16 @@ export async function processPasswordBatchExcel(file: File): Promise<{
 
 export function downloadBroadcastExcelTemplate(satkers: SatkerIKPA[]) {
   const sampleData = (satkers.length > 0 ? satkers : [
-    { kodeSatker: '652189', namaSatker: 'POLRESTABES SEMARANG', nilaiTotalIKPA: 71.97, statusCapaianOutput: 'Terlambat', namaPic: 'Bambang Prasetyo', noHpPic: '081234567890' }
+    { kodeSatker: '652189', namaSatker: 'POLRESTABES SEMARANG', nilaiTotalIKPA: 71.97, statusCapaianOutput: 'Terlambat', namaPic: '', noHpPic: '' }
   ]).map(s => ({
     'Kode Satker': s.kodeSatker,
     'Nama Satker': s.namaSatker,
     'Target Role': 'KPA / PPK / PPSPM',
-    'Nama Pejabat Target': s.namaPic || 'Pejabat Satker',
-    'No HP Target': s.noHpPic || '081234567890',
+    'Nama Pejabat Target': s.namaPic || '',
+    'No HP Target': s.noHpPic || '',
     'Nilai IKPA': s.nilaiTotalIKPA,
-    'Pesan Khusus Custom': `Yth. KPA Satker ${s.namaSatker} (${s.kodeSatker}), terima kasih atas sinergi bersama. Nilai IKPA Anda periode ini adalah ${s.nilaiTotalIKPA} dengan predikat ${s.predikat}.`,
-    'Catatan Admin': 'Perlu perhatian khusus'
+    'Pesan Khusus Custom': `Yth. Pimpinan/Pejabat Satker ${s.namaSatker} (${s.kodeSatker}), terima kasih atas sinergi bersama. Nilai IKPA Anda periode ini adalah ${s.nilaiTotalIKPA} dengan predikat ${s.predikat}.`,
+    'Catatan Admin': ''
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(sampleData);
@@ -1308,8 +1308,8 @@ export async function processBroadcastExcel(file: File): Promise<{
           const kodeSatker = cleanText(getVal('kodesatker', 'kode', 'kdsatker')).padStart(6, '0');
           const namaSatker = cleanText(getVal('namasatker', 'satker', 'nmsatker')) || `SATKER ${kodeSatker}`;
           const targetRole = cleanText(getVal('targetrole', 'role', 'jabatan', 'peran')) || 'Pejabat';
-          const namaPejabat = cleanText(getVal('namapejabattarget', 'namapejabat', 'nama')) || 'Bapak/Ibu Pejabat';
-          const noHpTarget = cleanText(getVal('nohptarget', 'nohp', 'wa', 'telepon')) || '081234567890';
+          const namaPejabat = cleanText(getVal('namapejabattarget', 'namapejabat', 'nama')) || '';
+          const noHpTarget = cleanText(getVal('nohptarget', 'nohp', 'wa', 'telepon')) || '';
           const customMessage = cleanText(getVal('pesankhususcustom', 'pesankhusus', 'pesan', 'custommessage', 'text'));
           const nilaiIkpa = parseFormattedNumber(getVal('nilaiikpa', 'ikpa'), 0);
           const catatanKhusus = cleanText(getVal('catatanadmin', 'catatan'));

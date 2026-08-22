@@ -10,7 +10,9 @@ import {
   mergePengelolaanUPAntiDowngrade,
   mergeHistoricalUploadsAntiDowngrade,
   compactDigipayForFirestore,
-  mergeDigipayAntiDowngrade
+  mergeDigipayAntiDowngrade,
+  cleanContactValue,
+  cleanPicName
 } from './utils/firebaseStorageOptimizer';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
@@ -119,7 +121,13 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker));
+          return parsed
+            .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
+            .map((s: SatkerIKPA) => ({
+              ...s,
+              namaPic: cleanPicName(s.namaPic, s.kodeSatker),
+              noHpPic: cleanContactValue(s.noHpPic)
+            }));
         }
       } catch (e) {
         console.warn('Error parsing saved satker data:', e);
@@ -239,7 +247,7 @@ export default function App() {
         'pengetahuan': true,
         'aduan': true,
         'reminder': true,
-        'guide': true
+        'guide': false
       },
     helpdeskPhone: '081234567890',
     helpdeskJamLayanan: 'Senin - Jumat (08:00 - 16:00 WIB)',
@@ -1407,9 +1415,17 @@ export default function App() {
   const isDark = theme === 'dark';
 
   return (
-    <div className={`min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-300 ease-in-out ${
-      isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'
+    <div className={`min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-300 ease-in-out relative overflow-x-hidden ${
+      isDark 
+        ? 'bg-slate-950 text-slate-100' 
+        : 'bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100/90 text-slate-900'
     }`}>
+      {/* Ambient luxury mesh lighting orbs for widescreen depth */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-60 dark:opacity-30">
+        <div className="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-indigo-500/10 to-sky-500/5 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-20 w-[500px] h-[500px] bg-gradient-to-br from-amber-500/10 to-emerald-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-10 left-10 w-[450px] h-[450px] bg-gradient-to-tr from-purple-500/10 to-indigo-500/5 rounded-full blur-3xl" />
+      </div>
       
       {/* Top Header Navigation */}
       <Header
@@ -1429,14 +1445,15 @@ export default function App() {
         theme={theme}
         toggleTheme={toggleTheme}
         menuVisibility={dashboardConfig.menuVisibility}
+        tabOrder={dashboardConfig.tabOrder}
         isAdminAuthenticated={isAdminAuthenticated}
         onAuthenticateAdmin={handleAuthenticateAdmin}
         onLogoutAdmin={handleLogoutAdmin}
         masterSatkers={masterSatkers}
       />
 
-      {/* Main Content View Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 transition-all duration-300">
+      {/* Main Content View Container - Full Widescreen Responsive */}
+      <main className="relative z-10 max-w-[1680px] 2xl:max-w-[1840px] w-full mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 transition-all duration-300">
         <div key={activeTab + '-' + theme} className="animate-fadeIn">
           {/* Check if current tab is locked by Admin for Satker */}
           {activeTab !== 'admin' && !isAdminAuthenticated && dashboardConfig.menuVisibility?.[activeTab as keyof MenuVisibilityConfig] === false ? (
@@ -1808,17 +1825,42 @@ export default function App() {
         onNavigateToTab={(tab) => setActiveTab(tab as NavigationTab)}
       />
 
-      {/* Footer */}
-      <footer className={`border-t py-6 mt-12 text-xs transition-colors duration-300 ${
-        isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-300'
+      {/* Executive Footer */}
+      <footer className={`border-t py-8 mt-16 text-xs transition-colors duration-300 relative z-10 ${
+        isDark ? 'bg-slate-950 border-slate-800/80 text-slate-400' : 'bg-slate-900 border-slate-800 text-slate-300'
       }`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>
-            © 2026 KPPN Semarang I (Kode KPPN 026) — Sistem Pengolahan Data &amp; Monitoring IKPA Satker.
-          </p>
-          <p className="text-slate-400">
-            Direktorat Jenderal Perbendaharaan • Kanwil DJPb Provinsi Jawa Tengah
-          </p>
+        <div className="max-w-[1680px] 2xl:max-w-[1840px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-amber-500/20 border border-amber-500/30 p-1 flex items-center justify-center shrink-0">
+                <img src="/favicon.svg" alt="KPPN Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <p className="font-extrabold text-white text-sm tracking-tight">
+                  KPPN Tipe A1 Semarang I (026)
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  Seksi Manajemen Satker dan Kepatuhan Internal (MSKI)
+                </p>
+              </div>
+            </div>
+            <div className="text-center md:text-right space-y-0.5">
+              <p className="text-[11px] font-bold text-amber-400">
+                KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Direktorat Jenderal Perbendaharaan • Kanwil DJPb Provinsi Jawa Tengah
+              </p>
+            </div>
+          </div>
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500">
+            <p>
+              © 2026 ANGKASA — Sistem Navigasi &amp; Pembina Akuntabilitas Keuangan Negara.
+            </p>
+            <p className="text-slate-400 font-medium">
+              Standar Regulasi PER-5/PB/2024 &amp; SAKTI Terpadu
+            </p>
+          </div>
         </div>
       </footer>
 

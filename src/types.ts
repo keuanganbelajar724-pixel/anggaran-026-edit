@@ -922,6 +922,7 @@ export interface DashboardConfig {
   presentationMaterials?: PresentationMaterial[];
   kegiatanSosialisasi?: KegiatanSosialisasi[];
   menuVisibility?: MenuVisibilityConfig;
+  tabOrder?: NavigationTab[];
   waDeviceStatus?: WhatsAppDeviceStatus;
   waGatewayConfig?: WhatsAppGatewayConfig;
   broadcastSettings?: BroadcastSettings;

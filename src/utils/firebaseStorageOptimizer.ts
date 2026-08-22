@@ -5,6 +5,24 @@ const MONTHS_ORDER = [
   'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
 ];
 
+const DUMMY_PHONES = new Set(['081234567890', '081398765432', '081298765432', '081323456789', '+62 812-3456-7890', '08123456789']);
+
+export function cleanContactValue(val?: string): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+  if (DUMMY_PHONES.has(trimmed)) return '';
+  if (trimmed.startsWith('081234567890')) return '';
+  return trimmed;
+}
+
+export function cleanPicName(val?: string, kode?: string): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+  if (kode && (trimmed === `Operator ${kode}` || trimmed === `Pejabat Satker ${kode}`)) return '';
+  if (/^Operator \d{5,6}$/i.test(trimmed)) return '';
+  return trimmed;
+}
+
 /**
  * Compacts satkers list for Firestore to prevent 1MB document size limit
  */
@@ -37,8 +55,8 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
       hasIKPAData: s.hasIKPAData !== false,
       hasCapaianOutputData: !!s.hasCapaianOutputData,
       issues: Array.isArray(s.issues) ? s.issues.slice(0, 5) : [],
-      namaPic: s.namaPic || '',
-      noHpPic: s.noHpPic || '',
+      namaPic: cleanPicName(s.namaPic, s.kodeSatker),
+      noHpPic: cleanContactValue(s.noHpPic),
       emailPic: s.emailPic || '',
       passwordSatker: s.passwordSatker || '',
       alamatSatker: s.alamatSatker || '',
@@ -164,8 +182,8 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
         ...(preferLocalCurrent ? serverS : localS),
         ...(preferLocalCurrent ? localS : serverS),
         riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (localS.riwayatBulanan || serverS.riwayatBulanan || []),
-        namaPic: localS.namaPic || serverS.namaPic,
-        noHpPic: localS.noHpPic || serverS.noHpPic,
+        namaPic: cleanPicName(localS.namaPic || serverS.namaPic, kode),
+        noHpPic: cleanContactValue(localS.noHpPic || serverS.noHpPic),
         emailPic: localS.emailPic || serverS.emailPic,
         passwordSatker: localS.passwordSatker || serverS.passwordSatker,
         alamatSatker: localS.alamatSatker || serverS.alamatSatker,

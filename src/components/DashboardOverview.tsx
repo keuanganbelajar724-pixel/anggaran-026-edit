@@ -333,19 +333,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Top Banner Notice */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 p-6 sm:p-8 rounded-3xl border border-slate-800 text-white shadow-xl relative overflow-hidden space-y-4">
-        <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-72 h-72 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      {/* Top Banner Notice - Executive Institutional Styling */}
+      <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-8 rounded-3xl border border-slate-800 text-white shadow-2xl relative overflow-hidden space-y-4">
+        <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5" />
+              <div className="inline-flex items-center gap-1.5 bg-amber-500/15 text-amber-300 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-black shadow-2xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 {dashboardConfig?.customTexts?.dashboardBadge || 'Sistem Pembina Keuangan & Monitoring IKPA KPPN Semarang I'}
               </div>
 
               {/* Interactive Period Filter Selector in Banner */}
-              <div className="inline-flex items-center gap-1.5 bg-emerald-950/90 text-emerald-200 border border-emerald-500/60 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
+              <div className="inline-flex items-center gap-1.5 bg-emerald-950/90 text-emerald-200 border border-emerald-500/50 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
                 <CalendarRange className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Posisi Periode:</span>
                 <select
@@ -361,28 +362,28 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </select>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-700/80 px-3 py-1 rounded-full text-xs font-semibold">
-                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Update Terakhir: <strong className="text-white">{dashboardConfig?.updateDates?.dashboard || '18 Agustus 2026'}</strong></span>
+              <div className="inline-flex items-center gap-1.5 bg-slate-800/80 text-slate-300 border border-slate-700/80 px-3 py-1 rounded-full text-xs font-medium">
+                <Calendar className="w-3.5 h-3.5 text-sky-400" />
+                <span>Update Terakhir: <strong className="text-white font-bold">{dashboardConfig?.updateDates?.dashboard || '18 Agustus 2026'}</strong></span>
               </div>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               {dashboardConfig?.customTexts?.dashboardTitle || 'Monitoring Real-Time IKPA Satker Lingkup KPPN Semarang I'}
             </h2>
-            <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
+            <p className="text-slate-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
               {dashboardConfig?.customTexts?.dashboardSubtitle || 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA, deteksi dini deviasi Halaman III DIPA, dan percepatan penyelesaian laporan Capaian Output SAKTI.'}
             </p>
           </div>
 
           {/* Key Executive Tag */}
-          <div className="shrink-0 bg-slate-800/90 border border-slate-700 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-xl">
+          <div className="shrink-0 bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl flex items-center gap-4 shadow-md">
+            <div className="p-3 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
               <Building2 className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Mitra Kerja</div>
-              <div className="text-xl font-extrabold text-white">{totalSatker} Satuan Kerja</div>
-              <div className="text-[11px] text-emerald-400 font-medium">KPPN Semarang I (026)</div>
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Mitra Kerja Aktif</div>
+              <div className="text-xl font-black text-white">{totalSatker} Satuan Kerja</div>
+              <div className="text-[11px] text-amber-400 font-semibold">KPPN Semarang I (026)</div>
             </div>
           </div>
         </div>
