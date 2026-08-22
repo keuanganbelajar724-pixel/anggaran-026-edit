@@ -4030,7 +4030,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </div>
 
                 {/* 5. Analisis PER-5 */}
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     5. Tanggal Update Dashboard Analisis PER-5/PB/2024
                   </label>
@@ -4042,6 +4042,57 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, per5Analisis: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 6. Dashboard Pengelolaan UP & TUP */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    6. Tanggal Update Dashboard Batas Waktu UP &amp; TUP
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.pengelolaanUp || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, pengelolaanUp: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 7. Dashboard Transaksi KKP */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    7. Tanggal Update Dashboard Transaksi KKP (GUP)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.transaksiKkp || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, transaksiKkp: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 8. Dashboard Transaksi Digipay */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    8. Tanggal Update Dashboard Transaksi Digipay (VA &amp; KKP)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.transaksiDigipay || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, transaksiDigipay: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
                     className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -8182,6 +8233,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           masterSatkers={masterSatkers}
           pejabatList={pejabatList}
           pengelolaanUpRecords={pengelolaanUpRecords}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
           isDark={isDark}
           theme={theme}
           onOpenEditSatker={(satker) => {

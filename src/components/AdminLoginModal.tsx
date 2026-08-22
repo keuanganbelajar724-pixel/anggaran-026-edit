@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Lock, 
@@ -9,12 +9,21 @@ import {
   X, 
   Eye, 
   EyeOff, 
-  Sparkles,
-  Check,
-  Zap,
-  ArrowRight
+  Sparkles, 
+  Check, 
+  Zap, 
+  ShieldAlert,
+  Clock,
+  Fingerprint
 } from 'lucide-react';
 import { AppTheme } from '../types';
+import { 
+  getRateLimitStatus, 
+  recordFailedLoginAttempt, 
+  resetFailedLoginAttempts, 
+  sanitizeInput,
+  createAdminSession
+} from '../utils/security';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -34,21 +43,81 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successLogin, setSuccessLogin] = useState<boolean>(false);
+  
+  // High Security State: Rate Limiting & Brute Force Lockout
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
+  const [failedCount, setFailedCount] = useState<number>(0);
+
+  // Check rate limiter status on open or timer tick
+  useEffect(() => {
+    if (isOpen) {
+      const status = getRateLimitStatus();
+      setLockoutSeconds(status.remainingSeconds);
+      setFailedCount(status.failedAttempts);
+    }
+  }, [isOpen]);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (lockoutSeconds > 0) {
+      timer = setInterval(() => {
+        setLockoutSeconds(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
 
   if (!isOpen) return null;
 
+  const isCurrentlyLocked = lockoutSeconds > 0;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onAuthenticateAdmin(pinInput)) {
+
+    if (isCurrentlyLocked) {
+      setErrorMsg(`Akses admin sementara dikunci demi keamanan. Harap tunggu ${lockoutSeconds} detik.`);
+      return;
+    }
+
+    const sanitizedPin = sanitizeInput(pinInput);
+    if (!sanitizedPin) {
+      setErrorMsg('Masukkan password admin.');
+      return;
+    }
+
+    if (onAuthenticateAdmin(sanitizedPin)) {
+      resetFailedLoginAttempts();
+      createAdminSession();
       setErrorMsg(null);
       setSuccessLogin(true);
+      setFailedCount(0);
       setTimeout(() => {
         setSuccessLogin(false);
         setPinInput('');
         onClose();
       }, 900);
     } else {
-      setErrorMsg('Password Administrator salah. Silakan coba lagi.');
+      const lockStatus = recordFailedLoginAttempt();
+      setFailedCount(lockStatus.failedAttempts);
+
+      if (lockStatus.isLocked) {
+        setLockoutSeconds(lockStatus.remainingSeconds);
+        setErrorMsg(
+          `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik untuk mencegah serangan brute-force.`
+        );
+      } else {
+        const remainingTries = 5 - lockStatus.failedAttempts;
+        setErrorMsg(
+          `Password Administrator salah. Sisa kesempatan sebelum terkunci: ${remainingTries > 0 ? remainingTries : 1} kali.`
+        );
+      }
     }
   };
 
@@ -88,6 +157,16 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <p className="text-slate-300 text-xs mt-1 max-w-xs mx-auto leading-relaxed">
             Khusus pengelola KPPN Semarang I untuk olah Excel SAKTI, WhatsApp Broadcast, dan kontrol sistem.
           </p>
+
+          {/* High Security Badge */}
+          <div className="mt-3 flex items-center justify-center gap-2">
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+              <Fingerprint className="w-3 h-3" /> Anti-Brute-Force
+            </span>
+            <span className="bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+              <Lock className="w-3 h-3" /> SHA-256 Hardened
+            </span>
+          </div>
         </div>
 
         {/* Notice for Public Satker */}
@@ -117,11 +196,34 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 Membuka seluruh hak akses eksklusif Administrator KPPN...
               </p>
             </div>
+          ) : isCurrentlyLocked ? (
+            <div className="py-6 px-4 bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-500/50 rounded-2xl text-center space-y-3 animate-pulse">
+              <div className="w-12 h-12 bg-rose-500/20 text-rose-500 rounded-2xl flex items-center justify-center mx-auto border border-rose-500/40">
+                <ShieldAlert className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-rose-600 dark:text-rose-400">
+                  Sistem Terkunci Sementara
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                  Proteksi anti-pembobolan aktif karena beberapa kali gagal login berturut-turut.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 text-rose-600 dark:text-rose-300 font-mono font-black text-sm bg-rose-500/10 py-2 px-3 rounded-xl border border-rose-500/20">
+                <Clock className="w-4 h-4 animate-spin" />
+                <span>Buka kunci dalam: {lockoutSeconds} detik</span>
+              </div>
+            </div>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                  Masukkan Password Administrator
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>Masukkan Password Administrator</span>
+                  {failedCount > 0 && (
+                    <span className="text-amber-500 text-[10px] font-bold">
+                      Percobaan gagal: {failedCount}/5
+                    </span>
+                  )}
                 </label>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -133,7 +235,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       setPinInput(e.target.value);
                       if (errorMsg) setErrorMsg(null);
                     }}
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all"
+                    disabled={isCurrentlyLocked}
+                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all disabled:opacity-50"
                     autoFocus
                     required
                   />
@@ -148,15 +251,16 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               </div>
 
               {errorMsg && (
-                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
               <button
                 type="submit"
-                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                disabled={isCurrentlyLocked}
+                className="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-slate-600 text-white font-extrabold text-xs py-3.5 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>Masuk Sesi Admin</span>

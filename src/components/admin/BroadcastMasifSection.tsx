@@ -269,7 +269,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       );
     } else if (presetKey === 'preset_sertifikasi') {
       setBroadcastTemplateText(
-        `*KPPN SEMARANG I - SERTIFIKASI PEJABAT PERBENDAHARAAN*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT})\nSatker: {NAMA_SATKER} ({KODE_SATKER})\n\nSesuai PMK mengenai Standarisasi Kompetensi Pejabat Perbendaharaan (PPK/PPSPM/Bendahara):\n• Bagi pejabat yang belum bersertifikat, segera rekam usulan di SIMASPATI (https://simaspati.kemenkeu.go.id).\n• Bagi pejabat dengan masa berlaku mendekati kadaluarsa, ajukan perpanjangan sertifikat.\n\n🔍 Cek Daftar Pejabat & Masa Berlaku Satker Anda:\n👉 *https://anggaran-026.my.id*\n\n_Seksi MSKI KPPN Semarang I_`
+        `*KPPN SEMARANG I - SERTIFIKASI PEJABAT PERBENDAHARAAN*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT})\nSatker: {NAMA_SATKER} ({KODE_SATKER})\n\nSesuai regulasi Standarisasi Kompetensi Pejabat Perbendaharaan (PPK/PPSPM/Bendahara):\n• Bagi pejabat yang belum bersertifikat, segera rekam usulan di SIMASPATEN (https://simaspaten.kemenkeu.go.id) dan pantau pemanggilan diklat pada portal SWIPE-AP.\n• Bagi pejabat dengan masa berlaku mendekati kadaluarsa, segera ajukan perpanjangan PPL di SIMASPATEN.\n\n🔍 Cek Daftar Pejabat & Masa Berlaku Satker Anda:\n👉 *https://anggaran-026.my.id*\n\n_Seksi MSKI KPPN Semarang I_`
       );
     } else if (presetKey === 'preset_portal') {
       setBroadcastTemplateText(

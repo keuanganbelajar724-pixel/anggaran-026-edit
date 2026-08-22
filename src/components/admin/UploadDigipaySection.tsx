@@ -564,7 +564,8 @@ export const UploadDigipaySection: React.FC<UploadDigipaySectionProps> = ({
                       <th className="p-2.5">Tipe</th>
                       <th className="p-2.5">Satker</th>
                       <th className="p-2.5">No. Invoice / Transaksi</th>
-                      <th className="p-2.5">Tanggal</th>
+                      <th className="p-2.5">Tgl Bayar</th>
+                      <th className="p-2.5">Periode</th>
                       <th className="p-2.5">Vendor / Rekanan</th>
                       <th className="p-2.5">Bank</th>
                       <th className="p-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">Nominal Invoice (Rp)</th>
@@ -588,7 +589,12 @@ export const UploadDigipaySection: React.FC<UploadDigipaySectionProps> = ({
                           <div className="text-[11px] text-slate-500 truncate max-w-xs">{row.namaSatker}</div>
                         </td>
                         <td className="p-2.5 font-mono text-[11px] text-slate-700 dark:text-slate-300">{row.noTransaksi}</td>
-                        <td className="p-2.5 text-slate-600 dark:text-slate-400">{row.tglTransaksi}</td>
+                        <td className="p-2.5 text-slate-600 dark:text-slate-400 font-mono">{row.tglTransaksi}</td>
+                        <td className="p-2.5">
+                          <span className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold rounded-md">
+                            {row.periode}
+                          </span>
+                        </td>
                         <td className="p-2.5 text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{row.namaVendor}</td>
                         <td className="p-2.5 text-slate-600 dark:text-slate-400">{row.namaBank}</td>
                         <td className="p-2.5 text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">

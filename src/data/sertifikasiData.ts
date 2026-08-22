@@ -3,7 +3,7 @@ import { PejabatSertifikasi } from '../types';
 export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
   // =========================================================================
   // KATEGORI 1: PEJABAT BELUM BERSERTIFIKAT DI KPPN SEMARANG 1 (21 DATA)
-  // Sumber Data: Rekap SIMASPATI / KPPN Semarang I - Belum Tersertifikasi
+  // Sumber Data: Rekap SIMASPATEN / KPPN Semarang I - Belum Tersertifikasi
   // =========================================================================
   {
     id: 'pejabat-bs-01',
@@ -22,8 +22,8 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     kppn: 'SEMARANG I',
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Mahkamah Agung',
-    keterangan: 'Belum memiliki Sertifikat PPK. Status Usulan: Belum rekam usulan di SIMASPATI.',
-    catatanRekomendasi: 'Satker diimbau segera merekam usulan kepesertaan penilaian kompetensi PPK melalui aplikasi SIMASPATI.'
+    keterangan: 'Belum memiliki Sertifikat PPK. Status Usulan: Belum rekam usulan di SIMASPATEN.',
+    catatanRekomendasi: 'Satker diimbau segera merekam usulan kepesertaan penilaian kompetensi PPK melalui aplikasi SIMASPATEN.'
   },
   {
     id: 'pejabat-bs-02',
@@ -42,8 +42,8 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     kppn: 'SEMARANG I',
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kepolisian Negara Republik Indonesia',
-    keterangan: 'Belum memiliki Sertifikat PPK. Segera rekam usulan di SIMASPATI.',
-    catatanRekomendasi: 'Segera koordinasi dengan operator SIMASPATI untuk merekam usulan PPK.'
+    keterangan: 'Belum memiliki Sertifikat PPK. Segera rekam usulan di SIMASPATEN.',
+    catatanRekomendasi: 'Segera koordinasi dengan operator SIMASPATEN untuk merekam usulan PPK.'
   },
   {
     id: 'pejabat-bs-03',
@@ -63,7 +63,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Badan Pengawas Pemilihan Umum',
     keterangan: 'Dalam Antrean Diklat Bendahara Pengeluaran (BNT).',
-    catatanRekomendasi: 'Pantau pemanggilan diklat e-learning BNT pada platform Kemenkeu Learning Center (KLC) / Pusdiklat AP.'
+    catatanRekomendasi: 'Pantau pemanggilan diklat e-learning BNT pada platform portal SWIPE-AP.'
   },
   {
     id: 'pejabat-bs-04',
@@ -123,7 +123,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kepolisian Negara Republik Indonesia',
     keterangan: 'Status: Antrean Diklat Penandatangan SPM.',
-    catatanRekomendasi: 'Pantau pengumuman pemanggilan pelatihan PPSPM di KLC/SIMASPATI.'
+    catatanRekomendasi: 'Pantau pengumuman pemanggilan pelatihan PPSPM di SWIPE-AP.'
   },
   {
     id: 'pejabat-bs-07',
@@ -143,7 +143,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kementerian Agama',
     keterangan: 'Dalam Antrean Diklat Bendahara Pengeluaran.',
-    catatanRekomendasi: 'Pastikan data kepegawaian di SIMASPATI sesuai untuk penerbitan BNT.'
+    catatanRekomendasi: 'Pastikan data kepegawaian di SIMASPATEN sesuai untuk penerbitan BNT.'
   },
   {
     id: 'pejabat-bs-08',
@@ -163,7 +163,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi',
     keterangan: 'Berkas usulan PPK sedang dalam Proses Verifikasi Unit Pembina.',
-    catatanRekomendasi: 'Cek notifikasi SIMASPATI apakah terdapat catatan perbaikan verifikasi dokumen.'
+    catatanRekomendasi: 'Cek notifikasi SIMASPATEN apakah terdapat catatan perbaikan verifikasi dokumen.'
   },
   {
     id: 'pejabat-bs-09',
@@ -183,7 +183,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kementerian Agama',
     keterangan: 'Berkas usulan PPK sedang dalam Proses Verifikasi.',
-    catatanRekomendasi: 'Pantau persetujuan verifikasi di SIMASPATI.'
+    catatanRekomendasi: 'Pantau persetujuan verifikasi di SIMASPATEN.'
   },
   {
     id: 'pejabat-bs-10',
@@ -202,8 +202,8 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     kppn: 'SEMARANG I',
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kementerian Ketenagakerjaan',
-    keterangan: 'Belum rekam usulan PPK di SIMASPATI.',
-    catatanRekomendasi: 'Segera rekam usulan sertifikasi PPK di SIMASPATI Kemenkeu.'
+    keterangan: 'Belum rekam usulan PPK di SIMASPATEN.',
+    catatanRekomendasi: 'Segera rekam usulan sertifikasi PPK di SIMASPATEN Kemenkeu.'
   },
   {
     id: 'pejabat-bs-11',
@@ -303,7 +303,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Pemerintah Provinsi Jawa Tengah',
     keterangan: 'Proses Verifikasi berkas usulan PNT.',
-    catatanRekomendasi: 'Pantau berkala dashboard SIMASPATI untuk hasil verifikasi.'
+    catatanRekomendasi: 'Pantau berkala dashboard SIMASPATEN untuk hasil verifikasi.'
   },
   {
     id: 'pejabat-bs-16',
@@ -383,7 +383,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     tglDownload: '20/08/2026',
     kementerianLembaga: 'Kepolisian Negara Republik Indonesia',
     keterangan: 'Berkas usulan sedang dalam Proses Verifikasi.',
-    catatanRekomendasi: 'Cek kelengkapan SK Pengangkatan Bendahara Penerimaan di SIMASPATI.'
+    catatanRekomendasi: 'Cek kelengkapan SK Pengangkatan Bendahara Penerimaan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bs-20',
@@ -428,7 +428,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
 
   // =========================================================================
   // KATEGORI 2: PEJABAT BELUM MELAKUKAN PERPANJANGAN (43 DATA RESMI)
-  // Sumber Data: Rekap SIMASPATI / KPPN Semarang I - Kadaluarsa / Menjelang Habis
+  // Sumber Data: Rekap SIMASPATEN / KPPN Semarang I - Kadaluarsa / Menjelang Habis
   // =========================================================================
   {
     id: 'pejabat-bp-01',
@@ -452,7 +452,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Masa berlaku sertifikat PPK berakhir 17 September 2026 (28 hari lagi).',
-    catatanRekomendasi: 'PRIORITAS: Segera ajukan perpanjangan/refreshment sertifikat di SIMASPATI sebelum 17 September 2026.'
+    catatanRekomendasi: 'PRIORITAS: Segera ajukan perpanjangan/refreshment sertifikat di SIMASPATEN sebelum 17 September 2026.'
   },
   {
     id: 'pejabat-bp-02',
@@ -500,7 +500,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat berakhir 05-10-2026. Status: Non Aktif.',
-    catatanRekomendasi: 'Lakukan pemutakhiran portofolio PPL di SIMASPATI.'
+    catatanRekomendasi: 'Lakukan pemutakhiran portofolio PPL di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-04',
@@ -620,7 +620,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'PPK AKTIF - Sertifikat berakhir 30 September 2026.',
-    catatanRekomendasi: 'Segera rekam perpanjangan sertifikat PPK di SIMASPATI.'
+    catatanRekomendasi: 'Segera rekam perpanjangan sertifikat PPK di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-09',
@@ -668,7 +668,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'PPK AKTIF - Sertifikat berakhir 05 Oktober 2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI segera.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN segera.'
   },
   {
     id: 'pejabat-bp-11',
@@ -692,7 +692,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat berakhir 29 September 2026.',
-    catatanRekomendasi: 'Ajukan perpanjangan PNT di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan perpanjangan PNT di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-12',
@@ -764,7 +764,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat berakhir 01-10-2026.',
-    catatanRekomendasi: 'Update data kepesertaan bendahara di SIMASPATI.'
+    catatanRekomendasi: 'Update data kepesertaan bendahara di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-15',
@@ -884,7 +884,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat PPK berakhir 13-10-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-20',
@@ -908,7 +908,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat PPSPM berakhir 30-09-2026.',
-    catatanRekomendasi: 'Perpanjangan PNT di SIMASPATI.'
+    catatanRekomendasi: 'Perpanjangan PNT di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-21',
@@ -932,7 +932,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'PPSPM AKTIF - Sertifikat berakhir 03 November 2026.',
-    catatanRekomendasi: 'Segera input perpanjangan sertifikat PPSPM di SIMASPATI.'
+    catatanRekomendasi: 'Segera input perpanjangan sertifikat PPSPM di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-22',
@@ -956,7 +956,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'PPSPM AKTIF - Batas waktu berakhir: 14 September 2026 (25 hari lagi).',
-    catatanRekomendasi: 'URGENT: Pejabat PPSPM Aktif tersisa 25 hari. Segera rekam perpanjangan sertifikat di SIMASPATI.'
+    catatanRekomendasi: 'URGENT: Pejabat PPSPM Aktif tersisa 25 hari. Segera rekam perpanjangan sertifikat di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-23',
@@ -980,7 +980,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat berakhir 28-09-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-24',
@@ -1028,7 +1028,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'PPSPM AKTIF - Sertifikat berakhir 01 November 2026.',
-    catatanRekomendasi: 'Segera rekam perpanjangan sertifikat PPSPM di SIMASPATI.'
+    catatanRekomendasi: 'Segera rekam perpanjangan sertifikat PPSPM di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-26',
@@ -1052,7 +1052,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'PPSPM AKTIF - Usulan perpanjangan telah Di Kirim Ke Admin DSP.',
-    catatanRekomendasi: 'Pantau terbitnya sertifikat perpanjangan baru di SIMASPATI.'
+    catatanRekomendasi: 'Pantau terbitnya sertifikat perpanjangan baru di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-27',
@@ -1100,7 +1100,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat PPSPM berakhir 21-09-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-29',
@@ -1124,7 +1124,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'PPK AKTIF - Usulan Di Kirim Ke Admin DSP.',
-    catatanRekomendasi: 'Pantau penerbitan sertifikat perpanjangan baru di SIMASPATI.'
+    catatanRekomendasi: 'Pantau penerbitan sertifikat perpanjangan baru di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-30',
@@ -1148,7 +1148,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'PPK AKTIF - Berakhir 14 September 2026 (25 hari lagi).',
-    catatanRekomendasi: 'URGENT: Pejabat PPK Aktif tersisa 25 hari. Segera rekam perpanjangan sertifikat di SIMASPATI.'
+    catatanRekomendasi: 'URGENT: Pejabat PPK Aktif tersisa 25 hari. Segera rekam perpanjangan sertifikat di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-31',
@@ -1172,7 +1172,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat PPK berakhir 23-09-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-32',
@@ -1244,7 +1244,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'Masa berlaku sertifikat s.d 02-11-2026.',
-    catatanRekomendasi: 'Segera rekam perpanjangan PPSPM di SIMASPATI.'
+    catatanRekomendasi: 'Segera rekam perpanjangan PPSPM di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-35',
@@ -1316,7 +1316,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'Bendahara Penerimaan Aktif - Berakhir 21-12-2026.',
-    catatanRekomendasi: 'Kumpulkan poin PPL dan ajukan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Kumpulkan poin PPL dan ajukan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-38',
@@ -1364,7 +1364,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'Bendahara Pengeluaran Aktif - Sertifikat s.d 30-12-2026.',
-    catatanRekomendasi: 'Segera ajukan usulan perpanjangan BNT di SIMASPATI.'
+    catatanRekomendasi: 'Segera ajukan usulan perpanjangan BNT di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-40',
@@ -1388,7 +1388,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: true,
     keterangan: 'Sertifikat berakhir 30-09-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-41',
@@ -1436,7 +1436,7 @@ export const INITIAL_SERTIFIKASI_PEJABAT: PejabatSertifikasi[] = [
     isKadaluarsa: false,
     isMendekatiKadaluarsa: false,
     keterangan: 'Sertifikat berakhir 21-12-2026.',
-    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATI.'
+    catatanRekomendasi: 'Ajukan usulan perpanjangan di SIMASPATEN.'
   },
   {
     id: 'pejabat-bp-43',

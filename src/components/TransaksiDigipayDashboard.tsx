@@ -24,17 +24,27 @@ import {
   FileSpreadsheet,
   AlertCircle,
   HelpCircle,
-  X
+  X,
+  CalendarDays,
+  RotateCcw
 } from 'lucide-react';
 import { DigipayRecord, MasterSatker, DigipaySatkerSummary } from '../types';
 import { aggregateDigipayRecords } from '../data/initialDigipayData';
-import { exportDigipayToExcel, downloadDigipayTemplate } from '../utils/modularExcelProcessors';
+import {
+  exportDigipayToExcel,
+  downloadDigipayTemplate,
+  extractMonthFromRecord,
+  INDONESIAN_MONTHS,
+  isRecordMatchingFilter,
+  getMonthInfoFromPeriodKey
+} from '../utils/modularExcelProcessors';
 
 interface TransaksiDigipayDashboardProps {
   records: DigipayRecord[];
   masterSatkers?: MasterSatker[];
   lastUpdateDate?: string;
   theme?: 'light' | 'dark';
+  dashboardConfig?: any;
   onNavigateToAdmin?: () => void;
   onGoToAdmin?: () => void;
   onApplyRecords?: (newRecords: DigipayRecord[]) => void;
@@ -46,6 +56,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
   masterSatkers = [],
   lastUpdateDate,
   theme = 'light',
+  dashboardConfig,
   onNavigateToAdmin,
   onGoToAdmin,
   onApplyRecords,
@@ -53,6 +64,10 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
 }) => {
   const isDark = theme === 'dark';
   const handleGoToAdmin = onGoToAdmin || onNavigateToAdmin;
+
+  // Monthly Period filter state
+  const [filterMode, setFilterMode] = useState<'CUMULATIVE' | 'SINGLE'>('CUMULATIVE');
+  const [selectedMonth, setSelectedMonth] = useState<string>('Agustus 2026');
 
   // Sub-view state
   const [activeSubTab, setActiveSubTab] = useState<'rekap' | 'va' | 'kkp' | 'ekosistem'>('rekap');
@@ -77,21 +92,70 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
     }).format(amount || 0);
   };
 
-  // Summaries per Satker
-  const satkerSummaries = useMemo(() => {
-    return aggregateDigipayRecords(records);
+  // Available unique months from dataset
+  const availableMonths = useMemo(() => {
+    const monthsFound = new Set<string>();
+    records.forEach(r => {
+      const m = extractMonthFromRecord(r);
+      if (m) monthsFound.add(m);
+    });
+
+    // Ensure standard 2026 months are available in selector
+    INDONESIAN_MONTHS.forEach(m => {
+      monthsFound.add(`${m} 2026`);
+    });
+
+    return Array.from(monthsFound).sort((a, b) => {
+      const [mA, yA] = a.split(' ');
+      const [mB, yB] = b.split(' ');
+      const yrA = parseInt(yA || '2026', 10);
+      const yrB = parseInt(yB || '2026', 10);
+      if (yrA !== yrB) return yrA - yrB;
+      const idxA = INDONESIAN_MONTHS.indexOf(mA);
+      const idxB = INDONESIAN_MONTHS.indexOf(mB);
+      return idxA - idxB;
+    });
   }, [records]);
+
+  // Latest detected month in data
+  const latestDetectedMonth = useMemo(() => {
+    let highestIdx = -1;
+    let highestMonth = 'Agustus 2026';
+    records.forEach(r => {
+      const m = extractMonthFromRecord(r);
+      if (m) {
+        const info = getMonthInfoFromPeriodKey(m);
+        if (info && info.monthIndex > highestIdx) {
+          highestIdx = info.monthIndex;
+          highestMonth = m;
+        }
+      }
+    });
+    return highestMonth;
+  }, [records]);
+
+  // Filter records by Selected Month & Mode
+  const monthFilteredRecords = useMemo(() => {
+    return records.filter(r => {
+      return isRecordMatchingFilter(r, filterMode, selectedMonth);
+    });
+  }, [records, filterMode, selectedMonth]);
+
+  // Summaries per Satker (computed on filtered records)
+  const satkerSummaries = useMemo(() => {
+    return aggregateDigipayRecords(monthFilteredRecords);
+  }, [monthFilteredRecords]);
 
   // Total Statistics
   const stats = useMemo(() => {
-    const totalTransactions = records.length;
-    const totalNominal = records.reduce((acc, r) => acc + (r.nominalTransaksi || 0), 0);
+    const totalTransactions = monthFilteredRecords.length;
+    const totalNominal = monthFilteredRecords.reduce((acc, r) => acc + (r.nominalTransaksi || 0), 0);
 
-    const vaRecords = records.filter(r => r.tipePembayaran === 'VA');
+    const vaRecords = monthFilteredRecords.filter(r => r.tipePembayaran === 'VA');
     const totalVA = vaRecords.length;
     const nominalVA = vaRecords.reduce((acc, r) => acc + (r.nominalTransaksi || 0), 0);
 
-    const kkpRecords = records.filter(r => r.tipePembayaran === 'KKP');
+    const kkpRecords = monthFilteredRecords.filter(r => r.tipePembayaran === 'KKP');
     const totalKKP = kkpRecords.length;
     const nominalKKP = kkpRecords.reduce((acc, r) => acc + (r.nominalTransaksi || 0), 0);
 
@@ -100,7 +164,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
 
     // Unique vendors
     const vendorSet = new Set<string>();
-    records.forEach(r => {
+    monthFilteredRecords.forEach(r => {
       if (r.namaVendor) vendorSet.add(r.namaVendor.trim());
     });
 
@@ -115,16 +179,16 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
       totalMasterCount,
       uniqueVendorsCount: vendorSet.size
     };
-  }, [records, satkerSummaries, masterSatkers]);
+  }, [monthFilteredRecords, satkerSummaries, masterSatkers]);
 
   // Unique Banks in data
   const availableBanks = useMemo(() => {
     const banks = new Set<string>();
-    records.forEach(r => {
+    monthFilteredRecords.forEach(r => {
       if (r.namaBank) banks.add(r.namaBank.trim());
     });
     return Array.from(banks);
-  }, [records]);
+  }, [monthFilteredRecords]);
 
   // Filtered Satker Summaries
   const filteredSummaries = useMemo(() => {
@@ -168,7 +232,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
   // Filtered Raw Records for VA / KKP tabs
   const filteredRawRecords = useMemo(() => {
     const targetType = activeSubTab === 'va' ? 'VA' : activeSubTab === 'kkp' ? 'KKP' : null;
-    return records.filter(r => {
+    return monthFilteredRecords.filter(r => {
       if (targetType && r.tipePembayaran !== targetType) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
@@ -180,12 +244,12 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
         (r.uraianBarang && r.uraianBarang.toLowerCase().includes(q))
       );
     }).sort((a, b) => (b.nominalTransaksi || 0) - (a.nominalTransaksi || 0));
-  }, [records, activeSubTab, searchQuery]);
+  }, [monthFilteredRecords, activeSubTab, searchQuery]);
 
   // Ecosystem Vendor Breakdown
   const topVendors = useMemo(() => {
     const vMap = new Map<string, { nama: string; totalTx: number; totalNom: number; satkers: Set<string> }>();
-    records.forEach(r => {
+    monthFilteredRecords.forEach(r => {
       if (!r.namaVendor) return;
       const v = r.namaVendor.trim();
       const existing = vMap.get(v) || { nama: v, totalTx: 0, totalNom: 0, satkers: new Set() };
@@ -195,12 +259,12 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
       vMap.set(v, existing);
     });
     return Array.from(vMap.values()).sort((a, b) => b.totalNom - a.totalNom).slice(0, 8);
-  }, [records]);
+  }, [monthFilteredRecords]);
 
   // Ecosystem Bank Breakdown
   const bankBreakdown = useMemo(() => {
     const bMap = new Map<string, { nama: string; totalTx: number; totalNom: number }>();
-    records.forEach(r => {
+    monthFilteredRecords.forEach(r => {
       const b = r.namaBank || 'Bank Lainnya';
       const existing = bMap.get(b) || { nama: b, totalTx: 0, totalNom: 0 };
       existing.totalTx += 1;
@@ -208,7 +272,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
       bMap.set(b, existing);
     });
     return Array.from(bMap.values()).sort((a, b) => b.totalNom - a.totalNom);
-  }, [records]);
+  }, [monthFilteredRecords]);
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -235,11 +299,11 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
             <div className="flex flex-wrap items-center gap-4 text-xs text-slate-300 pt-1">
               <span className="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                Posisi: <strong>Agustus 2026</strong>
+                Periode Aktif: <strong className="text-amber-300">{selectedMonth === 'ALL' ? 'Semua Bulan (Kumulatif)' : selectedMonth}</strong>
               </span>
               <span className="flex items-center gap-1.5 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
                 <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                Update: <strong>{lastUpdateDate || '18 Agustus 2026 - 15:30 WIB'}</strong>
+                Update: <strong>{dashboardConfig?.updateDates?.transaksiDigipay || lastUpdateDate || '07 Agustus 2026 - 09:00 WIB'}</strong>
               </span>
             </div>
           </div>
@@ -247,11 +311,15 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
           {/* Quick Action Buttons */}
           <div className="flex flex-row md:flex-col gap-2.5 sm:self-start">
             <button
-              onClick={() => exportDigipayToExcel(records)}
-              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/30 transition-all cursor-pointer"
+              onClick={() => exportDigipayToExcel(
+                monthFilteredRecords,
+                'Rekapitulasi_Transaksi_Digipay_KPPN026.xlsx',
+                selectedMonth === 'ALL' ? 'Semua Bulan (Kumulatif)' : selectedMonth
+              )}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-900/30 transition-all cursor-pointer active:scale-95"
             >
               <Download className="w-4 h-4" />
-              <span>Export Rekap Excel</span>
+              <span>Export Rekap Excel ({monthFilteredRecords.length})</span>
             </button>
             <button
               onClick={downloadDigipayTemplate}
@@ -270,6 +338,132 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* 📅 EXCLUSIVE MONTHLY FILTER CONTROLS BAR (DUAL MODE: KUMULATIF S.D. BULAN & BULAN TUNGGAL) */}
+      <div className={`p-4 sm:p-5 rounded-3xl border transition-all space-y-3.5 ${
+        isDark ? 'bg-slate-900/90 border-indigo-900/50 shadow-lg' : 'bg-white border-indigo-200 shadow-md shadow-indigo-500/5'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-500/20">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                  Filter Periode & Bulan Transaksi Digipay
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                  Sesuai Data Excel
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Dapat memilih <strong>Kumulatif s.d. Bulan Terakhir</strong> (Januari s.d. Bulan Terpilih) atau <strong>Per Bulan Tunggal</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Mode Switcher & Selector */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Mode Switcher Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/70 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setFilterMode('CUMULATIVE')}
+                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterMode === 'CUMULATIVE'
+                    ? 'bg-indigo-600 text-white shadow-xs font-black'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                }`}
+              >
+                <span>📊 Kumulatif (s.d. Bulan)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('SINGLE')}
+                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterMode === 'SINGLE'
+                    ? 'bg-indigo-600 text-white shadow-xs font-black'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                }`}
+              >
+                <span>📅 Per Bulan Tunggal</span>
+              </button>
+            </div>
+
+            {/* Dropdown Selector */}
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="py-2 px-3.5 rounded-2xl border-2 border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-xs"
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>
+                  {filterMode === 'CUMULATIVE' ? `s.d. ${m} (Kumulatif)` : `Bulan ${m} Saja`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Quick Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+          <span className="text-[11px] font-bold text-slate-400 mr-1">
+            {filterMode === 'CUMULATIVE' ? 'Pilih Batas Bulan Kumulatif:' : 'Pilih Bulan Tunggal:'}
+          </span>
+          {availableMonths.map(m => {
+            const isSelected = selectedMonth === m;
+            const isLatest = m === latestDetectedMonth;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setSelectedMonth(m)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-black'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <span>{filterMode === 'CUMULATIVE' ? `s.d. ${m}` : m}</span>
+                {isLatest && filterMode === 'CUMULATIVE' && (
+                  <span className="text-[9px] px-1 py-0.2 bg-amber-400 text-slate-950 font-black rounded-sm">
+                    Upload Terakhir
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active Filter Indicator Tag */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span>
+              Sedang Menampilkan:{' '}
+              <strong>
+                {filterMode === 'CUMULATIVE'
+                  ? `Laporan Kumulatif Transaksi Digipay s.d. ${selectedMonth}`
+                  : `Laporan Transaksi Digipay Bulan ${selectedMonth} Saja`}
+              </strong>{' '}
+              ({stats.totalTransactions} Transaksi • {formatRupiah(stats.totalNominal)} Belanja • {stats.uniqueSatkersWithTx} Satker Aktif)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => exportDigipayToExcel(
+              monthFilteredRecords,
+              `Rekapitulasi_Digipay_${filterMode === 'CUMULATIVE' ? 'sd_' : ''}${selectedMonth.replace(/\s+/g, '_')}.xlsx`,
+              selectedMonth
+            )}
+            className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Unduh Excel Rekap
+          </button>
         </div>
       </div>
 
@@ -647,6 +841,24 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
                   ))}
                 </select>
               </div>
+            )}
+
+            {(searchQuery || statusFilter !== 'ALL' || bankFilter !== 'ALL' || selectedMonth !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('ALL');
+                  setBankFilter('ALL');
+                  setSelectedMonth('ALL');
+                  setCurrentPage(1);
+                }}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-slate-800 transition-all cursor-pointer flex items-center gap-1 text-[11px] font-bold"
+                title="Reset Semua Filter &amp; Bulan"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
             )}
           </div>
         )}

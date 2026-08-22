@@ -174,7 +174,7 @@ export const UploadSertifikasiSection: React.FC<UploadSertifikasiSectionProps> =
             Upload &amp; Pengelolaan Pejabat Perbendaharaan (PTP / PPK / PPSPM / Bendahara)
           </h3>
           <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-            Mendukung otomatis Format 1 (Belum Bersertifikat) dan Format 2 (Belum Perpanjangan) dari KPPN Semarang I. Data tersimpan rapi, lengkap dengan status usulan SIMASPATI dan rekomendasi tindak lanjut.
+            Mendukung otomatis Format 1 (Belum Bersertifikat) dan Format 2 (Belum Perpanjangan) dari KPPN Semarang I. Data tersimpan rapi, lengkap dengan status usulan SIMASPATEN dan rekomendasi tindak lanjut.
           </p>
         </div>
 

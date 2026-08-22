@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   BarChart3, 
   AlertTriangle, 
@@ -88,12 +88,100 @@ export const Header: React.FC<HeaderProps> = ({
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
   const [isSatkerPreviewMode, setIsSatkerPreviewMode] = useState<boolean>(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [startX, setStartX] = useState<number>(0);
+  const [scrollLeftState, setScrollLeftState] = useState<number>(0);
+  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
+  const [canScrollRight, setCanScrollRight] = useState<boolean>(true);
+
+  // Real-Time Live Clock (Ticking every second)
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formattedDateStr = useMemo(() => {
+    return currentTime.toLocaleDateString('id-ID', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  }, [currentTime]);
+
+  const formattedTimeStr = useMemo(() => {
+    return currentTime.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }) + ' WIB';
+  }, [currentTime]);
+
+  // Check scroll bounds to show/hide indicators
+  const updateScrollBounds = () => {
+    if (navScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = navScrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    const navEl = navScrollRef.current;
+    if (navEl) {
+      updateScrollBounds();
+      navEl.addEventListener('scroll', updateScrollBounds, { passive: true });
+      window.addEventListener('resize', updateScrollBounds);
+      return () => {
+        navEl.removeEventListener('scroll', updateScrollBounds);
+        window.removeEventListener('resize', updateScrollBounds);
+      };
+    }
+  }, []);
+
+  // Auto-scroll active tab into view whenever activeTab changes
+  useEffect(() => {
+    if (navScrollRef.current) {
+      const activeEl = navScrollRef.current.querySelector<HTMLElement>('[data-active="true"]');
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+      setTimeout(updateScrollBounds, 300);
+    }
+  }, [activeTab]);
 
   const scrollNav = (direction: 'left' | 'right') => {
     if (navScrollRef.current) {
-      const scrollAmount = direction === 'left' ? -280 : 280;
+      const scrollAmount = direction === 'left' ? -220 : 220;
       navScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      setTimeout(updateScrollBounds, 300);
     }
+  };
+
+  // Mouse drag-to-scroll support for desktop/tablet/mobile emulation
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!navScrollRef.current) return;
+    setIsDragging(true);
+    setStartX(e.pageX - navScrollRef.current.offsetLeft);
+    setScrollLeftState(navScrollRef.current.scrollLeft);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !navScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - navScrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    navScrollRef.current.scrollLeft = scrollLeftState - walk;
+    updateScrollBounds();
+  };
+
+  const handleMouseUpOrLeave = () => {
+    setIsDragging(false);
   };
 
   const handleTabClick = (tabId: NavigationTab) => {
@@ -268,10 +356,12 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center space-x-3 shrink-0">
             <div 
               onClick={() => setActiveTab('dashboard')}
-              className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-indigo-950 via-slate-900 to-sky-950 p-1 flex items-center justify-center shadow-lg shadow-indigo-950/40 ring-1 ring-amber-500/40 shrink-0 cursor-pointer hover:scale-105 transition-all overflow-hidden border border-slate-700/50"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl bg-gradient-to-br from-cyan-400 via-indigo-600 to-amber-400 p-0.5 flex items-center justify-center shadow-lg shadow-indigo-500/30 ring-2 ring-amber-400/80 shrink-0 cursor-pointer hover:scale-105 transition-all overflow-hidden"
               title="ANGKASA - Dashboard Utama"
             >
-              <img src="/favicon.svg" alt="ANGKASA Logo" className="w-full h-full object-contain" />
+              <div className="w-full h-full rounded-[14px] bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950 p-1 flex items-center justify-center">
+                <img src="/favicon.svg" alt="ANGKASA Logo" className="w-full h-full object-contain filter drop-shadow-md brightness-110" />
+              </div>
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
@@ -279,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({
                   isDark ? 'text-white' : 'text-slate-900'
                 }`}>
                   ANGKASA
-                  <span className="text-[11px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <span className="text-[11px] font-black px-2 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 shadow-xs">
                     V3.2
                   </span>
                 </h1>
@@ -297,22 +387,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Center Executive Live Metric Ticker for Wide Screens */}
-          <div className="hidden xl:flex items-center gap-2.5 py-1 px-3.5 rounded-2xl border bg-slate-900/5 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 text-xs">
-            <div className="flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-slate-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">DJPb SAKTI:</span>
-              <span className="font-black text-emerald-600 dark:text-emerald-400 text-[11px]">Online</span>
-            </div>
-
-            <div className="flex items-center gap-1.5 pr-2.5 border-r border-slate-300 dark:border-slate-800">
-              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">Mitra KPPN:</span>
-              <span className="font-black text-slate-900 dark:text-slate-100 text-[11px]">{masterSatkers.length > 0 ? `${masterSatkers.length} Satker` : '127 Satker'}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-600 dark:text-slate-400 text-[11px]">Target IKPA:</span>
-              <span className="font-black text-amber-600 dark:text-amber-400 text-[11px]">≥ 95.00 (Sangat Baik)</span>
+          {/* Center Executive Live Clock Ticker for Wide Screens */}
+          <div className="hidden lg:flex items-center gap-2.5 py-1.5 px-4 rounded-2xl border bg-slate-900/5 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
+                Waktu Sistem:
+              </span>
+              <span className="font-mono font-black text-indigo-700 dark:text-sky-300 text-sm tracking-tight">
+                {formattedDateStr} • {formattedTimeStr}
+              </span>
             </div>
           </div>
 
@@ -412,16 +496,17 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
             )}
-
-            {/* Status Badge */}
-            <div className={`hidden lg:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl border shrink-0 ${
-              isDark ? 'text-slate-300 bg-slate-900 border-slate-800' : 'text-slate-700 bg-slate-100 border-slate-300'
-            }`}>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Update: <strong className={isDark ? 'text-slate-100' : 'text-slate-900'}>{lastUpdateDate}</strong></span>
-            </div>
           </div>
 
+        </div>
+
+        {/* Mobile Live Real-Time Clock Bar (< lg screens) */}
+        <div className="flex lg:hidden items-center justify-center gap-2 mt-2 px-3 py-2 rounded-xl bg-slate-900/10 dark:bg-slate-900/70 border border-slate-300/60 dark:border-slate-800 text-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+          <span className="text-slate-600 dark:text-slate-400 font-bold">Waktu Sistem:</span>
+          <span className="font-mono font-black text-indigo-700 dark:text-sky-300 text-xs">
+            {formattedDateStr} • {formattedTimeStr}
+          </span>
         </div>
 
         {/* Admin Exclusive Status & Simulator Strip */}
@@ -467,29 +552,49 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Navigation Tabs - Horizontally Scrollable Bar on small screens, Flexible Fluid Wrap on wide screens */}
         <div className="relative mt-2 border-t pt-1.5 group">
-          {/* Left Arrow Scroll (for smaller / scrollable viewports) */}
+          {/* Left Arrow Scroll (Available on all scrollable screens: mobile, tablet, laptop) */}
           <button
             type="button"
             onClick={() => scrollNav('left')}
-            className="hidden sm:flex xl:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-slate-900/90 text-white items-center justify-center shadow-md border border-slate-700 hover:bg-indigo-600 transition-all cursor-pointer opacity-70 hover:opacity-100"
+            className={`flex xl:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900/90 hover:bg-indigo-600 text-white items-center justify-center shadow-lg border border-slate-700/80 transition-all cursor-pointer ${
+              canScrollLeft ? 'opacity-95 scale-100' : 'opacity-40 pointer-events-none scale-90'
+            }`}
             title="Geser Menu ke Kiri"
+            aria-label="Geser Menu ke Kiri"
           >
-            <ChevronLeft className="w-3.5 h-3.5" />
+            <ChevronLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
           </button>
 
-          {/* Right Arrow Scroll (for smaller / scrollable viewports) */}
+          {/* Right Arrow Scroll (Available on all scrollable screens: mobile, tablet, laptop) */}
           <button
             type="button"
             onClick={() => scrollNav('right')}
-            className="hidden sm:flex xl:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-slate-900/90 text-white items-center justify-center shadow-md border border-slate-700 hover:bg-indigo-600 transition-all cursor-pointer opacity-70 hover:opacity-100"
+            className={`flex xl:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900/90 hover:bg-indigo-600 text-white items-center justify-center shadow-lg border border-slate-700/80 transition-all cursor-pointer ${
+              canScrollRight ? 'opacity-95 scale-100' : 'opacity-40 pointer-events-none scale-90'
+            }`}
             title="Geser Menu ke Kanan"
+            aria-label="Geser Menu ke Kanan"
           >
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
           </button>
+
+          {/* Mobile Edge Gradient Indicators */}
+          {canScrollLeft && (
+            <div className="xl:hidden absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900/40 to-transparent pointer-events-none z-10" />
+          )}
+          {canScrollRight && (
+            <div className="xl:hidden absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900/40 to-transparent pointer-events-none z-10" />
+          )}
 
           <nav
             ref={navScrollRef}
-            className={`flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-1 sm:px-2 xl:px-0 snap-x snap-mandatory ${
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUpOrLeave}
+            onMouseLeave={handleMouseUpOrLeave}
+            className={`flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-8 sm:px-9 xl:px-0 touch-pan-x overscroll-x-contain select-none ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab xl:cursor-default'
+            } ${
               isDark ? 'border-slate-800/80' : 'border-slate-200'
             }`}
           >
@@ -509,8 +614,9 @@ export const Header: React.FC<HeaderProps> = ({
                 return (
                   <button
                     key={t.id}
+                    data-active={isActive ? "true" : "false"}
                     onClick={() => handleTabClick(t.id)}
-                    className={`relative flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap snap-start shrink-0 min-h-[38px] touch-manipulation select-none ${
+                    className={`relative flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 min-h-[38px] touch-manipulation select-none ${
                       isActive
                         ? t.activeColor
                         : t.id === 'admin'

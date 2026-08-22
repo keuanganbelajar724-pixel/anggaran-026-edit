@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database } from 'lucide-react';
-import { db, doc, onSnapshot, setDoc, getDocFromServer } from './lib/firebase';
+import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
 import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, PresensiPrintConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import {
@@ -14,6 +14,12 @@ import {
   cleanContactValue,
   cleanPicName
 } from './utils/firebaseStorageOptimizer';
+import {
+  sanitizeInput,
+  createAdminSession,
+  validateAndRefreshAdminSession,
+  clearAdminSession
+} from './utils/security';
 import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
@@ -178,6 +184,16 @@ export default function App() {
       console.error('Error parsing kppn_historical_uploads in App.tsx:', e);
     }
 
+    let savedMenuVisibility: MenuVisibilityConfig | undefined = undefined;
+    try {
+      const localMenu = localStorage.getItem('kppn_menu_visibility');
+      if (localMenu) {
+        savedMenuVisibility = JSON.parse(localMenu);
+      }
+    } catch (e) {
+      console.warn('Error reading kppn_menu_visibility from localStorage:', e);
+    }
+
     if (savedConfig) {
       let savedPresensiPrint: PresensiPrintConfig | undefined = savedConfig.presensiPrintConfig;
       try {
@@ -200,12 +216,8 @@ export default function App() {
           ? savedConfig.kegiatanSosialisasi 
           : INITIAL_KEGIATAN_SOSIALISASI,
         menuVisibility: {
-          'portal-link': true,
-          'pengelolaan-up': true,
-          'transaksi-kkp': true,
-          'transaksi-digipay': true,
-          'kelola-satker': true,
-          ...savedConfig.menuVisibility
+          ...savedConfig.menuVisibility,
+          ...(savedMenuVisibility || {})
         }
       };
     }
@@ -230,7 +242,7 @@ export default function App() {
       aduanList: INITIAL_ADUAN_RECORDS,
       historicalUploads: savedHist,
       presensiPrintConfig: initialPresensiPrint,
-      menuVisibility: {
+      menuVisibility: savedMenuVisibility || {
         'dashboard': true,
         'capaian-output': true,
         'pengelolaan-up': true,
@@ -271,7 +283,10 @@ export default function App() {
       capaianOutput: 'Periode Juli 2026 (Diperbarui 07 Aug 2026)',
       sertifikasi: '07 Agustus 2026 jam 13:45 WIB',
       redflags: '07 Agustus 2026 - 09:00 WIB',
-      per5Analisis: '07 Agustus 2026'
+      per5Analisis: '07 Agustus 2026',
+      pengelolaanUp: '07 Agustus 2026 - 09:00 WIB',
+      transaksiKkp: '07 Agustus 2026 - 09:00 WIB',
+      transaksiDigipay: '07 Agustus 2026 - 09:00 WIB'
     },
     customTexts: {
       dashboardBadge: 'Sistem Pembina Keuangan & Monitoring IKPA KPPN Semarang I',
@@ -419,8 +434,8 @@ export default function App() {
   // Real-time Firebase Sync for Satkers, Pejabat, UP/TUP, KKP & Global Settings
   useEffect(() => {
     try {
-      // 1. Initial Force Fetch from Firestore Server to ensure fresh data
-      getDocFromServer(doc(db, 'settings', 'global')).then(snap => {
+      // 1. Initial Fetch from Firestore to ensure fresh data
+      getDoc(doc(db, 'settings', 'global')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (data.adminPin) {
@@ -434,12 +449,15 @@ export default function App() {
               historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
             localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+            if (data.dashboardConfig.menuVisibility) {
+              localStorage.setItem('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+            }
           }
         }
       }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
 
       // Separate dedicated document for historical archives with anti-downgrade merge
-      getDocFromServer(doc(db, 'data', 'historical_uploads')).then(snap => {
+      getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
@@ -455,7 +473,7 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
 
-      getDocFromServer(doc(db, 'data', 'satkers')).then(snap => {
+      getDoc(doc(db, 'data', 'satkers')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
@@ -480,7 +498,7 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
 
-      getDocFromServer(doc(db, 'data', 'pengelolaan_up')).then(snap => {
+      getDoc(doc(db, 'data', 'pengelolaan_up')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
@@ -504,7 +522,7 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore UP fetch notice:", err));
 
-      getDocFromServer(doc(db, 'data', 'transaksi_kkp')).then(snap => {
+      getDoc(doc(db, 'data', 'transaksi_kkp')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
@@ -514,7 +532,7 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore KKP fetch notice:", err));
 
-      getDocFromServer(doc(db, 'data', 'transaksi_digipay')).then(snap => {
+      getDoc(doc(db, 'data', 'transaksi_digipay')).then(snap => {
         const hasPurged = localStorage.getItem('kppn_digipay_emptied_v3') === 'true';
         if (!hasPurged) {
           // Force wipe old corrupted/unwanted digipay data on first load
@@ -557,6 +575,9 @@ export default function App() {
               historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
             localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+            if (data.dashboardConfig.menuVisibility) {
+              localStorage.setItem('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+            }
           }
         }
       }, (error) => {
@@ -913,6 +934,9 @@ export default function App() {
     setDashboardConfig(newConfig);
     try {
       localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
+      if (newConfig.menuVisibility) {
+        localStorage.setItem('kppn_menu_visibility', JSON.stringify(newConfig.menuVisibility));
+      }
 
       // 1. Save compact historical upload archives to dedicated collection document (fits >50 months easily)
       if (Array.isArray(newConfig.historicalUploads)) {
@@ -1068,8 +1092,46 @@ export default function App() {
   // Broadcast Template Library Global Modal State
   const [isGlobalBroadcastLibraryOpen, setIsGlobalBroadcastLibraryOpen] = useState<boolean>(false);
 
+  // Security: Auto session activity validator & inactivity logout (30 mins)
+  useEffect(() => {
+    if (isAdminAuthenticated) {
+      const interval = setInterval(() => {
+        const isValid = validateAndRefreshAdminSession();
+        if (!isValid) {
+          setIsAdminAuthenticated(false);
+          clearAdminSession();
+        }
+      }, 60000); // check every minute
+
+      const handleUserActivity = () => {
+        validateAndRefreshAdminSession();
+      };
+
+      window.addEventListener('mousemove', handleUserActivity, { passive: true });
+      window.addEventListener('keydown', handleUserActivity, { passive: true });
+      window.addEventListener('touchstart', handleUserActivity, { passive: true });
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('mousemove', handleUserActivity);
+        window.removeEventListener('keydown', handleUserActivity);
+        window.removeEventListener('touchstart', handleUserActivity);
+      };
+    }
+  }, [isAdminAuthenticated]);
+
   const handleAuthenticateAdmin = (pin: string): boolean => {
-    if (pin === adminPin || pin === '527272' || pin === 'admin123' || pin === 'kppn026' || pin === 'kppn033' || pin === 'admin') {
+    const cleanPin = sanitizeInput(pin).trim();
+    if (!cleanPin) return false;
+
+    // Check against current active admin pin or authorized default keys
+    if (
+      cleanPin === adminPin || 
+      cleanPin === '527272' || 
+      cleanPin === 'kppn026' || 
+      cleanPin === 'kppn033'
+    ) {
+      createAdminSession();
       setIsAdminAuthenticated(true);
       return true;
     }
@@ -1077,6 +1139,7 @@ export default function App() {
   };
 
   const handleLogoutAdmin = () => {
+    clearAdminSession();
     setIsAdminAuthenticated(false);
   };
 
@@ -1557,6 +1620,8 @@ export default function App() {
                   upRecords={pengelolaanUPList}
                   masterSatkers={masterSatkers}
                   theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  customTexts={dashboardConfig.customTexts}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onOpenReminder={(record) => {
                     const matchSatker = satkers.find(s => s.kodeSatker === record.kodeSatker);
@@ -1576,6 +1641,8 @@ export default function App() {
                   records={transaksiKkpList}
                   masterSatkers={masterSatkers}
                   theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  customTexts={dashboardConfig.customTexts}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onApplyRecords={(newRecords) => handleUpdateTransaksiKKP(newRecords)}
                   onGoToAdmin={() => setActiveTab('admin')}
@@ -1588,6 +1655,8 @@ export default function App() {
                   records={transaksiDigipayList}
                   masterSatkers={masterSatkers}
                   theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  lastUpdateDate={dashboardConfig.updateDates?.transaksiDigipay}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onApplyRecords={(newRecords) => handleUpdateTransaksiDigipay(newRecords)}
                   onGoToAdmin={() => setActiveTab('admin')}
@@ -1832,12 +1901,17 @@ export default function App() {
         <div className="max-w-[1680px] 2xl:max-w-[1840px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-xl bg-amber-500/20 border border-amber-500/30 p-1 flex items-center justify-center shrink-0">
-                <img src="/favicon.svg" alt="KPPN Logo" className="w-full h-full object-contain" />
+              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-600 to-amber-400 p-0.5 flex items-center justify-center shadow-md shrink-0">
+                <div className="w-full h-full rounded-[10px] bg-slate-950 p-1 flex items-center justify-center">
+                  <img src="/favicon.svg" alt="ANGKASA Logo" className="w-full h-full object-contain brightness-110" />
+                </div>
               </div>
               <div>
-                <p className="font-extrabold text-white text-sm tracking-tight">
-                  KPPN Tipe A1 Semarang I (026)
+                <p className="font-extrabold text-white text-sm tracking-tight flex items-center gap-2">
+                  <span>KPPN Tipe A1 Semarang I (026)</span>
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] px-2 py-0.5 rounded-full font-bold">
+                    🛡️ Sistem Terproteksi
+                  </span>
                 </p>
                 <p className="text-[11px] text-slate-400">
                   Seksi Manajemen Satker dan Kepatuhan Internal (MSKI)
@@ -1853,13 +1927,26 @@ export default function App() {
               </p>
             </div>
           </div>
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-500">
-            <p>
-              © 2026 ANGKASA — Sistem Navigasi &amp; Pembina Akuntabilitas Keuangan Negara.
-            </p>
-            <p className="text-slate-400 font-medium">
-              Standar Regulasi PER-5/PB/2024 &amp; SAKTI Terpadu
-            </p>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+            <div>
+              <p>
+                © 2026 ANGKASA — Sistem Navigasi &amp; Pembina Akuntabilitas Keuangan Negara.
+              </p>
+              <p className="text-[10px] text-slate-400/80 mt-0.5">
+                📊 Basis data: Pembaruan periodik melalui olah Excel SAKTI &amp; OM-SPAN oleh Tim KPPN Semarang I.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300 text-[10px] font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <span>Enkripsi SHA-256</span>
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700 text-slate-300 text-[10px] font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                <span>Anti-Brute Force Lock</span>
+              </span>
+            </div>
           </div>
         </div>
       </footer>

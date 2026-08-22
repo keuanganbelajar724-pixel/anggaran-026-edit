@@ -22,11 +22,21 @@ import {
   Copy,
   Check,
   Send,
-  Lock
+  Lock,
+  Clock,
+  CalendarDays
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { TransaksiKKPRecord, MasterSatker } from '../types';
 import { INITIAL_KKP_RECORDS } from '../data/initialKKPData';
+import {
+  extractMonthFromRecord,
+  INDONESIAN_MONTHS,
+  exportKKPToExcel,
+  isRecordMatchingFilter,
+  getMonthInfoFromPeriodKey,
+  parseDateToTimestamp
+} from '../utils/modularExcelProcessors';
 
 interface TransaksiKKPDashboardProps {
   records?: TransaksiKKPRecord[];
@@ -37,6 +47,8 @@ interface TransaksiKKPDashboardProps {
   onGoToAdmin?: () => void;
   onOpenBroadcastLibrary?: () => void;
   isDark?: boolean;
+  theme?: any;
+  dashboardConfig?: any;
   isAdminAuthenticated?: boolean;
   customTexts?: any;
   showToast?: (opts: { type: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }) => void;
@@ -51,6 +63,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   onGoToAdmin,
   onOpenBroadcastLibrary,
   isDark = false,
+  dashboardConfig,
   isAdminAuthenticated = false,
   customTexts,
   showToast
@@ -60,6 +73,8 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   }, [records]);
 
   // Filters & State
+  const [filterMode, setFilterMode] = useState<'CUMULATIVE' | 'SINGLE'>('CUMULATIVE');
+  const [selectedMonth, setSelectedMonth] = useState<string>('Agustus 2026');
   const [rankingCategory, setRankingCategory] = useState<'transaksi' | 'nominal'>('transaksi');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKl, setSelectedKl] = useState('ALL');
@@ -100,28 +115,124 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
     });
   }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
 
-  // Top 3 for Transaksi Terbanyak
-  const topByTransaksi = useMemo(() => {
-    return [...baseEnrichedRecords].sort((a, b) => {
-      if (b.jumlahTransaksi !== a.jumlahTransaksi) return b.jumlahTransaksi - a.jumlahTransaksi;
-      return b.totalNominal - a.totalNominal;
+  // Available unique months from dataset based on Kolom E (Tanggal SP2D)
+  const availableMonths = useMemo(() => {
+    const monthsFound = new Set<string>();
+    baseEnrichedRecords.forEach(r => {
+      const m = extractMonthFromRecord(r);
+      if (m) monthsFound.add(m);
+    });
+
+    // Ensure standard 2026 months are available in selector
+    INDONESIAN_MONTHS.forEach(m => {
+      monthsFound.add(`${m} 2026`);
+    });
+
+    return Array.from(monthsFound).sort((a, b) => {
+      const [mA, yA] = a.split(' ');
+      const [mB, yB] = b.split(' ');
+      const yrA = parseInt(yA || '2026', 10);
+      const yrB = parseInt(yB || '2026', 10);
+      if (yrA !== yrB) return yrA - yrB;
+      const idxA = INDONESIAN_MONTHS.indexOf(mA);
+      const idxB = INDONESIAN_MONTHS.indexOf(mB);
+      return idxA - idxB;
     });
   }, [baseEnrichedRecords]);
 
-  // Top 3 for Nominal Terbanyak
+  // Latest detected month in data
+  const latestDetectedMonth = useMemo(() => {
+    let highestIdx = -1;
+    let highestMonth = 'Agustus 2026';
+    baseEnrichedRecords.forEach(r => {
+      const m = extractMonthFromRecord(r);
+      if (m) {
+        const info = getMonthInfoFromPeriodKey(m);
+        if (info && info.monthIndex > highestIdx) {
+          highestIdx = info.monthIndex;
+          highestMonth = m;
+        }
+      }
+    });
+    return highestMonth;
+  }, [baseEnrichedRecords]);
+
+  // Filter records by Selected Month & Mode based on Kolom E (Tanggal SP2D)
+  const monthFilteredRecords = useMemo(() => {
+    // 1. Filter raw records matching filter mode & target month
+    const matchingRecords = baseEnrichedRecords.filter(item => {
+      return isRecordMatchingFilter(item, filterMode, selectedMonth);
+    });
+
+    // 2. Aggregate by Satker
+    const satkerMap = new Map<string, TransaksiKKPRecord>();
+    matchingRecords.forEach(item => {
+      const key = item.kodeSatker;
+      if (satkerMap.has(key)) {
+        const existing = satkerMap.get(key)!;
+        existing.jumlahTransaksi += (item.jumlahTransaksi || 0);
+        existing.totalNominal += (item.totalNominal || 0);
+        if (item.tglSp2dTerakhir && item.tglSp2dTerakhir !== '-') {
+          const itemTime = parseDateToTimestamp(item.tglSp2dTerakhir);
+          const existingTime = parseDateToTimestamp(existing.tglSp2dTerakhir || '');
+          if (itemTime >= existingTime) {
+            existing.tglSp2dTerakhir = item.tglSp2dTerakhir;
+            if (item.noSp2dTerakhir) existing.noSp2dTerakhir = item.noSp2dTerakhir;
+          }
+        }
+        if (item.noSp2dTerakhir) existing.noSp2dTerakhir = item.noSp2dTerakhir;
+        if (item.bankPenerbit && (!existing.bankPenerbit || existing.bankPenerbit === 'Bank Rakyat Indonesia (BRI)')) {
+          existing.bankPenerbit = item.bankPenerbit;
+        }
+      } else {
+        satkerMap.set(key, {
+          ...item,
+          periode: filterMode === 'CUMULATIVE' ? `s.d. ${selectedMonth}` : selectedMonth
+        });
+      }
+    });
+
+    const thresholdAktif = filterMode === 'CUMULATIVE' ? 25 : 10;
+    const thresholdNominal = filterMode === 'CUMULATIVE' ? 200000000 : 75000000;
+    const thresholdLow = filterMode === 'CUMULATIVE' ? 8 : 3;
+    const thresholdLowNom = filterMode === 'CUMULATIVE' ? 50000000 : 20000000;
+
+    return Array.from(satkerMap.values()).map(item => {
+      let statusKeaktifan: 'Sangat Aktif' | 'Aktif' | 'Perlu Akselerasi' = 'Aktif';
+      if (item.jumlahTransaksi >= thresholdAktif || item.totalNominal >= thresholdNominal) {
+        statusKeaktifan = 'Sangat Aktif';
+      } else if (item.jumlahTransaksi <= thresholdLow && item.totalNominal < thresholdLowNom) {
+        statusKeaktifan = 'Perlu Akselerasi';
+      }
+      return {
+        ...item,
+        statusKeaktifan
+      };
+    });
+  }, [baseEnrichedRecords, filterMode, selectedMonth]);
+
+  // Top 3 for Transaksi Terbanyak (based on filtered month)
+  const topByTransaksi = useMemo(() => {
+    return [...monthFilteredRecords].sort((a, b) => {
+      if (b.jumlahTransaksi !== a.jumlahTransaksi) return b.jumlahTransaksi - a.jumlahTransaksi;
+      return b.totalNominal - a.totalNominal;
+    });
+  }, [monthFilteredRecords]);
+
+  // Top 3 for Nominal Terbanyak (based on filtered month)
   const topByNominal = useMemo(() => {
-    return [...baseEnrichedRecords].sort((a, b) => {
+    return [...monthFilteredRecords].sort((a, b) => {
       if (b.totalNominal !== a.totalNominal) return b.totalNominal - a.totalNominal;
       return b.jumlahTransaksi - a.jumlahTransaksi;
     });
-  }, [baseEnrichedRecords]);
+  }, [monthFilteredRecords]);
 
   // Active sorted records based on active ranking category tab
   const sortedRecords = useMemo(() => {
     return rankingCategory === 'nominal' ? topByNominal : topByTransaksi;
   }, [rankingCategory, topByNominal, topByTransaksi]);
 
-  // Unique Filter Options
+  // Unique Filter Options (computed on monthly filtered dataset)
   const klList = useMemo(() => {
     const kls = new Set<string>();
     sortedRecords.forEach(r => {
@@ -196,30 +307,19 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   const top2 = sortedRecords[1];
   const top3 = sortedRecords[2];
 
-  // Export to Excel
+  // Export to Excel with active monthly filter
   const handleExportExcel = () => {
-    const data = filteredRecords.map((r, idx) => ({
-      'Peringkat': idx + 1,
-      'Kode Satker': r.kodeSatker,
-      'Nama Satker': r.namaSatker,
-      'Kementerian / Lembaga': r.kementerianLembaga || '-',
-      'Bank Penerbit KKP': r.bankPenerbit || '-',
-      'Jumlah Transaksi (SP2D)': r.jumlahTransaksi,
-      'Total Nominal Transaksi (Rp)': r.totalNominal,
-      'Status Keaktifan': r.statusKeaktifan || 'Aktif',
-      'Periode': r.periode || 'Agustus 2026'
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Transaksi_KKP_GUP');
-    XLSX.writeFile(wb, `Monitoring_Transaksi_KKP_KPPN026_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    exportKKPToExcel(
+      filteredRecords,
+      'Laporan_Monitoring_Transaksi_KKP_KPPN026.xlsx',
+      selectedMonth === 'ALL' ? 'Semua Bulan (Kumulatif)' : selectedMonth
+    );
 
     if (showToast) {
       showToast({
         type: 'success',
         title: 'Berhasil Diekspor',
-        message: `Data monitoring transaksi KKP (${filteredRecords.length} Satker) telah diunduh.`
+        message: `Laporan transaksi KKP periode ${selectedMonth === 'ALL' ? 'Kumulatif' : selectedMonth} (${filteredRecords.length} Satker) telah diunduh.`
       });
     }
   };
@@ -258,6 +358,11 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
               <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-200 border border-indigo-500/40">
                 <CreditCard className="w-3.5 h-3.5" />
                 Kartu Kredit Pemerintah 2026
+              </span>
+
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-950/60 text-amber-200 border border-amber-500/30">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Update: <strong>{dashboardConfig?.updateDates?.transaksiKkp || '07 Agustus 2026 - 09:00 WIB'}</strong></span>
               </span>
             </div>
 
@@ -314,6 +419,126 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
           <div className="flex-1 text-[11px] text-slate-300 leading-relaxed">
             <strong className="text-emerald-400 font-bold">Standard Perlindungan Privasi Finansial Terpenuhi:</strong> Informasi rahasia seperti nomor rekening perbankan, identitas penerima individu, NPWP, dan detail nota rekening (Kolom C s.d. I laporan transaksi) <strong>dikecualikan secara otomatis</strong> dari dashboard publik untuk menjaga kerahasiaan data Satker.
           </div>
+        </div>
+      </div>
+
+      {/* 📅 EXCLUSIVE MONTHLY FILTER CONTROLS BAR (DUAL MODE: KUMULATIF S.D. BULAN & BULAN TUNGGAL) */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-indigo-200 dark:border-indigo-900/50 p-4 sm:p-5 shadow-lg shadow-indigo-500/5 space-y-3.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl border border-indigo-500/20">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                  Filter Periode & Bulan SP2D (Kolom E)
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                  Kolom E Excel OM-SPAN
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Dapat memilih <strong>Kumulatif s.d. Bulan Terakhir</strong> (Januari s.d. Bulan Terpilih) atau <strong>Per Bulan Tunggal</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Mode Switcher & Selector */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Mode Switcher Toggle */}
+            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/70 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setFilterMode('CUMULATIVE')}
+                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterMode === 'CUMULATIVE'
+                    ? 'bg-indigo-600 text-white shadow-xs font-black'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                }`}
+              >
+                <span>📊 Kumulatif (s.d. Bulan)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('SINGLE')}
+                className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                  filterMode === 'SINGLE'
+                    ? 'bg-indigo-600 text-white shadow-xs font-black'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-indigo-600'
+                }`}
+              >
+                <span>📅 Per Bulan Tunggal</span>
+              </button>
+            </div>
+
+            {/* Dropdown Selector */}
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="py-2 px-3.5 rounded-2xl border-2 border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-xs"
+            >
+              {availableMonths.map(m => (
+                <option key={m} value={m}>
+                  {filterMode === 'CUMULATIVE' ? `s.d. ${m} (Kumulatif)` : `Bulan ${m} Saja`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Quick Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+          <span className="text-[11px] font-bold text-slate-400 mr-1">
+            {filterMode === 'CUMULATIVE' ? 'Pilih Batas Bulan Kumulatif:' : 'Pilih Bulan Tunggal:'}
+          </span>
+          {availableMonths.map(m => {
+            const isSelected = selectedMonth === m;
+            const isLatest = m === latestDetectedMonth;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setSelectedMonth(m)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isSelected
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-black'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                <span>{filterMode === 'CUMULATIVE' ? `s.d. ${m}` : m}</span>
+                {isLatest && filterMode === 'CUMULATIVE' && (
+                  <span className="text-[9px] px-1 py-0.2 bg-amber-400 text-slate-950 font-black rounded-sm">
+                    Upload Terakhir
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Active Filter Indicator Tag */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span>
+              Sedang Menampilkan:{' '}
+              <strong>
+                {filterMode === 'CUMULATIVE'
+                  ? `Laporan Kumulatif Transaksi KKP s.d. ${selectedMonth}`
+                  : `Laporan Transaksi KKP Bulan ${selectedMonth} Saja (Kolom E Tanggal SP2D)`}
+              </strong>{' '}
+              ({sortedRecords.length} Satker aktif • {stats.totalTransaksi} SP2D Transaksi • Rp {(stats.totalNominal / 1000000).toFixed(1)} Jt)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 hover:underline flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-auto"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Unduh Excel Rekap
+          </button>
         </div>
       </div>
 
@@ -696,7 +921,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
               <option value="Perlu Akselerasi">🟡 Perlu Akselerasi</option>
             </select>
 
-            {(searchTerm || selectedKl !== 'ALL' || selectedBank !== 'ALL' || selectedStatus !== 'ALL') && (
+            {(searchTerm || selectedKl !== 'ALL' || selectedBank !== 'ALL' || selectedStatus !== 'ALL' || selectedMonth !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
@@ -704,9 +929,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                   setSelectedKl('ALL');
                   setSelectedBank('ALL');
                   setSelectedStatus('ALL');
+                  setSelectedMonth('ALL');
                 }}
                 className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer"
-                title="Reset Semua Filter"
+                title="Reset Semua Filter &amp; Bulan"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -721,19 +947,20 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="py-3 px-3.5 text-center w-14">Rank</th>
-                <th className="py-3 px-4 min-w-[220px]">Satuan Kerja</th>
-                <th className="py-3 px-4 min-w-[180px]">Kementerian / Lembaga</th>
-                <th className="py-3 px-3 text-center min-w-[120px]">Frekuensi Transaksi</th>
-                <th className="py-3 px-4 text-right min-w-[160px]">Total Nilai KKP (Rp)</th>
-                <th className="py-3 px-3 min-w-[150px]">Bank Penerbit</th>
-                <th className="py-3 px-3 text-center min-w-[110px]">Status</th>
+                <th className="py-3 px-4 min-w-[200px]">Satuan Kerja</th>
+                <th className="py-3 px-4 min-w-[170px]">Kementerian / Lembaga</th>
+                <th className="py-3 px-3 text-center min-w-[110px]">Frekuensi</th>
+                <th className="py-3 px-4 text-right min-w-[150px]">Total Nilai KKP (Rp)</th>
+                <th className="py-3 px-3 min-w-[120px]">Tanggal SP2D</th>
+                <th className="py-3 px-3 min-w-[130px]">Bank Penerbit</th>
+                <th className="py-3 px-3 text-center min-w-[100px]">Status</th>
                 <th className="py-3 px-3 text-center w-16">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400">
+                  <td colSpan={9} className="py-10 text-center text-slate-400">
                     Tidak ada satker yang cocok dengan filter atau pencarian Anda.
                   </td>
                 </tr>
@@ -796,6 +1023,13 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                       {/* Total Nominal */}
                       <td className="py-3 px-4 text-right font-mono font-black text-slate-900 dark:text-white">
                         Rp {r.totalNominal.toLocaleString('id-ID')}
+                      </td>
+
+                      {/* Tanggal SP2D (Kolom E) */}
+                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                        <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                          📅 {r.tglSp2dTerakhir || '-'}
+                        </span>
                       </td>
 
                       {/* Bank Penerbit */}

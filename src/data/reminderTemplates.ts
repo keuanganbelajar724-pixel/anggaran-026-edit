@@ -159,8 +159,8 @@ Kepala KPPN Semarang I`
   {
     id: 'temp-sertifikasi-pejabat',
     jenis: 'Sertifikasi Pejabat',
-    judul: '🎓 [SERTIFIKASI PEJABAT] Pemutakhiran Sertifikat PPK/PPSPM/Bendahara (SIMASPATI)',
-    subjekEmail: '[SERTIFIKASI PEJABAT - KPPN SEMARANG I] Himbauan Sertifikasi & Perpanjangan SIMASPATI Satker {KODE_SATKER}',
+    judul: '🎓 [SERTIFIKASI PEJABAT] Pemutakhiran Sertifikat PPK/PPSPM/Bendahara (SIMASPATEN)',
+    subjekEmail: '[SERTIFIKASI PEJABAT - KPPN SEMARANG I] Himbauan Sertifikasi & Perpanjangan SIMASPATEN Satker {KODE_SATKER}',
     isiWa: `*KPPN SEMARANG I - PEMUTAKHIRAN SERTIFIKASI PEJABAT PERBENDAHARAAN*
 
 Yth. Kuasa Pengguna Anggaran & Pejabat Perbendaharaan
@@ -174,8 +174,8 @@ Sesuai PMK mengenai Standarisasi Kompetensi Pejabat Perbendaharaan Negara (PPK, 
 • Status Teridentifikasi : *Terdapat Pejabat Belum Bersertifikat / Masa Berlaku Mendekati Kadaluarsa*
 
 📋 *Langkah Tindak Lanjut:*
-1. Bagi PPK/PPSPM/Bendahara yang *belum bersertifikat*: Segera ikuti program sertifikasi/perekaman usulan pada Aplikasi *SIMASPATI* (https://simaspati.kemenkeu.go.id).
-2. Bagi pejabat dengan *sertifikat yang akan kadaluarsa*: Segera ajukan perpanjangan masa berlaku sertifikat (Penyegaran/CPE) minimal 30-60 hari sebelum tanggal berakhir.
+1. Bagi PPK/PPSPM/Bendahara yang *belum bersertifikat*: Segera ikuti program sertifikasi/perekaman usulan pada Aplikasi *SIMASPATEN* (https://simaspaten.kemenkeu.go.id) dan pantau pemanggilan diklat pada *SWIPE-AP*.
+2. Bagi pejabat dengan *sertifikat yang akan kadaluarsa*: Segera ajukan perpanjangan masa berlaku sertifikat (Penyegaran/PPL) di SIMASPATEN minimal 30-60 hari sebelum tanggal berakhir.
 3. Pastikan data SK pengangkatan pejabat telah terdaftar dan valid pada SAKTI & OM-SPAN.
 
 🔍 *Cek Daftar Pejabat & Tanggal Kadaluarsa Satker Anda:*
@@ -193,7 +193,7 @@ di Tempat
 Menindaklanjuti ketentuan mengenai standardisasi kompetensi Pejabat Perbendaharaan pada Satuan Kerja Pengelola APBN:
 1. Setiap pejabat yang menduduki jabatan PPK, PPSPM, dan Bendahara diwajibkan memiliki Sertifikat Kompetensi yang masih aktif.
 2. Satker Anda teridentifikasi memiliki pejabat yang belum tersertifikasi atau memiliki sertifikat yang masa berlakunya mendekati kadaluarsa.
-3. Diharapkan KPA segera menugaskan pejabat terkait untuk mendaftar ujian sertifikasi/perpanjangan masa berlaku melalui portal SIMASPATI Kemenkeu.
+3. Diharapkan KPA segera menugaskan pejabat terkait untuk mendaftar program sertifikasi/perpanjangan masa berlaku melalui portal SIMASPATEN Kemenkeu serta memantau pemanggilan diklat di SWIPE-AP.
 4. Monitoring berkala dapat diakses melalui portal https://anggaran-026.my.id.
 
 Demikian disampaikan, terima kasih atas perhatiannya.

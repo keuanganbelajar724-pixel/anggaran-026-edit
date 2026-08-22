@@ -1056,26 +1056,26 @@ export async function processSertifikasiExcel(file: File): Promise<{
 
           let catatanRekomendasi = '';
           if (kategoriData === 'BELUM_SERTIFIKAT') {
-            if (statusUsulan.toLowerCase().includes('antrean diklat')) {
-              catatanRekomendasi = 'Pantau pemanggilan diklat e-learning BNT/PNT di Kemenkeu Learning Center.';
+            if (statusUsulan.toLowerCase().includes('antrean diklat') || statusUsulan.toLowerCase().includes('antrean')) {
+              catatanRekomendasi = 'Pantau pemanggilan diklat e-learning / antrean diklat pada portal SWIPE-AP.';
             } else if (statusUsulan.toLowerCase().includes('verifikasi')) {
-              catatanRekomendasi = 'Berkas usulan sedang diverifikasi unit pembina di SIMASPATI.';
-            } else if (statusUsulan.toLowerCase().includes('jadwal') || statusUsulan.toLowerCase().includes('uji kompetensi')) {
-              catatanRekomendasi = 'Pejabat dijadwalkan Ujian Kompetensi. Harap hadir tepat waktu.';
+              catatanRekomendasi = 'Berkas usulan dalam verifikasi unit pembina SIMASPATEN. Cek notifikasi berkala.';
+            } else if (statusUsulan.toLowerCase().includes('jadwal') || statusUsulan.toLowerCase().includes('uji kompetensi') || statusUsulan.toLowerCase().includes('ujian')) {
+              catatanRekomendasi = 'Pejabat dijadwalkan Ujian Kompetensi. Harap hadir tepat waktu sesuai jadwal SIMASPATEN.';
             } else {
-              catatanRekomendasi = 'Segera rekam usulan penilaian kompetensi di aplikasi SIMASPATI.';
+              catatanRekomendasi = 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATEN.';
             }
           } else {
             if (statusJabatan.toLowerCase() === 'aktif') {
               if (isKadaluarsa) {
-                catatanRekomendasi = 'URGENT: Pejabat Aktif masa berlaku telah habis. Segera perpanjang!';
+                catatanRekomendasi = 'URGENT: Pejabat Aktif masa berlaku telah habis. Segera rekam perpanjangan di SIMASPATEN!';
               } else if (isMendekatiKadaluarsa) {
-                catatanRekomendasi = `PRIORITAS TINGGI: Sisa waktu ${sisaHari} hari. Segera rekam perpanjangan di SIMASPATI.`;
+                catatanRekomendasi = `PRIORITAS TINGGI: Sisa waktu ${sisaHari} hari. Segera rekam perpanjangan di SIMASPATEN.`;
               } else {
-                catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATI.';
+                catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATEN.';
               }
             } else {
-              catatanRekomendasi = 'Pejabat Non-Aktif. Dapat diperpanjang jika ditugaskan kembali.';
+              catatanRekomendasi = 'Pejabat Non-Aktif. Dapat diajukan perpanjangan di SIMASPATEN jika ditugaskan kembali.';
             }
           }
 

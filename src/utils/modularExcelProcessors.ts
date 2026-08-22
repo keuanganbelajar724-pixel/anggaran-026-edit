@@ -722,7 +722,7 @@ export async function validatePengelolaanUPExcelFile(
 
           const frekuensiGUP = colFrekuensi !== -1 ? Math.max(0, parseInt(String(row[colFrekuensi])) || 1) : 1;
           const nomorSp2dTerakhir = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : undefined;
-          const tglTerakhirSP2D = colTglSP2D !== -1 ? cleanText(row[colTglSP2D]) : '15-08-2026';
+          const tglTerakhirSP2D = colTglSP2D !== -1 ? (parseExcelDateString(row[colTglSP2D]) || cleanText(row[colTglSP2D]) || '-') : '-';
 
           // PARSE KOLOM N (BATAS REVOLVING)
           const rawBatas = colBatasRevolving !== -1 && row[colBatasRevolving] !== undefined && row[colBatasRevolving] !== '' 
@@ -1263,30 +1263,30 @@ export async function validatePejabatExcelFile(
             // Generate smart actionable recommendations
             let catatanRekomendasi = '';
             if (kategoriData === 'BELUM_SERTIFIKAT') {
-              if (rawStatusUsulan.toLowerCase().includes('antrean diklat')) {
-                catatanRekomendasi = 'Pantau pemanggilan diklat e-learning BNT/PNT pada portal Kemenkeu Learning Center (KLC).';
+              if (rawStatusUsulan.toLowerCase().includes('antrean diklat') || rawStatusUsulan.toLowerCase().includes('antrean')) {
+                catatanRekomendasi = 'Pantau pemanggilan diklat e-learning / antrean diklat pada portal SWIPE-AP.';
               } else if (rawStatusUsulan.toLowerCase().includes('verifikasi')) {
-                catatanRekomendasi = 'Berkas usulan dalam verifikasi unit pembina SIMASPATI. Cek notifikasi berkala.';
-              } else if (rawStatusUsulan.toLowerCase().includes('jadwal') || rawStatusUsulan.toLowerCase().includes('uji kompetensi')) {
-                catatanRekomendasi = 'Pejabat dijadwalkan mengikuti Ujian Kompetensi. Harap persiapkan materi dan hadir tepat waktu.';
+                catatanRekomendasi = 'Berkas usulan dalam verifikasi unit pembina SIMASPATEN. Cek notifikasi berkala.';
+              } else if (rawStatusUsulan.toLowerCase().includes('jadwal') || rawStatusUsulan.toLowerCase().includes('uji kompetensi') || rawStatusUsulan.toLowerCase().includes('ujian')) {
+                catatanRekomendasi = 'Pejabat dijadwalkan mengikuti Ujian Kompetensi. Harap persiapkan materi dan hadir tepat waktu sesuai jadwal SIMASPATEN.';
               } else if (rawStatusUsulan.toLowerCase().includes('tidak lulus') || rawStatusUsulan.toLowerCase().includes('tidak memenuhi')) {
-                catatanRekomendasi = 'Lengkapi perbaikan berkas persyaratan dan ajukan pendaftaran remedial/ujian ulang di SIMASPATI.';
+                catatanRekomendasi = 'Lengkapi perbaikan berkas persyaratan dan ajukan pendaftaran remedial/ujian ulang di SIMASPATEN.';
               } else {
-                catatanRekomendasi = 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATI.';
+                catatanRekomendasi = 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATEN.';
               }
             } else {
               if (rawStatusJabatan.toLowerCase() === 'aktif') {
                 if (isKadaluarsa) {
-                  catatanRekomendasi = 'URGENT: Pejabat AKTIF dengan sertifikat Kadaluarsa. Segera ajukan perpanjangan/refreshment.';
+                  catatanRekomendasi = 'URGENT: Pejabat AKTIF dengan sertifikat Kadaluarsa. Segera ajukan perpanjangan di SIMASPATEN!';
                 } else if (isMendekatiKadaluarsa) {
-                  catatanRekomendasi = `PRIORITAS TINGGI: Sertifikat pejabat aktif tersisa ${sisaHari} hari. Segera rekam usulan perpanjangan di SIMASPATI.`;
+                  catatanRekomendasi = `PRIORITAS TINGGI: Sertifikat pejabat aktif tersisa ${sisaHari} hari. Segera rekam usulan perpanjangan di SIMASPATEN.`;
                 } else if (rawStatusUsulan.toLowerCase().includes('admin dsp') || rawStatusUsulan.toLowerCase().includes('kirim')) {
-                  catatanRekomendasi = 'Usulan perpanjangan telah dikirim ke Admin DSP. Pantau penerbitan sertifikat baru.';
+                  catatanRekomendasi = 'Usulan perpanjangan telah dikirim ke Admin DSP. Pantau penerbitan sertifikat baru di SIMASPATEN.';
                 } else {
-                  catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATI sebelum masa berlaku berakhir.';
+                  catatanRekomendasi = 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATEN sebelum masa berlaku berakhir.';
                 }
               } else {
-                catatanRekomendasi = 'Pejabat berstatus Non-Aktif. Dapat diperpanjang apabila akan ditugaskan kembali di satker.';
+                catatanRekomendasi = 'Pejabat berstatus Non-Aktif. Dapat diperpanjang di SIMASPATEN apabila akan ditugaskan kembali di satker.';
               }
             }
 
@@ -1657,6 +1657,158 @@ export function downloadPejabatTemplate() {
  * 6. VALIDASI & IMPORT EXCEL TRANSAKSI GUP KKP (KARTU KREDIT PEMERINTAH)
  * Mematuhi prinsip perlindungan privasi data finansial (Kolom C s.d. I tidak disimpan di publik)
  */
+/**
+ * Helper to parse any Date format (DD-MM-YYYY, YYYY-MM-DD, Excel Serial, or string)
+ * into structured date string, month name, year, and period key (e.g. "Januari 2026").
+ */
+export function parseDateToPeriod(dateVal: any, fallbackYear = 2026): {
+  dateStr: string;
+  monthName: string;
+  year: number;
+  periodKey: string;
+} | null {
+  if (dateVal === undefined || dateVal === null || dateVal === '') return null;
+
+  // 1. If already Date object
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+    const day = String(dateVal.getDate()).padStart(2, '0');
+    const mIdx = dateVal.getMonth();
+    const yr = dateVal.getFullYear();
+    const monthName = INDONESIAN_MONTHS[mIdx] || 'Januari';
+    return {
+      dateStr: `${day}-${String(mIdx + 1).padStart(2, '0')}-${yr}`,
+      monthName,
+      year: yr,
+      periodKey: `${monthName} ${yr}`
+    };
+  }
+
+  // 2. If number (Excel serial date number, e.g., 46041)
+  if (typeof dateVal === 'number' && !isNaN(dateVal) && dateVal > 20000 && dateVal < 80000) {
+    const jsDate = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+    if (!isNaN(jsDate.getTime())) {
+      const day = String(jsDate.getUTCDate()).padStart(2, '0');
+      const mIdx = jsDate.getUTCMonth();
+      const yr = jsDate.getUTCFullYear();
+      const monthName = INDONESIAN_MONTHS[mIdx] || 'Januari';
+      return {
+        dateStr: `${day}-${String(mIdx + 1).padStart(2, '0')}-${yr}`,
+        monthName,
+        year: yr,
+        periodKey: `${monthName} ${yr}`
+      };
+    }
+  }
+
+  let str = String(dateVal).trim();
+  if (!str || str === '-' || str.toLowerCase() === 'tidak ada' || str.toLowerCase() === 'null') return null;
+
+  // Remove timestamp portion if present (e.g. "15/08/2026 10:20:00" or "2026-08-15T00:00:00")
+  if (str.includes('T')) {
+    str = str.split('T')[0];
+  } else if (str.includes(' ')) {
+    const spaceParts = str.split(/\s+/);
+    // If first part looks like a date (contains - or / or .), keep first part
+    if (spaceParts[0] && /[-/.]/.test(spaceParts[0])) {
+      str = spaceParts[0];
+    }
+  }
+
+  // 3. Format: DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const mIdx = parseInt(dmyMatch[2], 10) - 1;
+    let yr = parseInt(dmyMatch[3], 10);
+    if (yr < 100) yr = 2000 + yr; // convert 26 -> 2026
+    if (mIdx >= 0 && mIdx < 12) {
+      const monthName = INDONESIAN_MONTHS[mIdx];
+      return {
+        dateStr: `${day}-${String(mIdx + 1).padStart(2, '0')}-${yr}`,
+        monthName,
+        year: yr,
+        periodKey: `${monthName} ${yr}`
+      };
+    }
+  }
+
+  // 4. Format: YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (ymdMatch) {
+    const yr = parseInt(ymdMatch[1], 10);
+    const mIdx = parseInt(ymdMatch[2], 10) - 1;
+    const day = ymdMatch[3].padStart(2, '0');
+    if (mIdx >= 0 && mIdx < 12) {
+      const monthName = INDONESIAN_MONTHS[mIdx];
+      return {
+        dateStr: `${day}-${String(mIdx + 1).padStart(2, '0')}-${yr}`,
+        monthName,
+        year: yr,
+        periodKey: `${monthName} ${yr}`
+      };
+    }
+  }
+
+  // 5. Check if string contains month name in Indonesian or English (e.g. "19 Januari 2026" or "19-Jan-2026" or "19 Aug 2026")
+  const fullStr = String(dateVal).trim();
+  for (let i = 0; i < INDONESIAN_MONTHS.length; i++) {
+    const mName = INDONESIAN_MONTHS[i];
+    const mShort = mName.substring(0, 3);
+    const regex = new RegExp(`\\b(${mName}|${mShort})\\b`, 'i');
+    if (regex.test(fullStr)) {
+      const yrMatch = fullStr.match(/\b(202\d)\b/);
+      const yr = yrMatch ? parseInt(yrMatch[1], 10) : fallbackYear;
+      const dayMatch = fullStr.match(/\b([0-3]?\d)\b/);
+      const day = dayMatch ? dayMatch[1].padStart(2, '0') : '01';
+      return {
+        dateStr: `${day}-${String(i + 1).padStart(2, '0')}-${yr}`,
+        monthName: mName,
+        year: yr,
+        periodKey: `${mName} ${yr}`
+      };
+    }
+  }
+
+  // English month names
+  const englishMonths = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+  const englishShorts = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  for (let i = 0; i < 12; i++) {
+    if (new RegExp(`\\b(${englishMonths[i]}|${englishShorts[i]})\\b`, 'i').test(fullStr)) {
+      const yrMatch = fullStr.match(/\b(202\d)\b/);
+      const yr = yrMatch ? parseInt(yrMatch[1], 10) : fallbackYear;
+      const dayMatch = fullStr.match(/\b([0-3]?\d)\b/);
+      const day = dayMatch ? dayMatch[1].padStart(2, '0') : '01';
+      const mName = INDONESIAN_MONTHS[i];
+      return {
+        dateStr: `${day}-${String(i + 1).padStart(2, '0')}-${yr}`,
+        monthName: mName,
+        year: yr,
+        periodKey: `${mName} ${yr}`
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Helper to convert date string (DD-MM-YYYY or any parseable format) to epoch timestamp
+ * for accurate chronological comparisons.
+ */
+export function parseDateToTimestamp(dateVal: any): number {
+  if (!dateVal || dateVal === '-') return 0;
+  const p = parseDateToPeriod(dateVal);
+  if (!p) return 0;
+  const parts = p.dateStr.split('-');
+  if (parts.length === 3) {
+    const d = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const y = parseInt(parts[2], 10);
+    return new Date(y, m, d).getTime();
+  }
+  return 0;
+}
+
 export async function validateKKPExcelFile(
   file: File,
   masterSatkers: MasterSatker[],
@@ -1668,7 +1820,7 @@ export async function validateKKPExcelFile(
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
@@ -1677,14 +1829,15 @@ export async function validateKKPExcelFile(
           throw new Error('File Excel Transaksi KKP kosong.');
         }
 
-        // Master lookup
+        // Master lookup map
         const masterMap = new Map<string, MasterSatker>();
         masterSatkers.forEach(m => {
           if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
         });
 
-        // Header search
+        // Robust Header Search with multi-column scoring
         let headerRowIndex = -1;
+        let bestScore = 0;
         let colKodeSatker = -1;
         let colNamaSatker = -1;
         let colNominal = -1;
@@ -1696,45 +1849,67 @@ export async function validateKKPExcelFile(
 
         for (let r = 0; r < Math.min(25, matrix.length); r++) {
           const row = matrix[r];
-          if (!row) continue;
-          const rowLower = row.map(c => String(c).toLowerCase().trim());
+          if (!row || row.length === 0) continue;
+          let score = 0;
+          let tKode = -1, tNama = -1, tNom = -1, tJml = -1, tBank = -1, tNoSp2d = -1, tTglSp2d = -1, tKl = -1;
 
-          rowLower.forEach((val, idx) => {
-            if (val.includes('kode satker') || val === 'kdsatker' || val === 'satker' || (val.includes('kode') && val.includes('satker'))) {
-              colKodeSatker = idx;
-            } else if (val.includes('nama satker') || val === 'nmsatker' || val === 'uraian satker') {
-              colNamaSatker = idx;
-            } else if (val.includes('nominal') || val.includes('nilai sp2d') || val.includes('rupiah') || val.includes('total kkp') || val.includes('nilai kkp') || val.includes('jumlah rupiah')) {
-              colNominal = idx;
+          row.forEach((cell, idx) => {
+            const val = String(cell || '').toLowerCase().trim();
+            if (!val) return;
+
+            if (val.includes('tanggal sp2d') || val.includes('tgl sp2d') || val.includes('tgl. sp2d') || val.includes('tgl_sp2d') || val.includes('tanggal_sp2d') || val === 'tglsp2d') {
+              tTglSp2d = idx;
+              score += 4;
+            } else if (val.includes('nomor sp2d') || val.includes('no sp2d') || val.includes('no. sp2d') || val.includes('no_sp2d') || val === 'nosp2d' || (val.includes('sp2d') && !val.includes('tgl') && !val.includes('nilai'))) {
+              tNoSp2d = idx;
+              score += 3;
+            } else if (val.includes('nilai transaksi kkp') || val.includes('nilai transaksi') || val.includes('nilai kkp') || val.includes('nilai sp2d') || val.includes('total kkp') || val.includes('jumlah rupiah') || val.includes('rupiah') || val.includes('nominal') || val.includes('nilai (rp)')) {
+              tNom = idx;
+              score += 4;
             } else if (val.includes('jumlah') && (val.includes('transaksi') || val.includes('sp2d') || val.includes('frekuensi') || val.includes('kali'))) {
-              colJumlahTransaksi = idx;
+              tJml = idx;
+              score += 3;
+            } else if (val.includes('kode satker') || val === 'kdsatker' || (val.includes('satker') && !val.includes('nama') && !val.includes('uraian'))) {
+              tKode = idx;
+              score += 3;
+            } else if (val.includes('nama satker') || val === 'nmsatker' || val === 'uraian satker') {
+              tNama = idx;
+              score += 2;
             } else if (val.includes('bank') || val.includes('penerbit') || val.includes('mitra')) {
-              colBank = idx;
-            } else if (val.includes('no sp2d') || val.includes('nosp2d') || val.includes('nomor sp2d')) {
-              colNoSp2d = idx;
-            } else if (val.includes('tgl sp2d') || val.includes('tglsp2d') || val.includes('tanggal sp2d')) {
-              colTglSp2d = idx;
+              tBank = idx;
+              score += 2;
             } else if (val.includes('kementerian') || val.includes('lembaga') || val === 'k/l') {
-              colKl = idx;
+              tKl = idx;
+              score += 1;
             }
           });
 
-          if (colKodeSatker !== -1 || colNamaSatker !== -1 || colNominal !== -1) {
+          if (score > bestScore) {
+            bestScore = score;
             headerRowIndex = r;
-            break;
+            colKodeSatker = tKode;
+            colNamaSatker = tNama;
+            colNominal = tNom;
+            colJumlahTransaksi = tJml;
+            colBank = tBank;
+            colNoSp2d = tNoSp2d;
+            colTglSp2d = tTglSp2d;
+            colKl = tKl;
           }
         }
 
-        // Fallback default column indices if standard OM-SPAN matrix
-        if (headerRowIndex === -1) {
-          headerRowIndex = 0;
-          colKodeSatker = 1; // Col B
-          colNamaSatker = 2; // Col C
-          colNominal = matrix[0].length > 9 ? 9 : matrix[0].length - 1;
+        // Fallback default column indices if standard OM-SPAN matrix (NO=A, SATKER=B, SPM=C, NO_SPM=D, TGL_SP2D=E, NO_SP2D=F, NILAI=G)
+        if (headerRowIndex === -1 || bestScore < 3) {
+          headerRowIndex = 7; // Standard OM-SPAN header at row 8 (0-indexed 7)
         }
+        if (colKodeSatker === -1) colKodeSatker = 1;  // Col B: SATKER
+        if (colTglSp2d === -1) colTglSp2d = 4;        // Col E: TANGGAL SP2D
+        if (colNoSp2d === -1) colNoSp2d = 5;          // Col F: NOMOR SP2D
+        if (colNominal === -1) colNominal = 6;        // Col G: Nilai Transaksi KKP (Rp)
+        if (colBank === -1 && matrix[0] && matrix[0].length > 7) colBank = 7;
 
-        // Aggregate records per satker
-        const satkerAggregation = new Map<string, {
+        // Aggregate records per satker and per period month based on Kolom E (Tanggal SP2D)
+        const satkerPeriodAggregation = new Map<string, {
           kodeSatker: string;
           namaSatker: string;
           kementerianLembaga: string;
@@ -1743,6 +1918,8 @@ export async function validateKKPExcelFile(
           bankPenerbit: string;
           noSp2dTerakhir: string;
           tglSp2dTerakhir: string;
+          periode: string;
+          tahun: number;
         }>();
 
         const invalidRows: { rowNumber: number; kodeSatker: string; namaSatker?: string; reason: string; raw?: any }[] = [];
@@ -1755,8 +1932,20 @@ export async function validateKKPExcelFile(
           let rawKode = colKodeSatker !== -1 ? row[colKodeSatker] : '';
           let rawNama = colNamaSatker !== -1 ? row[colNamaSatker] : '';
 
-          // Look for 6-digit digits if code not cleanly found
-          let kodeSatker = normalizeKodeSatker(rawKode);
+          let kodeSatker = '';
+          let namaSatkerExtracted = '';
+
+          // Check if SATKER column has format "411821 - KANWIL DJKN JAWA TENGAH..."
+          const satkerStr = String(rawKode || '').trim();
+          const dashMatch = satkerStr.match(/^(\d{6})\s*[-–—]\s*(.*)$/);
+          if (dashMatch) {
+            kodeSatker = dashMatch[1];
+            namaSatkerExtracted = cleanText(dashMatch[2]);
+          } else {
+            kodeSatker = normalizeKodeSatker(rawKode);
+          }
+
+          // Look for 6-digit digits in row if code not cleanly found
           if (!kodeSatker) {
             row.forEach(c => {
               const str = String(c).trim();
@@ -1767,41 +1956,75 @@ export async function validateKKPExcelFile(
           }
 
           if (!kodeSatker) {
-            continue; // Skip summary or empty rows
+            continue; // Skip header/footer/empty lines
           }
 
           const master = masterMap.get(kodeSatker);
-          const namaSatker = cleanText(rawNama) || master?.namaSatker || `Satker ${kodeSatker}`;
+          const namaSatker = namaSatkerExtracted || cleanText(rawNama) || master?.namaSatker || `Satker ${kodeSatker}`;
           const kementerianLembaga = cleanText(colKl !== -1 ? row[colKl] : '') || master?.kementerianLembaga || 'KEMENTERIAN / LEMBAGA MITRA';
 
           const nominal = colNominal !== -1 ? parseFormattedNumber(row[colNominal]) : 0;
           const bank = cleanText(colBank !== -1 ? row[colBank] : '') || 'Bank Rakyat Indonesia (BRI)';
           const noSp2d = cleanText(colNoSp2d !== -1 ? row[colNoSp2d] : '');
-          const tglSp2d = cleanText(colTglSp2d !== -1 ? row[colTglSp2d] : '');
+          
+          // Parse Tanggal SP2D from Kolom E (or designated column)
+          let rawTglSp2d = colTglSp2d !== -1 ? row[colTglSp2d] : '';
+          let parsedPeriod = parseDateToPeriod(rawTglSp2d, forcedYear || 2026);
+
+          // If designated column wasn't a valid date, scan row cells for a valid date
+          if (!parsedPeriod) {
+            for (let c = 0; c < row.length; c++) {
+              if (c === colKodeSatker || c === colNominal) continue;
+              const trial = parseDateToPeriod(row[c], forcedYear || 2026);
+              if (trial) {
+                parsedPeriod = trial;
+                rawTglSp2d = row[c];
+                break;
+              }
+            }
+          }
+
+          const tglSp2d = parsedPeriod?.dateStr || (cleanText(rawTglSp2d) !== '' ? cleanText(rawTglSp2d) : '-');
+          const periodMonth = parsedPeriod?.periodKey || forcedPeriod || 'Agustus 2026';
+          const year = parsedPeriod?.year || forcedYear || 2026;
+
           const count = colJumlahTransaksi !== -1 ? parseFormattedNumber(row[colJumlahTransaksi], 1) : 1;
 
-          if (satkerAggregation.has(kodeSatker)) {
-            const existing = satkerAggregation.get(kodeSatker)!;
+          // Aggregation key combines KodeSatker and Month Period so multi-month OM-SPAN files are cleanly separated
+          const aggKey = `${kodeSatker}_${periodMonth}`;
+
+          if (satkerPeriodAggregation.has(aggKey)) {
+            const existing = satkerPeriodAggregation.get(aggKey)!;
             existing.jumlahTransaksi += count;
             existing.totalNominal += nominal;
-            if (noSp2d) existing.noSp2dTerakhir = noSp2d;
-            if (tglSp2d) existing.tglSp2dTerakhir = tglSp2d;
+            
+            // Pick the most recent SP2D date chronologically
+            if (tglSp2d && tglSp2d !== '-') {
+              const curTime = parseDateToTimestamp(tglSp2d);
+              const prevTime = parseDateToTimestamp(existing.tglSp2dTerakhir);
+              if (curTime >= prevTime) {
+                existing.tglSp2dTerakhir = tglSp2d;
+                if (noSp2d) existing.noSp2dTerakhir = noSp2d;
+              }
+            }
             if (bank && existing.bankPenerbit === 'Bank Rakyat Indonesia (BRI)') existing.bankPenerbit = bank;
           } else {
-            satkerAggregation.set(kodeSatker, {
+            satkerPeriodAggregation.set(aggKey, {
               kodeSatker,
               namaSatker,
               kementerianLembaga,
               jumlahTransaksi: count,
               totalNominal: nominal,
               bankPenerbit: bank,
-              noSp2dTerakhir: noSp2d || '260261301004' + Math.floor(100 + Math.random() * 899),
-              tglSp2dTerakhir: tglSp2d || '15-08-2026'
+              noSp2dTerakhir: noSp2d || ('260261301004' + Math.floor(100 + Math.random() * 899)),
+              tglSp2dTerakhir: tglSp2d,
+              periode: periodMonth,
+              tahun: year
             });
           }
         }
 
-        const validData = Array.from(satkerAggregation.values()).map((item, idx) => {
+        const validData = Array.from(satkerPeriodAggregation.values()).map((item, idx) => {
           let statusKeaktifan: 'Sangat Aktif' | 'Aktif' | 'Perlu Akselerasi' = 'Aktif';
           if (item.jumlahTransaksi >= 25 || item.totalNominal >= 200000000) {
             statusKeaktifan = 'Sangat Aktif';
@@ -1810,7 +2033,7 @@ export async function validateKKPExcelFile(
           }
 
           return {
-            id: `kkp-${item.kodeSatker}-${Date.now()}-${idx}`,
+            id: `kkp-${item.kodeSatker}-${item.periode.replace(/\s+/g, '-')}-${Date.now()}-${idx}`,
             kodeSatker: item.kodeSatker,
             namaSatker: item.namaSatker,
             kementerianLembaga: item.kementerianLembaga,
@@ -1820,11 +2043,17 @@ export async function validateKKPExcelFile(
             noSp2dTerakhir: item.noSp2dTerakhir,
             tglSp2dTerakhir: item.tglSp2dTerakhir,
             statusKeaktifan,
-            periode: forcedPeriod || 'Agustus 2026',
-            tahun: forcedYear || 2026,
+            periode: item.periode,
+            tahun: item.tahun,
             catatan: statusKeaktifan === 'Sangat Aktif' ? 'Top Transaksi KKP Aktif' : undefined
           };
         });
+
+        // Determine detected periods
+        const detectedPeriods = Array.from(new Set(validData.map(d => d.periode)));
+        const summaryPeriodText = detectedPeriods.length === 1 
+          ? detectedPeriods[0] 
+          : (detectedPeriods.length > 1 ? `${detectedPeriods.length} Periode Bulan (${detectedPeriods.slice(0, 3).join(', ')}${detectedPeriods.length > 3 ? '...' : ''})` : (forcedPeriod || 'Agustus 2026'));
 
         resolve({
           file,
@@ -1832,7 +2061,7 @@ export async function validateKKPExcelFile(
           fileSize: file.size,
           modul: 'TRANSAKSI_KKP',
           tahun: forcedYear || 2026,
-          periode: forcedPeriod || 'Agustus 2026',
+          periode: summaryPeriodText,
           totalRows: matrix.length,
           validData,
           invalidRows,
@@ -1925,27 +2154,29 @@ export async function validateDigipayExcelFile(
         const validData: DigipayRecord[] = [];
         const invalidRows: { rowNumber: number; kodeSatker: string; namaSatker?: string; reason: string; raw?: any }[] = [];
 
-        // Iterate through all sheets (Supports "Pembayaran VA", "Pembayaran KKP", or single combined sheet)
+        // Iterate through all sheets (Supports "VA", "KKP", "Pembayaran VA", "Pembayaran KKP", or single combined sheet)
         workbook.SheetNames.forEach((sheetName) => {
           const worksheet = workbook.Sheets[sheetName];
           const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
           if (!matrix || matrix.length === 0) return;
 
-          const sheetLower = sheetName.toLowerCase();
+          const sheetLower = sheetName.toLowerCase().trim();
           // Determine default payment type from sheet name
           let defaultType: 'VA' | 'KKP' = 'VA';
-          if (sheetLower.includes('kkp') || sheetLower.includes('kartu') || sheetLower.includes('kredit')) {
+          if (sheetLower === 'kkp' || sheetLower.includes('kkp') || sheetLower.includes('kartu') || sheetLower.includes('kredit')) {
             defaultType = 'KKP';
-          } else if (sheetLower.includes('va') || sheetLower.includes('virtual') || sheetLower.includes('cms')) {
+          } else if (sheetLower === 'va' || sheetLower.includes('va') || sheetLower.includes('virtual') || sheetLower.includes('cms')) {
             defaultType = 'VA';
           }
 
-          // Header search
+          // Robust Header search with multi-column scoring
           let headerRowIndex = -1;
+          let bestScore = 0;
           let colKodeSatker = -1;
           let colNamaSatker = -1;
           let colTipe = -1;
           let colNoTransaksi = -1;
+          let colTglBayar = -1;
           let colTglTransaksi = -1;
           let colVendor = -1;
           let colBank = -1;
@@ -1956,59 +2187,93 @@ export async function validateDigipayExcelFile(
 
           for (let r = 0; r < Math.min(25, matrix.length); r++) {
             const row = matrix[r];
-            if (!row) continue;
-            const rowLower = row.map(c => String(c).toLowerCase().trim().replace(/[^a-z0-9]/g, ''));
+            if (!row || row.length === 0) continue;
+            let score = 0;
+            let tKode = -1, tNama = -1, tTipe = -1, tNoTrans = -1, tTglBayar = -1, tTglTrans = -1, tVendor = -1, tBank = -1, tNom = -1, tStatus = -1, tUraian = -1, tKl = -1;
 
-            rowLower.forEach((val, idx) => {
-              if (['kodesatker', 'kdsatker', 'satker', 'kodesatkerinduk', 'kdsatkerinduk', 'satkerkode'].some(k => val.includes(k))) {
-                if (colKodeSatker === -1) colKodeSatker = idx;
-              } else if (['namasatker', 'nmsatker', 'uraiansatker', 'satkernama', 'satkeruraian'].some(k => val.includes(k))) {
-                if (colNamaSatker === -1) colNamaSatker = idx;
-              } else if (['tipepembayaran', 'metodepembayaran', 'metode', 'jenis', 'jenispembayaran', 'tipe', 'jenistransaksi'].some(k => val.includes(k))) {
-                if (colTipe === -1) colTipe = idx;
+            row.forEach((cell, idx) => {
+              const rawVal = String(cell || '').trim();
+              const val = rawVal.toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (!val) return;
+
+              // 1. TGLBAYAR (Kolom L) - highest priority date column for Digipay
+              if (val.includes('tglbayar') || val.includes('tanggalbayar') || val === 'tglbayar' || val.includes('bayartgl')) {
+                tTglBayar = idx;
+                score += 5;
+              } else if (val.includes('tgltransaksi') || val.includes('tanggaltransaksi') || val.includes('tglpesanan') || val.includes('tanggalpesanan') || val.includes('tglinvoice') || val.includes('tanggalinvoice') || val === 'tgl' || val === 'tanggal') {
+                tTglTrans = idx;
+                score += 2;
+              } else if (['kdsatker', 'kodesatker', 'satker', 'kdsatkerinduk', 'kodesatkerinduk', 'satkerkode'].some(k => val.includes(k))) {
+                tKode = idx;
+                score += 4;
+              } else if (['nmsatke', 'nmsatker', 'namasatker', 'uraiansatker', 'satkernama'].some(k => val.includes(k))) {
+                tNama = idx;
+                score += 3;
               } else if (
-                (val.includes('nominal') || val.includes('nilai') || val.includes('rupiah') || val.includes('tagihan') || val.includes('harga') || val.includes('total') || val.includes('jumlah')) &&
-                (val.includes('invoice') || val.includes('nominal') || val.includes('nilai') || val.includes('rp') || val.includes('tagihan') || val.includes('transaksi') || val.includes('belanja') || val.includes('bayar') || val === 'nominal' || val === 'nilai' || val === 'rupiah' || val === 'total' || val === 'jumlah' || val === 'nominalinvoice' || val === 'nilaiinvoice' || val === 'totalinvoice')
+                ['nominvc', 'nominalinvoice', 'nilaiinvoice', 'totalinvoice', 'nominal', 'nilai', 'rupiah', 'tagihan', 'total'].some(k => val.includes(k)) ||
+                (val.includes('invoice') && (val.includes('nom') || val.includes('nilai') || val.includes('total') || val.includes('rp')))
               ) {
-                if (colNominal === -1) colNominal = idx;
+                tNom = idx;
+                score += 4;
               } else if (
-                ['notransaksi', 'nomortransaksi', 'noorder', 'orderid', 'noinvoice', 'nomorinvoice', 'kodedigipay', 'notrans', 'idtransaksi', 'nopesanan', 'kodepesanan'].some(k => val.includes(k)) ||
-                (val.includes('invoice') && !val.includes('nominal') && !val.includes('nilai') && !val.includes('total'))
+                ['noinvoic', 'noinvoice', 'notransaksi', 'nomortransaksi', 'noorder', 'orderid', 'kodedigipay', 'notrans', 'idtransaksi', 'nopesanan'].some(k => val.includes(k)) ||
+                (val.includes('invoice') && !val.includes('nominal') && !val.includes('nilai'))
               ) {
-                if (colNoTransaksi === -1) colNoTransaksi = idx;
-              } else if (['tgltransaksi', 'tanggaltransaksi', 'tglpesanan', 'tanggalpesanan', 'tglbayar', 'tanggalbayar', 'tgl', 'tanggal', 'tglinvoice', 'tanggalinvoice'].some(k => val.includes(k))) {
-                if (colTglTransaksi === -1) colTglTransaksi = idx;
-              } else if (['namavendor', 'vendor', 'rekanan', 'namarekanan', 'umkm', 'penyedia', 'merchant', 'toko', 'penjual'].some(k => val.includes(k))) {
-                if (colVendor === -1) colVendor = idx;
-              } else if (['namabank', 'bank', 'bankpembayar', 'bankmitra', 'bankpenerbit', 'mitrabank'].some(k => val.includes(k))) {
-                if (colBank === -1) colBank = idx;
-              } else if (['statustransaksi', 'status', 'statuspesanan', 'statusbayar', 'statusinvoice'].some(k => val.includes(k))) {
-                if (colStatus === -1) colStatus = idx;
-              } else if (['uraianbarang', 'uraian', 'deskripsi', 'namabarang', 'keterangan', 'rincian', 'belanja'].some(k => val.includes(k)) && !val.includes('nominal') && !val.includes('total')) {
-                if (colUraian === -1) colUraian = idx;
-              } else if (['kementerianlembaga', 'kl', 'kementerian', 'namaba', 'lembaga'].some(k => val.includes(k))) {
-                if (colKl === -1) colKl = idx;
+                tNoTrans = idx;
+                score += 3;
+              } else if (['nmvendo', 'namavendor', 'vendor', 'rekanan', 'namarekanan', 'umkm', 'penyedia', 'merchant', 'toko'].some(k => val.includes(k))) {
+                tVendor = idx;
+                score += 3;
+              } else if (['stsbayar', 'statusbayar', 'statustransaksi', 'status', 'statuspesanan', 'statusinvoice'].some(k => val.includes(k))) {
+                tStatus = idx;
+                score += 2;
+              } else if (['banksat', 'bankven', 'namabank', 'bank', 'bankpembayar', 'bankmitra', 'bankpenerbit'].some(k => val.includes(k))) {
+                tBank = idx;
+                score += 2;
+              } else if (['carabayar', 'metode', 'tipe', 'jenis', 'tipepembayaran', 'jenispembayaran'].some(k => val.includes(k))) {
+                tTipe = idx;
+                score += 2;
+              } else if (['kategori', 'katego', 'uraian', 'deskripsi', 'namabarang', 'keterangan', 'rincian', 'belanja'].some(k => val.includes(k))) {
+                tUraian = idx;
+                score += 2;
+              } else if (['nmkanw', 'kementerian', 'lembaga', 'kl', 'kementerianlembaga'].some(k => val.includes(k))) {
+                tKl = idx;
+                score += 1;
               }
             });
 
-            if (colKodeSatker !== -1 || colNamaSatker !== -1 || colNominal !== -1) {
+            if (score > bestScore) {
+              bestScore = score;
               headerRowIndex = r;
-              break;
+              colKodeSatker = tKode;
+              colNamaSatker = tNama;
+              colTipe = tTipe;
+              colNoTransaksi = tNoTrans;
+              colTglBayar = tTglBayar;
+              colTglTransaksi = tTglTrans;
+              colVendor = tVendor;
+              colBank = tBank;
+              colNominal = tNom;
+              colStatus = tStatus;
+              colUraian = tUraian;
+              colKl = tKl;
             }
           }
 
-          if (headerRowIndex === -1) {
-            headerRowIndex = 0;
-            colKodeSatker = 1; // Default Col B
-            colNamaSatker = 2; // Default Col C
-            // Kolom I (index 8 in 0-based) is the standard Digipay nominal invoice column!
-            colNominal = matrix[0] && matrix[0].length > 8 ? 8 : (matrix[0] && matrix[0].length > 6 ? 6 : 8);
+          // If standard OM-SPAN / Digipay Satu header format
+          if (headerRowIndex === -1 || bestScore < 3) {
+            headerRowIndex = 0; // Default Row 1 (0-indexed 0)
           }
-
-          // If colNominal is still not detected, default to Kolom I (index 8)
-          if (colNominal === -1) {
-            colNominal = 8;
-          }
+          if (colKodeSatker === -1) colKodeSatker = 5;  // Col F (index 5)
+          if (colNamaSatker === -1) colNamaSatker = 6;  // Col G (index 6)
+          if (colNoTransaksi === -1) colNoTransaksi = 7; // Col H (index 7)
+          if (colNominal === -1) colNominal = 8;        // Col I (index 8)
+          if (colVendor === -1) colVendor = 9;          // Col J (index 9)
+          if (colStatus === -1) colStatus = 10;         // Col K (index 10)
+          if (colTglBayar === -1) colTglBayar = 11;     // Col L (index 11) -> TGLBAYAR
+          if (colBank === -1) colBank = 14;             // Col O (index 14) -> BANK_SAT
+          if (colUraian === -1) colUraian = 13;         // Col N (index 13) -> KATEGORI
+          if (colTipe === -1) colTipe = 17;             // Col R (index 17) -> CARA BAYAR
 
           for (let r = headerRowIndex + 1; r < matrix.length; r++) {
             const row = matrix[r];
@@ -2036,18 +2301,18 @@ export async function validateDigipayExcelFile(
             // Determine payment type
             let tipe: 'VA' | 'KKP' = defaultType;
             if (colTipe !== -1 && row[colTipe]) {
-              const rawTipe = String(row[colTipe]).toUpperCase();
-              if (rawTipe.includes('KKP') || rawTipe.includes('KREDIT')) {
+              const rawTipe = String(row[colTipe]).toUpperCase().trim();
+              if (rawTipe === 'KKP' || rawTipe.includes('KKP') || rawTipe.includes('KREDIT')) {
                 tipe = 'KKP';
-              } else if (rawTipe.includes('VA') || rawTipe.includes('VIRTUAL') || rawTipe.includes('CMS')) {
+              } else if (rawTipe === 'VA' || rawTipe.includes('VA') || rawTipe.includes('VIRTUAL') || rawTipe.includes('CMS')) {
                 tipe = 'VA';
               }
             }
 
-            // Parse nominal invoice: Primary column from header detection
+            // Parse nominal invoice: Primary column from header detection (Kolom I)
             let nominal = colNominal !== -1 ? parseFormattedNumber(row[colNominal]) : 0;
 
-            // Fallback: If nominal is 0, check Kolom I (index 8 = Tab I) or other numeric columns
+            // Fallback: If nominal is 0, check Kolom I (index 8) or other numeric columns
             if (nominal <= 0 && row.length > 8 && parseFormattedNumber(row[8]) > 0) {
               nominal = parseFormattedNumber(row[8]);
             }
@@ -2064,11 +2329,38 @@ export async function validateDigipayExcelFile(
             const noTrans = cleanText(colNoTransaksi !== -1 ? row[colNoTransaksi] : '') || 
               (row[4] ? cleanText(row[4]) : `DGP-${Date.now().toString().slice(-5)}-${validData.length + 1}`);
             
-            const tglTrans = parseExcelDateString(colTglTransaksi !== -1 ? row[colTglTransaksi] : (row[5] ? row[5] : '')) || '18-08-2026';
-            const vendor = cleanText(colVendor !== -1 ? row[colVendor] : (row[6] ? row[6] : '')) || 'Penyedia UMKM Terdaftar';
-            const bank = cleanText(colBank !== -1 ? row[colBank] : (row[7] && isNaN(Number(row[7])) ? row[7] : '')) || (tipe === 'KKP' ? 'Bank Rakyat Indonesia (BRI)' : 'Bank Mandiri');
-            const status = cleanText(colStatus !== -1 ? row[colStatus] : (row[9] ? row[9] : '')) || 'Selesai';
-            const uraian = cleanText(colUraian !== -1 ? row[colUraian] : (row[10] ? row[10] : '')) || 'Belanja Pengadaan Barang & Operasional Digipay';
+            // Prioritize Kolom L (TGLBAYAR) for Tanggal Bayar
+            let rawTgl = '';
+            if (colTglBayar !== -1 && row[colTglBayar] !== undefined && row[colTglBayar] !== '') {
+              rawTgl = row[colTglBayar];
+            } else if (row.length > 11 && row[11] !== undefined && row[11] !== '') {
+              rawTgl = row[11];
+            } else if (colTglTransaksi !== -1 && row[colTglTransaksi] !== undefined && row[colTglTransaksi] !== '') {
+              rawTgl = row[colTglTransaksi];
+            }
+
+            let parsedPeriod = parseDateToPeriod(rawTgl, forcedYear || 2026);
+
+            // If not parseable from designated column, scan other cells for a valid date
+            if (!parsedPeriod) {
+              for (let c = 0; c < row.length; c++) {
+                if (c === colKodeSatker || c === colNominal) continue;
+                const trial = parseDateToPeriod(row[c], forcedYear || 2026);
+                if (trial) {
+                  parsedPeriod = trial;
+                  rawTgl = row[c];
+                  break;
+                }
+              }
+            }
+
+            const tglTrans = parsedPeriod?.dateStr || (cleanText(rawTgl) !== '' ? cleanText(rawTgl) : '-');
+            const periodMonth = parsedPeriod?.periodKey || forcedPeriod || 'Agustus 2026';
+            const year = parsedPeriod?.year || forcedYear || 2026;
+            const vendor = cleanText(colVendor !== -1 ? row[colVendor] : (row[9] ? row[9] : '')) || 'Penyedia UMKM Terdaftar';
+            const bank = cleanText(colBank !== -1 ? row[colBank] : (row[14] ? row[14] : '')) || (tipe === 'KKP' ? 'Bank Rakyat Indonesia (BRI)' : 'Bank Mandiri');
+            const status = cleanText(colStatus !== -1 ? row[colStatus] : (row[10] ? row[10] : '')) || 'Selesai';
+            const uraian = cleanText(colUraian !== -1 ? row[colUraian] : (row[13] ? row[13] : '')) || 'Belanja Pengadaan Barang & Operasional Digipay';
 
             // Skip only if both nominal <= 0 and no identifiable transaction info
             if (nominal <= 0 && (!noTrans || noTrans.startsWith('DGP-'))) {
@@ -2088,12 +2380,18 @@ export async function validateDigipayExcelFile(
               nominalTransaksi: nominal,
               statusTransaksi: status,
               uraianBarang: uraian,
-              periode: forcedPeriod || 'Agustus 2026',
-              tahun: forcedYear || 2026,
+              periode: periodMonth,
+              tahun: year,
               createdAt: new Date().toISOString()
             });
           }
         });
+
+        // Determine detected periods
+        const detectedPeriods = Array.from(new Set(validData.map(d => d.periode)));
+        const summaryPeriodText = detectedPeriods.length === 1 
+          ? detectedPeriods[0] 
+          : (detectedPeriods.length > 1 ? `${detectedPeriods.length} Periode Bulan (${detectedPeriods.slice(0, 3).join(', ')}${detectedPeriods.length > 3 ? '...' : ''})` : (forcedPeriod || 'Agustus 2026'));
 
         resolve({
           file,
@@ -2101,12 +2399,12 @@ export async function validateDigipayExcelFile(
           fileSize: file.size,
           modul: 'TRANSAKSI_DIGIPAY' as any,
           tahun: forcedYear || 2026,
-          periode: forcedPeriod || 'Agustus 2026',
+          periode: summaryPeriodText,
           totalRows: validData.length,
           validData,
           invalidRows,
           isValidFormat: validData.length > 0,
-          formatErrors: validData.length === 0 ? ['Tidak ditemukan transaksi Digipay yang valid pada tab Pembayaran VA ataupun KKP. Pastikan file Excel berisi data transaksi dengan Kolom Nominal Invoice (Kolom I).'] : []
+          formatErrors: validData.length === 0 ? ['Tidak ditemukan transaksi Digipay yang valid pada tab VA ataupun KKP. Pastikan file Excel berisi data transaksi dengan Kolom Nominal Invoice (Kolom I) dan Tanggal Bayar (Kolom L).'] : []
         });
       } catch (err: any) {
         reject(new Error(`Gagal memproses file Excel Digipay: ${err.message}`));
@@ -2250,10 +2548,200 @@ export function downloadDigipayTemplate() {
   XLSX.writeFile(workbook, 'Template_Monitoring_Transaksi_Digipay_VA_dan_KKP.xlsx');
 }
 
+export const INDONESIAN_MONTHS = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+];
+
 /**
- * Export Digipay Records to Excel
+ * Helper to extract Month & Year string (e.g. "Agustus 2026") from records or date strings
+ * Prioritizes Kolom L Tanggal Bayar / Transaksi for Digipay and Kolom E Tanggal SP2D for KKP
  */
-export function exportDigipayToExcel(records: DigipayRecord[], fileName: string = 'Rekapitulasi_Transaksi_Digipay_KPPN026.xlsx') {
+export function extractMonthFromRecord(record: {
+  periode?: string;
+  tglTransaksi?: string;
+  tglSp2dTerakhir?: string;
+  tglTransaksiTerakhir?: string;
+  tahun?: number;
+}): string | null {
+  if (!record) return null;
+
+  // 1. Prioritize Kolom L Tanggal Transaksi / Bayar for Digipay records
+  if (record.tglTransaksi && record.tglTransaksi !== '-' && record.tglTransaksi !== 'Tidak Ada') {
+    const parsed = parseDateToPeriod(record.tglTransaksi, record.tahun || 2026);
+    if (parsed) return parsed.periodKey;
+  }
+
+  // 2. Prioritize Kolom E Tanggal SP2D for KKP records
+  if (record.tglSp2dTerakhir && record.tglSp2dTerakhir !== '-' && record.tglSp2dTerakhir !== 'Tidak Ada') {
+    const parsed = parseDateToPeriod(record.tglSp2dTerakhir, record.tahun || 2026);
+    if (parsed) return parsed.periodKey;
+  }
+
+  // 3. Fallback check for tglTransaksiTerakhir
+  if (record.tglTransaksiTerakhir && record.tglTransaksiTerakhir !== '-' && record.tglTransaksiTerakhir !== 'Tidak Ada') {
+    const parsed = parseDateToPeriod(record.tglTransaksiTerakhir, record.tahun || 2026);
+    if (parsed) return parsed.periodKey;
+  }
+
+  // 4. Fallback to explicit periode string if it contains a month
+  if (record.periode && record.periode !== 'Semua Bulan (Kumulatif 2026)' && record.periode !== 'ALL') {
+    for (const m of INDONESIAN_MONTHS) {
+      if (new RegExp(`\\b${m}\\b`, 'i').test(record.periode)) {
+        const yrMatch = record.periode.match(/\b(202\d)\b/);
+        const yr = yrMatch ? yrMatch[1] : (record.tahun || 2026);
+        return `${m} ${yr}`;
+      }
+    }
+  }
+
+  return record.periode || null;
+}
+
+/**
+ * Get numerical index (0-11) and year from period key e.g. "Januari 2026"
+ */
+export function getMonthInfoFromPeriodKey(periodKey: string): { monthIndex: number; monthName: string; year: number } | null {
+  if (!periodKey || periodKey === 'ALL' || periodKey.startsWith('Semua')) return null;
+  const parts = periodKey.trim().split(' ');
+  const mName = parts[0];
+  const yr = parseInt(parts[1] || '2026', 10);
+  const mIdx = INDONESIAN_MONTHS.findIndex(m => m.toLowerCase() === mName.toLowerCase());
+  if (mIdx === -1) return null;
+  return { monthIndex: mIdx, monthName: INDONESIAN_MONTHS[mIdx], year: yr };
+}
+
+/**
+ * Check if a record matches the filtering criteria:
+ * - 'SINGLE': record month must match targetMonth exactly
+ * - 'CUMULATIVE': record month must be <= targetMonth in that year
+ */
+export function isRecordMatchingFilter(
+  record: any,
+  mode: 'SINGLE' | 'CUMULATIVE',
+  targetMonth: string
+): boolean {
+  if (!targetMonth || targetMonth === 'ALL' || targetMonth.startsWith('Semua')) return true;
+
+  const recMonthKey = extractMonthFromRecord(record);
+  if (!recMonthKey) return true;
+
+  if (mode === 'SINGLE') {
+    return recMonthKey.toLowerCase() === targetMonth.toLowerCase();
+  }
+
+  // Cumulative up to selected month
+  const targetInfo = getMonthInfoFromPeriodKey(targetMonth);
+  const recInfo = getMonthInfoFromPeriodKey(recMonthKey);
+
+  if (!targetInfo || !recInfo) return true;
+  if (recInfo.year < targetInfo.year) return true;
+  if (recInfo.year > targetInfo.year) return false;
+  return recInfo.monthIndex <= targetInfo.monthIndex;
+}
+
+/**
+ * Export Transaksi KKP Records to Excel with Monthly Filter Support
+ */
+export function exportKKPToExcel(
+  records: any[],
+  fileName: string = 'Laporan_Transaksi_KKP_KPPN026.xlsx',
+  selectedPeriod: string = 'Semua Bulan (Kumulatif)'
+) {
+  const isPeriodFiltered = selectedPeriod && selectedPeriod !== 'ALL' && selectedPeriod !== 'Semua Bulan (Kumulatif)';
+  const data = records.map((r, idx) => ({
+    'Peringkat': idx + 1,
+    'Kode Satker': r.kodeSatker,
+    'Nama Satker': r.namaSatker,
+    'Kementerian / Lembaga': r.kementerianLembaga || '-',
+    'Bank Penerbit KKP': r.bankPenerbit || '-',
+    'Jumlah Transaksi (SP2D)': r.jumlahTransaksi || 0,
+    'Total Nominal Transaksi (Rp)': r.totalNominal || 0,
+    'No SP2D Terakhir': r.noSp2dTerakhir || '-',
+    'Tanggal SP2D Terakhir': r.tglSp2dTerakhir || '-',
+    'Status Keaktifan': r.statusKeaktifan || 'Aktif',
+    'Periode Transaksi': r.periode || selectedPeriod
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data.length > 0 ? data : [{ 'Info': 'Tidak ada data transaksi KKP untuk periode ini' }]);
+  XLSX.utils.book_append_sheet(workbook, ws, 'Rekapitulasi KKP');
+
+  const periodTag = isPeriodFiltered ? `_${selectedPeriod.replace(/\s+/g, '_')}` : '';
+  const finalFileName = fileName.endsWith('.xlsx')
+    ? (isPeriodFiltered ? fileName.replace('.xlsx', `${periodTag}.xlsx`) : fileName)
+    : `${fileName}${periodTag}.xlsx`;
+
+  XLSX.writeFile(workbook, finalFileName);
+}
+
+/**
+ * Export Digipay Records to Excel with Multi-Tab & Monthly Filter Support
+ */
+export function exportDigipayToExcel(
+  records: DigipayRecord[],
+  fileName: string = 'Rekapitulasi_Transaksi_Digipay_KPPN026.xlsx',
+  selectedPeriod: string = 'Semua Bulan (Kumulatif)'
+) {
+  const isPeriodFiltered = selectedPeriod && selectedPeriod !== 'ALL' && selectedPeriod !== 'Semua Bulan (Kumulatif)';
+
+  // Satker-level aggregation for summary tab
+  const satkerMap = new Map<string, {
+    kodeSatker: string;
+    namaSatker: string;
+    kementerianLembaga: string;
+    totalVA: number;
+    nomVA: number;
+    totalKKP: number;
+    nomKKP: number;
+    totalSemua: number;
+    totalNom: number;
+    bank: string;
+  }>();
+
+  records.forEach(r => {
+    const existing = satkerMap.get(r.kodeSatker) || {
+      kodeSatker: r.kodeSatker,
+      namaSatker: r.namaSatker,
+      kementerianLembaga: r.kementerianLembaga || '',
+      totalVA: 0,
+      nomVA: 0,
+      totalKKP: 0,
+      nomKKP: 0,
+      totalSemua: 0,
+      totalNom: 0,
+      bank: r.namaBank || '-'
+    };
+
+    if (r.tipePembayaran === 'VA') {
+      existing.totalVA += 1;
+      existing.nomVA += (r.nominalTransaksi || 0);
+    } else {
+      existing.totalKKP += 1;
+      existing.nomKKP += (r.nominalTransaksi || 0);
+    }
+    existing.totalSemua = existing.totalVA + existing.totalKKP;
+    existing.totalNom = existing.nomVA + existing.nomKKP;
+    satkerMap.set(r.kodeSatker, existing);
+  });
+
+  const dataRekap = Array.from(satkerMap.values())
+    .sort((a, b) => b.totalSemua - a.totalSemua || b.totalNom - a.totalNom)
+    .map((s, idx) => ({
+      'Peringkat': idx + 1,
+      'Kode Satker': s.kodeSatker,
+      'Nama Satker': s.namaSatker,
+      'Kementerian / Lembaga': s.kementerianLembaga,
+      'Frekuensi VA': s.totalVA,
+      'Nominal VA (Rp)': s.nomVA,
+      'Frekuensi KKP': s.totalKKP,
+      'Nominal KKP (Rp)': s.nomKKP,
+      'Total Transaksi': s.totalSemua,
+      'Total Belanja (Rp)': s.totalNom,
+      'Bank Mitra Dominan': s.bank,
+      'Periode': selectedPeriod
+    }));
+
   const dataVA = records.filter(r => r.tipePembayaran === 'VA').map((r, idx) => ({
     'No': idx + 1,
     'Kode Satker': r.kodeSatker,
@@ -2265,7 +2753,8 @@ export function exportDigipayToExcel(records: DigipayRecord[], fileName: string 
     'Bank Pembayar': r.namaBank || '',
     'Nominal Transaksi (Rp)': r.nominalTransaksi,
     'Status': r.statusTransaksi || 'Selesai',
-    'Uraian Belanja': r.uraianBarang || ''
+    'Uraian Belanja': r.uraianBarang || '',
+    'Periode': r.periode || selectedPeriod
   }));
 
   const dataKKP = records.filter(r => r.tipePembayaran === 'KKP').map((r, idx) => ({
@@ -2279,18 +2768,29 @@ export function exportDigipayToExcel(records: DigipayRecord[], fileName: string 
     'Bank Pembayar': r.namaBank || '',
     'Nominal Transaksi (Rp)': r.nominalTransaksi,
     'Status': r.statusTransaksi || 'Selesai',
-    'Uraian Belanja': r.uraianBarang || ''
+    'Uraian Belanja': r.uraianBarang || '',
+    'Periode': r.periode || selectedPeriod
   }));
 
   const workbook = XLSX.utils.book_new();
 
+  // Tab 1: Rekapitulasi Per Satker
+  const wsRekap = XLSX.utils.json_to_sheet(dataRekap.length > 0 ? dataRekap : [{ 'Info': 'Tidak ada data rekap transaksi' }]);
+  XLSX.utils.book_append_sheet(workbook, wsRekap, 'Rekapitulasi Satker');
+
+  // Tab 2: Detail Pembayaran VA
   const wsVA = XLSX.utils.json_to_sheet(dataVA.length > 0 ? dataVA : [{ 'Info': 'Tidak ada data transaksi VA' }]);
   XLSX.utils.book_append_sheet(workbook, wsVA, 'Pembayaran VA');
 
+  // Tab 3: Detail Pembayaran KKP
   const wsKKP = XLSX.utils.json_to_sheet(dataKKP.length > 0 ? dataKKP : [{ 'Info': 'Tidak ada data transaksi KKP' }]);
   XLSX.utils.book_append_sheet(workbook, wsKKP, 'Pembayaran KKP');
 
-  const finalFileName = fileName.endsWith('.xlsx') ? fileName : `${fileName}.xlsx`;
+  const periodTag = isPeriodFiltered ? `_${selectedPeriod.replace(/\s+/g, '_')}` : '';
+  const finalFileName = fileName.endsWith('.xlsx')
+    ? (isPeriodFiltered ? fileName.replace('.xlsx', `${periodTag}.xlsx`) : fileName)
+    : `${fileName}${periodTag}.xlsx`;
+
   XLSX.writeFile(workbook, finalFileName);
 }
 

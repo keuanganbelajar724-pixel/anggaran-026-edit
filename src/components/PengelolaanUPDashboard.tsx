@@ -23,6 +23,7 @@ interface PengelolaanUPDashboardProps {
   onGoToAdmin?: () => void;
   onOpenReminder?: (record: PengelolaanUPRecord) => void;
   theme?: any;
+  dashboardConfig?: any;
   isAdminAuthenticated?: boolean;
   customTexts?: any;
 }
@@ -35,6 +36,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   userSatkerCode,
   onOpenUploadModal,
   onGoToAdmin,
+  dashboardConfig,
   isAdminAuthenticated,
   customTexts
 }) => {
@@ -117,9 +119,15 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-black uppercase tracking-wider">
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>{customTexts?.pengelolaanUpBadge || 'MODUL BATAS WAKTU UP & TUP'}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-xs font-black uppercase tracking-wider">
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>{customTexts?.pengelolaanUpBadge || 'MODUL BATAS WAKTU UP & TUP'}</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/80 text-purple-200 text-xs font-bold">
+                <Clock className="w-3.5 h-3.5 text-purple-400" />
+                <span>Update: <strong>{dashboardConfig?.updateDates?.pengelolaanUp || '07 Agustus 2026 - 09:00 WIB'}</strong></span>
+              </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               {customTexts?.pengelolaanUpTitle || 'Monitoring Batas Waktu UP & TUP'}

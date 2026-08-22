@@ -298,6 +298,58 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
     };
   };
 
+  // Helper to compute standard DJPb recommendations (SIMASPATEN & SWIPE-AP)
+  const getPejabatRekomendasi = (p: Partial<PejabatSertifikasi>): string => {
+    const statusUsulan = (p.statusUsulan || '').toLowerCase().trim();
+    const kategori = p.kategoriData;
+    const isKadaluarsa = p.isKadaluarsa;
+    const isMendekati = p.isMendekatiKadaluarsa;
+    const sisaHari = p.sisaHariMasaBerlaku;
+
+    if (kategori === 'BELUM_SERTIFIKAT' || !p.noSertifikat || p.noSertifikat === 'Belum Ada' || p.noSertifikat === '-') {
+      if (statusUsulan.includes('antrean diklat') || statusUsulan.includes('antrean')) {
+        return 'Pantau pemanggilan diklat e-learning / antrean diklat pada portal SWIPE-AP.';
+      }
+      if (statusUsulan.includes('verifikasi') || statusUsulan.includes('proses verifikasi')) {
+        return 'Berkas usulan dalam verifikasi unit pembina SIMASPATEN. Cek notifikasi berkala.';
+      }
+      if (statusUsulan.includes('jadwal') || statusUsulan.includes('ujian') || statusUsulan.includes('uji kompetensi')) {
+        return 'Pejabat dijadwalkan Ujian Kompetensi. Harap hadir tepat waktu sesuai jadwal SIMASPATEN.';
+      }
+      if (statusUsulan.includes('belum') || statusUsulan === '' || statusUsulan === '-') {
+        return 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATEN.';
+      }
+      if (p.catatanRekomendasi) {
+        return p.catatanRekomendasi
+          .replace(/SIMASPATI/gi, 'SIMASPATEN')
+          .replace(/kemenkeu learning center|klc/gi, 'SWIPE-AP');
+      }
+      return 'Segera rekam usulan kepesertaan penilaian kompetensi pejabat melalui aplikasi SIMASPATEN.';
+    }
+
+    // Kategori Pejabat Belum Perpanjangan (Masa Berlaku)
+    const statusJabatan = (p.statusJabatan || 'Aktif').toLowerCase();
+    if (statusJabatan === 'non-aktif' || statusJabatan === 'non aktif') {
+      return 'Pejabat Non-Aktif. Dapat diajukan perpanjangan di SIMASPATEN jika ditugaskan kembali.';
+    }
+
+    if (isKadaluarsa || (typeof sisaHari === 'number' && sisaHari <= 0)) {
+      return 'URGENT: Pejabat Aktif masa berlaku telah habis. Segera rekam perpanjangan di SIMASPATEN!';
+    }
+    if (isMendekati || (typeof sisaHari === 'number' && sisaHari <= 60)) {
+      return `PRIORITAS TINGGI: Sisa waktu ${sisaHari ?? 0} hari. Segera rekam perpanjangan di SIMASPATEN.`;
+    }
+    if (statusUsulan.includes('verifikasi')) {
+      return 'Usulan perpanjangan sedang diverifikasi unit pembina di SIMASPATEN.';
+    }
+    if (p.catatanRekomendasi) {
+      return p.catatanRekomendasi
+        .replace(/SIMASPATI/gi, 'SIMASPATEN')
+        .replace(/kemenkeu learning center|klc/gi, 'SWIPE-AP');
+    }
+    return 'Siapkan portofolio PPL dan rekam usulan perpanjangan di SIMASPATEN.';
+  };
+
   // Export Specific Excel Functions
   const handleExportBelumBersertifikat = () => {
     const exportRows = filteredBelumBersertifikat.map((p, idx) => ({
@@ -308,9 +360,9 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
       'Kode Satker': p.kdSatker,
       'Nama Satker': p.nmSatker,
       'Status Sertifikasi': 'Belum Tersertifikasi',
-      'Status Usulan SIMASPATI': p.statusUsulan || 'Belum rekam usulan',
+      'Status Usulan SIMASPATEN': p.statusUsulan || 'Belum rekam usulan',
       'KPPN': p.kppn || 'SEMARANG I',
-      'Catatan / Rekomendasi': p.catatanRekomendasi || 'Segera rekam usulan di SIMASPATI'
+      'Catatan / Rekomendasi': getPejabatRekomendasi(p)
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
@@ -332,9 +384,9 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
       'Tanggal Kadaluarsa': p.tglKadaluarsa || '-',
       'Sisa Masa Berlaku': p.sisaHariMasaBerlaku !== undefined ? (p.sisaHariMasaBerlaku <= 0 ? 'Habis (Kadaluarsa)' : `${p.sisaHariMasaBerlaku} Hari`) : '-',
       'Status Jabatan': p.statusJabatan || 'Aktif',
-      'Status Usulan SIMASPATI': p.statusUsulan || 'Belum Diusulkan',
+      'Status Usulan SIMASPATEN': p.statusUsulan || 'Belum Diusulkan',
       'Kementerian / Lembaga': p.kementerianLembaga || '-',
-      'Rekomendasi Satker': p.catatanRekomendasi || 'Segera perpanjang di SIMASPATI'
+      'Rekomendasi Satker': getPejabatRekomendasi(p)
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
@@ -694,7 +746,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                 {/* 3. Status Usulan */}
                 <div>
                   <label className="text-[10px] font-black text-rose-900/60 dark:text-rose-300 uppercase tracking-wider block mb-1">
-                    Status Usulan SIMASPATI
+                    Status Usulan SIMASPATEN
                   </label>
                   <select
                     value={statusUsulanBelumSert}
@@ -780,7 +832,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                     <th className="py-3 px-3 min-w-[140px]">Jabatan</th>
                     <th className="py-3 px-3 min-w-[220px]">Satuan Kerja &amp; K/L</th>
                     <th className="py-3 px-3 text-center min-w-[130px]">Status Sertifikasi</th>
-                    <th className="py-3 px-3 min-w-[160px]">Status Usulan SIMASPATI</th>
+                    <th className="py-3 px-3 min-w-[160px]">Status Usulan SIMASPATEN</th>
                     <th className="py-3 px-3 min-w-[110px]">KPPN</th>
                     <th className="py-3 px-3 min-w-[200px]">Rekomendasi Tindak Lanjut</th>
                     <th className="py-3 px-3 text-center w-16">Detail</th>
@@ -859,7 +911,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                           </span>
                         </td>
 
-                        {/* Status Usulan SIMASPATI */}
+                        {/* Status Usulan SIMASPATEN */}
                         <td className="py-3 px-3">
                           <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                             {p.statusUsulan?.toLowerCase().includes('antrean') && (
@@ -883,7 +935,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                         {/* Rekomendasi Tindak Lanjut Satker */}
                         <td className="py-3 px-3 min-w-[200px] max-w-[260px]">
                           <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                            {p.catatanRekomendasi || 'Segera rekam usulan penilaian kompetensi di SIMASPATI.'}
+                            {getPejabatRekomendasi(p)}
                           </div>
                         </td>
 
@@ -938,7 +990,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                     </span>
                   </h3>
                   <p className="text-xs text-amber-700/80 dark:text-amber-400 mt-0.5">
-                    Data pejabat perbendaharaan bersertifikat (PPK/PPSPM) yang masa berlakunya telah habis (kadaluarsa) atau mendekati masa kadaluarsa dan perlu perpanjangan PPL SIMASPATI.
+                    Data pejabat perbendaharaan bersertifikat (PPK/PPSPM) yang masa berlakunya telah habis (kadaluarsa) atau mendekati masa kadaluarsa dan perlu perpanjangan PPL SIMASPATEN.
                   </p>
                 </div>
               </div>
@@ -1389,14 +1441,14 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-amber-800 dark:text-amber-300 font-bold text-xs flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Status Usulan &amp; Rekomendasi SIMASPATI</span>
+                    <span>Status Usulan &amp; Rekomendasi SIMASPATEN</span>
                   </span>
                   <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full">
                     {selectedPejabat.statusUsulan || 'Belum Rekam Usulan'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
-                  {selectedPejabat.catatanRekomendasi || 'Pantau status usulan secara berkala di aplikasi SIMASPATI.'}
+                  {getPejabatRekomendasi(selectedPejabat)}
                 </p>
               </div>
 
@@ -1404,7 +1456,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
               <div className="bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800/60 p-3.5 rounded-2xl text-[11px] text-sky-800 dark:text-sky-300 flex items-start gap-2">
                 <Info className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
                 <p>
-                  Data ini disinkronkan secara berkala dengan sistem SIMASPATI &amp; KPPN Semarang I. Satuan Kerja diharapkan segera menindaklanjuti pejabat dengan status usulan belum rekam atau sertifikat yang telah/akan kadaluarsa demi kelancaran pengelolaan keuangan.
+                  Data ini disinkronkan secara berkala dengan sistem SIMASPATEN &amp; KPPN Semarang I. Satuan Kerja diharapkan segera menindaklanjuti pejabat dengan status usulan belum rekam atau sertifikat yang telah/akan kadaluarsa demi kelancaran pengelolaan keuangan.
                 </p>
               </div>
 
