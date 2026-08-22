@@ -525,7 +525,7 @@ export default function App() {
       getDoc(doc(db, 'data', 'transaksi_kkp')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setTransaksiKkpList(data.list);
             localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
           }
@@ -678,7 +678,7 @@ export default function App() {
       const unsubKKP = onSnapshot(doc(db, 'data', 'transaksi_kkp'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setTransaksiKkpList(data.list);
             localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
           }
@@ -1014,10 +1014,10 @@ export default function App() {
   // Transaksi KKP (GUP) State & Persistence
   const [transaksiKkpList, setTransaksiKkpList] = useState<TransaksiKKPRecord[]>(() => {
     const saved = localStorage.getItem('kppn_transaksi_kkp');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error parsing saved KKP data:', e);
       }
