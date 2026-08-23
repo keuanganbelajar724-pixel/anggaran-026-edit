@@ -522,6 +522,21 @@ export type KnowledgeCategory =
   | 'TOOLS_CSV' 
   | 'PANDUAN_CUSTOM';
 
+export interface JuknisBlangkoItem {
+  id: string;
+  namaBlangko: string;
+  kategoriAplikasi: string; // Header grup aplikasi (e.g. APLIKASI DIGIT, APLIKASI GAJI WEB, etc.)
+  tahunRilis: string; // e.g. "2024", "2023", "-"
+  linkDownload: string; // URL file / Drive / PDF
+  fileFormat?: 'PDF' | 'DOCX' | 'XLSX' | 'ZIP' | 'LINK' | 'CSV';
+  keterangan?: string;
+  isPinned?: boolean;
+  isActive?: boolean;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface KnowledgeStep {
   stepNumber: number;
   title: string;
@@ -767,6 +782,13 @@ export interface WhatsAppGatewayConfig {
   testPhone?: string;
   savedAt?: string;
   isAutoSave?: boolean;
+  statusConnection?: 'CONNECTED' | 'DISCONNECTED' | 'CHECKING';
+  lastPingTime?: string;
+  deviceName?: string;
+  quotaRemaining?: number;
+  antiBlockHeaderEnabled?: boolean;
+  antiBlockFooterEnabled?: boolean;
+  antiBlockCustomText?: string;
 }
 
 export interface BroadcastSettings {
@@ -775,6 +797,10 @@ export interface BroadcastSettings {
   pauseBatchCount: number; // Pause setelah N pesan
   pauseBatchDurationSeconds: number; // Durasi pause (detik)
   maxDailyLimit: number; // Batas kuota harian aman
+  antiBlockDisclaimerHeader?: boolean;
+  antiBlockDisclaimerFooter?: boolean;
+  humanTypingSimulation?: boolean;
+  safetyCooldownActive?: boolean;
 }
 
 export interface DashboardCustomTexts {
@@ -898,6 +924,8 @@ export interface SlideShowBannerItem {
   title?: string; // Judul Event / Informasi / Pengumuman (Opsional)
   subtitle?: string; // Sub judul / Tema
   imageUrl: string; // URL Gambar Banner / Base64 / GIF Animasi
+  imageFit?: 'contain' | 'cover' | 'auto'; // Mode penyesuaian: contain (utuh/pas/tidak terpotong) atau cover (isi penuh)
+  backgroundColor?: string; // Warna latar belakang jika rasio banner berbeda
   badge?: string; // e.g. "EVENT", "INFO RESMI", "SOSIALISASI", "KAJIAN", "BIMTEK"
   eventDate?: string; // e.g. "Jumat, 21 Februari 2025"
   eventTime?: string; // e.g. "09.30 s.d 12.15 WIB"
@@ -1017,6 +1045,8 @@ export interface DashboardConfig {
   presensiKegiatanList?: PresensiKegiatan[];
   presensiPesertaList?: PesertaPresensi[];
   presensiPrintConfig?: PresensiPrintConfig;
+  juknisBlangkoList?: JuknisBlangkoItem[];
+  knowledgeItems?: KnowledgeItem[];
 }
 
 export type NavigationTab = 

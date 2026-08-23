@@ -233,6 +233,9 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
       result += `\n\n📌 Catatan Khusus CSO KPPN SMG I:\n${catatanKhusus}`;
     }
 
+    // Official Anti-Block / Anti-Report Footer Disclaimer
+    result += `\n\n━━━━━━━━━━━━━━━━━━━━\n🔒 *CATATAN RESMI KPPN SEMARANG 1:*\n_Pemberitahuan ini dikirimkan secara resmi oleh Tim Layanan KPPN Semarang I semata-mata untuk pembinaan & monev kinerja Satker. *Mohon nomor ini JANGAN DIBLOKIR / DILAPORKAN SPAM* agar komunikasi koordinasi perbendaharaan Satker Anda tetap lancar._\n🌐 Akses Portal Monitoring: *https://anggaran-026.my.id*`;
+
     return result;
   };
 

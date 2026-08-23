@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Image,
   Sparkles,
@@ -10,6 +10,7 @@ import {
   ArrowDown,
   Eye,
   CheckCircle2,
+  AlertTriangle,
   Calendar,
   Clock,
   Video,
@@ -27,6 +28,7 @@ import {
 import { SlideShowConfig, SlideShowBannerItem, NavigationTab } from '../../types';
 import { SlideShowBannerCarousel } from '../SlideShowBannerCarousel';
 import { INITIAL_SLIDESHOW_CONFIG } from '../../data/initialSlideShowData';
+import { normalizeImageUrl, isGoogleDriveUrl, extractGoogleDriveFileId, getAlternativeImageUrl } from '../../utils/imageUrlHelper';
 
 interface SlideShowAdminSectionProps {
   slideShowConfig?: SlideShowConfig;
@@ -54,6 +56,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
     title: '',
     subtitle: '',
     imageUrl: '',
+    imageFit: 'contain',
     badge: 'EVENT',
     eventDate: '',
     eventTime: '',
@@ -66,6 +69,12 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
   });
 
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [imagePreviewError, setImagePreviewError] = useState(false);
+
+  // Reset image preview error when imageUrl changes
+  useEffect(() => {
+    setImagePreviewError(false);
+  }, [formData.imageUrl]);
 
   // Available tabs list for multi-target selection
   const availableTabOptions: { key: string; label: string }[] = [
@@ -243,6 +252,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
       title: '',
       subtitle: '',
       imageUrl: '',
+      imageFit: 'contain',
       badge: 'EVENT',
       eventDate: '',
       eventTime: '',
@@ -263,6 +273,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
       title: slide.title || '',
       subtitle: slide.subtitle || '',
       imageUrl: slide.imageUrl || '',
+      imageFit: slide.imageFit || 'contain',
       badge: slide.badge || 'EVENT',
       eventDate: slide.eventDate || '',
       eventTime: slide.eventTime || '',
@@ -283,6 +294,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
       title: '',
       subtitle: '',
       imageUrl: '',
+      imageFit: 'contain',
       badge: 'EVENT',
       eventDate: '',
       eventTime: '',
@@ -613,11 +625,34 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                 </div>
                 <input
                   type="url"
-                  placeholder="https://example.com/banner-poster.png"
+                  placeholder="https://drive.google.com/file/d/.../view atau https://example.com/banner.png"
                   value={formData.imageUrl}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, imageUrl: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData((prev) => ({ ...prev, imageUrl: val }));
+                  }}
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val && isGoogleDriveUrl(val)) {
+                      const normalized = normalizeImageUrl(val);
+                      if (normalized !== val) {
+                        setFormData((prev) => ({ ...prev, imageUrl: normalized }));
+                      }
+                    }
+                  }}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200 font-mono"
                 />
+
+                {/* Google Drive Detection Notice */}
+                {isGoogleDriveUrl(formData.imageUrl) && (
+                  <div className="text-[11px] bg-cyan-50 dark:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-200 px-3 py-2 rounded-xl flex items-start gap-2">
+                    <Sparkles className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-extrabold block">Link Google Drive Terdeteksi:</span>
+                      <span>Sistem otomatis mengonversi ke format embed langsung (<code>lh3.googleusercontent.com/d/...</code>). Pastikan akses file di Google Drive disetel ke <strong>"Siapa saja yang memiliki link"</strong> (Anyone with link / Publik).</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Sample Image Buttons */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -663,17 +698,99 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
 
             {/* Thumbnail Preview of Chosen Image */}
             {formData.imageUrl && (
-              <div className="pt-2 flex items-center gap-3">
-                <div className="w-24 h-14 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-950 shrink-0">
-                  <img
-                    src={formData.imageUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
+              <div className="pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700">
+                  <div className="w-28 h-16 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-950 shrink-0 relative flex items-center justify-center">
+                    <img
+                      src={normalizeImageUrl(formData.imageUrl)}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onLoad={() => setImagePreviewError(false)}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const altUrl = getAlternativeImageUrl(formData.imageUrl);
+                        if (altUrl && target.src !== altUrl) {
+                          target.src = altUrl;
+                        } else {
+                          setImagePreviewError(true);
+                        }
+                      }}
+                    />
+                    {imagePreviewError && (
+                      <div className="absolute inset-0 bg-rose-950/80 flex flex-col items-center justify-center text-rose-200 p-1 text-center">
+                        <AlertTriangle className="w-4 h-4 text-rose-400 mb-0.5" />
+                        <span className="text-[9px] font-bold">Gagal Dimuat</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1">
+                    {!imagePreviewError ? (
+                      <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>Gambar banner berhasil dimuat dan siap ditampilkan!</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <div className="text-xs text-rose-600 dark:text-rose-400 font-extrabold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+                          <span>Gambar Tidak Dapat Dimuat dari URL Ini</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                          {isGoogleDriveUrl(formData.imageUrl) ? (
+                            <>
+                              File Google Drive belum memiliki izin akses publik. <strong>Solusi:</strong> Buka Google Drive &gt; Klik Bagikan (Share) &gt; Ubah Akses Umum ke <strong>"Siapa saja yang memiliki link"</strong> (Anyone with the link). Atau langsung gunakan tombol <strong>"Unggah Gambar dari Komputer"</strong> di atas.
+                            </>
+                          ) : (
+                            <>
+                              Pastikan URL gambar berakhiran format gambar (misal .jpg / .png / .webp) dan dapat diakses publik, atau unggah langsung filenya dari komputer Anda.
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Gambar banner aktif dan siap ditampilkan!</span>
+
+                {/* Mode Penyesuaian Gambar (Fit Mode) */}
+                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                      Mode Penyesuaian Tampilan Gambar (Agar Tidak Terpotong):
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Pilih bagaimana gambar disesuaikan dengan bingkai banner website.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, imageFit: 'contain' }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        formData.imageFit !== 'cover'
+                          ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/30'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                      }`}
+                      title="Menampilkan seluruh poster utuh 100% dari atas sampai bawah tanpa terpotong"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>🎯 Pas &amp; Utuh (Tidak Terpotong)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, imageFit: 'cover' }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        formData.imageFit === 'cover'
+                          ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-500/30'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                      }`}
+                      title="Memenuhi seluruh bingkai banner"
+                    >
+                      <span>📐 Isi Penuh (Cover)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -877,9 +994,16 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                   <div className="w-20 h-14 rounded-xl overflow-hidden border border-slate-300 dark:border-slate-700 bg-slate-950 shrink-0">
                     {slide.imageUrl ? (
                       <img
-                        src={slide.imageUrl}
+                        src={normalizeImageUrl(slide.imageUrl)}
                         alt={slide.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          const altUrl = getAlternativeImageUrl(slide.imageUrl);
+                          if (altUrl && target.src !== altUrl) {
+                            target.src = altUrl;
+                          }
+                        }}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-500">

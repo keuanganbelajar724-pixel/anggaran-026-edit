@@ -1848,6 +1848,9 @@ export default function App() {
                   onAuthenticateAdmin={handleAuthenticateAdmin}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  onNavigateToAdminTab={() => {
+                    setActiveTab('admin');
+                  }}
                 />
               )}
 
@@ -1890,6 +1893,7 @@ export default function App() {
       <BroadcastTemplateLibraryModal
         isOpen={isGlobalBroadcastLibraryOpen}
         onClose={() => setIsGlobalBroadcastLibraryOpen(false)}
+        masterSatkers={masterSatkers}
         theme={theme}
       />
 

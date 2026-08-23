@@ -20,28 +20,26 @@ import {
   ExternalLink,
   ShieldCheck,
   Cpu,
-  ChevronDown,
   MessageSquareQuote,
   Target,
   Zap,
   BookOpen,
   Award,
+  Archive,
+  FolderArchive,
+  History,
+  Info,
   Layers,
-  FileSpreadsheet,
-  Share2,
-  Flame,
-  CheckCheck,
-  Clock,
-  Radio,
-  Sliders,
-  Maximize2,
   LineChart,
-  Coins,
   BadgeDollarSign,
   PieChart,
-  Percent,
-  CheckCircle,
-  HelpCircle as HelpIcon
+  MessageSquare,
+  X,
+  Share2,
+  FileSpreadsheet,
+  CheckCheck,
+  Sliders,
+  Maximize2
 } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
@@ -64,9 +62,10 @@ interface GeminiSatkerAnalyticsSectionProps {
   isDark?: boolean;
   selectedSatkerForDiagnosis?: SatkerIKPA | null;
   onClearSelectedDiagnosisSatker?: () => void;
+  onSendToBroadcast?: (templateText: string) => void;
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   sender: 'user' | 'gemini' | 'system';
   text: string;
@@ -75,7 +74,17 @@ interface ChatMessage {
   rolePersona?: string;
 }
 
-type AnalystRolePersona = 
+export interface ArchivedChatSession {
+  id: string;
+  title: string;
+  archivedAt: string;
+  targetSatkerKode?: string;
+  messageCount: number;
+  persona: string;
+  messages: ChatMessage[];
+}
+
+export type AnalystRolePersona = 
   | 'mski_analyst' 
   | 'pakar_keuangan_negara' 
   | 'kepala_kppn' 
@@ -92,7 +101,8 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   transaksiDigipayRecords = [],
   isDark = false,
   selectedSatkerForDiagnosis = null,
-  onClearSelectedDiagnosisSatker
+  onClearSelectedDiagnosisSatker,
+  onSendToBroadcast
 }) => {
   // API Key Management State
   const [apiKey, setApiKey] = useState<string>(() => {
@@ -103,6 +113,24 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
+
+  // Storage Info Modal State
+  const [showStorageInfoModal, setShowStorageInfoModal] = useState<boolean>(false);
+
+  // Archive Management State
+  const [archivedSessions, setArchivedSessions] = useState<ArchivedChatSession[]>(() => {
+    const saved = localStorage.getItem('kppn_gemini_archived_sessions');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse archived chat sessions', e);
+      }
+    }
+    return [];
+  });
+  const [showArchiveModal, setShowArchiveModal] = useState<boolean>(false);
+  const [viewingArchivedSession, setViewingArchivedSession] = useState<ArchivedChatSession | null>(null);
 
   // Chat & Analysis State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -118,7 +146,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       {
         id: 'msg-welcome',
         sender: 'system',
-        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay). Anda dapat memilih salah satu pertanyaan cepat di bawah atau mengetik analisis yang Anda butuhkan.',
+        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini 2.5)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay).\n\n💡 *Seluruh percakapan analisis disimpan secara aman & privat pada Browser Local Storage (`kppn_gemini_chat_history`) perangkat Anda, serta dapat Anda arsipkan atau bersihkan kapan saja.*',
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       }
     ];
@@ -129,8 +157,12 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [selectedSatkerFilter, setSelectedSatkerFilter] = useState<string>('');
   const [showKeyGuide, setShowKeyGuide] = useState<boolean>(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [copyFeedbackType, setCopyFeedbackType] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Role Persona State
+  const [selectedPersona, setSelectedPersona] = useState<AnalystRolePersona>('mski_analyst');
 
   // Save chat to localStorage
   useEffect(() => {
@@ -140,6 +172,15 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       console.warn('Failed to save chat to local storage', e);
     }
   }, [chatMessages]);
+
+  // Save archived sessions to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_gemini_archived_sessions', JSON.stringify(archivedSessions));
+    } catch (e) {
+      console.warn('Failed to save archives to local storage', e);
+    }
+  }, [archivedSessions]);
 
   // Auto-scroll on new message
   useEffect(() => {
@@ -156,10 +197,6 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       }
     }
   }, [selectedSatkerForDiagnosis]);
-
-  // Role Persona State
-  const [selectedPersona, setSelectedPersona] = useState<AnalystRolePersona>('mski_analyst');
-  const [analysisTone, setAnalysisTone] = useState<'strategis' | 'taktis_teknis' | 'naskah_dinas'>('strategis');
 
   // Calculate live summary statistics for contextual grounding
   const stats = React.useMemo(() => {
@@ -182,7 +219,6 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
     const belowDeviasi = satkers.filter(s => (s.indikator?.deviasiHal3Dipa || 0) < 75);
     const belowPenyerapan = satkers.filter(s => (s.persenPenyerapan || 0) < 75);
 
-    // Satker in attention (any critical flag)
     const satkerDalamPerhatian = satkers.filter(s => 
       s.nilaiTotalIKPA < 87.5 || 
       s.statusCapaianOutput !== 'Sudah Terlaporkan' || 
@@ -322,7 +358,8 @@ FORMAT RESPON ANDA:
       sender: 'user',
       text: userPromptText,
       timestamp,
-      targetSatkerKode: satkerContext?.kodeSatker
+      targetSatkerKode: satkerContext?.kodeSatker,
+      rolePersona: selectedPersona
     };
 
     setChatMessages(prev => [...prev, userMessage]);
@@ -344,7 +381,8 @@ FORMAT RESPON ANDA:
           sender: 'gemini',
           text: localReply,
           timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          targetSatkerKode: satkerContext?.kodeSatker
+          targetSatkerKode: satkerContext?.kodeSatker,
+          rolePersona: selectedPersona
         };
 
         setChatMessages(prev => [...prev, botMessage]);
@@ -380,7 +418,8 @@ FORMAT RESPON ANDA:
         sender: 'gemini',
         text: replyText,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        targetSatkerKode: satkerContext?.kodeSatker
+        targetSatkerKode: satkerContext?.kodeSatker,
+        rolePersona: selectedPersona
       };
 
       setChatMessages(prev => [...prev, botMessage]);
@@ -398,7 +437,8 @@ FORMAT RESPON ANDA:
         id: `gemini-fallback-${Date.now()}`,
         sender: 'gemini',
         text: `${fallbackReply}\n\n> 💡 *Catatan: Analisis di atas dihasilkan secara instan melalui Mesin Analitik Finansial Terintegrasi (Koneksi API Gemini: ${err.message || 'Offline mode'}).*`,
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        rolePersona: selectedPersona
       };
       setChatMessages(prev => [...prev, errorMessage]);
     } finally {
@@ -487,10 +527,26 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
     executeGeminiRequest(prompt, targetSatker);
   };
 
-  const handleCopyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const handleCopyMessage = (id: string, text: string, type: 'raw' | 'whatsapp' = 'raw') => {
+    let textToCopy = text;
+    if (type === 'whatsapp') {
+      // Ensure bold and bullet points are WhatsApp compliant (*bold*, _italic_)
+      textToCopy = text
+        .replace(/\*\*(.*?)\*\*/g, '*$1*') // Convert markdown bold **text** to WA bold *text*
+        .replace(/^#+\s*(.*?)$/gm, '📌 *$1*'); // Convert headers to WhatsApp emoji headers
+    }
+
+    navigator.clipboard.writeText(textToCopy);
     setCopiedMessageId(id);
-    setTimeout(() => setCopiedMessageId(null), 2000);
+    setCopyFeedbackType(type);
+    setTimeout(() => {
+      setCopiedMessageId(null);
+      setCopyFeedbackType(null);
+    }, 2000);
+  };
+
+  const handleDeleteSingleMessage = (id: string) => {
+    setChatMessages(prev => prev.filter(m => m.id !== id));
   };
 
   const handleDownloadChat = () => {
@@ -504,8 +560,67 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
     URL.revokeObjectURL(url);
   };
 
+  // Archive Current Session
+  const handleArchiveCurrentSession = () => {
+    const nonSystemMessages = chatMessages.filter(m => m.sender !== 'system');
+    if (nonSystemMessages.length === 0) {
+      alert('Tidak ada percakapan untuk diarsipkan.');
+      return;
+    }
+
+    const firstUserMsg = nonSystemMessages.find(m => m.sender === 'user');
+    const defaultTitle = firstUserMsg 
+      ? firstUserMsg.text.slice(0, 45) + (firstUserMsg.text.length > 45 ? '...' : '')
+      : `Sesi Analisis ${new Date().toLocaleDateString('id-ID')}`;
+
+    const titleInput = prompt('Masukkan judul/catatan untuk arsip sesi ini:', defaultTitle);
+    if (titleInput === null) return; // User cancelled
+
+    const newArchive: ArchivedChatSession = {
+      id: `archive-${Date.now()}`,
+      title: titleInput.trim() || defaultTitle,
+      archivedAt: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+      targetSatkerKode: selectedSatkerFilter || undefined,
+      messageCount: chatMessages.length,
+      persona: selectedPersona,
+      messages: [...chatMessages]
+    };
+
+    setArchivedSessions(prev => [newArchive, ...prev]);
+
+    // Reset active chat to initial welcome
+    const initialWelcome: ChatMessage = {
+      id: 'msg-welcome',
+      sender: 'system',
+      text: `Sesi percakapan sebelumnya telah berhasil diarsipkan sebagai: **"${newArchive.title}"**.\n\nSesi obrolan baru siap digunakan. Silakan ajukan pertanyaan atau pilih analisis cepat di bawah.`,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+    };
+    setChatMessages([initialWelcome]);
+    alert(`Sesi percakapan berhasil diarsipkan! Anda dapat membukanya kembali dari menu "Arsip Percakapan".`);
+  };
+
+  const handleRestoreArchivedSession = (session: ArchivedChatSession) => {
+    if (confirm(`Buka dan pulihkan arsip percakapan "${session.title}" ke konsol aktif?`)) {
+      setChatMessages(session.messages);
+      if (session.targetSatkerKode) {
+        setSelectedSatkerFilter(session.targetSatkerKode);
+      }
+      setShowArchiveModal(false);
+      setViewingArchivedSession(null);
+    }
+  };
+
+  const handleDeleteArchivedSession = (id: string) => {
+    if (confirm('Hapus arsip percakapan ini secara permanen?')) {
+      setArchivedSessions(prev => prev.filter(a => a.id !== id));
+      if (viewingArchivedSession?.id === id) {
+        setViewingArchivedSession(null);
+      }
+    }
+  };
+
   const handleClearHistory = () => {
-    if (confirm('Bersihkan seluruh riwayat percakapan analisis AI?')) {
+    if (confirm('Bersihkan seluruh riwayat percakapan analisis AI aktif saat ini? (Anda disarankan mengarsipkan terlebih dahulu jika ada catatan penting)')) {
       const initialWelcome: ChatMessage = {
         id: 'msg-welcome',
         sender: 'system',
@@ -530,10 +645,24 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md">
-              <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
-              INTELLIGENT FISCAL ASSISTANT • POWERED BY GOOGLE GEMINI
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md">
+                <Sparkles className="w-3.5 h-3.5 fill-slate-950" />
+                INTELLIGENT FISCAL ASSISTANT • POWERED BY GOOGLE GEMINI
+              </div>
+
+              {/* Database Storage Location Badge */}
+              <button
+                type="button"
+                onClick={() => setShowStorageInfoModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-white/10 hover:bg-white/20 text-indigo-200 border border-white/20 transition-all cursor-pointer"
+                title="Klik untuk informasi detail database & lokasi penyimpanan percakapan"
+              >
+                <Info className="w-3 h-3 text-cyan-300" />
+                <span>Penyimpanan: Browser LocalStorage (Aman &amp; Privat)</span>
+              </button>
             </div>
+
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
               <span>Asisten Analis Cerdas Anggaran &amp; IKPA SAKTI</span>
             </h2>
@@ -551,7 +680,17 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowArchiveModal(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white font-black text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer border border-indigo-400/30"
+                title="Buka daftar percakapan yang telah diarsipkan"
+              >
+                <FolderArchive className="w-3.5 h-3.5 text-amber-300" />
+                <span>Arsip Percakapan ({archivedSessions.length})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowApiKeyInput(!showApiKeyInput)}
@@ -674,7 +813,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                   isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
               >
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Cepat &amp; Direkomendasikan)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Cepat, Cerdas &amp; Direkomendasikan)</option>
                 <option value="gemini-2.5-pro">Gemini 2.5 Pro (Penalaran Mendalam &amp; Kompleks)</option>
                 <option value="gemini-2.0-flash">Gemini 2.0 Flash (Standar)</option>
               </select>
@@ -993,27 +1132,6 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               </p>
             </div>
           </button>
-
-          <button
-            type="button"
-            onClick={() => handleRunPreset('mitigasi_akhir_tahun')}
-            disabled={isLoading}
-            className={`p-3.5 rounded-2xl border text-left transition-all duration-200 flex items-start gap-3 cursor-pointer group ${
-              isDark 
-                ? 'bg-slate-900/80 hover:bg-slate-800/90 border-slate-800 hover:border-purple-500/50' 
-                : 'bg-white hover:bg-slate-50 border-slate-200 hover:border-purple-400 shadow-xs'
-            }`}
-          >
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500 group-hover:scale-110 transition-transform">
-              <Cpu className="w-4 h-4" />
-            </div>
-            <div className="space-y-0.5">
-              <h5 className="text-xs font-black text-slate-900 dark:text-white">Mitigasi Risiko Akhir Tahun (LLAT)</h5>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                Pencegahan penumpukan SPM Desember, nihil sisa TUP, dan batas dispensasi.
-              </p>
-            </div>
-          </button>
         </div>
       </div>
 
@@ -1042,14 +1160,14 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Satker Quick Focus Dropdown */}
             <div className="flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-slate-400" />
               <select
                 value={selectedSatkerFilter}
                 onChange={(e) => setSelectedSatkerFilter(e.target.value)}
-                className={`text-xs px-3 py-1.5 rounded-xl border font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[200px] sm:max-w-xs truncate ${
+                className={`text-xs px-3 py-1.5 rounded-xl border font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500 max-w-[180px] sm:max-w-xs truncate ${
                   isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
                 }`}
               >
@@ -1062,6 +1180,18 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               </select>
             </div>
 
+            {/* Archive Current Session Button */}
+            <button
+              type="button"
+              onClick={handleArchiveCurrentSession}
+              className="px-3 py-1.5 rounded-xl border border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all"
+              title="Simpan dan arsipkan riwayat percakapan sesi ini"
+            >
+              <Archive className="w-3.5 h-3.5" />
+              <span>Arsipkan Sesi</span>
+            </button>
+
+            {/* Export Markdown */}
             <button
               type="button"
               onClick={handleDownloadChat}
@@ -1071,11 +1201,12 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               <Download className="w-4 h-4" />
             </button>
 
+            {/* Clear History */}
             <button
               type="button"
               onClick={handleClearHistory}
               className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
-              title="Hapus Riwayat Chat"
+              title="Bersihkan / Hapus Riwayat Chat Aktif"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1116,7 +1247,18 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] opacity-60 font-mono">{msg.timestamp}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] opacity-60 font-mono">{msg.timestamp}</span>
+                      {/* Delete single message button */}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleMessage(msg.id)}
+                        className="opacity-40 hover:opacity-100 text-slate-400 hover:text-rose-500 cursor-pointer transition-all"
+                        title="Hapus pesan ini dari riwayat"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Message Body with Markdown formatting */}
@@ -1124,15 +1266,49 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                     {msg.text}
                   </div>
 
-                  {/* Copy Button for Bot Messages */}
-                  {!isUser && (
-                    <div className="flex items-center justify-end pt-2">
+                  {/* Action Bar for Bot Messages (WhatsApp, Copy, Send to Broadcast) */}
+                  {!isUser && !isSystem && (
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+                      {/* Send directly to broadcast template */}
+                      {onSendToBroadcast && (
+                        <button
+                          type="button"
+                          onClick={() => onSendToBroadcast(msg.text)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-xs transition-all cursor-pointer"
+                          title="Gunakan teks analisis ini sebagai template pesan di menu Broadcast Masif WA"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>Kirim ke Broadcast WA</span>
+                        </button>
+                      )}
+
+                      {/* Copy WhatsApp Style */}
                       <button
                         type="button"
-                        onClick={() => handleCopyMessage(msg.id, msg.text)}
+                        onClick={() => handleCopyMessage(msg.id, msg.text, 'whatsapp')}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs transition-all cursor-pointer"
+                        title="Salin dengan format cetak tebal & rapi khusus WhatsApp"
+                      >
+                        {copiedMessageId === msg.id && copyFeedbackType === 'whatsapp' ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            <span>Format WA Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="w-3 h-3" />
+                            <span>Salin Format WA</span>
+                          </>
+                        )}
+                      </button>
+
+                      {/* Standard Copy */}
+                      <button
+                        type="button"
+                        onClick={() => handleCopyMessage(msg.id, msg.text, 'raw')}
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900/10 dark:bg-slate-700/50 hover:bg-slate-900/20 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
                       >
-                        {copiedMessageId === msg.id ? (
+                        {copiedMessageId === msg.id && copyFeedbackType === 'raw' ? (
                           <>
                             <Check className="w-3 h-3 text-emerald-500" />
                             <span>Tersalin!</span>
@@ -1209,14 +1385,265 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
 
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 px-1">
             <span>
-              💡 <em>Tips: Anda dapat memilih Satker tertentu pada dropdown di kanan atas untuk diagnosis terarah.</em>
+              💡 <em>Tips: Gunakan Persona Analis &amp; pilihan Satker di kanan atas untuk hasil presisi tinggi.</em>
             </span>
-            <span>
-              Model: <strong>{selectedModel}</strong>
+            <span className="font-mono">
+              Model: <strong>{selectedModel}</strong> | Riwayat Tersimpan: <strong>{chatMessages.length} Pesan</strong>
             </span>
           </div>
         </form>
       </div>
+
+      {/* Modal Informasi Lokasi Penyimpanan Database Chat */}
+      {showStorageInfoModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-xl w-full space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-cyan-100 dark:bg-cyan-950 text-cyan-700 dark:text-cyan-300 rounded-2xl">
+                  <Info className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">
+                    Lokasi &amp; Keamanan Database Chat AI
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Transparansi Penyimpanan Riwayat Analisis Perbendaharaan
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStorageInfoModal(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <span>Di Mana Data Percakapan AI Disimpan?</span>
+                </div>
+                <p>
+                  Seluruh obrolan dan hasil konsultasi AI disimpan secara <strong>lokal di peramban (Browser HTML5 LocalStorage)</strong> komputer Anda pada kunci:
+                </p>
+                <ul className="list-disc list-inside font-mono text-[11px] text-indigo-600 dark:text-indigo-400 space-y-0.5 pl-2">
+                  <li><code>kppn_gemini_chat_history</code> (Riwayat aktif saat ini)</li>
+                  <li><code>kppn_gemini_archived_sessions</code> (Daftar sesi yang diarsipkan)</li>
+                  <li><code>kppn_gemini_api_key</code> (Kunci API Google Gemini Anda)</li>
+                </ul>
+              </div>
+
+              <div className="space-y-1.5">
+                <h5 className="font-black text-slate-800 dark:text-slate-200">🔒 Privasi &amp; Kendali Penuh Admin:</h5>
+                <ul className="list-disc list-inside space-y-1 pl-1">
+                  <li>Data obrolan <strong>TIDAK disimpan ke server eksternal</strong> selain koneksi langsung ke Google AI Studio saat memproses prompt.</li>
+                  <li>Anda dapat <strong>Mengarsipkan Sesi</strong> untuk disimpan sebagai referensi laporan bulanan.</li>
+                  <li>Anda dapat <strong>Menghapus Pesan Satuan</strong> atau <strong>Menghapus Seluruh Riwayat</strong> kapan saja dengan aman.</li>
+                  <li>Anda dapat mengunduh seluruh sesi ke format <strong>Markdown (.md)</strong> untuk dokumentasi.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowStorageInfoModal(false)}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md cursor-pointer"
+              >
+                Saya Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kelola Arsip Percakapan Analisis */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-indigo-500/30 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl animate-fadeIn my-8">
+            
+            {/* Header */}
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-md">
+                  <FolderArchive className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 dark:text-white">
+                    Daftar Arsip Percakapan Analisis AI
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Koleksi sesi konsultasi, diagnosis satker, dan perumusan rekomendasi yang pernah Anda simpan.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchiveModal(false);
+                  setViewingArchivedSession(null);
+                }}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Area */}
+            {viewingArchivedSession ? (
+              /* Preview Specific Archived Session */
+              <div className="space-y-3 animate-fadeIn">
+                <div className="flex items-center justify-between bg-slate-100 dark:bg-slate-800 p-3 rounded-2xl">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white">
+                      {viewingArchivedSession.title}
+                    </h4>
+                    <span className="text-[10px] text-slate-500">
+                      Diarsipkan: {viewingArchivedSession.archivedAt} | {viewingArchivedSession.messageCount} Pesan
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewingArchivedSession(null)}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold"
+                  >
+                    ← Kembali ke Daftar
+                  </button>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 max-h-72 overflow-y-auto space-y-3">
+                  {viewingArchivedSession.messages.map((m) => (
+                    <div key={m.id} className="text-xs space-y-1">
+                      <div className="font-bold text-[10px] text-slate-500 flex items-center justify-between">
+                        <span>{m.sender.toUpperCase()}</span>
+                        <span className="font-mono">{m.timestamp}</span>
+                      </div>
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 whitespace-pre-wrap">
+                        {m.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteArchivedSession(viewingArchivedSession.id)}
+                    className="px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer"
+                  >
+                    Hapus Arsip Ini
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRestoreArchivedSession(viewingArchivedSession)}
+                    className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Pulihkan ke Konsol Chat</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* List of All Archives */
+              <div className="space-y-3">
+                {archivedSessions.length === 0 ? (
+                  <div className="text-center py-10 space-y-2">
+                    <Archive className="w-10 h-10 text-slate-300 dark:text-slate-700 mx-auto" />
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                      Belum ada sesi percakapan yang diarsipkan.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Klik tombol <strong>&quot;Arsipkan Sesi&quot;</strong> di konsol chat untuk menyimpan obrolan penting.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {archivedSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 transition-all flex items-center justify-between gap-3"
+                      >
+                        <div className="space-y-0.5 flex-1 min-w-0">
+                          <h4 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                            {session.title}
+                          </h4>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                            <span>📅 {session.archivedAt}</span>
+                            <span>•</span>
+                            <span>💬 {session.messageCount} Pesan</span>
+                            {session.targetSatkerKode && (
+                              <>
+                                <span>•</span>
+                                <span className="bg-amber-400/20 text-amber-700 dark:text-amber-300 px-1.5 rounded font-bold">
+                                  Satker: {session.targetSatkerKode}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setViewingArchivedSession(session)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-bold cursor-pointer"
+                          >
+                            Lihat
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRestoreArchivedSession(session)}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-xs cursor-pointer"
+                            title="Pulihkan obrolan ini ke konsol aktif"
+                          >
+                            Buka
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteArchivedSession(session.id)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                            title="Hapus arsip ini"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+              <span className="text-[11px] text-slate-400">
+                Total Arsip: <strong className="text-indigo-600 dark:text-indigo-400">{archivedSessions.length} Sesi</strong>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowArchiveModal(false);
+                  setViewingArchivedSession(null);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

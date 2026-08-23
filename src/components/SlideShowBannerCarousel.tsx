@@ -10,6 +10,7 @@ import {
   Settings
 } from 'lucide-react';
 import { SlideShowConfig, SlideShowBannerItem } from '../types';
+import { normalizeImageUrl, getAlternativeImageUrl } from '../utils/imageUrlHelper';
 
 interface SlideShowBannerCarouselProps {
   config?: SlideShowConfig;
@@ -97,8 +98,8 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
       {/* Outer Banner Card with Rounded Border & Gradient Accent */}
       <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-slate-800 bg-slate-950 shadow-xl shadow-slate-950/15 transition-all duration-300">
         
-        {/* Height container with responsive fluid min-height (Taller hero showcase banner) */}
-        <div className="relative w-full h-[250px] sm:h-[320px] md:h-[390px] lg:h-[450px] xl:h-[490px]">
+        {/* Height container with responsive fluid proportion (Optimized for widescreen infographics and flyers) */}
+        <div className="relative w-full h-[220px] sm:h-[290px] md:h-[360px] lg:h-[420px] xl:h-[460px]">
           
           {/* Layered Cross-Fade Slides */}
           {activeSlides.map((slide, idx) => {
@@ -110,6 +111,8 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
               slide.eventTime?.trim() ||
               slide.eventLocation?.trim()
             );
+
+            const isContainMode = slide.imageFit !== 'cover';
 
             const handleBannerClick = () => {
               if (!hasTextContent && slide.linkUrl) {
@@ -128,33 +131,53 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
               >
                 {/* Background Image / Flyer */}
                 {slide.imageUrl ? (
-                  <div className="absolute inset-0 w-full h-full overflow-hidden">
+                  <div className="absolute inset-0 w-full h-full overflow-hidden bg-slate-950 flex items-center justify-center">
+                    {/* Ambient Glow Backdrop: Blurs edges so aspect ratio differences look seamless */}
+                    {isContainMode && (
+                      <img
+                        src={normalizeImageUrl(slide.imageUrl)}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-110 pointer-events-none"
+                      />
+                    )}
+
+                    {/* Crisp Foreground Flyer: Never Cropped (object-contain by default) */}
                     <img
-                      src={slide.imageUrl}
+                      src={normalizeImageUrl(slide.imageUrl)}
                       alt={slide.title || 'Banner Slide'}
-                      className={`w-full h-full object-cover object-center transition-transform duration-1000 ease-out ${
-                        isActive ? 'scale-100' : 'scale-105'
+                      className={`relative z-0 w-full h-full ${
+                        isContainMode ? 'object-contain' : 'object-cover'
+                      } object-center transition-transform duration-1000 ease-out ${
+                        isActive ? 'scale-100' : 'scale-[1.02]'
                       }`}
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
+                        const target = e.target as HTMLImageElement;
+                        const altUrl = getAlternativeImageUrl(slide.imageUrl);
+                        if (altUrl && target.src !== altUrl) {
+                          target.src = altUrl;
+                        } else {
+                          target.style.display = 'none';
+                        }
                       }}
                     />
+
                     {/* Dynamic Gradient Overlay: Only applied when text exists to maintain crisp poster visual */}
                     {hasTextContent ? (
-                      <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/25 dark:from-slate-950/95 dark:via-slate-950/75 dark:to-slate-950/35" />
-                    ) : (
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-slate-950/20 pointer-events-none" />
-                    )}
+                      <div className="absolute inset-0 z-10 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-slate-950/25 dark:from-slate-950/95 dark:via-slate-950/75 dark:to-slate-950/35 pointer-events-none" />
+                    ) : null}
                   </div>
                 ) : (
                   <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-indigo-950 via-purple-950 to-slate-950" />
                 )}
 
                 {/* Foreground Content Container */}
-                <div className="relative z-10 w-full h-full p-5 sm:p-7 md:p-9 lg:p-11 flex flex-col justify-between">
+                <div className={`relative z-10 w-full h-full p-4 sm:p-6 md:p-8 lg:p-10 flex flex-col justify-between ${
+                  !hasTextContent ? 'pointer-events-none' : ''
+                }`}>
                   
-                  {/* Top Bar: Badge (Clean without slide counter or X button) */}
-                  <div className="flex items-center justify-between gap-3">
+                  {/* Top Bar: Badge (Only rendered if badge exists or admin button) */}
+                  <div className="flex items-center justify-between gap-3 pointer-events-auto">
                     <div className="flex items-center gap-2">
                       {slide.badge && (
                         <span className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-full text-[11px] sm:text-xs font-black tracking-wider uppercase bg-amber-400 text-slate-950 shadow-md ring-1 ring-amber-400/50">
@@ -172,7 +195,7 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
                           e.stopPropagation();
                           onOpenAdminSlideShow();
                         }}
-                        className="text-[11px] sm:text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-950/70 hover:bg-slate-900/90 px-3 py-1.5 rounded-full border border-amber-400/30 backdrop-blur-md transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                        className="text-[11px] sm:text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-950/80 hover:bg-slate-900/95 px-3 py-1.5 rounded-full border border-amber-400/40 backdrop-blur-md transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
                         title="Kelola Slide Show di Admin Panel"
                       >
                         <Settings className="w-3.5 h-3.5" />

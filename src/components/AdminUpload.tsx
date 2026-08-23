@@ -37,6 +37,7 @@ import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
 import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
+import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -358,8 +359,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
+  const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
   // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay)
   const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay'>('ikpa');
@@ -2917,6 +2919,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>14. Asisten Analis Gemini AI</span>
           <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             ✨ AI Live
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('pengetahuan-admin')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'pengetahuan-admin'
+              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/40 ring-2 ring-cyan-400/30'
+              : 'text-cyan-700 hover:text-cyan-900 hover:bg-cyan-50 dark:text-cyan-300 dark:hover:text-cyan-100 dark:hover:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/60'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-cyan-500 shrink-0" />
+          <span>15. Juknis &amp; Pengetahuan SAKTI</span>
+          <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            Direktori &amp; Panduan
           </span>
         </button>
       </div>
@@ -8266,6 +8283,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           isDark={isDark}
           theme={theme}
           onNavigateToPerhatian={() => setAdminTab('perhatian')}
+          onOpenAiTab={() => setAdminTab('gemini-ai')}
+          initialTemplateText={aiGeneratedBroadcastTemplate}
+          onClearInitialTemplateText={() => setAiGeneratedBroadcastTemplate(null)}
           addLog={addLog}
           showToast={(opts) => addToast(opts.message, opts.type)}
         />
@@ -8343,6 +8363,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           isDark={isDark}
           selectedSatkerForDiagnosis={selectedSatkerForAiDiagnosis}
           onClearSelectedDiagnosisSatker={() => setSelectedSatkerForAiDiagnosis(null)}
+          onSendToBroadcast={(templateText) => {
+            setAiGeneratedBroadcastTemplate(templateText);
+            setAdminTab('broadcast');
+            addToast('Template pesan berhasil ditransfer ke menu Broadcast Masif WA!', 'success');
+          }}
         />
       )}
 
@@ -9848,6 +9873,19 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       </div>
       </>
+      )}
+
+      {/* 15. Kelola Pengetahuan & Juknis SAKTI Section */}
+      {adminTab === 'pengetahuan-admin' && (
+        <KelolaPengetahuanJuknisSection
+          theme={theme}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(newConfig) => {
+            setTempConfig(newConfig);
+            onUpdateDashboardConfig(newConfig);
+          }}
+          isAdminAuthenticated={isAuthenticated}
+        />
       )}
 
       {/* Modal Edit Satker Manual */}
