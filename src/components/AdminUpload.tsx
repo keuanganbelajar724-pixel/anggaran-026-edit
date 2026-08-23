@@ -38,6 +38,7 @@ import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
 import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
 import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisSection';
+import { TrafikPengunjungSection } from './admin/TrafikPengunjungSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -359,7 +360,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'trafik'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -2934,6 +2935,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>15. Juknis &amp; Pengetahuan SAKTI</span>
           <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
             Direktori &amp; Panduan
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('trafik')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'trafik'
+              ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/40 ring-2 ring-indigo-400/30'
+              : 'text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:text-indigo-100 dark:hover:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-indigo-400 shrink-0" />
+          <span>16. Statistik Trafik &amp; Pengunjung</span>
+          <span className="bg-gradient-to-r from-blue-500 to-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
+            📊 Infografis
           </span>
         </button>
       </div>
@@ -9886,6 +9902,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }}
           isAdminAuthenticated={isAuthenticated}
         />
+      )}
+
+      {/* 16. Statistik Trafik & Infografis Pengunjung Section */}
+      {adminTab === 'trafik' && (
+        <TrafikPengunjungSection isDark={isDark} />
       )}
 
       {/* Modal Edit Satker Manual */}

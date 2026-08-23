@@ -48,8 +48,10 @@ import { ExcelGuideModal } from './components/ExcelGuideModal';
 import { BroadcastTemplateLibraryModal } from './components/BroadcastTemplateLibraryModal';
 import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
+import { AccessibilityWidget } from './components/AccessibilityWidget';
 
 import { ToastProvider } from './components/ToastNotification';
+import { trackPageView } from './utils/trafficTracker';
 
 const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
 
@@ -154,6 +156,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [theme, setTheme] = useState<AppTheme>('light');
+
+  // Track page views and unique visitor telemetry
+  useEffect(() => {
+    trackPageView(activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -1960,6 +1967,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Premium Accessibility Floating Widget & Menu */}
+      <AccessibilityWidget />
 
     </div>
   );

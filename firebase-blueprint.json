@@ -51,6 +51,17 @@
         "author": { "type": "string" }
       },
       "required": ["title", "content", "date"]
+    },
+    "trafficStats": {
+      "title": "Traffic & Visitor Analytics",
+      "description": "Stores visitor traffic statistics, device breakdowns, and pageview telemetry for KPPN Semarang I",
+      "type": "object",
+      "properties": {
+        "summary": { "type": "object" },
+        "dailyRecords": { "type": "array" },
+        "recentLogs": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -65,6 +76,10 @@
     "/announcements/{announcementId}": {
       "schema": { "$ref": "#/entities/announcements" },
       "description": "Public announcements and bulletin notices"
+    },
+    "/traffic/{trafficDoc}": {
+      "schema": { "$ref": "#/entities/trafficStats" },
+      "description": "Visitor traffic and device analytics data"
     }
   }
 }

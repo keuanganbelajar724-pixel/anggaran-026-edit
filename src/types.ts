@@ -1069,6 +1069,72 @@ export type NavigationTab =
   | 'reminder' 
   | 'guide';
 
+// -------------------------------------------------------------
+// MODUL ANALITIK TRAFIK & PENGUNJUNG HARIAN (Admin Only)
+// -------------------------------------------------------------
+export interface VisitorTrafficSummary {
+  pengunjungHariIni: number;
+  viewsHariIni: number;
+  pengunjung7Hari: number;
+  totalPengunjung: number;
+  totalViews: number;
+  lastUpdated: string;
+}
+
+export interface DailyTrafficRecord {
+  date: string; // Format YYYY-MM-DD
+  displayDate: string; // e.g. "23 Agu", "Senin, 23 Agu"
+  uniqueVisitors: number;
+  pageviews: number;
+  desktopCount: number;
+  mobileCount: number;
+  tabletCount: number;
+  hourlyViews: { [hour: string]: number }; // "00" .. "23"
+}
+
+export interface VisitorLogEntry {
+  id: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  deviceId: string;
+  deviceType: 'Desktop' | 'Mobile' | 'Tablet';
+  os: string;
+  browser: string;
+  screenResolution: string;
+  page: string;
+  tabId: string;
+  isNewVisitor: boolean;
+  isTester: boolean;
+  satkerKode?: string;
+  satkerNama?: string;
+}
+
+export interface DeviceAnalytics {
+  desktop: number;
+  mobile: number;
+  tablet: number;
+  osList: { name: string; count: number; percentage: number }[];
+  browserList: { name: string; count: number; percentage: number }[];
+}
+
+export interface PageVisitStat {
+  tabId: string;
+  title: string;
+  count: number;
+  percentage: number;
+}
+
+export interface TrafficAnalyticsData {
+  summary: VisitorTrafficSummary;
+  dailyHistory: DailyTrafficRecord[];
+  hourlyToday: { hour: string; label: string; views: number; visitors: number }[];
+  deviceStats: DeviceAnalytics;
+  topPages: PageVisitStat[];
+  recentLogs: VisitorLogEntry[];
+  totalLogCount: number;
+}
+
 export type AppTheme = 'light' | 'dark';
 
 
