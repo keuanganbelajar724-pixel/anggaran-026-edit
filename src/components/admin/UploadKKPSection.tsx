@@ -466,7 +466,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
               Upload &amp; Manajemen Data Transaksi KKP (GUP)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Unggah file laporan transaksi KKP (OM-SPAN / SAKTI). Sistem secara otomatis mengagregasi frekuensi SP2D dan total rupiah per Satker tanpa mempublikasikan kolom rahasia.
+              Unggah file laporan transaksi KKP (My Intress / SAKTI). Sistem secara otomatis mengagregasi frekuensi SP2D dan total rupiah per Satker tanpa mempublikasikan kolom rahasia.
             </p>
           </div>
 
@@ -669,7 +669,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                   {isProcessing ? 'Memproses dan Mengagregasi Excel...' : 'Pilih File Excel Transaksi KKP'}
                 </label>
                 <p className="text-[11px] text-slate-400 mt-2">
-                  Mendukung file format <code>.xlsx</code>, <code>.xls</code> (Laporan OM-SPAN GUP KKP / Rekonsiliasi SAKTI)
+                  Mendukung file format <code>.xlsx</code>, <code>.xls</code> (Laporan My Intress GUP KKP / Rekonsiliasi SAKTI)
                 </p>
               </div>
             </div>

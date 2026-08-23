@@ -297,7 +297,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-300 max-w-xl">
-                    Grafik dan uraian analisis di bawah ini menyajikan evaluasi kinerja indikator berdasarkan data upload OM-SPAN.
+                    Grafik dan uraian analisis di bawah ini menyajikan evaluasi kinerja indikator berdasarkan data upload My Intress.
                   </p>
                 </div>
 

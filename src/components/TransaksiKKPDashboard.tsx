@@ -435,7 +435,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                   Filter Periode & Bulan SP2D (Kolom E)
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
-                  Kolom E Excel OM-SPAN
+                  Kolom E Excel My Intress
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

@@ -330,7 +330,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
             }
           }
 
-          notes.push(`Berhasil mengenali format Rekap Kertas Kerja Capaian Output OM-SPAN (${periodeFormatted}).`);
+          notes.push(`Berhasil mengenali format Rekap Kertas Kerja Capaian Output My Intress / SAKTI (${periodeFormatted}).`);
           notes.push(`Memproses ${cleanedSatkers.length} Satker: ${zeroCaputCount} Satker belum mengirim (0% data masuk), ${terlaporkanCaputCount} Satker sudah/terlambat mengirim.`);
 
         } else {

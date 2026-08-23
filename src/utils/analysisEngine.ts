@@ -124,7 +124,7 @@ export function analyzeSatkerPeriodicTrend(
       mainDriversUp: [],
       mainDriversDown: [],
       narrativeSummary: 'Belum ada data riwayat IKPA yang diunggah.',
-      recommendations: ['Silakan unggah data Excel IKPA dari OM-SPAN untuk memulai analisis otomatis.']
+      recommendations: ['Silakan unggah data Excel IKPA dari My Intress / SAKTI untuk memulai analisis otomatis.']
     };
   }
 

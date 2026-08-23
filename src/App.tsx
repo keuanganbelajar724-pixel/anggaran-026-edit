@@ -1518,6 +1518,7 @@ export default function App() {
         masterSatkers={masterSatkers}
         slideShowConfig={dashboardConfig.slideShowConfig}
         onOpenAdminSlideShow={() => setActiveTab('admin')}
+        dashboardConfig={dashboardConfig}
       />
 
       {/* Main Content View Container - Full Widescreen Responsive */}
@@ -1939,7 +1940,7 @@ export default function App() {
                 © 2026 ANGKASA — Sistem Navigasi &amp; Pembina Akuntabilitas Keuangan Negara.
               </p>
               <p className="text-[10px] text-slate-400/80 mt-0.5">
-                📊 Basis data: Pembaruan periodik melalui olah Excel SAKTI &amp; OM-SPAN oleh Tim KPPN Semarang I.
+                📊 Basis data: Pembaruan periodik melalui olah Excel SAKTI &amp; My Intress oleh Tim KPPN Semarang I.
               </p>
             </div>
             <div className="flex items-center gap-2">

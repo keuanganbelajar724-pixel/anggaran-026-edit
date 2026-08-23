@@ -151,7 +151,7 @@ export const PER5_INDIKATOR_INFO = [
     layering: 'Ketepatan Waktu: Max HK-5 bulan berikutnya (Tepat=100, Terlambat=0). Capaian RO: PCRO/TPCRO atau RVRO/Target RO.',
     strategi: [
       'Isi data Capaian Output bulanan secara akurat sebelum batas HK-5.',
-      'Pastikan status data pada aplikasi OMSPAN telah Terkonfirmasi.',
+      'Pastikan status data pada aplikasi My Intress telah Terkonfirmasi.',
       'Pantau gap antara realisasi anggaran dengan progres fisik (PCRO).'
     ],
     color: 'teal'

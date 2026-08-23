@@ -32,7 +32,9 @@ import {
   Receipt,
   UserX,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Bot,
+  BrainCircuit
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { 
@@ -124,6 +126,8 @@ interface SatkerPerhatianAnalyticsSectionProps {
   isDark?: boolean;
   theme?: AppTheme;
   onOpenEditSatker?: (satker: SatkerIKPA) => void;
+  onConsultSatkerWithAI?: (satker: SatkerIKPA) => void;
+  onOpenAiTab?: () => void;
 }
 
 export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsSectionProps> = ({
@@ -134,7 +138,9 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
   transaksiKkpRecords = [],
   transaksiDigipayRecords = [],
   isDark = false,
-  onOpenEditSatker
+  onOpenEditSatker,
+  onConsultSatkerWithAI,
+  onOpenAiTab
 }) => {
   const [selectedCluster, setSelectedCluster] = useState<RiskClusterKey>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -554,6 +560,18 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {onOpenAiTab && (
+              <button
+                type="button"
+                onClick={onOpenAiTab}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-purple-950/20 flex items-center gap-2 cursor-pointer active:scale-95 border border-purple-400/30"
+                title="Buka Asisten Analis Gemini AI untuk bedah satker interaktif"
+              >
+                <Bot className="w-4 h-4 text-purple-200 animate-pulse" />
+                <span>Analisis via Gemini AI ✨</span>
+              </button>
+            )}
+
             <button
               onClick={handleExportExecutiveReport}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-emerald-950/20 flex items-center gap-2 cursor-pointer active:scale-95"
@@ -1054,6 +1072,17 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                             <span>Diagnosa</span>
                           </button>
 
+                          {onConsultSatkerWithAI && (
+                            <button
+                              type="button"
+                              onClick={() => onConsultSatkerWithAI(s)}
+                              className="p-1.5 rounded-xl bg-purple-100 hover:bg-purple-200 dark:bg-purple-950 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 transition-colors cursor-pointer border border-purple-300 dark:border-purple-800"
+                              title="Tanyakan Analisis Satker ini ke Google Gemini AI"
+                            >
+                              <Bot className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                            </button>
+                          )}
+
                           {onOpenEditSatker && (
                             <button
                               type="button"
@@ -1553,14 +1582,33 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800 pt-4">
-              <button
-                type="button"
-                onClick={() => setSelectedSatkerDiagnostic(null)}
-                className="px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs transition-all hover:opacity-90 shadow-md cursor-pointer"
-              >
-                Tutup Lembar Diagnosa
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+              <div>
+                {onConsultSatkerWithAI && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = selectedSatkerDiagnostic.satker;
+                      setSelectedSatkerDiagnostic(null);
+                      onConsultSatkerWithAI(target);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs transition-all shadow-md shadow-purple-950/20 flex items-center gap-2 cursor-pointer border border-purple-400/30 active:scale-95"
+                  >
+                    <Bot className="w-4 h-4 text-purple-200 animate-pulse" />
+                    <span>Konsultasikan Satker Ini ke Gemini AI ✨</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSatkerDiagnostic(null)}
+                  className="px-6 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs transition-all hover:opacity-90 shadow-md cursor-pointer"
+                >
+                  Tutup Lembar Diagnosa
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -361,7 +361,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
             Upload &amp; Pengelolaan Data Capaian Output SAKTI
           </h3>
           <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-            Database ini khusus memproses file rekapitulasi pelaporan Capaian Output SAKTI/OM-SPAN (kolom % Data Masuk/Upload). Mengunggah file ini hanya memperbarui status &amp; nilai Capaian Output tanpa mengotori 7 indikator IKPA lainnya.
+            Database ini khusus memproses file rekapitulasi pelaporan Capaian Output SAKTI/My Intress (kolom % Data Masuk/Upload). Mengunggah file ini hanya memperbarui status &amp; nilai Capaian Output tanpa mengotori 7 indikator IKPA lainnya.
           </p>
         </div>
 

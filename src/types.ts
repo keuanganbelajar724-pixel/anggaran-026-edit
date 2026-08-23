@@ -921,6 +921,28 @@ export interface SlideShowConfig {
   updatedAt?: string;
 }
 
+export type ThemePresetId = 
+  | 'default_kppn' 
+  | 'midnight_indigo' 
+  | 'emerald_cyber' 
+  | 'golden_amber' 
+  | 'crimson_prestige' 
+  | 'oceanic_cyan' 
+  | 'royal_purple'
+  | 'custom';
+
+export interface DashboardThemeSettings {
+  preset: ThemePresetId;
+  primaryColor?: string; // e.g. #059669 or Tailwind color class
+  accentColor?: string; // e.g. #0284c7
+  bannerStartColor?: string; // e.g. #0f172a
+  bannerEndColor?: string; // e.g. #1e1b4b
+  bannerTextColor?: string;
+  tabLayoutMode?: 'auto_fill' | 'compact'; // 'auto_fill' = Rata penuh dari kiri ke kanan (tanpa ruang kosong di kanan), 'compact' = Ukuran konten
+  activeTabGlow?: boolean;
+  customBannerGradient?: string;
+}
+
 export interface PopUpAnnouncementConfig {
   isEnabled: boolean; // Aktif / Nonaktifkan Pop-up Awal
   id?: string; // ID unik pengumuman (jika diubah, popup akan muncul lagi)
@@ -944,6 +966,7 @@ export interface DashboardConfig {
   customAnnouncement: string;
   popUpAnnouncement?: PopUpAnnouncementConfig;
   slideShowConfig?: SlideShowConfig;
+  themeSettings?: DashboardThemeSettings;
   hideIKPAWhenOnlyCapaianOutput?: boolean;
   showKpiCards: boolean;
   showBarChart: boolean;

@@ -497,7 +497,7 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
           <div>
             <h4 className="text-lg font-black flex items-center gap-2 text-slate-900 dark:text-slate-100">
               <Upload className="w-5 h-5 text-sky-600" />
-              <span>Unggah File Excel IKPA (SAKTI / OM-SPAN)</span>
+              <span>Unggah File Excel IKPA (SAKTI / My Intress)</span>
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Format file otomatis mendeteksi header kolom kode satker, pagu, realisasi, dan 8 indikator IKPA.

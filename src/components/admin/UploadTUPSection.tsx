@@ -304,7 +304,7 @@ export const UploadTUPSection: React.FC<UploadTUPSectionProps> = ({
               Unggah File Excel {activeUploadType === 'TUP_KOLOM_H' ? 'Batas Waktu TUP (Kolom H)' : 'Batas Waktu UP (Kolom N)'}
             </h4>
             <p className="text-xs text-slate-500">
-              Pilih file format .xlsx atau .xls dari SAKTI / OM-SPAN.
+              Pilih file format .xlsx atau .xls dari SAKTI / My Intress.
             </p>
           </div>
 

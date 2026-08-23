@@ -13,7 +13,7 @@ export const REMINDER_TEMPLATES: TemplateMessage[] = [
 Yth. Kuasa Pengguna Anggaran (KPA) / PPK / Operator Capaian Output
 *Satker:* {NAMA_SATKER} (Kode: *{KODE_SATKER}*)
 
-Berdasarkan monitoring Aplikasi SAKTI & OM-SPAN per hari ini, Satker Bapak/Ibu tercatat *BELUM / TERLAMBAT* menyelesaikan konfirmasi pelaporan *Data Capaian Output* periode berjalan.
+Berdasarkan monitoring Aplikasi SAKTI & My Intress per hari ini, Satker Bapak/Ibu tercatat *BELUM / TERLAMBAT* menyelesaikan konfirmasi pelaporan *Data Capaian Output* periode berjalan.
 
 📊 *Detail Rekapitulasi Data:*
 • Kode Satker : *{KODE_SATKER}*
@@ -176,7 +176,7 @@ Sesuai PMK mengenai Standarisasi Kompetensi Pejabat Perbendaharaan Negara (PPK, 
 📋 *Langkah Tindak Lanjut:*
 1. Bagi PPK/PPSPM/Bendahara yang *belum bersertifikat*: Segera ikuti program sertifikasi/perekaman usulan pada Aplikasi *SIMASPATEN* (https://simaspaten.kemenkeu.go.id) dan pantau pemanggilan diklat pada *SWIPE-AP*.
 2. Bagi pejabat dengan *sertifikat yang akan kadaluarsa*: Segera ajukan perpanjangan masa berlaku sertifikat (Penyegaran/PPL) di SIMASPATEN minimal 30-60 hari sebelum tanggal berakhir.
-3. Pastikan data SK pengangkatan pejabat telah terdaftar dan valid pada SAKTI & OM-SPAN.
+3. Pastikan data SK pengangkatan pejabat telah terdaftar dan valid pada SAKTI & My Intress.
 
 🔍 *Cek Daftar Pejabat & Tanggal Kadaluarsa Satker Anda:*
 👉 *https://anggaran-026.my.id* (Menu Sertifikasi Pejabat)

@@ -30,11 +30,14 @@ import {
   User,
   Phone,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  Radio
 } from 'lucide-react';
-import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig } from '../types';
+import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
 import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
+import { getThemePreset } from '../utils/themeUtils';
 
 interface HeaderProps {
   activeTab: NavigationTab;
@@ -61,6 +64,7 @@ interface HeaderProps {
   onOpenBroadcastLibrary?: () => void;
   slideShowConfig?: SlideShowConfig;
   onOpenAdminSlideShow?: () => void;
+  dashboardConfig?: DashboardConfig;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -87,9 +91,13 @@ export const Header: React.FC<HeaderProps> = ({
   transaksiDigipayCount = 0,
   onOpenBroadcastLibrary,
   slideShowConfig,
-  onOpenAdminSlideShow
+  onOpenAdminSlideShow,
+  dashboardConfig
 }) => {
   const isDark = theme === 'dark';
+  const themeSettings = dashboardConfig?.themeSettings;
+  const isAutoFillLayout = themeSettings?.tabLayoutMode !== 'compact';
+  const activePreset = getThemePreset(themeSettings?.preset);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
   const [isSatkerPreviewMode, setIsSatkerPreviewMode] = useState<boolean>(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
@@ -392,15 +400,36 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Center Executive Live Clock Ticker for Wide Screens */}
-          <div className="hidden lg:flex items-center gap-2.5 py-1.5 px-4 rounded-2xl border bg-slate-900/5 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800/80 shadow-xs">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-                Waktu Sistem:
+          {/* Center Executive Live Clock Ticker for Wide Screens (Ultra-Premium Glassmorphism Widget) */}
+          <div className="hidden lg:flex items-center gap-2.5 py-1.5 px-4 rounded-2xl border shadow-lg backdrop-blur-xl transition-all duration-300 bg-gradient-to-r from-white/90 via-slate-50/95 to-indigo-50/70 dark:from-slate-900/95 dark:via-slate-900/90 dark:to-indigo-950/80 border-slate-200/90 dark:border-indigo-500/30 hover:border-indigo-400 dark:hover:border-indigo-400/60 shadow-slate-200/50 dark:shadow-indigo-950/50 group">
+            {/* Live Indicator Capsule */}
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-700/50">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500" />
               </span>
-              <span className="font-mono font-black text-indigo-700 dark:text-sky-300 text-sm tracking-tight">
-                {formattedDateStr} • {formattedTimeStr}
+              <span className="font-extrabold text-[9px] uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-600 dark:text-emerald-400" />
+                LIVE
+              </span>
+            </div>
+
+            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700/60 mx-0.5" />
+
+            {/* Date Segment */}
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
+              <span className="font-semibold text-slate-700 dark:text-slate-200 text-xs tracking-tight">
+                {formattedDateStr}
+              </span>
+            </div>
+
+            <span className="text-slate-300 dark:text-slate-600 font-bold">•</span>
+
+            {/* Time Digital Segment */}
+            <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-slate-900 dark:bg-black/80 text-white border border-slate-700 dark:border-indigo-500/40 shadow-inner">
+              <span className="font-mono font-black text-amber-300 dark:text-amber-300 text-xs sm:text-sm tracking-wider tabular-nums drop-shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+                {formattedTimeStr}
               </span>
             </div>
           </div>
@@ -610,7 +639,7 @@ export const Header: React.FC<HeaderProps> = ({
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUpOrLeave}
             onMouseLeave={handleMouseUpOrLeave}
-            className={`flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-8 sm:px-9 xl:px-0 touch-pan-x overscroll-x-contain select-none ${
+            className={`w-full flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-8 sm:px-9 xl:px-0 touch-pan-x overscroll-x-contain select-none ${
               isDragging ? 'cursor-grabbing' : 'cursor-grab xl:cursor-default'
             } ${
               isDark ? 'border-slate-800/80' : 'border-slate-200'
@@ -629,29 +658,35 @@ export const Header: React.FC<HeaderProps> = ({
                 const isActive = activeTab === t.id;
                 const isDisabledForSatker = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
 
+                const activeStyle = isActive
+                  ? (themeSettings?.preset && themeSettings.preset !== 'default_kppn'
+                      ? `${activePreset.activeTabClass} ${themeSettings.activeTabGlow !== false ? 'shadow-lg ring-2 ring-white/30' : ''}`
+                      : t.activeColor)
+                  : t.id === 'admin'
+                    ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-amber-300 border border-amber-500/60 hover:border-amber-400 shadow-md hover:bg-indigo-900/80 font-black'
+                    : isDark 
+                      ? 'text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 bg-white/60 shadow-2xs';
+
                 return (
                   <button
                     key={t.id}
                     data-active={isActive ? "true" : "false"}
                     onClick={() => handleTabClick(t.id)}
-                    className={`relative flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap shrink-0 min-h-[38px] touch-manipulation select-none ${
-                      isActive
-                        ? t.activeColor
-                        : t.id === 'admin'
-                          ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-amber-300 border border-amber-500/60 hover:border-amber-400 shadow-md hover:bg-indigo-900/80 font-black'
-                          : isDark 
-                            ? 'text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700'
-                            : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 bg-white/60 shadow-2xs'
-                    }`}
+                    className={`relative flex items-center justify-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap min-h-[38px] touch-manipulation select-none ${
+                      isAutoFillLayout
+                        ? 'shrink-0 xl:shrink xl:flex-1 xl:min-w-fit justify-center text-center'
+                        : 'shrink-0'
+                    } ${activeStyle}`}
                   >
                     {isActive && (
                       <div
                         className="absolute inset-0 rounded-xl bg-white/10"
                       />
                     )}
-                    <span className="relative z-10 flex items-center gap-2">
+                    <span className="relative z-10 flex items-center justify-center gap-2">
                       {t.icon}
-                      <span>{t.label}</span>
+                      <span className="whitespace-nowrap">{t.label}</span>
                       {t.badge}
                       {isAdminAuthenticated && isDisabledForSatker && (
                         <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5" title="Menu ini saat ini dinonaktifkan untuk Satker">

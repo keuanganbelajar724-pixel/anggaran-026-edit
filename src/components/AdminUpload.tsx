@@ -32,9 +32,11 @@ import { UploadTUPSection } from './admin/UploadTUPSection';
 import { UploadKKPSection } from './admin/UploadKKPSection';
 import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
+import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
 import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
+import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -122,6 +124,8 @@ import {
   PenTool,
   Unlock,
   FileDown,
+  Bot,
+  BrainCircuit,
   UserCheck,
   CreditCard,
   Settings,
@@ -229,7 +233,7 @@ const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
   },
   {
     id: 'hist-may-2026',
-    fileName: 'Laporan_IKPA_OMSPAN_Mei_2026.xlsx',
+    fileName: 'Laporan_IKPA_MyIntress_Mei_2026.xlsx',
     periode: 'Mei 2026',
     uploadDate: '02 Mei 2026, 10:00 WIB',
     uploadedBy: 'Seksi MSKI KPPN Semarang I',
@@ -246,7 +250,7 @@ const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
   },
   {
     id: 'hist-april-2026',
-    fileName: 'Laporan_IKPA_OMSPAN_April_2026.xlsx',
+    fileName: 'Laporan_IKPA_MyIntress_April_2026.xlsx',
     periode: 'April 2026',
     uploadDate: '03 Apr 2026, 11:20 WIB',
     uploadedBy: 'Seksi MSKI KPPN Semarang I',
@@ -293,13 +297,13 @@ const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
   },
   {
     id: 'hist-january-2026',
-    fileName: 'Laporan_IKPA_OMSPAN_Januari_2026.xlsx',
+    fileName: 'Laporan_IKPA_MyIntress_Januari_2026.xlsx',
     periode: 'Januari 2026',
     uploadDate: '02 Feb 2026, 10:15 WIB',
     uploadedBy: 'Seksi MSKI KPPN Semarang I',
     satkerCount: INITIAL_SATKER_DATA.length,
     averageIKPA: 86.20,
-    notes: 'Laporan IKPA OM-SPAN SAKTI Periode Januari 2026 (Data Excel Resmi)',
+    notes: 'Laporan IKPA My Intress SAKTI Periode Januari 2026 (Data Excel Resmi)',
     satkersData: INITIAL_SATKER_DATA.map(s => ({
       ...s,
       nilaiTotalIKPA: Math.min(100, Math.max(60, Number((s.nilaiTotalIKPA - 6.5).toFixed(2)))),
@@ -354,7 +358,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai'>('upload');
+  const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   
   // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay)
   const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay'>('ikpa');
@@ -2899,6 +2904,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             {activityLogs.length}
           </span>
         </button>
+
+        <button
+          onClick={() => setAdminTab('gemini-ai')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'gemini-ai'
+              ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-sky-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40 ring-2 ring-purple-400/30'
+              : 'text-purple-600 hover:text-purple-900 hover:bg-purple-50 dark:text-purple-300 dark:hover:text-purple-100 dark:hover:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60'
+          }`}
+        >
+          <Bot className="w-4 h-4 text-purple-400 animate-pulse shrink-0" />
+          <span>14. Asisten Analis Gemini AI</span>
+          <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
+            ✨ AI Live
+          </span>
+        </button>
       </div>
 
       {/* Hidden File Inputs */}
@@ -3418,21 +3438,34 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       )}
 
       {adminTab === 'settings' && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-6 sm:p-8 space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                KONFIGURASI Halaman Depan Dashboard Publik
+        <div className="space-y-6">
+          {/* Section: Theme, Colors & Tab Alignment Settings */}
+          <ThemeSettingsSection
+            dashboardConfig={dashboardConfig}
+            onUpdateDashboardConfig={(newConfig) => {
+              if (onUpdateDashboardConfig) {
+                onUpdateDashboardConfig(newConfig);
+              }
+            }}
+            addToast={addToast}
+            isDark={isDark}
+          />
+
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold mb-1">
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  KONFIGURASI Halaman Depan Dashboard Publik
+                </div>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                  Atur Filter Default & Content Dashboard Sesuai Kebutuhan Admin
+                </h3>
+                <p className="text-slate-500 text-xs mt-1">
+                  Ubah tampilan bawaan saat siapapun membuka Dashboard, misalnya langsung menampilkan daftar Satker yang belum upload Capaian Output.
+                </p>
               </div>
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                Atur Filter Default & Content Dashboard Sesuai Kebutuhan Admin
-              </h3>
-              <p className="text-slate-500 text-xs mt-1">
-                Ubah tampilan bawaan saat siapapun membuka Dashboard, misalnya langsung menampilkan daftar Satker yang belum upload Capaian Output.
-              </p>
             </div>
-          </div>
 
           {configSaveSuccess && (
             <div className="p-4 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-xs font-bold flex items-center gap-3 animate-fade-in shadow-xs">
@@ -4639,6 +4672,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </div>
           </form>
         </div>
+      </div>
       )}
 
       {adminTab === 'announcements' && (
@@ -8289,6 +8323,26 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             setEditingSatker({ ...satker, indikator: { ...satker.indikator } });
             setAdminTab('crud');
           }}
+          onConsultSatkerWithAI={(satker) => {
+            setSelectedSatkerForAiDiagnosis(satker);
+            setAdminTab('gemini-ai');
+          }}
+          onOpenAiTab={() => setAdminTab('gemini-ai')}
+        />
+      )}
+
+      {/* Gemini AI Powered Analytics Section Tab */}
+      {adminTab === 'gemini-ai' && (
+        <GeminiSatkerAnalyticsSection
+          satkers={satkers}
+          masterSatkers={masterSatkers}
+          pejabatList={pejabatList}
+          pengelolaanUpRecords={pengelolaanUpRecords}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
+          isDark={isDark}
+          selectedSatkerForDiagnosis={selectedSatkerForAiDiagnosis}
+          onClearSelectedDiagnosisSatker={() => setSelectedSatkerForAiDiagnosis(null)}
         />
       )}
 
@@ -9297,7 +9351,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>Area Upload File Excel / CSV ({excelCategory})</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Unggah file hasil ekspor SAKTI/OM-SPAN untuk kategori <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{excelCategory}</strong>. Sistem otomatis membersihkan spasi liar &amp; memperbaiki format.
+          Unggah file hasil ekspor SAKTI/My Intress untuk kategori <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{excelCategory}</strong>. Sistem otomatis membersihkan spasi liar &amp; memperbaiki format.
         </p>
 
         {excelCategory === 'IKPA' && (
@@ -9305,7 +9359,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             <div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
               <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
               <span>
-                <strong>Fitur Unggulan:</strong> Mendukung Ekspor Asli SAKTI/OM-SPAN (Bulanan seperti <strong>Januari</strong>, Februari, Maret, dll). Bulan otomatis terdeteksi dari header Excel.
+                <strong>Fitur Unggulan:</strong> Mendukung Ekspor Asli SAKTI/My Intress (Bulanan seperti <strong>Januari</strong>, Februari, Maret, dll). Bulan otomatis terdeteksi dari header Excel.
               </span>
             </div>
             <button
@@ -9333,7 +9387,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
               <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                <strong>Fitur Capaian Output:</strong> Membaca kolom <code>% Data Masuk/Upload</code> (Rekap Kertas Kerja Caput OM-SPAN). Satker dengan nilai <strong>0%</strong> otomatis dikategorikan <strong>Belum Terlaporkan</strong> (Belum Mengirim SAKTI).
+                <strong>Fitur Capaian Output:</strong> Membaca kolom <code>% Data Masuk/Upload</code> (Rekap Kertas Kerja Caput My Intress / SAKTI). Satker dengan nilai <strong>0%</strong> otomatis dikategorikan <strong>Belum Terlaporkan</strong> (Belum Mengirim SAKTI).
               </span>
             </div>
           </div>
@@ -9551,7 +9605,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <div>
                   <div className="font-extrabold text-sm mb-0.5">
-                    🎯 Mode Pengunggahan Khusus Capaian Output (SAKTI/OM-SPAN)
+                    🎯 Mode Pengunggahan Khusus Capaian Output (SAKTI/My Intress)
                   </div>
                   <div>
                     Sistem mendeteksi file kategori <strong>Capaian Output</strong>. Pengunggahan ini hanya memperbarui <strong>Status Terlaporkan &amp; Nilai Capaian Output</strong> Satker tanpa merusak atau mengubah nilai 7 indikator IKPA lainnya.

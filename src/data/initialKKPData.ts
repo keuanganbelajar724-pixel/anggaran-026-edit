@@ -448,7 +448,7 @@ export const INITIAL_KKP_RECORDS: TransaksiKKPRecord[] = [
   },
 
   // ==========================================
-  // PERIODE: JANUARI 2026 (OM-SPAN Kolom E Tanggal SP2D)
+  // PERIODE: JANUARI 2026 (My Intress Kolom E Tanggal SP2D)
   // ==========================================
   {
     id: 'kkp-jan-1',

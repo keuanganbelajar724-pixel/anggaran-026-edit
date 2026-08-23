@@ -26,7 +26,7 @@ export const ExcelGuideModal: React.FC = () => {
             Panduan Pengolahan Data Excel Mentah IKPA
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-2xl">
-            Sistem pengolah data otomatis KPPN Semarang I dirancang toleran terhadap format file Excel mentah yang berbeda-beda dari OM-SPAN, SAKTI, maupun rekap manual.
+            Sistem pengolah data otomatis KPPN Semarang I dirancang toleran terhadap format file Excel mentah yang berbeda-beda dari My Intress, SAKTI, maupun rekap manual.
           </p>
         </div>
 

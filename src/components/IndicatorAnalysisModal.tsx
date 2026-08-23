@@ -84,7 +84,7 @@ export const IndicatorAnalysisModal: React.FC<IndicatorAnalysisModalProps> = ({
       tindakanKPPN: [
         'Menerbitkan nota dinas / broadcast pengingat jadwal pemutakhiran RPD Hal III DIPA pada 10 hari kerja pertama awal triwulan.',
         'Membuka layanan konsultasi khusus (Desk Deviasi Hal III) bagi satker dengan deviasi tinggi pada triwulan sebelumnya.',
-        'Menyediakan data perbandingan RPD vs Realisasi harian melalui OMSPAN/SAKTI.'
+        'Menyediakan data perbandingan RPD vs Realisasi harian melalui My Intress / SAKTI.'
       ]
     },
     penyerapanAnggaran: {
