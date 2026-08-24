@@ -26,7 +26,7 @@ import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
-import { INITIAL_SLIDESHOW_CONFIG } from './data/initialSlideShowData';
+import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
@@ -219,6 +219,7 @@ export default function App() {
       return {
         ...savedConfig,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
+        slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
         aduanList: savedConfig.aduanList && savedConfig.aduanList.length > 0 
           ? savedConfig.aduanList 
           : INITIAL_ADUAN_RECORDS,
@@ -248,7 +249,7 @@ export default function App() {
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
-      slideShowConfig: savedConfig?.slideShowConfig || INITIAL_SLIDESHOW_CONFIG,
+      slideShowConfig: sanitizeSlideShowConfig(savedConfig?.slideShowConfig),
       announcements: INITIAL_ANNOUNCEMENTS,
       kegiatanSosialisasi: INITIAL_KEGIATAN_SOSIALISASI,
       aduanList: INITIAL_ADUAN_RECORDS,
@@ -472,14 +473,18 @@ export default function App() {
             localStorage.setItem('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
+            const cleanDashboardConfig = {
+              ...data.dashboardConfig,
+              slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+            };
             setDashboardConfig(prev => ({
               ...prev,
-              ...data.dashboardConfig,
-              historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+              ...cleanDashboardConfig,
+              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
-            localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
-            if (data.dashboardConfig.menuVisibility) {
-              localStorage.setItem('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+            localStorage.setItem('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+            if (cleanDashboardConfig.menuVisibility) {
+              localStorage.setItem('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
             }
           }
         }
@@ -643,14 +648,18 @@ export default function App() {
             localStorage.setItem('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
+            const cleanDashboardConfig = {
+              ...data.dashboardConfig,
+              slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+            };
             setDashboardConfig(prev => ({
               ...prev,
-              ...data.dashboardConfig,
-              historicalUploads: mergeHistoricalUploadsAntiDowngrade(data.dashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+              ...cleanDashboardConfig,
+              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
-            localStorage.setItem('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
-            if (data.dashboardConfig.menuVisibility) {
-              localStorage.setItem('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+            localStorage.setItem('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+            if (cleanDashboardConfig.menuVisibility) {
+              localStorage.setItem('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
             }
           }
         }
@@ -1566,65 +1575,64 @@ export default function App() {
 
   const isDark = theme === 'dark';
 
+  // Early Full-Screen Splash while first connecting to Firestore (eliminates any 1-second flash of empty/old content)
+  if (isInitialSyncing) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-white select-none">
+        <div className="relative flex flex-col items-center max-w-md text-center space-y-6 animate-in fade-in duration-300">
+          {/* Ambient Backlight */}
+          <div className="absolute -top-16 w-52 h-52 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+          
+          {/* Logo Badge */}
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-600 p-0.5 shadow-2xl shadow-indigo-500/30 flex items-center justify-center">
+            <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center">
+              <span className="text-3xl font-black bg-gradient-to-r from-amber-300 via-white to-sky-300 bg-clip-text text-transparent">
+                026
+              </span>
+            </div>
+          </div>
+
+          {/* Titles */}
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 text-[11px] font-extrabold uppercase tracking-wider">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>KPPN Semarang I • DJPb Kemenkeu</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+              ANGKASA <span className="text-amber-400 text-lg font-bold">V3.2</span>
+            </h1>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+              Aplikasi Navigasi Keuangan &amp; Akselerasi Satker
+            </p>
+          </div>
+
+          {/* Animated Loading Bar & Status */}
+          <div className="w-full max-w-xs space-y-2 pt-2">
+            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
+              <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-400 via-indigo-500 to-sky-400 w-1/2 rounded-full animate-pulse" />
+            </div>
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              <span>Sinkronisasi Data Real-Time...</span>
+            </div>
+          </div>
+
+          {/* Footer Trust Badge */}
+          <div className="pt-4 flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Pusat Data Terhubung &amp; Terlindungi</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-300 ease-in-out relative overflow-x-hidden ${
       isDark 
         ? 'bg-slate-950 text-slate-100' 
         : 'bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100/90 text-slate-900'
     }`}>
-      {/* Initial Cloud Sync Splash Screen for clean first-time visit without flicker */}
-      {isInitialSyncing && (
-        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-white select-none animate-in fade-in duration-200">
-          <div className="relative flex flex-col items-center max-w-md text-center space-y-6">
-            {/* Ambient Backlight */}
-            <div className="absolute -top-16 w-52 h-52 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
-            
-            {/* Logo Badge */}
-            <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-600 p-0.5 shadow-2xl shadow-indigo-500/30 flex items-center justify-center">
-              <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center">
-                <span className="text-3xl font-black bg-gradient-to-r from-amber-300 via-white to-sky-300 bg-clip-text text-transparent">
-                  026
-                </span>
-              </div>
-            </div>
-
-            {/* Titles */}
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 text-[11px] font-extrabold uppercase tracking-wider">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                <span>KPPN Semarang I • DJPb Kemenkeu</span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                ANGKASA <span className="text-amber-400 text-lg font-bold">V3.2</span>
-              </h1>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                Aplikasi Navigasi Keuangan &amp; Akselerasi Satker
-              </p>
-            </div>
-
-            {/* Animated Loading Bar & Status */}
-            <div className="w-full max-w-xs space-y-2 pt-2">
-              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
-                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-400 via-indigo-500 to-sky-400 w-1/2 rounded-full animate-[shimmer_1.5s_infinite_linear]" 
-                  style={{
-                    animation: 'pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
-                  }}
-                />
-              </div>
-              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                <span>Sinkronisasi Data Real-Time...</span>
-              </div>
-            </div>
-
-            {/* Footer Trust Badge */}
-            <div className="pt-4 flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Pusat Data Terhubung &amp; Terlindungi</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Ambient luxury mesh lighting orbs for widescreen depth */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-60 dark:opacity-30">

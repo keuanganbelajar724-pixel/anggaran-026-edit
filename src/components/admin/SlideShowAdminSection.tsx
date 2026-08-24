@@ -651,18 +651,18 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                     type="button"
                     onClick={() => setFormData(prev => ({
                       ...prev,
-                      imageUrl: 'https://images.unsplash.com/photo-1591604466107-ec97de577aff?auto=format&fit=crop&w=1920&q=80',
-                      title: 'Spectrum Ramadhan 1446 H',
-                      subtitle: 'Meningkatkan Iman, Taqwa, dan Ukhuwah untuk Menggapai Maghfirah',
-                      badge: 'EVENT',
-                      eventDate: 'Jumat, 21 Februari 2025',
-                      eventTime: '09.30 s.d 12.15 WIB',
-                      eventLocation: 'id: 432 277 387 738 (password: iu63Po97) • MT. Tazkiyatun Nufus',
-                      linkLabel: 'Gabung Acara'
+                      imageUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1920&q=80',
+                      title: 'Akselerasi IKPA & Capaian Output SAKTI',
+                      subtitle: 'Monitoring Kinerja Pelaksanaan Anggaran & Kepatuhan Konfirmasi Capaian Output Satker Mitra',
+                      badge: 'MONITORING REAL-TIME',
+                      eventDate: 'Periode Berjalan 2026',
+                      eventTime: '08.00 - 16.00 WIB',
+                      eventLocation: 'KPPN Semarang I • Seksi MSKI',
+                      linkLabel: 'Lihat Evaluasi'
                     }))}
-                    className="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100"
+                    className="text-[10px] font-bold px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 cursor-pointer"
                   >
-                    Ramadhan Event
+                    Sampel Monitoring IKPA
                   </button>
                   <button
                     type="button"

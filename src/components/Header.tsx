@@ -32,10 +32,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Radio
+  Radio,
+  Smartphone
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
+import { AndroidInstallModal } from './AndroidInstallModal';
 import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
 import { getThemePreset } from '../utils/themeUtils';
 
@@ -99,6 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isAutoFillLayout = themeSettings?.tabLayoutMode !== 'compact';
   const activePreset = getThemePreset(themeSettings?.preset);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
+  const [isAndroidModalOpen, setIsAndroidModalOpen] = useState<boolean>(false);
   const [isSatkerPreviewMode, setIsSatkerPreviewMode] = useState<boolean>(false);
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -482,6 +485,18 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </div>
 
+            {/* Install Android PWA Button */}
+            <button
+              type="button"
+              onClick={() => setIsAndroidModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md border border-emerald-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
+              title="Pasang Aplikasi ANGKASA di HP Android"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">App Android</span>
+              <span className="sm:hidden text-[10px]">App</span>
+            </button>
+
             {/* Template Broadcast Quick Access (Admin Only) */}
             {isAdminAuthenticated && onOpenBroadcastLibrary && (
               <button
@@ -716,6 +731,13 @@ export const Header: React.FC<HeaderProps> = ({
           return false;
         }}
         theme={theme}
+      />
+
+      {/* Android PWA Install Modal */}
+      <AndroidInstallModal
+        isOpen={isAndroidModalOpen}
+        onClose={() => setIsAndroidModalOpen(false)}
+        isDark={isDark}
       />
     </header>
   );

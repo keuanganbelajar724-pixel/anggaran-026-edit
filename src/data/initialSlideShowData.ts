@@ -42,3 +42,28 @@ export const INITIAL_SLIDESHOW_CONFIG: SlideShowConfig = {
     }
   ]
 };
+
+export function sanitizeSlideShowConfig(config?: Partial<SlideShowConfig> | null): SlideShowConfig {
+  if (!config) return INITIAL_SLIDESHOW_CONFIG;
+  
+  const rawSlides = Array.isArray(config.slides) ? config.slides : [];
+  
+  // Filter out any legacy obsolete/dummy slides
+  const cleanSlides = rawSlides.filter(s => {
+    if (!s) return false;
+    if (s.id === 'slide-ramadhan-1446h') return false;
+    if ((s.title || '').toLowerCase().includes('ramadhan')) return false;
+    if ((s.imageUrl || '').includes('591604466107')) return false;
+    return true;
+  });
+
+  return {
+    isEnabled: config.isEnabled !== undefined ? config.isEnabled : INITIAL_SLIDESHOW_CONFIG.isEnabled,
+    autoPlay: config.autoPlay !== undefined ? config.autoPlay : INITIAL_SLIDESHOW_CONFIG.autoPlay,
+    intervalSeconds: config.intervalSeconds || INITIAL_SLIDESHOW_CONFIG.intervalSeconds,
+    aspectRatioMode: config.aspectRatioMode || INITIAL_SLIDESHOW_CONFIG.aspectRatioMode,
+    showOnTabs: config.showOnTabs || INITIAL_SLIDESHOW_CONFIG.showOnTabs,
+    pauseOnHover: config.pauseOnHover !== undefined ? config.pauseOnHover : INITIAL_SLIDESHOW_CONFIG.pauseOnHover,
+    slides: cleanSlides.length > 0 ? cleanSlides : INITIAL_SLIDESHOW_CONFIG.slides
+  };
+}
