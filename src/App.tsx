@@ -1015,7 +1015,8 @@ export default function App() {
   const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
     setPengelolaanUPList(newList);
     try {
-      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(newList));
+      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: newList, updatedAt: new Date().toISOString() });
     } catch (e) {
       console.warn("Error syncing UP to Firebase:", e);
     }

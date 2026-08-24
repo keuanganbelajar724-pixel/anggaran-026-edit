@@ -123,6 +123,7 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
 
 /**
  * Merge Satkers safely without ever downgrading or deleting multi-month history
+ * Server data is authoritative for current indicators, while preserving extended contact & history.
  */
 export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: SatkerIKPA[]): SatkerIKPA[] {
   if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
@@ -136,37 +137,32 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
   const localMaxMonths = Math.max(0, ...localList.map(getMonthCount));
   const serverMaxMonths = Math.max(0, ...serverList.map(getMonthCount));
 
-  // Initialize with server list
-  serverList.forEach(s => {
-    if (s && s.kodeSatker) {
-      satkerMap.set(s.kodeSatker.trim(), { ...s });
+  // Initialize with local list first
+  localList.forEach(localS => {
+    if (localS && localS.kodeSatker) {
+      satkerMap.set(localS.kodeSatker.trim(), { ...localS });
     }
   });
 
-  // Merge local list
-  localList.forEach(localS => {
-    const kode = localS.kodeSatker?.trim();
+  // Apply server list (Server is authoritative Source of Truth)
+  serverList.forEach(serverS => {
+    const kode = serverS.kodeSatker?.trim();
     if (!kode) return;
 
-    const serverS = satkerMap.get(kode);
-    if (!serverS) {
-      satkerMap.set(kode, localS);
+    const localS = satkerMap.get(kode);
+    if (!localS) {
+      satkerMap.set(kode, { ...serverS });
     } else {
-      // Merge riwayatBulanan seamlessly
+      // Merge riwayatBulanan seamlessly (preserve all months)
       const historyMap = new Map<string, any>();
-      (serverS.riwayatBulanan || []).forEach(r => {
+      (localS.riwayatBulanan || []).forEach(r => {
         if (r && r.bulan) {
           historyMap.set(r.bulan.trim().toLowerCase(), r);
         }
       });
-      (localS.riwayatBulanan || []).forEach(r => {
+      (serverS.riwayatBulanan || []).forEach(r => {
         if (r && r.bulan) {
-          const key = r.bulan.trim().toLowerCase();
-          const existingR = historyMap.get(key);
-          // If local has valid nilaiIKPA, prefer local
-          if (!existingR || (r.nilaiIKPA && r.nilaiIKPA > 0)) {
-            historyMap.set(key, r);
-          }
+          historyMap.set(r.bulan.trim().toLowerCase(), r);
         }
       });
 
@@ -176,19 +172,18 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
         return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
       });
 
-      const preferLocalCurrent = localMaxMonths >= serverMaxMonths || (localS.nilaiTotalIKPA || 0) > 0;
-
+      // Server data takes precedence for IKPA scores, indicators, and status
       satkerMap.set(kode, {
-        ...(preferLocalCurrent ? serverS : localS),
-        ...(preferLocalCurrent ? localS : serverS),
-        riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (localS.riwayatBulanan || serverS.riwayatBulanan || []),
-        namaPic: cleanPicName(localS.namaPic || serverS.namaPic, kode),
-        noHpPic: cleanContactValue(localS.noHpPic || serverS.noHpPic),
-        emailPic: localS.emailPic || serverS.emailPic,
-        passwordSatker: localS.passwordSatker || serverS.passwordSatker,
-        alamatSatker: localS.alamatSatker || serverS.alamatSatker,
-        hasIKPAData: localS.hasIKPAData || serverS.hasIKPAData,
-        hasCapaianOutputData: localS.hasCapaianOutputData || serverS.hasCapaianOutputData
+        ...localS,
+        ...serverS,
+        riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (serverS.riwayatBulanan || localS.riwayatBulanan || []),
+        namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
+        noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
+        emailPic: serverS.emailPic || localS.emailPic || '',
+        passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
+        alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
+        hasIKPAData: serverS.hasIKPAData !== undefined ? serverS.hasIKPAData : localS.hasIKPAData,
+        hasCapaianOutputData: serverS.hasCapaianOutputData !== undefined ? serverS.hasCapaianOutputData : localS.hasCapaianOutputData
       });
     }
   });
@@ -197,29 +192,33 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
 }
 
 /**
- * Merge Pengelolaan UP anti-downgrade
+ * Merge Pengelolaan UP anti-downgrade (Server data is authoritative)
  */
 export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[], localList: PengelolaanUPRecord[]): PengelolaanUPRecord[] {
   if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
   if (!Array.isArray(localList) || localList.length === 0) return serverList;
 
+  // Server is the primary source of truth across all devices
   const upMap = new Map<string, PengelolaanUPRecord>();
-  serverList.forEach(r => {
-    if (r && r.kodeSatker) upMap.set(r.kodeSatker.trim(), { ...r });
+  
+  // Seed with localList first
+  localList.forEach(localR => {
+    if (localR && localR.kodeSatker) upMap.set(localR.kodeSatker.trim(), { ...localR });
   });
 
-  localList.forEach(localR => {
-    const kode = localR.kodeSatker?.trim();
+  // Overwrite with serverList so server changes take effect immediately on all clients
+  serverList.forEach(serverR => {
+    const kode = serverR.kodeSatker?.trim();
     if (!kode) return;
-    const serverR = upMap.get(kode);
-    if (!serverR) {
-      upMap.set(kode, localR);
+    const localR = upMap.get(kode);
+    if (!localR) {
+      upMap.set(kode, { ...serverR });
     } else {
       upMap.set(kode, {
-        ...serverR,
         ...localR,
-        batasRevolvingKolomN: localR.batasRevolvingKolomN || serverR.batasRevolvingKolomN,
-        batasWaktuTUPKolomH: localR.batasWaktuTUPKolomH || serverR.batasWaktuTUPKolomH
+        ...serverR,
+        batasRevolvingKolomN: serverR.batasRevolvingKolomN || localR.batasRevolvingKolomN,
+        batasWaktuTUPKolomH: serverR.batasWaktuTUPKolomH || localR.batasWaktuTUPKolomH
       });
     }
   });

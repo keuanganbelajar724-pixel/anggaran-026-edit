@@ -67,7 +67,12 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
       list = list.filter(r => r.kodeSatker === userSatkerCode);
     }
     if (activeSatkerMap.size > 0) {
-      list = list.filter(r => activeSatkerMap.has(r.kodeSatker));
+      list = list.filter(r => {
+        const master = activeSatkerMap.get(r.kodeSatker?.trim());
+        // Only exclude if master exists and is explicitly marked inactive
+        if (master && master.isActive === false) return false;
+        return true;
+      });
     }
     return list;
   }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
