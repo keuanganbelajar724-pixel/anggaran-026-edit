@@ -11,6 +11,7 @@ import {
   mergePengelolaanUPAntiDowngrade,
   mergeHistoricalUploadsAntiDowngrade,
   compactDigipayForFirestore,
+  compactKKPForFirestore,
   mergeDigipayAntiDowngrade,
   cleanContactValue,
   cleanPicName
@@ -1075,7 +1076,9 @@ export default function App() {
     setTransaksiKkpList(listToSave);
     try {
       localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(listToSave));
-      setDoc(doc(db, 'data', 'transaksi_kkp'), { list: listToSave, updatedAt: new Date().toISOString() });
+      const compacted = compactKKPForFirestore(listToSave);
+      setDoc(doc(db, 'data', 'transaksi_kkp'), { list: compacted, updatedAt: new Date().toISOString() })
+        .catch(err => console.error("Firebase KKP setDoc error:", err));
     } catch (e) {
       console.warn("Error syncing KKP to Firebase:", e);
     }

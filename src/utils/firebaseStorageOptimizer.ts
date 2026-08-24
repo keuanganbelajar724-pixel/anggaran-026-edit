@@ -306,6 +306,28 @@ export function compactDigipayForFirestore(records: DigipayRecord[]): any[] {
 }
 
 /**
+ * Compacts KKP records for Firestore (removes undefined fields and ensures clean types)
+ */
+export function compactKKPForFirestore(records: TransaksiKKPRecord[]): any[] {
+  if (!Array.isArray(records)) return [];
+  return records.map(r => ({
+    id: r.id || `kkp-${r.kodeSatker || 'satker'}-${Date.now()}`,
+    kodeSatker: r.kodeSatker || '',
+    namaSatker: r.namaSatker || '',
+    kementerianLembaga: r.kementerianLembaga || '',
+    jumlahTransaksi: Number(r.jumlahTransaksi) || 0,
+    totalNominal: Number(r.totalNominal) || 0,
+    bankPenerbit: r.bankPenerbit || '',
+    noSp2dTerakhir: r.noSp2dTerakhir || '',
+    tglSp2dTerakhir: r.tglSp2dTerakhir || '',
+    statusKeaktifan: r.statusKeaktifan || 'Aktif',
+    periode: r.periode || 'Agustus 2026',
+    tahun: Number(r.tahun) || 2026,
+    catatan: r.catatan || ''
+  }));
+}
+
+/**
  * Merge Digipay records anti-downgrade
  */
 export function mergeDigipayAntiDowngrade(serverList: DigipayRecord[], localList: DigipayRecord[]): DigipayRecord[] {
@@ -329,4 +351,5 @@ export function mergeDigipayAntiDowngrade(serverList: DigipayRecord[], localList
 
   return Array.from(itemMap.values());
 }
+
 

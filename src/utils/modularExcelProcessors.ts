@@ -709,7 +709,7 @@ export async function validatePengelolaanUPExcelFile(
           persenRevolving = Number(persenRevolving.toFixed(1));
 
           const frekuensiGUP = colFrekuensi !== -1 ? Math.max(0, parseInt(String(row[colFrekuensi])) || 1) : 1;
-          const nomorSp2dTerakhir = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : undefined;
+          const nomorSp2dTerakhir = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : '';
           const tglTerakhirSP2D = colTglSP2D !== -1 ? (parseExcelDateString(row[colTglSP2D]) || cleanText(row[colTglSP2D]) || '-') : '-';
 
           // PARSE KOLOM N (BATAS REVOLVING)
@@ -2042,7 +2042,7 @@ export async function validateKKPExcelFile(
             statusKeaktifan,
             periode: item.periode,
             tahun: item.tahun,
-            catatan: statusKeaktifan === 'Sangat Aktif' ? 'Top Transaksi KKP Aktif' : undefined
+            catatan: statusKeaktifan === 'Sangat Aktif' ? 'Top Transaksi KKP Aktif' : ''
           };
         });
 
