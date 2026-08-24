@@ -6,6 +6,7 @@ import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalU
 import {
   compactSatkersForFirestore,
   compactHistoricalUploadsForFirestore,
+  compactPengelolaanUPForFirestore,
   mergeSatkersAntiDowngrade,
   mergePengelolaanUPAntiDowngrade,
   mergeHistoricalUploadsAntiDowngrade,
@@ -511,9 +512,38 @@ export default function App() {
       getDoc(doc(db, 'data', 'pengelolaan_up')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list)) {
-            setPengelolaanUPList(data.list);
-            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            const compacted = compactPengelolaanUPForFirestore(data.list);
+            setPengelolaanUPList(compacted);
+            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(compacted));
+          } else {
+            const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
+            if (savedLocal) {
+              try {
+                const parsed = JSON.parse(savedLocal);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  const compacted = compactPengelolaanUPForFirestore(parsed);
+                  if (compacted.length > 0) {
+                    setPengelolaanUPList(compacted);
+                    syncPengelolaanUPToFirebase(compacted);
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+        } else {
+          const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
+          if (savedLocal) {
+            try {
+              const parsed = JSON.parse(savedLocal);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const compacted = compactPengelolaanUPForFirestore(parsed);
+                if (compacted.length > 0) {
+                  setPengelolaanUPList(compacted);
+                  syncPengelolaanUPToFirebase(compacted);
+                }
+              }
+            } catch (e) {}
           }
         }
       }).catch(err => console.warn("Initial Firestore UP fetch notice:", err));
@@ -659,8 +689,9 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
-            setPengelolaanUPList(data.list);
-            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
+            const compacted = compactPengelolaanUPForFirestore(data.list);
+            setPengelolaanUPList(compacted);
+            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(compacted));
           }
         }
       }, (error) => {
@@ -997,9 +1028,7 @@ export default function App() {
 
   const syncPengelolaanUPToFirebase = (newList: PengelolaanUPRecord[]) => {
     try {
-      const sanitized = Array.isArray(newList)
-        ? newList.filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
-        : [];
+      const sanitized = compactPengelolaanUPForFirestore(newList);
       setDoc(doc(db, 'data', 'pengelolaan_up'), { list: sanitized, updatedAt: new Date().toISOString() }, { merge: true }).catch(err => {
         console.warn("Error syncing UP to Firebase:", err);
       });
@@ -1009,9 +1038,7 @@ export default function App() {
   };
 
   const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
-    const sanitized = Array.isArray(newList)
-      ? newList.filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
-      : [];
+    const sanitized = compactPengelolaanUPForFirestore(newList);
     setPengelolaanUPList(sanitized);
     try {
       localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(sanitized));

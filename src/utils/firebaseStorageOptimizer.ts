@@ -191,6 +191,52 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
   return Array.from(satkerMap.values());
 }
 
+export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[]): any[] {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
+    .map(r => ({
+      id: String(r.id || `up_${r.kodeSatker}`),
+      batchId: String(r.batchId || ''),
+      kodeSatker: String(r.kodeSatker || '').trim().padStart(6, '0'),
+      namaSatker: String(r.namaSatker || '').trim(),
+      kementerianLembaga: String(r.kementerianLembaga || ''),
+      kodeBa: String(r.kodeBa || ''),
+      paguUP: Number(r.paguUP) || 0,
+      nilaiUP: Number(r.nilaiUP) || 0,
+      realisasiGUP: Number(r.realisasiGUP) || 0,
+      totalRevolvingGUP: Number(r.totalRevolvingGUP || r.realisasiGUP) || 0,
+      persenRevolving: Number(r.persenRevolving || r.persentaseRevolving) || 0,
+      sisaUP: Number(r.sisaUP) || 0,
+      persentaseRevolving: Number(r.persentaseRevolving) || 0,
+      frekuensiGUP: Number(r.frekuensiGUP) || 0,
+      statusRevolving: r.statusRevolving || 'Optimal',
+      tglTerakhirSP2D: String(r.tglTerakhirSP2D || r.tanggalTerakhirSP2D || ''),
+      nomorSp2dTerakhir: String(r.nomorSp2dTerakhir || ''),
+      nilaiSp2dTerakhir: Number(r.nilaiSp2dTerakhir) || 0,
+      batasRevolving: String(r.batasRevolving || r.batasRevolvingKolomN || ''),
+      batasRevolvingKolomN: String(r.batasRevolvingKolomN || r.batasRevolving || ''),
+      batasWaktuTUPKolomH: String(r.batasWaktuTUPKolomH || (r as any).batasWaktuTUP || ''),
+      jenisDana: (r.jenisDana === 'TUP' ? 'TUP' : 'UP') as 'UP' | 'TUP',
+      tanggalTerakhirSP2D: String(r.tanggalTerakhirSP2D || r.tglTerakhirSP2D || ''),
+      sisaHariRevolving: typeof r.sisaHariRevolving === 'number' ? r.sisaHariRevolving : 999,
+      sisaHariTUP: typeof r.sisaHariTUP === 'number' ? r.sisaHariTUP : 999,
+      isJatuhTempoLibur: !!r.isJatuhTempoLibur,
+      sisaHariBatasRevolving: typeof r.sisaHariBatasRevolving === 'number' ? r.sisaHariBatasRevolving : 999,
+      isJatuhTempo1Minggu: !!r.isJatuhTempo1Minggu,
+      isOverdue: !!r.isOverdue,
+      isHariLibur: !!r.isHariLibur,
+      saranTglPengajuan: String(r.saranTglPengajuan || ''),
+      hariTanpaRevolving: Number(r.hariTanpaRevolving) || 0,
+      peringatanKritis: !!r.peringatanKritis,
+      keterangan: String(r.keterangan || ''),
+      periode: String(r.periode || 'Agustus 2026'),
+      tahun: Number(r.tahun) || 2026,
+      createdAt: String(r.createdAt || new Date().toISOString()),
+      updatedAt: String(r.updatedAt || new Date().toISOString())
+    }));
+}
+
 /**
  * Merge Pengelolaan UP anti-downgrade (Server data is authoritative)
  */

@@ -130,18 +130,18 @@ export const UploadTUPSection: React.FC<UploadTUPSectionProps> = ({
           ...existing,
           ...p,
           batasRevolvingKolomN: isTUP
-            ? (existing.batasRevolvingKolomN || (existing.jenisDana !== 'TUP' ? existing.batasRevolving : undefined))
-            : (p.batasRevolvingKolomN || p.batasRevolving || existing.batasRevolvingKolomN),
+            ? (existing.batasRevolvingKolomN || (existing.jenisDana !== 'TUP' ? existing.batasRevolving : '') || '')
+            : (p.batasRevolvingKolomN || p.batasRevolving || existing.batasRevolvingKolomN || ''),
           batasWaktuTUPKolomH: isTUP
-            ? (p.batasWaktuTUPKolomH || (p as any).batasWaktuTUP || p.batasRevolving)
-            : (existing.batasWaktuTUPKolomH || (existing as any).batasWaktuTUP),
+            ? (p.batasWaktuTUPKolomH || (p as any).batasWaktuTUP || p.batasRevolving || '')
+            : (existing.batasWaktuTUPKolomH || (existing as any).batasWaktuTUP || ''),
           updatedAt: new Date().toISOString()
         });
       } else {
         existingMap.set(p.kodeSatker, {
           ...p,
-          batasRevolvingKolomN: isTUP ? undefined : (p.batasRevolvingKolomN || p.batasRevolving),
-          batasWaktuTUPKolomH: isTUP ? (p.batasWaktuTUPKolomH || (p as any).batasWaktuTUP || p.batasRevolving) : undefined,
+          batasRevolvingKolomN: isTUP ? '' : (p.batasRevolvingKolomN || p.batasRevolving || ''),
+          batasWaktuTUPKolomH: isTUP ? (p.batasWaktuTUPKolomH || (p as any).batasWaktuTUP || p.batasRevolving || '') : '',
           updatedAt: new Date().toISOString()
         });
       }
