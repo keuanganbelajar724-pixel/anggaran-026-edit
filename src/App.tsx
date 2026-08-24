@@ -511,23 +511,9 @@ export default function App() {
       getDoc(doc(db, 'data', 'pengelolaan_up')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
-            setPengelolaanUPList(currentLocal => {
-              const merged = mergePengelolaanUPAntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(merged));
-              return merged;
-            });
-          } else {
-            const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
-            if (savedLocal) {
-              try {
-                const parsed = JSON.parse(savedLocal);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setPengelolaanUPList(parsed);
-                  handleUpdatePengelolaanUP(parsed);
-                }
-              } catch (e) {}
-            }
+          if (Array.isArray(data.list)) {
+            setPengelolaanUPList(data.list);
+            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
           }
         }
       }).catch(err => console.warn("Initial Firestore UP fetch notice:", err));
@@ -633,7 +619,7 @@ export default function App() {
       const unsubPejabat = onSnapshot(doc(db, 'data', 'pejabat'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setPejabatSertifikasiList(data.list);
             localStorage.setItem('kppn_pejabat_data', JSON.stringify(data.list));
           }
@@ -659,7 +645,7 @@ export default function App() {
       const unsubMaster = onSnapshot(doc(db, 'data', 'master_satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setMasterSatkers(data.list);
             localStorage.setItem('kppn_master_satkers', JSON.stringify(data.list));
           }
@@ -668,16 +654,13 @@ export default function App() {
         console.warn("Firebase Master Satkers listener notice:", error);
       });
 
-      // 7. Realtime Pengelolaan UP/TUP Data with anti-downgrade
+      // 7. Realtime Pengelolaan UP/TUP Data
       const unsubUP = onSnapshot(doc(db, 'data', 'pengelolaan_up'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
-            setPengelolaanUPList(currentLocal => {
-              const merged = mergePengelolaanUPAntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(merged));
-              return merged;
-            });
+          if (Array.isArray(data.list)) {
+            setPengelolaanUPList(data.list);
+            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(data.list));
           }
         }
       }, (error) => {
