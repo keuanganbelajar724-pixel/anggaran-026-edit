@@ -195,35 +195,11 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
  * Merge Pengelolaan UP anti-downgrade (Server data is authoritative)
  */
 export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[], localList: PengelolaanUPRecord[]): PengelolaanUPRecord[] {
-  if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
-  if (!Array.isArray(localList) || localList.length === 0) return serverList;
-
-  // Server is the primary source of truth across all devices
-  const upMap = new Map<string, PengelolaanUPRecord>();
-  
-  // Seed with localList first
-  localList.forEach(localR => {
-    if (localR && localR.kodeSatker) upMap.set(localR.kodeSatker.trim(), { ...localR });
-  });
-
-  // Overwrite with serverList so server changes take effect immediately on all clients
-  serverList.forEach(serverR => {
-    const kode = serverR.kodeSatker?.trim();
-    if (!kode) return;
-    const localR = upMap.get(kode);
-    if (!localR) {
-      upMap.set(kode, { ...serverR });
-    } else {
-      upMap.set(kode, {
-        ...localR,
-        ...serverR,
-        batasRevolvingKolomN: serverR.batasRevolvingKolomN || localR.batasRevolvingKolomN,
-        batasWaktuTUPKolomH: serverR.batasWaktuTUPKolomH || localR.batasWaktuTUPKolomH
-      });
-    }
-  });
-
-  return Array.from(upMap.values());
+  if (Array.isArray(serverList) && serverList.length > 0) {
+    // When server data is available, it is the authoritative single source of truth
+    return serverList;
+  }
+  return Array.isArray(localList) ? localList : [];
 }
 
 /**
