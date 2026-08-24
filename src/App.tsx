@@ -995,6 +995,19 @@ export default function App() {
     }
   }, [pengelolaanUPList]);
 
+  const syncPengelolaanUPToFirebase = (newList: PengelolaanUPRecord[]) => {
+    try {
+      const sanitized = Array.isArray(newList)
+        ? newList.filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
+        : [];
+      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: sanitized, updatedAt: new Date().toISOString() }, { merge: true }).catch(err => {
+        console.warn("Error syncing UP to Firebase:", err);
+      });
+    } catch (e) {
+      console.warn("Error syncing UP to Firebase:", e);
+    }
+  };
+
   const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
     const sanitized = Array.isArray(newList)
       ? newList.filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
@@ -1002,10 +1015,10 @@ export default function App() {
     setPengelolaanUPList(sanitized);
     try {
       localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(sanitized));
-      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: sanitized, updatedAt: new Date().toISOString() });
     } catch (e) {
-      console.warn("Error syncing UP to Firebase:", e);
+      console.warn('Error saving UP data to localStorage:', e);
     }
+    syncPengelolaanUPToFirebase(sanitized);
   };
 
   // Transaksi KKP (GUP) State & Persistence
