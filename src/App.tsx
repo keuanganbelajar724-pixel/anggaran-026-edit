@@ -1048,7 +1048,7 @@ export default function App() {
     syncPengelolaanUPToFirebase(sanitized);
   };
 
-  // Transaksi KKP (GUP) State & Persistence
+  // Transaksi KKP (GUP) State & Persistence - Defaults to empty array
   const [transaksiKkpList, setTransaksiKkpList] = useState<TransaksiKKPRecord[]>(() => {
     const saved = localStorage.getItem('kppn_transaksi_kkp');
     if (saved !== null) {
@@ -1059,7 +1059,7 @@ export default function App() {
         console.warn('Error parsing saved KKP data:', e);
       }
     }
-    return INITIAL_TRANSAKSI_KKP_DATA;
+    return [];
   });
 
   useEffect(() => {
@@ -1071,9 +1071,11 @@ export default function App() {
   }, [transaksiKkpList]);
 
   const handleUpdateTransaksiKKP = (newList: TransaksiKKPRecord[]) => {
-    setTransaksiKkpList(newList);
+    const listToSave = Array.isArray(newList) ? newList : [];
+    setTransaksiKkpList(listToSave);
     try {
-      setDoc(doc(db, 'data', 'transaksi_kkp'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(listToSave));
+      setDoc(doc(db, 'data', 'transaksi_kkp'), { list: listToSave, updatedAt: new Date().toISOString() });
     } catch (e) {
       console.warn("Error syncing KKP to Firebase:", e);
     }
