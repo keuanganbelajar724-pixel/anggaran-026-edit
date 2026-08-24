@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Lock, Database } from 'lucide-react';
+import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
 import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, PresensiPrintConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
@@ -411,6 +411,18 @@ export default function App() {
     return localStorage.getItem('kppn_admin_pin') || '527272';
   });
 
+  // Initial Syncing State for clean first-visit experience (prevents flash of empty/uninitialized data)
+  const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(() => {
+    try {
+      const savedSatkers = localStorage.getItem('kppn_satker_data');
+      const savedConfig = localStorage.getItem('kppn_dashboard_config');
+      if (savedSatkers && savedSatkers !== '[]' && savedConfig) {
+        return false;
+      }
+    } catch (e) {}
+    return true;
+  });
+
   // Auto redirect activeTab to first available active tab if current activeTab is disabled/locked by Admin
   useEffect(() => {
     if (activeTab !== 'admin' && !isAdminAuthenticated && dashboardConfig.menuVisibility) {
@@ -445,9 +457,14 @@ export default function App() {
 
   // Real-time Firebase Sync for Satkers, Pejabat, UP/TUP, KKP & Global Settings
   useEffect(() => {
+    // Failsafe timeout for initial syncing splash screen
+    const syncTimeout = setTimeout(() => {
+      setIsInitialSyncing(false);
+    }, 900);
+
     try {
       // 1. Initial Fetch from Firestore to ensure fresh data
-      getDoc(doc(db, 'settings', 'global')).then(snap => {
+      const fetchSettings = getDoc(doc(db, 'settings', 'global')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
           if (data.adminPin) {
@@ -467,6 +484,36 @@ export default function App() {
           }
         }
       }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
+
+      const fetchSatkers = getDoc(doc(db, 'data', 'satkers')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setSatkers(currentLocal => {
+              const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
+              return merged;
+            });
+          } else {
+            // Recover from localStorage or historical uploads if server is empty
+            const savedLocal = localStorage.getItem('kppn_satker_data');
+            if (savedLocal) {
+              try {
+                const parsed = JSON.parse(savedLocal);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setSatkers(parsed);
+                  syncSatkersToFirebase(parsed);
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
+
+      Promise.allSettled([fetchSettings, fetchSatkers]).then(() => {
+        setIsInitialSyncing(false);
+        clearTimeout(syncTimeout);
+      });
 
       // Separate dedicated document for historical archives with anti-downgrade merge
       getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
@@ -1525,6 +1572,60 @@ export default function App() {
         ? 'bg-slate-950 text-slate-100' 
         : 'bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100/90 text-slate-900'
     }`}>
+      {/* Initial Cloud Sync Splash Screen for clean first-time visit without flicker */}
+      {isInitialSyncing && (
+        <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col items-center justify-center p-6 text-white select-none animate-in fade-in duration-200">
+          <div className="relative flex flex-col items-center max-w-md text-center space-y-6">
+            {/* Ambient Backlight */}
+            <div className="absolute -top-16 w-52 h-52 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+            
+            {/* Logo Badge */}
+            <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 via-indigo-600 to-purple-600 p-0.5 shadow-2xl shadow-indigo-500/30 flex items-center justify-center">
+              <div className="w-full h-full bg-slate-900 rounded-[22px] flex items-center justify-center">
+                <span className="text-3xl font-black bg-gradient-to-r from-amber-300 via-white to-sky-300 bg-clip-text text-transparent">
+                  026
+                </span>
+              </div>
+            </div>
+
+            {/* Titles */}
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-950/80 border border-indigo-700/60 text-indigo-300 text-[11px] font-extrabold uppercase tracking-wider">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>KPPN Semarang I • DJPb Kemenkeu</span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                ANGKASA <span className="text-amber-400 text-lg font-bold">V3.2</span>
+              </h1>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                Aplikasi Navigasi Keuangan &amp; Akselerasi Satker
+              </p>
+            </div>
+
+            {/* Animated Loading Bar & Status */}
+            <div className="w-full max-w-xs space-y-2 pt-2">
+              <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden relative">
+                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-amber-400 via-indigo-500 to-sky-400 w-1/2 rounded-full animate-[shimmer_1.5s_infinite_linear]" 
+                  style={{
+                    animation: 'pulse 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-400">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                <span>Sinkronisasi Data Real-Time...</span>
+              </div>
+            </div>
+
+            {/* Footer Trust Badge */}
+            <div className="pt-4 flex items-center gap-1.5 text-[10px] text-slate-500 font-medium">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Pusat Data Terhubung &amp; Terlindungi</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Ambient luxury mesh lighting orbs for widescreen depth */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-60 dark:opacity-30">
         <div className="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-gradient-to-br from-indigo-500/10 to-sky-500/5 rounded-full blur-3xl" />
