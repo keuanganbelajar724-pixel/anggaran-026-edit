@@ -11,7 +11,10 @@ export type SaturationMode = 'default' | 'grayscale' | 'high-contrast' | 'low-sa
 export type ContrastMode = 'default' | 'high-dark' | 'high-light' | 'monochrome';
 export type WidgetPosition = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right';
 
+export type AccessibilityLanguage = 'id' | 'en';
+
 export interface AccessibilitySettings {
+  language: AccessibilityLanguage;
   profile: AccessibilityProfile;
   // Font & Sizing
   fontSizePercent: number; // 90, 100, 110, 120, 130, 140, 150
@@ -43,6 +46,7 @@ export interface AccessibilitySettings {
 }
 
 export const DEFAULT_ACCESSIBILITY_SETTINGS: AccessibilitySettings = {
+  language: 'id',
   profile: 'none',
   fontSizePercent: 100,
   dyslexiaFont: false,

@@ -12,20 +12,51 @@ export interface ToastItem {
   duration?: number; // in ms
 }
 
-interface ToastContextType {
-  showToast: (toast: Omit<ToastItem, 'id'>) => void;
+export type ToastOptions = Omit<ToastItem, 'id'>;
+
+export interface ToastContextType {
+  showToast: (toastOrMessage: ToastOptions | string, type?: ToastType, title?: string) => void;
+  addToast: (toastOrMessage: ToastOptions | string, type?: ToastType, title?: string) => void;
+  toast: (toastOrMessage: ToastOptions | string, type?: ToastType, title?: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-export const useToast = () => {
+const defaultTitles: Record<ToastType, string> = {
+  success: 'Berhasil',
+  error: 'Terjadi Kesalahan',
+  warning: 'Perhatian',
+  info: 'Informasi'
+};
+
+function normalizeToastParam(toastOrMessage: ToastOptions | string, type?: ToastType, title?: string): ToastOptions {
+  if (typeof toastOrMessage === 'string') {
+    const selectedType = type || 'info';
+    return {
+      type: selectedType,
+      title: title || defaultTitles[selectedType] || 'Notifikasi',
+      message: toastOrMessage
+    };
+  }
+  return {
+    ...toastOrMessage,
+    type: toastOrMessage.type || 'info',
+    title: toastOrMessage.title || defaultTitles[toastOrMessage.type || 'info'] || 'Notifikasi'
+  };
+}
+
+export const useToast = (): ToastContextType => {
   const context = useContext(ToastContext);
   if (!context) {
     // Fallback if used outside Provider
+    const fallbackHandler = (toastOrMessage: ToastOptions | string, type?: ToastType, title?: string) => {
+      const normalized = normalizeToastParam(toastOrMessage, type, title);
+      console.log(`[TOAST] ${normalized.type}: ${normalized.title} - ${normalized.message || ''}`);
+    };
     return {
-      showToast: (toast: Omit<ToastItem, 'id'>) => {
-        console.log(`[TOAST] ${toast.type}: ${toast.title} ${toast.message || ''}`);
-      }
+      showToast: fallbackHandler,
+      addToast: fallbackHandler,
+      toast: fallbackHandler
     };
   }
   return context;
@@ -34,12 +65,13 @@ export const useToast = () => {
 export const ToastProvider: React.FC<{ children: React.ReactNode; isDark?: boolean }> = ({ children, isDark = false }) => {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const showToast = (toast: Omit<ToastItem, 'id'>) => {
+  const handleToast = (toastOrMessage: ToastOptions | string, type?: ToastType, title?: string) => {
+    const normalized = normalizeToastParam(toastOrMessage, type, title);
     const id = Math.random().toString(36).substring(2, 9);
     const newToast: ToastItem = {
       id,
-      duration: 4000,
-      ...toast,
+      duration: normalized.duration || 4000,
+      ...normalized,
     };
     setToasts((prev) => [newToast, ...prev].slice(0, 5)); // Keep max 5 toasts
   };
@@ -48,8 +80,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode; isDark?: boole
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const contextValue: ToastContextType = {
+    showToast: handleToast,
+    addToast: handleToast,
+    toast: handleToast
+  };
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={contextValue}>
       {children}
       {typeof document !== 'undefined' && createPortal(
         <div className="fixed top-5 right-5 z-[999999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none px-4 sm:px-0">

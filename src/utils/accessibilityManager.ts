@@ -25,7 +25,7 @@ export function saveAccessibilitySettings(settings: AccessibilitySettings): void
 }
 
 // Helper to speak text aloud using Web Speech API
-export function speakText(text: string, rate: number = 1.0) {
+export function speakText(text: string, rate: number = 1.0, lang: 'id' | 'en' = 'id') {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel(); // Stop ongoing speech
@@ -34,13 +34,16 @@ export function speakText(text: string, rate: number = 1.0) {
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.rate = rate;
-    utterance.lang = 'id-ID';
+    utterance.lang = lang === 'en' ? 'en-US' : 'id-ID';
 
-    // Find Indonesian voice if available
+    // Find voice matching language
     const voices = window.speechSynthesis.getVoices();
-    const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID') || v.name.toLowerCase().includes('indonesia'));
-    if (idVoice) {
-      utterance.voice = idVoice;
+    if (lang === 'en') {
+      const enVoice = voices.find(v => v.lang.startsWith('en') || v.name.toLowerCase().includes('english'));
+      if (enVoice) utterance.voice = enVoice;
+    } else {
+      const idVoice = voices.find(v => v.lang.includes('id') || v.lang.includes('ID') || v.name.toLowerCase().includes('indonesia'));
+      if (idVoice) utterance.voice = idVoice;
     }
 
     window.speechSynthesis.speak(utterance);

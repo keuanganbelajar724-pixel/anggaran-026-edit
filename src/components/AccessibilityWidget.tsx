@@ -2,15 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Volume2, 
   VolumeX, 
-  ZoomIn, 
-  ZoomOut, 
   Droplet, 
   Sun, 
   EyeOff, 
   AlignLeft, 
   AlignCenter, 
   AlignJustify, 
-  Type, 
+  AlignRight,
   MoveHorizontal, 
   Hourglass, 
   MousePointer, 
@@ -26,15 +24,13 @@ import {
   ShieldCheck, 
   Glasses, 
   BookOpen, 
-  Compass, 
-  HelpCircle,
-  Maximize2,
-  Minimize2
+  Compass,
 } from 'lucide-react';
 import { 
   AccessibilitySettings, 
   DEFAULT_ACCESSIBILITY_SETTINGS, 
   AccessibilityProfile, 
+  AccessibilityLanguage,
   TextAlignment, 
   SaturationMode, 
   ContrastMode, 
@@ -50,6 +46,163 @@ import {
 } from '../utils/accessibilityManager';
 import { useToast } from './ToastNotification';
 
+const I18N = {
+  id: {
+    menuTitle: 'Menu Aksesibilitas',
+    langActive: 'Bahasa Indonesia (Aktif)',
+    langId: '🇮🇩 Bahasa Indonesia (Resmi KPPN)',
+    langEn: '🇬🇧 English (International)',
+    profileTitle: 'Profil Aksesibilitas Cepat',
+    profiles: {
+      none: 'Standar / Normal',
+      vision: 'Disabilitas Netra / Low Vision',
+      dyslexia: 'Ramah Disleksia (Font Khusus)',
+      focus: 'Ramah Fokus & ADHD',
+      sensitivity: 'Sensitif Cahaya / Fotofobia',
+      motor: 'Keterbatasan Motorik'
+    },
+    tiles: {
+      screenReader: 'Moda Suara',
+      increaseFont: 'Perbesar Teks',
+      decreaseFont: 'Perkecil Teks',
+      saturation: 'Kejenuhan',
+      contrast: 'Kontras+',
+      hideImages: 'Sembunyikan Gambar',
+      textAlign: 'Rata Tulisan',
+      dyslexia: 'Ramah Disleksia',
+      lineHeight: 'Tinggi Garis',
+      pauseAnimations: 'Animasi Dijeda',
+      bigCursor: 'Kursor Besar',
+      letterSpacing: 'Spasi Teks',
+      underlineLinks: 'Garis Bawahi',
+      highlightHeadings: 'Sorot Judul',
+      readingGuide: 'Penggaris Baca'
+    },
+    states: {
+      on: 'ON',
+      off: 'OFF',
+      active: 'AKTIF',
+      inactive: 'Mati',
+      paused: 'JEDA',
+      playing: 'Jalan',
+      big: 'BESAR',
+      standard: 'Standar',
+      normal: 'Normal',
+      relaxed: 'Renggang',
+      loose: 'Luas',
+      wide: 'Lebar',
+      extraWide: 'Ekstra Lebar',
+      left: 'Kiri',
+      center: 'Tengah',
+      justify: 'Rata Tengah-Kiri',
+      right: 'Kanan'
+    },
+    footer: {
+      resetBtn: 'Atur Ulang Semua Pengaturan Aksesibilitas',
+      movePosition: 'Pindahkan Posisi Widget',
+      positions: {
+        'top-left': 'Ke Posisi Atas dan Kiri',
+        'top-right': 'Ke Posisi Atas dan Kanan',
+        'bottom-left': 'Ke Posisi Bawah dan Kiri (Default)',
+        'bottom-right': 'Ke Posisi Bawah dan Kanan'
+      },
+      tag: '- Widget Aksesibilitas KPPN Semarang I v2.5 -'
+    },
+    readingGuideBanner: '📖 Penggaris Baca Aktif',
+    widgetTrigger: 'Aksesibilitas',
+    toast: {
+      resetTitle: 'Aksesibilitas Direset',
+      resetMsg: 'Semua pengaturan visual dan kenyamanan dikembalikan ke standar normal.',
+      profileTitle: 'Profil Diaktifkan',
+      profileMsg: 'berhasil diterapkan ke seluruh antarmuka.',
+      langSwitchedTitle: 'Bahasa Diubah',
+      langSwitchedMsg: 'Antarmuka aksesibilitas beralih ke Bahasa Indonesia.'
+    },
+    speech: {
+      opened: 'Menu Aksesibilitas KPPN Semarang I dibuka.',
+      soundModeOn: 'Moda suara pembaca layar aktif. Arahkan kursor ke tulisan mana saja untuk mendengarkan.',
+      textSize: (p: number) => `Ukuran teks ${p} persen`
+    }
+  },
+  en: {
+    menuTitle: 'Accessibility Menu',
+    langActive: 'English (Active)',
+    langId: '🇮🇩 Bahasa Indonesia (Official)',
+    langEn: '🇬🇧 English (International)',
+    profileTitle: 'Quick Accessibility Profiles',
+    profiles: {
+      none: 'Standard / Normal',
+      vision: 'Low Vision / Impairment',
+      dyslexia: 'Dyslexia Friendly (Special Font)',
+      focus: 'Focus & ADHD Friendly',
+      sensitivity: 'Light Sensitivity / Photophobia',
+      motor: 'Motor Skills Support'
+    },
+    tiles: {
+      screenReader: 'Screen Reader',
+      increaseFont: 'Increase Text',
+      decreaseFont: 'Decrease Text',
+      saturation: 'Saturation',
+      contrast: 'Contrast+',
+      hideImages: 'Hide Images',
+      textAlign: 'Text Align',
+      dyslexia: 'Dyslexia Font',
+      lineHeight: 'Line Height',
+      pauseAnimations: 'Pause Animations',
+      bigCursor: 'Big Cursor',
+      letterSpacing: 'Text Spacing',
+      underlineLinks: 'Underline Links',
+      highlightHeadings: 'Highlight Titles',
+      readingGuide: 'Reading Guide'
+    },
+    states: {
+      on: 'ON',
+      off: 'OFF',
+      active: 'ACTIVE',
+      inactive: 'Off',
+      paused: 'PAUSED',
+      playing: 'Playing',
+      big: 'BIG',
+      standard: 'Standard',
+      normal: 'Normal',
+      relaxed: 'Relaxed',
+      loose: 'Loose',
+      wide: 'Wide',
+      extraWide: 'Extra Wide',
+      left: 'Left',
+      center: 'Center',
+      justify: 'Justify',
+      right: 'Right'
+    },
+    footer: {
+      resetBtn: 'Reset All Accessibility Settings',
+      movePosition: 'Change Widget Position',
+      positions: {
+        'top-left': 'Move to Top-Left Position',
+        'top-right': 'Move to Top-Right Position',
+        'bottom-left': 'Move to Bottom-Left Position (Default)',
+        'bottom-right': 'Move to Bottom-Right Position'
+      },
+      tag: '- KPPN Semarang I Accessibility Widget v2.5 -'
+    },
+    readingGuideBanner: '📖 Reading Guide Active',
+    widgetTrigger: 'Accessibility',
+    toast: {
+      resetTitle: 'Accessibility Reset',
+      resetMsg: 'All visual and comfort settings have been restored to default standard.',
+      profileTitle: 'Profile Activated',
+      profileMsg: 'has been successfully applied to the interface.',
+      langSwitchedTitle: 'Language Changed',
+      langSwitchedMsg: 'Accessibility interface is now set to English.'
+    },
+    speech: {
+      opened: 'Accessibility Menu opened.',
+      soundModeOn: 'Screen reader voice mode active. Hover over any text to listen.',
+      textSize: (p: number) => `Text size ${p} percent`
+    }
+  }
+};
+
 export const AccessibilityWidget: React.FC = () => {
   const { addToast } = useToast();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -61,6 +214,9 @@ export const AccessibilityWidget: React.FC = () => {
   const [mousePos, setMousePos] = useState<{ y: number }>({ y: 0 });
 
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const lang = settings.language || 'id';
+  const t = I18N[lang] || I18N.id;
 
   // Apply on mount
   useEffect(() => {
@@ -74,6 +230,20 @@ export const AccessibilityWidget: React.FC = () => {
     saveAccessibilitySettings(updated);
   };
 
+  // Switch Language
+  const handleSelectLanguage = (newLang: AccessibilityLanguage) => {
+    updateSettings({ language: newLang });
+    setShowLangMenu(false);
+    
+    const targetT = I18N[newLang];
+    addToast({
+      type: 'success',
+      title: targetT.toast.langSwitchedTitle,
+      message: targetT.toast.langSwitchedMsg
+    });
+    speakText(newLang === 'en' ? 'English activated' : 'Bahasa Indonesia diaktifkan', settings.speechRate, newLang);
+  };
+
   // Keyboard shortcut: Ctrl + U or Cmd + U
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -82,7 +252,7 @@ export const AccessibilityWidget: React.FC = () => {
         setIsOpen(prev => {
           const next = !prev;
           if (next) {
-            speakText('Menu Aksesibilitas KPPN Semarang I dibuka.');
+            speakText(t.speech.opened, settings.speechRate, lang);
           }
           return next;
         });
@@ -94,7 +264,7 @@ export const AccessibilityWidget: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, lang, t]);
 
   // Reading Guide Ruler Mouse Movement Listener
   useEffect(() => {
@@ -120,7 +290,7 @@ export const AccessibilityWidget: React.FC = () => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
           setIsHoverSpeaking(true);
-          speakText(text, settings.speechRate);
+          speakText(text, settings.speechRate, lang);
         }, 350);
       }
     };
@@ -138,18 +308,18 @@ export const AccessibilityWidget: React.FC = () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
     };
-  }, [settings.screenReaderVoice, settings.speechRate]);
+  }, [settings.screenReaderVoice, settings.speechRate, lang]);
 
   // Reset all
   const handleResetAll = () => {
-    const fresh = { ...DEFAULT_ACCESSIBILITY_SETTINGS, widgetPosition: settings.widgetPosition };
+    const fresh = { ...DEFAULT_ACCESSIBILITY_SETTINGS, language: settings.language, widgetPosition: settings.widgetPosition };
     setSettings(fresh);
     saveAccessibilitySettings(fresh);
     stopSpeech();
     addToast({
       type: 'info',
-      title: 'Aksesibilitas Direset',
-      message: 'Semua pengaturan visual dan kenyamanan dikembalikan ke standar normal.'
+      title: t.toast.resetTitle,
+      message: t.toast.resetMsg
     });
   };
 
@@ -157,13 +327,13 @@ export const AccessibilityWidget: React.FC = () => {
   const handleIncreaseFont = () => {
     const next = Math.min(150, settings.fontSizePercent + 10);
     updateSettings({ fontSizePercent: next });
-    speakText(`Ukuran teks ${next} persen`);
+    speakText(t.speech.textSize(next), settings.speechRate, lang);
   };
 
   const handleDecreaseFont = () => {
     const next = Math.max(90, settings.fontSizePercent - 10);
     updateSettings({ fontSizePercent: next });
-    speakText(`Ukuran teks ${next} persen`);
+    speakText(t.speech.textSize(next), settings.speechRate, lang);
   };
 
   // Profile Presets
@@ -173,21 +343,14 @@ export const AccessibilityWidget: React.FC = () => {
     saveAccessibilitySettings(updated);
     setShowProfileMenu(false);
     
-    const profileNames: Record<AccessibilityProfile, string> = {
-      none: 'Profil Standar',
-      vision: 'Profil Penglihatan Rendah (Low Vision)',
-      dyslexia: 'Profil Ramah Disleksia',
-      focus: 'Profil Ramah Fokus & ADHD',
-      sensitivity: 'Profil Sensitif Cahaya',
-      motor: 'Profil Keterbatasan Motorik'
-    };
+    const profName = t.profiles[profile] || profile;
 
     addToast({
       type: 'success',
-      title: 'Profil Diaktifkan',
-      message: `${profileNames[profile]} berhasil diterapkan ke seluruh antarmuka.`
+      title: t.toast.profileTitle,
+      message: `${profName} ${t.toast.profileMsg}`
     });
-    speakText(profileNames[profile]);
+    speakText(profName, settings.speechRate, lang);
   };
 
   // Position Class for Floating Trigger Button
@@ -210,7 +373,7 @@ export const AccessibilityWidget: React.FC = () => {
     const next = !settings.screenReaderVoice;
     updateSettings({ screenReaderVoice: next });
     if (next) {
-      speakText('Moda suara pembaca layar aktif. Arahkan kursor ke tulisan mana saja untuk mendengarkan.');
+      speakText(t.speech.soundModeOn, settings.speechRate, lang);
     } else {
       stopSpeech();
     }
@@ -288,18 +451,18 @@ export const AccessibilityWidget: React.FC = () => {
         >
           <div className="h-10 bg-amber-400/20 border-y-2 border-amber-500 shadow-lg shadow-amber-500/20 backdrop-invert-0 flex items-center justify-end px-4">
             <span className="bg-amber-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded-full uppercase shadow-xs">
-              📖 Penggaris Baca Aktif
+              {t.readingGuideBanner}
             </span>
           </div>
         </div>
       )}
 
-      {/* 2. FLOATING TRIGGER BUTTON (PULSING WHEELCHAIR/ACCESSIBILITY ICON) */}
+      {/* 2. FLOATING TRIGGER BUTTON */}
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        aria-label="Buka Menu Aksesibilitas (CTRL+U)"
-        title="Menu Aksesibilitas (Tekan CTRL + U)"
+        aria-label={`${t.menuTitle} (CTRL+U)`}
+        title={`${t.menuTitle} (CTRL + U)`}
         className={`fixed z-[99990] ${getPositionClasses()} group flex items-center gap-2.5 p-3 rounded-full bg-gradient-to-tr from-blue-600 via-blue-500 to-indigo-600 text-white shadow-2xl shadow-blue-500/40 hover:scale-110 hover:shadow-blue-500/60 active:scale-95 transition-all duration-300 border-2 border-white/80 cursor-pointer`}
       >
         {/* Universal Accessibility Icon */}
@@ -322,14 +485,14 @@ export const AccessibilityWidget: React.FC = () => {
 
         {/* Hover Label with Shortcut */}
         <div className="hidden group-hover:flex items-center gap-1.5 pr-2 text-xs font-black tracking-wide whitespace-nowrap animate-fadeIn">
-          <span>Aksesibilitas</span>
+          <span>{t.widgetTrigger}</span>
           <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
             Ctrl+U
           </span>
         </div>
       </button>
 
-      {/* 3. MODAL DRAWER SLIDE-OVER (ACCESSIBILITY MENU) */}
+      {/* 3. MODAL DRAWER SLIDE-OVER */}
       {isOpen && (
         <div className="fixed inset-0 z-[99999] flex justify-start animate-fadeIn">
           {/* Backdrop */}
@@ -343,7 +506,7 @@ export const AccessibilityWidget: React.FC = () => {
             ref={panelRef}
             className="relative z-10 w-full max-w-[360px] sm:max-w-[400px] h-full bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl flex flex-col justify-between overflow-y-auto border-r border-slate-200 dark:border-slate-800 animate-slideRight"
           >
-            {/* TOP HEADER (Solid Blue Gradient matching screenshot) */}
+            {/* TOP HEADER */}
             <div className="p-4 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white flex items-center justify-between shadow-md shrink-0">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-white/20 rounded-xl">
@@ -354,7 +517,7 @@ export const AccessibilityWidget: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-base font-black tracking-tight flex items-center gap-2">
-                    Menu Aksesibilitas
+                    {t.menuTitle}
                     <span className="bg-white/20 text-[10px] px-1.5 py-0.5 rounded font-mono font-bold">
                       CTRL+U
                     </span>
@@ -385,7 +548,7 @@ export const AccessibilityWidget: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Globe className="w-4 h-4 text-blue-600" />
-                    <span>Bahasa Indonesia (Aktif)</span>
+                    <span>{t.langActive}</span>
                   </div>
                   <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showLangMenu ? 'rotate-90' : ''}`} />
                 </button>
@@ -393,20 +556,26 @@ export const AccessibilityWidget: React.FC = () => {
                 {showLangMenu && (
                   <div className="mt-1 p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl space-y-1 text-xs font-medium animate-fadeIn">
                     <button 
-                      onClick={() => setShowLangMenu(false)}
-                      className="w-full text-left px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold flex items-center justify-between"
+                      onClick={() => handleSelectLanguage('id')}
+                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                        lang === 'id' 
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold' 
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}
                     >
-                      <span>🇮🇩 Bahasa Indonesia (Resmi KPPN)</span>
-                      <Check className="w-4 h-4 text-blue-600" />
+                      <span>{t.langId}</span>
+                      {lang === 'id' && <Check className="w-4 h-4 text-blue-600" />}
                     </button>
                     <button 
-                      onClick={() => {
-                        setShowLangMenu(false);
-                        addToast({ type: 'info', title: 'English Mode', message: 'English accessibility hints active.' });
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-between"
+                      onClick={() => handleSelectLanguage('en')}
+                      className={`w-full text-left px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                        lang === 'en' 
+                          ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold' 
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}
                     >
-                      <span>🇬🇧 English (International)</span>
+                      <span>{t.langEn}</span>
+                      {lang === 'en' && <Check className="w-4 h-4 text-blue-600" />}
                     </button>
                   </div>
                 )}
@@ -424,7 +593,7 @@ export const AccessibilityWidget: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Profil Aksesibilitas Cepat</span>
+                    <span>{t.profileTitle}</span>
                   </div>
                   <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${showProfileMenu ? 'rotate-90' : ''}`} />
                 </button>
@@ -432,12 +601,12 @@ export const AccessibilityWidget: React.FC = () => {
                 {showProfileMenu && (
                   <div className="mt-1 p-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl space-y-1 text-xs animate-fadeIn">
                     {[
-                      { id: 'none', label: 'Standar / Normal', icon: ShieldCheck },
-                      { id: 'vision', label: 'Disabilitas Netra / Low Vision', icon: Glasses },
-                      { id: 'dyslexia', label: 'Ramah Disleksia (Font Khusus)', icon: BookOpen },
-                      { id: 'focus', label: 'Ramah Fokus & ADHD', icon: Compass },
-                      { id: 'sensitivity', label: 'Sensitif Cahaya / Fotofobia', icon: Sun },
-                      { id: 'motor', label: 'Keterbatasan Motorik', icon: MousePointer }
+                      { id: 'none', label: t.profiles.none, icon: ShieldCheck },
+                      { id: 'vision', label: t.profiles.vision, icon: Glasses },
+                      { id: 'dyslexia', label: t.profiles.dyslexia, icon: BookOpen },
+                      { id: 'focus', label: t.profiles.focus, icon: Compass },
+                      { id: 'sensitivity', label: t.profiles.sensitivity, icon: Sun },
+                      { id: 'motor', label: t.profiles.motor, icon: MousePointer }
                     ].map((prof) => {
                       const Icon = prof.icon;
                       const isSelected = settings.profile === prof.id;
@@ -464,7 +633,7 @@ export const AccessibilityWidget: React.FC = () => {
               </div>
             </div>
 
-            {/* MAIN 14 INTERACTIVE TILES GRID (Matching Screenshot) */}
+            {/* MAIN 15 INTERACTIVE TILES GRID */}
             <div className="p-3 grid grid-cols-3 gap-2 flex-1">
               {/* TILE 1: MODA SUARA */}
               <button
@@ -479,9 +648,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   {settings.screenReaderVoice ? <Volume2 className="w-6 h-6 animate-pulse" /> : <VolumeX className="w-6 h-6 text-slate-500 dark:text-slate-400" />}
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Moda Suara</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.screenReader}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.screenReaderVoice ? 'AKTIF' : 'Mati'}
+                  {settings.screenReaderVoice ? t.states.active : t.states.inactive}
                 </span>
               </button>
 
@@ -498,7 +667,7 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center font-black text-xl">
                   T<span className="text-base">T</span>
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Perbesar Teks</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.increaseFont}</span>
                 <span className="text-[9px] opacity-75 font-mono">
                   {settings.fontSizePercent}%
                 </span>
@@ -517,7 +686,7 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center font-black text-sm">
                   t<span className="text-xs">t</span>
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Perkecil Teks</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.decreaseFont}</span>
                 <span className="text-[9px] opacity-75 font-mono">
                   {settings.fontSizePercent}%
                 </span>
@@ -536,9 +705,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <Droplet className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Kejenuhan</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.saturation}</span>
                 <span className="text-[9px] opacity-75 capitalize font-mono truncate w-full text-center">
-                  {settings.saturation === 'default' ? 'Normal' : settings.saturation}
+                  {settings.saturation === 'default' ? t.states.normal : settings.saturation}
                 </span>
               </button>
 
@@ -555,9 +724,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <Sun className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Kontras+</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.contrast}</span>
                 <span className="text-[9px] opacity-75 capitalize font-mono truncate w-full text-center">
-                  {settings.contrast === 'default' ? 'Normal' : settings.contrast.replace('high-', '')}
+                  {settings.contrast === 'default' ? t.states.normal : settings.contrast.replace('high-', '')}
                 </span>
               </button>
 
@@ -574,9 +743,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <EyeOff className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Sembunyikan Gambar</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.hideImages}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.hideImages ? 'ON' : 'OFF'}
+                  {settings.hideImages ? t.states.on : t.states.off}
                 </span>
               </button>
 
@@ -593,11 +762,12 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   {settings.textAlign === 'center' ? <AlignCenter className="w-6 h-6" /> : 
                    settings.textAlign === 'justify' ? <AlignJustify className="w-6 h-6" /> : 
+                   settings.textAlign === 'right' ? <AlignRight className="w-6 h-6" /> :
                    <AlignLeft className="w-6 h-6" />}
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Rata Tulisan</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.textAlign}</span>
                 <span className="text-[9px] opacity-75 capitalize font-mono">
-                  {settings.textAlign === 'default' ? 'Standar' : settings.textAlign}
+                  {settings.textAlign === 'default' ? t.states.standard : settings.textAlign}
                 </span>
               </button>
 
@@ -614,9 +784,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center font-black text-xl font-serif">
                   Df
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Ramah Disleksia</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.dyslexia}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.dyslexiaFont ? 'ON' : 'OFF'}
+                  {settings.dyslexiaFont ? t.states.on : t.states.off}
                 </span>
               </button>
 
@@ -633,9 +803,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center font-black">
                   ≡
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Tinggi Garis</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.lineHeight}</span>
                 <span className="text-[9px] opacity-75 capitalize font-mono">
-                  {settings.lineHeight}
+                  {settings.lineHeight === 'default' ? t.states.standard : settings.lineHeight === 'relaxed' ? t.states.relaxed : t.states.loose}
                 </span>
               </button>
 
@@ -652,13 +822,13 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <Hourglass className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Animasi Dijeda</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.pauseAnimations}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.pauseAnimations ? 'JEDA' : 'Jalan'}
+                  {settings.pauseAnimations ? t.states.paused : t.states.playing}
                 </span>
               </button>
 
-              {/* TILE 11: KURSOR BESAR & PENGGARIS BACA */}
+              {/* TILE 11: KURSOR BESAR */}
               <button
                 type="button"
                 onClick={() => {
@@ -674,9 +844,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <MousePointer className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Kursor Besar</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.bigCursor}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.bigCursor ? 'BESAR' : 'Standar'}
+                  {settings.bigCursor ? t.states.big : t.states.standard}
                 </span>
               </button>
 
@@ -693,9 +863,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <MoveHorizontal className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Spasi Teks</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.letterSpacing}</span>
                 <span className="text-[9px] opacity-75 capitalize font-mono">
-                  {settings.letterSpacing}
+                  {settings.letterSpacing === 'default' ? t.states.standard : settings.letterSpacing === 'wide' ? t.states.wide : t.states.extraWide}
                 </span>
               </button>
 
@@ -712,13 +882,13 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <Underline className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Garis Bawahi</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.underlineLinks}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.underlineLinks ? 'ON' : 'OFF'}
+                  {settings.underlineLinks ? t.states.on : t.states.off}
                 </span>
               </button>
 
-              {/* TILE 14: KETERANGAN ALAT & JUDUL */}
+              {/* TILE 14: SOROT JUDUL */}
               <button
                 type="button"
                 onClick={() => updateSettings({ highlightHeadings: !settings.highlightHeadings })}
@@ -731,13 +901,13 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center">
                   <Info className="w-6 h-6" />
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Sorot Judul</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.highlightHeadings}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.highlightHeadings ? 'ON' : 'OFF'}
+                  {settings.highlightHeadings ? t.states.on : t.states.off}
                 </span>
               </button>
 
-              {/* TILE 15: PENGGARIS BACA TOGGLE */}
+              {/* TILE 15: PENGGARIS BACA */}
               <button
                 type="button"
                 onClick={() => updateSettings({ readingGuide: !settings.readingGuide })}
@@ -750,9 +920,9 @@ export const AccessibilityWidget: React.FC = () => {
                 <div className="w-8 h-8 flex items-center justify-center font-black">
                   📖
                 </div>
-                <span className="text-[11px] font-bold leading-tight">Penggaris Baca</span>
+                <span className="text-[11px] font-bold leading-tight">{t.tiles.readingGuide}</span>
                 <span className="text-[9px] opacity-75 font-mono">
-                  {settings.readingGuide ? 'ON' : 'OFF'}
+                  {settings.readingGuide ? t.states.on : t.states.off}
                 </span>
               </button>
             </div>
@@ -766,7 +936,7 @@ export const AccessibilityWidget: React.FC = () => {
                 className="w-full py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition-all cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4" />
-                <span>Atur Ulang Semua Pengaturan Aksesibilitas</span>
+                <span>{t.footer.resetBtn}</span>
               </button>
 
               {/* Move Widget Menu */}
@@ -778,33 +948,28 @@ export const AccessibilityWidget: React.FC = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Settings className="w-4 h-4 text-blue-600" />
-                    <span>Pindahkan Posisi Widget</span>
+                    <span>{t.footer.movePosition}</span>
                   </div>
                   <ChevronRight className={`w-4 h-4 transition-transform ${showPositionMenu ? 'rotate-90' : ''}`} />
                 </button>
 
                 {showPositionMenu && (
                   <div className="mt-2 p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm space-y-2 text-xs">
-                    {[
-                      { id: 'top-left', label: 'Ke Posisi Atas dan Kiri' },
-                      { id: 'top-right', label: 'Ke Posisi Atas dan Kanan' },
-                      { id: 'bottom-left', label: 'Ke Posisi Bawah dan Kiri (Default)' },
-                      { id: 'bottom-right', label: 'Ke Posisi Bawah dan Kanan' }
-                    ].map((pos) => {
-                      const isChecked = settings.widgetPosition === pos.id;
+                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as WidgetPosition[]).map((pos) => {
+                      const isChecked = settings.widgetPosition === pos;
                       return (
                         <label 
-                          key={pos.id} 
+                          key={pos} 
                           className="flex items-center justify-between cursor-pointer p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700/50"
                         >
                           <span className={isChecked ? 'font-black text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'}>
-                            {pos.label}
+                            {t.footer.positions[pos]}
                           </span>
                           <input
                             type="radio"
                             name="widgetPos"
                             checked={isChecked}
-                            onChange={() => updateSettings({ widgetPosition: pos.id as WidgetPosition })}
+                            onChange={() => updateSettings({ widgetPosition: pos })}
                             className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"
                           />
                         </label>
@@ -816,7 +981,7 @@ export const AccessibilityWidget: React.FC = () => {
 
               {/* Version Tag */}
               <div className="pt-2 text-center text-[10px] text-slate-400 font-mono">
-                - Widget Aksesibilitas KPPN Semarang I v2.5 -
+                {t.footer.tag}
               </div>
             </div>
           </div>
