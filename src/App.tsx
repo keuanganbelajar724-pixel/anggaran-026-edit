@@ -537,31 +537,6 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
 
-      getDoc(doc(db, 'data', 'satkers')).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
-            setSatkers(currentLocal => {
-              const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
-              return merged;
-            });
-          } else {
-            // Recover from localStorage or historical uploads if server is empty
-            const savedLocal = localStorage.getItem('kppn_satker_data');
-            if (savedLocal) {
-              try {
-                const parsed = JSON.parse(savedLocal);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setSatkers(parsed);
-                  syncSatkersToFirebase(parsed);
-                }
-              } catch (e) {}
-            }
-          }
-        }
-      }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
-
       getDoc(doc(db, 'data', 'pengelolaan_up')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();

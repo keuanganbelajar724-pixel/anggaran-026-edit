@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, X, CheckCircle2, Globe, Sparkles, Share2, Layers, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Smartphone, Download, X, CheckCircle2, Globe, Sparkles, Share2, Layers, ShieldCheck, ArrowRight, Compass } from 'lucide-react';
 
 interface AndroidInstallModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDark?: boolean;
 }
+
+type BrowserType = 'chrome' | 'opera' | 'samsung' | 'edge' | 'firefox' | 'safari';
 
 export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
   isOpen,
@@ -14,6 +16,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
 }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [selectedBrowser, setSelectedBrowser] = useState<BrowserType>('chrome');
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -41,20 +44,79 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
         setDeferredPrompt(null);
       }
     } else {
-      alert('Untuk memasang aplikasi di Android:\n\n1. Ketuk ikon titik tiga (⋮) di pojok kanan atas browser Google Chrome.\n2. Pilih menu "Tambahkan ke Layar Utama" atau "Install Aplikasi".\n3. Ikon ANGKASA 026 akan langsung muncul di layar HP Anda layaknya aplikasi Play Store!');
+      alert('Untuk memasang aplikasi di HP:\n\n1. Buka menu browser Anda (titik tiga ⋮ atau garis tiga ☰ atau logo browser).\n2. Pilih "Tambahkan ke Layar Utama" / "Install Aplikasi" / "Add to Home Screen".\n3. Ikon ANGKASA 026 akan langsung muncul di menu HP Anda!');
     }
   };
 
   if (!isOpen) return null;
 
+  const browserGuides: Record<BrowserType, { name: string; icon: string; steps: string[] }> = {
+    chrome: {
+      name: 'Google Chrome',
+      icon: '🌐',
+      steps: [
+        'Buka laman anggaran-026.my.id di Google Chrome.',
+        'Ketuk ikon titik tiga (⋮) di pojok kanan atas browser.',
+        'Pilih opsi "Install Aplikasi" atau "Tambahkan ke Layar Utama".'
+      ]
+    },
+    opera: {
+      name: 'Opera / Opera Mini',
+      icon: '🔴',
+      steps: [
+        'Buka laman anggaran-026.my.id di browser Opera.',
+        'Ketuk ikon titik tiga (⋮) di pojok kanan atas ATAU logo Opera di kanan bawah.',
+        'Pilih "Layar Beranda" / "Home Screen" / "Install App".'
+      ]
+    },
+    samsung: {
+      name: 'Samsung Internet',
+      icon: '🪐',
+      steps: [
+        'Buka laman anggaran-026.my.id di Samsung Internet.',
+        'Ketuk ikon tanda tambah (+) di bilah alamat, ATAU menu garis tiga (☰) di kanan bawah.',
+        'Pilih "Tambahkan halaman ke" -> lalu pilih "Layar Depan".'
+      ]
+    },
+    edge: {
+      name: 'Microsoft Edge',
+      icon: '🌊',
+      steps: [
+        'Buka laman anggaran-026.my.id di Microsoft Edge Android.',
+        'Ketuk menu titik tiga (...) di bagian bawah browser.',
+        'Pilih "Tambahkan ke Layar Utama" / "Install".'
+      ]
+    },
+    firefox: {
+      name: 'Mozilla Firefox',
+      icon: '🦊',
+      steps: [
+        'Buka laman anggaran-026.my.id di Mozilla Firefox.',
+        'Ketuk ikon titik tiga (⋮) di samping bilah alamat.',
+        'Pilih "Pasang" / "Install" ke Layar Beranda.'
+      ]
+    },
+    safari: {
+      name: 'iPhone (Safari)',
+      icon: '🍏',
+      steps: [
+        'Buka laman anggaran-026.my.id di Safari iPhone.',
+        'Ketuk tombol Bagikan / Share (ikon kotak dengan panah ke atas di bilah bawah).',
+        'Gulir ke bawah dan pilih "Add to Home Screen" (Tambah ke Layar Utama).'
+      ]
+    }
+  };
+
+  const activeGuide = browserGuides[selectedBrowser];
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden ${
+      <div className={`relative w-full max-w-lg rounded-3xl border shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${
         isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
       }`}>
         
         {/* Header Ribbon */}
-        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 p-6 text-white relative">
+        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 p-6 text-white relative shrink-0">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all cursor-pointer"
@@ -69,7 +131,7 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
             <div>
               <div className="inline-flex items-center gap-1 bg-white/20 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full mb-1">
                 <Sparkles className="w-3 h-3 text-amber-300" />
-                <span>PWA &amp; ANDROID APP RESMI</span>
+                <span>BISA DI SEMUA BROWSER HP (ANDROID &amp; IPHONE)</span>
               </div>
               <h3 className="text-xl font-black tracking-tight">
                 Pasang Aplikasi ANGKASA di HP
@@ -77,12 +139,12 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
             </div>
           </div>
           <p className="text-xs text-emerald-100 mt-2 leading-relaxed">
-            Akses cepat tanpa perlu mengetik URL. Berjalan ringan, layar penuh (*full-screen*), bebas kuota berulang, dan otomatis tersinkronisasi.
+            Dapat dipasang di <b>Chrome, Opera, Samsung Internet, Edge, Firefox, dan Safari iPhone</b> tanpa perlu mengetik URL berulang kali.
           </p>
         </div>
 
         {/* Content Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-5 overflow-y-auto">
           
           {/* Quick Install Action Box */}
           <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-center justify-between gap-3 ${
@@ -90,10 +152,10 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
           }`}>
             <div className="space-y-0.5 text-center sm:text-left">
               <h4 className="text-xs font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
-                Instalasi 1-Klik di Android
+                Instalasi Otomatis
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Pasang langsung ke App Drawer &amp; Home Screen Android.
+                Pasang langsung ke App Drawer &amp; Home Screen HP Anda.
               </p>
             </div>
             <button
@@ -105,48 +167,61 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
             </button>
           </div>
 
-          {/* 3 Step Tutorial */}
+          {/* Browser Selector Tabs */}
+          <div className="space-y-2">
+            <label className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Pilih Browser yang Anda Gunakan di HP:</span>
+            </label>
+
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 text-xs font-bold">
+              {(Object.keys(browserGuides) as BrowserType[]).map((key) => {
+                const b = browserGuides[key];
+                const isSelected = selectedBrowser === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedBrowser(key)}
+                    className={`py-2 px-1 rounded-xl border flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-102'
+                        : isDark
+                          ? 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                          : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span className="text-base">{b.icon}</span>
+                    <span className="text-[10px] leading-none text-center truncate w-full px-0.5">{b.name.split(' ')[0]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Step-by-Step for Selected Browser */}
           <div className="space-y-2.5">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Cara Pasang Manual Lewat Google Chrome:
+            <h4 className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center justify-between">
+              <span>Panduan Pasang di {activeGuide.name}:</span>
+              <span className="text-base">{activeGuide.icon}</span>
             </h4>
 
             <div className="space-y-2 text-xs">
-              <div className={`p-3 rounded-xl border flex items-start gap-3 ${
-                isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  1
+              {activeGuide.steps.map((step, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded-xl border flex items-start gap-3 ${
+                    isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    {idx + 1}
+                  </div>
+                  <div className="text-slate-700 dark:text-slate-200 font-medium leading-relaxed">
+                    {step}
+                  </div>
                 </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100 block">Buka Web di Google Chrome Android</span>
-                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">Buka alamat <code>anggaran-026.my.id</code> dari browser HP Anda.</span>
-                </div>
-              </div>
-
-              <div className={`p-3 rounded-xl border flex items-start gap-3 ${
-                isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  2
-                </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100 block">Ketuk Menu Titik Tiga (⋮)</span>
-                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">Terletak di pojok kanan atas browser Google Chrome HP Anda.</span>
-                </div>
-              </div>
-
-              <div className={`p-3 rounded-xl border flex items-start gap-3 ${
-                isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-              }`}>
-                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  3
-                </div>
-                <div>
-                  <span className="font-bold text-slate-900 dark:text-slate-100 block">Pilih "Install Aplikasi" / "Tambahkan ke Layar Utama"</span>
-                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">Aplikasi ANGKASA akan otomatis terpasang dengan ikon resmi KPPN Semarang I.</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -174,14 +249,14 @@ export const AndroidInstallModal: React.FC<AndroidInstallModalProps> = ({
               isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span className="text-slate-600 dark:text-slate-300">Aman &amp; Terverifikasi</span>
+              <span className="text-slate-600 dark:text-slate-300">Bisa Semua Browser HP</span>
             </div>
           </div>
 
         </div>
 
         {/* Footer */}
-        <div className={`px-6 py-4 border-t flex items-center justify-between ${
+        <div className={`px-6 py-4 border-t flex items-center justify-between shrink-0 ${
           isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
         }`}>
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
