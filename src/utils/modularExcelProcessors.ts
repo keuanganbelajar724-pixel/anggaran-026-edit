@@ -277,22 +277,7 @@ export async function validateIKPAExcelFile(
 
           // CHECK MASTER SATKER
           const master = masterMap.get(kodeSatker);
-          if (!master) {
-            unregisteredSatkers.push({
-              kodeSatker,
-              namaSatker: namaSatkerFromRow || `Satker ${kodeSatker}`,
-              reason: 'Kode Satker tidak ditemukan dalam Master Data Referensi Satker KPPN'
-            });
-            invalidRows.push({
-              rowNumber: r + 1,
-              kodeSatker,
-              namaSatker: namaSatkerFromRow,
-              reason: 'Satker belum terdaftar di Master Data'
-            });
-            continue;
-          }
-
-          if (!master.isActive) {
+          if (master && master.isActive === false) {
             invalidRows.push({
               rowNumber: r + 1,
               kodeSatker,
@@ -300,6 +285,14 @@ export async function validateIKPAExcelFile(
               reason: 'Satker berstatus NONAKTIF di Master Data (Disembunyikan)'
             });
             continue;
+          }
+
+          if (!master) {
+            unregisteredSatkers.push({
+              kodeSatker,
+              namaSatker: namaSatkerFromRow || `Satker ${kodeSatker}`,
+              reason: 'Kode Satker belum terdaftar di Master Data Referensi (Otomatis dibuatkan referensi)'
+            });
           }
 
           // Parse IKPA Indicators using detected col or standard OM-SPAN column indices
@@ -368,9 +361,9 @@ export async function validateIKPAExcelFile(
           const record: IKPARecord = {
             id: `ikpa-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             kodeSatker,
-            namaSatker: master.namaSatker,
-            kementerianLembaga: master.kementerianLembaga || '',
-            unitEselon1: master.unitEselon1 || '',
+            namaSatker: master?.namaSatker || namaSatkerFromRow || `Satker ${kodeSatker}`,
+            kementerianLembaga: master?.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+            unitEselon1: master?.unitEselon1 || '',
             paguAnggaran,
             realisasiAnggaran,
             persenPenyerapan,
@@ -498,22 +491,7 @@ export async function validateCapaianOutputExcelFile(
           seenKodes.add(kodeSatker);
 
           const master = masterMap.get(kodeSatker);
-          if (!master) {
-            unregisteredSatkers.push({
-              kodeSatker,
-              namaSatker: rawNama || `Satker ${kodeSatker}`,
-              reason: 'Kode Satker tidak ada di Referensi Master Satker'
-            });
-            invalidRows.push({
-              rowNumber: r + 1,
-              kodeSatker,
-              namaSatker: rawNama,
-              reason: 'Satker belum terdaftar di Master Referensi'
-            });
-            continue;
-          }
-
-          if (!master.isActive) {
+          if (master && master.isActive === false) {
             invalidRows.push({
               rowNumber: r + 1,
               kodeSatker,
@@ -521,6 +499,14 @@ export async function validateCapaianOutputExcelFile(
               reason: 'Satker Nonaktif di Master Data'
             });
             continue;
+          }
+
+          if (!master) {
+            unregisteredSatkers.push({
+              kodeSatker,
+              namaSatker: rawNama || `Satker ${kodeSatker}`,
+              reason: 'Kode Satker belum terdaftar di Master Referensi (Otomatis dibuatkan referensi)'
+            });
           }
 
           const targetRO = colTargetRO !== -1 ? Math.max(1, parseFormattedNumber(row[colTargetRO], 10)) : 10;
@@ -539,9 +525,9 @@ export async function validateCapaianOutputExcelFile(
           validData.push({
             id: `caput-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             kodeSatker,
-            namaSatker: master.namaSatker,
-            kementerianLembaga: master.kementerianLembaga || '',
-            unitEselon1: master.unitEselon1 || '',
+            namaSatker: master?.namaSatker || rawNama || `Satker ${kodeSatker}`,
+            kementerianLembaga: master?.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+            unitEselon1: master?.unitEselon1 || '',
             periode: periodeFormatted,
             tahun,
             targetRO,
@@ -687,22 +673,7 @@ export async function validatePengelolaanUPExcelFile(
           seenKodes.add(kodeSatker);
 
           const master = masterMap.get(kodeSatker);
-          if (!master) {
-            unregisteredSatkers.push({
-              kodeSatker,
-              namaSatker: rawNama || `Satker ${kodeSatker}`,
-              reason: 'Kode Satker tidak ditemukan dalam Master Data Referensi'
-            });
-            invalidRows.push({
-              rowNumber: r + 1,
-              kodeSatker,
-              namaSatker: rawNama,
-              reason: 'Satker belum terdaftar di Master Referensi'
-            });
-            continue;
-          }
-
-          if (!master.isActive) {
+          if (master && master.isActive === false) {
             invalidRows.push({
               rowNumber: r + 1,
               kodeSatker,
@@ -710,6 +681,14 @@ export async function validatePengelolaanUPExcelFile(
               reason: 'Satker berstatus Nonaktif'
             });
             continue;
+          }
+
+          if (!master) {
+            unregisteredSatkers.push({
+              kodeSatker,
+              namaSatker: rawNama || `Satker ${kodeSatker}`,
+              reason: 'Kode Satker belum terdaftar di Master Data Referensi (Otomatis dibuatkan referensi)'
+            });
           }
 
           const nilaiUP = colNilaiUP !== -1 ? parseFormattedNumber(row[colNilaiUP], 50000000) : 50000000;
@@ -750,9 +729,9 @@ export async function validatePengelolaanUPExcelFile(
           const record: PengelolaanUPRecord = {
             id: `up-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             kodeSatker,
-            namaSatker: master.namaSatker,
-            kementerianLembaga: master.kementerianLembaga || '',
-            kodeBa: master.kodeBa || '',
+            namaSatker: master?.namaSatker || rawNama || `Satker ${kodeSatker}`,
+            kementerianLembaga: master?.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+            kodeBa: master?.kodeBa || '',
             jenisDana: 'UP',
             paguUP,
             nilaiUP,
@@ -924,22 +903,7 @@ export async function validateKarwasTUPExcelFile(
           seenKodes.add(kodeSatker);
 
           const master = masterMap.get(kodeSatker);
-          if (!master) {
-            unregisteredSatkers.push({
-              kodeSatker,
-              namaSatker: rawNama || `Satker ${kodeSatker}`,
-              reason: 'Kode Satker tidak ditemukan dalam Master Data Referensi'
-            });
-            invalidRows.push({
-              rowNumber: r + 1,
-              kodeSatker,
-              namaSatker: rawNama,
-              reason: 'Satker belum terdaftar di Master Referensi'
-            });
-            continue;
-          }
-
-          if (!master.isActive) {
+          if (master && master.isActive === false) {
             invalidRows.push({
               rowNumber: r + 1,
               kodeSatker,
@@ -947,6 +911,14 @@ export async function validateKarwasTUPExcelFile(
               reason: 'Satker berstatus Nonaktif'
             });
             continue;
+          }
+
+          if (!master) {
+            unregisteredSatkers.push({
+              kodeSatker,
+              namaSatker: rawNama || `Satker ${kodeSatker}`,
+              reason: 'Kode Satker belum terdaftar di Master Data Referensi (Otomatis dibuatkan referensi)'
+            });
           }
 
           const nilaiTUP = colNilaiTUP !== -1 ? parseFormattedNumber(row[colNilaiTUP], 100000000) : 100000000;
@@ -983,9 +955,9 @@ export async function validateKarwasTUPExcelFile(
           const record: KarwasTUPRecord = {
             id: `tup-${kodeSatker}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
             kodeSatker,
-            namaSatker: master.namaSatker,
-            kementerianLembaga: master.kementerianLembaga || '',
-            kodeBa: master.kodeBa || '',
+            namaSatker: master?.namaSatker || rawNama || `Satker ${kodeSatker}`,
+            kementerianLembaga: master?.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+            kodeBa: master?.kodeBa || '',
             jenisDana: 'TUP',
             nomorSuratPersetujuan,
             tglPersetujuan,
