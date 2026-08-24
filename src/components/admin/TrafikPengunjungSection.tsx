@@ -29,7 +29,10 @@ import {
   Globe,
   Compass,
   Cpu,
-  RotateCcw
+  RotateCcw,
+  Radio,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { 
   getTrafficAnalytics, 
@@ -43,6 +46,7 @@ import {
   resetTrafficData 
 } from '../../utils/trafficTracker';
 import { TrafficAnalyticsData, VisitorLogEntry } from '../../types';
+import { db, doc, onSnapshot } from '../../lib/firebase';
 import { useToast } from '../ToastNotification';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 
@@ -65,6 +69,27 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
   const currentDevDetails = useMemo(() => parseDeviceDetails(), []);
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), []);
 
+  // Listen to Firestore for remote live updates across devices
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'traffic', 'overview'), (snapshot) => {
+        if (snapshot.exists()) {
+          const remoteData = snapshot.data();
+          const updated = getTrafficAnalytics({ excludeTester, remoteData });
+          setTrafficData(updated);
+        } else {
+          const updated = getTrafficAnalytics({ excludeTester });
+          setTrafficData(updated);
+        }
+      }, (err) => {
+        // Silent catch for offline or permission issues
+      });
+      return () => unsub();
+    } catch {
+      // Ignore
+    }
+  }, [excludeTester]);
+
   // Reload data
   const refreshData = () => {
     setIsRefreshing(true);
@@ -75,9 +100,9 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
       addToast({
         type: 'success',
         title: 'Data Trafik Dimutakhirkan',
-        message: 'Statistik pengunjung dan tayangan halaman berhasil diperbarui secara realtime.'
+        message: 'Statistik pengunjung dan tayangan halaman berhasil dikalibrasi secara realtime.'
       });
-    }, 300);
+    }, 250);
   };
 
   const handleToggleExcludeTester = (val: boolean) => {
@@ -89,7 +114,7 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
       type: 'info',
       title: val ? 'Mode Saring Penguji Aktif' : 'Mode Semua Trafik Aktif',
       message: val 
-        ? 'Aktivitas pengujian programmer/admin kini disaring dari statistik satker.'
+        ? 'Aktivitas pengujian programmer/admin disaring dari statistik riil satker.'
         : 'Menampilkan seluruh statistik termasuk aktivitas pengujian programmer.'
     });
   };
@@ -98,13 +123,14 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
     const nextVal = !isTesterDevice;
     setIsTesterDevice(nextVal);
     setDeviceTesterStatus(nextVal);
-    refreshData();
+    const updated = getTrafficAnalytics({ excludeTester });
+    setTrafficData(updated);
     addToast({
       type: nextVal ? 'warning' : 'success',
-      title: nextVal ? 'Perangkat Ini Ditandai Sebagai Tester' : 'Perangkat Ini Ditandai Normal',
+      title: nextVal ? 'Perangkat Ini Ditandai Sebagai Tester/Admin' : 'Perangkat Ini Ditandai Normal',
       message: nextVal
-        ? 'Aktivitas browsing dan uji coba Anda sekarang tidak akan menggelembungkan statistik riil satker.'
-        : 'Perangkat ini kini diperlakukan sebagai pengunjung satker umum.'
+        ? 'Aktivitas browsing dari laptop/komputer ini tidak akan menambah statistik riil Satker.'
+        : 'Perangkat ini kini diperlakukan sebagai pengunjung Satker umum.'
     });
   };
 
@@ -117,11 +143,6 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
   const maxViewsInHistory = useMemo(() => {
     if (historySlice.length === 0) return 10;
     return Math.max(...historySlice.map(h => h.pageviews), 10);
-  }, [historySlice]);
-
-  const maxVisitorsInHistory = useMemo(() => {
-    if (historySlice.length === 0) return 10;
-    return Math.max(...historySlice.map(h => h.uniqueVisitors), 10);
   }, [historySlice]);
 
   const maxHourlyViews = useMemo(() => {
@@ -190,16 +211,16 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
     setConfirmModal({
       isOpen: true,
       title: 'Reset & Mulai Ulang Data Trafik Riil?',
-      message: 'Tindakan ini akan mengosongkan seluruh riwayat kunjungan dan memulai pencatatan trafik riil dari angka 0. Data akan bertambah otomatis secara murni sesuai aktivitas akses Satker.',
-      confirmText: 'Ya, Reset dari Nol',
+      message: 'Tindakan ini akan mengosongkan seluruh riwayat kunjungan dan memulai pencatatan trafik riil dari angka 0. Sangat disarankan dilakukan sebelum link dashboard disebarkan resmi ke seluruh Satker.',
+      confirmText: 'Ya, Reset dari Nol (0)',
       variant: 'danger',
       onConfirm: () => {
         resetTrafficData();
         refreshData();
         addToast({
           type: 'info',
-          title: 'Trafik Direset',
-          message: 'Pencatatan statistik trafik pengunjung murni dimulai dari angka 0.'
+          title: 'Trafik Berhasil Direset ke 0',
+          message: 'Pencatatan statistik trafik pengunjung murni dimulai dari angka 0 dan siap disebarkan ke Satker.'
         });
       }
     });
@@ -210,27 +231,29 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* HEADER SECTION */}
-      <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl ${
+      <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl relative overflow-hidden ${
         isDark 
           ? 'bg-slate-900/90 border-slate-800 text-slate-100' 
           : 'bg-white border-slate-200 text-slate-800'
       }`}>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl shadow-lg shadow-indigo-500/25">
+              <div className="p-3 bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 text-white rounded-2xl shadow-lg shadow-indigo-500/25 shrink-0">
                 <BarChart3 className="w-6 h-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                     Statistik &amp; Infografis Trafik Pengunjung
                   </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-500 text-slate-950 shadow-xs">
-                    Admin Only • Real Telemetry
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Telemetri Riil Aktif
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                   Monitoring volume kunjungan harian, tayangan halaman riil, deteksi perangkat satker, dan log akses realtime KPPN Semarang I.
                 </p>
               </div>
@@ -274,8 +297,8 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
 
             <button
               onClick={handleResetAllTraffic}
-              title="Reset seluruh statistik dari nol"
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer"
+              title="Reset seluruh statistik dari nol sebelum sebar link"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer shadow-xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Reset dari 0</span>
@@ -284,114 +307,119 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
         </div>
       </div>
 
-      {/* TOP 5 INFOGRAPHIC KPI CARDS (Matching User's Reference Screenshot) */}
+      {/* TOP 5 INFOGRAPHIC KPI CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {/* CARD 1: Pengunjung Hari Ini */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] ${
+        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] relative overflow-hidden group ${
           isDark 
             ? 'bg-[#0f172a] border-slate-800 text-white' 
             : 'bg-[#0f172a] border-slate-800 text-white'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 mb-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-cyan-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/30 mb-3.5">
             <Users className="w-7 h-7" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1.5">
+          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1">
             Pengunjung Hari Ini
           </span>
           <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             {trafficData.summary.pengunjungHariIni.toLocaleString('id-ID')}
           </span>
-          <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+          <span className="mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
             Perangkat Unik
           </span>
         </div>
 
         {/* CARD 2: Views Hari Ini */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] ${
+        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] relative overflow-hidden group ${
           isDark 
             ? 'bg-[#0f172a] border-slate-800 text-white' 
             : 'bg-[#0f172a] border-slate-800 text-white'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-3.5">
             <FileText className="w-7 h-7" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1.5">
+          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1">
             Views Hari Ini
           </span>
           <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             {trafficData.summary.viewsHariIni.toLocaleString('id-ID')}
           </span>
-          <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+          <span className="mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
             Tayangan Halaman
           </span>
         </div>
 
         {/* CARD 3: Pengunjung 7 Hari */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] ${
+        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] relative overflow-hidden group ${
           isDark 
             ? 'bg-[#0f172a] border-slate-800 text-white' 
             : 'bg-[#0f172a] border-slate-800 text-white'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/30 mb-4">
-            <Users className="w-7 h-7" />
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-yellow-400 text-white flex items-center justify-center shadow-lg shadow-amber-500/30 mb-3.5">
+            <TrendingUp className="w-7 h-7" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1.5">
+          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1">
             Pengunjung 7 Hari
           </span>
           <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             {trafficData.summary.pengunjung7Hari.toLocaleString('id-ID')}
           </span>
-          <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <span className="mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
             1 Minggu Terakhir
           </span>
         </div>
 
         {/* CARD 4: Total Pengunjung */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] ${
+        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] relative overflow-hidden group ${
           isDark 
             ? 'bg-[#0f172a] border-slate-800 text-white' 
             : 'bg-[#0f172a] border-slate-800 text-white'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-purple-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 mb-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-purple-500/30 mb-3.5">
             <BarChart3 className="w-7 h-7" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1.5">
+          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1">
             Total Pengunjung
           </span>
           <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             {trafficData.summary.totalPengunjung.toLocaleString('id-ID')}
           </span>
-          <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+          <span className="mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
             Akumulasi Pengunjung
           </span>
         </div>
 
         {/* CARD 5: Total Views */}
-        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] ${
+        <div className={`p-6 rounded-3xl border shadow-xl flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02] relative overflow-hidden group ${
           isDark 
             ? 'bg-[#0f172a] border-slate-800 text-white' 
             : 'bg-[#0f172a] border-slate-800 text-white'
         }`}>
-          <div className="w-14 h-14 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-4">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-pink-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 mb-3.5">
             <Eye className="w-7 h-7" />
           </div>
-          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1.5">
+          <span className="text-xs font-semibold text-slate-300 tracking-wide mb-1">
             Total Views
           </span>
           <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">
             {trafficData.summary.totalViews.toLocaleString('id-ID')}
           </span>
-          <span className="mt-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          <span className="mt-2 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
             Total Seluruh Halaman
           </span>
         </div>
       </div>
 
       {/* SPECIAL PROGRAMMER / TESTER DETECTION & FILTER PANEL */}
-      <div className={`p-6 rounded-3xl border shadow-xl transition-all ${
+      <div className={`p-6 sm:p-7 rounded-3xl border shadow-xl transition-all relative overflow-hidden ${
         isDark 
           ? 'bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 border-indigo-500/30 text-slate-100' 
-          : 'bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/70 border-indigo-200 text-slate-800'
+          : 'bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/80 border-indigo-200 text-slate-800'
       }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
@@ -404,8 +432,8 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
               </h3>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-              Setiap pengunjung diidentifikasi melalui sidik jari perangkat digital (resolusi layar, user-agent, dan token unik perangkat). 
-              Untuk mencegah pengujian &amp; refresh berulang oleh pengembang/admin menggelembungkan data riil satker, Anda dapat mengaktifkan filter di samping.
+              Setiap pengunjung diidentifikasi melalui sidik jari perangkat digital. 
+              Untuk mencegah pengujian &amp; refresh berulang oleh pengembang/admin menggelembungkan data riil satker, filter penguji aktif secara default sehingga angka statistik di atas murni mencatat kunjungan Satker riil.
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
               <span>ID Perangkat Ini: <strong className="text-indigo-600 dark:text-indigo-400">{currentDeviceId.slice(0, 18)}...</strong></span>
@@ -414,12 +442,12 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
               <span>•</span>
               <span>Browser: <strong>{currentDevDetails.browser}</strong></span>
               <span>•</span>
-              <span>Resolusi: <strong>{currentDevDetails.screenResolution}</strong></span>
+              <span>Status Perangkat: <strong className={isTesterDevice ? 'text-amber-500' : 'text-emerald-500'}>{isTesterDevice ? 'Tester / Developer' : 'Satker Normal'}</strong></span>
             </div>
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3.5 shrink-0">
             {/* Toggle Exclude Tester */}
             <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 w-full sm:w-auto shadow-sm ${
               isDark ? 'bg-slate-800/90 border-slate-700' : 'bg-white border-indigo-100'
@@ -492,7 +520,7 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
                 </h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Perbandingan jumlah Pengunjung Unik vs Total Pageviews harian.
+                Perbandingan volume Pengunjung Unik vs Total Pageviews harian Satker.
               </p>
             </div>
 
@@ -536,8 +564,8 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
             {historySlice.length === 0 ? (
               <div className="h-64 flex flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400">
                 <BarChart3 className="w-10 h-10 mb-2 opacity-40 text-indigo-500" />
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Menunggu Kunjungan Pertama</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm">Grafik akan terisi secara otomatis ketika Satuan Kerja atau pengguna mulai menjelajahi portal.</p>
+                <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Menunggu Kunjungan Pertama Satker</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm">Grafik telemetri akan terisi secara realtime saat tautan disebarkan dan Satker mulai membuka dashboard.</p>
               </div>
             ) : (
               <div className="h-64 sm:h-72 w-full flex items-end justify-between gap-1.5 sm:gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">

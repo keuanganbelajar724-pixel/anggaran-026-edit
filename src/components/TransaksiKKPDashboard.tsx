@@ -37,6 +37,7 @@ import {
   getMonthInfoFromPeriodKey,
   parseDateToTimestamp
 } from '../utils/modularExcelProcessors';
+import { verifySatkerPassword, getSatkerDefaultPassword, resolveKodeBA } from '../utils/satkerSecurity';
 
 interface TransaksiKKPDashboardProps {
   records?: TransaksiKKPRecord[];
@@ -82,6 +83,12 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [selectedSatkerDetail, setSelectedSatkerDetail] = useState<TransaksiKKPRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Security and Password Verification State for Satker Details
+  const [unlockedSatkerKodes, setUnlockedSatkerKodes] = useState<Set<string>>(new Set());
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Active Master Satker Map for enrichment
   const activeSatkerMap = useMemo(() => {
@@ -1096,16 +1103,24 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
 
       </div>
 
-      {/* 5. Modal Detail Transaksi Satker */}
+      {/* 5. Modal Detail Transaksi Satker (Dilindungi Password) */}
       {selectedSatkerDetail && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
             
             <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div>
-                <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                  DETAIL TRANSAKSI KKP SATKER
-                </span>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded">
+                    DETAIL TRANSAKSI KKP SATKER
+                  </span>
+                  {(isAdminAuthenticated || unlockedSatkerKodes.has(selectedSatkerDetail.kodeSatker)) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded">
+                      <ShieldCheck className="w-3 h-3" />
+                      Terverifikasi
+                    </span>
+                  )}
+                </div>
                 <h4 className="text-base font-black text-slate-900 dark:text-slate-100">
                   {selectedSatkerDetail.namaSatker}
                 </h4>
@@ -1114,50 +1129,135 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                 </div>
               </div>
               <button
-                onClick={() => setSelectedSatkerDetail(null)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => {
+                  setSelectedSatkerDetail(null);
+                  setPasswordInput('');
+                  setPasswordError(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Kementerian / Lembaga:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100 text-right">{selectedSatkerDetail.kementerianLembaga || '-'}</span>
+            {!isAdminAuthenticated && !unlockedSatkerKodes.has(selectedSatkerDetail.kodeSatker) ? (
+              <div className="space-y-4 py-2">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center mx-auto">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <h5 className="font-black text-sm text-slate-900 dark:text-white">
+                    Masukkan Password Satker
+                  </h5>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Detail nominal dan transaksi KKP Satker <strong>{selectedSatkerDetail.namaSatker} ({selectedSatkerDetail.kodeSatker})</strong> dilindungi password demi keamanan data dari satker lain.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Bank Penerbit Kartu:</span>
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{selectedSatkerDetail.bankPenerbit || 'BRI'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Total SP2D GUP KKP:</span>
-                  <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{selectedSatkerDetail.jumlahTransaksi} Transaksi</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Total Nominal Belanja:</span>
-                  <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">Rp {selectedSatkerDetail.totalNominal.toLocaleString('id-ID')}</span>
-                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const master = activeSatkerMap.get(selectedSatkerDetail.kodeSatker);
+                    const target = master || {
+                      kodeSatker: selectedSatkerDetail.kodeSatker,
+                      kementerianLembaga: selectedSatkerDetail.kementerianLembaga,
+                      kodeBa: resolveKodeBA({ kementerianLembaga: selectedSatkerDetail.kementerianLembaga, kodeSatker: selectedSatkerDetail.kodeSatker })
+                    };
+                    if (verifySatkerPassword(target, passwordInput, isAdminAuthenticated)) {
+                      setUnlockedSatkerKodes(prev => new Set([...prev, selectedSatkerDetail.kodeSatker]));
+                      setPasswordError(null);
+                    } else {
+                      setPasswordError('Password Satker tidak sesuai. Masukkan password default: [KodeSatker]_[KodeBA]');
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Masukkan Password Satker..."
+                      value={passwordInput}
+                      onChange={(e) => {
+                        setPasswordInput(e.target.value);
+                        if (passwordError) setPasswordError(null);
+                      }}
+                      className="w-full text-xs font-mono rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:border-indigo-500"
+                      required
+                      autoFocus
+                    />
+                  </div>
+
+                  {passwordError && (
+                    <div className="p-2.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer"
+                  >
+                    Buka Rincian Satker
+                  </button>
+                </form>
               </div>
+            ) : (
+              <>
+                <div className="space-y-3 text-xs">
+                  <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Kementerian / Lembaga:</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100 text-right">{selectedSatkerDetail.kementerianLembaga || '-'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Bank Penerbit Kartu:</span>
+                      <span className="font-bold text-slate-900 dark:text-slate-100">{selectedSatkerDetail.bankPenerbit || 'BRI'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Total SP2D GUP KKP:</span>
+                      <span className="font-mono font-black text-indigo-600 dark:text-indigo-400">{selectedSatkerDetail.jumlahTransaksi} Transaksi</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Total Nominal Belanja:</span>
+                      <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">Rp {selectedSatkerDetail.totalNominal.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
 
-              {selectedSatkerDetail.catatan && (
-                <div className="bg-amber-50 dark:bg-amber-950/60 p-3 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[11px] font-medium">
-                  💡 {selectedSatkerDetail.catatan}
+                  {selectedSatkerDetail.catatan && (
+                    <div className="bg-amber-50 dark:bg-amber-950/60 p-3 rounded-xl border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-[11px] font-medium">
+                      💡 {selectedSatkerDetail.catatan}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => handleCopyRow(selectedSatkerDetail)}
-                className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Salin Data WhatsApp</span>
-              </button>
-            </div>
+                <div className="flex justify-between items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnlockedSatkerKodes(prev => {
+                        const next = new Set(prev);
+                        next.delete(selectedSatkerDetail.kodeSatker);
+                        return next;
+                      });
+                    }}
+                    className="text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Lock className="w-3 h-3" />
+                    <span>Kunci</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyRow(selectedSatkerDetail)}
+                    className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 shadow-md cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Salin Data WhatsApp</span>
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         </div>

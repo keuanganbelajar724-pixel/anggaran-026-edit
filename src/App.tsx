@@ -1703,6 +1703,7 @@ export default function App() {
                   dashboardConfig={dashboardConfig}
                   lastUpdateDate={dashboardConfig.updateDates?.transaksiDigipay}
                   isAdminAuthenticated={isAdminAuthenticated}
+                  onSaveMasterSatker={handleSaveMasterSatker}
                   onApplyRecords={(newRecords) => handleUpdateTransaksiDigipay(newRecords)}
                   onGoToAdmin={() => setActiveTab('admin')}
                 />

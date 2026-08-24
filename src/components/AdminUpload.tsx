@@ -55,6 +55,17 @@ import {
   processMasterSatkerExcel,
   exportMasterSatkerToExcel
 } from '../utils/excelProcessor';
+import { 
+  AdminActivityLog, 
+  AdminLogCategory, 
+  AdminLogStatus, 
+  getLocalAdminLogs, 
+  recordAdminActivityLog, 
+  clearAdminActivityLogs, 
+  resetAdminActivityLogsToDefault, 
+  subscribeAdminLogs, 
+  exportAdminLogsToCSV 
+} from '../utils/adminLogTracker';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
 import { ensurePejabatOperator, getSatkerDefaultPassword, extractKodeBA } from '../utils/analysisEngine';
 import { 
@@ -605,70 +616,28 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     });
   };
 
-  // Activity Log State
-  const [activityLogs, setActivityLogs] = useState<Array<{
-    id: string;
-    timestamp: string;
-    action: string;
-    user: string;
-    category: 'AUTH' | 'UPLOAD' | 'SETTINGS' | 'ANNOUNCEMENT';
-    details: string;
-    status: 'SUCCESS' | 'WARNING' | 'INFO';
-  }>>([
-    {
-      id: 'log-1',
-      timestamp: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
-      action: 'Otentikasi Login Admin',
-      user: 'Seksi MSKI KPPN Semarang I (026)',
-      category: 'AUTH',
-      details: 'Login berhasil sebagai Administrator KPPN Semarang I via Password PIN Resmi.',
-      status: 'SUCCESS'
-    },
-    {
-      id: 'log-2',
-      timestamp: '05 Agu 2026, 11:30 WIB',
-      action: 'Olah Data Excel SAKTI',
-      user: 'Operator Data KPPN 026',
-      category: 'UPLOAD',
-      details: 'File sample_satker_kppn_semarang1.xlsx diunggah. 42 Satker berhasil dibersihkan & diproses.',
-      status: 'SUCCESS'
-    },
-    {
-      id: 'log-3',
-      timestamp: '04 Agu 2026, 15:45 WIB',
-      action: 'Publikasi Pengumuman',
-      user: 'Seksi MSKI KPPN Semarang I',
-      category: 'ANNOUNCEMENT',
-      details: 'Pengumuman "Batas Akhir Pengisian & Konfirmasi Capaian Output SAKTI Periode Ini" dipublikasikan & dipin.',
-      status: 'INFO'
-    },
-    {
-      id: 'log-4',
-      timestamp: '01 Agu 2026, 09:15 WIB',
-      action: 'Konfigurasi Filter Utama',
-      user: 'Admin KPPN 026',
-      category: 'SETTINGS',
-      details: 'Atur filter default ke "Belum Upload Capaian Output (0% Data)" untuk respon cepat petugas.',
-      status: 'SUCCESS'
-    }
-  ]);
+  // Activity Log State (Persisted in LocalStorage & Cloud Firestore Realtime)
+  const [activityLogs, setActivityLogs] = useState<AdminActivityLog[]>(() => getLocalAdminLogs());
+  const [logSearchQuery, setLogSearchQuery] = useState<string>('');
+  const [logCategoryFilter, setLogCategoryFilter] = useState<string>('ALL');
+  const [logStatusFilter, setLogStatusFilter] = useState<string>('ALL');
+
+  // Realtime Cloud Sync for Activity Logs
+  useEffect(() => {
+    const unsub = subscribeAdminLogs((logs) => {
+      setActivityLogs(logs);
+    });
+    return () => unsub();
+  }, []);
 
   const addLog = (
     action: string, 
-    category: 'AUTH' | 'UPLOAD' | 'SETTINGS' | 'ANNOUNCEMENT', 
+    category: AdminLogCategory, 
     details: string, 
-    status: 'SUCCESS' | 'WARNING' | 'INFO' = 'SUCCESS'
+    status: AdminLogStatus = 'SUCCESS'
   ) => {
-    const newLog = {
-      id: `log-${Date.now()}`,
-      timestamp: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
-      action,
-      user: 'Seksi MSKI KPPN Semarang I (026)',
-      category,
-      details,
-      status
-    };
-    setActivityLogs(prev => [newLog, ...prev]);
+    const newLog = recordAdminActivityLog(action, category, details, status, 'Seksi MSKI KPPN Semarang I (026)');
+    setActivityLogs(prev => [newLog, ...prev.filter(l => l.id !== newLog.id)]);
   };
 
   // Password Batch Upload Handler
@@ -1101,6 +1070,15 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   // Dashboard Settings Form State
   const [tempConfig, setTempConfig] = useState<DashboardConfig>(dashboardConfig);
   const [configSaveSuccess, setConfigSaveSuccess] = useState<boolean>(false);
+  const [showSettingsSuccessModal, setShowSettingsSuccessModal] = useState<boolean>(false);
+  const [lastSavedConfigSummary, setLastSavedConfigSummary] = useState<{
+    defaultFilterLabel: string;
+    customAnnouncement: string;
+    helpdeskPhone: string;
+    helpdeskJamLayanan: string;
+    pinChanged: boolean;
+    savedAt: string;
+  } | null>(null);
   const [newAdminPinInput, setNewAdminPinInput] = useState<string>('');
   const [confirmAdminPinInput, setConfirmAdminPinInput] = useState<string>('');
   const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
@@ -1217,20 +1195,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
     setPinChangeMsg(null);
+    let pinUpdated = false;
 
     // Process Password/PIN Change if filled
     if (newAdminPinInput.trim() || confirmAdminPinInput.trim()) {
       if (newAdminPinInput.trim().length < 4) {
         setPinChangeMsg({ text: 'Password / PIN baru minimal 4 karakter.', isError: true });
+        addToast('Gagal mengubah password: Password minimal 4 karakter.', 'error');
         return;
       }
       if (newAdminPinInput !== confirmAdminPinInput) {
         setPinChangeMsg({ text: 'Konfirmasi Password / PIN baru tidak cocok.', isError: true });
+        addToast('Gagal: Konfirmasi Password baru tidak sama.', 'error');
         return;
       }
       if (onUpdateAdminPin) {
         onUpdateAdminPin(newAdminPinInput.trim());
       }
+      pinUpdated = true;
       setPinChangeMsg({ text: 'Password Admin berhasil diperbarui!', isError: false });
       setNewAdminPinInput('');
       setConfirmAdminPinInput('');
@@ -1239,10 +1221,37 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
     onUpdateDashboardConfig(tempConfig);
     setConfigSaveSuccess(true);
+
+    const filterLabels: Record<string, string> = {
+      'BELUM_OUTPUT': 'Satker Belum Konfirmasi Output (Prioritas MSKI)',
+      'SUDAH_OUTPUT': 'Satker Sudah Konfirmasi Capaian Output (100%)',
+      'IKPA_KURANG': 'Satker dengan Nilai IKPA < 95.00',
+      'ALL': 'Semua Satker Terdaftar (Tanpa Filter Khusus)'
+    };
+
+    const now = new Date();
+    const summary = {
+      defaultFilterLabel: filterLabels[tempConfig.defaultFilter || 'BELUM_OUTPUT'] || 'Default Filter',
+      customAnnouncement: tempConfig.customAnnouncement ? tempConfig.customAnnouncement.substring(0, 70) + (tempConfig.customAnnouncement.length > 70 ? '...' : '') : 'Pengumuman Standar KPPN',
+      helpdeskPhone: tempConfig.helpdeskPhone || '081234567890',
+      helpdeskJamLayanan: tempConfig.helpdeskJamLayanan || '08.00 - 15.00 WIB',
+      pinChanged: pinUpdated,
+      savedAt: now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' pukul ' + now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB'
+    };
+
+    setLastSavedConfigSummary(summary);
+    setShowSettingsSuccessModal(true);
+
+    addToast(
+      pinUpdated 
+        ? 'Pengaturan Dashboard & Password Baru Admin berhasil disimpan!' 
+        : 'Pengaturan Dashboard berhasil disimpan dan disinkronkan!', 
+      'success'
+    );
     addLog('Konfigurasi Dashboard Diperbarui', 'SETTINGS', 'Pengaturan tampilan dashboard dan filter default diperbarui.', 'SUCCESS');
     setTimeout(() => {
       setConfigSaveSuccess(false);
-    }, 4000);
+    }, 5000);
   };
 
   const handleSaveAnnouncement = (e: React.FormEvent) => {
@@ -4693,11 +4702,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
+            {/* Action Buttons & Immediate Feedback */}
+            {configSaveSuccess && (
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 rounded-2xl text-xs font-extrabold flex items-center gap-3 animate-fade-in shadow-xs">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>Pengaturan Dashboard berhasil disimpan! Halaman publik telah langsung diperbarui sesuai preferensi Admin.</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-4">
+              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Tersinkronisasi otomatis ke Database Lokal &amp; Cloud Firestore</span>
+              </div>
               <button
                 type="submit"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm px-6 py-3 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs sm:text-sm px-7 py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
               >
                 <Save className="w-4 h-4" />
                 <span>Simpan Pengaturan Dashboard</span>
@@ -4706,6 +4726,73 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           </form>
         </div>
       </div>
+      )}
+
+      {/* POP-UP MODAL KONFIRMASI PENGATURAN DASHBOARD BERHASIL DISIMPAN */}
+      {showSettingsSuccessModal && lastSavedConfigSummary && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className={`w-full max-w-lg rounded-3xl p-6 sm:p-7 border shadow-2xl space-y-5 transition-all ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="text-center space-y-3">
+              <div className="w-16 h-16 bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 rounded-3xl flex items-center justify-center mx-auto shadow-inner ring-8 ring-emerald-500/10">
+                <CheckCircle2 className="w-9 h-9" />
+              </div>
+              
+              <div>
+                <div className="inline-flex items-center gap-1.5 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-2">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Pengaturan Berhasil Diterapkan
+                </div>
+                <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                  Konfigurasi Dashboard Tersimpan!
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Perubahan tampilan bawaan, filter default, teks layanan, serta parameter dashboard telah berhasil diperbarui dan disinkronisasikan ke seluruh Satker.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-semibold">Filter Halaman Depan:</span>
+                <span className="font-extrabold text-slate-900 dark:text-slate-100 text-right">{lastSavedConfigSummary.defaultFilterLabel}</span>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-semibold">Running Text Pengumuman:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 text-right truncate max-w-[220px]">{lastSavedConfigSummary.customAnnouncement}</span>
+              </div>
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-slate-500 font-semibold">Kontak &amp; Jam Layanan:</span>
+                <span className="font-bold text-slate-700 dark:text-slate-300 text-right">{lastSavedConfigSummary.helpdeskPhone} ({lastSavedConfigSummary.helpdeskJamLayanan})</span>
+              </div>
+              {lastSavedConfigSummary.pinChanged && (
+                <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-slate-200 dark:border-slate-800 text-amber-600 dark:text-amber-400 font-bold">
+                  <span className="flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Password / PIN Admin:
+                  </span>
+                  <span>Password Baru Telah Aktif</span>
+                </div>
+              )}
+              <div className="flex items-start justify-between gap-2 pt-1.5 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400">
+                <span>Waktu Penyimpanan:</span>
+                <span>{lastSavedConfigSummary.savedAt}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowSettingsSuccessModal(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Check className="w-4 h-4" />
+                <span>Selesai &amp; Tutup Konfirmasi</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {adminTab === 'announcements' && (
@@ -6236,120 +6323,266 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       )}
 
-      {adminTab === 'logs' && (
-        <div className="space-y-6">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                  <Activity className="w-3.5 h-3.5" />
-                  LOG AUDIT &amp; ACTIVITY TRAIL ADMIN
+      {/* Activity Log Tab */}
+      {adminTab === 'logs' && (() => {
+        const filteredLogs = activityLogs.filter(log => {
+          if (logCategoryFilter !== 'ALL' && log.category !== logCategoryFilter) return false;
+          if (logStatusFilter !== 'ALL' && log.status !== logStatusFilter) return false;
+          if (logSearchQuery.trim()) {
+            const q = logSearchQuery.toLowerCase();
+            return (
+              (log.action || '').toLowerCase().includes(q) ||
+              (log.details || '').toLowerCase().includes(q) ||
+              (log.user || '').toLowerCase().includes(q) ||
+              (log.timestamp || '').toLowerCase().includes(q)
+            );
+          }
+          return true;
+        });
+
+        const todayStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        const todayCount = activityLogs.filter(l => (l.timestamp || '').includes(todayStr)).length;
+
+        return (
+          <div className="space-y-6">
+            <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
+              
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 bg-purple-100 dark:bg-purple-950/80 text-purple-800 dark:text-purple-300 border border-purple-300 dark:border-purple-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
+                    <History className="w-3.5 h-3.5" />
+                    <span>LOG AUDIT &amp; ACTIVITY TRAIL ADMIN REALTIME</span>
+                  </div>
+                  <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
+                    Riwayat Log Aktivitas &amp; Otomasi Modul Admin
+                  </h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">
+                    Merekam seluruh riwayat login, pengolahan file Excel SAKTI, publikasi pengumuman, broadcast WhatsApp, dan pembaruan pengaturan secara otomatis &amp; permanen.
+                  </p>
                 </div>
-                <h3 className="text-xl font-black tracking-tight">
-                  Riwayat Log Aktivitas &amp; Otomasi Modul Admin
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-                  Merekam seluruh riwayat login, pengolahan file Excel SAKTI, publikasi pengumuman, dan pembaruan pengaturan.
-                </p>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportAdminLogsToCSV(activityLogs);
+                      addToast('File CSV Log Aktivitas Admin berhasil diunduh!', 'success');
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                    title="Ekspor seluruh log ke format CSV Excel"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Ekspor CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const latest = getLocalAdminLogs();
+                      setActivityLogs(latest);
+                      addToast('Data log aktivitas berhasil disegarkan!', 'info');
+                    }}
+                    className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-purple-500" />
+                    <span>Segarkan Log</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      requestConfirm(
+                        'Bersihkan Riwayat Log Admin?',
+                        'Apakah Anda yakin ingin mengosongkan seluruh riwayat log aktivitas? Tindakan ini akan menghapus jejak log audit lokal & Firestore.',
+                        () => {
+                          clearAdminActivityLogs();
+                          setActivityLogs([]);
+                          addToast('Riwayat log aktivitas admin berhasil dikosongkan.', 'info');
+                        },
+                        {
+                          confirmText: 'Ya, Bersihkan Log',
+                          cancelText: 'Batal',
+                          variant: 'danger',
+                          iconType: 'trash'
+                        }
+                      );
+                    }}
+                    className="bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-xs font-bold px-3 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Kosongkan jejak riwayat log"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Bersihkan</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => {
-                    addLog('Pembersihan Manual Log', 'AUTH', 'Riwayat log aktivitas diperbarui.', 'INFO');
-                    alert('Log aktivitas diperbarui!');
-                  }}
-                  className="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-purple-500" />
-                  <span>Refresh Log</span>
-                </button>
+              {/* Quick KPI Stat Boxes */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-purple-50/50 border-purple-100'}`}>
+                  <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Log Terpencatat</span>
+                  <span className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 block">{activityLogs.length} Entri</span>
+                </div>
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                  <span className="text-slate-500 dark:text-slate-400 block font-semibold">Log Aktivitas Hari Ini</span>
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">{todayCount} Entri</span>
+                </div>
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-sky-50/50 border-sky-100'}`}>
+                  <span className="text-slate-500 dark:text-slate-400 block font-semibold">Sinkronisasi Cloud</span>
+                  <span className="text-xs font-extrabold text-sky-700 dark:text-sky-300 mt-2 block flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse inline-block" />
+                    Firestore Realtime Aktif
+                  </span>
+                </div>
+                <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
+                  <span className="text-slate-500 dark:text-slate-400 block font-semibold">Keamanan Audit Trail</span>
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300 mt-2 block flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> TERLINDUNGI
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Quick KPI Stat Boxes */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-purple-50/50 border-purple-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Log Terpencatat</span>
-                <span className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 block">{activityLogs.length} Entri</span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-emerald-50/50 border-emerald-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Status Sesi Login</span>
-                <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">Aktif (KPPN 026)</span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-sky-50/50 border-sky-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Sub-Akses PIN Valid</span>
-                <span className="text-xs font-extrabold font-mono text-sky-700 dark:text-sky-300 mt-2 block">admin123 / kppn026</span>
-              </div>
-              <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
-                <span className="text-slate-500 dark:text-slate-400 block font-semibold">Keamanan Sesi</span>
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 mt-2 block flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> TERLINDUNGI
-                </span>
-              </div>
-            </div>
+              {/* Filters & Search Toolbar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                {/* Category Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
+                  {[
+                    { id: 'ALL', label: 'Semua Kategori' },
+                    { id: 'AUTH', label: 'Auth & Password' },
+                    { id: 'UPLOAD', label: 'Upload & Olah Excel' },
+                    { id: 'SETTINGS', label: 'Pengaturan' },
+                    { id: 'ANNOUNCEMENT', label: 'Pengumuman' },
+                    { id: 'BROADCAST', label: 'Broadcast WA' },
+                    { id: 'TICKET', label: 'Tiket Satker' }
+                  ].map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setLogCategoryFilter(cat.id)}
+                      className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                        logCategoryFilter === cat.id
+                          ? 'bg-purple-600 text-white shadow-xs'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
 
-            {/* Activity Log Table / List */}
-            <div className="space-y-3 pt-2">
-              <h4 className="text-sm font-extrabold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-500" />
-                Daftar Riwayat Aktivitas Terbaru
-              </h4>
-
-              <div className="space-y-2.5">
-                {activityLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-                      isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+                {/* Search Bar & Status Filter */}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={logStatusFilter}
+                    onChange={(e) => setLogStatusFilter(e.target.value)}
+                    className={`text-xs rounded-xl px-2.5 py-2 border font-bold transition-all ${
+                      isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
                     }`}
                   >
-                    <div className="space-y-1">
-                      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                        <span className={`px-2.5 py-0.5 rounded-full font-black text-[10px] ${
-                          log.category === 'AUTH' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200' :
-                          log.category === 'UPLOAD' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200' :
-                          log.category === 'ANNOUNCEMENT' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' :
-                          'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
-                        }`}>
-                          {log.category}
-                        </span>
+                    <option value="ALL">Semua Status</option>
+                    <option value="SUCCESS">SUCCESS</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="INFO">INFO</option>
+                    <option value="ERROR">ERROR</option>
+                  </select>
 
-                        <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
-                          log.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
-                          log.status === 'WARNING' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' :
-                          'bg-sky-500/20 text-sky-600 dark:text-sky-400'
-                        }`}>
-                          {log.status}
-                        </span>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Cari aktivitas / log..."
+                      value={logSearchQuery}
+                      onChange={(e) => setLogSearchQuery(e.target.value)}
+                      className={`text-xs rounded-xl pl-3 pr-3 py-2 border w-44 sm:w-56 transition-all ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
 
-                        <span className="text-slate-400 font-mono flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {log.timestamp}
-                        </span>
+              {/* Activity Log List */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <h4 className="text-sm font-extrabold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                    <Clock className="w-4 h-4 text-purple-500" />
+                    <span>Daftar Riwayat Aktivitas ({filteredLogs.length} Entri Ditampilkan)</span>
+                  </h4>
+                  {activityLogs.length === 0 && (
+                    <button
+                      onClick={() => {
+                        const seeded = resetAdminActivityLogsToDefault();
+                        setActivityLogs(seeded);
+                        addToast('Log aktivitas dikembalikan ke data awal!', 'success');
+                      }}
+                      className="text-purple-600 hover:underline cursor-pointer font-bold"
+                    >
+                      Muat Contoh Log Awal
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">
+                  {filteredLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-purple-500/40 ${
+                        isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200/80'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className={`px-2.5 py-0.5 rounded-full font-black text-[10px] ${
+                            log.category === 'AUTH' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200' :
+                            log.category === 'UPLOAD' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200' :
+                            log.category === 'ANNOUNCEMENT' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200' :
+                            log.category === 'BROADCAST' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200' :
+                            log.category === 'TICKET' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' :
+                            'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                          }`}>
+                            {log.category}
+                          </span>
+
+                          <span className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
+                            log.status === 'SUCCESS' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                            log.status === 'WARNING' ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400' :
+                            log.status === 'ERROR' ? 'bg-red-500/20 text-red-600 dark:text-red-400' :
+                            'bg-sky-500/20 text-sky-600 dark:text-sky-400'
+                          }`}>
+                            {log.status}
+                          </span>
+
+                          <span className="text-slate-400 font-mono flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {log.timestamp}
+                          </span>
+                        </div>
+
+                        <h5 className="text-sm font-extrabold leading-tight text-slate-900 dark:text-slate-100">
+                          {log.action}
+                        </h5>
+
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {log.details}
+                        </p>
                       </div>
 
-                      <h5 className="text-sm font-extrabold leading-tight text-slate-900 dark:text-slate-100">
-                        {log.action}
-                      </h5>
-
-                      <p className="text-xs text-slate-600 dark:text-slate-300">
-                        {log.details}
-                      </p>
+                      <div className="text-[11px] text-slate-400 font-semibold shrink-0 self-start md:self-center bg-slate-200/60 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-300/40 dark:border-slate-700/50">
+                        Operator: <span className="text-slate-800 dark:text-slate-100 font-bold">{log.user}</span>
+                      </div>
                     </div>
+                  ))}
 
-                    <div className="text-[11px] text-slate-400 font-semibold shrink-0 self-start md:self-center bg-slate-200/60 dark:bg-slate-800 px-3 py-1 rounded-xl">
-                      Operator: <span className="text-slate-700 dark:text-slate-200 font-bold">{log.user}</span>
+                  {filteredLogs.length === 0 && (
+                    <div className="p-8 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800">
+                      Tidak ada data riwayat log yang sesuai dengan kata kunci pencarian atau filter yang dipilih.
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
-            </div>
 
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Link Sosialisasi Tab */}
       {adminTab === 'portal-link' && (
