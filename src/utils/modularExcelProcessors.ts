@@ -59,13 +59,22 @@ function parseFormattedNumber(val: any, defaultValue: number = 0): number {
 }
 
 function normalizeKodeSatker(raw: any): string {
-  if (!raw) return '';
-  const digits = String(raw).trim().replace(/[^0-9]/g, '');
-  if (digits.length === 6) return digits;
-  if (digits.length > 0 && digits.length < 6) {
-    return digits.padStart(6, '0');
+  if (raw === null || raw === undefined) return '';
+  const str = String(raw).trim();
+  if (!str) return '';
+  
+  // Reject if it contains common text, date or time symbols or words
+  if (str.includes('/') || str.includes(':') || str.includes('@') || str.includes('T') || str.toLowerCase().includes('cetak') || str.toLowerCase().includes('unduh') || str.toLowerCase().includes('halaman') || str.toLowerCase().includes('total') || str.toLowerCase().includes('jumlah')) {
+    return '';
   }
-  return digits;
+  
+  const digits = str.replace(/[^0-9]/g, '');
+  // A valid Indonesian Satker code is exactly 6 digits (or 5 digits padded to 6)
+  if (digits.length === 6) return digits;
+  if (digits.length === 5) return digits.padStart(6, '0');
+  
+  // Anything with length >= 7 (like timestamps: 240820260831300700) or length < 5 is INVALID
+  return '';
 }
 
 export function parseExcelDateString(val: any): string {
@@ -664,11 +673,11 @@ export async function validatePengelolaanUPExcelFile(
             continue;
           }
 
-          const rawKode = row[colKode] || row[0] || '';
+          const rawKode = row[colKode] !== undefined ? row[colKode] : (row[0] !== undefined ? row[0] : '');
           const kodeSatker = normalizeKodeSatker(rawKode);
           const rawNama = cleanText(row[colNama] || '');
 
-          if (!kodeSatker || kodeSatker.length < 5) continue;
+          if (!kodeSatker || !/^\d{6}$/.test(kodeSatker)) continue;
           if (seenKodes.has(kodeSatker)) continue;
           seenKodes.add(kodeSatker);
 
@@ -706,12 +715,20 @@ export async function validatePengelolaanUPExcelFile(
           // PARSE KOLOM N (BATAS REVOLVING)
           const rawBatas = colBatasRevolving !== -1 && row[colBatasRevolving] !== undefined && row[colBatasRevolving] !== '' 
             ? row[colBatasRevolving] 
-            : (row[13] !== undefined && row[13] !== '' ? row[13] : '25-08-2026');
+            : (row[13] !== undefined && row[13] !== '' ? row[13] : '');
 
-          const deadlineEval = evaluateDeadlineDate(rawBatas);
+          const deadlineEval = rawBatas ? evaluateDeadlineDate(rawBatas) : {
+            formattedDate: '-',
+            dayName: '',
+            isOverdue: false,
+            is1Minggu: false,
+            isWeekend: false,
+            sisaHari: 999,
+            saranTglPengajuan: ''
+          };
           const formattedHariTanggal = deadlineEval.dayName && deadlineEval.formattedDate && deadlineEval.formattedDate !== '-'
             ? `${deadlineEval.dayName}, ${deadlineEval.formattedDate}`
-            : deadlineEval.formattedDate;
+            : (deadlineEval.formattedDate || '-');
 
           let statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' = 'Optimal';
           if (deadlineEval.isOverdue) {
@@ -894,11 +911,11 @@ export async function validateKarwasTUPExcelFile(
             continue;
           }
 
-          const rawKode = row[colKode] || row[0] || '';
+          const rawKode = row[colKode] !== undefined ? row[colKode] : (row[0] !== undefined ? row[0] : '');
           const kodeSatker = normalizeKodeSatker(rawKode);
           const rawNama = cleanText(row[colNama] || '');
 
-          if (!kodeSatker || kodeSatker.length < 5) continue;
+          if (!kodeSatker || !/^\d{6}$/.test(kodeSatker)) continue;
           if (seenKodes.has(kodeSatker)) continue;
           seenKodes.add(kodeSatker);
 
@@ -934,12 +951,20 @@ export async function validateKarwasTUPExcelFile(
           // PARSE KOLOM H (BATAS WAKTU TUP)
           const rawBatas = colBatasWaktuTUP !== -1 && row[colBatasWaktuTUP] !== undefined && row[colBatasWaktuTUP] !== ''
             ? row[colBatasWaktuTUP]
-            : (row[7] !== undefined && row[7] !== '' ? row[7] : '25-08-2026');
+            : (row[7] !== undefined && row[7] !== '' ? row[7] : '');
 
-          const deadlineEval = evaluateDeadlineDate(rawBatas);
+          const deadlineEval = rawBatas ? evaluateDeadlineDate(rawBatas) : {
+            formattedDate: '-',
+            dayName: '',
+            isOverdue: false,
+            is1Minggu: false,
+            isWeekend: false,
+            sisaHari: 999,
+            saranTglPengajuan: ''
+          };
           const formattedHariTanggal = deadlineEval.dayName && deadlineEval.formattedDate && deadlineEval.formattedDate !== '-'
             ? `${deadlineEval.dayName}, ${deadlineEval.formattedDate}`
-            : deadlineEval.formattedDate;
+            : (deadlineEval.formattedDate || '-');
 
           let statusTUP: 'Lunas / Selesai' | 'Dalam Proses' | 'Kritis / Segera Jatuh Tempo' | 'Lewat Batas Waktu' = 'Dalam Proses';
           if (persenPertanggungjawaban >= 100 || sisaTUP <= 0) {

@@ -41,7 +41,15 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   customTexts
 }) => {
   const activeRecords = useMemo(() => {
-    return (records && records.length > 0) ? records : (upRecords || []);
+    const raw = (records && records.length > 0) ? records : (upRecords || []);
+    return raw.filter(r => {
+      if (!r || !r.kodeSatker) return false;
+      const code = String(r.kodeSatker).trim();
+      // Valid Indonesian Satker code must be 5 to 6 digits, never a 18-digit timestamp
+      if (!/^\d{5,6}$/.test(code)) return false;
+      if (r.namaSatker && (r.namaSatker.includes('24082026') || r.namaSatker.toLowerCase().includes('tanggal unduh') || r.namaSatker.toLowerCase().includes('dicetak'))) return false;
+      return true;
+    });
   }, [records, upRecords]);
 
   const [searchTerm, setSearchTerm] = useState('');

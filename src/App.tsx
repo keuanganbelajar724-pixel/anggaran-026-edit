@@ -996,10 +996,13 @@ export default function App() {
   }, [pengelolaanUPList]);
 
   const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
-    setPengelolaanUPList(newList);
+    const sanitized = Array.isArray(newList)
+      ? newList.filter(r => r && r.kodeSatker && /^\d{5,6}$/.test(String(r.kodeSatker).trim()) && !String(r.namaSatker || '').includes('24082026') && !String(r.namaSatker || '').toLowerCase().includes('tanggal unduh'))
+      : [];
+    setPengelolaanUPList(sanitized);
     try {
-      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(newList));
-      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: newList, updatedAt: new Date().toISOString() });
+      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(sanitized));
+      setDoc(doc(db, 'data', 'pengelolaan_up'), { list: sanitized, updatedAt: new Date().toISOString() });
     } catch (e) {
       console.warn("Error syncing UP to Firebase:", e);
     }
