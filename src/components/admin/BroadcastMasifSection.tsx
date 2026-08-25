@@ -1677,7 +1677,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -1691,7 +1691,24 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                     }`}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Pilih Semua Satker Perhatian ({perhatianSatkers.length})</span>
+                    <span>Pilih Satker Perhatian ({perhatianSatkers.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isSendingBroadcast || targetSatkers.length === 0}
+                    onClick={() => {
+                      setBroadcastTargetFilter('PERHATIAN_SEMUA');
+                      handleSelectBroadcastPreset('preset_perhatian');
+                      setTimeout(() => {
+                        handleStartMassBroadcast();
+                      }, 200);
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-rose-600 via-purple-600 to-indigo-600 hover:from-rose-500 hover:to-indigo-500 shadow-md shadow-purple-950/30 flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-purple-400/30"
+                    title="Otomatis pilih seluruh Satker Perhatian Merah, siapkan pesan peringatan cerdas, dan langsung masukkan ke antrean pengiriman WA Gateway"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                    <span>⚡ 1-Click Smart Dispatch Reminder ({perhatianSatkers.length})</span>
                   </button>
                 </div>
               </div>

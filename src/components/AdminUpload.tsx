@@ -8586,6 +8586,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           pengelolaanUpRecords={pengelolaanUpRecords}
           transaksiKkpRecords={transaksiKkpRecords}
           transaksiDigipayRecords={transaksiDigipayRecords}
+          dashboardConfig={tempConfig}
           isDark={isDark}
           theme={theme}
           onOpenEditSatker={(satker) => {

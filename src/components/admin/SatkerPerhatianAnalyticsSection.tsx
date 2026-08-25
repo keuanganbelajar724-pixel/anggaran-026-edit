@@ -37,6 +37,7 @@ import {
   BrainCircuit
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { ExecutiveReportModal } from './ExecutiveReportModal';
 import { 
   SatkerIKPA, 
   AppTheme, 
@@ -44,7 +45,8 @@ import {
   PengelolaanUPRecord, 
   TransaksiKKPRecord,
   DigipayRecord,
-  MasterSatker 
+  MasterSatker,
+  DashboardConfig
 } from '../../types';
 
 export type RiskClusterKey = 
@@ -123,6 +125,7 @@ interface SatkerPerhatianAnalyticsSectionProps {
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   transaksiKkpRecords?: TransaksiKKPRecord[];
   transaksiDigipayRecords?: DigipayRecord[];
+  dashboardConfig?: DashboardConfig;
   isDark?: boolean;
   theme?: AppTheme;
   onOpenEditSatker?: (satker: SatkerIKPA) => void;
@@ -137,11 +140,13 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
   pengelolaanUpRecords = [],
   transaksiKkpRecords = [],
   transaksiDigipayRecords = [],
+  dashboardConfig,
   isDark = false,
   onOpenEditSatker,
   onConsultSatkerWithAI,
   onOpenAiTab
 }) => {
+  const [isExecutiveReportOpen, setIsExecutiveReportOpen] = useState<boolean>(false);
   const [selectedCluster, setSelectedCluster] = useState<RiskClusterKey>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterUrgency, setFilterUrgency] = useState<'ALL' | 'KRITIS' | 'TINGGI' | 'SEDANG'>('ALL');
@@ -560,6 +565,16 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsExecutiveReportOpen(true)}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-indigo-950/20 flex items-center gap-2 cursor-pointer active:scale-95 border border-indigo-400/30"
+              title="Buka Lembar Laporan Eksekutif PDF / Cetak Siap Disposisi Pimpinan"
+            >
+              <FileText className="w-4 h-4 text-amber-300" />
+              <span>Cetak Laporan Eksekutif (PDF) 📄</span>
+            </button>
+
             {onOpenAiTab && (
               <button
                 type="button"
@@ -578,7 +593,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
               title="Unduh Rekap Diagnosa Komprehensif Seluruh Indikator (Format Excel)"
             >
               <Download className="w-4 h-4" />
-              <span>Unduh Rekap Diagnosa Multi-Indikator (Excel)</span>
+              <span>Unduh Rekap Multi-Indikator (Excel)</span>
             </button>
           </div>
         </div>
@@ -1612,6 +1627,16 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
             </div>
           </div>
         </div>
+      )}
+      {/* Executive PDF Report Generator Modal */}
+      {isExecutiveReportOpen && (
+        <ExecutiveReportModal
+          isOpen={isExecutiveReportOpen}
+          onClose={() => setIsExecutiveReportOpen(false)}
+          satkers={satkers}
+          dashboardConfig={dashboardConfig || ({} as DashboardConfig)}
+          isDark={isDark}
+        />
       )}
     </div>
   );
