@@ -9,6 +9,7 @@ import {
   CheckCircle2, 
   Clock, 
   AlertCircle, 
+  AlertTriangle,
   XCircle, 
   ExternalLink, 
   MessageSquare, 
@@ -102,6 +103,10 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
   const [helpdeskEmailInput, setHelpdeskEmailInput] = useState<string>(dashboardConfig.helpdeskEmail || 'kppn.semarang1@kemenkeu.go.id');
   const [allowPublicTickets, setAllowPublicTickets] = useState<boolean>(dashboardConfig.allowPublicTickets !== false);
   const [isSavedSettings, setIsSavedSettings] = useState<boolean>(false);
+
+  // Deletion Modal States (Safe, In-App - No Blocked window.confirm)
+  const [aduanToDelete, setAduanToDelete] = useState<{ id: string; tiketNomor: string; judul: string } | null>(null);
+  const [isConfirmDeleteAllOpen, setIsConfirmDeleteAllOpen] = useState<boolean>(false);
 
   // Calculate Metrics
   const totalAduan = aduanList.length;
@@ -212,11 +217,8 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
     setSelectedAduanForDetail(null);
   };
 
-  // Delete Aduan
-  const handleDeleteAduan = (id: string, tiketNomor: string) => {
-    if (!window.confirm(`Apakah Anda yakin ingin menghapus arsip tiket aduan ${tiketNomor}? Tindakan ini tidak dapat dibatalkan.`)) {
-      return;
-    }
+  // Safe In-App Delete Aduan Execution
+  const executeDeleteAduan = (id: string, tiketNomor: string) => {
     const updatedList = aduanList.filter(a => a.id !== id);
     onUpdateAduanList(updatedList);
     onUpdateDashboardConfig({
@@ -224,12 +226,53 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
       aduanList: updatedList
     });
 
+    try {
+      const cfg = localStorage.getItem('kppn_dashboard_config');
+      if (cfg) {
+        const parsed = JSON.parse(cfg);
+        parsed.aduanList = updatedList;
+        localStorage.setItem('kppn_dashboard_config', JSON.stringify(parsed));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
     if (showToast) {
-      showToast({ message: `Tiket ${tiketNomor} telah dihapus dari sistem.`, type: 'info' });
+      showToast({ message: `Tiket ${tiketNomor} berhasil dihapus dari sistem.`, type: 'info' });
     }
     if (addLog) {
       addLog('Hapus Tiket Aduan', 'DATA', `Tiket ${tiketNomor} dihapus oleh Admin.`, 'WARNING');
     }
+    setAduanToDelete(null);
+  };
+
+  // Safe In-App Clear All Tickets Execution
+  const executeDeleteAllAduan = () => {
+    const count = aduanList.length;
+    onUpdateAduanList([]);
+    onUpdateDashboardConfig({
+      ...dashboardConfig,
+      aduanList: []
+    });
+
+    try {
+      const cfg = localStorage.getItem('kppn_dashboard_config');
+      if (cfg) {
+        const parsed = JSON.parse(cfg);
+        parsed.aduanList = [];
+        localStorage.setItem('kppn_dashboard_config', JSON.stringify(parsed));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (showToast) {
+      showToast({ message: `Seluruh arsip tiket aduan (${count} tiket) telah berhasil dibersihkan.`, type: 'info' });
+    }
+    if (addLog) {
+      addLog('Kosongkan Arsip Aduan', 'DATA', `Seluruh tiket aduan (${count} tiket) dihapus oleh Admin.`, 'WARNING');
+    }
+    setIsConfirmDeleteAllOpen(false);
   };
 
   // Create Manual Aduan
@@ -629,7 +672,7 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
               )}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
               <span className="font-bold text-slate-500 text-[11px] shrink-0">Filter Kategori:</span>
               <select
                 value={filterKategori}
@@ -645,6 +688,18 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
                 <option value="Indikasi Fraud / Penyimpangan">Indikasi Fraud</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
+
+              {aduanList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmDeleteAllOpen(true)}
+                  className="px-3 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 text-rose-700 dark:text-rose-300 font-bold text-xs hover:bg-rose-100 hover:scale-102 active:scale-98 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  title="Hapus / bersihkan seluruh tiket aduan satker"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Kosongkan Seluruh Arsip</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -800,9 +855,9 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
 
                           <button
                             type="button"
-                            onClick={() => handleDeleteAduan(item.id, item.tiketNomor)}
-                            className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-200 border border-rose-200 dark:border-rose-800 cursor-pointer"
-                            title="Hapus Aduan"
+                            onClick={() => setAduanToDelete({ id: item.id, tiketNomor: item.tiketNomor, judul: item.judulAduan })}
+                            className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 hover:bg-rose-200 hover:scale-110 active:scale-95 transition-all border border-rose-200 dark:border-rose-800 cursor-pointer"
+                            title="Hapus Tiket Aduan"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1161,6 +1216,92 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
 
             </form>
 
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Hapus Tiket Tunggal */}
+      {aduanToDelete && (
+        <div className="fixed inset-0 z-[200] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-slate-900 dark:text-white">
+                  Hapus Tiket Aduan?
+                </h4>
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-mono font-bold">
+                  {aduanToDelete.tiketNomor}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Apakah Anda yakin ingin menghapus tiket <span className="font-bold font-mono text-slate-900 dark:text-white">"{aduanToDelete.tiketNomor}"</span>? Data yang dihapus tidak dapat dipulihkan.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAduanToDelete(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => executeDeleteAduan(aduanToDelete.id, aduanToDelete.tiketNomor)}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ya, Hapus Tiket</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Kosongkan Seluruh Arsip Aduan */}
+      {isConfirmDeleteAllOpen && (
+        <div className="fixed inset-0 z-[200] bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-900/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+              </div>
+              <div>
+                <h4 className="text-base font-black text-slate-900 dark:text-white">
+                  Kosongkan Semua Arsip Tiket?
+                </h4>
+                <p className="text-xs text-rose-600 dark:text-rose-400 font-bold">
+                  Tindakan Bersih Total ({aduanList.length} Tiket)
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              Tindakan ini akan menghapus seluruh data tiket aduan yang ada saat ini dari database &amp; penyimpanan lokal. Tabel aduan akan kembali bersih (0 tiket).
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsConfirmDeleteAllOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteAllAduan}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ya, Bersihkan Semua ({aduanList.length})</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

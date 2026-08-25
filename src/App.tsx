@@ -220,9 +220,9 @@ export default function App() {
         ...savedConfig,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
-        aduanList: savedConfig.aduanList && savedConfig.aduanList.length > 0 
+        aduanList: Array.isArray(savedConfig.aduanList)
           ? savedConfig.aduanList 
-          : INITIAL_ADUAN_RECORDS,
+          : [],
         historicalUploads: savedHist || savedConfig.historicalUploads,
         kegiatanSosialisasi: savedConfig.kegiatanSosialisasi && savedConfig.kegiatanSosialisasi.length > 0 
           ? savedConfig.kegiatanSosialisasi 

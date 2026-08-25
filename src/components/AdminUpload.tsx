@@ -8611,6 +8611,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           transaksiKkpRecords={transaksiKkpRecords}
           transaksiDigipayRecords={transaksiDigipayRecords}
           isDark={isDark}
+          dashboardConfig={tempConfig}
           selectedSatkerForDiagnosis={selectedSatkerForAiDiagnosis}
           onClearSelectedDiagnosisSatker={() => setSelectedSatkerForAiDiagnosis(null)}
           onSendToBroadcast={(templateText) => {

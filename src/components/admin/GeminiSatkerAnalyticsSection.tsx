@@ -39,8 +39,10 @@ import {
   FileSpreadsheet,
   CheckCheck,
   Sliders,
-  Maximize2
+  Maximize2,
+  Presentation
 } from 'lucide-react';
+import { IKPAPresentationDeckModal } from './IKPAPresentationDeckModal';
 import { GoogleGenAI } from '@google/genai';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
 import {
@@ -49,7 +51,8 @@ import {
   PengelolaanUPRecord,
   TransaksiKKPRecord,
   DigipayRecord,
-  PejabatSertifikasi
+  PejabatSertifikasi,
+  DashboardConfig
 } from '../../types';
 
 interface GeminiSatkerAnalyticsSectionProps {
@@ -59,6 +62,7 @@ interface GeminiSatkerAnalyticsSectionProps {
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   transaksiKkpRecords?: TransaksiKKPRecord[];
   transaksiDigipayRecords?: DigipayRecord[];
+  dashboardConfig?: DashboardConfig;
   isDark?: boolean;
   selectedSatkerForDiagnosis?: SatkerIKPA | null;
   onClearSelectedDiagnosisSatker?: () => void;
@@ -99,11 +103,13 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   pengelolaanUpRecords = [],
   transaksiKkpRecords = [],
   transaksiDigipayRecords = [],
+  dashboardConfig,
   isDark = false,
   selectedSatkerForDiagnosis = null,
   onClearSelectedDiagnosisSatker,
   onSendToBroadcast
 }) => {
+  const [isPresentationDeckOpen, setIsPresentationDeckOpen] = useState<boolean>(false);
   // API Key Management State
   const [apiKey, setApiKey] = useState<string>(() => {
     return localStorage.getItem('kppn_gemini_api_key') || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
@@ -681,6 +687,16 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setIsPresentationDeckOpen(true)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-amber-500/25 flex items-center gap-2 cursor-pointer hover:scale-105 active:scale-95 border border-amber-300/50"
+                title="Buka Bank Paparan Presentasi 50 Slide PowerPoint Baku Berdasarkan Data IKPA"
+              >
+                <Presentation className="w-4 h-4 text-slate-950" />
+                <span>📊 Format Paparan PPT (50 Slide)</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setShowArchiveModal(true)}
@@ -1642,6 +1658,26 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
 
           </div>
         </div>
+      )}
+
+      {/* 50-Slide Executive Presentation Deck Studio Modal */}
+      {isPresentationDeckOpen && (
+        <IKPAPresentationDeckModal
+          isOpen={isPresentationDeckOpen}
+          onClose={() => setIsPresentationDeckOpen(false)}
+          satkers={satkers}
+          dashboardConfig={dashboardConfig || ({} as any)}
+          isDark={isDark}
+          onAskGeminiForTopic={(topicPrompt) => {
+            setIsPresentationDeckOpen(false);
+            // Put prompt into console
+            const promptInput = document.querySelector('textarea[placeholder*="Ketik pertanyaan"]') as HTMLTextAreaElement | null;
+            if (promptInput) {
+              promptInput.value = topicPrompt;
+              promptInput.focus();
+            }
+          }}
+        />
       )}
 
     </div>
