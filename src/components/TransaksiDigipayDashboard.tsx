@@ -53,6 +53,7 @@ import {
   getMonthInfoFromPeriodKey
 } from '../utils/modularExcelProcessors';
 import { verifySatkerPassword, getSatkerDefaultPassword, resolveKodeBA } from '../utils/satkerSecurity';
+import { PaginationControl } from './PaginationControl';
 
 interface TransaksiDigipayDashboardProps {
   records: DigipayRecord[];
@@ -120,7 +121,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
 
   // Pagination for tables
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Format Currency
   const formatRupiah = (amount: number) => {
@@ -1141,32 +1142,16 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
           </div>
 
           {/* Pagination */}
-          {filteredSummaries.length > pageSize && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-              <div>
-                Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredSummaries.length)} dari {filteredSummaries.length} Satker
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-bold"
-                >
-                  Sebelumnya
-                </button>
-                <span className="px-3 py-1.5 font-bold text-slate-900 dark:text-white">
-                  Hal {currentPage} / {Math.ceil(filteredSummaries.length / pageSize)}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredSummaries.length / pageSize), p + 1))}
-                  disabled={currentPage >= Math.ceil(filteredSummaries.length / pageSize)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-bold"
-                >
-                  Selanjutnya
-                </button>
-              </div>
-            </div>
-          )}
+          <PaginationControl
+            currentPage={currentPage}
+            totalItems={filteredSummaries.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="Satker"
+            isDark={isDark}
+            className="p-4 border-t border-slate-200 dark:border-slate-800"
+          />
         </div>
       )}
 
@@ -1218,10 +1203,9 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
                     </td>
                   </tr>
                 ) : (
-                  filteredRawRecords
-                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                  (pageSize <= 0 ? filteredRawRecords : filteredRawRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize))
                     .map((r, idx) => {
-                      const rowNum = (currentPage - 1) * pageSize + idx + 1;
+                      const rowNum = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
                       const statusText = r.statusTransaksi || 'Selesai';
                       const isNegative = statusText.toLowerCase().includes('batal') || statusText.toLowerCase().includes('gagal');
                       const isPending = statusText.toLowerCase().includes('proses') || statusText.toLowerCase().includes('pending') || statusText.toLowerCase().includes('menunggu');
@@ -1287,32 +1271,16 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
           </div>
 
           {/* Pagination */}
-          {filteredRawRecords.length > pageSize && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-              <div>
-                Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredRawRecords.length)} dari {filteredRawRecords.length} Transaksi
-              </div>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-bold"
-                >
-                  Sebelumnya
-                </button>
-                <span className="px-3 py-1.5 font-bold text-slate-900 dark:text-white">
-                  Hal {currentPage} / {Math.ceil(filteredRawRecords.length / pageSize)}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredRawRecords.length / pageSize), p + 1))}
-                  disabled={currentPage >= Math.ceil(filteredRawRecords.length / pageSize)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 font-bold"
-                >
-                  Selanjutnya
-                </button>
-              </div>
-            </div>
-          )}
+          <PaginationControl
+            currentPage={currentPage}
+            totalItems={filteredRawRecords.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="Transaksi"
+            isDark={isDark}
+            className="p-4 border-t border-slate-200 dark:border-slate-800"
+          />
         </div>
       )}
 

@@ -21,6 +21,7 @@ import {
   Check,
   FolderArchive
 } from 'lucide-react';
+import { PaginationControl } from './PaginationControl';
 
 interface CapaianOutputDashboardProps {
   satkers: SatkerIKPA[];
@@ -44,6 +45,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedHistoricalId, setSelectedHistoricalId] = useState<string>('ACTIVE');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Available Capaian Output archives
   const caputArchives = (dashboardConfig?.historicalUploads || []).filter(
@@ -107,6 +110,10 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 
     return a.nilaiTotalIKPA - b.nilaiTotalIKPA;
   });
+
+  const paginatedSatkers = pageSize <= 0 
+    ? filteredSatkers 
+    : filteredSatkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const isDark = theme === 'dark';
 
@@ -339,7 +346,10 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             type="text"
             placeholder="Cari Satker atau Kode..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className={`w-full text-xs rounded-xl pl-9 pr-3 py-2.5 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
               isDark ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-800'
             }`}
@@ -348,10 +358,13 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 
         {/* Category Filters */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                 {/* Status Buttons */}
+          {/* Status Buttons */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
             <button
-              onClick={() => setFilterStatus('ALL')}
+              onClick={() => {
+                setFilterStatus('ALL');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 filterStatus === 'ALL' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
               }`}
@@ -359,7 +372,10 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               Semua ({totalSatker})
             </button>
             <button
-              onClick={() => setFilterStatus('BELUM')}
+              onClick={() => {
+                setFilterStatus('BELUM');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 filterStatus === 'BELUM' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-600 hover:bg-rose-50'
               }`}
@@ -367,7 +383,10 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               🔴 Belum Menyampaikan ({satkerBelum.length})
             </button>
             <button
-              onClick={() => setFilterStatus('SUDAH')}
+              onClick={() => {
+                setFilterStatus('SUDAH');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 filterStatus === 'SUDAH' ? 'bg-emerald-600 text-white shadow-xs' : 'text-emerald-600 hover:bg-emerald-50'
               }`}
@@ -382,7 +401,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
 
       {/* Main Table */}
       <div className={`${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} rounded-3xl border shadow-xl overflow-hidden`}>
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className={`text-base font-black ${isDark ? 'text-white' : 'text-slate-900'} tracking-tight flex items-center gap-2`}>
               <FileCheck className="w-5 h-5 text-sky-600" />
@@ -422,7 +441,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredSatkers.map((satker, idx) => {
+                paginatedSatkers.map((satker, idx) => {
+                  const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
                   const isBelum = isSatkerBelum(satker);
                   const isSudah = !isBelum;
 
@@ -433,7 +453,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                         isBelum ? 'bg-rose-50/20' : ''
                       }`}
                     >
-                      <td className="py-4 px-4 font-mono font-semibold text-slate-400 text-center">{idx + 1}</td>
+                      <td className="py-4 px-4 font-mono font-semibold text-slate-400 text-center">{globalIdx}</td>
                       
                       <td className="py-4 px-4">
                         <div 
@@ -491,7 +511,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               Tidak ada Satker yang sesuai dengan kriteria filter saat ini.
             </div>
           ) : (
-            filteredSatkers.map((satker, idx) => {
+            paginatedSatkers.map((satker, idx) => {
+              const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
               const isBelum = isSatkerBelum(satker);
               const isSudah = !isBelum;
 
@@ -500,7 +521,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <span className="font-mono bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] px-1.5 py-0.5 rounded font-bold">
-                        #{idx + 1} • {satker.kodeSatker}
+                        #{globalIdx} • {satker.kodeSatker}
                       </span>
                       <div 
                         className="font-extrabold text-sky-900 dark:text-sky-300 text-sm mt-1 text-left block leading-tight"
@@ -528,6 +549,17 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             })
           )}
         </div>
+
+        {/* Pagination Control */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={filteredSatkers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker"
+          isDark={isDark}
+        />
       </div>
       </>
       )}

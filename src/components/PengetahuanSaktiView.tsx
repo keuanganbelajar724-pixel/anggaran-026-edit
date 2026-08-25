@@ -46,6 +46,7 @@ import {
 import { INITIAL_KNOWLEDGE_ITEMS } from '../data/initialKnowledgeData';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../data/initialJuknisData';
 import { db, doc, onSnapshot, setDoc } from '../lib/firebase';
+import { PaginationControl } from './PaginationControl';
 
 interface PengetahuanSaktiViewProps {
   isAdminAuthenticated: boolean;
@@ -117,6 +118,12 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   const [searchJuknisQuery, setSearchJuknisQuery] = useState<string>('');
   const [selectedJuknisCategory, setSelectedJuknisCategory] = useState<string>('ALL');
   const [copiedLinkJuknisId, setCopiedLinkJuknisId] = useState<string | null>(null);
+  const [currentJuknisPage, setCurrentJuknisPage] = useState<number>(1);
+  const [juknisPageSize, setJuknisPageSize] = useState<number>(25);
+
+  // Pagination for Knowledge List
+  const [currentKnowledgePage, setCurrentKnowledgePage] = useState<number>(1);
+  const [knowledgePageSize, setKnowledgePageSize] = useState<number>(10);
 
   // Copy Download Link Helper
   const handleCopyJuknisLink = (item: JuknisBlangkoItem) => {
@@ -148,9 +155,14 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   // Extract unique category names
   const uniqueJuknisCategories: string[] = Array.from(new Set(juknisList.map(j => j.kategoriAplikasi))).filter((cat): cat is string => Boolean(cat));
 
-  // Group items by category
+  // Paginated Juknis items
+  const paginatedJuknisList = juknisPageSize <= 0
+    ? filteredJuknisList
+    : filteredJuknisList.slice((currentJuknisPage - 1) * juknisPageSize, currentJuknisPage * juknisPageSize);
+
+  // Group paginated items by category
   const groupedJuknis = uniqueJuknisCategories.reduce((acc, cat) => {
-    const items = filteredJuknisList.filter(j => j.kategoriAplikasi === cat);
+    const items = paginatedJuknisList.filter(j => j.kategoriAplikasi === cat);
     if (items.length > 0) {
       acc[cat] = items;
     }
@@ -499,59 +511,71 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
       {activeViewMode === 'tabel_juknis' && (
         <div className="space-y-4">
           
-          {/* Search & Quick Filter Pills */}
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 font-extrabold" />
-              <input
-                type="text"
-                value={searchJuknisQuery}
-                onChange={(e) => setSearchJuknisQuery(e.target.value)}
-                placeholder="Cari nama blangko atau juknis (misal: DIGIT, MonSAKTI, Gaji Web, SKPP, GPP, Digipay, TTE SAKTI, NPWP 16 Digit)..."
-                className={`w-full pl-11 pr-4 py-3 rounded-2xl border ${
-                  isDark ? 'bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-400 text-slate-950 placeholder-slate-600 font-extrabold'
-                } shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              />
-              {searchJuknisQuery && (
-                <button
-                  onClick={() => setSearchJuknisQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-700 hover:text-slate-950 dark:hover:text-slate-200 font-extrabold cursor-pointer"
-                >
-                  Bersihkan
-                </button>
-              )}
-            </div>
-
-            {/* Category Quick Filter Badges */}
-            <div className="flex flex-wrap gap-1.5 text-xs">
-              <button
-                onClick={() => setSelectedJuknisCategory('ALL')}
-                className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
-                  selectedJuknisCategory === 'ALL'
-                    ? 'bg-blue-600 text-white shadow-xs font-black'
-                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                Semua Kategori ({juknisList.length})
-              </button>
-              {uniqueJuknisCategories.map(cat => {
-                const count = juknisList.filter(j => j.kategoriAplikasi === cat).length;
-                return (
+            {/* Search & Quick Filter Pills */}
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 font-extrabold" />
+                <input
+                  type="text"
+                  value={searchJuknisQuery}
+                  onChange={(e) => {
+                    setSearchJuknisQuery(e.target.value);
+                    setCurrentJuknisPage(1);
+                  }}
+                  placeholder="Cari nama blangko atau juknis (misal: DIGIT, MonSAKTI, Gaji Web, SKPP, GPP, Digipay, TTE SAKTI, NPWP 16 Digit)..."
+                  className={`w-full pl-11 pr-4 py-3 rounded-2xl border ${
+                    isDark ? 'bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-400 text-slate-950 placeholder-slate-600 font-extrabold'
+                  } shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                />
+                {searchJuknisQuery && (
                   <button
-                    key={cat}
-                    onClick={() => setSelectedJuknisCategory(cat)}
-                    className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
-                      selectedJuknisCategory === cat
-                        ? 'bg-blue-600 text-white shadow-xs font-black'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                    }`}
+                    onClick={() => {
+                      setSearchJuknisQuery('');
+                      setCurrentJuknisPage(1);
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-700 hover:text-slate-950 dark:hover:text-slate-200 font-extrabold cursor-pointer"
                   >
-                    {cat} ({count})
+                    Bersihkan
                   </button>
-                );
-              })}
+                )}
+              </div>
+
+              {/* Category Quick Filter Badges */}
+              <div className="flex flex-wrap gap-1.5 text-xs">
+                <button
+                  onClick={() => {
+                    setSelectedJuknisCategory('ALL');
+                    setCurrentJuknisPage(1);
+                  }}
+                  className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer ${
+                    selectedJuknisCategory === 'ALL'
+                      ? 'bg-blue-600 text-white shadow-xs font-black'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  Semua Kategori ({juknisList.length})
+                </button>
+                {uniqueJuknisCategories.map(cat => {
+                  const count = juknisList.filter(j => j.kategoriAplikasi === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setSelectedJuknisCategory(cat);
+                        setCurrentJuknisPage(1);
+                      }}
+                      className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap ${
+                        selectedJuknisCategory === cat
+                          ? 'bg-blue-600 text-white shadow-xs font-black'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {cat} ({count})
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
           {/* Official Blueprint Table (matching user screenshot) */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl border-2 border-cyan-500/80 shadow-xl overflow-hidden">
@@ -652,7 +676,17 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               </table>
             </div>
 
-            {/* Table Footer Info */}
+            {/* Table Footer Info & Pagination */}
+            <PaginationControl
+              currentPage={currentJuknisPage}
+              totalItems={filteredJuknisList.length}
+              pageSize={juknisPageSize}
+              onPageChange={setCurrentJuknisPage}
+              onPageSizeChange={setJuknisPageSize}
+              itemLabel="Format / Juknis"
+              isDark={isDark}
+              className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-300 dark:border-slate-800"
+            />
             <div className="p-3 bg-slate-100 dark:bg-slate-950 border-t border-slate-300 dark:border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 font-bold px-4">
               <span>Menampilkan <strong>{filteredJuknisList.length}</strong> format &amp; juknis dari total <strong>{juknisList.length}</strong> dokumen perbendaharaan.</span>
               <span>KPPN Semarang I • Layanan Konsultasi &amp; Pembinaan Satker</span>
@@ -670,7 +704,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           {/* Quick Category Buttons */}
           <div className="flex flex-wrap gap-2 text-xs">
             <button
-              onClick={() => setSelectedKnowledgeCategory('ALL')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('ALL');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'ALL'
                   ? 'bg-blue-600 text-white shadow-md'
@@ -680,7 +717,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               Semua Referensi ({knowledgeList.length})
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('LAYANAN_PD_KONTRAK')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('LAYANAN_PD_KONTRAK');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'LAYANAN_PD_KONTRAK'
                   ? 'bg-emerald-600 text-white shadow-md'
@@ -690,7 +730,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               📜 Layanan Seksi PD &amp; Kontrak
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('JUKNIS_SAKTI')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('JUKNIS_SAKTI');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'JUKNIS_SAKTI'
                   ? 'bg-sky-600 text-white shadow-md'
@@ -700,7 +743,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               📘 Juknis SAKTI Official
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('PELAPORAN_SAKTI')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('PELAPORAN_SAKTI');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'PELAPORAN_SAKTI'
                   ? 'bg-purple-600 text-white shadow-md'
@@ -710,7 +756,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               📊 SAKTI Pelaporan &amp; Output
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('ADMINISTRATOR_SAKTI')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('ADMINISTRATOR_SAKTI');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'ADMINISTRATOR_SAKTI'
                   ? 'bg-amber-600 text-white shadow-md'
@@ -720,7 +769,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               🔑 Admin &amp; User SAKTI
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('VIDEO_TUTORIAL')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('VIDEO_TUTORIAL');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'VIDEO_TUTORIAL'
                   ? 'bg-rose-600 text-white shadow-md'
@@ -730,7 +782,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               🎥 Video Tutorial YouTube
             </button>
             <button
-              onClick={() => setSelectedKnowledgeCategory('TOOLS_CSV')}
+              onClick={() => {
+                setSelectedKnowledgeCategory('TOOLS_CSV');
+                setCurrentKnowledgePage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl font-black transition-all cursor-pointer ${
                 selectedKnowledgeCategory === 'TOOLS_CSV'
                   ? 'bg-indigo-600 text-white shadow-md'
@@ -747,7 +802,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
             <input
               type="text"
               value={searchKnowledgeQuery}
-              onChange={(e) => setSearchKnowledgeQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchKnowledgeQuery(e.target.value);
+                setCurrentKnowledgePage(1);
+              }}
               placeholder="Cari petunjuk teknis, kata kunci (misal: Kontrak, Supplier, OTP, LPJ, Capaian Output, Admin)..."
               className={`w-full pl-11 pr-4 py-3 rounded-2xl border ${
                 isDark ? 'bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-500' : 'bg-white border-slate-400 text-slate-950 placeholder-slate-600 font-extrabold'
@@ -755,7 +813,10 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
             />
             {searchKnowledgeQuery && (
               <button
-                onClick={() => setSearchKnowledgeQuery('')}
+                onClick={() => {
+                  setSearchKnowledgeQuery('');
+                  setCurrentKnowledgePage(1);
+                }}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-slate-700 hover:text-slate-950 dark:hover:text-slate-200 font-extrabold cursor-pointer"
               >
                 Bersihkan
@@ -776,7 +837,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
                 </p>
               </div>
             ) : (
-              sortedKnowledgeList.map((item) => {
+              (knowledgePageSize <= 0 ? sortedKnowledgeList : sortedKnowledgeList.slice((currentKnowledgePage - 1) * knowledgePageSize, currentKnowledgePage * knowledgePageSize)).map((item) => {
                 const badge = getCategoryBadge(item.category);
                 const isExpanded = expandedItemId === item.id;
 
@@ -1000,6 +1061,18 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               })
             )}
           </div>
+
+          {/* Pagination Control for Knowledge Base */}
+          <PaginationControl
+            currentPage={currentKnowledgePage}
+            totalItems={sortedKnowledgeList.length}
+            pageSize={knowledgePageSize}
+            onPageChange={setCurrentKnowledgePage}
+            onPageSizeChange={setKnowledgePageSize}
+            itemLabel="Petunjuk Teknis"
+            isDark={isDark}
+            className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+          />
         </div>
       )}
 

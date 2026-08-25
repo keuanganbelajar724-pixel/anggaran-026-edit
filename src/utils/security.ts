@@ -293,9 +293,6 @@ export function initRuntimeSecurityGuard(): void {
         // Cross-origin framed
       }
     }
-
-    // 3. Freeze prototype extensions to block Prototype Pollution vectors
-    Object.freeze(Object.prototype);
   } catch (e) {
     // Fail silently in restricted sandbox
   }

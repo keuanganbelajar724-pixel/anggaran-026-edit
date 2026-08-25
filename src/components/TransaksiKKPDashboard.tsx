@@ -38,6 +38,7 @@ import {
   parseDateToTimestamp
 } from '../utils/modularExcelProcessors';
 import { verifySatkerPassword, getSatkerDefaultPassword, resolveKodeBA } from '../utils/satkerSecurity';
+import { PaginationControl } from './PaginationControl';
 
 interface TransaksiKKPDashboardProps {
   records?: TransaksiKKPRecord[];
@@ -79,8 +80,9 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   const [rankingCategory, setRankingCategory] = useState<'transaksi' | 'nominal'>('transaksi');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedKl, setSelectedKl] = useState('ALL');
-  const [selectedBank, setSelectedBank] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
   const [selectedSatkerDetail, setSelectedSatkerDetail] = useState<TransaksiKKPRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -248,14 +250,6 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
     return Array.from(kls).sort();
   }, [sortedRecords]);
 
-  const bankList = useMemo(() => {
-    const banks = new Set<string>();
-    sortedRecords.forEach(r => {
-      if (r.bankPenerbit) banks.add(r.bankPenerbit);
-    });
-    return Array.from(banks).sort();
-  }, [sortedRecords]);
-
   // Filtered Records for Table
   const filteredRecords = useMemo(() => {
     return sortedRecords.filter(item => {
@@ -264,15 +258,19 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
         item.kodeSatker.toLowerCase().includes(q) ||
         item.namaSatker.toLowerCase().includes(q) ||
         (item.kementerianLembaga && item.kementerianLembaga.toLowerCase().includes(q)) ||
-        (item.bankPenerbit && item.bankPenerbit.toLowerCase().includes(q));
+        (item.noSp2dTerakhir && item.noSp2dTerakhir.toLowerCase().includes(q));
 
       const matchKl = selectedKl === 'ALL' || item.kementerianLembaga === selectedKl;
-      const matchBank = selectedBank === 'ALL' || item.bankPenerbit === selectedBank;
       const matchStatus = selectedStatus === 'ALL' || item.statusKeaktifan === selectedStatus;
 
-      return matchSearch && matchKl && matchBank && matchStatus;
+      return matchSearch && matchKl && matchStatus;
     });
-  }, [sortedRecords, searchTerm, selectedKl, selectedBank, selectedStatus]);
+  }, [sortedRecords, searchTerm, selectedKl, selectedStatus]);
+
+  const paginatedRecords = useMemo(() => {
+    if (pageSize <= 0) return filteredRecords;
+    return filteredRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
 
   // KPI Calculations
   const stats = useMemo(() => {
@@ -281,22 +279,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
     const totalNominal = sortedRecords.reduce((acc, r) => acc + (r.totalNominal || 0), 0);
     const avgNominalPerSatker = totalSatker > 0 ? Math.round(totalNominal / totalSatker) : 0;
     const avgNominalPerTransaksi = totalTransaksi > 0 ? Math.round(totalNominal / totalTransaksi) : 0;
-
-    // Bank proportions
-    const bankCounts: Record<string, number> = {};
-    sortedRecords.forEach(r => {
-      const b = r.bankPenerbit || 'Lainnya';
-      bankCounts[b] = (bankCounts[b] || 0) + (r.jumlahTransaksi || 0);
-    });
-
-    let topBank = '-';
-    let topBankCount = 0;
-    Object.entries(bankCounts).forEach(([b, c]) => {
-      if (c > topBankCount) {
-        topBank = b;
-        topBankCount = c;
-      }
-    });
+    const avgTransaksiPerSatker = totalSatker > 0 ? (totalTransaksi / totalSatker).toFixed(1) : '0';
 
     return {
       totalSatker,
@@ -304,8 +287,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
       totalNominal,
       avgNominalPerSatker,
       avgNominalPerTransaksi,
-      topBank,
-      topBankCount
+      avgTransaksiPerSatker
     };
   }, [sortedRecords]);
 
@@ -332,7 +314,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   };
 
   const handleCopyRow = (r: TransaksiKKPRecord) => {
-    const text = `[MONITORING TRANSAKSI KKP - KPPN SEMARANG I]\nSatker: ${r.namaSatker} (${r.kodeSatker})\nJumlah Transaksi KKP: ${r.jumlahTransaksi} SP2D\nTotal Nominal: Rp ${r.totalNominal.toLocaleString('id-ID')}\nBank Mitra: ${r.bankPenerbit || '-'}\nStatus: ${r.statusKeaktifan || 'Aktif'}\nPortal: https://anggaran-026.my.id`;
+    const text = `[MONITORING TRANSAKSI KKP - KPPN SEMARANG I]\nSatker: ${r.namaSatker} (${r.kodeSatker})\nJumlah Transaksi KKP: ${r.jumlahTransaksi} SP2D\nTotal Nominal: Rp ${r.totalNominal.toLocaleString('id-ID')}\nStatus: ${r.statusKeaktifan || 'Aktif'}\nPortal: https://anggaran-026.my.id`;
     navigator.clipboard.writeText(text);
     setCopiedId(r.id);
     setTimeout(() => setCopiedId(null), 2500);
@@ -457,7 +439,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/70 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setFilterMode('CUMULATIVE')}
+                onClick={() => {
+                  setFilterMode('CUMULATIVE');
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                   filterMode === 'CUMULATIVE'
                     ? 'bg-indigo-600 text-white shadow-xs font-black'
@@ -468,7 +453,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setFilterMode('SINGLE')}
+                onClick={() => {
+                  setFilterMode('SINGLE');
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
                   filterMode === 'SINGLE'
                     ? 'bg-indigo-600 text-white shadow-xs font-black'
@@ -482,7 +470,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             {/* Dropdown Selector */}
             <select
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                setCurrentPage(1);
+              }}
               className="py-2 px-3.5 rounded-2xl border-2 border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-xs font-extrabold text-indigo-700 dark:text-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer shadow-xs"
             >
               {availableMonths.map(m => (
@@ -506,7 +497,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
               <button
                 key={m}
                 type="button"
-                onClick={() => setSelectedMonth(m)}
+                onClick={() => {
+                  setSelectedMonth(m);
+                  setCurrentPage(1);
+                }}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   isSelected
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-black'
@@ -663,8 +657,8 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-slate-400 pt-0.5">
-                    <span>Bank Mitra:</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{top2.bankPenerbit || 'BRI'}</span>
+                    <span>Tanggal SP2D Terakhir:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{top2.tglSp2dTerakhir || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -722,8 +716,8 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                    <span>Bank Penerbit:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{top1.bankPenerbit || 'BRI'}</span>
+                    <span>Tanggal SP2D Terakhir:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{top1.tglSp2dTerakhir || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -781,8 +775,8 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[10px] text-slate-400 pt-0.5">
-                    <span>Bank Mitra:</span>
-                    <span className="font-semibold text-slate-700 dark:text-slate-300">{top3.bankPenerbit || 'Mandiri'}</span>
+                    <span>Tanggal SP2D Terakhir:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{top3.tglSp2dTerakhir || '-'}</span>
                   </div>
                 </div>
               </div>
@@ -823,7 +817,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <span className="text-xs text-slate-400 font-sans font-bold ml-1.5">SP2D GUP</span>
           </div>
           <div className="text-[11px] text-slate-500 font-medium">
-            Rata-rata: <strong>{Math.round(stats.totalTransaksi / (stats.totalSatker || 1))}</strong> per Satker
+            Rata-rata: <strong>{stats.avgTransaksiPerSatker}</strong> SP2D / Satker
           </div>
         </div>
 
@@ -838,22 +832,22 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             Rp {(stats.totalNominal / 1000000).toFixed(1)} Jt
           </div>
           <div className="text-[11px] text-slate-500 truncate">
-            Rata-rata: Rp {(stats.avgNominalPerTransaksi / 1000000).toFixed(2)} Jt / Transaksi
+            Rata-rata: Rp {(stats.avgNominalPerSatker / 1000000).toFixed(1)} Jt / Satker
           </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold">
-            <span>Bank Penerbit Teraktif</span>
+            <span>Rata-rata per Transaksi</span>
             <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
               <Award className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate" title={stats.topBank}>
-            {stats.topBank.split('(')[0].trim()}
+          <div className="text-lg sm:text-xl font-black text-slate-900 dark:text-white font-mono truncate" title={`Rp ${stats.avgNominalPerTransaksi.toLocaleString('id-ID')}`}>
+            Rp {(stats.avgNominalPerTransaksi / 1000000).toFixed(2)} Jt
           </div>
-          <div className="text-[11px] text-slate-500">
-            Porsi Transaksi Terbesar ({stats.topBankCount} SP2D)
+          <div className="text-[11px] text-slate-500 truncate">
+            Nilai Rata-rata per SP2D KKP
           </div>
         </div>
 
@@ -883,7 +877,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
         </div>
 
         {/* Filter Controls Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           
           {/* Search Box */}
           <div className="relative">
@@ -891,7 +885,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <input
               type="text"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Cari Kode / Nama Satker / SP2D..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
@@ -901,7 +898,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
           <div>
             <select
               value={selectedKl}
-              onChange={(e) => setSelectedKl(e.target.value)}
+              onChange={(e) => {
+                setSelectedKl(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">-- Semua K/L ({klList.length}) --</option>
@@ -913,27 +913,14 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             </select>
           </div>
 
-          {/* Filter Bank Penerbit */}
-          <div>
-            <select
-              value={selectedBank}
-              onChange={(e) => setSelectedBank(e.target.value)}
-              className="w-full py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="ALL">-- Semua Bank Penerbit ({bankList.length}) --</option>
-              {bankList.map(bank => (
-                <option key={bank} value={bank}>
-                  {bank}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Filter Status Keaktifan */}
           <div className="flex items-center gap-2">
             <select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full py-2 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">-- Semua Status Keaktifan --</option>
@@ -942,15 +929,15 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
               <option value="Perlu Akselerasi">🟡 Perlu Akselerasi</option>
             </select>
 
-            {(searchTerm || selectedKl !== 'ALL' || selectedBank !== 'ALL' || selectedStatus !== 'ALL' || selectedMonth !== 'ALL') && (
+            {(searchTerm || selectedKl !== 'ALL' || selectedStatus !== 'ALL' || selectedMonth !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchTerm('');
                   setSelectedKl('ALL');
-                  setSelectedBank('ALL');
                   setSelectedStatus('ALL');
                   setSelectedMonth('ALL');
+                  setCurrentPage(1);
                 }}
                 className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer"
                 title="Reset Semua Filter &amp; Bulan"
@@ -964,7 +951,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
 
         {/* Responsive Table */}
         <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
-          <table className="w-full text-left text-xs min-w-[900px]">
+          <table className="w-full text-left text-xs min-w-[850px]">
             <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="py-3 px-3.5 text-center w-14">Rank</th>
@@ -972,8 +959,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                 <th className="py-3 px-4 min-w-[170px]">Kementerian / Lembaga</th>
                 <th className="py-3 px-3 text-center min-w-[110px]">Frekuensi</th>
                 <th className="py-3 px-4 text-right min-w-[150px]">Total Nilai KKP (Rp)</th>
-                <th className="py-3 px-3 min-w-[120px]">Tanggal SP2D</th>
-                <th className="py-3 px-3 min-w-[130px]">Bank Penerbit</th>
+                <th className="py-3 px-3 min-w-[130px]">Tanggal SP2D</th>
                 <th className="py-3 px-3 text-center min-w-[100px]">Status</th>
                 <th className="py-3 px-3 text-center w-16">Aksi</th>
               </tr>
@@ -981,15 +967,16 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-slate-400">
+                  <td colSpan={8} className="py-10 text-center text-slate-400">
                     Tidak ada satker yang cocok dengan filter atau pencarian Anda.
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((r, idx) => {
-                  const isTop1 = idx === 0 && selectedKl === 'ALL' && selectedBank === 'ALL' && !searchTerm;
-                  const isTop2 = idx === 1 && selectedKl === 'ALL' && selectedBank === 'ALL' && !searchTerm;
-                  const isTop3 = idx === 2 && selectedKl === 'ALL' && selectedBank === 'ALL' && !searchTerm;
+                paginatedRecords.map((r, idx) => {
+                  const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx;
+                  const isTop1 = globalIdx === 0 && selectedKl === 'ALL' && !searchTerm;
+                  const isTop2 = globalIdx === 1 && selectedKl === 'ALL' && !searchTerm;
+                  const isTop3 = globalIdx === 2 && selectedKl === 'ALL' && !searchTerm;
 
                   return (
                     <tr
@@ -1014,7 +1001,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                           </span>
                         ) : (
                           <span className="text-slate-500 dark:text-slate-400 text-xs">
-                            #{idx + 1}
+                            #{globalIdx + 1}
                           </span>
                         )}
                       </td>
@@ -1051,11 +1038,6 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                         <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                           📅 {r.tglSp2dTerakhir || '-'}
                         </span>
-                      </td>
-
-                      {/* Bank Penerbit */}
-                      <td className="py-3 px-3 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
-                        {r.bankPenerbit || 'BRI / Mandiri'}
                       </td>
 
                       {/* Status */}
@@ -1100,6 +1082,17 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Control */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={filteredRecords.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker"
+          isDark={isDark}
+        />
 
       </div>
 
@@ -1209,10 +1202,6 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                     <div className="flex justify-between">
                       <span className="text-slate-500">Kementerian / Lembaga:</span>
                       <span className="font-bold text-slate-900 dark:text-slate-100 text-right">{selectedSatkerDetail.kementerianLembaga || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Bank Penerbit Kartu:</span>
-                      <span className="font-bold text-slate-900 dark:text-slate-100">{selectedSatkerDetail.bankPenerbit || 'BRI'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Total SP2D GUP KKP:</span>

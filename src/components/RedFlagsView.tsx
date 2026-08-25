@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SatkerIKPA, AppTheme, DashboardConfig } from '../types';
+import { PaginationControl } from './PaginationControl';
 import { 
   AlertTriangle, 
   Send, 
@@ -36,6 +37,8 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
 }) => {
   const isDark = theme === 'dark';
   const [activeCategory, setActiveCategory] = useState<'ALL' | 'OUTPUT' | 'IKPA_LOW' | 'PENYERAPAN' | 'DEVIASI'>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
 
   // Filter Problematic Satkers ONLY from satkers that have actual IKPA data
   const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
@@ -123,7 +126,10 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         
         <button
-          onClick={() => setActiveCategory('ALL')}
+          onClick={() => {
+            setActiveCategory('ALL');
+            setCurrentPage(1);
+          }}
           className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
             activeCategory === 'ALL'
               ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-700'
@@ -138,7 +144,10 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveCategory('OUTPUT')}
+          onClick={() => {
+            setActiveCategory('OUTPUT');
+            setCurrentPage(1);
+          }}
           className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
             activeCategory === 'OUTPUT'
               ? 'bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-400'
@@ -153,7 +162,10 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveCategory('IKPA_LOW')}
+          onClick={() => {
+            setActiveCategory('IKPA_LOW');
+            setCurrentPage(1);
+          }}
           className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
             activeCategory === 'IKPA_LOW'
               ? 'bg-amber-600 text-white border-amber-600 shadow-md ring-2 ring-amber-400'
@@ -168,7 +180,10 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveCategory('PENYERAPAN')}
+          onClick={() => {
+            setActiveCategory('PENYERAPAN');
+            setCurrentPage(1);
+          }}
           className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
             activeCategory === 'PENYERAPAN'
               ? 'bg-sky-700 text-white border-sky-700 shadow-md ring-2 ring-sky-400'
@@ -183,7 +198,10 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveCategory('DEVIASI')}
+          onClick={() => {
+            setActiveCategory('DEVIASI');
+            setCurrentPage(1);
+          }}
           className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
             activeCategory === 'DEVIASI'
               ? 'bg-purple-700 text-white border-purple-700 shadow-md ring-2 ring-purple-400'
@@ -200,148 +218,162 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
       </div>
 
       {/* Satker List Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {displayedSatkers.length === 0 ? (
-          <div className={`col-span-full p-12 rounded-2xl border text-center ${
-            isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
-          }`}>
-            <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-            <p className={`text-base font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              {satkersWithIKPA.length === 0 
-                ? 'Belum Ada Data Evaluasi IKPA (0 Satker)' 
-                : 'Luar biasa! Tidak ada Satker pada kategori masalah ini.'}
-            </p>
-            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-              {satkersWithIKPA.length === 0 
-                ? 'Tab Perlu Perhatian terhubung langsung dengan Dashboard IKPA (8 Indikator). Silakan unggah File Excel IKPA di menu Admin untuk memuat evaluasi dan deteksi risiko kinerja.'
-                : 'Seluruh Satker mitra KPPN Semarang I dalam kelompok ini telah memenuhi kualifikasi target.'}
-            </p>
-            {satkersWithIKPA.length === 0 && onGoToUpload && (
-              <div className="pt-4">
-                <button
-                  onClick={onGoToUpload}
-                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs border border-slate-300 dark:border-slate-700 inline-flex items-center gap-2 cursor-pointer"
-                >
-                  <span>Upload File Excel IKPA &rarr;</span>
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          displayedSatkers.map((satker) => (
-            <div 
-              key={satker.id}
-              className={`${
-                isDark ? 'bg-slate-900 border-slate-800 text-slate-100 shadow-xl' : 'bg-white border-rose-200 text-slate-800 shadow-xs'
-              } rounded-2xl border hover:shadow-md transition-all p-5 flex flex-col justify-between`}
-            >
-              <div>
-                {/* Satker Header */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`font-mono text-xs font-extrabold px-2 py-0.5 rounded-md border ${
-                        isDark ? 'bg-sky-950/80 text-sky-300 border-sky-700/80' : 'bg-slate-900 text-amber-300'
-                      }`}>
-                        {satker.kodeSatker}
-                      </span>
-                      <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>
-                        {satker.unitEselon1 || 'Satker KPPN SMG I'}
-                      </span>
-                    </div>
-                    <h3 className={`text-base font-extrabold mt-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                      {satker.namaSatker}
-                    </h3>
-                  </div>
-
-                  {/* Score Tag */}
-                  <div className="text-right shrink-0">
-                    <div className={`text-2xl font-black ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
-                      {satker.nilaiTotalIKPA}
-                    </div>
-                    <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
-                      isDark ? 'text-rose-300 bg-rose-950/80 border-rose-800' : 'text-rose-800 bg-rose-100 border-rose-200'
-                    }`}>
-                      {satker.predikat}
-                    </div>
-                  </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {displayedSatkers.length === 0 ? (
+            <div className={`col-span-full p-12 rounded-2xl border text-center ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
+            }`}>
+              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
+              <p className={`text-base font-extrabold ${isDark ? 'text-white' : 'text-slate-800'}`}>
+                {satkersWithIKPA.length === 0 
+                  ? 'Belum Ada Data Evaluasi IKPA (0 Satker)' 
+                  : 'Luar biasa! Tidak ada Satker pada kategori masalah ini.'}
+              </p>
+              <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                {satkersWithIKPA.length === 0 
+                  ? 'Tab Perlu Perhatian terhubung langsung dengan Dashboard IKPA (8 Indikator). Silakan unggah File Excel IKPA di menu Admin untuk memuat evaluasi dan deteksi risiko kinerja.'
+                  : 'Seluruh Satker mitra KPPN Semarang I dalam kelompok ini telah memenuhi kualifikasi target.'}
+              </p>
+              {satkersWithIKPA.length === 0 && onGoToUpload && (
+                <div className="pt-4">
+                  <button
+                    onClick={onGoToUpload}
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs border border-slate-300 dark:border-slate-700 inline-flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>Upload File Excel IKPA &rarr;</span>
+                  </button>
                 </div>
-
-                {/* KL & Contact */}
-                <p className={`text-xs font-medium mb-3 truncate ${isDark ? 'text-amber-200/90' : 'text-slate-600'}`}>
-                  {satker.kementerianLembaga}
-                </p>
-
-                {/* Key Risk Highlights */}
-                <div className={`rounded-xl p-3 border mb-4 space-y-1.5 ${
-                  isDark ? 'bg-rose-950/40 border-rose-900/60 text-rose-200' : 'bg-rose-50/80 border-rose-100 text-rose-800'
-                }`}>
-                  <div className={`text-xs font-bold flex items-center gap-1.5 ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Detail Kendala Satker:</span>
-                  </div>
-                  <ul className={`text-xs space-y-1 pl-4 list-disc ${isDark ? 'text-rose-200/90' : 'text-rose-800'}`}>
-                    {satker.statusCapaianOutput !== 'Sudah Terlaporkan' && (
-                      <li className={`font-semibold ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
-                        Capaian Output: Status <span className="underline">{satker.statusCapaianOutput}</span> (Nilai: {satker.indikator.capaianOutput}%)
-                      </li>
-                    )}
-                    {satker.persenPenyerapan < 70 && (
-                      <li className="font-medium">
-                        Penyerapan Anggaran Lambat: <strong className={isDark ? 'text-amber-300' : 'text-rose-900'}>{satker.persenPenyerapan}%</strong> (Sisa Pagu: {formatRupiah(satker.paguAnggaran - satker.realisasiAnggaran)})
-                      </li>
-                    )}
-                    {satker.indikator.deviasiHal3Dipa < 75 && (
-                      <li>
-                        Deviasi Hal III DIPA Tinggi (Skor Indikator: {satker.indikator.deviasiHal3Dipa})
-                      </li>
-                    )}
-                    {satker.issues.map((iss, i) => (
-                      <li key={i}>{iss}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* PIC Info */}
-                <div className={`text-xs border-t pt-3 mb-4 flex flex-wrap items-center justify-between gap-2 ${
-                  isDark ? 'border-slate-800 text-slate-300' : 'border-slate-100 text-slate-600'
-                }`}>
-                  <div className="flex items-center gap-1.5">
-                    <PhoneCall className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`} />
-                    <span className="font-semibold">{satker.namaPic || 'PIC Keuangan'}</span>
-                    <span className={isDark ? 'text-slate-400' : 'text-slate-400'}>({satker.noHpPic || '-'})</span>
-                  </div>
-                  <div className={`flex items-center gap-1 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
-                    <Mail className="w-3 h-3" />
-                    <span className="truncate max-w-[150px]">{satker.emailPic || '-'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Action Footer */}
-              <div className={`flex items-center gap-2 border-t pt-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-                <button
-                  onClick={() => onSelectSatker(satker)}
-                  className={`flex-1 text-xs font-semibold py-2 rounded-xl border transition-colors flex items-center justify-center gap-1 cursor-pointer ${
-                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Detail Indikator</span>
-                </button>
-
-                <button
-                  onClick={() => onOpenReminder(satker)}
-                  className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Kirim Pengingat</span>
-                </button>
-              </div>
-
+              )}
             </div>
-          ))
-        )}
+          ) : (
+            (pageSize <= 0 ? displayedSatkers : displayedSatkers.slice((currentPage - 1) * pageSize, currentPage * pageSize)).map((satker) => (
+              <div 
+                key={satker.id}
+                className={`${
+                  isDark ? 'bg-slate-900 border-slate-800 text-slate-100 shadow-xl' : 'bg-white border-rose-200 text-slate-800 shadow-xs'
+                } rounded-2xl border hover:shadow-md transition-all p-5 flex flex-col justify-between`}
+              >
+                <div>
+                  {/* Satker Header */}
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`font-mono text-xs font-extrabold px-2 py-0.5 rounded-md border ${
+                          isDark ? 'bg-sky-950/80 text-sky-300 border-sky-700/80' : 'bg-slate-900 text-amber-300'
+                        }`}>
+                          {satker.kodeSatker}
+                        </span>
+                        <span className={`text-xs font-semibold ${isDark ? 'text-slate-300' : 'text-slate-400'}`}>
+                          {satker.unitEselon1 || 'Satker KPPN SMG I'}
+                        </span>
+                      </div>
+                      <h3 className={`text-base font-extrabold mt-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                        {satker.namaSatker}
+                      </h3>
+                    </div>
+
+                    {/* Score Tag */}
+                    <div className="text-right shrink-0">
+                      <div className={`text-2xl font-black ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
+                        {satker.nilaiTotalIKPA}
+                      </div>
+                      <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
+                        isDark ? 'text-rose-300 bg-rose-950/80 border-rose-800' : 'text-rose-800 bg-rose-100 border-rose-200'
+                      }`}>
+                        {satker.predikat}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* KL & Contact */}
+                  <p className={`text-xs font-medium mb-3 truncate ${isDark ? 'text-amber-200/90' : 'text-slate-600'}`}>
+                    {satker.kementerianLembaga}
+                  </p>
+
+                  {/* Key Risk Highlights */}
+                  <div className={`rounded-xl p-3 border mb-4 space-y-1.5 ${
+                    isDark ? 'bg-rose-950/40 border-rose-900/60 text-rose-200' : 'bg-rose-50/80 border-rose-100 text-rose-800'
+                  }`}>
+                    <div className={`text-xs font-bold flex items-center gap-1.5 ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Detail Kendala Satker:</span>
+                    </div>
+                    <ul className={`text-xs space-y-1 pl-4 list-disc ${isDark ? 'text-rose-200/90' : 'text-rose-800'}`}>
+                      {satker.statusCapaianOutput !== 'Sudah Terlaporkan' && (
+                        <li className={`font-semibold ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
+                          Capaian Output: Status <span className="underline">{satker.statusCapaianOutput}</span> (Nilai: {satker.indikator.capaianOutput}%)
+                        </li>
+                      )}
+                      {satker.persenPenyerapan < 70 && (
+                        <li className="font-medium">
+                          Penyerapan Anggaran Lambat: <strong className={isDark ? 'text-amber-300' : 'text-rose-900'}>{satker.persenPenyerapan}%</strong> (Sisa Pagu: {formatRupiah(satker.paguAnggaran - satker.realisasiAnggaran)})
+                        </li>
+                      )}
+                      {satker.indikator.deviasiHal3Dipa < 75 && (
+                        <li>
+                          Deviasi Hal III DIPA Tinggi (Skor Indikator: {satker.indikator.deviasiHal3Dipa})
+                        </li>
+                      )}
+                      {satker.issues.map((iss, i) => (
+                        <li key={i}>{iss}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* PIC Info */}
+                  <div className={`text-xs border-t pt-3 mb-4 flex flex-wrap items-center justify-between gap-2 ${
+                    isDark ? 'border-slate-800 text-slate-300' : 'border-slate-100 text-slate-600'
+                  }`}>
+                    <div className="flex items-center gap-1.5">
+                      <PhoneCall className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`} />
+                      <span className="font-semibold">{satker.namaPic || 'PIC Keuangan'}</span>
+                      <span className={isDark ? 'text-slate-400' : 'text-slate-400'}>({satker.noHpPic || '-'})</span>
+                    </div>
+                    <div className={`flex items-center gap-1 text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-400'}`}>
+                      <Mail className="w-3 h-3" />
+                      <span className="truncate max-w-[150px]">{satker.emailPic || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Action Footer */}
+                <div className={`flex items-center gap-2 border-t pt-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+                  <button
+                    onClick={() => onSelectSatker(satker)}
+                    className={`flex-1 text-xs font-semibold py-2 rounded-xl border transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Detail Indikator</span>
+                  </button>
+
+                  <button
+                    onClick={() => onOpenReminder(satker)}
+                    className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2 rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Kirim Pengingat</span>
+                  </button>
+                </div>
+
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Pagination Control for Red Flags Satkers */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={displayedSatkers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker Red Flag"
+          isDark={isDark}
+          className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+        />
       </div>
 
     </div>

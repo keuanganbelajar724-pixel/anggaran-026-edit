@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Announcement, AppTheme, DashboardConfig } from '../types';
+import { PaginationControl } from './PaginationControl';
 import { 
   Megaphone, 
   Pin, 
@@ -94,6 +95,8 @@ export const PengumumanTab: React.FC<PengumumanTabProps> = ({
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(6);
   
   // Active announcements only (filter out isActive === false)
   const activeAnnouncements = announcements.filter(a => a.isActive !== false);
@@ -333,7 +336,6 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
         
         {/* Left Column: Announcements List */}
         <div className="lg:col-span-5 space-y-4">
-          
           {/* Search & Category Filter */}
           <div className={`${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300'} p-4 rounded-2xl border space-y-3 shadow-xs`}>
             <div className="relative">
@@ -342,7 +344,10 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
                 type="text"
                 placeholder="Cari kata kunci pengumuman..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className={`w-full text-xs rounded-xl pl-9 pr-3 py-2 border font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 ${
                   isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-500' : 'bg-slate-50 border-slate-300 text-slate-950 placeholder-slate-500'
                 }`}
@@ -353,7 +358,10 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
               {categories.map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => {
+                    setSelectedCategory(cat);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer font-bold ${
                     selectedCategory === cat
                       ? 'bg-amber-600 text-white shadow-xs'
@@ -374,7 +382,7 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
                 Belum ada pengumuman aktif untuk kategori ini.
               </div>
             ) : (
-              sortedAnnouncements.map((item) => {
+              (pageSize <= 0 ? sortedAnnouncements : sortedAnnouncements.slice((currentPage - 1) * pageSize, currentPage * pageSize)).map((item) => {
                 const isSelected = selectedAnnouncement?.id === item.id;
                 const itemLink = item.linkUrl || item.attachmentUrl;
                 
@@ -525,6 +533,18 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
               })
             )}
           </div>
+
+          {/* Pagination Control for Announcements */}
+          <PaginationControl
+            currentPage={currentPage}
+            totalItems={sortedAnnouncements.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="Pengumuman"
+            isDark={isDark}
+            className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+          />
 
         </div>
 

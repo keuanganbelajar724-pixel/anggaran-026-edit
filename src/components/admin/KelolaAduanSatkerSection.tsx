@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PaginationControl } from '../PaginationControl';
 import { 
   ShieldAlert, 
   Phone, 
@@ -63,6 +64,8 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | AduanStatus>('ALL');
   const [filterKategori, setFilterKategori] = useState<string>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modal Detail & Follow-up State
   const [selectedAduanForDetail, setSelectedAduanForDetail] = useState<AduanSatkerRecord | null>(null);
@@ -636,7 +639,10 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setFilterStatus(tab.key as any)}
+                  onClick={() => {
+                    setFilterStatus(tab.key as any);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer flex items-center gap-1.5 ${
                     filterStatus === tab.key
                       ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
@@ -661,12 +667,15 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Cari No Tiket, Satker, Pelapor, Kata Kunci..."
                 className="w-full pl-8.5 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 text-slate-900 dark:text-white"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <button onClick={() => { setSearchQuery(''); setCurrentPage(1); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -676,7 +685,10 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
               <span className="font-bold text-slate-500 text-[11px] shrink-0">Filter Kategori:</span>
               <select
                 value={filterKategori}
-                onChange={(e) => setFilterKategori(e.target.value)}
+                onChange={(e) => {
+                  setFilterKategori(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="p-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-bold text-xs text-slate-800 dark:text-slate-200"
               >
                 <option value="ALL">Semua Kategori Aduan</option>
@@ -728,7 +740,7 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
                     </td>
                   </tr>
                 ) : (
-                  filteredAduanList.map((item) => (
+                  (pageSize <= 0 ? filteredAduanList : filteredAduanList.slice((currentPage - 1) * pageSize, currentPage * pageSize)).map((item) => (
                     <tr 
                       key={item.id} 
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors cursor-pointer"
@@ -869,6 +881,18 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls for Support Tickets */}
+          <PaginationControl
+            currentPage={currentPage}
+            totalItems={filteredAduanList.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="Tiket Aduan"
+            isDark={isDark}
+            className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+          />
 
         </div>
 

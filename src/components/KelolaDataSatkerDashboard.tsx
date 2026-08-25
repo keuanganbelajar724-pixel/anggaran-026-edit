@@ -42,6 +42,7 @@ import * as XLSX from 'xlsx';
 import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo } from '../types';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { getSatkerDefaultPassword, verifySatkerPassword, resolveKodeBA } from '../utils/satkerSecurity';
+import { PaginationControl } from './PaginationControl';
 
 interface KelolaDataSatkerDashboardProps {
   masterSatkers: MasterSatker[];
@@ -79,6 +80,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'AKTIF' | 'NONAKTIF' | 'LENGKAP' | 'BELUM_LENGKAP'>('ALL');
   const [filterKL, setFilterKL] = useState<string>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
@@ -223,6 +226,11 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       return true;
     });
   }, [masterSatkers, searchQuery, filterStatus, filterKL]);
+
+  const paginatedSatkers = useMemo(() => {
+    if (pageSize <= 0) return filteredSatkers;
+    return filteredSatkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [filteredSatkers, currentPage, pageSize]);
 
   // Metrics
   const totalMaster = masterSatkers.length;
@@ -1200,7 +1208,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               type="text"
               placeholder="Cari Kode Satker, Nama Satker, Nama KPA / PPK / PPSPM / Bendahara..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`w-full text-xs rounded-2xl pl-10 pr-4 py-3 border focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all ${
                 isDark ? 'bg-slate-950 text-slate-100 border-slate-800' : 'bg-slate-50 text-slate-900 border-slate-300'
               }`}
@@ -1210,7 +1221,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setFilterStatus('ALL')}
+              onClick={() => {
+                setFilterStatus('ALL');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 filterStatus === 'ALL'
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
@@ -1222,7 +1236,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
             <button
               type="button"
-              onClick={() => setFilterStatus('LENGKAP')}
+              onClick={() => {
+                setFilterStatus('LENGKAP');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 filterStatus === 'LENGKAP'
                   ? 'bg-indigo-600 text-white'
@@ -1234,7 +1251,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
             <button
               type="button"
-              onClick={() => setFilterStatus('BELUM_LENGKAP')}
+              onClick={() => {
+                setFilterStatus('BELUM_LENGKAP');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 filterStatus === 'BELUM_LENGKAP'
                   ? 'bg-amber-600 text-white'
@@ -1252,7 +1272,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             <span className="text-slate-500 font-semibold">Filter K/L:</span>
             <select
               value={filterKL}
-              onChange={(e) => setFilterKL(e.target.value)}
+              onChange={(e) => {
+                setFilterKL(e.target.value);
+                setCurrentPage(1);
+              }}
               className={`text-xs rounded-xl px-3 py-1.5 border focus:outline-none focus:ring-1 focus:ring-sky-500 ${
                 isDark ? 'bg-slate-950 text-slate-200 border-slate-800' : 'bg-slate-50 text-slate-800 border-slate-300'
               }`}
@@ -1354,7 +1377,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   </td>
                 </tr>
               ) : (
-                filteredSatkers.map((satker) => {
+                paginatedSatkers.map((satker) => {
                   const isSelected = selectedIds.includes(satker.id);
                   const po = satker.pejabatOperator || {};
                   const filledCount = getFilledRolesCount(satker);
@@ -1538,6 +1561,18 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Control */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={filteredSatkers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker"
+          isDark={isDark}
+          className="p-4 border-t border-slate-100 dark:border-slate-800"
+        />
       </div>
 
       {/* MODAL 1: PENGISIAN KONTAK PEJABAT & OPERATOR SATKER (DENGAN GATEKEEPER PASSWORD) */}

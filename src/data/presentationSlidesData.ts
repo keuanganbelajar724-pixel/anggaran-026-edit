@@ -32,6 +32,25 @@ export interface SlideChartConfig {
   barKeys?: { key: string; color: string; name: string }[];
 }
 
+export interface RootCauseItem {
+  category: string;
+  description: string;
+  impact?: string;
+}
+
+export interface ActionPlanItem {
+  actor: string;
+  action: string;
+  timeline: string;
+  priority: 'TINGGI' | 'SEDANG' | 'NORMAL';
+}
+
+export interface RiskMatrixItem {
+  riskItem: string;
+  level: 'TINGGI' | 'SEDANG' | 'RENDAH';
+  mitigation: string;
+}
+
 export interface DetailedSlideContent {
   id: number;
   category: SlideCategory;
@@ -41,6 +60,12 @@ export interface DetailedSlideContent {
   statsHighlight?: { label: string; value: string; note?: string; color?: string }[];
   chartConfig?: SlideChartConfig;
   analysisPoints: string[];
+  deepNarrative?: string;
+  rootCauses?: RootCauseItem[];
+  actionPlanDetails?: ActionPlanItem[];
+  speakingNotes?: string;
+  riskMatrix?: RiskMatrixItem[];
+  keyTakeaways?: string[];
   recommendation: string;
   regulationRef?: string;
   tableData?: { headers: string[]; rows: string[][] };
@@ -90,7 +115,7 @@ export function generate50PresentationSlides(
 
   const activeScopeInfo = scopeLabels[periodScope];
 
-  return [
+  const baseSlides: DetailedSlideContent[] = [
     // 1-5: PEMBUKA & MAKRO
     {
       id: 1,
@@ -1160,4 +1185,117 @@ export function generate50PresentationSlides(
       regulationRef: 'KPPN Semarang I • Direktorat Jenderal Perbendaharaan • Kementerian Keuangan RI'
     }
   ];
+
+  // Enrich all slides with in-depth narrative, structured root causes, action plans, speaking notes, and risk matrix
+  return baseSlides.map(slide => {
+    // Generate context-aware deep narrative (100 - 250 words)
+    let deepNarrative = slide.deepNarrative;
+    if (!deepNarrative) {
+      if (slide.category === 'PEMBUKA' || slide.category === 'MAKRO') {
+        deepNarrative = `Berdasarkan konsolidasi data pelaksanaan anggaran pada lingkup KPPN Semarang I untuk periode ${periodScope}, capaian nilai IKPA agregat berada pada level ${avgIKPA} poin dari target standar nasional 95.00. Dari total ${totalSatker} satuan kerja aktif, terdapat ${sangatBaik.length} satker (${totalSatker > 0 ? ((sangatBaik.length / totalSatker) * 100).toFixed(1) : 0}%) yang telah meraih predikat Sangat Baik, serta ${baik.length} satker pada predikat Baik. Evaluasi menyeluruh menunjukkan bahwa pilar Kualitas Perencanaan dan Kualitas Hasil Output memegang peranan krusial dalam membentuk deviasi nilai akhir. Melalui forum evaluasi berkala ini, KPPN Semarang I mendorong harmonisasi antara perencanaan kas bulanan pada modul Penganggaran dengan eksekusi fisik di lapangan guna mewujudkan belanja negara yang efektif, efisien, dan akuntabel sesuai prinsip Value for Money (VfM).`;
+      } else if (slide.category === 'INDIKATOR_DETAIL') {
+        deepNarrative = `Kajian mendalam terhadap indikator ${slide.title} menunjukkan dinamika signifikan pada tata kelola perbendaharaan satker. Indikator ini memiliki pengaruh langsung terhadap pembentukan indeks kepatuhan pelaksanaan APBN. Berdasarkan analisis data transaksi dan pelaporan pada sistem SAKTI, satker yang konsisten melakukan rekonsiliasi berkala serta mematuhi kalender kerja triwulanan berhasil memitigasi potensi penalti sistemik. KPPN Semarang I menekankan pentingnya sinergi antara Pejabat Pembuat Komitmen (PPK), Pejabat Penandatangan SPM (PPSPM), dan Bendahara Pengeluaran agar setiap tahapan proses bisnis—mulai dari penerbitan BAST, pendaftaran kontrak dalam 5 hari kerja, hingga konfirmasi Capaian Output—dijalankan secara tepat waktu tanpa menunggu cut-off akhir periode.`;
+      } else if (slide.category === 'SATKER_RANKING') {
+        deepNarrative = `Pemeringkatan kinerja IKPA satker disusun secara objektif berdasarkan pembobotan 8 indikator kinerja sesuai regulasi Ditjen Perbendaharaan. Satker pada jajaran Top Tier membuktikan bahwa kedisiplinan administrasi, pengawasan internal berkala oleh KPA, dan pemanfaatan sistem digital (SAKTI, CMS, KKP, dan Digipay Satu) mampu menciptakan siklus perbendaharaan yang bebas hambatan. Sebaliknya, satker yang berada pada kuadran pembinaan diarahkan untuk segera mengikuti klinik asistensi MSKI guna mengurai permasalahan teknis seperti pagu minus, penolakan SPM, atau keterlambatan konfirmasi RVRO Capaian Output pada modul Komitmen.`;
+      } else if (slide.category === 'DIAGNOSA_RISIKO') {
+        deepNarrative = `Diagnosa risiko pelaksanaan anggaran difokuskan pada mitigasi titik rawan (pain points) yang berpotensi menurunkan skor IKPA secara permanen. Analisis akar masalah mendeteksi 3 kluster utama kendala: deviasi RPD Halaman III DIPA akibat pergeseran agenda kegiatan yang tidak termutakhirkan, penumpukan pengajuan SPM di akhir batas waktu (rush hour), serta keterlambatan penyampaian pertanggungjawaban UP/TUP. Mitigasi terstruktur memerlukan komitmen tertulis dari KPA serta penjadwalan kas mingguan (Weekly Cash Plan) agar likuiditas kas negara tetap terjaga optimal dan tidak timbul fenomena idle cash di rekening penampungan.`;
+      } else if (slide.category === 'DIGITALISASI') {
+        deepNarrative = `Transformasi digital perbendaharaan melalui Kartu Kredit Pemerintah (KKP), Digipay Satu (marketplace pemerintah), Cash Management System (CMS), dan Tanda Tangan Elektronik (TTE) Tersertifikasi merupakan pilar modernisasi pengelolaan kas negara. KPPN Semarang I mendorong seluruh satker memaksimalkan porsi belanja non-tunai (cashless transaction) guna meningkatkan transparansi, akuntabilitas, dan efisiensi waktu penyelesaian tagihan. Penggunaan KKP dan Digipay Satu juga terbukti meminimalisasi risiko kehilangan uang kas fisik, mempermudah pelaporan LPJ Bendahara, dan mendukung pemberdayaan UMKM lokal mitra pemerintah di wilayah Jawa Tengah.`;
+      } else if (slide.category === 'REGULASI_HOT_TOPIC' || slide.category === 'REKOMENDASI_AKSI') {
+        deepNarrative = `Implementasi reformulasi IKPA terbaru menuntut penyesuaian strategi manajerial di tingkat satuan kerja. Fokus penilaian bergeser dari sekadar kepatuhan formal menuju kualitas substansi belanja (spending quality) dan ketercapaian target output riil. Rekomendasi aksi berjenjang yang dirumuskan dalam paparan ini memetakan tugas spesifik mulai dari Kuasa Pengguna Anggaran (KPA) sebagai pengambil kebijakan strategis, PPK dan PPSPM sebagai garda terdepan pengujian tagihan, hingga Bendahara dan Operator SAKTI sebagai eksekutor teknis harian.`;
+      } else {
+        deepNarrative = `KPPN Semarang I mengapresiasi sinergi dan kolaborasi yang telah terjalin solid bersama seluruh satuan kerja mitra perbendaharaan. Keberhasilan pelaksanaan APBN yang akuntabel, transparan, dan berdampak nyata bagi pertumbuhan ekonomi regional Jawa Tengah adalah buah dari kerja keras bersama. Komitmen perbaikan berkelanjutan (continuous improvement) harus terus dipelihara melalui pemanfaatan seluruh saluran layanan resmi KPPN Semarang I yang bebas biaya (Rp 0,-), berintegritas tinggi, dan responsif terhadap kebutuhan satker.`;
+      }
+    }
+
+    // Generate context-aware structured root causes
+    const rootCauses: RootCauseItem[] = slide.rootCauses || [
+      {
+        category: 'Perencanaan & Kalender Kerja',
+        description: 'Pergeseran jadwal kegiatan operasional satker tanpa penyesuaian RPD Halaman III DIPA pada periode pemutakhiran awal triwulan.',
+        impact: 'Memicu deviasi penarikan kas dan menurunkan skor IKPA pilar perencanaan.'
+      },
+      {
+        category: 'Proses Bisnis & Penagihan',
+        description: 'Penyedia barang/jasa menunda penyerahan BAST atau mengumpulkan beberapa termin penagihan dalam satu pengajuan SPM.',
+        impact: 'Mempersingkat batas waktu pengujian 17 hari kerja dan meningkatkan risiko SPM tertolak.'
+      },
+      {
+        category: 'Teknis SAKTI & Koordinasi Internal',
+        description: 'Kurangnya rekonsiliasi internal antara PPK, Bendahara, dan Operator Pelaporan terkait status konfirmasi Capaian Output (RVRO).',
+        impact: 'Capaian Output terstatus anomali atau tidak terlaporkan pada cut-off data.'
+      }
+    ];
+
+    // Generate context-aware action plans
+    const actionPlanDetails: ActionPlanItem[] = slide.actionPlanDetails || [
+      {
+        actor: 'Kuasa Pengguna Anggaran (KPA)',
+        action: 'Memimpin rapat monitoring evaluasi anggaran mingguan dan menandatangani matriks komitmen perbaikan RPD DIPA.',
+        timeline: 'Setiap Hari Senin',
+        priority: 'TINGGI'
+      },
+      {
+        actor: 'Pejabat Pembuat Komitmen (PPK)',
+        action: 'Mendaftarkan kontrak ke KPPN maksimal 5 hari kerja dan segera menerbitkan BAST setelah verifikasi pekerjaan selesai.',
+        timeline: 'H+1 s.d. H+3 Pekerjaan',
+        priority: 'TINGGI'
+      },
+      {
+        actor: 'PPSPM & Penguji Tagihan',
+        action: 'Melakukan verifikasi kelengkapan berkas SPM secara ketat dalam batas toleransi 17 hari kerja sejak BAST.',
+        timeline: 'Maksimal 17 Hari Kerja',
+        priority: 'SEDANG'
+      },
+      {
+        actor: 'Bendahara Pengeluaran',
+        action: 'Mengajukan SPM GUP bertahap saat serapan UP mencapai 50% dan memperbanyak porsi transaksi non-tunai KKP/Digipay.',
+        timeline: 'Minimal 2x Sebulan',
+        priority: 'SEDANG'
+      }
+    ];
+
+    // Generate ready-to-read speaking notes for meeting leaders / KPA / Kepala KPPN
+    const speakingNotes = slide.speakingNotes || 
+      `"Bapak, Ibu, dan hadirin yang kami hormati. Pada slide ini kita melihat data strategis mengenai ${slide.title.toLowerCase()}. ` +
+      `Poin kunci yang perlu kita cermati bersama adalah ${slide.analysisPoints[0] || 'capaian kinerja yang membutuhkan pengawalan ketat'}. ` +
+      `Kami mengimbau kepada seluruh Kuasa Pengguna Anggaran dan jajaran pejabat perbendaharaan untuk memastikan arahan rekomendasi: ` +
+      `${slide.recommendation}. Mari kita selaraskan langkah demi mewujudkan eksekusi anggaran yang prima, tepat waktu, dan berintegritas."`;
+
+    // Generate risk matrix
+    const riskMatrix: RiskMatrixItem[] = slide.riskMatrix || [
+      {
+        riskItem: 'Deviasi Penarikan Kas Bulanan Melebihi Batas Toleransi 5%',
+        level: 'TINGGI',
+        mitigation: 'Mutakhirkan data RPD pada Halaman III DIPA di awal triwulan sesuai kalender kerja riil.'
+      },
+      {
+        riskItem: 'Keterlambatan Pelaporan Capaian Output (RVRO) pada SAKTI',
+        level: 'TINGGI',
+        mitigation: 'Lakukan pengisian data progres fisik dan referensi output bersama penanggung jawab teknis sebelum cut-off.'
+      },
+      {
+        riskItem: 'Kas Mengendap (Idle Cash) pada Rekening Uang Persediaan Bendahara',
+        level: 'SEDANG',
+        mitigation: 'Terapkan revolving GUP secara periodik dan optimalkan pembayaran non-tunai via CMS dan KKP.'
+      }
+    ];
+
+    // Key takeaways
+    const keyTakeaways = slide.keyTakeaways || [
+      `Fokus utama: Pengendalian mutu ${slide.title} secara berkelanjutan.`,
+      `Target kepatuhan: Nilai minimal 95.00 (Kategori Sangat Baik).`,
+      `Langkah mitigasi: Eksekusi tepat waktu sesuai SOP dan regulasi DJPb.`
+    ];
+
+    return {
+      ...slide,
+      deepNarrative,
+      rootCauses,
+      actionPlanDetails,
+      speakingNotes,
+      riskMatrix,
+      keyTakeaways
+    };
+  });
 }

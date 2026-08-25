@@ -67,7 +67,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
 
   // Table & Management state for active uploaded records
   const [searchTableQuery, setSearchTableQuery] = useState('');
-  const [bankFilter, setBankFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -97,33 +96,15 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
     const totalSatkers = effectiveRecords.length;
     const totalSp2d = effectiveRecords.reduce((acc, r) => acc + (Number(r.jumlahTransaksi) || 0), 0);
     const totalNominal = effectiveRecords.reduce((acc, r) => acc + (Number(r.totalNominal) || 0), 0);
-    
-    // Unique banks
-    const bankCounts: Record<string, number> = {};
-    effectiveRecords.forEach(r => {
-      const b = r.bankPenerbit || 'Bank Rakyat Indonesia (BRI)';
-      bankCounts[b] = (bankCounts[b] || 0) + 1;
-    });
+    const avgNominalPerSp2d = totalSp2d > 0 ? Math.round(totalNominal / totalSp2d) : 0;
+    const avgNominalPerSatker = totalSatkers > 0 ? Math.round(totalNominal / totalSatkers) : 0;
 
-    const uniqueBanks = Object.keys(bankCounts).length;
-    const topBank = Object.entries(bankCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '-';
-
-    return { totalSatkers, totalSp2d, totalNominal, uniqueBanks, topBank };
-  }, [effectiveRecords]);
-
-  // Unique bank list for filtering
-  const availableBanks = useMemo(() => {
-    const banks = new Set<string>();
-    effectiveRecords.forEach(r => {
-      if (r.bankPenerbit) banks.add(r.bankPenerbit);
-    });
-    return Array.from(banks);
+    return { totalSatkers, totalSp2d, totalNominal, avgNominalPerSp2d, avgNominalPerSatker };
   }, [effectiveRecords]);
 
   // Filtered active records for management table
   const filteredActiveRecords = useMemo(() => {
     return effectiveRecords.filter(r => {
-      if (bankFilter !== 'ALL' && r.bankPenerbit !== bankFilter) return false;
       if (statusFilter !== 'ALL' && r.statusKeaktifan !== statusFilter) return false;
       if (!searchTableQuery.trim()) return true;
       const q = searchTableQuery.toLowerCase();
@@ -131,12 +112,11 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
         r.kodeSatker.toLowerCase().includes(q) ||
         r.namaSatker.toLowerCase().includes(q) ||
         (r.kementerianLembaga && r.kementerianLembaga.toLowerCase().includes(q)) ||
-        (r.bankPenerbit && r.bankPenerbit.toLowerCase().includes(q)) ||
         (r.noSp2dTerakhir && r.noSp2dTerakhir.toLowerCase().includes(q)) ||
         (r.periode && r.periode.toLowerCase().includes(q))
       );
     });
-  }, [effectiveRecords, bankFilter, statusFilter, searchTableQuery]);
+  }, [effectiveRecords, statusFilter, searchTableQuery]);
 
   // Pagination for active table
   const totalPages = Math.max(1, Math.ceil(filteredActiveRecords.length / pageSize));
@@ -561,13 +541,13 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
           <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80">
             <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Building2 className="w-3.5 h-3.5 text-blue-500" />
-              Mitra Bank Penerbit
+              Rata-rata per Satker
             </div>
-            <div className="text-lg font-black text-slate-900 dark:text-white mt-1 truncate" title={activeStats.topBank}>
-              {activeStats.topBank}
+            <div className="text-lg font-black text-slate-900 dark:text-white mt-1 truncate" title={formatRupiah(activeStats.avgNominalPerSatker)}>
+              {formatRupiah(activeStats.avgNominalPerSatker)}
             </div>
             <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-              {activeStats.uniqueBanks} Bank Penerbit
+              Rp {Math.round(activeStats.avgNominalPerSp2d / 1000).toLocaleString('id-ID')} Rb / SP2D
             </div>
           </div>
         </div>
@@ -578,7 +558,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
             <Lock className="w-4 h-4 text-indigo-700 dark:text-indigo-300" />
           </div>
           <div>
-            <strong className="font-bold">Ketentuan Privasi &amp; Pengecualian Kolom Otomatis:</strong> Kolom C s.d. I (yang berisi nomor rekening pihak ketiga, detail vendor individual, atau nomor faktur rinci) <strong>tidak ditampilkan di dashboard publik</strong>, hanya Kode Satker, Nama Satker, Frekuensi Transaksi, Total Nominal Rupiah, Bank Penerbit, dan No/Tanggal SP2D yang dipublikasikan.
+            <strong className="font-bold">Ketentuan Privasi &amp; Pengecualian Kolom Otomatis:</strong> Kolom C s.d. I (yang berisi nomor rekening pihak ketiga, detail vendor individual, atau nomor faktur rinci) <strong>tidak ditampilkan di dashboard publik</strong>, hanya Kode Satker, Nama Satker, Frekuensi Transaksi, Total Nominal Rupiah, dan No/Tanggal SP2D yang dipublikasikan.
           </div>
         </div>
 
@@ -746,7 +726,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                     <th className="py-3 px-3.5">Nama Satker</th>
                     <th className="py-3 px-3.5 text-center">Jumlah Transaksi</th>
                     <th className="py-3 px-3.5 text-right font-black text-emerald-600 dark:text-emerald-400">Total Nominal (Rp)</th>
-                    <th className="py-3 px-3.5">Bank Penerbit</th>
                     <th className="py-3 px-3.5 font-mono">Tgl SP2D Terakhir</th>
                     <th className="py-3 px-3.5">Status</th>
                   </tr>
@@ -765,7 +744,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                         <td className="py-2.5 px-3.5 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
                           {formatRupiah(r.totalNominal)}
                         </td>
-                        <td className="py-2.5 px-3.5 text-slate-600 dark:text-slate-300 truncate max-w-[140px]">{r.bankPenerbit || '-'}</td>
                         <td className="py-2.5 px-3.5 font-mono text-slate-500 dark:text-slate-400">{r.tglSp2dTerakhir || '-'}</td>
                         <td className="py-2.5 px-3.5">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -847,14 +825,14 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
             )}
           </div>
 
-          {/* Search, Bank Filter & Page Size */}
+          {/* Search & Status Filter & Page Size */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2 flex-1">
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Cari kode/nama satker, SP2D, bank..."
+                  placeholder="Cari kode/nama satker, SP2D..."
                   value={searchTableQuery}
                   onChange={(e) => {
                     setSearchTableQuery(e.target.value);
@@ -863,22 +841,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-200"
                 />
               </div>
-
-              {availableBanks.length > 1 && (
-                <select
-                  value={bankFilter}
-                  onChange={(e) => {
-                    setBankFilter(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-2xl text-xs font-bold text-slate-700 dark:text-slate-300 outline-none cursor-pointer"
-                >
-                  <option value="ALL">Semua Bank Mitra ({activeStats.uniqueBanks})</option>
-                  {availableBanks.map(b => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              )}
 
               <select
                 value={statusFilter}
@@ -931,7 +893,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                   <th className="py-3 px-3">Nama Satker &amp; K/L</th>
                   <th className="py-3 px-3 text-center">Frekuensi SP2D</th>
                   <th className="py-3 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">Total Belanja (Rp)</th>
-                  <th className="py-3 px-3">Bank Penerbit</th>
                   <th className="py-3 px-3 font-mono">No / Tgl SP2D</th>
                   <th className="py-3 px-3">Status</th>
                   <th className="py-3 px-3 text-center w-16">Aksi</th>
@@ -940,7 +901,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-8 text-center text-slate-400 text-xs">
+                    <td colSpan={9} className="py-8 text-center text-slate-400 text-xs">
                       Tidak ada data transaksi KKP yang sesuai dengan pencarian / filter.
                     </td>
                   </tr>
@@ -977,7 +938,6 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
                         <td className="py-3 px-3 text-right font-mono font-black text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
                           {formatRupiah(r.totalNominal)}
                         </td>
-                        <td className="py-3 px-3 text-slate-600 dark:text-slate-300 truncate max-w-[130px]">{r.bankPenerbit || '-'}</td>
                         <td className="py-3 px-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                           <div>{r.noSp2dTerakhir || '-'}</div>
                           <div className="text-[10px] text-slate-400">{r.tglSp2dTerakhir || '-'}</div>

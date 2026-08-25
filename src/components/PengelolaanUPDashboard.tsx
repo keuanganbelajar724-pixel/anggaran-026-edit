@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { PengelolaanUPRecord, MasterSatker } from '../types';
 import { formatBatasHariTanggal } from '../data/initialUPData';
+import { PaginationControl } from './PaginationControl';
 
 interface PengelolaanUPDashboardProps {
   records?: PengelolaanUPRecord[];
@@ -36,10 +37,12 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   userSatkerCode,
   onOpenUploadModal,
   onGoToAdmin,
+  theme = 'light',
   dashboardConfig,
   isAdminAuthenticated,
   customTexts
 }) => {
+  const isDark = theme === 'dark';
   const activeRecords = useMemo(() => {
     const raw = (records && records.length > 0) ? records : (upRecords || []);
     return raw.filter(r => {
@@ -54,6 +57,8 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
 
   // Active Master Satker Map for enrichment
   const activeSatkerMap = useMemo(() => {
@@ -109,6 +114,11 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
       return matchSearch && matchFilter;
     });
   }, [scopedRecords, searchTerm, activeFilter]);
+
+  const paginatedRecords = useMemo(() => {
+    if (pageSize <= 0) return displayedRecords;
+    return displayedRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  }, [displayedRecords, currentPage, pageSize]);
 
   // Summary counts
   const stats = useMemo(() => {
@@ -251,14 +261,20 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               type="text"
               placeholder="Cari kode, nama satker, hari, tanggal..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 font-medium text-slate-900 dark:text-slate-100"
             />
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
             <button
-              onClick={() => setActiveFilter('ALL')}
+              onClick={() => {
+                setActiveFilter('ALL');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 activeFilter === 'ALL'
                   ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-sm'
@@ -269,7 +285,10 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveFilter('1_MINGGU')}
+              onClick={() => {
+                setActiveFilter('1_MINGGU');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeFilter === '1_MINGGU'
                   ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
@@ -281,7 +300,10 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveFilter('UP_ONLY')}
+              onClick={() => {
+                setActiveFilter('UP_ONLY');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeFilter === 'UP_ONLY'
                   ? 'bg-purple-600 text-white shadow-sm'
@@ -292,7 +314,10 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveFilter('TUP_ONLY')}
+              onClick={() => {
+                setActiveFilter('TUP_ONLY');
+                setCurrentPage(1);
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeFilter === 'TUP_ONLY'
                   ? 'bg-sky-600 text-white shadow-sm'
@@ -312,7 +337,10 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               <span>Menampilkan satker yang memiliki batas waktu dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong>.</span>
             </div>
             <button
-              onClick={() => setActiveFilter('ALL')}
+              onClick={() => {
+                setActiveFilter('ALL');
+                setCurrentPage(1);
+              }}
               className="text-amber-700 dark:text-amber-300 font-bold underline text-[11px] cursor-pointer"
             >
               Tampilkan Semua Satker
@@ -332,7 +360,10 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {activeFilter === '1_MINGGU' ? (
                 <button
-                  onClick={() => setActiveFilter('ALL')}
+                  onClick={() => {
+                    setActiveFilter('ALL');
+                    setCurrentPage(1);
+                  }}
                   className="text-purple-600 dark:text-purple-400 font-bold underline cursor-pointer"
                 >
                   Klik di sini untuk melihat semua data ({scopedRecords.length} Satker)
@@ -343,7 +374,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto -mx-5 sm:-mx-6">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700 uppercase">
@@ -354,7 +385,8 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {displayedRecords.map((item, idx) => {
+                {paginatedRecords.map((item, idx) => {
+                  const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
                   const upDeadline = formatBatasHariTanggal(item.batasRevolvingKolomN || (item.jenisDana !== 'TUP' ? item.batasRevolving : undefined));
                   const tupDeadline = formatBatasHariTanggal(item.batasWaktuTUPKolomH || (item.jenisDana === 'TUP' ? (item as any).batasWaktuTUP || item.batasRevolving : undefined));
 
@@ -363,7 +395,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                       key={item.id || idx}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                     >
-                      <td className="py-3 px-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                      <td className="py-3 px-3 text-center font-mono text-slate-400">{globalIdx}</td>
                       <td className="py-3 px-4">
                         <div className="font-bold text-slate-900 dark:text-slate-100">{item.namaSatker}</div>
                         <div className="font-mono text-purple-600 dark:text-purple-400 font-semibold">{item.kodeSatker}</div>
@@ -398,6 +430,18 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </table>
           </div>
         )}
+
+        {/* Pagination Control */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={displayedRecords.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker"
+          isDark={theme === 'dark'}
+          className="-mx-5 sm:-mx-6 -mb-5 sm:-mb-6 rounded-b-3xl"
+        />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
 import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
+import { PaginationControl } from './PaginationControl';
 import { 
   Building2, 
   TrendingUp, 
@@ -82,6 +83,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const [indicatorPredikatFilter, setIndicatorPredikatFilter] = useState<'ALL' | 'KURANG' | 'CUKUP' | 'BAIK' | 'SANGAT_BAIK'>('KURANG');
   const [indicatorSearch, setIndicatorSearch] = useState<string>('');
   const [indicatorPage, setIndicatorPage] = useState<number>(1);
+  const [indicatorPageSize, setIndicatorPageSize] = useState<number>(8);
   const [isDiagnosticExpanded, setIsDiagnosticExpanded] = useState<boolean>(true);
   const [indicatorAnalysisModalData, setIndicatorAnalysisModalData] = useState<IndicatorAnalysisModalData | null>(null);
 
@@ -858,9 +860,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             return true;
           }).sort((a, b) => a.indicatorValue - b.indicatorValue); // Nilai terendah di awal
 
-          const indPageSize = 8;
-          const indTotalPages = Math.max(1, Math.ceil(filteredIndSatkers.length / indPageSize));
-          const pagedIndSatkers = filteredIndSatkers.slice((indicatorPage - 1) * indPageSize, indicatorPage * indPageSize);
+          const indPageSize = indicatorPageSize;
+          const indTotalPages = indPageSize <= 0 ? 1 : Math.max(1, Math.ceil(filteredIndSatkers.length / indPageSize));
+          const pagedIndSatkers = indPageSize <= 0 ? filteredIndSatkers : filteredIndSatkers.slice((indicatorPage - 1) * indPageSize, indicatorPage * indPageSize);
 
           return (
             <div className={`p-5 rounded-2xl border space-y-4 ${
@@ -1109,29 +1111,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               </div>
 
               {/* Indicator Table Pagination */}
-              {indTotalPages > 1 && (
-                <div className="flex items-center justify-between pt-2 text-xs">
-                  <span className="text-slate-500 font-medium">
-                    Halaman {indicatorPage} dari {indTotalPages} ({filteredIndSatkers.length} Satker)
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setIndicatorPage(Math.max(1, indicatorPage - 1))}
-                      disabled={indicatorPage === 1}
-                      className="px-2.5 py-1 rounded-lg border text-xs font-bold disabled:opacity-40 cursor-pointer"
-                    >
-                      Sebelumnya
-                    </button>
-                    <button
-                      onClick={() => setIndicatorPage(Math.min(indTotalPages, indicatorPage + 1))}
-                      disabled={indicatorPage === indTotalPages}
-                      className="px-2.5 py-1 rounded-lg border text-xs font-bold disabled:opacity-40 cursor-pointer"
-                    >
-                      Selanjutnya
-                    </button>
-                  </div>
-                </div>
-              )}
+              <PaginationControl
+                currentPage={indicatorPage}
+                totalItems={filteredIndSatkers.length}
+                pageSize={indicatorPageSize}
+                onPageChange={setIndicatorPage}
+                onPageSizeChange={setIndicatorPageSize}
+                itemLabel="Satker"
+                isDark={isDark}
+                className="pt-2 border-t border-slate-100 dark:border-slate-800"
+              />
             </div>
           );
         })()}
@@ -1469,64 +1458,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
 
         {/* Pagination Bar Controls */}
-        {filteredSatkers.length > 0 && (
-          <div className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs ${
-            isDark ? 'bg-slate-950/80 border-slate-800 text-slate-400' : 'bg-slate-50/80 border-slate-200 text-slate-600'
-          }`}>
-            <div className="flex items-center gap-2">
-              <span>Tampilkan per halaman:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className={`px-2.5 py-1 rounded-lg border font-bold focus:outline-none cursor-pointer ${
-                  isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-800'
-                }`}
-              >
-                <option value={10}>10 Satker</option>
-                <option value={25}>25 Satker</option>
-                <option value={50}>50 Satker</option>
-                <option value={-1}>Semua ({filteredSatkers.length})</option>
-              </select>
-            </div>
-
-            {pageSize > 0 && totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className={`p-1.5 rounded-lg border transition-all ${
-                    currentPage === 1 
-                      ? 'opacity-40 cursor-not-allowed' 
-                      : (isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer')
-                  }`}
-                  title="Halaman Sebelumnya"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                <span className="px-3 py-1 font-bold">
-                  Halaman {currentPage} dari {totalPages}
-                </span>
-
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`p-1.5 rounded-lg border transition-all ${
-                    currentPage === totalPages 
-                      ? 'opacity-40 cursor-not-allowed' 
-                      : (isDark ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800 cursor-pointer')
-                  }`}
-                  title="Halaman Selanjutnya"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <PaginationControl
+          currentPage={currentPage}
+          totalItems={filteredSatkers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="Satker"
+          isDark={isDark}
+          className="p-4 border-t border-slate-100 dark:border-slate-800"
+        />
 
         {/* Mobile Card View (Visible on small screens) */}
         <div className={`block md:hidden divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-200'}`}>
@@ -1536,7 +1477,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <p className="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau reset filter.</p>
             </div>
           ) : (
-            filteredSatkers.map((satker, idx) => {
+            paginatedSatkers.map((satker, idx) => {
               const isRedFlag = satker.nilaiTotalIKPA < 87.5;
               const ind = satker.indikator;
               return (
