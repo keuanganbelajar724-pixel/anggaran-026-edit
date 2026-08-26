@@ -729,6 +729,82 @@ export interface DigipaySatkerSummary {
   rankByNominal?: number;
 }
 
+// -------------------------------------------------------------
+// MODUL MONITORING DEVIASI HALAMAN III DIPA (Baru)
+// -------------------------------------------------------------
+export type JenisBelanjaDIPA = '51' | '52' | '53' | '57' | 'TOTAL';
+
+export interface DeviasiJenisBelanjaDetail {
+  jenisBelanja?: '51' | '52' | '53' | '57' | string;
+  akun?: string;
+  namaJenisBelanja?: string; // Belanja Pegawai, Belanja Barang, Belanja Modal, Belanja Bansos
+  paguDipa?: number;
+  rpd: number; // Rencana Penarikan Dana (Rp)
+  realisasi: number; // Realisasi SP2D (Rp)
+  deviasiNominal: number; // Selisih |Realisasi - RPD| (Rp)
+  persenDeviasi: number; // % Deviasi terhadap RPD
+  status?: 'Aman' | 'Waspada' | 'Tinggi' | 'Kritis' | string;
+}
+
+export interface DeviasiHal3Record {
+  id: string;
+  batchId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kementerianLembaga?: string;
+  kodeKppn?: string;
+  kodeEselon1?: string;
+  unitEselon1?: string;
+  periodeAngka?: number; // 1, 2, 3, ... 12
+  periodeBulan: string; // 'Januari', 'Februari', 'Maret', 'Agustus', dst.
+  periodeFormatted?: string; // '01 (Januari)', '02 (Februari)', dst.
+  triwulan?: 'TW I' | 'TW II' | 'TW III' | 'TW IV';
+  tahun: number;
+  tanggalPosting?: string;
+  noRevisiTerakhir?: string | number;
+  klasifikasiSatker?: string;
+  paguTotal?: number;
+  rpdTotal: number; // Total RPD Halaman III DIPA (Rp)
+  realisasiTotal: number; // Total Realisasi Anggaran / SP2D (Rp)
+  deviasiNominalTotal: number; // |Realisasi - RPD| (Rp)
+  persenDeviasiTotal: number; // Rata-rata / Total Deviasi (%)
+  skorIKPADeviasi?: number; // Optional
+  statusDeviasi?: 'Aman (≤ 5%)' | 'Waspada (5% - 10%)' | 'Tinggi (10% - 20%)' | 'Kritis (> 20%)';
+  rincianJenisBelanja?: {
+    belanjaPegawai?: DeviasiJenisBelanjaDetail; // 51
+    belanjaBarang?: DeviasiJenisBelanjaDetail; // 52
+    belanjaModal?: DeviasiJenisBelanjaDetail; // 53
+    belanjaBansos?: DeviasiJenisBelanjaDetail; // 57
+    belanja51?: DeviasiJenisBelanjaDetail;
+    belanja52?: DeviasiJenisBelanjaDetail;
+    belanja53?: DeviasiJenisBelanjaDetail;
+    belanja57?: DeviasiJenisBelanjaDetail;
+  };
+  earlyWarningAlert?: boolean;
+  rekomendasiAksi?: string;
+  sisaTargetSPM?: number;
+  noHpPic?: string;
+  namaPic?: string;
+  catatan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DeviasiHal3UploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  summaryRpd?: number;
+  summaryRealisasi?: number;
+  avgDeviasi?: number;
+  avgSkorIKPA?: number;
+}
+
 export interface DigipayUploadBatch {
   id: string;
   fileName: string;
@@ -1040,6 +1116,8 @@ export interface DashboardConfig {
   transaksiKkpUploads?: KKPUploadBatch[];
   transaksiDigipayRecords?: DigipayRecord[];
   transaksiDigipayUploads?: DigipayUploadBatch[];
+  deviasiHal3Records?: DeviasiHal3Record[];
+  deviasiHal3Uploads?: DeviasiHal3UploadBatch[];
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
@@ -1052,6 +1130,7 @@ export interface DashboardConfig {
 export type NavigationTab = 
   | 'dashboard' 
   | 'capaian-output' 
+  | 'deviasi-hal3'
   | 'pengelolaan-up'
   | 'transaksi-kkp'
   | 'transaksi-digipay'

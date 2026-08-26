@@ -1,9 +1,24 @@
-import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord, DigipayRecord } from '../types';
+import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, DeviasiJenisBelanjaDetail } from '../types';
 
 const MONTHS_ORDER = [
   'januari', 'februari', 'maret', 'april', 'mei', 'juni',
   'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
 ];
+
+const PERIODE_BULAN_MAP: Record<number, string> = {
+  1: 'Januari',
+  2: 'Februari',
+  3: 'Maret',
+  4: 'April',
+  5: 'Mei',
+  6: 'Juni',
+  7: 'Juli',
+  8: 'Agustus',
+  9: 'September',
+  10: 'Oktober',
+  11: 'November',
+  12: 'Desember'
+};
 
 const DUMMY_PHONES = new Set(['081234567890', '081398765432', '081298765432', '081323456789', '+62 812-3456-7890', '08123456789']);
 
@@ -242,7 +257,6 @@ export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[])
  */
 export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[], localList: PengelolaanUPRecord[]): PengelolaanUPRecord[] {
   if (Array.isArray(serverList) && serverList.length > 0) {
-    // When server data is available, it is the authoritative single source of truth
     return serverList;
   }
   return Array.isArray(localList) ? localList : [];
@@ -351,5 +365,178 @@ export function mergeDigipayAntiDowngrade(serverList: DigipayRecord[], localList
 
   return Array.from(itemMap.values());
 }
+
+/**
+ * Compacts Deviasi Hal III records for Firestore (stores values in lightweight 4-tuples)
+ * Drastically reduces document payload from >1.9MB down to <250KB for 1,500+ records.
+ */
+export function compactDeviasiHal3ForFirestore(records: DeviasiHal3Record[]): any[] {
+  if (!Array.isArray(records)) return [];
+  return records
+    .filter(r => r && (r.kodeSatker || r.namaSatker))
+    .map(r => {
+      const d51 = r.rincianJenisBelanja?.belanja51 || r.rincianJenisBelanja?.belanjaPegawai;
+      const d52 = r.rincianJenisBelanja?.belanja52 || r.rincianJenisBelanja?.belanjaBarang;
+      const d53 = r.rincianJenisBelanja?.belanja53 || r.rincianJenisBelanja?.belanjaModal;
+      const d57 = r.rincianJenisBelanja?.belanja57 || r.rincianJenisBelanja?.belanjaBansos;
+
+      // Lightweight 4-number array: [rpd, realisasi, deviasiNominal, persenDeviasi]
+      const b51 = d51 ? [Number(d51.rpd || 0), Number(d51.realisasi || 0), Number(d51.deviasiNominal || 0), Number(d51.persenDeviasi || 0)] : undefined;
+      const b52 = d52 ? [Number(d52.rpd || 0), Number(d52.realisasi || 0), Number(d52.deviasiNominal || 0), Number(d52.persenDeviasi || 0)] : undefined;
+      const b53 = d53 ? [Number(d53.rpd || 0), Number(d53.realisasi || 0), Number(d53.deviasiNominal || 0), Number(d53.persenDeviasi || 0)] : undefined;
+      const b57 = d57 ? [Number(d57.rpd || 0), Number(d57.realisasi || 0), Number(d57.deviasiNominal || 0), Number(d57.persenDeviasi || 0)] : undefined;
+
+      const pAngka = Number(r.periodeAngka) || 8;
+      const pBulan = r.periodeBulan || PERIODE_BULAN_MAP[pAngka] || 'Agustus';
+
+      const item: any = {
+        id: String(r.id || `deviasi_${r.kodeSatker}_${pAngka}`),
+        k: String(r.kodeSatker || '').trim(),
+        n: String(r.namaSatker || '').trim(),
+        p: pAngka,
+        b: pBulan,
+        rt: Number(r.rpdTotal) || 0,
+        at: Number(r.realisasiTotal) || 0,
+        dt: Number(r.deviasiNominalTotal) || 0,
+        pt: Number(r.persenDeviasiTotal) || 0
+      };
+
+      if (b51 && (b51[0] > 0 || b51[1] > 0 || b51[2] > 0)) item.b51 = b51;
+      if (b52 && (b52[0] > 0 || b52[1] > 0 || b52[2] > 0)) item.b52 = b52;
+      if (b53 && (b53[0] > 0 || b53[1] > 0 || b53[2] > 0)) item.b53 = b53;
+      if (b57 && (b57[0] > 0 || b57[1] > 0 || b57[2] > 0)) item.b57 = b57;
+
+      if (r.kodeKppn && r.kodeKppn !== '026') item.kppn = r.kodeKppn;
+      if (r.kodeEselon1) item.es = r.kodeEselon1;
+      if (r.tanggalPosting) item.w = r.tanggalPosting;
+      if (r.noRevisiTerakhir !== undefined && r.noRevisiTerakhir !== '') item.rev = String(r.noRevisiTerakhir);
+      if (r.klasifikasiSatker) item.kl = r.klasifikasiSatker;
+      if (r.earlyWarningAlert) item.ew = true;
+
+      return item;
+    });
+}
+
+/**
+ * Hydrates compact Deviasi Hal III records from Firestore into full typed objects
+ */
+export function hydrateDeviasiHal3FromFirestore(rawList: any[]): DeviasiHal3Record[] {
+  if (!Array.isArray(rawList)) return [];
+  return rawList
+    .filter(r => r && (r.k || r.kodeSatker || r.n || r.namaSatker))
+    .map((r, idx) => {
+      const kodeSatker = String(r.k || r.kodeSatker || '').trim();
+      const namaSatker = String(r.n || r.namaSatker || `Satker ${kodeSatker}`).trim();
+      const periodeAngka = Number(r.p || r.periodeAngka || 8);
+      const periodeBulan = String(r.b || r.periodeBulan || PERIODE_BULAN_MAP[periodeAngka] || 'Agustus');
+      const periodeFormatted = `Periode ${String(periodeAngka).padStart(2, '0')} (${periodeBulan})`;
+
+      const rpdTotal = Number(r.rt !== undefined ? r.rt : r.rpdTotal) || 0;
+      const realisasiTotal = Number(r.at !== undefined ? r.at : r.realisasiTotal) || 0;
+      const deviasiNominalTotal = Number(r.dt !== undefined ? r.dt : r.deviasiNominalTotal) || 0;
+      const persenDeviasiTotal = Number(r.pt !== undefined ? r.pt : r.persenDeviasiTotal) || 0;
+
+      // Parse 51, 52, 53, 57 details
+      const extractDetail = (compactArr: any, fullObj: any, akun: string, label: string): DeviasiJenisBelanjaDetail => {
+        let rpd = 0;
+        let real = 0;
+        let dev = 0;
+        let pct = 0;
+
+        if (Array.isArray(compactArr)) {
+          rpd = Number(compactArr[0]) || 0;
+          real = Number(compactArr[1]) || 0;
+          dev = Number(compactArr[2]) || 0;
+          pct = Number(compactArr[3]) || 0;
+        } else if (fullObj) {
+          rpd = Number(fullObj.rpd) || 0;
+          real = Number(fullObj.realisasi) || 0;
+          dev = Number(fullObj.deviasiNominal) || 0;
+          pct = Number(fullObj.persenDeviasi) || 0;
+        }
+
+        return {
+          jenisBelanja: `${label} (${akun})`,
+          akun,
+          rpd,
+          realisasi: real,
+          deviasiNominal: dev,
+          persenDeviasi: pct,
+          status: pct <= 5 ? 'Aman' : pct <= 10 ? 'Waspada' : pct <= 20 ? 'Tinggi' : 'Kritis'
+        };
+      };
+
+      const belanja51 = extractDetail(r.b51, r.rincianJenisBelanja?.belanja51 || r.rincianJenisBelanja?.belanjaPegawai, '51', 'Belanja Pegawai');
+      const belanja52 = extractDetail(r.b52, r.rincianJenisBelanja?.belanja52 || r.rincianJenisBelanja?.belanjaBarang, '52', 'Belanja Barang');
+      const belanja53 = extractDetail(r.b53, r.rincianJenisBelanja?.belanja53 || r.rincianJenisBelanja?.belanjaModal, '53', 'Belanja Modal');
+      const belanja57 = extractDetail(r.b57, r.rincianJenisBelanja?.belanja57 || r.rincianJenisBelanja?.belanjaBansos, '57', 'Belanja Bansos');
+
+      const triwulan = (periodeAngka <= 3 ? 'TW I' : periodeAngka <= 6 ? 'TW II' : periodeAngka <= 9 ? 'TW III' : 'TW IV') as any;
+
+      return {
+        id: String(r.id || `deviasi-${kodeSatker}-${periodeAngka}-${idx}`),
+        kodeSatker,
+        namaSatker,
+        kementerianLembaga: String(r.kementerianLembaga || 'Kementerian/Lembaga Mitra'),
+        kodeKppn: String(r.kppn || r.kodeKppn || '026'),
+        kodeEselon1: String(r.es || r.kodeEselon1 || ''),
+        periodeAngka,
+        periodeBulan,
+        periodeFormatted,
+        triwulan,
+        tahun: Number(r.tahun) || 2026,
+        tanggalPosting: String(r.w || r.tanggalPosting || ''),
+        noRevisiTerakhir: r.rev !== undefined ? r.rev : (r.noRevisiTerakhir || ''),
+        klasifikasiSatker: String(r.kl || r.klasifikasiSatker || ''),
+        rpdTotal,
+        realisasiTotal,
+        deviasiNominalTotal,
+        persenDeviasiTotal,
+        rincianJenisBelanja: {
+          belanjaPegawai: belanja51,
+          belanjaBarang: belanja52,
+          belanjaModal: belanja53,
+          belanjaBansos: belanja57,
+          belanja51,
+          belanja52,
+          belanja53,
+          belanja57
+        },
+        earlyWarningAlert: r.ew !== undefined ? !!r.ew : (r.earlyWarningAlert !== undefined ? !!r.earlyWarningAlert : persenDeviasiTotal > 10.0),
+        createdAt: r.createdAt || new Date().toISOString(),
+        updatedAt: r.updatedAt || new Date().toISOString()
+      };
+    });
+}
+
+/**
+ * Merges Deviasi Hal III lists safely anti-downgrade
+ */
+export function mergeDeviasiHal3AntiDowngrade(serverRawList: any[], localList: DeviasiHal3Record[]): DeviasiHal3Record[] {
+  const serverHydrated = hydrateDeviasiHal3FromFirestore(serverRawList);
+  if (!Array.isArray(serverHydrated) || serverHydrated.length === 0) return localList || [];
+  if (!Array.isArray(localList) || localList.length === 0) return serverHydrated;
+
+  const itemMap = new Map<string, DeviasiHal3Record>();
+
+  // Local first
+  localList.forEach(r => {
+    if (r && r.kodeSatker) {
+      const key = `${r.kodeSatker}_${r.periodeAngka || r.periodeBulan || '8'}`;
+      itemMap.set(key, r);
+    }
+  });
+
+  // Server is authoritative source of truth
+  serverHydrated.forEach(r => {
+    if (r && r.kodeSatker) {
+      const key = `${r.kodeSatker}_${r.periodeAngka || r.periodeBulan || '8'}`;
+      itemMap.set(key, r);
+    }
+  });
+
+  return Array.from(itemMap.values()).sort((a, b) => (a.periodeAngka || 0) - (b.periodeAngka || 0));
+}
+
 
 

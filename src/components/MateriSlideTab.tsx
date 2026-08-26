@@ -253,13 +253,13 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     const correctPassword = promptPasswordMaterial.password || 'kppn026';
     const entered = inputPassword.trim();
 
-    // Support defined password or master bypass (kppn026, 527272, admin123)
+    const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+
+    // Support defined password or master bypass (centralized admin password or default 'kppn026')
     if (
       entered === correctPassword ||
-      entered === 'kppn026' ||
-      entered === '527272' ||
-      entered === 'admin123' ||
-      entered === 'internal026'
+      entered === currentAdminPin ||
+      entered === 'kppn026'
     ) {
       setUnlockedMaterialIds(prev => new Set(prev).add(promptPasswordMaterial.id));
       const targetMat = promptPasswordMaterial;

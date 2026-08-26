@@ -121,7 +121,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
         setPendingAction(null);
       }
     } else {
-      setAuthPinError('Password Admin salah. Silakan coba lagi (Gunakan: admin123 atau kppn026)');
+      setAuthPinError('Password Admin salah. Silakan periksa kembali password Anda.');
     }
   };
 
@@ -1692,7 +1692,7 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
             <form onSubmit={handleAuthSubmit} className="space-y-3">
               <input
                 type="password"
-                placeholder="Password Admin (admin123 / kppn026)..."
+                placeholder="Masukkan Password Admin..."
                 value={authPinInput}
                 onChange={(e) => {
                   setAuthPinInput(e.target.value);

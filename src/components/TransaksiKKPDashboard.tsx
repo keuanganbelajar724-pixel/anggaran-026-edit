@@ -889,7 +889,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Cari Kode / Nama Satker / SP2D..."
+              placeholder="Cari Kode / Nama Satker / K/L..."
               className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -940,7 +940,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                   setCurrentPage(1);
                 }}
                 className="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-slate-200 dark:border-slate-800 shrink-0 cursor-pointer"
-                title="Reset Semua Filter &amp; Bulan"
+                title="Reset Semua Filter & Bulan"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -959,7 +959,6 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                 <th className="py-3 px-4 min-w-[170px]">Kementerian / Lembaga</th>
                 <th className="py-3 px-3 text-center min-w-[110px]">Frekuensi</th>
                 <th className="py-3 px-4 text-right min-w-[150px]">Total Nilai KKP (Rp)</th>
-                <th className="py-3 px-3 min-w-[130px]">Tanggal SP2D</th>
                 <th className="py-3 px-3 text-center min-w-[100px]">Status</th>
                 <th className="py-3 px-3 text-center w-16">Aksi</th>
               </tr>
@@ -967,7 +966,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-slate-400">
+                  <td colSpan={7} className="py-10 text-center text-slate-400">
                     Tidak ada satker yang cocok dengan filter atau pencarian Anda.
                   </td>
                 </tr>
@@ -1031,13 +1030,6 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
                       {/* Total Nominal */}
                       <td className="py-3 px-4 text-right font-mono font-black text-slate-900 dark:text-white">
                         Rp {r.totalNominal.toLocaleString('id-ID')}
-                      </td>
-
-                      {/* Tanggal SP2D (Kolom E) */}
-                      <td className="py-3 px-3 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
-                        <span className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                          📅 {r.tglSp2dTerakhir || '-'}
-                        </span>
                       </td>
 
                       {/* Status */}

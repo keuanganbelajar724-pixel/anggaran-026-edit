@@ -75,7 +75,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
       setPinError(null);
       setPinInput('');
     } else {
-      setPinError('Password Admin salah. Silakan coba lagi (Gunakan: admin123 atau kppn026)');
+      setPinError('Password Admin salah. Silakan periksa kembali password Anda.');
     }
   };
 

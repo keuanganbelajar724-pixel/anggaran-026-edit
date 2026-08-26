@@ -113,8 +113,9 @@ export const verifySatkerPassword = (
     return true;
   }
 
-  // 7. Master bypass PIN KPPN
-  if (['admin123', '527272', 'kppn026', 'kppn033', 'kppnsemarang1'].includes(cleanInput.toLowerCase())) {
+  // 7. Master bypass PIN KPPN (uses centralized admin password or default 'kppn026')
+  const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+  if (cleanInput === currentAdminPin || cleanInput.toLowerCase() === currentAdminPin.toLowerCase() || cleanInput.toLowerCase() === 'kppn026') {
     return true;
   }
 

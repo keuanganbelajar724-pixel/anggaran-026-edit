@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, PresensiPrintConfig } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, PresensiPrintConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import {
   compactSatkersForFirestore,
@@ -13,6 +13,9 @@ import {
   compactDigipayForFirestore,
   compactKKPForFirestore,
   mergeDigipayAntiDowngrade,
+  compactDeviasiHal3ForFirestore,
+  hydrateDeviasiHal3FromFirestore,
+  mergeDeviasiHal3AntiDowngrade,
   cleanContactValue,
   cleanPicName
 } from './utils/firebaseStorageOptimizer';
@@ -26,6 +29,7 @@ import { INITIAL_SERTIFIKASI_PEJABAT } from './data/sertifikasiData';
 import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
+import { INITIAL_DEVIASI_HAL3_DATA } from './data/initialDeviasiHal3Data';
 import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -33,6 +37,7 @@ import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
 import { TransaksiDigipayDashboard } from './components/TransaksiDigipayDashboard';
+import { DeviasiHal3Dashboard } from './components/DeviasiHal3Dashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
@@ -409,7 +414,7 @@ export default function App() {
   // Global Admin Authentication State shared across Admin Upload, Satker Details Modal & Reminder Generator
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPin, setAdminPin] = useState<string>(() => {
-    return localStorage.getItem('kppn_admin_pin') || '527272';
+    return localStorage.getItem('kppn_admin_pin') || 'kppn026';
   });
 
   // Initial Syncing State for clean first-visit experience (prevents flash of empty/uninitialized data)
@@ -756,6 +761,22 @@ export default function App() {
         console.warn("Firebase Digipay listener notice:", error);
       });
 
+      // 10. Realtime Deviasi Halaman III DIPA Data with anti-downgrade & compaction
+      const unsubDeviasiHal3 = onSnapshot(doc(db, 'data', 'deviasi_hal3'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDeviasiHal3List(currentLocal => {
+              const merged = mergeDeviasiHal3AntiDowngrade(data.list, currentLocal);
+              localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(merged));
+              return merged;
+            });
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Deviasi Hal III listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubHistorical();
@@ -766,6 +787,7 @@ export default function App() {
         unsubUP();
         unsubKKP();
         unsubDigipay();
+        unsubDeviasiHal3();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -1162,6 +1184,41 @@ export default function App() {
     }
   };
 
+  // Deviasi Halaman III DIPA State & Persistence
+  const [deviasiHal3List, setDeviasiHal3List] = useState<DeviasiHal3Record[]>(() => {
+    const saved = localStorage.getItem('kppn_deviasi_hal3');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved Deviasi Hal III data:', e);
+      }
+    }
+    return INITIAL_DEVIASI_HAL3_DATA;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(deviasiHal3List));
+    } catch (e) {
+      console.warn('Error saving Deviasi Hal III data to localStorage:', e);
+    }
+  }, [deviasiHal3List]);
+
+  const handleUpdateDeviasiHal3 = (newList: DeviasiHal3Record[]) => {
+    const listToSave = Array.isArray(newList) ? newList : [];
+    setDeviasiHal3List(listToSave);
+    try {
+      localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(listToSave));
+      const compacted = compactDeviasiHal3ForFirestore(listToSave);
+      setDoc(doc(db, 'data', 'deviasi_hal3'), { list: compacted, updatedAt: new Date().toISOString() })
+        .catch(err => console.error("Firebase Deviasi Hal III setDoc error:", err));
+    } catch (e) {
+      console.warn("Error syncing Deviasi Hal III to Firebase:", e);
+    }
+  };
+
   // Broadcast Template Library Global Modal State
   const [isGlobalBroadcastLibraryOpen, setIsGlobalBroadcastLibraryOpen] = useState<boolean>(false);
 
@@ -1197,12 +1254,12 @@ export default function App() {
     const cleanPin = sanitizeInput(pin).trim();
     if (!cleanPin) return false;
 
-    // Check against current active admin pin or authorized default keys
+    const currentPin = (adminPin || 'kppn026').trim();
+
+    // Check against centralized active admin password (default: kppn026 or custom admin password)
     if (
-      cleanPin === adminPin || 
-      cleanPin === '527272' || 
-      cleanPin === 'kppn026' || 
-      cleanPin === 'kppn033'
+      cleanPin === currentPin || 
+      cleanPin === 'kppn026'
     ) {
       createAdminSession();
       setIsAdminAuthenticated(true);
@@ -1743,6 +1800,20 @@ export default function App() {
                 />
               )}
 
+              {/* Tab: Monitoring Deviasi Halaman III DIPA (Baru) */}
+              {activeTab === 'deviasi-hal3' && (
+                <DeviasiHal3Dashboard
+                  deviasiRecords={deviasiHal3List}
+                  onUpdateDeviasiRecords={(records) => handleUpdateDeviasiHal3(records)}
+                  masterSatkers={masterSatkers}
+                  satkers={satkers}
+                  isDark={theme === 'dark'}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSetIsAdminAuthenticated={setIsAdminAuthenticated}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
               {/* Tab 3: Pengelolaan UP / TUP Dedicated */}
               {activeTab === 'pengelolaan-up' && (
                 <PengelolaanUPDashboard
@@ -1895,6 +1966,9 @@ export default function App() {
                   transaksiDigipayRecords={transaksiDigipayList}
                   onApplyTransaksiDigipay={handleUpdateTransaksiDigipay}
                   onClearTransaksiDigipay={() => handleUpdateTransaksiDigipay([])}
+                  deviasiHal3Records={deviasiHal3List}
+                  onApplyDeviasiHal3={handleUpdateDeviasiHal3}
+                  onClearDeviasiHal3={() => handleUpdateDeviasiHal3([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

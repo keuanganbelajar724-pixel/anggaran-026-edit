@@ -99,15 +99,16 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
 
     const cleanInput = satkerPasswordInput.trim();
 
+    const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+
     if (
       cleanInput === defaultPassword ||
       cleanInput === underscorePassword ||
       cleanInput === satker.passwordSatker ||
       cleanInput === satker.kodeSatker ||
       cleanInput === `${satker.kodeSatker}${ba}${kppn}` ||
-      cleanInput === 'admin123' ||
-      cleanInput === 'kppn026' ||
-      cleanInput === '527272'
+      cleanInput === currentAdminPin ||
+      cleanInput === 'kppn026'
     ) {
       setIsSatkerUnlocked(true);
       setSatkerPasswordError(null);

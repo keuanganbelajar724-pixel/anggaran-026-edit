@@ -23,6 +23,7 @@ import {
   DigipayRecord,
   PopUpAnnouncementConfig,
   SlideShowConfig,
+  DeviasiHal3Record,
   PresensiPrintConfig
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
@@ -31,6 +32,7 @@ import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
 import { UploadTUPSection } from './admin/UploadTUPSection';
 import { UploadKKPSection } from './admin/UploadKKPSection';
 import { UploadDigipaySection } from './admin/UploadDigipaySection';
+import { UploadDeviasiHal3Section } from './admin/UploadDeviasiHal3Section';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
@@ -193,6 +195,9 @@ interface AdminUploadProps {
   transaksiDigipayRecords?: DigipayRecord[];
   onApplyTransaksiDigipay?: (records: DigipayRecord[]) => void;
   onClearTransaksiDigipay?: () => void;
+  deviasiHal3Records?: DeviasiHal3Record[];
+  onApplyDeviasiHal3?: (records: DeviasiHal3Record[]) => void;
+  onClearDeviasiHal3?: () => void;
   onClearMasterSatkers?: () => void;
 }
 
@@ -350,7 +355,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   isAdminAuthenticated = false,
   setIsAdminAuthenticated,
   theme = 'light',
-  adminPin = 'admin123',
+  adminPin = 'kppn026',
   onUpdateAdminPin,
   presensiKegiatanList = [],
   presensiPesertaList = [],
@@ -366,6 +371,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   transaksiDigipayRecords = [],
   onApplyTransaksiDigipay,
   onClearTransaksiDigipay,
+  deviasiHal3Records = [],
+  onApplyDeviasiHal3,
+  onClearDeviasiHal3,
   onClearMasterSatkers
 }) => {
   const isDark = theme === 'dark';
@@ -375,8 +383,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -1169,7 +1177,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === adminPin || passwordInput === '527272' || passwordInput === 'admin123' || passwordInput === 'kppn026' || passwordInput === 'kppn033' || passwordInput === 'admin') {
+    const cleanPass = passwordInput.trim();
+    const currentPin = (adminPin || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026').trim();
+
+    if (cleanPass === currentPin || cleanPass === 'kppn026') {
       if (setIsAdminAuthenticated) {
         setIsAdminAuthenticated(true);
       }
@@ -9516,6 +9527,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {transaksiDigipayRecords.length} Transaksi Digipay
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('deviasi-hal3')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'deviasi-hal3'
+                    ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-indigo-800 dark:text-indigo-300">
+                  <FileSpreadsheet className="w-5 h-5 text-indigo-600 shrink-0" />
+                  <span>7. Deviasi Hal III DIPA</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  RPD vs Realisasi SP2D Bulanan &amp; Mitigasi Skor IKPA (10%).
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-400">
+                  {deviasiHal3Records.length} Data Satker
+                </div>
+              </button>
             </div>
           </div>
 
@@ -9610,6 +9642,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               transaksiDigipayRecords={transaksiDigipayRecords}
               onApplyTransaksiDigipay={onApplyTransaksiDigipay || (() => {})}
               onClearTransaksiDigipay={onClearTransaksiDigipay || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'deviasi-hal3' && (
+            <UploadDeviasiHal3Section
+              isDark={isDark}
+              satkers={satkers}
+              masterSatkers={masterSatkers}
+              deviasiHal3Records={deviasiHal3Records}
+              onApplyDeviasiHal3={onApplyDeviasiHal3 || (() => {})}
+              onClearDeviasiHal3={onClearDeviasiHal3 || (() => {})}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}

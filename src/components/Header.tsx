@@ -227,6 +227,13 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
     },
     {
+      id: 'deviasi-hal3',
+      label: 'Deviasi Hal III DIPA',
+      icon: <FileSpreadsheet className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Hal III</span>,
+      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+    },
+    {
       id: 'pengelolaan-up',
       label: 'Pengelolaan UP/TUP',
       icon: <CreditCard className="w-4 h-4 text-indigo-300" />,

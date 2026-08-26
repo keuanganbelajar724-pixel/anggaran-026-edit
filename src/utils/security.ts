@@ -9,8 +9,7 @@
  * 6. Admin Session Auto-Expiry & Tamper-Proof Token Management
  */
 
-// Known SHA-256 hashes for authorized admin PINs (salted)
-// default pin '527272' with salt 'kppn026_angkasa_secure_salt'
+// Cryptographic salt for admin credentials
 const SALT = 'kppn026_angkasa_secure_salt_v3';
 
 /**
