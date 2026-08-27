@@ -68,6 +68,16 @@ export function saveClientStoredApiKey(key: string): void {
   }
 }
 
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.7-flash';
+
+export function sanitizeGeminiModel(model?: string): string {
+  const m = (model || '').trim();
+  if (!m || m === 'gemini-2.5-flash' || m === 'gemini-2.5-pro' || m === 'gemini-1.5-flash') {
+    return DEFAULT_GEMINI_MODEL;
+  }
+  return m;
+}
+
 /**
  * Check backend Gemini connection and server-side key availability
  */
@@ -87,8 +97,8 @@ export async function checkGeminiStatus(): Promise<GeminiServerStatus> {
   return {
     connected: hasLocal,
     hasServerKey: false,
-    defaultModel: 'gemini-2.5-flash',
-    availableModels: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.7-flash'],
+    defaultModel: DEFAULT_GEMINI_MODEL,
+    availableModels: ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-pro-preview'],
     message: hasLocal
       ? 'Gemini terhubung menggunakan API Key Kustom peramban.'
       : 'API Key belum terpasang. Anda dapat memasukkan Gemini API Key dari Google AI Studio.',
@@ -103,7 +113,7 @@ export async function testGeminiConnection(options?: {
   model?: string;
 }): Promise<{ success: boolean; message: string; reply?: string }> {
   const activeKey = options?.apiKey?.trim() || getClientStoredApiKey();
-  const targetModel = options?.model || 'gemini-2.5-flash';
+  const targetModel = sanitizeGeminiModel(options?.model);
 
   // 1. Try server endpoint first
   try {
@@ -167,7 +177,7 @@ export async function generateGeminiContent(
 ): Promise<GeminiGenerateResponse> {
   const customKey = options.apiKey?.trim() || getClientStoredApiKey();
   const targetPrompt = options.prompt || options.contents || '';
-  const targetModel = options.model || 'gemini-2.5-flash';
+  const targetModel = sanitizeGeminiModel(options.model);
 
   if (!targetPrompt) {
     throw new Error('Prompt tidak boleh kosong.');
@@ -265,6 +275,8 @@ export async function loadCloudChatHistory(): Promise<ChatMessage[] | null> {
   return null;
 }
 
+let geminiChatQuotaExhaustedUntil = 0;
+
 /**
  * Save chat history to both LocalStorage and Firestore
  */
@@ -277,6 +289,10 @@ export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<voi
   }
 
   // 2. Firestore Cloud Backup
+  if (Date.now() < geminiChatQuotaExhaustedUntil) {
+    return;
+  }
+
   try {
     const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
     await setDoc(
@@ -288,8 +304,11 @@ export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<voi
       },
       { merge: true }
     );
-  } catch (e) {
-    console.warn('Failed to sync chat history to Firestore:', e);
+  } catch (e: any) {
+    if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota') || e?.message?.includes('resource-exhausted')) {
+      geminiChatQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
+      console.warn('Firestore chat sync quota reached, operating locally.');
+    }
   }
 }
 
@@ -350,6 +369,10 @@ export async function saveCloudArchivedSessions(archives: ArchivedChatSession[])
     console.warn('Failed to save archives to local storage', e);
   }
 
+  if (Date.now() < geminiChatQuotaExhaustedUntil) {
+    return;
+  }
+
   try {
     const docRef = doc(db, 'gemini_chats', FIRESTORE_ARCHIVES_DOC);
     await setDoc(
@@ -360,7 +383,10 @@ export async function saveCloudArchivedSessions(archives: ArchivedChatSession[])
       },
       { merge: true }
     );
-  } catch (e) {
-    console.warn('Failed to sync archives to Firestore:', e);
+  } catch (e: any) {
+    if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota') || e?.message?.includes('resource-exhausted')) {
+      geminiChatQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
+      console.warn('Firestore archives sync quota reached, operating locally.');
+    }
   }
 }

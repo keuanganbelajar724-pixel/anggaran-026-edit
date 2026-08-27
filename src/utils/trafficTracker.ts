@@ -408,8 +408,29 @@ export async function trackPageView(
   }
 }
 
+// Firestore sync throttling and quota exhaustion circuit breaker
+let lastFirestoreTrafficSyncTime = 0;
+let firestoreQuotaExhaustedUntil = 0;
+
+export function isFirestoreQuotaExhausted(): boolean {
+  return Date.now() < firestoreQuotaExhaustedUntil;
+}
+
+export function reportFirestoreQuotaExhaustion(): void {
+  // Back off for 30 minutes to stop hammering Firestore and throwing continuous errors
+  firestoreQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
+  console.warn('Firestore write quota limit reached. Telemetry is operating in fast local persistence mode.');
+}
+
 // Background Firestore Sync (Synchronizes summary, device tallies, and latest activity across all devices)
 export async function syncTrafficSummaryToFirestore(state: PersistedTrafficState): Promise<void> {
+  const now = Date.now();
+  // If quota is exhausted or synced less than 60 seconds ago, skip cloud write
+  if (isFirestoreQuotaExhausted() || now - lastFirestoreTrafficSyncTime < 60000) {
+    return;
+  }
+  lastFirestoreTrafficSyncTime = now;
+
   try {
     const trafficDocRef = doc(db, 'traffic', 'overview');
     await setDoc(trafficDocRef, {
@@ -422,8 +443,10 @@ export async function syncTrafficSummaryToFirestore(state: PersistedTrafficState
       recentLogs: state.recentLogs.slice(0, 50),
       updatedAt: new Date().toISOString()
     }, { merge: true });
-  } catch (err) {
-    // Non-blocking catch for offline/dev modes
+  } catch (err: any) {
+    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota') || err?.message?.includes('resource-exhausted')) {
+      reportFirestoreQuotaExhaustion();
+    }
   }
 }
 

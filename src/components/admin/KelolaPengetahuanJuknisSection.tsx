@@ -100,7 +100,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       setDoc(doc(db, 'settings', 'juknis_directory'), {
         items: newList,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }).catch(err => console.warn('Firebase save juknis notice:', err));
     } catch (e) {
       console.warn('Firebase save juknis notice:', e);
     }
@@ -367,7 +367,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       setDoc(doc(db, 'settings', 'knowledge_base'), {
         items: newList,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }).catch(err => console.warn('Firebase error knowledge base:', err));
     } catch (e) {
       console.warn('Firebase error knowledge base', e);
     }

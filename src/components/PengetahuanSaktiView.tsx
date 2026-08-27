@@ -221,7 +221,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
       setDoc(doc(db, 'settings', 'knowledge_base'), {
         items: newList,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      }, { merge: true }).catch(err => console.warn('Firebase save knowledge error:', err));
     } catch (e) {
       console.warn('Firebase save knowledge error:', e);
     }

@@ -586,7 +586,7 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
       }
 
       const response = await generateGeminiContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.7-flash',
         prompt: userPrompt,
         systemInstruction: systemPrompt,
         apiKey: apiKey || undefined

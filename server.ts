@@ -41,17 +41,26 @@ async function startServer() {
     });
   });
 
+  // Helper to normalize and sanitize model identifiers
+  function normalizeModelName(inputModel?: string): string {
+    const raw = (inputModel || '').trim();
+    if (!raw || raw === 'gemini-2.5-flash' || raw === 'gemini-2.5-pro' || raw === 'gemini-1.5-flash') {
+      return 'gemini-3.7-flash';
+    }
+    return raw;
+  }
+
   // Gemini Status endpoint
   app.get('/api/gemini/status', (_req, res) => {
     const hasServerKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
     res.json({
       connected: hasServerKey,
       hasServerKey,
-      defaultModel: 'gemini-2.5-flash',
+      defaultModel: 'gemini-3.7-flash',
       availableModels: [
-        'gemini-2.5-flash',
-        'gemini-2.5-pro',
         'gemini-3.7-flash',
+        'gemini-3.6-flash',
+        'gemini-3.1-pro-preview',
       ],
       message: hasServerKey
         ? 'Gemini AI terhubung otomatis melalui Server Cloud.'
@@ -64,7 +73,7 @@ async function startServer() {
     try {
       const { apiKey, model } = req.body || {};
       const ai = getGeminiClient(apiKey);
-      const targetModel = model || 'gemini-2.5-flash';
+      const targetModel = normalizeModelName(model);
 
       const response = await ai.models.generateContent({
         model: targetModel,
@@ -101,7 +110,7 @@ async function startServer() {
       }
 
       const ai = getGeminiClient(apiKey);
-      const targetModel = model || 'gemini-2.5-flash';
+      const targetModel = normalizeModelName(model);
 
       const config: Record<string, any> = {};
       if (systemInstruction) {

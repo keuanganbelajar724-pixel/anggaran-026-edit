@@ -1035,7 +1035,7 @@ PERATURAN PENTING:
 
     try {
       const response = await generateGeminiContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.7-flash',
         prompt,
         apiKey: geminiKey || undefined
       });

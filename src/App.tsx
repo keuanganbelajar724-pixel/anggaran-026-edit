@@ -600,7 +600,7 @@ export default function App() {
           setTransaksiDigipayList([]);
           localStorage.setItem('kppn_transaksi_digipay', '[]');
           localStorage.setItem('kppn_digipay_emptied_v3', 'true');
-          setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() });
+          setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() }).catch(err => console.warn('Digipay init purge notice:', err));
           return;
         }
 
@@ -612,7 +612,7 @@ export default function App() {
             if (data.list.length > 0 && totalNominal === 0) {
               setTransaksiDigipayList([]);
               localStorage.setItem('kppn_transaksi_digipay', '[]');
-              setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() });
+              setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() }).catch(err => console.warn('Digipay reset notice:', err));
             } else {
               setTransaksiDigipayList(data.list);
               localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(data.list));
@@ -800,7 +800,8 @@ export default function App() {
   const syncSatkersToFirebase = (newList: SatkerIKPA[]) => {
     try {
       const compacted = compactSatkersForFirestore(newList);
-      setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true });
+      setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Error syncing satkers to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing satkers to Firebase:", e);
     }
@@ -808,7 +809,8 @@ export default function App() {
 
   const syncMasterSatkersToFirebase = (newList: MasterSatker[]) => {
     try {
-      setDoc(doc(db, 'data', 'master_satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      setDoc(doc(db, 'data', 'master_satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Error syncing master satkers to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing master satkers to Firebase:", e);
     }
@@ -816,7 +818,8 @@ export default function App() {
 
   const syncPejabatToFirebase = (newList: PejabatSertifikasi[]) => {
     try {
-      setDoc(doc(db, 'data', 'pejabat'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      setDoc(doc(db, 'data', 'pejabat'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Error syncing pejabat to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing pejabat to Firebase:", e);
     }
@@ -824,7 +827,8 @@ export default function App() {
 
   const syncPresensiToFirebase = (newList: PesertaPresensi[]) => {
     try {
-      setDoc(doc(db, 'data', 'presensi_peserta'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true });
+      setDoc(doc(db, 'data', 'presensi_peserta'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Error syncing presensi to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing presensi to Firebase:", e);
     }
@@ -1004,7 +1008,8 @@ export default function App() {
     setAdminPin(newPin);
     localStorage.setItem('kppn_admin_pin', newPin);
     try {
-      setDoc(doc(db, 'settings', 'global'), { adminPin: newPin, updatedAt: new Date().toISOString() }, { merge: true });
+      setDoc(doc(db, 'settings', 'global'), { adminPin: newPin, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Firebase save pin notice:", err));
     } catch (e) {
       console.warn("Firebase save pin notice:", e);
     }
@@ -1180,7 +1185,8 @@ export default function App() {
     setTransaksiDigipayList(newList);
     try {
       const compacted = compactDigipayForFirestore(newList);
-      setDoc(doc(db, 'data', 'transaksi_digipay'), { list: compacted, updatedAt: new Date().toISOString() });
+      setDoc(doc(db, 'data', 'transaksi_digipay'), { list: compacted, updatedAt: new Date().toISOString() })
+        .catch(err => console.warn("Error syncing Digipay to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing Digipay to Firebase:", e);
     }
