@@ -9741,200 +9741,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       )}
 
-      {false && (
-        <>
-
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <h3 className="text-base font-extrabold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-2">
-          <FileSpreadsheet className="w-5 h-5 text-sky-600" />
-          <span>Area Upload File Excel / CSV ({excelCategory})</span>
-        </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-          Unggah file hasil ekspor SAKTI/My Intress untuk kategori <strong className="text-slate-800 dark:text-slate-200 font-extrabold">{excelCategory}</strong>. Sistem otomatis membersihkan spasi liar &amp; memperbaiki format.
-        </p>
-
-        {excelCategory === 'IKPA' && (
-          <div className="mb-4 p-3.5 bg-sky-50/90 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800/80 rounded-2xl flex items-center justify-between text-xs gap-3">
-            <div className="flex items-center gap-2 text-sky-900 dark:text-sky-200">
-              <Sparkles className="w-4 h-4 text-sky-600 shrink-0" />
-              <span>
-                <strong>Fitur Unggulan:</strong> Mendukung Ekspor Asli SAKTI/My Intress (Bulanan seperti <strong>Januari</strong>, Februari, Maret, dll). Bulan otomatis terdeteksi dari header Excel.
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                const janHist = historicalUploads.find(h => h.periode.toLowerCase().includes('januari'));
-                if (janHist) {
-                  onApplyNewSatkers(janHist.satkersData, false);
-                  const newHistoryList = historicalUploads.map(h => ({ ...h, isActive: h.id === janHist.id }));
-                  saveAndApplyHistoricalUploads(newHistoryList);
-                  alert(`Berhasil mengaktifkan Data IKPA Periode ${janHist.periode} (${janHist.satkerCount} Satker)!`);
-                } else {
-                  alert('Data IKPA Januari siap diunggah melalui tombol Pilih File Excel di bawah.');
-                }
-              }}
-              className="shrink-0 bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Muat Data Januari</span>
-            </button>
-          </div>
-        )}
-
-        {excelCategory === 'CAPAIAN_OUTPUT' && (
-          <div className="mb-4 p-3.5 bg-emerald-50/90 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl flex items-center justify-between text-xs gap-3">
-            <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>
-                <strong>Fitur Capaian Output:</strong> Membaca kolom <code>% Data Masuk/Upload</code> (Rekap Kertas Kerja Caput My Intress / SAKTI). Satker dengan nilai <strong>0%</strong> otomatis dikategorikan <strong>Belum Terlaporkan</strong> (Belum Mengirim SAKTI).
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Template Download Option */}
-        <div className="mb-4 p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-            <Download className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              <strong>Unduh Contoh Template Excel:</strong> Gunakan format Excel resmi agar kolom data dapat diproses otomatis oleh sistem.
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (excelCategory === 'CAPAIAN_OUTPUT') downloadCapaianOutputTemplate();
-                else if (excelCategory === 'SERTIFIKASI') downloadSertifikasiTemplate();
-                else if (excelCategory === 'PASSWORD_BATCH') downloadPasswordBatchTemplate();
-                else if (excelCategory === 'BROADCAST_CUSTOM') downloadBroadcastExcelTemplate(satkers);
-                else downloadExcelTemplate();
-              }}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-3.5 py-2 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Template Excel ({excelCategory})</span>
-            </button>
-            <button
-              type="button"
-              onClick={downloadSertifikasiTemplate}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-2 rounded-xl transition-all text-[11px] cursor-pointer flex items-center gap-1"
-              title="Download Contoh Template Sertifikasi Pejabat Perbendaharaan"
-            >
-              <Award className="w-3.5 h-3.5" />
-              <span>Template Sertifikasi</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="border-2 border-dashed border-sky-300 dark:border-sky-800 hover:border-sky-500 bg-sky-50/50 dark:bg-sky-950/30 rounded-2xl p-8 text-center transition-all">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept=".xlsx, .xls, .csv"
-            className="hidden"
-          />
-
-          <div className="max-w-md mx-auto space-y-3">
-            <div className="w-14 h-14 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-              <Upload className="w-7 h-7" />
-            </div>
-
-            <div>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                Tarik &amp; Lepaskan File Excel ({excelCategory}) di sini, atau
-              </p>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
-                className="mt-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
-              >
-                {isProcessing ? 'Memproses &amp; Perbaiki Data...' : `Pilih File Excel ${excelCategory}`}
-              </button>
-            </div>
-
-            <p className="text-[11px] text-slate-400">
-              Mendukung file .xlsx, .xls, .csv (Maksimal 10MB)
-            </p>
-          </div>
-        </div>
-
-        {errorMessage && (
-          <div className="mt-4 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Preview Pejabat Sertifikasi Import Table */}
-      {previewPejabatList.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden space-y-4">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-amber-50/80 dark:bg-amber-950/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-1.5 bg-amber-200 text-amber-900 border border-amber-300 px-3 py-1 rounded-full text-xs font-black mb-1">
-                <Award className="w-3.5 h-3.5 text-amber-700" />
-                PREVIEW IMPOR SERTIFIKASI PEJABAT ({previewPejabatList.length} PEJABAT)
-              </div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                Tinjau Data Pejabat Perbendaharaan Sebelum Diterapkan
-              </h3>
-            </div>
-
-            <button
-              onClick={handleApplyPejabat}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-black text-xs px-6 py-3 rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Terapkan Ke Data Sertifikasi Pejabat</span>
-            </button>
-          </div>
-
-          <div className="overflow-x-auto p-4">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-100 dark:bg-slate-800 font-bold uppercase">
-                <tr>
-                  <th className="py-2.5 px-3">Satker</th>
-                  <th className="py-2.5 px-3">Nama Pejabat</th>
-                  <th className="py-2.5 px-3">Jabatan</th>
-                  <th className="py-2.5 px-3">NIP</th>
-                  <th className="py-2.5 px-3">Status Sertifikasi</th>
-                  <th className="py-2.5 px-3">No. Sertifikat</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {previewPejabatList.map((p) => (
-                  <tr key={p.id}>
-                    <td className="py-2.5 px-3 font-bold">{p.namaSatker} ({p.kodeSatker})</td>
-                    <td className="py-2.5 px-3">{p.namaPejabat}</td>
-                    <td className="py-2.5 px-3 font-semibold text-amber-700 dark:text-amber-300">{p.jabatan}</td>
-                    <td className="py-2.5 px-3 font-mono">{p.nip}</td>
-                    <td className="py-2.5 px-3">
-                      <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                        p.statusSertifikasi === 'Tersertifikasi' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                      }`}>
-                        {p.statusSertifikasi}
-                      </span>
-                    </td>
-            x��=�r��v��e�EM��Z�H�P��Y�J�fn��T�$�$Ll��%>�!�yI�R������O��n,�F7��%k�*[d8����9D�_;����3l��﮹��@�ms\'lڮ㢐܆�_WV�����^?4������bsq��{ߠ��~�}ii�MṞk���Fܳ�ظ�l��YC�+ �?�/��<��z�:Q�6,������x�Ah��w��H�#����jd]@���Mb[Fs��z�o?���Xm���F�A�󭅼�_�䁷�ܴ�N�EfH��'N=|�`���f��7�8��5���
-d���ꂼ;���	ėo`�#y؛��Z.�?Z�do6G ���k�����0z��BB׆��=8�Cbtt�'jd����]N�
-�4Z�1)�6�)� �<�� 	L�17�-h`�bS:a�r�lßd��e&w�0
-�,k�i"���J��%�2�M���}�
-�+(����kl��P2�
-xp3�Y�j#�j21@d-��J����Ct�c����^�����o�K7������h���p��>�	���70�p�;S��B�'\�C�G��Q
-x�m�{�[׷q8�
-%�{#�Q�2Ib��t��1񿀅���؅3t-<�N����Z��%����L*-�t�M��-["���-RJ�0�>i�5Wdj��)MO`�|)K  �dCx��@dd�W����8nH����F�y��%��'HOa�cr�{oN�K���F��*��������h��]t1G�Y|�`�θ��c����;�-V�}^��������$7�K�bu�\��P:A��;��j������,@�p��P{��° ��[�&S�[+��bKl�b�����{M���G�a�z�`�zn�J��kn&���v��b�M��43ި�FY��Q��lc�}�A?�jbee����^M�2�������-L���bf_���i��0%T���b�rL/��8P)𕩌v�V�u~q����/�]���=�\u?�v�G����Q���;%b��tO�.dOI��y�VKIW���(���	#*��3��A�{�~*�?xLeu�L8GNiU}����N�ȓG����i�#�x�G��tL���-���������yF�z.�tb#x:B G�02̀��7�2�w \��c�����a�r��{��O�U��۔��Ţ�qޠ�w�mT�qo:Z�s?��oz���k�}�)�`�0X�*�e:^*6,��`���z���	v��� �c��V4�\� �nHv��	〄��i�0�$l��
-�8�*ۘx�9���1��s#@�‵ⵋ�fZ- ��K�Ct���gv
-�?�Nh"f,�1�"��WV@� )� �C��#����k�q`3�C(�ND���vww��A�s�9��W���b^����.��i#�߼���u��5	y+`.W��s��p8��=�7�1G)�M�uWq�7��!��ժ��{+��T^Q�*��/��|��QQd�@'�(���������C� (����O%z��GB2�@�h�Q�b}����Λ[��S��Y�Ml���~����j@[T(e�iai��-<Z�G��Q�ǜ�۴o�R�0 o����\��ȀFSz��jV)ԓ"�&;:��p�3��#���!Y��NbP�������bU� ����Ru�O����/��oh? -��O�1q0�z�mS0Y�3>��/��ur/�|t*���5�"�f�⌇�Zj�w%��I?T)��@M$#Xi��.�f��m���$��^�|�~�,3��������ǬI=	i��\�N���[�z�&���(F��*�T�w@�!}�F��^�B� �;1u��W�w���̱�9�+%j��-Yga��Y->v\/4]'����=����%F­Vkg�?W	�O؉��1waO�V̏��pr_k:�>	c(��Z :�oZ1��s�Q�d&ɧz�9�&k�2 � D�� |��x�������8t3@�Z`��kq@��� �@��ZP��cPRÌ������7���~�
-�L&*ꩂ�CE�o�x×�	h�>�5��< ut�rc_�����V��W��:*E炌]' YC�`�i�.a,��aEt�:ӧ'�J'�h02���9�h7�3lő�ƕ��3"ُ�Vj��9�o|���F��v/��K��M��Q�-zlx���XfH�p0ȰH�34�
-Tx�wgdЈ���My�T�X��I�A�ܒ��6�{�N�sǆ!a`ҥob@����6��u���q 4C��=��d�9���`g2O�(�t� ©�����화��4��S�W��Q\���k���u4���m]�N�4`T������`��:�G�"���6���.ꈙMo�0>d�z����dgSs"ȩ�pa><����;9�����sW.\5��@������/��`@$��t�X��)���aA���Ivz�w�r{� .�d�g3d"�a�΀*L"l(���p�mjT��#El}�b[L�7� �*U�Q:Y�x�(8���!u�ZH�|k�t��N��'v	RdMb;�Q]H��Q�D]�`ꢤ`�4�Lf��8�X�9%�<Շ�ы���Ɓv<��H����<v����s\��,oˎ��x|�ٙF���~<P�RFWd4lV�f�P�;�8S�UX#�ĳ؞�}Ѻ���
-��܂�A�Uv>��50�0�5,�(����J/m�E��|�{Y���EB���'0I��H= ;�`�B�Uc��d�^��\Ҹ8�~@���a�CC�m�Z	�Vz��Z�p����d.�k��}��T�����$�|Gɚs��]��\����o��z���f�}ȑ�	�j^�%Vu��%�q�wr�hO��	q��8��{κ��}�>�G�c�57��U�1��f����x�1��NA@m/�c�GG�oud�\���@��8۸���©���VoQ�\VT���)���-�rN�m���ɺb��~XC��4����I�֡K�>yI.�őB�1��נ�������U����N���әb����ɴ�����TXIb�"Ws�lk��w�u�Ck�����iM�_��?�5�D��#�6�2�w�������{s,%h��=�u,�"�����-9��:�7+= S_�7��Gsj�_ Q0�y +t<e�z�,�� ���*��K1�?	��aԡ�84ڳh����ڒ.���I�Դ�#t#�F�r���}���E.C��X4����&�A\�R�^�0�cU�Z�={�u�L�Qx�L�Db���<����σ*1ӻ{�ZjL������zlM��X�i)n�dOT"+I�>*�?�,{����]�v��g�O�4��H�޴��$	"ń![� ����M;��}����X�B�p���7��ox��qM��R�a��(-�~�w�9��.�����k���a�H?�����ʎ�L-��E�Z7�T��Gw���^j(�3���X3m���Sz��e���Hʈҟ٥�)����:Q��9�>�ɼ�����=�2"��b	�)v�x��Ċ,.�F*"��=�:9��>��V*�~T��A?�	�\�+yr~~�.�M��!:�������sW`.I{)����������7p�!=e��Q�\;�?�DǠ�fC���� >6�#?!<^ˁ�k�yƁO�������M|�a��0hr�R�
-�Z#� �M��y�S�G�߱,��T0�Ԍ3e���eb̓B���nE!�h�P�s��3s�5��D��l�Q\�E���/�\ʥ� �4�f����t9zddR;���'l�`��;yh�32-�Fy1$-�:��G_dB�8��F2eƚ���%�
-����$RD(]�t��**��ⳤǄ����iZ��C`���d �et�����u- G���c]Ǣ�r��[�J�������]�h%b�慑�"��~���4I�&�M�`�6�.�qo����dw�,�އ��&����Ӱ�':�'�����c���v������ϊ�fX�n
-Nx�{�d��5��RH̠CW������c�Zņ��fm�X��#�>��EC�%�s�>�,�{����P38	38�c�'�!����#��zJ�A,q`�P{|������%��6��F��*c���b�����]���δ&m���+ͺKC�e���UFm��Qm5����VZfb�=5j���}=��t�(�9�_�n��W�N��VN�4��q�ԭ(�+Kj����a�=::<����|��"���r4d�N��)�S	}q��am�h�,V�P�KT�z<����J�G�JV�`�KB�pg�p%u*��9/�7ADo������R�J�������Ve��R�.{������f���TN�͉1 E��*5%���,�Ilz�2��(���ph�S����y'�a�bD�`mM:�|��}�y�ȊGP��h�j>����b�%~�Z�"?�j| n`]Qg�b�b��A�q׋�k5�|�&B����+�k�gC�����TAB��e]�%.ꪋ<%�Ta�Bh��d�BT�bR�+}�����7Y&�{b��VI� ��A%n�3F�g�,�̘Rd)���Ć�Q����|p��s��Т��h����B{)7�J��'Vd���e����@Å�����S7�h�^ZԲ��)�+�=+�1�}S�2�陉-9���j(��L�T:R�߭w:(�	P�gɵQ�Ke��E�5���+y%�y���;���X,�n��Y1yf��c-�-�@I2{��K���	��m���eS1���@��@o�*Gz�� �F����w��6���^Du�P��e�є���<$�߄{k�e�}(	�L�#3+ &��O��� D��R�=~O�Uq�	�@��!-��b|3�W	䐝� ī���չ0�u�u#�ʎ���Z��^�͗�]L^�H�����o<�FY��_B�n� ��N9U�N�Q��?1W �k�]�㦥KӨ�{׈���_�������Z���z��^�0p"j2�c�l��]P*��}|�����ƯX��>i-�ʅ����7�s��Nq8j�L0���7|ۀ�gl�rњ%M�7~�ڒ�QQ�-}:]���٩ OO�L�t����>\W�����_�+�+����I�A:��^:��.I���B��ݸ�OOS�G�[)k���k�T,�S�9�!�:TDR+�#���~��6�h�)U�t]�d�%������5"���� k�J5����J5:��b��IU�?���\�9�iy_U�J��W��U�g0x��"�c?�hL��5A�CX��P-AL�Pef��7�T�zq	���~�]���;Wq|��О"0��px��C!��Ԅ�c�Ǌq>xd�q���ԟ���E�&��&:4�f����{���a��۶��66����%�<Mɹ�ʹ~&��������%ܢ���b{��N�C�fФB��ߗ��V��Q��SۇG�}"�$l�3	+�N�3�1|`�'�T�_D4chퟟ�a{�c�G`/���)���1Ct�u��gľC3�D��萐9���1C?h1� d%2�����&�����' ��qs`-9��ƅ�4ڕ���H�+�X�Mr=$���lk���o��g�A[&;�zB4�A����(�T��㓲��WtD������!Iq�E��ϭ(��>�~�R���eK����W<��t%b�R�G�|����)��$6��?��8��{t��i�������|�
-��i��	}�q�U=$�К��TՈ,��n�2 >qh4{F9�{��<!��朇��I
-4�>�R�?�Ѹt#��~��G�h	y���y%��4X�#�)�QMu~nZj�v"�
-��qbAu���^`G�J=��=or�˨g��x4/.�;y��"JM_sX�f�q��z���)u>���􉡼	2�:�����f���
-�4������x�J^ g�����O�Q����q(�A&����'����:�?�������{OaO>j��Bʦ���g?3PWО�n��M�\�8�(�GC���Gc���:N�uI/�j�#� ���^$:%q�B.�м&ۈ�>���"b�������2�PW@�i˳�6�v�|�~���i���I����ELѾ+��̛�1��wc�(���f�R���[�絨S�'�tØ|To�6��`D����[D��f���l�v?���#jtُ�)�{�ϗx|$�P���ne�H�	"��b��ϳ��ه��
-.�݋�;s���Ia�,+P�A�oҾuix�,���'_����Q-ڜ=��*O���[^����}<4�d@���,�J|�x���//��جob���������ٗmT��=)�&��,N�ꕍ���/�XQ>����=�V'>-F?D�b�;��X�SI��/�W���(���s�AVE�/#��b13Ϗ��}�����<�c?2�1�~�2���;7��i�������лs@�_F8:�G1��͹-Њ�76�l�������{L<���3�~f��yy�llZ�����a���S����_�]��l�I��-SSC���GD��s���le���L�U�v�%ީnē&���Y��)`QN�}����(C��U~�Xjb6c0�?Zn[� H׵���Ƭ$��~����ϰ�i6��{��eO���pz+�H���/��K�T6����  �� �p�
+    </div>
+  );
+};
