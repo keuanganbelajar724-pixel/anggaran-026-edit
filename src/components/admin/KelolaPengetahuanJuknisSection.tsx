@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
@@ -88,7 +89,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
   const saveJuknisList = (newList: JuknisBlangkoItem[], notifyToast = true) => {
     setJuknisList(newList);
     try {
-      localStorage.setItem('kppn_juknis_blangko_items', JSON.stringify(newList));
+      safeLocalStorageSet('kppn_juknis_blangko_items', JSON.stringify(newList));
     } catch (e) {
       console.warn('Error saving juknis to localStorage', e);
     }
@@ -122,7 +123,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           if (data.items !== undefined && Array.isArray(data.items)) {
             setJuknisList(data.items);
             try {
-              localStorage.setItem('kppn_juknis_blangko_items', JSON.stringify(data.items));
+              safeLocalStorageSet('kppn_juknis_blangko_items', JSON.stringify(data.items));
             } catch (e) {
               console.warn(e);
             }
@@ -341,7 +342,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           if (data.items !== undefined && Array.isArray(data.items)) {
             setKnowledgeList(data.items);
             try {
-              localStorage.setItem('kppn_knowledge_items', JSON.stringify(data.items));
+              safeLocalStorageSet('kppn_knowledge_items', JSON.stringify(data.items));
             } catch (e) {
               console.warn(e);
             }
@@ -359,7 +360,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
   const saveKnowledgeList = (newList: KnowledgeItem[]) => {
     setKnowledgeList(newList);
     try {
-      localStorage.setItem('kppn_knowledge_items', JSON.stringify(newList));
+      safeLocalStorageSet('kppn_knowledge_items', JSON.stringify(newList));
     } catch (e) {
       console.warn('Error saving knowledge list', e);
     }

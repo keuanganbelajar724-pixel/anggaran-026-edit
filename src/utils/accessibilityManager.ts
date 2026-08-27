@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import { AccessibilitySettings, DEFAULT_ACCESSIBILITY_SETTINGS, AccessibilityProfile } from '../types/accessibility';
 
 const STORAGE_KEY = 'kppn_accessibility_settings_v2';
@@ -17,7 +18,7 @@ export function loadAccessibilitySettings(): AccessibilitySettings {
 
 export function saveAccessibilitySettings(settings: AccessibilitySettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    safeLocalStorageSet(STORAGE_KEY, JSON.stringify(settings));
     applyAccessibilityToDOM(settings);
   } catch (e) {
     console.error('Error saving accessibility settings:', e);

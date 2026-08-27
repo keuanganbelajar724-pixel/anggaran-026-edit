@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useEffect } from 'react';
 import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme, DeviasiHal3Record } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
@@ -109,7 +110,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const handleToggleDeviasiWidget = (visible: boolean) => {
     setShowDeviasiWidget(visible);
     try {
-      localStorage.setItem('kppn_show_deviasi_widget', String(visible));
+      safeLocalStorageSet('kppn_show_deviasi_widget', String(visible));
     } catch (e) {
       console.warn('Error saving showDeviasiWidget to localStorage:', e);
     }

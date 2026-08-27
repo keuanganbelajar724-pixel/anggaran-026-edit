@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 /**
  * Security & Hardening Core Utilities for ANGKASA KPPN Semarang I
  * Implements:
@@ -189,7 +190,7 @@ export function recordFailedLoginAttempt(): {
       lastAttemptTime: now
     };
 
-    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(state));
+    safeLocalStorageSet(RATE_LIMIT_STORAGE_KEY, JSON.stringify(state));
 
     const remainingSeconds = lockedUntil > now ? Math.ceil((lockedUntil - now) / 1000) : 0;
     return {

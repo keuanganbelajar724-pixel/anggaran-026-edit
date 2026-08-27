@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState } from 'react';
 import { PaginationControl } from '../PaginationControl';
 import { 
@@ -234,7 +235,7 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
       if (cfg) {
         const parsed = JSON.parse(cfg);
         parsed.aduanList = updatedList;
-        localStorage.setItem('kppn_dashboard_config', JSON.stringify(parsed));
+        safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(parsed));
       }
     } catch (e) {
       console.error(e);
@@ -263,7 +264,7 @@ export const KelolaAduanSatkerSection: React.FC<KelolaAduanSatkerSectionProps> =
       if (cfg) {
         const parsed = JSON.parse(cfg);
         parsed.aduanList = [];
-        localStorage.setItem('kppn_dashboard_config', JSON.stringify(parsed));
+        safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(parsed));
       }
     } catch (e) {
       console.error(e);

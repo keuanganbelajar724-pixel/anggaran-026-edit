@@ -6,7 +6,8 @@ import {
   DeviceAnalytics, 
   PageVisitStat 
 } from '../types';
-import { db, doc, getDoc, setDoc } from '../lib/firebase';
+import { db, doc, getDoc, setDoc, isFirestoreQuotaExhausted, reportFirestoreQuotaExhaustion } from '../lib/firebase';
+import { safeLocalStorageSet, safeLocalStorageGet } from './safeStorage';
 
 const STORAGE_KEY_ANALYTICS = 'kppn_traffic_analytics_real_v2';
 const STORAGE_KEY_DEVICE_ID = 'kppn_visitor_device_id';
@@ -26,12 +27,12 @@ export function isAutoDetectedDeveloperEnv(): boolean {
 // Generate or retrieve persistent unique Device ID
 export function getOrCreateDeviceId(): string {
   try {
-    let deviceId = localStorage.getItem(STORAGE_KEY_DEVICE_ID);
+    let deviceId = safeLocalStorageGet(STORAGE_KEY_DEVICE_ID);
     if (!deviceId) {
       const randomSalt = Math.random().toString(36).substring(2, 10);
       const timestamp = Date.now().toString(36);
       deviceId = `dev-${randomSalt}-${timestamp}`;
-      localStorage.setItem(STORAGE_KEY_DEVICE_ID, deviceId);
+      safeLocalStorageSet(STORAGE_KEY_DEVICE_ID, deviceId);
     }
     return deviceId;
   } catch {
@@ -56,7 +57,7 @@ export function getOrCreateSessionId(): string {
 // Check if current device is flagged as Tester / Programmer
 export function isCurrentDeviceTester(): boolean {
   try {
-    const val = localStorage.getItem(STORAGE_KEY_IS_TESTER);
+    const val = safeLocalStorageGet(STORAGE_KEY_IS_TESTER);
     if (val !== null) {
       return val === 'true';
     }
@@ -69,7 +70,7 @@ export function isCurrentDeviceTester(): boolean {
 
 export function setDeviceTesterStatus(isTester: boolean): void {
   try {
-    localStorage.setItem(STORAGE_KEY_IS_TESTER, isTester ? 'true' : 'false');
+    safeLocalStorageSet(STORAGE_KEY_IS_TESTER, isTester ? 'true' : 'false');
   } catch (e) {
     console.error('Error saving tester status:', e);
   }
@@ -77,7 +78,7 @@ export function setDeviceTesterStatus(isTester: boolean): void {
 
 export function getExcludeTesterPreference(): boolean {
   try {
-    const val = localStorage.getItem(STORAGE_KEY_EXCLUDE_TESTER);
+    const val = safeLocalStorageGet(STORAGE_KEY_EXCLUDE_TESTER);
     // Default to false to ensure all visitors are visible immediately
     return val === null ? false : val === 'true';
   } catch {
@@ -87,7 +88,7 @@ export function getExcludeTesterPreference(): boolean {
 
 export function setExcludeTesterPreference(exclude: boolean): void {
   try {
-    localStorage.setItem(STORAGE_KEY_EXCLUDE_TESTER, exclude ? 'true' : 'false');
+    safeLocalStorageSet(STORAGE_KEY_EXCLUDE_TESTER, exclude ? 'true' : 'false');
   } catch (e) {
     console.error('Error saving exclude tester pref:', e);
   }
@@ -219,7 +220,7 @@ function createInitialCleanState(): PersistedTrafficState {
 // Load state from localStorage or create clean real state
 export function loadPersistedTrafficState(): PersistedTrafficState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_ANALYTICS);
+    const raw = safeLocalStorageGet(STORAGE_KEY_ANALYTICS);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.satkerSummary && Array.isArray(parsed.satkerDailyRecords)) {
@@ -234,10 +235,59 @@ export function loadPersistedTrafficState(): PersistedTrafficState {
   return initial;
 }
 
-// Save state to localStorage
+// Prune traffic state to prevent LocalStorage bloat
+function compactTrafficState(state: PersistedTrafficState): PersistedTrafficState {
+  try {
+    // 1. Cap recent logs to 40 items
+    if (Array.isArray(state.recentLogs) && state.recentLogs.length > 40) {
+      state.recentLogs = state.recentLogs.slice(0, 40);
+    }
+
+    // 2. Cap daily records to 30 days
+    if (Array.isArray(state.satkerDailyRecords) && state.satkerDailyRecords.length > 30) {
+      state.satkerDailyRecords = state.satkerDailyRecords.slice(-30);
+    }
+
+    // 3. Keep only latest 14 days of satker daily device sets
+    if (state.satkerDailyDevices && typeof state.satkerDailyDevices === 'object') {
+      const allDateKeys = Object.keys(state.satkerDailyDevices).sort();
+      if (allDateKeys.length > 14) {
+        const keepKeys = allDateKeys.slice(-14);
+        const prunedMap: Record<string, string[]> = {};
+        keepKeys.forEach(k => { prunedMap[k] = state.satkerDailyDevices[k]; });
+        state.satkerDailyDevices = prunedMap;
+      }
+    }
+
+    // 4. Keep only latest 7 days of tester daily device sets
+    if (state.testerDailyDevices && typeof state.testerDailyDevices === 'object') {
+      const allDateKeys = Object.keys(state.testerDailyDevices).sort();
+      if (allDateKeys.length > 7) {
+        const keepKeys = allDateKeys.slice(-7);
+        const prunedMap: Record<string, string[]> = {};
+        keepKeys.forEach(k => { prunedMap[k] = state.testerDailyDevices[k]; });
+        state.testerDailyDevices = prunedMap;
+      }
+    }
+
+    // 5. Cap all-time device arrays
+    if (Array.isArray(state.satkerAllTimeDevices) && state.satkerAllTimeDevices.length > 150) {
+      state.satkerAllTimeDevices = state.satkerAllTimeDevices.slice(-150);
+    }
+    if (Array.isArray(state.testerAllTimeDevices) && state.testerAllTimeDevices.length > 50) {
+      state.testerAllTimeDevices = state.testerAllTimeDevices.slice(-50);
+    }
+  } catch (err) {
+    console.warn('Error compacting traffic state:', err);
+  }
+  return state;
+}
+
+// Save state to localStorage safely
 export function savePersistedTrafficState(state: PersistedTrafficState): void {
   try {
-    localStorage.setItem(STORAGE_KEY_ANALYTICS, JSON.stringify(state));
+    const compacted = compactTrafficState(state);
+    safeLocalStorageSet(STORAGE_KEY_ANALYTICS, JSON.stringify(compacted));
   } catch (e) {
     console.error('Error saving traffic analytics state:', e);
   }
@@ -408,19 +458,8 @@ export async function trackPageView(
   }
 }
 
-// Firestore sync throttling and quota exhaustion circuit breaker
+// Firestore sync throttling
 let lastFirestoreTrafficSyncTime = 0;
-let firestoreQuotaExhaustedUntil = 0;
-
-export function isFirestoreQuotaExhausted(): boolean {
-  return Date.now() < firestoreQuotaExhaustedUntil;
-}
-
-export function reportFirestoreQuotaExhaustion(): void {
-  // Back off for 30 minutes to stop hammering Firestore and throwing continuous errors
-  firestoreQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
-  console.warn('Firestore write quota limit reached. Telemetry is operating in fast local persistence mode.');
-}
 
 // Background Firestore Sync (Synchronizes summary, device tallies, and latest activity across all devices)
 export async function syncTrafficSummaryToFirestore(state: PersistedTrafficState): Promise<void> {

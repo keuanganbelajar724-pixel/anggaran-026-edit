@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState, useMemo } from 'react';
 import { 
   AlertTriangle, 
@@ -166,7 +167,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
     const updated = { ...adminNotes, [kodeSatker]: noteText };
     setAdminNotes(updated);
     try {
-      localStorage.setItem('kppn_satker_perhatian_notes', JSON.stringify(updated));
+      safeLocalStorageSet('kppn_satker_perhatian_notes', JSON.stringify(updated));
     } catch (e) {
       console.warn('Gagal menyimpan catatan admin:', e);
     }

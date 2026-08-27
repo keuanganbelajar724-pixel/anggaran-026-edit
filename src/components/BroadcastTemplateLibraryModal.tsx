@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Copy,
@@ -109,7 +110,7 @@ export const BroadcastTemplateLibraryModal: React.FC<BroadcastTemplateLibraryMod
   // Save custom templates to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_custom_broadcast_templates', JSON.stringify(customSavedTemplates));
+      safeLocalStorageSet('kppn_custom_broadcast_templates', JSON.stringify(customSavedTemplates));
     } catch (e) {
       console.warn('Failed to save custom templates to storage', e);
     }

@@ -1,3 +1,4 @@
+import { safeLocalStorageSet, safeLocalStorageGet } from './utils/safeStorage';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
@@ -155,7 +156,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_satker_data', JSON.stringify(satkers));
+      safeLocalStorageSet('kppn_satker_data', JSON.stringify(satkers));
     } catch (e) {
       console.warn('Error saving satker data to localStorage:', e);
     }
@@ -355,7 +356,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_pejabat_data', JSON.stringify(pejabatSertifikasiList));
+      safeLocalStorageSet('kppn_pejabat_data', JSON.stringify(pejabatSertifikasiList));
     } catch (e) {
       console.warn('Error saving pejabat data to localStorage:', e);
     }
@@ -379,7 +380,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_master_satkers', JSON.stringify(masterSatkers));
+      safeLocalStorageSet('kppn_master_satkers', JSON.stringify(masterSatkers));
     } catch (e) {
       console.warn('Error saving master satkers to localStorage:', e);
     }
@@ -477,7 +478,7 @@ export default function App() {
           const data = snap.data();
           if (data.adminPin) {
             setAdminPin(data.adminPin);
-            localStorage.setItem('kppn_admin_pin', data.adminPin);
+            safeLocalStorageSet('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
             const cleanDashboardConfig = {
@@ -489,9 +490,9 @@ export default function App() {
               ...cleanDashboardConfig,
               historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
-            localStorage.setItem('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
             if (cleanDashboardConfig.menuVisibility) {
-              localStorage.setItem('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+              safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
             }
           }
         }
@@ -503,7 +504,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               return merged;
             });
           } else {
@@ -534,7 +535,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setDashboardConfig(prev => {
               const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
-              localStorage.setItem('kppn_historical_uploads', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(merged));
               return {
                 ...prev,
                 historicalUploads: merged
@@ -550,7 +551,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             const compacted = compactPengelolaanUPForFirestore(data.list);
             setPengelolaanUPList(compacted);
-            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(compacted));
+            safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(compacted));
           } else {
             const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
             if (savedLocal) {
@@ -588,34 +589,23 @@ export default function App() {
           const data = snap.data();
           if (Array.isArray(data.list)) {
             setTransaksiKkpList(data.list);
-            localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(data.list));
           }
         }
       }).catch(err => console.warn("Initial Firestore KKP fetch notice:", err));
 
       getDoc(doc(db, 'data', 'transaksi_digipay')).then(snap => {
-        const hasPurged = localStorage.getItem('kppn_digipay_emptied_v3') === 'true';
-        if (!hasPurged) {
-          // Force wipe old corrupted/unwanted digipay data on first load
-          setTransaksiDigipayList([]);
-          localStorage.setItem('kppn_transaksi_digipay', '[]');
-          localStorage.setItem('kppn_digipay_emptied_v3', 'true');
-          setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() }).catch(err => console.warn('Digipay init purge notice:', err));
-          return;
-        }
-
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list)) {
-            // If data consists of old 0-nominal dummy or corrupted data, wipe it
+            // If data consists of old 0-nominal dummy or corrupted data, ignore it
             const totalNominal = data.list.reduce((acc: number, r: any) => acc + (Number(r.nominalTransaksi) || 0), 0);
             if (data.list.length > 0 && totalNominal === 0) {
               setTransaksiDigipayList([]);
-              localStorage.setItem('kppn_transaksi_digipay', '[]');
-              setDoc(doc(db, 'data', 'transaksi_digipay'), { list: [], updatedAt: new Date().toISOString() }).catch(err => console.warn('Digipay reset notice:', err));
+              safeLocalStorageSet('kppn_transaksi_digipay', '[]');
             } else {
               setTransaksiDigipayList(data.list);
-              localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(data.list));
+              safeLocalStorageSet('kppn_transaksi_digipay', JSON.stringify(data.list));
             }
           }
         }
@@ -627,7 +617,7 @@ export default function App() {
           const data = docSnap.data();
           if (data.adminPin) {
             setAdminPin(data.adminPin);
-            localStorage.setItem('kppn_admin_pin', data.adminPin);
+            safeLocalStorageSet('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
             const cleanDashboardConfig = {
@@ -639,9 +629,9 @@ export default function App() {
               ...cleanDashboardConfig,
               historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             }));
-            localStorage.setItem('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
             if (cleanDashboardConfig.menuVisibility) {
-              localStorage.setItem('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+              safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
             }
           }
         }
@@ -656,7 +646,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setDashboardConfig(prev => {
               const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
-              localStorage.setItem('kppn_historical_uploads', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(merged));
               return {
                 ...prev,
                 historicalUploads: merged
@@ -675,7 +665,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_satker_data', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               return merged;
             });
           }
@@ -690,7 +680,7 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
             setPejabatSertifikasiList(data.list);
-            localStorage.setItem('kppn_pejabat_data', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_pejabat_data', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -703,7 +693,7 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
             setPresensiPesertaList(data.list);
-            localStorage.setItem('kppn_presensi_peserta', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_presensi_peserta', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -716,7 +706,7 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
             setMasterSatkers(data.list);
-            localStorage.setItem('kppn_master_satkers', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_master_satkers', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -730,7 +720,7 @@ export default function App() {
           if (Array.isArray(data.list)) {
             const compacted = compactPengelolaanUPForFirestore(data.list);
             setPengelolaanUPList(compacted);
-            localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(compacted));
+            safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(compacted));
           }
         }
       }, (error) => {
@@ -743,7 +733,7 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
             setTransaksiKkpList(data.list);
-            localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -756,7 +746,7 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
             setTransaksiDigipayList(data.list);
-            localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(data.list));
+            safeLocalStorageSet('kppn_transaksi_digipay', JSON.stringify(data.list));
           }
         }
       }, (error) => {
@@ -770,7 +760,7 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setDeviasiHal3List(currentLocal => {
               const merged = mergeDeviasiHal3AntiDowngrade(data.list, currentLocal);
-              localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(merged));
               return merged;
             });
           }
@@ -882,7 +872,7 @@ export default function App() {
     const finalMasterList = [...mergedList, ...missingExisting];
 
     setMasterSatkers(finalMasterList);
-    localStorage.setItem('kppn_master_satkers', JSON.stringify(finalMasterList));
+    safeLocalStorageSet('kppn_master_satkers', JSON.stringify(finalMasterList));
     syncMasterSatkersToFirebase(finalMasterList);
 
     // Also sync contact/password info to satkers list
@@ -906,7 +896,7 @@ export default function App() {
         return s;
       });
       if (hasChanges) {
-        localStorage.setItem('kppn_satker_data', JSON.stringify(updatedSatkers));
+        safeLocalStorageSet('kppn_satker_data', JSON.stringify(updatedSatkers));
         syncSatkersToFirebase(updatedSatkers);
         return updatedSatkers;
       }
@@ -936,7 +926,7 @@ export default function App() {
           passwordSatker: item.passwordSatker || updatedSatkers[matchIndex].passwordSatker,
           pejabatOperator: item.pejabatOperator || updatedSatkers[matchIndex].pejabatOperator
         };
-        localStorage.setItem('kppn_satker_data', JSON.stringify(updatedSatkers));
+        safeLocalStorageSet('kppn_satker_data', JSON.stringify(updatedSatkers));
         syncSatkersToFirebase(updatedSatkers);
         return updatedSatkers;
       }
@@ -968,14 +958,14 @@ export default function App() {
   const handleSavePesertaPresensi = (newPeserta: PesertaPresensi) => {
     const updated = [newPeserta, ...presensiPesertaList];
     setPresensiPesertaList(updated);
-    localStorage.setItem('kppn_presensi_peserta', JSON.stringify(updated));
+    safeLocalStorageSet('kppn_presensi_peserta', JSON.stringify(updated));
     syncPresensiToFirebase(updated);
   };
 
   const handleDeletePesertaPresensi = (pesertaId: string) => {
     const updated = presensiPesertaList.filter(p => p.id !== pesertaId);
     setPresensiPesertaList(updated);
-    localStorage.setItem('kppn_presensi_peserta', JSON.stringify(updated));
+    safeLocalStorageSet('kppn_presensi_peserta', JSON.stringify(updated));
     syncPresensiToFirebase(updated);
   };
 
@@ -986,7 +976,7 @@ export default function App() {
       : [kegiatan, ...presensiKegiatanList];
     
     setPresensiKegiatanList(updated);
-    localStorage.setItem('kppn_presensi_kegiatan', JSON.stringify(updated));
+    safeLocalStorageSet('kppn_presensi_kegiatan', JSON.stringify(updated));
     const newConfig = { ...dashboardConfig, presensiKegiatanList: updated };
     handleUpdateDashboardConfig(newConfig);
   };
@@ -994,7 +984,7 @@ export default function App() {
   const handleDeletePresensiKegiatan = (kegiatanId: string) => {
     const updated = presensiKegiatanList.filter(k => k.id !== kegiatanId);
     setPresensiKegiatanList(updated);
-    localStorage.setItem('kppn_presensi_kegiatan', JSON.stringify(updated));
+    safeLocalStorageSet('kppn_presensi_kegiatan', JSON.stringify(updated));
     const newConfig = { ...dashboardConfig, presensiKegiatanList: updated };
     handleUpdateDashboardConfig(newConfig);
   };
@@ -1006,7 +996,7 @@ export default function App() {
 
   const handleUpdateAdminPin = (newPin: string) => {
     setAdminPin(newPin);
-    localStorage.setItem('kppn_admin_pin', newPin);
+    safeLocalStorageSet('kppn_admin_pin', newPin);
     try {
       setDoc(doc(db, 'settings', 'global'), { adminPin: newPin, updatedAt: new Date().toISOString() }, { merge: true })
         .catch(err => console.warn("Firebase save pin notice:", err));
@@ -1018,14 +1008,14 @@ export default function App() {
   const handleUpdateDashboardConfig = (newConfig: DashboardConfig) => {
     setDashboardConfig(newConfig);
     try {
-      localStorage.setItem('kppn_dashboard_config', JSON.stringify(newConfig));
+      safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(newConfig));
       if (newConfig.menuVisibility) {
-        localStorage.setItem('kppn_menu_visibility', JSON.stringify(newConfig.menuVisibility));
+        safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(newConfig.menuVisibility));
       }
 
       // 1. Save compact historical upload archives to dedicated collection document (fits >50 months easily)
       if (Array.isArray(newConfig.historicalUploads)) {
-        localStorage.setItem('kppn_historical_uploads', JSON.stringify(newConfig.historicalUploads));
+        safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(newConfig.historicalUploads));
         const compactList = compactHistoricalUploadsForFirestore(newConfig.historicalUploads);
         setDoc(doc(db, 'data', 'historical_uploads'), {
           list: compactList,
@@ -1081,7 +1071,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(pengelolaanUPList));
+      safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(pengelolaanUPList));
     } catch (e) {
       console.warn('Error saving UP data to localStorage:', e);
     }
@@ -1102,7 +1092,7 @@ export default function App() {
     const sanitized = compactPengelolaanUPForFirestore(newList);
     setPengelolaanUPList(sanitized);
     try {
-      localStorage.setItem('kppn_pengelolaan_up', JSON.stringify(sanitized));
+      safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(sanitized));
     } catch (e) {
       console.warn('Error saving UP data to localStorage:', e);
     }
@@ -1125,7 +1115,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(transaksiKkpList));
+      safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(transaksiKkpList));
     } catch (e) {
       console.warn('Error saving KKP data to localStorage:', e);
     }
@@ -1135,7 +1125,7 @@ export default function App() {
     const listToSave = Array.isArray(newList) ? newList : [];
     setTransaksiKkpList(listToSave);
     try {
-      localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(listToSave));
+      safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(listToSave));
       const compacted = compactKKPForFirestore(listToSave);
       setDoc(doc(db, 'data', 'transaksi_kkp'), { list: compacted, updatedAt: new Date().toISOString() })
         .catch(err => console.error("Firebase KKP setDoc error:", err));
@@ -1148,8 +1138,8 @@ export default function App() {
   const [transaksiDigipayList, setTransaksiDigipayList] = useState<DigipayRecord[]>(() => {
     const hasPurged = localStorage.getItem('kppn_digipay_emptied_v3') === 'true';
     if (!hasPurged) {
-      localStorage.setItem('kppn_transaksi_digipay', '[]');
-      localStorage.setItem('kppn_digipay_emptied_v3', 'true');
+      safeLocalStorageSet('kppn_transaksi_digipay', '[]');
+      safeLocalStorageSet('kppn_digipay_emptied_v3', 'true');
       return [];
     }
 
@@ -1161,7 +1151,7 @@ export default function App() {
           // If contains old sample records or zero-nominal records, purge it
           const totalNominal = parsed.reduce((acc: number, r: any) => acc + (Number(r.nominalTransaksi) || 0), 0);
           if (parsed.some(r => r.id && r.id.startsWith('dgp-sample-')) || (parsed.length > 0 && totalNominal === 0)) {
-            localStorage.setItem('kppn_transaksi_digipay', '[]');
+            safeLocalStorageSet('kppn_transaksi_digipay', '[]');
             return [];
           }
           return parsed;
@@ -1175,7 +1165,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_transaksi_digipay', JSON.stringify(transaksiDigipayList));
+      safeLocalStorageSet('kppn_transaksi_digipay', JSON.stringify(transaksiDigipayList));
     } catch (e) {
       console.warn('Error saving Digipay data to localStorage:', e);
     }
@@ -1208,7 +1198,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(deviasiHal3List));
+      safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(deviasiHal3List));
     } catch (e) {
       console.warn('Error saving Deviasi Hal III data to localStorage:', e);
     }
@@ -1218,7 +1208,7 @@ export default function App() {
     const listToSave = Array.isArray(newList) ? newList : [];
     setDeviasiHal3List(listToSave);
     try {
-      localStorage.setItem('kppn_deviasi_hal3', JSON.stringify(listToSave));
+      safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(listToSave));
       const compacted = compactDeviasiHal3ForFirestore(listToSave);
       setDoc(doc(db, 'data', 'deviasi_hal3'), { list: compacted, updatedAt: new Date().toISOString() })
         .catch(err => console.error("Firebase Deviasi Hal III setDoc error:", err));
@@ -1386,10 +1376,10 @@ export default function App() {
     } catch (e) {
       console.warn("Error clearing UP in Firebase:", e);
     }
-    localStorage.setItem('kppn_satker_data', JSON.stringify([]));
-    localStorage.setItem('kppn_pejabat_data', JSON.stringify([]));
-    localStorage.setItem('kppn_pengelolaan_up', JSON.stringify([]));
-    localStorage.setItem('kppn_historical_uploads', JSON.stringify([]));
+    safeLocalStorageSet('kppn_satker_data', JSON.stringify([]));
+    safeLocalStorageSet('kppn_pejabat_data', JSON.stringify([]));
+    safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify([]));
+    safeLocalStorageSet('kppn_historical_uploads', JSON.stringify([]));
     handleUpdateDashboardConfig({
       ...dashboardConfig,
       historicalUploads: [],
@@ -1562,7 +1552,7 @@ export default function App() {
       });
     }
     setSatkers(result);
-    localStorage.setItem('kppn_satker_data', JSON.stringify(result));
+    safeLocalStorageSet('kppn_satker_data', JSON.stringify(result));
     syncSatkersToFirebase(result);
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
     setActiveTab(targetTab);

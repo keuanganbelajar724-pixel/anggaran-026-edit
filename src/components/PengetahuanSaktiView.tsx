@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useEffect } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
@@ -99,7 +100,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           if (data.items !== undefined && Array.isArray(data.items)) {
             setJuknisList(data.items);
             try {
-              localStorage.setItem('kppn_juknis_blangko_items', JSON.stringify(data.items));
+              safeLocalStorageSet('kppn_juknis_blangko_items', JSON.stringify(data.items));
             } catch (e) {
               console.warn(e);
             }
@@ -195,7 +196,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           if (data.items !== undefined && Array.isArray(data.items)) {
             setKnowledgeList(data.items);
             try {
-              localStorage.setItem('kppn_knowledge_items', JSON.stringify(data.items));
+              safeLocalStorageSet('kppn_knowledge_items', JSON.stringify(data.items));
             } catch (e) {
               console.warn(e);
             }
@@ -213,7 +214,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   const saveKnowledgeToFirebase = (newList: KnowledgeItem[]) => {
     setKnowledgeList(newList);
     try {
-      localStorage.setItem('kppn_knowledge_items', JSON.stringify(newList));
+      safeLocalStorageSet('kppn_knowledge_items', JSON.stringify(newList));
     } catch (e) {
       console.warn(e);
     }

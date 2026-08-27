@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Send,
@@ -182,7 +183,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   // Sync deliveryTrackerMap to LocalStorage
   useEffect(() => {
     try {
-      localStorage.setItem('kppn_wa_delivery_tracker', JSON.stringify(deliveryTrackerMap));
+      safeLocalStorageSet('kppn_wa_delivery_tracker', JSON.stringify(deliveryTrackerMap));
     } catch (e) {
       console.warn('Gagal menyimpan tracker ke localStorage:', e);
     }
@@ -374,7 +375,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
 
     // Save to LocalStorage for persistence across reloads
     try {
-      localStorage.setItem('kppn_wa_gateway_config', JSON.stringify(configToSave));
+      safeLocalStorageSet('kppn_wa_gateway_config', JSON.stringify(configToSave));
     } catch (e) {
       console.warn('Gagal menyimpan config WA ke localStorage:', e);
     }

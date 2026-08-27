@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useEffect } from 'react';
 import {
   Megaphone,
@@ -60,7 +61,7 @@ export const PopUpAnnouncementModal: React.FC<PopUpAnnouncementModalProps> = ({
   const handleClose = () => {
     if (dontShowToday && config) {
       const storageKey = `kppn026_popup_dismissed_${config.id || 'default'}`;
-      localStorage.setItem(storageKey, new Date().toISOString().slice(0, 10));
+      safeLocalStorageSet(storageKey, new Date().toISOString().slice(0, 10));
     }
     setIsOpen(false);
     if (onClose) onClose();

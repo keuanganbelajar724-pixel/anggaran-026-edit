@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   ShoppingBag,
@@ -243,7 +244,7 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
           if (saved) {
             const list: MasterSatker[] = JSON.parse(saved);
             const nextList = list.map(m => m.kodeSatker === updatedMaster.kodeSatker ? updatedMaster : m);
-            localStorage.setItem('kppn_master_satkers', JSON.stringify(nextList));
+            safeLocalStorageSet('kppn_master_satkers', JSON.stringify(nextList));
           }
         } catch {
           // Ignore

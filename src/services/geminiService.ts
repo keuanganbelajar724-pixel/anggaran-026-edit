@@ -9,6 +9,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { db, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
 import { ChatMessage, ArchivedChatSession } from '../types';
+import { safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
 
 export interface GeminiGenerateOptions {
   prompt?: string;
@@ -43,7 +44,7 @@ export const LOCAL_GEMINI_ARCHIVES_STORAGE = 'kppn_gemini_archived_sessions';
  */
 export function getClientStoredApiKey(): string {
   try {
-    const local = localStorage.getItem(LOCAL_GEMINI_KEY_STORAGE);
+    const local = safeLocalStorageGet(LOCAL_GEMINI_KEY_STORAGE);
     if (local && local.trim()) return local.trim();
     const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
     if (envKey && typeof envKey === 'string' && envKey.trim()) return envKey.trim();
@@ -59,9 +60,9 @@ export function getClientStoredApiKey(): string {
 export function saveClientStoredApiKey(key: string): void {
   try {
     if (!key || !key.trim()) {
-      localStorage.removeItem(LOCAL_GEMINI_KEY_STORAGE);
+      safeLocalStorageRemove(LOCAL_GEMINI_KEY_STORAGE);
     } else {
-      localStorage.setItem(LOCAL_GEMINI_KEY_STORAGE, key.trim());
+      safeLocalStorageSet(LOCAL_GEMINI_KEY_STORAGE, key.trim());
     }
   } catch (e) {
     console.warn('Failed to save Gemini API key in localStorage', e);
@@ -281,9 +282,10 @@ let geminiChatQuotaExhaustedUntil = 0;
  * Save chat history to both LocalStorage and Firestore
  */
 export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
-  // 1. LocalStorage for instant access
+  // 1. LocalStorage for instant access (cap at last 30 messages)
   try {
-    localStorage.setItem(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(messages));
+    const trimmed = messages.slice(-30);
+    safeLocalStorageSet(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save chat to local storage', e);
   }
@@ -364,7 +366,8 @@ export async function loadCloudArchivedSessions(): Promise<ArchivedChatSession[]
  */
 export async function saveCloudArchivedSessions(archives: ArchivedChatSession[]): Promise<void> {
   try {
-    localStorage.setItem(LOCAL_GEMINI_ARCHIVES_STORAGE, JSON.stringify(archives));
+    const trimmed = archives.slice(-15);
+    safeLocalStorageSet(LOCAL_GEMINI_ARCHIVES_STORAGE, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save archives to local storage', e);
   }

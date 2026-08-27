@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState, useRef, useMemo } from 'react';
 import {
   Upload,
@@ -232,7 +233,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
   // 1. CLEAR ALL DATA (FAIL-SAFE & IMMEDIATE)
   const executeClearAll = () => {
     try {
-      localStorage.setItem('kppn_transaksi_kkp', '[]');
+      safeLocalStorageSet('kppn_transaksi_kkp', '[]');
     } catch (e) {
       console.warn('Error clearing localStorage:', e);
     }
@@ -294,7 +295,7 @@ export const UploadKKPSection: React.FC<UploadKKPSectionProps> = ({
   const executeResetDefault = () => {
     const defaultData = INITIAL_TRANSAKSI_KKP_DATA;
     try {
-      localStorage.setItem('kppn_transaksi_kkp', JSON.stringify(defaultData));
+      safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(defaultData));
     } catch (e) {
       console.warn('Error resetting localStorage:', e);
     }

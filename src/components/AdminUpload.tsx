@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { useToast } from './ToastNotification';
@@ -2045,7 +2046,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const saveAndApplyHistoricalUploads = (newList: ExcelUploadHistory[]) => {
     setHistoricalUploads(newList);
     try {
-      localStorage.setItem('kppn_historical_uploads', JSON.stringify(newList));
+      safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(newList));
     } catch (e) {
       console.error('Error saving historical uploads to localStorage:', e);
     }
@@ -7683,7 +7684,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         if (confirm('Kembalikan semua pengaturan KOP & Penandatangan ke format standar Kemenkeu?')) {
                           setPresensiPrintConfig(DEFAULT_PRESENSI_PRINT_CONFIG);
                           try {
-                            localStorage.setItem('kppn_presensi_print_config', JSON.stringify(DEFAULT_PRESENSI_PRINT_CONFIG));
+                            safeLocalStorageSet('kppn_presensi_print_config', JSON.stringify(DEFAULT_PRESENSI_PRINT_CONFIG));
                           } catch (e) {}
                           const updated = {
                             ...tempConfig,
@@ -7889,7 +7890,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       type="button"
                       onClick={() => {
                         try {
-                          localStorage.setItem('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
+                          safeLocalStorageSet('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
                         } catch (e) {
                           console.warn(e);
                         }
@@ -8418,7 +8419,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       type="button"
                       onClick={() => {
                         try {
-                          localStorage.setItem('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
+                          safeLocalStorageSet('kppn_presensi_print_config', JSON.stringify(presensiPrintConfig));
                         } catch (e) {}
                         const updated = {
                           ...tempConfig,
@@ -8708,6 +8709,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             addToast('Template pesan berhasil ditransfer ke menu Broadcast Masif WA!', 'success');
           }}
         />
+      )}
+
+      {/* 15. Direktori Blangko & Pengetahuan SAKTI */}
+      {adminTab === 'pengetahuan-admin' && (
+        <KelolaPengetahuanJuknisSection
+          theme={theme}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(newCfg) => {
+            setTempConfig(newCfg);
+            onUpdateDashboardConfig(newCfg);
+          }}
+          isAdminAuthenticated={isAdminAuthenticated}
+        />
+      )}
+
+      {/* 16. Statistik Trafik & Pengunjung */}
+      {adminTab === 'trafik' && (
+        <TrafikPengunjungSection isDark={isDark} />
       )}
 
       {/* Phone Number Monitoring Subtab */}

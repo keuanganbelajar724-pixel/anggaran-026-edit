@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState } from 'react';
 import { 
   ShieldAlert, 
@@ -151,7 +152,7 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         parsed.aduanList = updatedList;
-        localStorage.setItem('kppn_dashboard_config', JSON.stringify(parsed));
+        safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(parsed));
       }
     } catch (e) {
       console.warn('Error persisting aduan:', e);

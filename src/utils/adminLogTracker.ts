@@ -1,4 +1,5 @@
 import { db, doc, setDoc, onSnapshot } from '../lib/firebase';
+import { safeLocalStorageSet, safeLocalStorageGet } from './safeStorage';
 
 export type AdminLogCategory = 'AUTH' | 'UPLOAD' | 'SETTINGS' | 'ANNOUNCEMENT' | 'BROADCAST' | 'TICKET';
 export type AdminLogStatus = 'SUCCESS' | 'WARNING' | 'INFO' | 'ERROR';
@@ -57,7 +58,7 @@ const DEFAULT_INITIAL_LOGS: AdminActivityLog[] = [
 export function getLocalAdminLogs(): AdminActivityLog[] {
   if (typeof window === 'undefined') return DEFAULT_INITIAL_LOGS;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_ADMIN_LOGS);
+    const raw = safeLocalStorageGet(STORAGE_KEY_ADMIN_LOGS);
     if (!raw) {
       saveLocalAdminLogs(DEFAULT_INITIAL_LOGS);
       return DEFAULT_INITIAL_LOGS;
@@ -76,7 +77,7 @@ export function getLocalAdminLogs(): AdminActivityLog[] {
 export function saveLocalAdminLogs(logs: AdminActivityLog[]): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY_ADMIN_LOGS, JSON.stringify(logs.slice(0, 300)));
+    safeLocalStorageSet(STORAGE_KEY_ADMIN_LOGS, JSON.stringify(logs.slice(0, 40)));
   } catch (err) {
     console.warn('Error writing admin logs to storage:', err);
   }

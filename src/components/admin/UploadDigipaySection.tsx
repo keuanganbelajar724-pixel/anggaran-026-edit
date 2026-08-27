@@ -1,3 +1,4 @@
+import { safeLocalStorageSet } from '../../utils/safeStorage';
 import React, { useState, useRef, useMemo } from 'react';
 import {
   Upload,
@@ -149,8 +150,8 @@ export const UploadDigipaySection: React.FC<UploadDigipaySectionProps> = ({
   // 1. CLEAR ALL DATA (FAIL-SAFE & IMMEDIATE)
   const executeClearAll = () => {
     try {
-      localStorage.setItem('kppn_transaksi_digipay', '[]');
-      localStorage.setItem('kppn_digipay_emptied_v3', 'true');
+      safeLocalStorageSet('kppn_transaksi_digipay', '[]');
+      safeLocalStorageSet('kppn_digipay_emptied_v3', 'true');
     } catch (e) {
       console.warn('Error clearing localStorage:', e);
     }
