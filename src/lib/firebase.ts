@@ -4,12 +4,13 @@ import {
   initializeFirestore,
   memoryLocalCache,
   doc, 
-  getDoc, 
+  getDoc as rawGetDoc, 
   setDoc as rawSetDoc, 
   onSnapshot as rawOnSnapshot, 
   collection, 
   query,
   DocumentReference,
+  DocumentSnapshot,
   SetOptions
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -21,7 +22,7 @@ emergencyPruneStorage();
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firestore with memoryLocalCache to eliminate WebStorage QuotaExceededError and multi-tab coordination collisions
-let firestoreDb;
+let firestoreDb: any;
 try {
   firestoreDb = initializeFirestore(
     app,
@@ -54,13 +55,47 @@ export function isFirestoreQuotaExhausted(): boolean {
   }
 }
 
-export function reportFirestoreQuotaExhaustion(durationMinutes = 60): void {
+export function reportFirestoreQuotaExhaustion(durationMinutes = 120): void {
   try {
     const expiry = Date.now() + durationMinutes * 60 * 1000;
     safeLocalStorageSet(QUOTA_EXHAUSTED_STORAGE_KEY, String(expiry));
-    console.warn(`[Firestore] Daily write quota reached. Writes paused for ${durationMinutes} minutes.`);
+    console.warn(`[Firestore] Daily quota limit reached. Database operations paused for ${durationMinutes} minutes (using local storage cache).`);
   } catch {
     // Ignore
+  }
+}
+
+// Resilient getDoc wrapper with offline/quota fallback
+export async function getDoc<T = any>(
+  reference: DocumentReference<T>
+): Promise<any> {
+  const fallbackSnap = {
+    exists: () => false,
+    data: () => undefined,
+    id: reference?.id || '',
+    ref: reference,
+    metadata: { hasPendingWrites: false, fromCache: true }
+  };
+
+  if (isFirestoreQuotaExhausted()) {
+    return fallbackSnap;
+  }
+
+  try {
+    const snap = await rawGetDoc(reference);
+    return snap;
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota limit exceeded') ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      reportFirestoreQuotaExhaustion(120);
+      return fallbackSnap;
+    }
+    console.warn('Firestore getDoc notice:', err?.message || err);
+    return fallbackSnap;
   }
 }
 
@@ -95,36 +130,76 @@ export async function setDoc<T = any>(
   }
 }
 
-// Resilient onSnapshot wrapper with built-in error handler
+// Resilient onSnapshot wrapper with built-in quota interception
 export function onSnapshot(...args: any[]): () => void {
+  // If quota is exhausted, immediately return a safe no-op unsubscriber
+  // to avoid starting WebSocket/long-polling stream retries
+  if (isFirestoreQuotaExhausted()) {
+    return () => {};
+  }
+
   try {
-    const hasErrorCallback = args.some((arg, index) => index > 0 && typeof arg === 'function' && index >= 2);
-    
-    if (!hasErrorCallback) {
-      const safeErrorCallback = (err: any) => {
-        if (
-          err?.code === 'resource-exhausted' ||
-          err?.message?.includes('Quota limit exceeded') ||
-          err?.message?.includes('Quota exceeded') ||
-          err?.message?.includes('resource-exhausted')
-        ) {
-          reportFirestoreQuotaExhaustion(60);
-          return;
+    // Find callbacks in args
+    const targetRef = args[0];
+    let nextCallback: any = null;
+    let errorCallback: any = null;
+
+    if (typeof args[1] === 'function') {
+      nextCallback = args[1];
+      if (typeof args[2] === 'function') {
+        errorCallback = args[2];
+      }
+    } else if (typeof args[1] === 'object' && typeof args[2] === 'function') {
+      // Options passed as 2nd arg
+      nextCallback = args[2];
+      if (typeof args[3] === 'function') {
+        errorCallback = args[3];
+      }
+    }
+
+    const wrappedErrorCallback = (err: any) => {
+      if (
+        err?.code === 'resource-exhausted' ||
+        err?.message?.includes('Quota limit exceeded') ||
+        err?.message?.includes('Quota exceeded') ||
+        err?.message?.includes('resource-exhausted')
+      ) {
+        reportFirestoreQuotaExhaustion(120);
+        return;
+      }
+      if (errorCallback) {
+        try {
+          errorCallback(err);
+        } catch (e) {
+          console.warn('Error in snapshot error handler:', e);
         }
+      } else {
         console.warn('Firestore listener notice:', err?.message || err);
-      };
-      
-      return (rawOnSnapshot as any)(...args, safeErrorCallback);
+      }
+    };
+
+    if (nextCallback) {
+      return (rawOnSnapshot as any)(targetRef, nextCallback, wrappedErrorCallback);
     }
 
     return (rawOnSnapshot as any)(...args);
   } catch (err: any) {
-    console.warn('Firestore onSnapshot init notice:', err?.message || err);
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota limit exceeded') ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      reportFirestoreQuotaExhaustion(120);
+    } else {
+      console.warn('Firestore onSnapshot init notice:', err?.message || err);
+    }
     return () => {};
   }
 }
 
-export { doc, getDoc, collection, query };
+export { doc, collection, query };
+
 
 
 

@@ -42,6 +42,7 @@ import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
 import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisSection';
 import { TrafikPengunjungSection } from './admin/TrafikPengunjungSection';
+import { BuletinWartaSection } from './admin/BuletinWartaSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -380,7 +381,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'trafik'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'trafik' | 'buletin'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -2971,6 +2972,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>16. Statistik Trafik &amp; Pengunjung</span>
           <span className="bg-gradient-to-r from-blue-500 to-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             📊 Infografis
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('buletin')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'buletin'
+              ? 'bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 text-white shadow-lg shadow-rose-500/25 border border-rose-400/40 ring-2 ring-rose-400/30'
+              : 'text-rose-700 hover:text-rose-900 hover:bg-rose-50 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-800/60'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
+          <span>17. Buletin &amp; Warta KPPN</span>
+          <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
+            🎨 Canva &amp; Realisasi
           </span>
         </button>
       </div>
@@ -8727,6 +8743,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       {/* 16. Statistik Trafik & Pengunjung */}
       {adminTab === 'trafik' && (
         <TrafikPengunjungSection isDark={isDark} />
+      )}
+
+      {/* 17. Buletin & Warta KPPN (Realisasi Belanja & Canva) */}
+      {adminTab === 'buletin' && (
+        <BuletinWartaSection
+          theme={theme}
+          isDark={isDark}
+          satkers={satkers}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(newCfg) => {
+            setTempConfig(newCfg);
+            onUpdateDashboardConfig(newCfg);
+          }}
+          isAdminAuthenticated={isAdminAuthenticated}
+        />
       )}
 
       {/* Phone Number Monitoring Subtab */}

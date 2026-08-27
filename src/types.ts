@@ -1245,4 +1245,109 @@ export type AnalystRolePersona =
   | 'it_sakti_expert' 
   | 'forecaster_likuiditas';
 
+// -------------------------------------------------------------
+// MODUL REALISASI BELANJA (OM-SPAN / SAKTI INQUIRY) & BULETIN
+// -------------------------------------------------------------
+export interface RealisasiBelanjaRecord {
+  id: string;
+  kementerianKode: string;
+  kementerianUraian: string;
+  eselonIKode?: string;
+  eselonIUraian?: string;
+  kewenanganKode?: string;
+  kewenanganUraian?: string;
+  provinsiKode?: string;
+  provinsiUraian?: string;
+  kabkotaKode?: string;
+  kabkotaUraian?: string;
+  kanwilKode?: string;
+  kanwilUraian?: string;
+  kppnKode?: string;
+  kppnUraian?: string;
+  satkerKode: string;
+  satkerUraian: string;
+  fungsiKode?: string;
+  fungsiUraian?: string;
+  subfungsiKode?: string;
+  subfungsiUraian?: string;
+  programKode?: string;
+  programUraian?: string;
+  kegiatanKode?: string;
+  kegiatanUraian?: string;
+  outputKroKode?: string;
+  outputKroUraian?: string;
+  akunKode: string;
+  akunUraian: string;
+  jenisBelanjaKode: '51' | '52' | '53' | '57' | string; // 51=Pegawai, 52=Barang, 53=Modal, 57=Bansos
+  jenisBelanjaUraian: string;
+  sumberdanaKode?: string;
+  sumberdanaUraian?: string;
+  paguDipa: number;
+  realisasi: number;
+  blokir: number;
+  sisaPagu: number;
+  persenRealisasi: number;
+}
+
+export interface RealisasiBelanjaSummary {
+  totalPagu: number;
+  totalRealisasi: number;
+  totalSisa: number;
+  totalBlokir: number;
+  persenRealisasiTotal: number;
+  totalSatkerCount: number;
+  totalRows: number;
+  breakdownJenisBelanja: {
+    kode: string;
+    nama: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+    color: string;
+  }[];
+  topSatkers: {
+    kodeSatker: string;
+    namaSatker: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+  }[];
+  bottomSatkers: {
+    kodeSatker: string;
+    namaSatker: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+  }[];
+  breakdownKementerian: {
+    kode: string;
+    nama: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+  }[];
+}
+
+export interface BuletinConfig {
+  id: string;
+  edisi: string; // e.g. "EDISI MEI 2026 - VOL. V"
+  bulanTahun: string; // e.g. "Mei 2026"
+  judulUtama: string; // e.g. "Optimalisasi Penyerapan Belanja APBN & Penguatan Tata Kelola SAKTI"
+  subJudul: string; // e.g. "Warta Kinerja Perbendaharaan KPPN Tipe A1 Semarang I"
+  namaKepalaKantor: string; // e.g. "Drs. H. Ahmad Fauzi, M.Si."
+  sambutanKepala: string; // Editorial greeting text
+  tajukRencana: string; // Editorial highlight
+  temaWarna: 'navy' | 'emerald' | 'indigo' | 'burgundy';
+  showRealisasiBelanja: boolean;
+  showIKPASection: boolean;
+  showPojokSakti: boolean;
+  showSambutan: boolean;
+  showAgendaKegiatan: boolean;
+  tipsSaktiCustom?: string[];
+  catatanAnalis?: string;
+  canvaTemplateUrl?: string;
+  updatedAt?: string;
+}
+
+
 
