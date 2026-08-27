@@ -53,6 +53,8 @@ import { useToast } from '../ToastNotification';
 import { db, doc, setDoc } from '../../lib/firebase';
 import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
 
+import { BuletinMagazineLayout } from './BuletinMagazineLayout';
+
 interface BuletinWartaSectionProps {
   theme?: AppTheme;
   isDark?: boolean;
@@ -67,25 +69,60 @@ const STORAGE_KEY_BULETIN_CFG = 'kppn_buletin_config';
 
 const DEFAULT_BULETIN_CONFIG: BuletinConfig = {
   id: 'buletin_kppn_current',
-  edisi: 'EDISI MEI 2026 - VOL. V',
-  bulanTahun: 'Mei 2026',
-  judulUtama: 'AKSELERASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN NEGARA',
-  subJudul: 'Warta Kinerja Perbendaharaan, Evaluasi Kualitas Belanja, & Transformasi Digital SAKTI',
+  edisi: 'EDISI 2 | TW.II/2026',
+  bulanTahun: 'Triwulan II 2026',
+  namaBuletin: 'WARTA SEMARANG SATU',
+  taglineBuletin: 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I',
+  judulUtama: 'OPTIMALISASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN',
+  subJudul: 'Kinerja Fiskal Berkualitas, Akselerasi Digitalisasi SAKTI, & Transformasi Layanan Menuju WBBM',
   namaKepalaKantor: 'Drs. H. Ahmad Fauzi, M.Si.',
-  sambutanKepala: 'Puji syukur kita panjatkan ke hadirat Tuhan Yang Maha Esa. Melalui Warta Perbendaharaan ini, KPPN Tipe A1 Semarang I terus berkomitmen mengawal pelaksanaan anggaran satker agar senantiasa efektif, transparan, dan akuntabel guna mendukung pertumbuhan ekonomi nasional.',
-  tajukRencana: 'Fokus triwulan ini diarahkan pada percepatan penyelesaian tagihan kontraktual, mitigasi deviasi Halaman III DIPA, serta pemanfaatan optimal instrumen digital perbendaharaan seperti KKP dan Digipay.',
+  jabatanKepala: 'Kepala KPPN Tipe A1 Semarang I',
+  sambutanKepala: 'Puji syukur kita panjatkan ke hadirat Tuhan Yang Maha Esa. Melalui Warta Semarang Satu ini, KPPN Tipe A1 Semarang I terus berkomitmen mengawal pelaksanaan anggaran satker agar senantiasa efektif, transparan, dan akuntabel guna mendukung pertumbuhan ekonomi Kota Semarang dan Jawa Tengah.',
+  tajukRencana: 'Fokus triwulan ini diarahkan pada percepatan penyelesaian tagihan kontraktual, mitigasi deviasi Halaman III DIPA, serta pemanfaatan optimal instrumen digital perbendaharaan seperti KKP dan Digipay demi mendorong efisiensi belanja pemerintah.',
   temaWarna: 'navy',
   showRealisasiBelanja: true,
   showIKPASection: true,
   showPojokSakti: true,
   showSambutan: true,
   showAgendaKegiatan: true,
+  
+  wawancaraSatker: {
+    judul: 'Kiat Sukses Mengamankan Nilai IKPA 100 & Zero Retur',
+    narasumber: 'Budi Santoso, S.E.',
+    jabatan: 'PPK / Bendahara Pengeluaran',
+    satker: 'Politeknik Ilmu Pelayaran Semarang',
+    isiWawancara: 'Kunci utama mencapai IKPA maksimal terletak pada disiplin pemutakhiran RPD Halaman III DIPA setiap awal triwulan serta rekonsiliasi berkala sebelum tanggal cut-off SAKTI.',
+    kutipanPenting: 'Koordinasi aktif dengan Helpdesk KPPN Semarang I membuat seluruh kendala teknis SP2D dan SAKTI terselesaikan dalam hitungan jam.'
+  },
+
+  kegiatanKppn: {
+    judul: 'Bimtek Tata Kelola Keuangan & Sosialisasi Antikorupsi',
+    subJudul: 'Penguatan Integritas dan Mitigasi Deviasi Halaman III DIPA Satker Mitra',
+    tanggal: '12 Juni 2026',
+    lokasi: 'Aula Sumbing KPPN Semarang I, Jl. Ki Mangunsarkoro No. 34',
+    deskripsi: 'Kegiatan dihadiri oleh seluruh KPA dan PPK Satuan Kerja guna mengevaluasi realisasi belanja semester I serta menyamakan persepsi mitigasi deviasi RPD.'
+  },
+
+  teropongSemarang: {
+    lokasi1Nama: 'Kawasan Kota Lama Semarang (Little Netherland)',
+    lokasi1Deskripsi: 'Cagar budaya bersejarah dengan arsitektur kolonial megah seperti Gereja Blenduk, menjadi ikon pariwisata unggulan dan sentra ekonomi kreatif.',
+    lokasi2Nama: 'Landmark Lawang Sewu & Kawasan Tugu Muda',
+    lokasi2Deskripsi: 'Simbol perjuangan dan kebanggaan warga Kota Semarang yang terus berbenah menjadi pusat edukasi warisan perkeretaapian dan sejarah kemerdekaan.'
+  },
+
+  pantunAntiKorupsi: {
+    bait1: 'Jalan-jalan ke Simpang Lima membeli lumpia,',
+    bait2: 'Mampir kulineran tahu gimbal nikmat tiada tara;',
+    bait3: 'KPPN Semarang I melayani dengan tulus dan prima,',
+    bait4: 'Tanpa suap, tolak gratifikasi, integritas nomor satu selamanya!'
+  },
+
   tipsSaktiCustom: [
     'Pastikan SPM Kontraktual diterbitkan maksimal 17 hari kerja sejak BAST ditandatangani untuk menjaga indikator Ketepatan Waktu.',
-    'Lakukan Rekonsiliasi Eksternal SAKTI-SPAN setiap bulan sebelum batas cut-off tanggal 10.',
+    'Lakukan Rekonsiliasi Eksternal SAKTI-SPAN setiap bulan sebelum batas cut-off tanggal 10 pukul 23:59 WIB.',
     'Optimalkan penggunaan CMS dan KKP untuk meminimalkan saldo idle kas tunai pada rekening Bendahara Pengeluaran.'
   ],
-  catatanAnalis: 'Realisasi Belanja Modal perlu diakselerasi melalui monitoring progres fisik proyek secara berkala.',
+  catatanAnalis: 'Realisasi Belanja Modal perlu diakselerasi melalui monitoring berkala terhadap progres fisik pengadaan barang/jasa sebelum batas akhir tahun anggaran.',
   canvaTemplateUrl: 'https://www.canva.com/templates/?query=newsletter+annual+report+a4'
 };
 
@@ -333,6 +370,16 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
           subHeaderBg: 'bg-rose-50 text-rose-950',
           cardBorder: 'border-rose-200',
           accentText: 'text-rose-700'
+        };
+      case 'gold':
+        return {
+          primaryBg: 'bg-amber-950 text-white',
+          headerBg: 'from-amber-950 via-yellow-950 to-slate-950',
+          accentBorder: 'border-amber-400',
+          badgeBg: 'bg-amber-400/25 text-amber-300 border-amber-400/50',
+          subHeaderBg: 'bg-amber-50 text-amber-950',
+          cardBorder: 'border-amber-200',
+          accentText: 'text-amber-700'
         };
       default: // navy
         return {
@@ -973,10 +1020,22 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
               </div>
             </div>
 
+            {/* Row 1: Edisi, Bulan, Nama Buletin, Tema */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Nama Buletin */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500">Nama Buletin / Majalah</label>
+                <input
+                  type="text"
+                  value={buletinConfig.namaBuletin || 'WARTA SEMARANG SATU'}
+                  onChange={(e) => setBuletinConfig({ ...buletinConfig, namaBuletin: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
               {/* Edisi */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Edisi Buletin</label>
+                <label className="text-[11px] font-semibold text-slate-500">Edisi / Volume</label>
                 <input
                   type="text"
                   value={buletinConfig.edisi}
@@ -987,22 +1046,11 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
 
               {/* Bulan & Tahun */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Bulan / Periode Terbit</label>
+                <label className="text-[11px] font-semibold text-slate-500">Periode Terbit</label>
                 <input
                   type="text"
                   value={buletinConfig.bulanTahun}
                   onChange={(e) => setBuletinConfig({ ...buletinConfig, bulanTahun: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              {/* Nama Kepala Kantor */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Nama Kepala KPPN</label>
-                <input
-                  type="text"
-                  value={buletinConfig.namaKepalaKantor}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, namaKepalaKantor: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
                 />
               </div>
@@ -1019,7 +1067,31 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                   <option value="emerald">🌿 Emerald Treasury (Hijau Emas)</option>
                   <option value="indigo">🔮 Modern Royal Indigo (Ungu Biru)</option>
                   <option value="burgundy">🍷 Executive Burgundy (Elegan)</option>
+                  <option value="gold">👑 Gold Treasury Semarang (Mewah)</option>
                 </select>
+              </div>
+            </div>
+
+            {/* Row 2: Kepala Kantor & Jabatan */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500">Nama Kepala KPPN Semarang I</label>
+                <input
+                  type="text"
+                  value={buletinConfig.namaKepalaKantor}
+                  onChange={(e) => setBuletinConfig({ ...buletinConfig, namaKepalaKantor: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-slate-500">Jabatan Penandatangan</label>
+                <input
+                  type="text"
+                  value={buletinConfig.jabatanKepala || 'Kepala KPPN Tipe A1 Semarang I'}
+                  onChange={(e) => setBuletinConfig({ ...buletinConfig, jabatanKepala: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
+                />
               </div>
             </div>
 
@@ -1078,211 +1150,21 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
               <div className="flex items-center gap-2">
                 <Eye className="w-4 h-4 text-blue-600" />
                 <span className="text-sm font-bold text-slate-900 dark:text-white">
-                  Pratinjau Visual Buletin (Format Standar Majalah A4 210 × 297 mm)
+                  Pratinjau Visual Majalah &amp; Warta KPPN Semarang I (3 Halaman Lengkap Standar A4)
                 </span>
               </div>
               <span className="text-xs text-slate-500">
-                Cocok untuk cetak langsung atau diimpor ke Canva
+                Otomatis mengolah data Pagu, Realisasi, Top/Bottom Satker, IKPA, dan Tips SAKTI
               </span>
             </div>
 
-            {/* Container resembling standard A4 page */}
-            <div className="max-w-4xl mx-auto bg-white text-slate-900 shadow-2xl rounded-2xl overflow-hidden border border-slate-300 p-8 space-y-8 print:p-0 print:border-none print:shadow-none print:rounded-none">
-              
-              {/* PAGE 1: COVER & HEADER RESMI */}
-              <div className="space-y-6 border-b-2 border-slate-900 pb-8">
-                {/* Top Official Banner */}
-                <div className={`p-6 rounded-2xl ${themeStyles.primaryBg} space-y-4 relative overflow-hidden`}>
-                  <div className="flex items-center justify-between border-b border-white/20 pb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-sm shadow-md">
-                        DJPb
-                      </div>
-                      <div>
-                        <div className="text-[10px] tracking-widest uppercase font-bold text-amber-300">
-                          KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
-                        </div>
-                        <div className="text-xs font-black tracking-wide">
-                          KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${themeStyles.badgeBg}`}>
-                        {buletinConfig.edisi}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Big Headline */}
-                  <div className="space-y-2 pt-2">
-                    <div className="inline-block px-2.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black text-[10px] tracking-wider uppercase">
-                      WARTA PERBENDAHARAAN &amp; KINERJA APBN
-                    </div>
-                    <h1 className="text-2xl sm:text-3xl font-black leading-tight tracking-tight text-white">
-                      {buletinConfig.judulUtama}
-                    </h1>
-                    <p className="text-xs text-slate-200 leading-relaxed max-w-2xl">
-                      {buletinConfig.subJudul}
-                    </p>
-                  </div>
-
-                  {/* Highlights Bar */}
-                  {overallSummary && (
-                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10 text-center">
-                      <div className="bg-white/10 backdrop-blur-xs p-2.5 rounded-xl">
-                        <div className="text-[10px] text-slate-300">PAGU ANGGARAN</div>
-                        <div className="text-base font-black text-amber-300">{formatRupiahShort(overallSummary.totalPagu)}</div>
-                      </div>
-                      <div className="bg-white/10 backdrop-blur-xs p-2.5 rounded-xl">
-                        <div className="text-[10px] text-slate-300">REALISASI APBN</div>
-                        <div className="text-base font-black text-emerald-300">{formatRupiahShort(overallSummary.totalRealisasi)}</div>
-                      </div>
-                      <div className="bg-white/10 backdrop-blur-xs p-2.5 rounded-xl">
-                        <div className="text-[10px] text-slate-300">PERSENTASE CAPAIAN</div>
-                        <div className="text-base font-black text-white">{overallSummary.persenRealisasiTotal.toFixed(2)}%</div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Editorial Greeting & Headline Article */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-                  <div className="md:col-span-1 p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                      <UserCheck className="w-4 h-4 text-blue-600" />
-                      <span>Tajuk Redaksi</span>
-                    </div>
-                    <p className="text-xs italic text-slate-600 leading-relaxed">
-                      "{buletinConfig.sambutanKepala}"
-                    </p>
-                    <div className="pt-2 border-t border-slate-200 text-right">
-                      <p className="text-xs font-bold text-slate-900">{buletinConfig.namaKepalaKantor}</p>
-                      <p className="text-[10px] text-slate-500">Kepala KPPN Semarang I</p>
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-                      <h3 className="text-sm font-black uppercase text-slate-900 tracking-wider">
-                        Fokus Strategis Triwulan Ini
-                      </h3>
-                    </div>
-                    <p className="text-xs text-slate-700 leading-relaxed">
-                      {buletinConfig.tajukRencana}
-                    </p>
-                    <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-100 flex items-start gap-2.5">
-                      <Zap className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                      <div className="text-xs text-blue-950">
-                        <strong>Catatan Analis MSKI:</strong> Seluruh Satker diimbau untuk selalu memantau indikator Deviasi Halaman III DIPA pada aplikasi OM-SPAN setiap tanggal awal bulan untuk mengamankan nilai IKPA periode triwulanan.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* PAGE 2: INFOGRAFIS REALISASI BELANJA APBN */}
-              <div className="space-y-6 border-b-2 border-slate-900 pb-8">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-                      02
-                    </div>
-                    <h2 className="text-base font-black uppercase tracking-wide text-slate-900">
-                      Infografis Realisasi Belanja APBN per Jenis Belanja
-                    </h2>
-                  </div>
-                  <span className="text-xs text-slate-500 font-mono">
-                    Periode: {buletinConfig.bulanTahun}
-                  </span>
-                </div>
-
-                {overallSummary && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {overallSummary.breakdownJenisBelanja.map(item => (
-                      <div key={item.kode} className="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
-                        <div className="text-[10px] font-bold uppercase text-slate-600 truncate">{item.nama}</div>
-                        <div className="text-lg font-black" style={{ color: item.color }}>
-                          {item.persen.toFixed(2)}%
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          {formatRupiahShort(item.realisasi)}
-                        </div>
-                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.persen)}%`, backgroundColor: item.color }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Top 5 Highlight in Buletin */}
-                {overallSummary && overallSummary.topSatkers.length > 0 && (
-                  <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
-                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                      <Award className="w-4 h-4 text-amber-500" />
-                      <span>Apresiasi: Satker dengan Capaian Realisasi Tertinggi</span>
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      {overallSummary.topSatkers.slice(0, 3).map((s, idx) => (
-                        <div key={s.kodeSatker} className="p-2.5 rounded-lg bg-white border border-slate-200 shadow-2xs space-y-1">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-amber-600">Peringkat #{idx + 1}</span>
-                            <span className="font-black text-emerald-700">{s.persen.toFixed(2)}%</span>
-                          </div>
-                          <div className="font-bold text-slate-900 truncate text-[11px]">{s.namaSatker}</div>
-                          <div className="text-[10px] text-slate-500">Kode: {s.kodeSatker}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* PAGE 3: POJOK SAKTI & JUKNIS PERBENDAHARAAN */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs">
-                      03
-                    </div>
-                    <h2 className="text-base font-black uppercase tracking-wide text-slate-900">
-                      Pojok Edukasi &amp; Juknis SAKTI Terkini
-                    </h2>
-                  </div>
-                  <span className="text-xs text-slate-500">
-                    Seksi MSKI &amp; Helpdesk SAKTI
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {(buletinConfig.tipsSaktiCustom || []).slice(0, 3).map((tip, idx) => (
-                    <div key={idx} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Tips SAKTI #{idx + 1}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
-                        {tip}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Footer of the Buletin */}
-                <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-slate-400">
-                  <div>
-                    Diterbitkan oleh: Seksi Manajemen Satker dan Kepatuhan Internal (MSKI) KPPN Semarang I
-                  </div>
-                  <div>
-                    Kontak Layanan Helpdesk &amp; Konsultasi: 0812-3456-7890 • djpb.kemenkeu.go.id/kppn/semarang1
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            {/* Render Modern Magazine Layout */}
+            <BuletinMagazineLayout
+              buletinConfig={buletinConfig}
+              overallSummary={overallSummary}
+              satkers={satkers}
+              themeStyles={themeStyles}
+            />
           </div>
         </div>
       )}

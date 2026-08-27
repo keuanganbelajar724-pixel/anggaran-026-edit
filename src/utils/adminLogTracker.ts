@@ -86,26 +86,9 @@ export function saveLocalAdminLogs(logs: AdminActivityLog[]): void {
 let lastAdminLogSyncTime = 0;
 let adminLogQuotaExhaustedUntil = 0;
 
-export async function syncAdminLogsToFirestore(logs: AdminActivityLog[]): Promise<void> {
-  const now = Date.now();
-  if (now < adminLogQuotaExhaustedUntil || now - lastAdminLogSyncTime < 30000) {
-    return;
-  }
-  lastAdminLogSyncTime = now;
-
-  try {
-    const logDocRef = doc(db, 'admin_logs', 'overview');
-    await setDoc(logDocRef, {
-      logs: logs.slice(0, 150),
-      totalCount: logs.length,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota') || err?.message?.includes('resource-exhausted')) {
-      adminLogQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
-      console.warn('Admin log Firestore quota reached, operating locally.');
-    }
-  }
+export async function syncAdminLogsToFirestore(_logs: AdminActivityLog[]): Promise<void> {
+  // Cloud write disabled to preserve Firestore daily quota limit. Logs are kept in local storage.
+  return;
 }
 
 export function recordAdminActivityLog(

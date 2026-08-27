@@ -1330,19 +1330,132 @@ export interface RealisasiBelanjaSummary {
 
 export interface BuletinConfig {
   id: string;
-  edisi: string; // e.g. "EDISI MEI 2026 - VOL. V"
-  bulanTahun: string; // e.g. "Mei 2026"
-  judulUtama: string; // e.g. "Optimalisasi Penyerapan Belanja APBN & Penguatan Tata Kelola SAKTI"
-  subJudul: string; // e.g. "Warta Kinerja Perbendaharaan KPPN Tipe A1 Semarang I"
+  edisi: string; // e.g. "EDISI 2 | TW.II/2026"
+  bulanTahun: string; // e.g. "Triwulan II 2026"
+  namaBuletin?: string; // e.g. "WARTA SEMARANG SATU" / "BULETIN TUGU MUDA"
+  taglineBuletin?: string; // e.g. "Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I"
+  judulUtama: string; // e.g. "OPTIMALISASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN"
+  subJudul: string; // e.g. "Kinerja Fiskal Berkualitas, Akselerasi Digitalisasi SAKTI, & Transformasi Layanan"
+  
+  // Hal 1: Cover Images & Highlights
+  fotoCoverUrl?: string;
+  coverHighlight1?: string;
+  coverHighlight2?: string;
+
+  // Hal 2: Kepala Kantor & Editorial
   namaKepalaKantor: string; // e.g. "Drs. H. Ahmad Fauzi, M.Si."
+  jabatanKepala?: string; // e.g. "KEPALA KPPN SEMARANG I"
+  fotoKepalaUrl?: string;
   sambutanKepala: string; // Editorial greeting text
+
+  // Hal 3: Sekilas Tentang Buletin
+  sekilasBuletin?: string; // Sekilas tentang Buletin KPPN
   tajukRencana: string; // Editorial highlight
-  temaWarna: 'navy' | 'emerald' | 'indigo' | 'burgundy';
+  temaWarna: 'navy' | 'emerald' | 'indigo' | 'burgundy' | 'gold';
   showRealisasiBelanja: boolean;
   showIKPASection: boolean;
   showPojokSakti: boolean;
   showSambutan: boolean;
   showAgendaKegiatan: boolean;
+  
+  // Hal 8: Transfer Ke Daerah (TKD) Data Customization
+  tkdData?: {
+    dbh: number;
+    dau: number;
+    dakFisik: number;
+    dakNonFisik: number;
+    insentifFiskal: number;
+    danaKelurahan: number;
+    catatanTkd?: string;
+  };
+
+  // Hal 9 & 10: Guyub Rukun (Wawancara Satker)
+  wawancaraSatker?: {
+    judul: string;
+    narasumber: string;
+    jabatan: string;
+    satker: string;
+    fotoNarasumberUrl?: string;
+    fotoKegiatanSatkerUrl?: string;
+    isiWawancara: string;
+    isiWawancara2?: string;
+    kutipanPenting: string;
+    prestasiSatker?: string;
+  };
+
+  // Hal 11 - 14: Sarwa Sarwi KPPN (Internal Capacity Building & Outbound)
+  sarwaSarwi?: {
+    judul: string;
+    temaKegiatan: string;
+    tanggal: string;
+    lokasi: string;
+    ceritaBagian1: string;
+    ceritaBagian2: string;
+    ceritaBagian3Purnabakti: string;
+    ceritaBagian4RiverTubing: string;
+    pesanKepala: string;
+    fotoCapacityBuilding1Url?: string;
+    fotoCapacityBuilding2Url?: string;
+    fotoPurnabaktiUrl?: string;
+    fotoRiverTubingUrl?: string;
+  };
+
+  // Hal 15 & 16: Pagelaran Semarang (Event Budaya & UMKM Binaan)
+  pagelaranSemarang?: {
+    judulEvent: string;
+    tanggalEvent: string;
+    lokasiEvent: string;
+    deskripsiEvent: string;
+    judulUmkm: string;
+    deskripsiUmkm: string;
+    fotoEvent1Url?: string;
+    fotoEvent2Url?: string;
+    fotoUmkmUrl?: string;
+  };
+
+  // Hal 17 & 18: Teropong Semarang (Kearifan Lokal & Wisata Sejarah)
+  teropongSemarang?: {
+    lokasi1Nama: string;
+    lokasi1Deskripsi: string;
+    fotoTeropong1Url?: string;
+    fotoTeropong1Sub1Url?: string;
+    fotoTeropong1Sub2Url?: string;
+    lokasi2Nama: string;
+    lokasi2Deskripsi: string;
+    fotoTeropong2Url?: string;
+    fotoTeropong2Sub1Url?: string;
+    fotoTeropong2Sub2Url?: string;
+  };
+
+  // Hal 19: Zona Integritas & Pantun
+  pantunAntiKorupsi?: {
+    bait1: string;
+    bait2: string;
+    bait3: string;
+    bait4: string;
+    pesanIntegritas?: string;
+  };
+
+  // Hal 20: Back Cover & Kontak
+  kontakKppn?: {
+    alamat: string;
+    telepon: string;
+    whatsappHelpdesk: string;
+    email: string;
+    website: string;
+    instagram: string;
+    youtube: string;
+    fotoGedungUrl?: string;
+    qrCodeText?: string;
+  };
+
+  kegiatanKppn?: {
+    judul: string;
+    subJudul: string;
+    tanggal: string;
+    lokasi: string;
+    deskripsi: string;
+  };
   tipsSaktiCustom?: string[];
   catatanAnalis?: string;
   canvaTemplateUrl?: string;

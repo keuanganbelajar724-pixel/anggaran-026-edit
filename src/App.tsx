@@ -234,6 +234,7 @@ export default function App() {
           ? savedConfig.kegiatanSosialisasi 
           : INITIAL_KEGIATAN_SOSIALISASI,
         menuVisibility: {
+          'deviasi-hal3': true,
           ...savedConfig.menuVisibility,
           ...(savedMenuVisibility || {})
         }
@@ -261,7 +262,7 @@ export default function App() {
       aduanList: INITIAL_ADUAN_RECORDS,
       historicalUploads: savedHist,
       presensiPrintConfig: initialPresensiPrint,
-      menuVisibility: savedMenuVisibility || {
+      menuVisibility: {
         'dashboard': true,
         'capaian-output': true,
         'deviasi-hal3': true,
@@ -279,7 +280,8 @@ export default function App() {
         'pengetahuan': true,
         'aduan': true,
         'reminder': true,
-        'guide': false
+        'guide': false,
+        ...(savedMenuVisibility || {})
       },
     helpdeskPhone: '081234567890',
     helpdeskJamLayanan: 'Senin - Jumat (08:00 - 16:00 WIB)',
@@ -610,6 +612,16 @@ export default function App() {
           }
         }
       }).catch(err => console.warn("Initial Firestore Digipay fetch notice:", err));
+
+      getDoc(doc(db, 'data', 'deviasi_hal3')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDeviasiHal3List(data.list);
+            safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Deviasi Hal III fetch notice:", err));
 
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {

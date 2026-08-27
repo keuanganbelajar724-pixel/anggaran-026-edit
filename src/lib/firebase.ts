@@ -14,7 +14,7 @@ import {
   SetOptions
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { emergencyPruneStorage, safeLocalStorageGet, safeLocalStorageSet } from '../utils/safeStorage';
+import { emergencyPruneStorage, safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove } from '../utils/safeStorage';
 
 // Ensure localStorage has clean headroom and remove any legacy firestore lock keys on bootstrap
 emergencyPruneStorage();
@@ -42,24 +42,34 @@ try {
 export const db = firestoreDb;
 
 const QUOTA_EXHAUSTED_STORAGE_KEY = 'kppn_firestore_quota_exhausted_until';
+let memoryQuotaExhaustedUntil = 0;
 
 export function isFirestoreQuotaExhausted(): boolean {
+  const now = Date.now();
+  if (memoryQuotaExhaustedUntil > now) {
+    return true;
+  }
   try {
     const raw = safeLocalStorageGet(QUOTA_EXHAUSTED_STORAGE_KEY);
     if (!raw) return false;
     const expiry = Number(raw);
     if (isNaN(expiry)) return false;
-    return Date.now() < expiry;
+    if (expiry > now) {
+      memoryQuotaExhaustedUntil = expiry;
+      return true;
+    }
+    return false;
   } catch {
     return false;
   }
 }
 
-export function reportFirestoreQuotaExhaustion(durationMinutes = 120): void {
+export function reportFirestoreQuotaExhaustion(durationMinutes = 30): void {
   try {
     const expiry = Date.now() + durationMinutes * 60 * 1000;
+    memoryQuotaExhaustedUntil = expiry;
     safeLocalStorageSet(QUOTA_EXHAUSTED_STORAGE_KEY, String(expiry));
-    console.warn(`[Firestore] Daily quota limit reached. Database operations paused for ${durationMinutes} minutes (using local storage cache).`);
+    console.warn(`[Firestore] Quota limit active. Cloud database operations paused for ${durationMinutes} minutes (app is running smoothly via local cache).`);
   } catch {
     // Ignore
   }
@@ -91,7 +101,7 @@ export async function getDoc<T = any>(
       err?.message?.includes('Quota exceeded') ||
       err?.message?.includes('resource-exhausted')
     ) {
-      reportFirestoreQuotaExhaustion(120);
+      reportFirestoreQuotaExhaustion(30);
       return fallbackSnap;
     }
     console.warn('Firestore getDoc notice:', err?.message || err);
@@ -99,14 +109,14 @@ export async function getDoc<T = any>(
   }
 }
 
-// Resilient setDoc wrapper
+// Resilient setDoc wrapper that prevents backoff queue buildup when write quota is exhausted
 export async function setDoc<T = any>(
   reference: DocumentReference<T>,
   data: any,
   options?: SetOptions
 ): Promise<void> {
   if (isFirestoreQuotaExhausted()) {
-    // Silently return to prevent SDK from attempting write & triggering backoff errors
+    // Return early to prevent Firestore SDK from enqueuing write and triggering infinite retry backoffs
     return;
   }
 
@@ -123,7 +133,7 @@ export async function setDoc<T = any>(
       err?.message?.includes('Quota exceeded') ||
       err?.message?.includes('resource-exhausted')
     ) {
-      reportFirestoreQuotaExhaustion(120);
+      reportFirestoreQuotaExhaustion(30);
       return;
     }
     console.warn('Firestore setDoc notice:', err?.message || err);
@@ -132,8 +142,6 @@ export async function setDoc<T = any>(
 
 // Resilient onSnapshot wrapper with built-in quota interception
 export function onSnapshot(...args: any[]): () => void {
-  // If quota is exhausted, immediately return a safe no-op unsubscriber
-  // to avoid starting WebSocket/long-polling stream retries
   if (isFirestoreQuotaExhausted()) {
     return () => {};
   }
@@ -150,7 +158,6 @@ export function onSnapshot(...args: any[]): () => void {
         errorCallback = args[2];
       }
     } else if (typeof args[1] === 'object' && typeof args[2] === 'function') {
-      // Options passed as 2nd arg
       nextCallback = args[2];
       if (typeof args[3] === 'function') {
         errorCallback = args[3];
@@ -164,7 +171,7 @@ export function onSnapshot(...args: any[]): () => void {
         err?.message?.includes('Quota exceeded') ||
         err?.message?.includes('resource-exhausted')
       ) {
-        reportFirestoreQuotaExhaustion(120);
+        reportFirestoreQuotaExhaustion(30);
         return;
       }
       if (errorCallback) {
@@ -190,9 +197,9 @@ export function onSnapshot(...args: any[]): () => void {
       err?.message?.includes('Quota exceeded') ||
       err?.message?.includes('resource-exhausted')
     ) {
-      reportFirestoreQuotaExhaustion(120);
+      reportFirestoreQuotaExhaustion(30);
     } else {
-      console.warn('Firestore onSnapshot init notice:', err?.message || err);
+      console.warn('Firestore onSnapshot notice:', err?.message || err);
     }
     return () => {};
   }

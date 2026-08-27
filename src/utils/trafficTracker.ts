@@ -461,32 +461,10 @@ export async function trackPageView(
 // Firestore sync throttling
 let lastFirestoreTrafficSyncTime = 0;
 
-// Background Firestore Sync (Synchronizes summary, device tallies, and latest activity across all devices)
-export async function syncTrafficSummaryToFirestore(state: PersistedTrafficState): Promise<void> {
-  const now = Date.now();
-  // If quota is exhausted or synced less than 60 seconds ago, skip cloud write
-  if (isFirestoreQuotaExhausted() || now - lastFirestoreTrafficSyncTime < 60000) {
-    return;
-  }
-  lastFirestoreTrafficSyncTime = now;
-
-  try {
-    const trafficDocRef = doc(db, 'traffic', 'overview');
-    await setDoc(trafficDocRef, {
-      ...state.satkerSummary,
-      dailyRecords: state.satkerDailyRecords.slice(-30),
-      deviceCounts: state.satkerDeviceCounts,
-      browserCounts: state.satkerBrowserCounts,
-      osCounts: state.satkerOsCounts,
-      pageViewCounts: state.satkerPageViewCounts,
-      recentLogs: state.recentLogs.slice(0, 50),
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota') || err?.message?.includes('resource-exhausted')) {
-      reportFirestoreQuotaExhaustion();
-    }
-  }
+// Background Firestore Sync - Disabled to preserve Firebase free tier quota
+export async function syncTrafficSummaryToFirestore(_state: PersistedTrafficState): Promise<void> {
+  // Cloud write disabled to protect quota. All analytics remain fully functional via local storage.
+  return;
 }
 
 // Merge remote Firestore data into local traffic analytics state
