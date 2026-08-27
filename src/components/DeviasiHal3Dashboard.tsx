@@ -82,11 +82,12 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
   // State Filter & Search
   const [selectedPeriode, setSelectedPeriode] = useState<string>('ALL'); // 'ALL' | '1' | '2' ... '12'
   const [selectedKl, setSelectedKl] = useState<string>('ALL');
+  const [selectedKlasifikasi, setSelectedKlasifikasi] = useState<string>('ALL'); // 'ALL' | 'FULL_BLOKIR' | 'NON_FULL_BLOKIR' | 'BLU' | 'NON_BLU' | specific string
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityFilterType>('ALL');
   const [showRadarCards, setShowRadarCards] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<TabBelanjaMode>('MATRIKS');
-  const [sortField, setSortField] = useState<'rpd' | 'realisasi' | 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'periodeAngka'>('persenDeviasi');
+  const [sortField, setSortField] = useState<'rpd' | 'realisasi' | 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'periodeAngka' | 'klasifikasi' | 'noRevisi' | 'tglPosting'>('persenDeviasi');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Protected Admin/KPPN Unlock State for Radar Deviasi
@@ -167,6 +168,47 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
     return Array.from(set).sort();
   }, [deviasiRecords]);
 
+  // Distinct Klasifikasi Satker list from dataset (Kolom Y)
+  const klasifikasiList = useMemo(() => {
+    const set = new Set<string>();
+    deviasiRecords.forEach(r => {
+      if (r.klasifikasiSatker && r.klasifikasiSatker.trim()) {
+        set.add(r.klasifikasiSatker.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [deviasiRecords]);
+
+  // Klasifikasi quick stats
+  const klasifikasiStats = useMemo(() => {
+    let countFullBlokir = 0;
+    let countNonFullBlokir = 0;
+    let countBlu = 0;
+    let countNonBlu = 0;
+
+    deviasiRecords.forEach(r => {
+      const k = (r.klasifikasiSatker || '').toUpperCase();
+      if (k.includes('FULL BLOKIR') && !k.startsWith('NON BLU/NON') && !k.startsWith('NON-FULL')) {
+        countFullBlokir++;
+      } else if (k.includes('NON FULL BLOKIR') || k.includes('NON BLOKIR')) {
+        countNonFullBlokir++;
+      }
+      if (k.includes('BLU') && !k.includes('NON BLU')) {
+        countBlu++;
+      } else {
+        countNonBlu++;
+      }
+    });
+
+    return {
+      countFullBlokir,
+      countNonFullBlokir,
+      countBlu,
+      countNonBlu,
+      total: deviasiRecords.length
+    };
+  }, [deviasiRecords]);
+
   // Distinct periodes in the dataset
   const availablePeriodesInDataset = useMemo(() => {
     const set = new Set<number>();
@@ -175,6 +217,61 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
     });
     return Array.from(set).sort((a, b) => a - b);
   }, [deviasiRecords]);
+
+  // Klasifikasi Satker Badge Component Helper
+  const renderKlasifikasiBadge = (klasifikasi?: string) => {
+    if (!klasifikasi || !klasifikasi.trim()) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400">
+          -
+        </span>
+      );
+    }
+
+    const kUpper = klasifikasi.toUpperCase();
+    const isFullBlokir = kUpper.includes('FULL BLOKIR') && !kUpper.startsWith('NON BLU/NON') && !kUpper.startsWith('NON-FULL');
+    const isNonFullBlokir = kUpper.includes('NON FULL BLOKIR') || kUpper.includes('NON BLOKIR');
+    const isBlu = kUpper.includes('BLU') && !kUpper.includes('NON BLU');
+
+    if (isFullBlokir) {
+      return (
+        <span 
+          title="Satker dengan status FULL BLOKIR pada Halaman III DIPA"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/70 text-rose-800 dark:text-rose-200 text-[11px] font-extrabold border border-rose-300 dark:border-rose-800/80 shadow-2xs whitespace-nowrap"
+        >
+          <ShieldAlert className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+          <span>{klasifikasi}</span>
+        </span>
+      );
+    }
+
+    if (isNonFullBlokir) {
+      return (
+        <span 
+          title="Satker dengan status Non Full Blokir"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 text-[11px] font-bold border border-emerald-300 dark:border-emerald-800/80 whitespace-nowrap"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{klasifikasi}</span>
+        </span>
+      );
+    }
+
+    if (isBlu) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-200 text-[11px] font-bold border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+          <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <span>{klasifikasi}</span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-semibold border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+        {klasifikasi}
+      </span>
+    );
+  };
 
   // Live Alert Counters based on Current Periode & KL filter (Fokus per jenis belanja 51, 52, 53, 57)
   const alertStats = useMemo(() => {
@@ -312,6 +409,22 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
         return false;
       }
 
+      // Filter Klasifikasi Satker (Kolom Y)
+      if (selectedKlasifikasi !== 'ALL') {
+        const kVal = (r.klasifikasiSatker || '').toUpperCase();
+        if (selectedKlasifikasi === 'FULL_BLOKIR') {
+          if (!kVal.includes('FULL BLOKIR') || kVal.startsWith('NON BLU/NON') || kVal.startsWith('NON-FULL')) return false;
+        } else if (selectedKlasifikasi === 'NON_FULL_BLOKIR') {
+          if (!kVal.includes('NON FULL BLOKIR') && !kVal.includes('NON BLOKIR')) return false;
+        } else if (selectedKlasifikasi === 'BLU') {
+          if (!kVal.includes('BLU') || kVal.includes('NON BLU')) return false;
+        } else if (selectedKlasifikasi === 'NON_BLU') {
+          if (!kVal.includes('NON BLU') && kVal.includes('BLU')) return false;
+        } else if (r.klasifikasiSatker !== selectedKlasifikasi) {
+          return false;
+        }
+      }
+
       // Filter Severity Status per Akun Belanja
       const r51 = r.rincianJenisBelanja?.belanja51;
       const r52 = r.rincianJenisBelanja?.belanja52;
@@ -342,7 +455,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
         if ((has51 && p51 > 5.0) || (has52 && p52 > 5.0) || (has53 && p53 > 5.0) || (has57 && p57 > 5.0)) return false;
       }
 
-      // Search Term (Kode Satker, Nama Satker, K/L, KPPN, Eselon)
+      // Search Term (Kode Satker, Nama Satker, K/L, KPPN, Eselon, Klasifikasi Satker, No Revisi)
       if (searchTerm) {
         const q = searchTerm.toLowerCase();
         const matchCode = r.kodeSatker.toLowerCase().includes(q);
@@ -350,7 +463,9 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
         const matchKl = (r.kementerianLembaga || '').toLowerCase().includes(q);
         const matchKppn = (r.kodeKppn || '').toLowerCase().includes(q);
         const matchEselon = (r.kodeEselon1 || '').toLowerCase().includes(q);
-        if (!matchCode && !matchName && !matchKl && !matchKppn && !matchEselon) return false;
+        const matchKlasifikasi = (r.klasifikasiSatker || '').toLowerCase().includes(q);
+        const matchRevisi = String(r.noRevisiTerakhir || '').toLowerCase().includes(q);
+        if (!matchCode && !matchName && !matchKl && !matchKppn && !matchEselon && !matchKlasifikasi && !matchRevisi) return false;
       }
 
       return true;
@@ -362,6 +477,24 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
         return sortDirection === 'desc'
           ? b.kodeSatker.localeCompare(a.kodeSatker)
           : a.kodeSatker.localeCompare(b.kodeSatker);
+      }
+
+      if (sortField === 'klasifikasi') {
+        const strA = a.klasifikasiSatker || '';
+        const strB = b.klasifikasiSatker || '';
+        return sortDirection === 'desc' ? strB.localeCompare(strA) : strA.localeCompare(strB);
+      }
+
+      if (sortField === 'noRevisi') {
+        const revA = Number(a.noRevisiTerakhir) || 0;
+        const revB = Number(b.noRevisiTerakhir) || 0;
+        return sortDirection === 'desc' ? revB - revA : revA - revB;
+      }
+
+      if (sortField === 'tglPosting') {
+        const tA = a.tanggalPosting || '';
+        const tB = b.tanggalPosting || '';
+        return sortDirection === 'desc' ? tB.localeCompare(tA) : tA.localeCompare(tB);
       }
 
       if (sortField === 'periodeAngka') {
@@ -420,7 +553,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
 
       return sortDirection === 'desc' ? valB - valA : valA - valB;
     });
-  }, [deviasiRecords, selectedPeriode, selectedKl, selectedSeverity, searchTerm, activeTab, sortField, sortDirection]);
+  }, [deviasiRecords, selectedPeriode, selectedKl, selectedKlasifikasi, selectedSeverity, searchTerm, activeTab, sortField, sortDirection]);
 
   // Paginated records
   const paginatedRecords = useMemo(() => {
@@ -514,7 +647,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
     return 'Rp ' + (num || 0).toLocaleString('id-ID');
   };
 
-  const handleHeaderSort = (field: 'rpd' | 'realisasi' | 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'periodeAngka') => {
+  const handleHeaderSort = (field: 'rpd' | 'realisasi' | 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'periodeAngka' | 'klasifikasi' | 'noRevisi' | 'tglPosting') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
     } else {
@@ -1237,14 +1370,14 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
           </button>
         </div>
 
-        {/* Filter Row: Search & Periode Dropdown & Status Deviasi */}
+        {/* Filter Row: Search & Periode Dropdown & Status Deviasi & Klasifikasi Satker */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
           {/* Search Box */}
-          <div className="sm:col-span-4 relative">
+          <div className="sm:col-span-3 relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Cari kode / nama satker / KPPN / K/L..."
+              placeholder="Cari kode/nama/KPPN/blokir..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -1274,8 +1407,36 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
             </select>
           </div>
 
+          {/* Filter Klasifikasi Satker (Kolom Y) */}
+          <div className="sm:col-span-2">
+            <select
+              value={selectedKlasifikasi}
+              onChange={(e) => {
+                setSelectedKlasifikasi(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={`w-full py-2.5 px-3 rounded-2xl border text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                selectedKlasifikasi === 'FULL_BLOKIR'
+                  ? 'border-rose-300 bg-rose-50 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700'
+                  : selectedKlasifikasi === 'NON_FULL_BLOKIR'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700'
+                  : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+              }`}
+            >
+              <option value="ALL">🏷️ Semua Klasifikasi (Kolom Y)</option>
+              <option value="FULL_BLOKIR">🔒 Full Blokir ({klasifikasiStats.countFullBlokir})</option>
+              <option value="NON_FULL_BLOKIR">🔓 Non Full Blokir ({klasifikasiStats.countNonFullBlokir})</option>
+              <option value="BLU">🏦 Badan Layanan Umum (BLU)</option>
+              <option value="NON_BLU">🏛️ Non-BLU</option>
+              {klasifikasiList.length > 0 && <option disabled>──────────</option>}
+              {klasifikasiList.map(k => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Filter Periode Bulan (Kolom F pada Excel) */}
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2">
             <select
               value={selectedPeriode}
               onChange={(e) => {
@@ -1284,7 +1445,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
               }}
               className="w-full py-2.5 px-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="ALL">-- Semua Periode Bulan --</option>
+              <option value="ALL">-- Semua Periode --</option>
               {PERIODE_LIST.map(p => (
                 <option key={p.angka} value={String(p.angka)}>
                   {p.label}
@@ -1305,14 +1466,68 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
             >
               <option value="ALL">-- K/L ({klList.length}) --</option>
               {klList.map(kl => (
-                <option key={kl} value={kl}>{kl.slice(0, 25)}</option>
+                <option key={kl} value={kl}>{kl.slice(0, 20)}</option>
               ))}
             </select>
           </div>
         </div>
 
+        {/* Quick Filter Tags for Klasifikasi Satker */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+            <Filter className="w-3 h-3" /> Quick Filter Blokir:
+          </span>
+          <button
+            type="button"
+            onClick={() => { setSelectedKlasifikasi('ALL'); setCurrentPage(1); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              selectedKlasifikasi === 'ALL'
+                ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 shadow-2xs'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Semua ({deviasiRecords.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedKlasifikasi('FULL_BLOKIR'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+              selectedKlasifikasi === 'FULL_BLOKIR'
+                ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
+                : 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-900/60 hover:bg-rose-100'
+            }`}
+          >
+            <ShieldAlert className="w-3 h-3" />
+            Full Blokir ({klasifikasiStats.countFullBlokir})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedKlasifikasi('NON_FULL_BLOKIR'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+              selectedKlasifikasi === 'NON_FULL_BLOKIR'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100'
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            Non Full Blokir ({klasifikasiStats.countNonFullBlokir})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSelectedKlasifikasi('BLU'); setCurrentPage(1); }}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+              selectedKlasifikasi === 'BLU'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                : 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900/60 hover:bg-indigo-100'
+            }`}
+          >
+            <Building2 className="w-3 h-3" />
+            Satker BLU ({klasifikasiStats.countBlu})
+          </button>
+        </div>
+
         {/* Filter Reset if active */}
-        {(searchTerm || selectedPeriode !== 'ALL' || selectedKl !== 'ALL' || selectedSeverity !== 'ALL') && (
+        {(searchTerm || selectedPeriode !== 'ALL' || selectedKl !== 'ALL' || selectedKlasifikasi !== 'ALL' || selectedSeverity !== 'ALL') && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
             <span className="text-slate-500">
               Menampilkan <strong>{filteredRecords.length}</strong> dari <strong>{deviasiRecords.length}</strong> baris data.
@@ -1323,6 +1538,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
                 setSearchTerm('');
                 setSelectedPeriode('ALL');
                 setSelectedKl('ALL');
+                setSelectedKlasifikasi('ALL');
                 setSelectedSeverity('ALL');
                 setCurrentPage(1);
               }}
@@ -1374,68 +1590,86 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
 
         <div className="overflow-x-auto">
           {activeTab !== 'MATRIKS' ? (
-            <table className="w-full text-left text-xs min-w-[850px]">
+            <table className="w-full text-left text-xs min-w-[1000px]">
               <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="py-3.5 px-3 text-center w-12">No</th>
                   <th
-                    className="py-3.5 px-4 min-w-[280px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-4 min-w-[260px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                     onClick={() => handleHeaderSort('kodeSatker')}
                   >
                     <div className="flex items-center gap-1">
                       <span>Satuan Kerja</span>
-                      {sortField === 'kodeSatker' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'kodeSatker' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />)}
                     </div>
                   </th>
                   <th
-                    className="py-3.5 px-3 min-w-[130px] text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-3 min-w-[110px] text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                     onClick={() => handleHeaderSort('periodeAngka')}
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>Periode</span>
-                      {sortField === 'periodeAngka' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'periodeAngka' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />)}
                     </div>
                   </th>
                   <th
-                    className="py-3.5 px-4 text-right min-w-[160px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-3 min-w-[140px] text-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all bg-amber-50/50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-300"
+                    onClick={() => handleHeaderSort('klasifikasi')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Klasifikasi (Kolom Y)</span>
+                      {sortField === 'klasifikasi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-amber-600" /> : <ChevronUp className="w-3.5 h-3.5 text-amber-600" />)}
+                    </div>
+                  </th>
+                  <th
+                    className="py-3.5 px-4 text-right min-w-[150px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-indigo-900 dark:text-indigo-300"
                     onClick={() => handleHeaderSort('rpd')}
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>
-                        {activeTab === 'TOTAL' ? 'Rencana RPD Total (Rp)' : `Rencana ${activeTab} (Rp)`}
+                        {activeTab === 'TOTAL' ? 'Rencana RPD Total' : `Rencana ${activeTab}`} (Rp)
                       </span>
-                      {sortField === 'rpd' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'rpd' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />)}
                     </div>
                   </th>
                   <th
-                    className="py-3.5 px-4 text-right min-w-[160px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-4 text-right min-w-[150px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-emerald-900 dark:text-emerald-300"
                     onClick={() => handleHeaderSort('realisasi')}
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>
-                        {activeTab === 'TOTAL' ? 'Realisasi SP2D Total (Rp)' : `Realisasi ${activeTab} (Rp)`}
+                        {activeTab === 'TOTAL' ? 'Realisasi SP2D Total' : `Realisasi ${activeTab}`} (Rp)
                       </span>
-                      {sortField === 'realisasi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'realisasi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-emerald-600" /> : <ChevronUp className="w-3.5 h-3.5 text-emerald-600" />)}
                     </div>
                   </th>
                   <th
-                    className="py-3.5 px-4 text-right min-w-[160px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-4 text-right min-w-[150px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-rose-900 dark:text-rose-300"
                     onClick={() => handleHeaderSort('deviasiRp')}
                   >
                     <div className="flex items-center justify-end gap-1">
                       <span>
-                        {activeTab === 'TOTAL' ? 'Deviasi Nominal (Rp)' : `Deviasi ${activeTab} (Rp)`}
+                        {activeTab === 'TOTAL' ? 'Deviasi Nominal' : `Deviasi ${activeTab}`} (Rp)
                       </span>
-                      {sortField === 'deviasiRp' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'deviasiRp' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-rose-600" /> : <ChevronUp className="w-3.5 h-3.5 text-rose-600" />)}
                     </div>
                   </th>
                   <th
-                    className="py-3.5 px-3 text-center min-w-[120px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    className="py-3.5 px-3 text-center min-w-[110px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
                     onClick={() => handleHeaderSort('persenDeviasi')}
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span>% Deviasi</span>
-                      {sortField === 'persenDeviasi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />)}
+                      {sortField === 'persenDeviasi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />)}
+                    </div>
+                  </th>
+                  <th
+                    className="py-3.5 px-3 text-center min-w-[90px] cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                    onClick={() => handleHeaderSort('noRevisi')}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Revisi</span>
+                      {sortField === 'noRevisi' && (sortDirection === 'desc' ? <ChevronDown className="w-3.5 h-3.5 text-indigo-600" /> : <ChevronUp className="w-3.5 h-3.5 text-indigo-600" />)}
                     </div>
                   </th>
                 </tr>
@@ -1443,7 +1677,7 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {filteredRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
                       Tidak ada data yang cocok dengan kriteria filter atau pencarian Anda.
                     </td>
                   </tr>
@@ -1532,6 +1766,11 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
                           </span>
                         </td>
 
+                        {/* Klasifikasi Satker (Kolom Y) */}
+                        <td className="py-3.5 px-3 text-center">
+                          {renderKlasifikasiBadge(r.klasifikasiSatker)}
+                        </td>
+
                         {/* Rencana RPD */}
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
                           {formatRupiah(rowRpd)}
@@ -1559,6 +1798,13 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
                             {rowPersen.toFixed(2)}%
                           </span>
                         </td>
+
+                        {/* No. Revisi */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-mono font-bold">
+                            {r.noRevisiTerakhir !== undefined && r.noRevisiTerakhir !== '' ? `Rev ${r.noRevisiTerakhir}` : '-'}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })
@@ -1566,47 +1812,51 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
               </tbody>
             </table>
           ) : (
-            /* Matriks Lengkap OMSPAN Table (51, 52, 53, 57 side by side) */
-            <table className="w-full text-left text-xs min-w-[1400px]">
+            /* Matriks Lengkap OMSPAN Table (51, 52, 53, 57 side by side with Kolom Y Klasifikasi) */
+            <table className="w-full text-left text-xs min-w-[1550px]">
               <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th rowSpan={2} className="py-3 px-2 text-center w-10 border-r border-slate-200 dark:border-slate-700">No</th>
-                  <th rowSpan={2} className="py-3 px-3 min-w-[220px] border-r border-slate-200 dark:border-slate-700">Satker</th>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-20 border-r border-slate-200 dark:border-slate-700">Periode</th>
-                  <th colSpan={4} className="py-2 px-2 text-center bg-indigo-50/70 dark:bg-indigo-950/40 border-r border-slate-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-300">
+                  <th rowSpan={2} className="py-3 px-3 min-w-[210px] border-r border-slate-200 dark:border-slate-700">Satker</th>
+                  <th rowSpan={2} className="py-3 px-2 text-center w-16 border-r border-slate-200 dark:border-slate-700">Bln</th>
+                  <th rowSpan={2} className="py-3 px-3 text-center min-w-[140px] border-r border-slate-200 dark:border-slate-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300">
+                    Klasifikasi (Y)
+                  </th>
+                  <th colSpan={4} className="py-2 px-2 text-center bg-indigo-50/80 dark:bg-indigo-950/40 border-r border-slate-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-300">
                     Rencana (RPD)
                   </th>
-                  <th colSpan={4} className="py-2 px-2 text-center bg-emerald-50/70 dark:bg-emerald-950/40 border-r border-slate-200 dark:border-slate-700 text-emerald-700 dark:text-emerald-300">
+                  <th colSpan={4} className="py-2 px-2 text-center bg-emerald-50/80 dark:bg-emerald-950/40 border-r border-slate-200 dark:border-slate-700 text-emerald-700 dark:text-emerald-300">
                     Penyerapan (Realisasi)
                   </th>
-                  <th colSpan={4} className="py-2 px-2 text-center bg-rose-50/70 dark:bg-rose-950/40 border-r border-slate-200 dark:border-slate-700 text-rose-700 dark:text-rose-300">
+                  <th colSpan={4} className="py-2 px-2 text-center bg-rose-50/80 dark:bg-rose-950/40 border-r border-slate-200 dark:border-slate-700 text-rose-700 dark:text-rose-300">
                     Deviasi (Rp)
                   </th>
-                  <th colSpan={4} className="py-2 px-2 text-center bg-amber-50/70 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                  <th colSpan={4} className="py-2 px-2 text-center bg-amber-50/80 dark:bg-amber-950/40 border-r border-slate-200 dark:border-slate-700 text-amber-700 dark:text-amber-300">
                     % Deviasi
                   </th>
+                  <th rowSpan={2} className="py-3 px-2 text-center w-14">Revisi</th>
                 </tr>
                 <tr className="border-t border-slate-200 dark:border-slate-700 text-[9px] font-mono">
                   {/* Rencana */}
-                  <th className="py-2 px-2 text-right">51</th>
-                  <th className="py-2 px-2 text-right">52</th>
-                  <th className="py-2 px-2 text-right">53</th>
-                  <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">57</th>
+                  <th className="py-2 px-2 text-right bg-indigo-50/30 dark:bg-indigo-950/20">51</th>
+                  <th className="py-2 px-2 text-right bg-indigo-50/30 dark:bg-indigo-950/20">52</th>
+                  <th className="py-2 px-2 text-right bg-indigo-50/30 dark:bg-indigo-950/20">53</th>
+                  <th className="py-2 px-2 text-right bg-indigo-50/30 dark:bg-indigo-950/20 border-r border-slate-200 dark:border-slate-700">57</th>
                   {/* Realisasi */}
-                  <th className="py-2 px-2 text-right">51</th>
-                  <th className="py-2 px-2 text-right">52</th>
-                  <th className="py-2 px-2 text-right">53</th>
-                  <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">57</th>
+                  <th className="py-2 px-2 text-right bg-emerald-50/30 dark:bg-emerald-950/20">51</th>
+                  <th className="py-2 px-2 text-right bg-emerald-50/30 dark:bg-emerald-950/20">52</th>
+                  <th className="py-2 px-2 text-right bg-emerald-50/30 dark:bg-emerald-950/20">53</th>
+                  <th className="py-2 px-2 text-right bg-emerald-50/30 dark:bg-emerald-950/20 border-r border-slate-200 dark:border-slate-700">57</th>
                   {/* Deviasi Rp */}
-                  <th className="py-2 px-2 text-right">51</th>
-                  <th className="py-2 px-2 text-right">52</th>
-                  <th className="py-2 px-2 text-right">53</th>
-                  <th className="py-2 px-2 text-right border-r border-slate-200 dark:border-slate-700">57</th>
+                  <th className="py-2 px-2 text-right bg-rose-50/30 dark:bg-rose-950/20">51</th>
+                  <th className="py-2 px-2 text-right bg-rose-50/30 dark:bg-rose-950/20">52</th>
+                  <th className="py-2 px-2 text-right bg-rose-50/30 dark:bg-rose-950/20">53</th>
+                  <th className="py-2 px-2 text-right bg-rose-50/30 dark:bg-rose-950/20 border-r border-slate-200 dark:border-slate-700">57</th>
                   {/* % Deviasi */}
-                  <th className="py-2 px-2 text-center">51</th>
-                  <th className="py-2 px-2 text-center">52</th>
-                  <th className="py-2 px-2 text-center">53</th>
-                  <th className="py-2 px-2 text-center">57</th>
+                  <th className="py-2 px-2 text-center bg-amber-50/30 dark:bg-amber-950/20">51</th>
+                  <th className="py-2 px-2 text-center bg-amber-50/30 dark:bg-amber-950/20">52</th>
+                  <th className="py-2 px-2 text-center bg-amber-50/30 dark:bg-amber-950/20">53</th>
+                  <th className="py-2 px-2 text-center bg-amber-50/30 dark:bg-amber-950/20 border-r border-slate-200 dark:border-slate-700">57</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[11px]">
@@ -1628,6 +1878,9 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
                       <td className="py-2.5 px-2 text-center font-mono text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800">
                         {String(r.periodeAngka || 1).padStart(2, '0')}
                       </td>
+                      <td className="py-2.5 px-2 text-center border-r border-slate-200 dark:border-slate-800">
+                        {renderKlasifikasiBadge(r.klasifikasiSatker)}
+                      </td>
                       {/* Rencana */}
                       <td className="py-2.5 px-2 text-right font-mono">{formatRupiah(r.rincianJenisBelanja?.belanja51?.rpd || 0)}</td>
                       <td className="py-2.5 px-2 text-right font-mono">{formatRupiah(r.rincianJenisBelanja?.belanja52?.rpd || 0)}</td>
@@ -1647,7 +1900,10 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
                       <td className="py-2.5 px-2 text-center font-mono">{(r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0).toFixed(2)}%</td>
                       <td className="py-2.5 px-2 text-center font-mono">{(r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0).toFixed(2)}%</td>
                       <td className="py-2.5 px-2 text-center font-mono">{(r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0).toFixed(2)}%</td>
-                      <td className="py-2.5 px-2 text-center font-mono">{(r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0).toFixed(2)}%</td>
+                      <td className="py-2.5 px-2 text-center font-mono border-r border-slate-200 dark:border-slate-800">{(r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0).toFixed(2)}%</td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-500">
+                        {r.noRevisiTerakhir !== undefined && r.noRevisiTerakhir !== '' ? `Rev ${r.noRevisiTerakhir}` : '-'}
+                      </td>
                     </tr>
                   );
                 })}
@@ -1707,16 +1963,23 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scale-up">
             <div className="p-6 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-start justify-between">
               <div>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200">
-                  {selectedRecordDetail.periodeFormatted || `Periode ${selectedRecordDetail.periodeAngka || selectedRecordDetail.periodeBulan}`}
-                </span>
-                <h3 className="text-lg font-black mt-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-200">
+                    {selectedRecordDetail.periodeFormatted || `Periode ${selectedRecordDetail.periodeAngka || selectedRecordDetail.periodeBulan}`}
+                  </span>
+                  {selectedRecordDetail.klasifikasiSatker && (
+                    <span className="text-[10px]">
+                      {renderKlasifikasiBadge(selectedRecordDetail.klasifikasiSatker)}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg font-black mt-2">
                   [{selectedRecordDetail.kodeSatker}] {selectedRecordDetail.namaSatker}
                 </h3>
-                <div className="text-xs text-slate-300 flex items-center gap-3 mt-1">
+                <div className="text-xs text-slate-300 flex flex-wrap items-center gap-3 mt-1.5">
                   <span>KPPN: <strong>{selectedRecordDetail.kodeKppn || '026'}</strong></span>
-                  {selectedRecordDetail.kodeEselon1 && <span>Eselon: <strong>{selectedRecordDetail.kodeEselon1}</strong></span>}
-                  {selectedRecordDetail.klasifikasiSatker && <span>Klasifikasi: <strong>{selectedRecordDetail.klasifikasiSatker}</strong></span>}
+                  {selectedRecordDetail.kodeEselon1 && <span>• Eselon: <strong>{selectedRecordDetail.kodeEselon1}</strong></span>}
+                  {selectedRecordDetail.kementerianLembaga && <span>• K/L: <strong>{selectedRecordDetail.kementerianLembaga}</strong></span>}
                 </div>
               </div>
               <button
@@ -1729,6 +1992,21 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
             </div>
 
             <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+              {/* Full Blokir Notification if applicable */}
+              {selectedRecordDetail.klasifikasiSatker && (
+                selectedRecordDetail.klasifikasiSatker.toUpperCase().includes('FULL BLOKIR') &&
+                !selectedRecordDetail.klasifikasiSatker.toUpperCase().startsWith('NON')
+              ) && (
+                <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800/80 flex items-start gap-3">
+                  <ShieldAlert className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <strong className="text-rose-900 dark:text-rose-200 block font-black">Status Satker: FULL BLOKIR (Kolom Y)</strong>
+                    <span className="text-rose-700 dark:text-rose-300">
+                      Seluruh pagu pada DIPA satker ini berstatus blokir anggaran atau belum dapat ditarik sampai revisi DIPA / buka blokir diproses.
+                    </span>
+                  </div>
+                </div>
+              )}
               {/* Summary Cards */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center">

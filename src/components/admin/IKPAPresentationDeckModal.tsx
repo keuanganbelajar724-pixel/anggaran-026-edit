@@ -67,7 +67,7 @@ import {
   Legend 
 } from 'recharts';
 import pptxgen from 'pptxgenjs';
-import { GoogleGenAI } from '@google/genai';
+import { generateGeminiContent, getClientStoredApiKey } from '../../services/geminiService';
 import { SatkerIKPA, DashboardConfig } from '../../types';
 import { 
   PeriodScope, 
@@ -172,7 +172,7 @@ export const IKPAPresentationDeckModal: React.FC<IKPAPresentationDeckModalProps>
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
   const [aiGeneratedResult, setAiGeneratedResult] = useState<string>('');
   const [aiApiKey] = useState<string>(() => {
-    return localStorage.getItem('kppn_gemini_api_key') || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
+    return getClientStoredApiKey();
   });
 
   // Generate 50 slides dynamically based on satker dataset & period
@@ -430,49 +430,36 @@ export const IKPAPresentationDeckModal: React.FC<IKPAPresentationDeckModalProps>
       belowPenyerapan: satkers.filter(s => (s.persenPenyerapan || 0) < 75)
     };
 
-    if (aiApiKey.trim()) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: aiApiKey.trim() });
-        const systemPrompt = `Anda adalah Spesialis Analis Eksekutif Keuangan Negara & Master Presenter IKPA SAKTI di KPPN Tipe A1 Semarang I (Kode 026).
+    try {
+      const systemPrompt = `Anda adalah Spesialis Analis Eksekutif Keuangan Negara & Master Presenter IKPA SAKTI di KPPN Tipe A1 Semarang I (Kode 026).
 Slide yang sedang dibahas: Slide #${currentSlide.id} - ${currentSlide.title} (${currentSlide.subtitle}).
 Data agregat KPPN: ${satkers.length} Satker, Rata-rata IKPA: ${satkerStatsSummary.avgIKPA}.
 Fokus instruksi: Hasilkan narasi paparan berbobot tinggi, kaya kata-kata, analisis mendalam, bahasa kedinasan elegan, fakta empiris, dan arahan konkret pimpinan.`;
 
-        const response = await ai.models.generateContent({
-          model: aiModel,
-          contents: `${systemPrompt}\n\nPermintaan Pengguna: ${promptToUse}`
-        });
+      const response = await generateGeminiContent({
+        model: aiModel || 'gemini-3.7-flash',
+        prompt: `Permintaan Pengguna: ${promptToUse}`,
+        systemInstruction: systemPrompt,
+        apiKey: aiApiKey || undefined
+      });
 
-        if (response.text) {
-          setAiGeneratedResult(response.text);
-        } else {
-          setAiGeneratedResult('Respon AI kosong. Silakan coba kembali.');
-        }
-      } catch (err: any) {
-        console.warn('Gemini API call error, falling back to Local Financial Intelligence Engine', err);
-        const fallbackResult = generateLocalFinancialAnalysis(
-          promptToUse,
-          aiPersona,
-          satkers,
-          satkerStatsSummary,
-          null
-        );
-        setAiGeneratedResult(`*(Mode Cepat - Local Financial Intelligence Engine)*\n\n${fallbackResult}`);
-      } finally {
-        setIsAiGenerating(false);
+      if (response.text) {
+        setAiGeneratedResult(response.text);
+      } else {
+        setAiGeneratedResult('Respon AI kosong. Silakan coba kembali.');
       }
-    } else {
-      setTimeout(() => {
-        const fallbackResult = generateLocalFinancialAnalysis(
-          promptToUse,
-          aiPersona,
-          satkers,
-          satkerStatsSummary,
-          null
-        );
-        setAiGeneratedResult(`*(Mode Lokal Analisis Keuangan Negara - 100% Instan)*\n\n${fallbackResult}`);
-        setIsAiGenerating(false);
-      }, 500);
+    } catch (err: any) {
+      console.warn('Gemini API call error, falling back to Local Financial Intelligence Engine', err);
+      const fallbackResult = generateLocalFinancialAnalysis(
+        promptToUse,
+        aiPersona,
+        satkers,
+        satkerStatsSummary,
+        null
+      );
+      setAiGeneratedResult(`*(Mode Cepat - Local Financial Intelligence Engine)*\n\n${fallbackResult}`);
+    } finally {
+      setIsAiGenerating(false);
     }
   };
 

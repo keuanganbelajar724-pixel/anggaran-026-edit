@@ -49,7 +49,7 @@ import {
   MessageSquareQuote
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { GoogleGenAI } from '@google/genai';
+import { generateGeminiContent, getClientStoredApiKey } from '../../services/geminiService';
 import {
   SatkerIKPA,
   MasterSatker,
@@ -995,7 +995,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   // AI Gemini Broadcast Polish & Smart Generator Engine
   const handleGenerateAiBroadcastTemplate = async (mode: 'POLISH_CURRENT' | 'GENERATE_BY_CATEGORY') => {
     setIsAiGenerating(true);
-    const geminiKey = localStorage.getItem('kppn_gemini_api_key') || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
+    const geminiKey = getClientStoredApiKey();
 
     const toneDescriptions = {
       formal: 'Kedinasan Resmi, Tegas, dan Berwibawa Kementerian Keuangan RI / DJPb',
@@ -1033,23 +1033,21 @@ PERATURAN PENTING:
 3. Berikan output HANYA berupa teks pesan WhatsApp siap pakai tanpa kata pengantar tambahan.`;
     }
 
-    if (geminiKey.trim()) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: geminiKey.trim() });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt
-        });
+    try {
+      const response = await generateGeminiContent({
+        model: 'gemini-2.5-flash',
+        prompt,
+        apiKey: geminiKey || undefined
+      });
 
-        const reply = response.text?.trim() || '';
-        if (reply) {
-          setAiGeneratedPreview(reply);
-          setIsAiGenerating(false);
-          return;
-        }
-      } catch (err) {
-        console.warn('Gemini API request failed, using intelligent template engine fallback', err);
+      const reply = response.text?.trim() || '';
+      if (reply) {
+        setAiGeneratedPreview(reply);
+        setIsAiGenerating(false);
+        return;
       }
+    } catch (err) {
+      console.warn('Gemini API request failed, using intelligent template engine fallback', err);
     }
 
     // Smart Local Template Engine (Instant fallback, 100% reliable)

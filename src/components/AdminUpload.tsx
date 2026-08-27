@@ -3675,6 +3675,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       const defaultOrder: NavigationTab[] = [
                         'dashboard',
                         'capaian-output',
+                        'deviasi-hal3',
                         'pengelolaan-up',
                         'transaksi-kkp',
                         'transaksi-digipay',
@@ -3713,6 +3714,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     {(tempConfig.tabOrder || [
                       'dashboard',
                       'capaian-output',
+                      'deviasi-hal3',
                       'pengelolaan-up',
                       'transaksi-kkp',
                       'transaksi-digipay',
@@ -3734,6 +3736,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     const navLabels: Record<string, string> = {
                       'dashboard': 'Dashboard IKPA',
                       'capaian-output': 'Capaian Output',
+                      'deviasi-hal3': 'Deviasi Hal III',
                       'pengelolaan-up': 'Pengelolaan UP',
                       'transaksi-kkp': 'Transaksi KKP',
                       'transaksi-digipay': 'Digipay',
@@ -3751,6 +3754,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     const order = (tempConfig.tabOrder || [
                       'dashboard',
                       'capaian-output',
+                      'deviasi-hal3',
                       'pengelolaan-up',
                       'transaksi-kkp',
                       'transaksi-digipay',
@@ -3792,6 +3796,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   const menuMeta: Record<string, { label: string; desc: string; category: string; badgeColor: string }> = {
                     'dashboard': { label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker', category: 'Utama', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'capaian-output': { label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload konfirmasi output', category: 'Prioritas', badgeColor: 'bg-sky-100 text-sky-800' },
+                    'deviasi-hal3': { label: 'Deviasi Halaman III DIPA', desc: 'Monitoring RPD vs Realisasi & Satker Full Blokir (Bobot IKPA 10%)', category: 'Hal III', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'pengelolaan-up': { label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP', category: 'Kas & UP', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'transaksi-kkp': { label: 'Transaksi KKP / GUP KKP', desc: 'Monitoring Transaksi & Frekuensi KKP Bank', category: 'Kas & UP', badgeColor: 'bg-amber-100 text-amber-800' },
                     'transaksi-digipay': { label: 'Transaksi Digipay (VA & KKP)', desc: 'Monitoring Transaksi Marketplace Digipay Satu', category: 'Digitalisasi', badgeColor: 'bg-purple-100 text-purple-800' },
@@ -3809,6 +3814,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   const defaultTabKeys: NavigationTab[] = [
                     'dashboard',
                     'capaian-output',
+                    'deviasi-hal3',
                     'pengelolaan-up',
                     'transaksi-kkp',
                     'transaksi-digipay',
@@ -3957,6 +3963,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                                 const currVis = prev.menuVisibility || {
                                   'dashboard': true,
                                   'capaian-output': true,
+                                  'deviasi-hal3': true,
                                   'pengelolaan-up': true,
                                   'transaksi-kkp': true,
                                   'transaksi-digipay': true,
@@ -9840,836 +9847,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         {p.statusSertifikasi}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 font-mono text-[11px]">{p.noSertifikat || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Upload & Auto-Cleaning Log Diagnostic */}
-      {uploadLog && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-950">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
-              <h4 className="text-sm font-extrabold text-emerald-900">
-                Hasil Otomasi Perbaikan Data Excel ({uploadLog.fileName})
-              </h4>
-            </div>
-            <span className="text-xs bg-emerald-200 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
-              Status: {uploadLog.status}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs mb-3">
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-slate-500 block">Total Baris Terbaca:</span>
-              <span className="text-lg font-black text-slate-900">{uploadLog.rowCount} Baris</span>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-slate-500 block">Dibersihkan &amp; Diformat:</span>
-              <span className="text-lg font-black text-emerald-700">{uploadLog.cleanedCount} Satker</span>
-            </div>
-            <div className="bg-white/80 p-3 rounded-xl border border-emerald-200">
-              <span className="text-slate-500 block">Waktu Pengolahan:</span>
-              <span className="text-xs font-bold text-slate-800">{uploadLog.uploadDate}</span>
-            </div>
-          </div>
-
-          <div className="bg-white/90 p-3.5 rounded-xl border border-emerald-200 text-xs space-y-1">
-            <span className="font-bold text-emerald-900 block mb-1">Catatan Sistem Perbaikan:</span>
-            {uploadLog.notes.map((n, i) => (
-              <div key={i} className="flex items-center gap-1.5 text-emerald-800">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span>{n}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Preview Table of Uploaded Data before applying */}
-      {previewSatkers.length > 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden space-y-4">
-          
-          <div className="p-6 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/80 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 px-3 py-1 rounded-full text-xs font-extrabold mb-1">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-600" />
-                  PREVIEW HASIL AUTOMATED CLEANER ({previewSatkers.length} SATKER)
-                </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                  Tentukan Periode Laporan &amp; Opsi Penyimpanan Data Excel
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Pilih apakah data ini akan langsung MENIMPA Dashboard Utama atau hanya disimpan ke Arsip Historical.
-                </p>
-              </div>
-
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl cursor-pointer self-start md:self-auto">
-                <input
-                  type="checkbox"
-                  checked={appendMode}
-                  onChange={(e) => setAppendMode(e.target.checked)}
-                  className="rounded text-sky-600 focus:ring-sky-500"
-                />
-                <span>Tambahkan ke Data Saat Ini (Bukan Mengganti Total)</span>
-              </label>
-            </div>
-
-            {/* Capaian Output Mode Info Banner */}
-            {excelCategory === 'CAPAIAN_OUTPUT' && (
-              <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/80 p-4 rounded-2xl flex items-start gap-3 text-xs text-amber-900 dark:text-amber-200">
-                <Sparkles className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-extrabold text-sm mb-0.5">
-                    ğŸ¯ Mode Pengunggahan Khusus Capaian Output (SAKTI/My Intress)
-                  </div>
-                  <div>
-                    Sistem mendeteksi file kategori <strong>Capaian Output</strong>. Pengunggahan ini hanya memperbarui <strong>Status Terlaporkan &amp; Nilai Capaian Output</strong> Satker tanpa merusak atau mengubah nilai 7 indikator IKPA lainnya.
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Periode and Notes Metadata Form */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  ğŸ“… Bulan / Periode Berkenaan:
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={uploadPeriode}
-                    onChange={(e) => setUploadPeriode(e.target.value)}
-                    placeholder="misal: Agustus 2026, Juli 2026, Triwulan III 2026"
-                    className="flex-1 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 font-bold text-slate-900 dark:text-slate-100"
-                  />
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) setUploadPeriode(e.target.value);
-                    }}
-                    className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-2 py-2 font-bold text-slate-700 dark:text-slate-300"
-                  >
-                    <option value="">Pilihan Cepat Bulan...</option>
-                    <option value="Januari 2026">Januari 2026</option>
-                    <option value="Februari 2026">Februari 2026</option>
-                    <option value="Maret 2026">Maret 2026</option>
-                    <option value="April 2026">April 2026</option>
-                    <option value="Mei 2026">Mei 2026</option>
-                    <option value="Juni 2026">Juni 2026</option>
-                    <option value="Juli 2026">Juli 2026</option>
-                    <option value="Agustus 2026">Agustus 2026</option>
-                    <option value="September 2026">September 2026</option>
-                    <option value="Oktober 2026">Oktober 2026</option>
-                    <option value="November 2026">November 2026</option>
-                    <option value="Desember 2026">Desember 2026</option>
-                    <option value="Triwulan I 2026">Triwulan I 2026</option>
-                    <option value="Triwulan II 2026">Triwulan II 2026</option>
-                    <option value="Triwulan III 2026">Triwulan III 2026</option>
-                    <option value="Triwulan IV 2026">Triwulan IV 2026</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  ğŸ“ Catatan / Keterangan Arsip:
-                </label>
-                <input
-                  type="text"
-                  value={uploadNotes}
-                  onChange={(e) => setUploadNotes(e.target.value)}
-                  placeholder="misal: Rekonsiliasi SAKTI Setelah Batas Konfirmasi"
-                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-slate-900 dark:text-slate-100"
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-              <button
-                onClick={() => handleApply(false)}
-                className="bg-slate-800 hover:bg-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
-                title="Simpan file ini ke arsip historical saja tanpa menimpa tampilan dashboard utama"
-              >
-                <FolderArchive className="w-4 h-4 text-sky-400" />
-                <span>ğŸ“ Simpan Ke Arsip Historical Saja</span>
-              </button>
-
-              <button
-                onClick={() => handleApply(true)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-3 rounded-xl transition-all shadow-lg hover:shadow-xl flex items-center gap-2 cursor-pointer"
-                title="Memperbarui data aktif dashboard utama dan menyimpan arsipnya"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>âš¡ Update &amp; Aktifkan Di Dashboard Utama</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300">
-              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
-                {excelCategory === 'CAPAIAN_OUTPUT' ? (
-                  <tr>
-                    <th className="py-3 px-4">Kode &amp; Nama Satker</th>
-                    <th className="py-3 px-4">Status Capaian Output (SAKTI)</th>
-                    <th className="py-3 px-4">Nilai Caput (%)</th>
-                    <th className="py-3 px-4">IKPA Saat Ini</th>
-                    <th className="py-3 px-4">Hasil IKPA Setelah Merge</th>
-                    <th className="py-3 px-4 text-center">Aksi</th>
-                  </tr>
-                ) : (
-                  <tr>
-                    <th className="py-3 px-4">Kode &amp; Nama Satker</th>
-                    <th className="py-3 px-4">Periode</th>
-                    <th className="py-3 px-4">Penyerapan</th>
-                    <th className="py-3 px-4">Capaian Output</th>
-                    <th className="py-3 px-4">Total IKPA</th>
-                    <th className="py-3 px-4">Predikat</th>
-                    <th className="py-3 px-4 text-center">Aksi</th>
-                  </tr>
-                )}
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {previewSatkers.map((satker) => {
-                  const existing = satkers?.find(s => s.kodeSatker === satker.kodeSatker);
-                  const isCaput = excelCategory === 'CAPAIAN_OUTPUT';
-
-                  let projectedIKPA = satker.nilaiTotalIKPA;
-                  if (isCaput && existing) {
-                    projectedIKPA = hitungTotalIKPA({
-                      ...existing.indikator,
-                      capaianOutput: satker.indikator.capaianOutput
-                    });
-                  }
-
-                  return (
-                    <tr key={satker.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{satker.namaSatker}</div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">Kode: {satker.kodeSatker}</div>
-                      </td>
-
-                      {isCaput ? (
-                        <>
-                          <td className="py-3 px-4">
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 ${
-                              satker.statusCapaianOutput === 'Sudah Terlaporkan'
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
-                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
-                            }`}>
-                              {satker.statusCapaianOutput}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-mono font-extrabold text-slate-900 dark:text-slate-100">
-                            {satker.indikator.capaianOutput}%
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400 font-bold">
-                            {existing ? existing.nilaiTotalIKPA : '-'}
-                          </td>
-                          <td className="py-3 px-4 font-mono font-extrabold text-sky-700 dark:text-sky-300">
-                            {existing ? `${existing.nilaiTotalIKPA} â” ${projectedIKPA}` : projectedIKPA}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="py-3 px-4 font-medium text-slate-700 dark:text-slate-300">
-                            <span className="bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-md font-semibold text-xs border border-sky-200 dark:border-sky-800/60">
-                              {satker.periodeUpdate || uploadPeriode}
-                            </span>
-                            {satker.paguAnggaran > 0 && (
-                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                Pagu: Rp {satker.paguAnggaran.toLocaleString('id-ID')}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 font-bold">
-                            {satker.indikator.penyerapanAnggaran}%
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              satker.statusCapaianOutput === 'Sudah Terlaporkan' 
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200' 
-                                : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
-                            }`}>
-                              {satker.statusCapaianOutput} ({satker.indikator.capaianOutput}%)
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-extrabold text-sm text-emerald-600 dark:text-emerald-400 font-mono">
-                            {satker.nilaiTotalIKPA}
-                          </td>
-                          <td className="py-3 px-4 font-bold text-slate-700 dark:text-slate-300">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                              satker.nilaiTotalIKPA >= 95 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
-                              satker.nilaiTotalIKPA >= 87.5 ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
-                              satker.nilaiTotalIKPA >= 70 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
-                              'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                            }`}>
-                              {satker.predikat}
-                            </span>
-                          </td>
-                        </>
-                      )}
-
-                      <td className="py-3 px-4 text-center">
-                        <button
-                          onClick={() => handleRemovePreviewItem(satker.id)}
-                          className="text-rose-600 hover:text-rose-800 p-1 hover:bg-rose-50 rounded cursor-pointer"
-                          title="Hapus baris ini dari import"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-      )}
-
-      {/* Current Dataset Management Info */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h4 className="text-sm font-extrabold text-slate-900 dark:text-slate-100">
-            Kelola Dataset KPPN Semarang I Aktif ({currentSatkerCount} Satker)
-          </h4>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Kosongkan seluruh data Satker jika Anda ingin mengisi data murni dari Excel upload, atau reset ke sampel awal bawaan.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {onClearAllData && (
-            <button
-              onClick={onClearAllData}
-              className="bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 font-bold text-xs px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-800 transition-colors flex items-center gap-2 cursor-pointer"
-              title="Kosongkan seluruh data Satker sehingga menjadi 0 Satker"
-            >
-              <Trash2 className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-              <span>Kosongkan Semua Data (0 Satker)</span>
-            </button>
-          )}
-
-          <button
-            onClick={onResetData}
-            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 transition-colors flex items-center gap-2 cursor-pointer"
-          >
-            <RefreshCw className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-            <span>Reset ke Samples Bawaan</span>
-          </button>
-        </div>
-      </div>
-      </>
-      )}
-
-      {/* 15. Kelola Pengetahuan & Juknis SAKTI Section */}
-      {adminTab === 'pengetahuan-admin' && (
-        <KelolaPengetahuanJuknisSection
-          theme={theme}
-          dashboardConfig={tempConfig}
-          onUpdateDashboardConfig={(newConfig) => {
-            setTempConfig(newConfig);
-            onUpdateDashboardConfig(newConfig);
-          }}
-          isAdminAuthenticated={isAuthenticated}
-        />
-      )}
-
-      {/* 16. Statistik Trafik & Infografis Pengunjung Section */}
-      {adminTab === 'trafik' && (
-        <TrafikPengunjungSection isDark={isDark} />
-      )}
-
-      {/* Modal Edit Satker Manual */}
-      {editingSatker && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-3xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 px-2.5 py-1 rounded-full">
-                  MODAL EDIT MANUAL SATKER
-                </span>
-                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
-                  Edit Data &amp; 8 Indikator IKPA
-                </h3>
-              </div>
-              <button
-                onClick={() => setEditingSatker(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl cursor-pointer"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Kode Satker:</label>
-                  <input
-                    type="text"
-                    value={editingSatker.kodeSatker}
-                    onChange={(e) => setEditingSatker({ ...editingSatker, kodeSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-amber-700 dark:text-amber-300 mb-1 flex items-center gap-1">
-                    <KeyRound className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Password Akses Satker:</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editingSatker.passwordSatker || ''}
-                    placeholder="misal: satker123"
-                    onChange={(e) => setEditingSatker({ ...editingSatker, passwordSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 font-bold text-amber-900 dark:text-amber-200"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Nama Satker:</label>
-                  <input
-                    type="text"
-                    value={editingSatker.namaSatker}
-                    onChange={(e) => setEditingSatker({ ...editingSatker, namaSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Kementerian / Lembaga:</label>
-                  <input
-                    type="text"
-                    value={editingSatker.kementerianLembaga}
-                    onChange={(e) => setEditingSatker({ ...editingSatker, kementerianLembaga: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Status Capaian Output:</label>
-                  <select
-                    value={editingSatker.statusCapaianOutput}
-                    onChange={(e) => setEditingSatker({ ...editingSatker, statusCapaianOutput: e.target.value as any })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                  >
-                    <option value="Sudah Terlaporkan">Sudah Terlaporkan</option>
-                    <option value="Belum Terlaporkan">Belum Terlaporkan</option>
-                    <option value="Terlambat">Terlambat</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* 8 Indikator Sliders/Inputs */}
-              <div className="bg-slate-50 dark:bg-slate-950/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
-                  <span className="font-extrabold text-slate-900 dark:text-slate-100">8 Indikator IKPA (Nilai 0 - 100):</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-extrabold text-sky-600 dark:text-sky-400">
-                      Total Hasil: {hitungTotalIKPA(editingSatker.indikator)} ({getPredikatIKPA(hitungTotalIKPA(editingSatker.indikator))})
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { label: 'Revisi DIPA', key: 'revisiDipa' },
-                    { label: 'Deviasi Hal III DIPA', key: 'deviasiHal3Dipa' },
-                    { label: 'Penyerapan Anggaran', key: 'penyerapanAnggaran' },
-                    { label: 'Belanja Kontraktual', key: 'belanjaKontraktual' },
-                    { label: 'Penyelesaian Tagihan', key: 'penyelesaianTagihan' },
-                    { label: 'Pengelolaan UP/TUP', key: 'pengelolaanUpTup' },
-                    { label: 'Dispensasi SPM', key: 'dispensasiSpm' },
-                    { label: 'Capaian Output', key: 'capaianOutput' }
-                  ].map((ind) => (
-                    <div key={ind.key}>
-                      <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
-                        {ind.label}: <span className="font-extrabold text-sky-600 font-mono">{(editingSatker.indikator as any)[ind.key]}</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={(editingSatker.indikator as any)[ind.key]}
-                        onChange={(e) => {
-                          const val = Math.min(100, Math.max(0, Number(e.target.value)));
-                          setEditingSatker({
-                            ...editingSatker,
-                            indikator: {
-                              ...editingSatker.indikator,
-                              [ind.key]: val
-                            }
-                          });
-                        }}
-                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => setEditingSatker(null)}
-                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold px-4 py-2 rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleSaveEditedSatker}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-xl cursor-pointer shadow-lg flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Perubahan</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Modal Tambah Satker Baru */}
-      {isAddingSatker && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full">
-                  TAMBAH SATKER BARU MANUAL
-                </span>
-                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
-                  Input Form Data Satker Mitra KPPN
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsAddingSatker(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl cursor-pointer"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Kode Satker (6 Digit): *</label>
-                  <input
-                    type="text"
-                    placeholder="misal: 690123"
-                    value={newSatkerForm.kodeSatker || ''}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, kodeSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Nama Satker Lengkap: *</label>
-                  <input
-                    type="text"
-                    placeholder="misal: Kantor Pertanahan Kab. Semarang"
-                    value={newSatkerForm.namaSatker || ''}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, namaSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Kementerian / Lembaga:</label>
-                  <input
-                    type="text"
-                    placeholder="misal: Kementerian Agraria dan Tata Ruang / BPN"
-                    value={newSatkerForm.kementerianLembaga || ''}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, kementerianLembaga: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Unit Eselon 1:</label>
-                  <input
-                    type="text"
-                    placeholder="misal: Ditjen Penetapan Hak dan Pendaftaran Tanah"
-                    value={newSatkerForm.unitEselon1 || ''}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, unitEselon1: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Pagu Anggaran (Rp):</label>
-                  <input
-                    type="number"
-                    value={newSatkerForm.paguAnggaran || 10000000000}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, paguAnggaran: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Realisasi Anggaran (Rp):</label>
-                  <input
-                    type="number"
-                    value={newSatkerForm.realisasiAnggaran || 8000000000}
-                    onChange={(e) => setNewSatkerForm({ ...newSatkerForm, realisasiAnggaran: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  onClick={() => setIsAddingSatker(false)}
-                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold px-4 py-2 rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handleCreateNewSatker}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-xl cursor-pointer shadow-lg flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tambahkan Satker</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Modal Tambah & Edit Master Satker */}
-      {isAddingMasterSatker && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 px-2.5 py-1 rounded-full">
-                  {editingMasterSatker ? 'EDIT MASTER SATKER' : 'TAMBAH MASTER SATKER BARU'}
-                </span>
-                <h3 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">
-                  {editingMasterSatker ? `Edit Satker ${editingMasterSatker.namaSatker}` : 'Formulir Data Referensi Satker'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Data master ini menjadi acuan utama (Source of Truth) pemfilteran dashboard IKPA dan Capaian Output.
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsAddingMasterSatker(false);
-                  setEditingMasterSatker(null);
-                }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl cursor-pointer"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveMasterSatkerSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Kode Satker (6 Digit): <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    placeholder="misal: 690123"
-                    value={masterSatkerForm.kodeSatker || ''}
-                    onChange={(e) => {
-                      const kode = e.target.value;
-                      setMasterSatkerForm({
-                        ...masterSatkerForm,
-                        kodeSatker: kode,
-                        passwordSatker: masterSatkerForm.passwordSatker || `KPPN026#${kode}`
-                      });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold font-mono text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Status Satker di Dashboard: <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setMasterSatkerForm({ ...masterSatkerForm, isActive: true })}
-                      className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 border cursor-pointer transition-all ${
-                        masterSatkerForm.isActive !== false
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>AKTIF (Tampil)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMasterSatkerForm({ ...masterSatkerForm, isActive: false })}
-                      className={`flex-1 py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 border cursor-pointer transition-all ${
-                        masterSatkerForm.isActive === false
-                          ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                      }`}
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>NONAKTIF (Sembunyikan)</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nama Satker Lengkap: <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="misal: Kantor Pertanahan Kab. Semarang"
-                    value={masterSatkerForm.namaSatker || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, namaSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Kode Bagian Anggaran (BA):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: 018 atau 056"
-                    value={masterSatkerForm.kodeBa || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, kodeBa: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Password Akses Satker:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: KPPN026#690123"
-                    value={masterSatkerForm.passwordSatker || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, passwordSatker: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/40 font-mono font-bold text-amber-900 dark:text-amber-200"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Kementerian / Lembaga:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: Kementerian Agraria dan Tata Ruang / BPN"
-                    value={masterSatkerForm.kementerianLembaga || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, kementerianLembaga: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Unit Eselon 1:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: Ditjen Penetapan Hak dan Pendaftaran Tanah"
-                    value={masterSatkerForm.unitEselon1 || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, unitEselon1: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Nama PIC / Operator Satker:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: Budi Santoso"
-                    value={masterSatkerForm.namaPic || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, namaPic: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    No. HP / WhatsApp PIC:
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="misal: 081234567890"
-                    value={masterSatkerForm.noHpPic || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, noHpPic: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Email Resmi PIC / Satker:
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="misal: satker.semarang@kemenkeu.go.id"
-                    value={masterSatkerForm.emailPic || ''}
-                    onChange={(e) => setMasterSatkerForm({ ...masterSatkerForm, emailPic: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddingMasterSatker(false);
-                    setEditingMasterSatker(null);
-                  }}
-                  className="bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-bold px-4 py-2 rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-6 py-2 rounded-xl cursor-pointer shadow-lg flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Master Satker</span>
-                </button>
-              </div>
-            </form>
-
-          </div>
-        </div>
-      )}
-
-      {/* Global Custom Confirmation Modal */}
-      <ModernConfirmModal
-        modal={confirmModal}
-        onClose={() => setConfirmModal(null)}
-        isDark={isDark}
-      />
-
-    </div>
-  );
-};
+            xœì=ÙrÛÈvïóe®EM™µZÖHšPËÄY²J¢fnÕÔTÜ$š$LlÁ¢%>ä!¯yIR•ÜÊäŸîÜOÈén,F7’%kŒ*[d8½½Ï9Dˆ_;¡ú‚3l“İï®¹ÚÚ@Şms\'lÚ®ã¢Ü†Í_WV¼Ûßöî½–ã^?4æ‡è÷ßÑbsq²³{ß Âí~±}iiòMá¹kÜå…FÜ³ˆØ¸³l˜×YCî+ ?İ/‡®<ËÅz…:Qè6,‚Ó¢÷îšxè¸AhöÑwËÉHî#ö½ÿêjd]@âõ†Mb[Fs£z®o?ş“ŞXm·‘ïFAàó­…¼æ_Åä·í…Ü´¤N¹EfHì Ù'N=|Š`¼ƒ»f„7„8Èî5×¤åš
+dˆ½æê‚¼;—öÇ	Ä—o`È#yØ›íöZ.¼?Zßdo6G øìãkÒüÛíÂ0z‡ÓBB×†èœø=8æ CbttÛ'jdÛÔ˜¡]N–
+È4Z—1)‡6¬)ğ ´<îÛ 	L÷17î-h`óbS:aär×lÃŸdÃ‘e&wâ0
+¶,k¬i"“Jğ%¸2ôMÑÿš}×
+š+(°·³¯klÓ×P2»
+xp3¼YŞj#új21@d-º‘J¹¼…Ct„c¹ıñÂ^×±…ö±o¨K7¼·‹‹ hãı°pŒ„>†	«í»70pÂ;Sõ¡B’'\šC³GüÀQ
+x…mï{à[×·q8ï
+%ƒ{#­QŸ2IbÄët‰Ã1ñ¿€…úÃØ…3t-<ÂN­å’ÈZ€¿%­ÿœˆL*-ÉtºM—è-["ƒ”-RJÈ0†>iŞ5Wdj–§)MO`Á|)K  ÀdCxóÒ@ddÜW¹šÂÂ8nH‚–½FÃyÌ%´»'HOaêcr·{oN¦K¨•ÖFë*¤ÅÎÁˆôÇ¦h»š]t1GìY|¡`ä›Î¸©’cñÚíİ;Ê-Vâ}^“©®œûäÚ$7¨Käbu…\ØõP:AØó¬;ªµjŠÇßäÔ´,@ûp„öP{ªÚÂ° ë·á[Ê&S´[+à†bKlİb‹‰÷†â«{MüŸG¦a€z’`çznãJ¨Ákn&½öªvŸÎb£MùŒ43Ş¨ˆFY¢ÿQ±‰lc›}©A?—jbeeè¾Á¤^MÇ2ÒÔÓÎˆ¼-L¾Ãäbf_¶’›iË´0%T“•œb‚rL/ÓÎ8P)ğ•©Œv¬Véu~qôóñÑ/è]çòø=ê\u?œvºG‡èàıQçìè;%bƒêtO.dOIŒ¬y´VKIWµ­(™íÄ	#*‹3š®AĞ{ì¹~*›?xLeuîL8GNiU}´¦¹§N’È“G»®í¹i™#àxŒGğÅtL„éø-ìƒ˜ÊéÑÙñéyFŒz.ötb#x:B Gï02Ì€Í˜7ê€2â¡w \ßìc«¥˜—§a™r«…{ ÌO·UòèÛ”åôÅ¢¬qŞ âwŒmTæqo:ZÅs?ò×oz®ÉÆkĞ}Ş)·`ß0X*¡e:^*6,¼ó`ú”Øzîí‚â	v»÷ ˆcœÊV4½\ç önHvï„	ã€„ôiÁ0‡$lÅà
+–8ë*Û˜xÒ9‡İèƒ1‚”s#@Ìâ€µâµ‹ífZ- £’KŒCtøÙØgv
+¤?ÄNh"f,é¤1Ã"¥–WV@Ş )˜ úCÂú#ºĞãÀkÀq`3¿C(å‚ND†®‡vwwÑâAç¼sÜ9û§Wİó«îb^ŞÆİ¥.Ìği#ãß¼Š§uù­5	y+`.W¦×s®p8æÍ=ö7î1G)¼M¥uWqğ·7×Ù!µŒÕª–’{+ä²Â‹ØT^QÈ*ıí/ÿş|‹©QQd’@'£(ˆ—“îñòéàCè“ (Š­°ÑO%z´„GB2é@ıhÌQÊb}×îå‡¨Î›[ù±SîÍY²Mlêæ~”ÁàŞj@[T(eã™iaiºˆ-<Z¿GáúQ€ÇœûÛ´o Rä0 o ƒºû\Ÿ€È€FSz¹¬jV)Ô“"ñ&;:£æpˆ3©ö#Äâ­ç!YåœNbP²‘‰®–ÓbU± ¹•¦´RuÒO«Îıí/ÿñoh? -§ëºOü1q0ØzŠmS0YÕ3>¤ö/²Çur/‘|t*©‡Ğ5¶"fÜâŒ‡¬ZjÑw%¾–I?T)ûò@M$#Xiâï.Øf€­mÔ‚Ö$¶Ú^İ|~Š,3şØõÍ¶œÇÇÇ¬I=	i¥­\ƒN²Èö[°zŠ& ®(F§ñ*­Tãw@¹!}õF–ÿ^ùBæ É;1u«¾WÂš¨w°¨¿Ì±Ì9Û+%jêû-YgaªÖY->v\/4]'Æş……=¦Ñ´%FÂ­Vkg™?W	ÈOØ‰°Ï1waOüVÌ¤çpr_k:Å>	c(ÙçZ :oZ1ˆìs½Qd&É§z‹9éŠ&k°2 Ö DŞ« |«æ’x °€Ê¯êÃ8t3@â·Z`ÎÜkq@¹¯µ ’@”ûZPÆícPRÃŒÀŠĞæ§€7ÀŸğ~
+ÔL&*ê©‚ÏCEúo”xÃ—Ñ	hï>ˆ5øÂ< ut¤rc_§òä¦ïVµó¯²Wª¨:*Eç‚Œ]' YC`™i„.a,°öaEtâ:Ó§'´J'…h02‡ã£ë9³h7Å3lÅ‘–Æ•Ğé3"ÙÂVjªñ‘9–o|ì©õÁFŒív/„ÅKŒåMQ´-zlx…‰ÖXfHÃp0È°H‡34Ø
+Tx’wgdĞˆúü³My£T“X‹âI¶AÜÜ’¨ö6 {ËNÕsÇ†!a`Ò¥ob@«øèÁ6Îu˜÷Ñq 4C‹Š=îàdÆ9µ²Ç`g2Oç(õt¢ Â©™ìĞà›í™”©÷4¢ŞS¹Wø‘Q\ÇïÌk’§˜u4‚©¯m]ãNç4`TÿŠâáŸı³`ŞÂ:×G"¿­6¡¯ä.êˆ™Mo²0>d®z›ÂÆdgSs"È©àpa><¢•÷¾;9¸ÿŸ£sW.\5ä £@…’İÿëı/ºò`@$öõtè°X¸Œ)»ô§aA¾µöIvzøw«r{ï° .…dàg3d"Åa‡Î€*L"l(™”ÚpàmjTƒŒ#El}„b[LŞ7¦ Ã*U¾Q:Y«x˜(8˜ù”!uñZHÑ|k”tÖöN¨›'v	RdMb;ÂQ]H±«QéD]š`ê¢¤`ş4æ’LfÀÏ8˜XÙ9% <Õ‡ÅÑ‹³°ÅÆv<šÈH´ıüö<vÉÌöªs\¸Ï,oËëúx|İÙ™Fïæö~<PÈRFWd4lVğfàPÍ;8S®UX#ŸÄ³Ø€}Ñºõú 
+‡ˆÜ‚öAãUv>ø¡50£0¥5,Š(¿ãÏ­J/mœEì¢é|ó{Y­¡—EBäùî'0I‰ÁH= ;ä`˜BÛUc Ëd¯^¥ó\Ò¸8å~@¯‰œaÚCCçmµZ	èVzâòZópŸ§íd.ék­Ü}µ÷T¹ŞÕêù$Œ|GÉšsâÑ]ÉŒ\”—¤şo¨­z¾¹¡fà}È‘ê	‘j^Ğ%Vuˆï%“q€wrìœhOÕı	qóÂ8²€{Îº·Ñ}>ÊGÀcğ57ïôUë1ıäfÚöšxÿ1›ÎNA@m/†c–GG¡oud”\ñúñ@ë‘8Û¸ŒôÂ©éâ€VoQ°\VTñá‰Ê)Äúû-„rNïm›õæ»ÉºbßÄ~XC¾Ö4µ‡ÉÇIùÖ¡K¨>yI.µÅ‘B1’Ş× ›˜¢Œ¨ØUœ­†‡Nşô¸Ó™b™¬‹–É´™¤’ø‡TXIb"Ws±lk‡Æw²uÇCkÌéã·÷šiMĞ_ÿç?5äDğä#Ì6ß2ó¼w”ç¢ôÒéîñ{s,%h¡‘=‹u,õ"‡†÷’ø-9¸”:Ë7+= S_¨7®¨Gsjò_ Q0•y +t<e™zÜ,‰ ¿ÿ*„¤K1•?	ıàaÔ¡84Ú³h­¯ÖÚ’.“ûI¸Ô´ù#t#ÚFrˆ­Ğ}ïö±E.C¡×X4æñá¢&ØA\’Rí†^¥0æcU˜Z={©u™LşQxôLDb¥ â<‚ƒ¦¢Ïƒ*1Ó»{ÖZjL•úª€ÀìzlM§ûXÈi)nŒdOT"+I>*¥?¼,{¢“¦½]ôvãáˆgOñ4¹âH¶Ş´’±$	"Å„![¤ ÀçèûM;î™‡ü¦}§ÊÅXçBœp¥ÌÁ7Öox±ğqMÅRé’aïè(-ç~Ôw©9îË.åÁß±İk§°ƒaŞH?¥‚¬±ÊóL-üÔEÄZ7ÒTµ©GwÙâ½Ã^j(Ë3¦§¼X3m™š¨Sz•îe×ÇÁHÊˆÒŸÙ¥¯)ÏÜÄû:Qû‰9Š>¼É¼å¾‘¾Ç=å2"ßüb	Ñ)vğx›òÄŠ,.¢F*"Íœ=Ğ:9ò>›¯V*Ÿ~T£ÒA?Ä	±\§+yr~~†.‰MõÙ!:æ» §ôùŠsW`.I{)·…ùâ³¦•©­‘7p!=eˆùQœ\;õ?—DÇ ÙfC“‡Í >6·#?!<^Ë›k¯yÆOèÔÇ¤íÁM|ƒaûá0hr³RÌ
+ØZ#ô†… €MóÅyŞS¶G°ß±,– T0øÔŒ3e–ù×ebÌ“BÂÚò¼nE!âh¾PŞsÎï´3s5äªDªãlÖQ\óE¦•¾/Ò\Ê¥…  4×fŒ¶ˆÙt9zddR;âÕ'l˜`Šó;yh…32-«Fy1$-š:ú†G_dB8í¢F2eÆšŠõç%»
+«œº $RD(]èƒt¾²**…Õâ³¤Ç„¶ÕÙñiZØßC`”´ğd ìet Š°©àu- G‹„c]Ç¢ÉrûŒ[©J¸ÈŸ«Òµ´]Ùh%b‚æ…‘"šå…~ŠÆè4I¤&MÊ`Ã6.îqo—½Ûdw¤,ÆŞ‡Ğ‡&µºØÓ°¨':„'ˆíñÏâc®Ãİv‡òã‡ÜğÏŠ³fXğn
+Nxò{‰d”°5ÏçRHÌ CW¥Á¼œĞìc÷ZÅ†ìİfm¶XÁê #à>øóŠ©ECú%ˆsû>Ñ,ì©{²÷åâP38	38¦c¦'º!ºÈ×#ÃæzJÓA,q`ôP{|¿´ºÄÀ¼%ô¼6¨ÙFÿÂ*c‰…ÀbìáşØğ]¯ÙÆÎ´&m«ø+ÍºKCËîŠ¡eŸ³ÄUFmŠ°Qm5°·½æVZfb“=5jşú¶}=ú­tø(ï9«_¬n¹¯W½N…²VNì¿4õñqóÔ­(œ+KjÑëôÃaç=::<î¢ÓÎÙ|æå"ŠÒçªr4d´N¹ª)«S	}q’ÅamóhÃ,V†P§KTÔz<©¸áÀJ–GëJV€`šKB²pg•p%u*Ãş9/¢7ADoª”°²ĞÕR²JëÁ”¦åÖÎVeÑëRÆ.{……øñİÖf¡”ä¡TN¾Í‰1 Eù’*5%†÷,ÔIlz2¨Û(Ÿ¼¢phğ«S¬¬Öñy'Ùa•bDª`mM:ü|ÈÁ}¨yäÈŠGPäĞhÍj>Å¿»ºb¥%~’Zº"?‰j| n`]Qg€bœb¨ÎAúq×‹‡k5´|©&B•Åıœ+«kêgCüüù§TABÁ’e]Í%.êª‹<%•Ta¡Bhôçd¡BTábRõ+}ùÊüÙÄ7Y&è{b÷ğVI› îıA%nú3F›g,ÊÌ˜Rd)©¥¡Ä†ÊQ˜³¡ƒ|p€°s÷ŒĞ¢œ›h”©ğB{)7ÕJœß'VdçšêeâÓ÷€@Ã…½ôã£çŞS7‘h°^ZÔ²–)‹+æ=+ı1ú}SÕ2«é™‰-9¹œµj(âLÑT:RÖß­w:(û	PƒgÉµQÁKeªôŒEà5ƒÏå+y%—yœ³¬;İæÙX,ÛnİËY1yf—†c-Ñ-à@I2{¶ê»K…âğ	Êëm‘²úeS1­Š·@…±@o¿*Gz˜ ÙF‹äš¦Ÿw©ğ¾ƒ6Ÿµš^Du¦Pà¦eŞÑ”¸ãã<$ƒß„{kÁe¹}(	¿L¡#3+ &‰O˜–˜ D‡¶R€=~O¼Uq„	˜@îâ!- ”b|3¹W	ä‘ Ä«óåîÕ¹0¹uåu#¯Ê˜¼°Zç§Ù^¤Í—]L^çHÁäâŒÊo<»FY¸›_BùnÇ ôN9UªN¥QáÌ?1W ëk²]‘ã¦¥KÓ¨È{×ˆµœ¥_ãéş¦©ÎZ¯ã±Ûz£€^Ü0p"j2ëc‘lÓÙ]P*Áñ}|»» ©äÆ¯X¥¬>i-¤Ê…ŞèÅÓ7¡s´‹Nq8jÁL0Ğ×ñ7|Û€ÏglúrÑš%MÙ7~•Ú’‡QQá-}:]—íÒÙ© OOİL®t­·é•>\W§ÎãŒïé_Ô+ë+óà—ÃI‰A:­^:ÿ¢.I¡ø“Bµ•İ¸°OOSØG£[)kø¬ëkøT,àSœ9ã!:TDR+ş#û¨~ô£6Íh…)U¹t]Ìd…%â«—øšĞ5"†Şéö k’J5¥ÕÂÓJ5:å¼ÒbíĞIU?åù¸\Ğ9ñiy_U´JùšWª“Uıg0x¯"ìc?ÃhL†ñ5ACXı‡P-ALÕPef¨Ó7äTzq	İÎé~ç]Œ€ö;Wq|‚‚Ğ"0ùpxñìC!ÀòÔ„åcñÇŠq>xdÂq°«ÔŸû›ğEÆ& Æ&:4‡f¸´¾{œÓÕaíæÛ¶ö¤66†œ¤Ê%±<MÉ¹°Ê¹~&ÂáÎõèİğø%Ü¢÷„Æb{Ÿ»N°C­fĞ¤Bìğß—À½Vš·Qí²SÛ‡G»}"ü$lí3	+ÑNè¿3ô1|`¥'»TŒ_D4chíŸŸÕa{…càG`/÷¨ù)°ğÊ1CtËuĞÊgÄ¾C3üD¨ùè9şßá1C?h1ğ d%2º”ÖÀ¿&Ãç²òğˆ' ÿŠqs`-9’ó Æ…·4Ú•¹»•H’+ÂXæMr=$ºˆİlk¼ÒÏo„ãŒgA[&;êzB4ò“Aˆ¸´õ(¨Tèêã“²ñ‹ñWtDüıç€Ì!IqşE¸ÏÏ­(¨ë>Ï~»RÿëèeKş˜îóW<İèt%bƒRáGç|õ¦õ¦)Şô$6‡¹? Å8ïï²{t»Úi±±Øù»Á|ğ
+ÃâiÜïš	}óq¿U=$æĞš–‹TÕˆ,Óçnü2 >qh4{F9á™{º¤<!ëİæœ‡–×I
+4à>ÍRç?Ñ¸t#¿Ï~ì¾ëGáh	yÄ˜ûy%áç4XÀ#µ)óQMu~nZj¬v"¡
+ó”qbAu‘Æç^`GòŠJ=¨ã=orË¨g›¡x4/.¿;y±ç"JM_sX¢fØqÅĞz¿ûÜ)u>ùçÈô‰¡¼	2’:âÃÑîıfõ”º
+§4¶€óÔè¹xˆJ^ gœé«€ÌO¥Q•„Ÿq(ÏA&ÑÏú'åÄÁÂ:“?ÒÃİöêæß{OaO>j€ëBÊ¦ÿàêg?3PWĞï‡nŸĞM¢\ß8·(ŞGCø§GcÕòô:N™uI/Îjø#º À¢©^$:%qÑB.ıĞ¼&Ûˆş>™ÖÃ"bîıÇø—™Ö2üPW@·iË³å6ÆvÉ|•~¶¬¤iœ“I¡¿ÛİELÑ¾+ùİÌ›Ü1­‰wc“(°ËÊfòR¾™†[ûçµ¨Sí'³tÃ˜|To¥6úú`DúãÓï[Dª–f·—”läv?­®ô#jtÙş)«{¥Ï—x|$ÁPç¥ÑÄnešHë½	"½õb©áÏ³’ÀÙ‡³˜
+.‰İ‹œ;sŒ™IaÎ,+PçA“oÒ¾uix,‘•á'_–¾şĞQ-Úœ=°¥*OûÂÂ[^®‚ÊØ}<4…d@ÔØï,©J|¾x…öÊ//ÛŞØ¬obî×„©Š·ú³ÇÙ—mT©«=)¾&Öù,N‘ê•æÁÜ/²XQ>åìÁË=ŒV'>-F?D¼b‘;Ï²X™SI‹/—WçŸ£(²€Ós„AVEæ/#òåb13Ï€å}ğˆÏËê<µc?2è‘1˜~2ğ«ÜÄ;7ûißø¯ÈúÈê¶Ğ»s@Õ_F8:G1÷‰Í¹-ĞŠ×76ßl½ÕºĞâ©ûÎ{L<åàŸ3~fƒîyyëllZè‚¶óßÇa»„öSŸƒ¸®_ì]û¦lIÔº-SSC‡á¬ëGDñşsÆñ‡Æle£ÜúLÂš§Uˆvš%Ş©nÄ“&„àYÍ÷)`QNª}úââ¨ç(C’‹U~Xjb6c0õ?Zn[è H×µû¥ßÆ¬$³~ÑˆïÄÏ°»i6ı¶{ßîeO‰Ğˆpz+Â÷H¿å·/ÇóK§T6ùş›ÿ  ÿÿ ¤p¡

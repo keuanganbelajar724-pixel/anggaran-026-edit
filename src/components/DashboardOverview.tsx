@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme } from '../types';
+import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme, DeviasiHal3Record } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
 import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
 import { PaginationControl } from './PaginationControl';
+import { DeviasiHal3OverviewWidget } from './DeviasiHal3OverviewWidget';
 import { 
   Building2, 
   TrendingUp, 
@@ -11,10 +12,10 @@ import {
   Clock, 
   FileCheck, 
   Eye, 
-  EyeOff,
+  EyeOff, 
   Send, 
   Filter, 
-  ArrowUpRight,
+  ArrowUpRight, 
   ArrowDownRight,
   Minus,
   Sparkles,
@@ -51,11 +52,14 @@ import {
 
 interface DashboardOverviewProps {
   satkers: SatkerIKPA[];
+  deviasiHal3Records?: DeviasiHal3Record[];
   onSelectSatker: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
   onGoToUpload: () => void;
   onGoToCapaianOutput?: () => void;
+  onGoToDeviasiHal3?: () => void;
   dashboardConfig?: DashboardConfig;
+  onUpdateDashboardConfig?: (newConfig: DashboardConfig) => void;
   theme?: AppTheme;
   isAdminAuthenticated?: boolean;
   onSetIsAdminAuthenticated?: (val: boolean) => void;
@@ -63,11 +67,14 @@ interface DashboardOverviewProps {
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   satkers,
+  deviasiHal3Records = [],
   onSelectSatker,
   onOpenReminder,
   onGoToUpload,
   onGoToCapaianOutput,
+  onGoToDeviasiHal3,
   dashboardConfig,
+  onUpdateDashboardConfig,
   theme = 'light',
   isAdminAuthenticated = false,
   onSetIsAdminAuthenticated
@@ -78,6 +85,41 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       ? dashboardConfig.defaultFilter 
       : 'ALL';
   });
+
+  // Toggle state for Deviasi Hal III DIPA Widget in Dashboard Overview
+  const [showDeviasiWidget, setShowDeviasiWidget] = useState<boolean>(() => {
+    if (dashboardConfig?.showDeviasiHal3Widget !== undefined) {
+      return dashboardConfig.showDeviasiHal3Widget;
+    }
+    try {
+      const saved = localStorage.getItem('kppn_show_deviasi_widget');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // Keep widget state in sync with config updates
+  useEffect(() => {
+    if (dashboardConfig?.showDeviasiHal3Widget !== undefined) {
+      setShowDeviasiWidget(dashboardConfig.showDeviasiHal3Widget);
+    }
+  }, [dashboardConfig?.showDeviasiHal3Widget]);
+
+  const handleToggleDeviasiWidget = (visible: boolean) => {
+    setShowDeviasiWidget(visible);
+    try {
+      localStorage.setItem('kppn_show_deviasi_widget', String(visible));
+    } catch (e) {
+      console.warn('Error saving showDeviasiWidget to localStorage:', e);
+    }
+    if (onUpdateDashboardConfig && dashboardConfig) {
+      onUpdateDashboardConfig({
+        ...dashboardConfig,
+        showDeviasiHal3Widget: visible
+      });
+    }
+  };
 
   // Sync defaultFilter when dashboardConfig updates
   useEffect(() => {
@@ -445,6 +487,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
                 <span>Update Terakhir: <strong className="text-white font-bold">{dashboardConfig?.updateDates?.dashboard || '18 Agustus 2026'}</strong></span>
               </div>
+
+              {/* Deviasi Hal III Widget Quick Toggle in Banner */}
+              <button
+                type="button"
+                onClick={() => handleToggleDeviasiWidget(!showDeviasiWidget)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-xs ${
+                  showDeviasiWidget
+                    ? 'bg-indigo-900/80 text-indigo-200 border-indigo-400/50 hover:bg-indigo-800'
+                    : 'bg-slate-800/80 text-slate-400 border-slate-700/80 hover:bg-slate-700 hover:text-slate-200'
+                }`}
+                title={showDeviasiWidget ? 'Klik untuk menonaktifkan Widget Deviasi Hal III di Beranda' : 'Klik untuk mengaktifkan Widget Deviasi Hal III di Beranda'}
+              >
+                {showDeviasiWidget ? <Eye className="w-3.5 h-3.5 text-indigo-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-400" />}
+                <span>Widget Deviasi Hal III: <strong className={showDeviasiWidget ? 'text-emerald-400' : 'text-slate-400'}>{showDeviasiWidget ? 'AKTIF' : 'NONAKTIF'}</strong></span>
+              </button>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               {dashboardConfig?.customTexts?.dashboardTitle || 'Monitoring Real-Time IKPA Satker Lingkup KPPN Semarang I'}
@@ -1260,6 +1317,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         </div>
         )}
       </div>
+
+      {/* Modul Radar & Monitoring Deviasi Halaman III DIPA (Toggleable: Aktif / Nonaktif) */}
+      <DeviasiHal3OverviewWidget
+        records={deviasiHal3Records}
+        isVisible={showDeviasiWidget}
+        onToggleVisibility={handleToggleDeviasiWidget}
+        onGoToFullDashboard={onGoToDeviasiHal3}
+        onGoToUpload={onGoToUpload}
+        isDark={isDark}
+      />
 
       {/* Satker Main Table Section */}
       <div className={`rounded-2xl border shadow-xs overflow-hidden ${

@@ -31,7 +31,7 @@ import {
   HelpCircle,
   Play
 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
+import { generateGeminiContent, getClientStoredApiKey } from '../services/geminiService';
 import { REMINDER_TEMPLATES } from '../data/reminderTemplates';
 import { TemplateMessage, MasterSatker } from '../types';
 
@@ -540,39 +540,9 @@ _Layanan KPPN Semarang I: Handal, Transparan, Bebas Biaya & Tanpa Gratifikasi (W
   const handleGenerateTemplateWithAi = async () => {
     setIsGenerating(true);
 
-    const apiKey = localStorage.getItem('kppn_gemini_api_key') || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
-
-    // If no API key, use the smart local template generator immediately
-    if (!apiKey) {
-      setTimeout(() => {
-        const result = generateLocalBroadcastTemplate(
-          aiTopic,
-          aiTone,
-          aiCustomInstructions,
-          aiTargetRole,
-          aiDeadlineInput,
-          isAiPolishActive ? selectedTemplate?.isiWa : undefined
-        );
-        setGeneratedTemplateTitle(result.title);
-        setGeneratedTemplateCategory(result.category);
-        setGeneratedTemplateContent(result.content);
-        setIsGenerating(false);
-        setIsAiPolishActive(false);
-
-        if (showToast) {
-          showToast({
-            type: 'success',
-            title: 'Template AI Siap Digunakan! ✨',
-            message: 'Template broadcast berhasil disusun dengan format standar WhatsApp perbendaharaan.'
-          });
-        }
-      }, 600);
-      return;
-    }
+    const apiKey = getClientStoredApiKey();
 
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      
       const systemPrompt = `Anda adalah Asisten Ahli Komunikasi Resmi & Analis Senior Perbendaharaan di KPPN Tipe A1 Semarang I (Kode 026), Ditjen Perbendaharaan (DJPb), Kementerian Keuangan RI.
 Tugas Anda adalah MEMPROSES instruksi/topik dari Admin KPPN dan MENGUBAHNYA menjadi DRAF PESAN BROADCAST WHATSAPP KEDINASAN yang sangat lengkap, edukatif, jelas, elegan, dan siap dikirim ke Satuan Kerja (KPA/PPK/PPSPM/Bendahara/Operator).
 
@@ -615,12 +585,11 @@ Instruksi Tambahan dari Admin:
 PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pengumuman/edukasi lengkapnya!`;
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateGeminiContent({
         model: 'gemini-2.5-flash',
-        contents: userPrompt,
-        config: {
-          systemInstruction: systemPrompt
-        }
+        prompt: userPrompt,
+        systemInstruction: systemPrompt,
+        apiKey: apiKey || undefined
       });
 
       const reply = response.text || '';

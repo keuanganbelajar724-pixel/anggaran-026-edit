@@ -823,6 +823,7 @@ export interface DigipayUploadBatch {
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
+  'deviasi-hal3'?: boolean;
   'pengelolaan-up'?: boolean;
   'transaksi-kkp'?: boolean;
   'transaksi-digipay'?: boolean;
@@ -1074,6 +1075,7 @@ export interface DashboardConfig {
   hideIKPAWhenOnlyCapaianOutput?: boolean;
   showKpiCards: boolean;
   showBarChart: boolean;
+  showDeviasiHal3Widget?: boolean;
   announcements: Announcement[];
   presentationMaterials?: PresentationMaterial[];
   kegiatanSosialisasi?: KegiatanSosialisasi[];

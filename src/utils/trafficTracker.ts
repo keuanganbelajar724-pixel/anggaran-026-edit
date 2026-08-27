@@ -144,6 +144,7 @@ export function getTabReadableTitle(tabId: string): string {
   const map: Record<string, string> = {
     'dashboard': 'Dashboard Utama IKPA',
     'capaian-output': 'Capaian Output SAKTI',
+    'deviasi-hal3': 'Deviasi Halaman III DIPA',
     'pengelolaan-up': 'Pengelolaan UP/TUP',
     'transaksi-kkp': 'Transaksi KKP Satker',
     'transaksi-digipay': 'Transaksi Digipay Satu',

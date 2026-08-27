@@ -142,6 +142,28 @@ export function generateInitialDeviasiHal3Data(satkerList: SatkerIKPA[] = INITIA
       status: 'Aman' as any
     };
 
+    // Klasifikasi Satker & Revisi
+    let klasifikasiSatker = 'NON BLU/NON FULL BLOKIR';
+    let noRevisiTerakhir: string | number = 2;
+    let tanggalPosting = '19-02-2026';
+
+    if (index % 7 === 0) {
+      klasifikasiSatker = 'BLU/FULL BLOKIR';
+      noRevisiTerakhir = 1;
+      tanggalPosting = '30-12-2025';
+    } else if (index % 11 === 0) {
+      klasifikasiSatker = 'NON BLU/FULL BLOKIR';
+      noRevisiTerakhir = 2;
+      tanggalPosting = '27-04-2026';
+    } else if (index % 5 === 0) {
+      klasifikasiSatker = 'BLU/NON FULL BLOKIR';
+      noRevisiTerakhir = 4;
+      tanggalPosting = '10-05-2026';
+    } else if (index % 3 === 0) {
+      noRevisiTerakhir = 5;
+      tanggalPosting = '15-07-2026';
+    }
+
     return {
       id: `deviasi-${s.kodeSatker}-${currentPeriode}-${currentYear}`,
       kodeSatker: s.kodeSatker,
@@ -155,6 +177,9 @@ export function generateInitialDeviasiHal3Data(satkerList: SatkerIKPA[] = INITIA
       periodeFormatted: `Periode ${String(currentPeriode).padStart(2, '0')} (${currentMonth})`,
       triwulan: 'TW III',
       tahun: currentYear,
+      tanggalPosting,
+      noRevisiTerakhir,
+      klasifikasiSatker,
       paguTotal,
       rpdTotal,
       realisasiTotal,

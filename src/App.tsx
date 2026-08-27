@@ -263,6 +263,7 @@ export default function App() {
       menuVisibility: savedMenuVisibility || {
         'dashboard': true,
         'capaian-output': true,
+        'deviasi-hal3': true,
         'pengelolaan-up': true,
         'transaksi-kkp': true,
         'transaksi-digipay': true,
@@ -437,6 +438,7 @@ export default function App() {
         const tabPriorityOrder: NavigationTab[] = [
           'dashboard',
           'capaian-output',
+          'deviasi-hal3',
           'pengelolaan-up',
           'transaksi-kkp',
           'transaksi-digipay',
@@ -1729,6 +1731,7 @@ export default function App() {
                     const tabPriorityOrder: NavigationTab[] = [
                       'dashboard',
                       'capaian-output',
+                      'deviasi-hal3',
                       'pengelolaan-up',
                       'transaksi-kkp',
                       'kelola-satker',
@@ -1764,12 +1767,17 @@ export default function App() {
               {activeTab === 'dashboard' && (
                 <DashboardOverview
                   satkers={searchedSatkers}
+                  deviasiHal3Records={deviasiHal3List}
                   onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
                   onOpenReminder={handleOpenReminderSingle}
                   onGoToUpload={() => setActiveTab('admin')}
                   onGoToCapaianOutput={() => setActiveTab('capaian-output')}
+                  onGoToDeviasiHal3={() => setActiveTab('deviasi-hal3')}
                   dashboardConfig={dashboardConfig}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
                   theme={theme}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSetIsAdminAuthenticated={setIsAdminAuthenticated}
                 />
               )}
 

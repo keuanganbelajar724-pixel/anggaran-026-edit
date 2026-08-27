@@ -43,7 +43,14 @@ import {
   Presentation
 } from 'lucide-react';
 import { IKPAPresentationDeckModal } from './IKPAPresentationDeckModal';
-import { GoogleGenAI } from '@google/genai';
+import {
+  generateGeminiContent,
+  testGeminiConnection,
+  checkGeminiStatus,
+  getClientStoredApiKey,
+  saveClientStoredApiKey,
+  GeminiServerStatus
+} from '../../services/geminiService';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
 import {
   SatkerIKPA,
@@ -110,15 +117,29 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   onSendToBroadcast
 }) => {
   const [isPresentationDeckOpen, setIsPresentationDeckOpen] = useState<boolean>(false);
-  // API Key Management State
+  // API Key Management State & Server Connection Status
   const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem('kppn_gemini_api_key') || ((import.meta as any).env?.VITE_GEMINI_API_KEY as string) || '';
+    return getClientStoredApiKey();
   });
+  const [serverStatus, setServerStatus] = useState<GeminiServerStatus | null>(null);
   const [showApiKeyInput, setShowApiKeyInput] = useState<boolean>(false);
   const [tempApiKeyInput, setTempApiKeyInput] = useState<string>('');
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
+
+  // Check server status on mount
+  useEffect(() => {
+    let isMounted = true;
+    checkGeminiStatus().then((status) => {
+      if (isMounted) {
+        setServerStatus(status);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Storage Info Modal State
   const [showStorageInfoModal, setShowStorageInfoModal] = useState<boolean>(false);
@@ -311,41 +332,26 @@ FORMAT RESPON ANDA:
 
   const handleSaveApiKey = () => {
     const trimmed = tempApiKeyInput.trim();
-    if (!trimmed) {
-      alert('Masukkan API Key yang valid.');
-      return;
-    }
+    saveClientStoredApiKey(trimmed);
     setApiKey(trimmed);
-    localStorage.setItem('kppn_gemini_api_key', trimmed);
     setShowApiKeyInput(false);
     setIsApiKeyValid(null);
-    alert('Google Gemini API Key berhasil disimpan!');
+    alert(trimmed ? 'Google Gemini API Key kustom berhasil disimpan!' : 'API Key kustom dihapus (menggunakan default server Cloud).');
   };
 
   const handleTestApiKey = async () => {
     const keyToTest = (tempApiKeyInput || apiKey).trim();
-    if (!keyToTest) {
-      alert('Silakan masukkan Google Gemini API Key terlebih dahulu.');
-      return;
-    }
-
     setIsTestingKey(true);
     setIsApiKeyValid(null);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: keyToTest });
-      const response = await ai.models.generateContent({
-        model: selectedModel,
-        contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.'
+      const testRes = await testGeminiConnection({
+        apiKey: keyToTest || undefined,
+        model: selectedModel
       });
 
-      if (response.text) {
-        setIsApiKeyValid(true);
-        alert('Koneksi Google Gemini API Berhasil! Model siap digunakan.');
-      } else {
-        setIsApiKeyValid(false);
-        alert('Gagal mendapatkan respon dari Google Gemini.');
-      }
+      setIsApiKeyValid(testRes.success);
+      alert(testRes.message);
     } catch (err: any) {
       console.error('Test API Key Error', err);
       setIsApiKeyValid(false);
@@ -371,34 +377,7 @@ FORMAT RESPON ANDA:
     setChatMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // If no API key is provided, use high-precision local financial analysis engine (100% Free & Instant)
-    if (!activeKey) {
-      setTimeout(() => {
-        const localReply = generateLocalFinancialAnalysis(
-          userPromptText,
-          selectedPersona,
-          satkers,
-          stats,
-          satkerContext
-        );
-
-        const botMessage: ChatMessage = {
-          id: `gemini-${Date.now()}`,
-          sender: 'gemini',
-          text: localReply,
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          targetSatkerKode: satkerContext?.kodeSatker,
-          rolePersona: selectedPersona
-        };
-
-        setChatMessages(prev => [...prev, botMessage]);
-        setIsLoading(false);
-      }, 650);
-      return;
-    }
-
     try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
       const systemContext = buildSystemContextPrompt();
 
       let promptPayload = userPromptText;
@@ -409,12 +388,11 @@ FORMAT RESPON ANDA:
           `Pertanyaan/Instruksi:\n${userPromptText}`;
       }
 
-      const response = await ai.models.generateContent({
+      const response = await generateGeminiContent({
+        prompt: promptPayload,
         model: selectedModel,
-        contents: promptPayload,
-        config: {
-          systemInstruction: systemContext
-        }
+        systemInstruction: systemContext,
+        apiKey: activeKey || undefined
       });
 
       const replyText = response.text || 'Maaf, tidak ada output teks dari Google Gemini.';
@@ -442,7 +420,7 @@ FORMAT RESPON ANDA:
       const errorMessage: ChatMessage = {
         id: `gemini-fallback-${Date.now()}`,
         sender: 'gemini',
-        text: `${fallbackReply}\n\n> 💡 *Catatan: Analisis di atas dihasilkan secara instan melalui Mesin Analitik Finansial Terintegrasi (Koneksi API Gemini: ${err.message || 'Offline mode'}).*`,
+        text: `${fallbackReply}\n\n> 💡 *Catatan: Analisis di atas dihasilkan melalui Mesin Analitik Finansial Terintegrasi (Koneksi API Gemini: ${err.message || 'Offline mode'}).*`,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         rolePersona: selectedPersona
       };
@@ -680,9 +658,13 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
           {/* Right Status Pill & Setup Trigger */}
           <div className="flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-end gap-3 shrink-0">
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15">
-              <div className={`w-2.5 h-2.5 rounded-full ${apiKey ? 'bg-emerald-400 animate-pulse' : 'bg-teal-400'}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${apiKey || serverStatus?.hasServerKey ? 'bg-emerald-400 animate-pulse' : 'bg-teal-400'}`} />
               <span className="text-xs font-bold text-white">
-                {apiKey ? `Gemini Terhubung (${selectedModel})` : 'AI Analis Finansial Aktif (Gratis)'}
+                {apiKey
+                  ? `Gemini Kustom (${selectedModel})`
+                  : serverStatus?.hasServerKey
+                  ? `Gemini Server Terhubung (${selectedModel})`
+                  : 'AI Analis Finansial Aktif'}
               </span>
             </div>
 
@@ -713,7 +695,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                 className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
               >
                 <Key className="w-3.5 h-3.5" />
-                <span>{apiKey ? 'Kelola API Key' : 'Pasang API Key'}</span>
+                <span>{apiKey ? 'Kelola API Key' : 'Atur API Key'}</span>
               </button>
 
               <button
@@ -760,9 +742,11 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                 <Key className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black">Konfigurasi Google Gemini API Key</h3>
+                <h3 className="text-base font-black">Konfigurasi Google Gemini AI</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Kunci API disimpan secara aman di peramban (browser) Anda untuk memanggil layanan Gemini AI.
+                  {serverStatus?.hasServerKey
+                    ? 'Gemini AI sudah terkonfigurasi pada Server Cloud. Anda dapat menambahkan custom API key jika ingin menggunakan kuota tersendiri.'
+                    : 'Kunci API disimpan secara aman di peramban Anda atau disediakan otomatis oleh Server.'}
                 </p>
               </div>
             </div>
