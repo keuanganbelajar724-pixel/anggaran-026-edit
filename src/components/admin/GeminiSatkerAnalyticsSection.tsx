@@ -49,6 +49,11 @@ import {
   checkGeminiStatus,
   getClientStoredApiKey,
   saveClientStoredApiKey,
+  loadCloudChatHistory,
+  saveCloudChatHistory,
+  subscribeToCloudChatHistory,
+  loadCloudArchivedSessions,
+  saveCloudArchivedSessions,
   GeminiServerStatus
 } from '../../services/geminiService';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
@@ -59,7 +64,10 @@ import {
   TransaksiKKPRecord,
   DigipayRecord,
   PejabatSertifikasi,
-  DashboardConfig
+  DashboardConfig,
+  ChatMessage,
+  ArchivedChatSession,
+  AnalystRolePersona
 } from '../../types';
 
 interface GeminiSatkerAnalyticsSectionProps {
@@ -76,32 +84,7 @@ interface GeminiSatkerAnalyticsSectionProps {
   onSendToBroadcast?: (templateText: string) => void;
 }
 
-export interface ChatMessage {
-  id: string;
-  sender: 'user' | 'gemini' | 'system';
-  text: string;
-  timestamp: string;
-  targetSatkerKode?: string;
-  rolePersona?: string;
-}
-
-export interface ArchivedChatSession {
-  id: string;
-  title: string;
-  archivedAt: string;
-  targetSatkerKode?: string;
-  messageCount: number;
-  persona: string;
-  messages: ChatMessage[];
-}
-
-export type AnalystRolePersona = 
-  | 'mski_analyst' 
-  | 'pakar_keuangan_negara' 
-  | 'kepala_kppn' 
-  | 'auditor_ppk' 
-  | 'it_sakti_expert' 
-  | 'forecaster_likuiditas';
+export type { ChatMessage, ArchivedChatSession, AnalystRolePersona };
 
 export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSectionProps> = ({
   satkers = [],
@@ -128,7 +111,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
 
-  // Check server status on mount
+  // Check server status & Sync with Firestore on mount
   useEffect(() => {
     let isMounted = true;
     checkGeminiStatus().then((status) => {
@@ -136,8 +119,30 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
         setServerStatus(status);
       }
     });
+
+    // 1. Initial load from Firestore Cloud to sync across dev, deploy & devices
+    loadCloudChatHistory().then((cloudMsgs) => {
+      if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
+        setChatMessages(cloudMsgs);
+      }
+    });
+
+    loadCloudArchivedSessions().then((cloudArchives) => {
+      if (isMounted && cloudArchives && cloudArchives.length > 0) {
+        setArchivedSessions(cloudArchives);
+      }
+    });
+
+    // 2. Real-time Firestore sync
+    const unsubscribe = subscribeToCloudChatHistory((cloudMsgs) => {
+      if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
+        setChatMessages(cloudMsgs);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
@@ -173,7 +178,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       {
         id: 'msg-welcome',
         sender: 'system',
-        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini 2.5)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay).\n\n💡 *Seluruh percakapan analisis disimpan secara aman & privat pada Browser Local Storage (`kppn_gemini_chat_history`) perangkat Anda, serta dapat Anda arsipkan atau bersihkan kapan saja.*',
+        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini 2.5)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay).\n\n💡 *Percakapan tersinkronisasi secara real-time antar perangkat melalui Cloud Firestore Database.*',
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       }
     ];
@@ -191,22 +196,16 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   // Role Persona State
   const [selectedPersona, setSelectedPersona] = useState<AnalystRolePersona>('mski_analyst');
 
-  // Save chat to localStorage
+  // Save chat to localStorage & Firestore
   useEffect(() => {
-    try {
-      localStorage.setItem('kppn_gemini_chat_history', JSON.stringify(chatMessages));
-    } catch (e) {
-      console.warn('Failed to save chat to local storage', e);
+    if (chatMessages && chatMessages.length > 0) {
+      saveCloudChatHistory(chatMessages);
     }
   }, [chatMessages]);
 
-  // Save archived sessions to localStorage
+  // Save archived sessions to localStorage & Firestore
   useEffect(() => {
-    try {
-      localStorage.setItem('kppn_gemini_archived_sessions', JSON.stringify(archivedSessions));
-    } catch (e) {
-      console.warn('Failed to save archives to local storage', e);
-    }
+    saveCloudArchivedSessions(archivedSessions);
   }, [archivedSessions]);
 
   // Auto-scroll on new message
@@ -612,7 +611,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       };
       setChatMessages([initialWelcome]);
-      localStorage.removeItem('kppn_gemini_chat_history');
+      saveCloudChatHistory([initialWelcome]);
     }
   };
 
@@ -643,7 +642,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                 title="Klik untuk informasi detail database & lokasi penyimpanan percakapan"
               >
                 <Info className="w-3 h-3 text-cyan-300" />
-                <span>Penyimpanan: Browser LocalStorage (Aman &amp; Privat)</span>
+                <span>Penyimpanan: Cloud Firestore &amp; LocalStorage (Realtime Sync)</span>
               </button>
             </div>
 
@@ -1424,22 +1423,22 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1.5">
                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>Di Mana Data Percakapan AI Disimpan?</span>
+                  <span>Di Mana Data Percakapan AI Disimpan &amp; Disinkronkan?</span>
                 </div>
                 <p>
-                  Seluruh obrolan dan hasil konsultasi AI disimpan secara <strong>lokal di peramban (Browser HTML5 LocalStorage)</strong> komputer Anda pada kunci:
+                  Percakapan dan sesi konsultasi AI disinkronkan secara aman ke <strong>Cloud Firestore Database</strong> (sehingga riwayat percakapan tetap tersambung saat Anda membuka versi deployment maupun perangkat lain) dan di-cache secara instan di peramban (LocalStorage):
                 </p>
                 <ul className="list-disc list-inside font-mono text-[11px] text-indigo-600 dark:text-indigo-400 space-y-0.5 pl-2">
-                  <li><code>kppn_gemini_chat_history</code> (Riwayat aktif saat ini)</li>
-                  <li><code>kppn_gemini_archived_sessions</code> (Daftar sesi yang diarsipkan)</li>
-                  <li><code>kppn_gemini_api_key</code> (Kunci API Google Gemini Anda)</li>
+                  <li><code>Firestore: gemini_chats/global_session</code> (Sinkronisasi cloud lintas perangkat &amp; deployment)</li>
+                  <li><code>Firestore: gemini_chats/archives</code> (Arsip sesi konsultasi cloud)</li>
+                  <li><code>LocalStorage: kppn_gemini_api_key</code> (Kunci API Google Gemini privat Anda)</li>
                 </ul>
               </div>
 
               <div className="space-y-1.5">
                 <h5 className="font-black text-slate-800 dark:text-slate-200">🔒 Privasi &amp; Kendali Penuh Admin:</h5>
                 <ul className="list-disc list-inside space-y-1 pl-1">
-                  <li>Data obrolan <strong>TIDAK disimpan ke server eksternal</strong> selain koneksi langsung ke Google AI Studio saat memproses prompt.</li>
+                  <li>Sesi percakapan tersinkronisasi otomatis sehingga Anda dapat melanjutkan analisis di mana saja.</li>
                   <li>Anda dapat <strong>Mengarsipkan Sesi</strong> untuk disimpan sebagai referensi laporan bulanan.</li>
                   <li>Anda dapat <strong>Menghapus Pesan Satuan</strong> atau <strong>Menghapus Seluruh Riwayat</strong> kapan saja dengan aman.</li>
                   <li>Anda dapat mengunduh seluruh sesi ke format <strong>Markdown (.md)</strong> untuk dokumentasi.</li>

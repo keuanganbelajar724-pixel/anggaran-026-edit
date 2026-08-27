@@ -62,6 +62,16 @@
         "recentLogs": { "type": "array" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "geminiChats": {
+      "title": "Gemini AI Chat History & Sessions",
+      "description": "Synchronized conversations, analyst notes, and archived chat sessions across devices and deployments",
+      "type": "object",
+      "properties": {
+        "messages": { "type": "array" },
+        "archives": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -80,6 +90,10 @@
     "/traffic/{trafficDoc}": {
       "schema": { "$ref": "#/entities/trafficStats" },
       "description": "Visitor traffic and device analytics data"
+    },
+    "/gemini_chats/{chatDoc}": {
+      "schema": { "$ref": "#/entities/geminiChats" },
+      "description": "Synchronized AI analyst chat messages and archived sessions"
     }
   }
 }

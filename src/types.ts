@@ -1218,4 +1218,31 @@ export interface TrafficAnalyticsData {
 
 export type AppTheme = 'light' | 'dark';
 
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'gemini' | 'system';
+  text: string;
+  timestamp: string;
+  targetSatkerKode?: string;
+  rolePersona?: string;
+}
+
+export interface ArchivedChatSession {
+  id: string;
+  title: string;
+  archivedAt: string;
+  targetSatkerKode?: string;
+  messageCount: number;
+  persona: string;
+  messages: ChatMessage[];
+}
+
+export type AnalystRolePersona = 
+  | 'mski_analyst' 
+  | 'pakar_keuangan_negara' 
+  | 'kepala_kppn' 
+  | 'auditor_ppk' 
+  | 'it_sakti_expert' 
+  | 'forecaster_likuiditas';
+
 

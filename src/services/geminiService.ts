@@ -1,9 +1,14 @@
 /**
- * Client-Side Gemini Service Proxy
- * Communicates with the Full-Stack server (/api/gemini/*) to ensure secure,
- * environment-backed, and seamless AI operations across both Google AI Studio
- * development preview and deployed Cloud Run environments.
+ * Gemini AI Service & Real-time Cloud Synchronization
+ * Supports dual-mode:
+ * 1. Server-side proxy (/api/gemini/*) for secure Cloud Run deployment
+ * 2. Direct client-side SDK (@google/genai) fallback for static builds or client-keyed sessions
+ * 3. Real-time Firestore sync for chat history & archives across all devices and URLs
  */
+
+import { GoogleGenAI } from '@google/genai';
+import { db, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
+import { ChatMessage, ArchivedChatSession } from '../types';
 
 export interface GeminiGenerateOptions {
   prompt?: string;
@@ -18,6 +23,7 @@ export interface GeminiGenerateResponse {
   text: string;
   model?: string;
   error?: string;
+  source?: 'server' | 'client_sdk';
 }
 
 export interface GeminiServerStatus {
@@ -29,15 +35,27 @@ export interface GeminiServerStatus {
 }
 
 export const LOCAL_GEMINI_KEY_STORAGE = 'kppn_gemini_api_key';
+export const LOCAL_GEMINI_CHAT_STORAGE = 'kppn_gemini_chat_history';
+export const LOCAL_GEMINI_ARCHIVES_STORAGE = 'kppn_gemini_archived_sessions';
 
+/**
+ * Retrieve API key stored in local client browser storage or environment
+ */
 export function getClientStoredApiKey(): string {
   try {
-    return localStorage.getItem(LOCAL_GEMINI_KEY_STORAGE) || '';
+    const local = localStorage.getItem(LOCAL_GEMINI_KEY_STORAGE);
+    if (local && local.trim()) return local.trim();
+    const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (envKey && typeof envKey === 'string' && envKey.trim()) return envKey.trim();
+    return '';
   } catch {
     return '';
   }
 }
 
+/**
+ * Save or remove custom Gemini API key
+ */
 export function saveClientStoredApiKey(key: string): void {
   try {
     if (!key || !key.trim()) {
@@ -51,7 +69,7 @@ export function saveClientStoredApiKey(key: string): void {
 }
 
 /**
- * Check backend Gemini connection and availability of server-side GEMINI_API_KEY
+ * Check backend Gemini connection and server-side key availability
  */
 export async function checkGeminiStatus(): Promise<GeminiServerStatus> {
   try {
@@ -63,98 +81,286 @@ export async function checkGeminiStatus(): Promise<GeminiServerStatus> {
       return await res.json();
     }
   } catch (e) {
-    console.warn('Failed to query /api/gemini/status', e);
+    console.warn('Backend /api/gemini/status not responding, will rely on client API key/SDK', e);
   }
+  const hasLocal = Boolean(getClientStoredApiKey());
   return {
-    connected: false,
+    connected: hasLocal,
     hasServerKey: false,
     defaultModel: 'gemini-2.5-flash',
     availableModels: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3.7-flash'],
-    message: 'Server offline atau belum terhubung.',
+    message: hasLocal
+      ? 'Gemini terhubung menggunakan API Key Kustom peramban.'
+      : 'API Key belum terpasang. Anda dapat memasukkan Gemini API Key dari Google AI Studio.',
   };
 }
 
 /**
- * Test Gemini API connection using server or custom user key
+ * Test Gemini API connection using server or client-side fallback
  */
 export async function testGeminiConnection(options?: {
   apiKey?: string;
   model?: string;
 }): Promise<{ success: boolean; message: string; reply?: string }> {
+  const activeKey = options?.apiKey?.trim() || getClientStoredApiKey();
+  const targetModel = options?.model || 'gemini-2.5-flash';
+
+  // 1. Try server endpoint first
   try {
-    const customKey = options?.apiKey?.trim() || getClientStoredApiKey();
     const res = await fetch('/api/gemini/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        apiKey: customKey || undefined,
-        model: options?.model || 'gemini-2.5-flash',
+        apiKey: activeKey || undefined,
+        model: targetModel,
       }),
     });
 
-    const data = await res.json();
-    if (res.ok && data.success) {
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
+        return {
+          success: true,
+          message: data.message || 'Koneksi ke Google Gemini AI Berhasil!',
+          reply: data.reply,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Server test failed, attempting direct client SDK test', err);
+  }
+
+  // 2. Direct client-side SDK test if client key exists
+  if (activeKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: activeKey });
+      const response = await ai.models.generateContent({
+        model: targetModel,
+        contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
+      });
+      const text = response.text || '';
       return {
         success: true,
-        message: data.message || 'Koneksi ke Google Gemini AI Berhasil!',
-        reply: data.reply,
+        message: 'Koneksi Google Gemini API Berhasil langsung dari peramban!',
+        reply: text,
       };
-    } else {
+    } catch (sdkErr: any) {
+      console.error('Client SDK test failed', sdkErr);
       return {
         success: false,
-        message: data.error || 'Tes koneksi gagal. Periksa kembali API Key atau kuota Anda.',
+        message: `Gagal verifikasi API Key: ${sdkErr?.message || 'Periksa kembali API Key atau kuota Anda.'}`,
       };
     }
-  } catch (err: any) {
-    return {
-      success: false,
-      message: err?.message || 'Gagal menghubungi server endpoint /api/gemini/test',
-    };
   }
+
+  return {
+    success: false,
+    message: 'Belum ada API Key yang dikonfigurasi pada server maupun peramban.',
+  };
 }
 
 /**
- * Call Gemini AI text generation via full-stack server proxy
+ * Main content generator: Uses server proxy first, then client-side GoogleGenAI SDK
  */
 export async function generateGeminiContent(
   options: GeminiGenerateOptions
 ): Promise<GeminiGenerateResponse> {
   const customKey = options.apiKey?.trim() || getClientStoredApiKey();
   const targetPrompt = options.prompt || options.contents || '';
+  const targetModel = options.model || 'gemini-2.5-flash';
 
   if (!targetPrompt) {
     throw new Error('Prompt tidak boleh kosong.');
   }
 
-  const payload: Record<string, any> = {
-    prompt: targetPrompt,
-    model: options.model || 'gemini-2.5-flash',
-  };
+  // 1. Try server-side proxy
+  try {
+    const payload: Record<string, any> = {
+      prompt: targetPrompt,
+      model: targetModel,
+    };
+    if (options.systemInstruction) {
+      payload.systemInstruction = options.systemInstruction;
+    }
+    if (customKey) {
+      payload.apiKey = customKey;
+    }
 
-  if (options.systemInstruction) {
-    payload.systemInstruction = options.systemInstruction;
+    const res = await fetch('/api/gemini/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.text) {
+        return {
+          success: true,
+          text: data.text,
+          model: data.model || targetModel,
+          source: 'server',
+        };
+      }
+    }
+  } catch (serverErr) {
+    console.warn('Server generation proxy unavailable, attempting client SDK fallback', serverErr);
   }
 
+  // 2. Direct client-side SDK fallback
   if (customKey) {
-    payload.apiKey = customKey;
+    try {
+      const ai = new GoogleGenAI({ apiKey: customKey });
+      const config: Record<string, any> = {};
+      if (options.systemInstruction) {
+        config.systemInstruction = options.systemInstruction;
+      }
+
+      const response = await ai.models.generateContent({
+        model: targetModel,
+        contents: targetPrompt,
+        ...(Object.keys(config).length > 0 ? { config } : {}),
+      });
+
+      const text = response.text || '';
+      return {
+        success: true,
+        text,
+        model: targetModel,
+        source: 'client_sdk',
+      };
+    } catch (sdkErr: any) {
+      console.error('Client SDK generation error:', sdkErr);
+      throw new Error(`Gemini AI Error: ${sdkErr?.message || 'Gagal menghasilkan analisis.'}`);
+    }
   }
 
-  const res = await fetch('/api/gemini/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  throw new Error('Tidak ada API Key Google Gemini yang tersedia untuk memproses permintaan.');
+}
 
-  const data = await res.json();
+/* ==========================================================================
+   FIRESTORE CLOUD CHAT SYNCHRONIZATION
+   Synchronizes active chat and archives across preview, deploy & devices
+   ========================================================================== */
 
-  if (!res.ok || !data.success) {
-    const errorMessage = data?.error || `Server error (${res.status}): Gagal memproses permintaan Gemini AI.`;
-    throw new Error(errorMessage);
+const FIRESTORE_CHAT_DOC = 'global_session';
+const FIRESTORE_ARCHIVES_DOC = 'archives';
+
+/**
+ * Load chat history from Firestore or LocalStorage
+ */
+export async function loadCloudChatHistory(): Promise<ChatMessage[] | null> {
+  try {
+    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        return data.messages;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load chat history from Firestore:', e);
+  }
+  return null;
+}
+
+/**
+ * Save chat history to both LocalStorage and Firestore
+ */
+export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
+  // 1. LocalStorage for instant access
+  try {
+    localStorage.setItem(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(messages));
+  } catch (e) {
+    console.warn('Failed to save chat to local storage', e);
   }
 
-  return {
-    success: true,
-    text: data.text || '',
-    model: data.model || options.model,
-  };
+  // 2. Firestore Cloud Backup
+  try {
+    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
+    await setDoc(
+      docRef,
+      {
+        messages,
+        updatedAt: new Date().toISOString(),
+        device: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn('Failed to sync chat history to Firestore:', e);
+  }
+}
+
+/**
+ * Subscribe to real-time chat history updates from Firestore
+ */
+export function subscribeToCloudChatHistory(
+  callback: (messages: ChatMessage[]) => void
+): () => void {
+  try {
+    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
+    return onSnapshot(
+      docRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.messages) && data.messages.length > 0) {
+            callback(data.messages);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Firestore chat subscription notice:', error);
+      }
+    );
+  } catch (e) {
+    console.warn('Failed to subscribe to Firestore chat:', e);
+    return () => {};
+  }
+}
+
+/**
+ * Load archived chat sessions from Firestore
+ */
+export async function loadCloudArchivedSessions(): Promise<ArchivedChatSession[] | null> {
+  try {
+    const docRef = doc(db, 'gemini_chats', FIRESTORE_ARCHIVES_DOC);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.archives)) {
+        return data.archives;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load archives from Firestore:', e);
+  }
+  return null;
+}
+
+/**
+ * Save archived sessions to LocalStorage and Firestore
+ */
+export async function saveCloudArchivedSessions(archives: ArchivedChatSession[]): Promise<void> {
+  try {
+    localStorage.setItem(LOCAL_GEMINI_ARCHIVES_STORAGE, JSON.stringify(archives));
+  } catch (e) {
+    console.warn('Failed to save archives to local storage', e);
+  }
+
+  try {
+    const docRef = doc(db, 'gemini_chats', FIRESTORE_ARCHIVES_DOC);
+    await setDoc(
+      docRef,
+      {
+        archives,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn('Failed to sync archives to Firestore:', e);
+  }
 }
