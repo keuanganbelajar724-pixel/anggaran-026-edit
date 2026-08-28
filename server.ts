@@ -41,27 +41,27 @@ async function startServer() {
     });
   });
 
-  // Supported and fallback models
+  // Supported and fallback models according to official @google/genai specification
   const FALLBACK_MODELS = [
-    'gemini-3.6-flash',
     'gemini-3.7-flash',
     'gemini-flash-latest',
+    'gemini-3.1-flash-lite',
     'gemini-3.1-pro-preview',
   ];
 
   // Helper to normalize and sanitize model identifiers
   function normalizeModelName(inputModel?: string): string {
     const raw = (inputModel || '').trim();
-    if (!raw) return 'gemini-3.6-flash';
-    // Auto-migrate any deprecated model names
+    if (!raw) return 'gemini-3.7-flash';
     if (
+      raw.includes('3.6-flash') ||
       raw.includes('2.5-flash') ||
       raw.includes('2.0-flash') ||
       raw.includes('1.5-flash') ||
       raw.includes('gemini-pro') ||
       raw.includes('2.5-pro')
     ) {
-      return 'gemini-3.6-flash';
+      return 'gemini-3.7-flash';
     }
     return raw;
   }
@@ -72,7 +72,7 @@ async function startServer() {
     res.json({
       connected: hasServerKey,
       hasServerKey,
-      defaultModel: 'gemini-3.6-flash',
+      defaultModel: 'gemini-3.7-flash',
       availableModels: FALLBACK_MODELS,
       message: hasServerKey
         ? 'Gemini AI terhubung otomatis melalui Server Cloud.'

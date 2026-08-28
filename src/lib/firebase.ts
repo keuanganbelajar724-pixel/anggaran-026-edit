@@ -67,7 +67,7 @@ export function isFirestoreQuotaExhausted(): boolean {
   return false;
 }
 
-export function reportFirestoreQuotaExhaustion(durationMinutes = 15): void {
+export function reportFirestoreQuotaExhaustion(durationMinutes = 1): void {
   const until = Date.now() + durationMinutes * 60 * 1000;
   inMemoryQuotaExhaustedUntil = until;
   try {
@@ -76,7 +76,7 @@ export function reportFirestoreQuotaExhaustion(durationMinutes = 15): void {
     // ignore
   }
   console.warn(
-    `[Firestore Quota Guard] Quota limit reached on Spark Free Tier. Cloud write stream paused for ${durationMinutes} min. App seamlessly operating in high-performance local offline mode.`
+    `[Firestore Quota Guard] Quota limit reached on Spark Free Tier. Cloud write stream temporarily paused for ${durationMinutes} min. App seamlessly operating in high-performance local offline mode.`
   );
 }
 
@@ -88,6 +88,9 @@ export function resetFirestoreQuotaExhaustion(): void {
     // ignore
   }
 }
+
+// Reset any legacy quota exhaustion locks on startup
+resetFirestoreQuotaExhaustion();
 
 function isQuotaError(err: any): boolean {
   if (!err) return false;
@@ -106,23 +109,13 @@ function isQuotaError(err: any): boolean {
 export async function getDoc<T = any>(
   reference: DocumentReference<T>
 ): Promise<any> {
-  if (isFirestoreQuotaExhausted()) {
-    return {
-      exists: () => false,
-      data: () => undefined,
-      id: reference?.id || '',
-      ref: reference,
-      metadata: { hasPendingWrites: false, fromCache: true }
-    };
-  }
-
   try {
     const snap = await rawGetDoc(reference);
     trackFirestoreRead(reference?.path || 'unknown_doc');
     return snap;
   } catch (err: any) {
     if (isQuotaError(err)) {
-      reportFirestoreQuotaExhaustion(15);
+      reportFirestoreQuotaExhaustion(1);
     } else {
       console.warn('Firestore getDoc notice (falling back gracefully):', err?.message || err);
     }
@@ -142,11 +135,6 @@ export async function setDoc<T = any>(
   data: any,
   options?: SetOptions
 ): Promise<void> {
-  // If Firestore daily write quota is exhausted, skip pushing to rawSetDoc to prevent write stream overflow
-  if (isFirestoreQuotaExhausted()) {
-    return;
-  }
-
   try {
     if (options) {
       await rawSetDoc(reference, data, options);
@@ -156,7 +144,7 @@ export async function setDoc<T = any>(
     trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {
     if (isQuotaError(err)) {
-      reportFirestoreQuotaExhaustion(15);
+      reportFirestoreQuotaExhaustion(1);
     } else {
       console.warn('Firestore setDoc notice:', err?.message || err);
     }

@@ -58,8 +58,11 @@ import {
   loadCloudArchivedSessions,
   saveCloudArchivedSessions,
   subscribeToCloudArchivedSessions,
-  GeminiServerStatus
+  GeminiServerStatus,
+  LOCAL_GEMINI_CHAT_STORAGE,
+  LOCAL_GEMINI_ARCHIVES_STORAGE
 } from '../../services/geminiService';
+import { safeLocalStorageGet } from '../../utils/safeStorage';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
 import {
   SatkerIKPA,
@@ -113,7 +116,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [tempApiKeyInput, setTempApiKeyInput] = useState<string>('');
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.6-flash');
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.7-flash');
 
   // Check server status & Sync with Firestore on mount
   useEffect(() => {
@@ -140,7 +143,12 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
     // 2. Initial load Chat Messages & Archives from Firestore Cloud
     loadCloudChatHistory().then((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
-        setChatMessages(cloudMsgs);
+        setChatMessages(prev => {
+          if (prev.length <= 1 || cloudMsgs.length >= prev.length) {
+            return cloudMsgs;
+          }
+          return prev;
+        });
       }
     });
 
@@ -153,9 +161,9 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
     // 3. Real-time Firestore sync listeners
     const unsubConfig = subscribeToCloudGeminiConfig((cfg) => {
       if (isMounted && cfg) {
-        if (cfg.apiKey !== undefined) {
-          setApiKey(cfg.apiKey);
-          setTempApiKeyInput(cfg.apiKey);
+        if (cfg.apiKey && cfg.apiKey.trim()) {
+          setApiKey(cfg.apiKey.trim());
+          setTempApiKeyInput(cfg.apiKey.trim());
         }
         if (cfg.selectedModel) {
           setSelectedModel(cfg.selectedModel);
@@ -165,7 +173,12 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
 
     const unsubChat = subscribeToCloudChatHistory((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
-        setChatMessages(cloudMsgs);
+        setChatMessages(prev => {
+          if (prev.length <= 1 || cloudMsgs.length >= prev.length) {
+            return cloudMsgs;
+          }
+          return prev;
+        });
       }
     });
 
@@ -203,10 +216,11 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
 
   // Chat & Analysis State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
-    const saved = localStorage.getItem('kppn_gemini_chat_history');
+    const saved = safeLocalStorageGet(LOCAL_GEMINI_CHAT_STORAGE);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         console.error('Failed to parse saved chat history', e);
       }
@@ -215,7 +229,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       {
         id: 'msg-welcome',
         sender: 'system',
-        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini 3.6 Flash)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay).\n\n💡 *Percakapan tersinkronisasi secara real-time antar perangkat melalui Cloud Firestore Database.*',
+        text: 'Selamat datang di **Asisten Analis Keuangan & IKPA SAKTI (Powered by Google Gemini 3.7 Flash)**.\n\nSaya telah terhubung langsung dengan seluruh basis data Satker KPPN Semarang I (Nilai IKPA, 8 Indikator, Capaian Output, Realisasi Pagu, KKP, dan Digipay).\n\n💡 *Percakapan tersinkronisasi secara real-time antar perangkat melalui Cloud Firestore Database.*',
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       }
     ];
@@ -865,6 +879,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                 Pilih Model Gemini
               </label>
               <select
+                id="gemini-model-selector"
                 value={selectedModel}
                 onChange={(e) => {
                   const newModel = e.target.value;
@@ -875,9 +890,9 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                   isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
               >
-                <option value="gemini-3.6-flash">Gemini 3.6 Flash (Paling Stabil, Cepat &amp; Direkomendasikan)</option>
-                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Terkini &amp; High Reasoning)</option>
-                <option value="gemini-flash-latest">Gemini Flash Auto-Latest (Model Terbaru Otomatis)</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Default: Cepat, Cerdas &amp; Direkomendasikan)</option>
+                <option value="gemini-flash-latest">Gemini Flash Latest (Otomatis Model Flash Terbaru)</option>
+                <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Sangat Ringan &amp; Respons Kilat)</option>
                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Penalaran Kompleks &amp; Mendalam)</option>
               </select>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
