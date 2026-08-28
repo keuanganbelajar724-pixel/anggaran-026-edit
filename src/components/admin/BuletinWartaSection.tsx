@@ -54,6 +54,7 @@ import { db, doc, setDoc, onSnapshot } from '../../lib/firebase';
 import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
 
 import { BuletinMagazineLayout } from './BuletinMagazineLayout';
+import { BuletinDataStudioEditor } from './BuletinDataStudioEditor';
 
 interface BuletinWartaSectionProps {
   theme?: AppTheme;
@@ -1011,174 +1012,51 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       {/* SUB-TAB 2: STUDIO DESAIN & PREVIEW BULETIN A4 (PRINT READY)              */}
       {/* ========================================================================= */}
       {activeSubTab === 'desain-buletin' && (
-        <div className="space-y-6">
-          {/* Editor Control Panel */}
-          <div className="p-5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/60 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
-                  <span>Pengaturan &amp; Redaksi Warta KPPN</span>
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Kustomisasi judul, edisi, sambutan kepala kantor, dan tema warna buletin.
-                </p>
+        <div className="space-y-8">
+          {/* Complete Buletin Data Studio Editor */}
+          <BuletinDataStudioEditor
+            buletinConfig={buletinConfig}
+            onUpdateBuletinConfig={(newConfig) => {
+              setBuletinConfig(newConfig);
+              safeLocalStorageSet(STORAGE_KEY_BULETIN_CFG, JSON.stringify(newConfig));
+            }}
+            overallSummary={overallSummary}
+            satkers={satkers}
+          />
+
+          {/* ============================================================ */}
+          {/* LIVE A4 BULETIN PREVIEW (MAGAZINE LAYOUT)                   */}
+          {/* ============================================================ */}
+          <div id="buletin-live-preview-section" className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-2">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    Pratinjau Visual Majalah &amp; Warta Resmi KPPN Semarang I (20 Halaman Standar A4)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Otomatis sinkron dengan hasil isian Data Studio, unggahan foto, dan rekapitulasi data riil APBN.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={handleSaveBuletinConfig}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors cursor-pointer"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Simpan Redaksi</span>
+                  <span>Simpan ke Cloud</span>
                 </button>
                 <button
                   onClick={handlePrintBuletin}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-black text-white shadow-xs transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Cetak / Simpan PDF (A4)</span>
+                  <span>Cetak / Ekspor PDF A4</span>
                 </button>
               </div>
-            </div>
-
-            {/* Row 1: Edisi, Bulan, Nama Buletin, Tema */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Nama Buletin */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Nama Buletin / Majalah</label>
-                <input
-                  type="text"
-                  value={buletinConfig.namaBuletin || 'WARTA SEMARANG SATU'}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, namaBuletin: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-
-              {/* Edisi */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Edisi / Volume</label>
-                <input
-                  type="text"
-                  value={buletinConfig.edisi}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, edisi: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-
-              {/* Bulan & Tahun */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Periode Terbit</label>
-                <input
-                  type="text"
-                  value={buletinConfig.bulanTahun}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, bulanTahun: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
-                />
-              </div>
-
-              {/* Tema Warna */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Palet Warna Buletin</label>
-                <select
-                  value={buletinConfig.temaWarna}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, temaWarna: e.target.value as any })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
-                >
-                  <option value="navy">🏛️ Kemenkeu Prime Navy (Klasik)</option>
-                  <option value="emerald">🌿 Emerald Treasury (Hijau Emas)</option>
-                  <option value="indigo">🔮 Modern Royal Indigo (Ungu Biru)</option>
-                  <option value="burgundy">🍷 Executive Burgundy (Elegan)</option>
-                  <option value="gold">👑 Gold Treasury Semarang (Mewah)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row 2: Kepala Kantor & Jabatan */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Nama Kepala KPPN Semarang I</label>
-                <input
-                  type="text"
-                  value={buletinConfig.namaKepalaKantor}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, namaKepalaKantor: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Jabatan Penandatangan</label>
-                <input
-                  type="text"
-                  value={buletinConfig.jabatanKepala || 'Kepala KPPN Tipe A1 Semarang I'}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, jabatanKepala: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* Judul Utama & Sub-Judul */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Judul Tajuk Utama</label>
-                <input
-                  type="text"
-                  value={buletinConfig.judulUtama}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, judulUtama: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 font-bold text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Sub-Judul / Tema Warta</label>
-                <input
-                  type="text"
-                  value={buletinConfig.subJudul}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, subJudul: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* Sambutan & Tajuk Rencana */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Sambutan / Pengantar Kepala Kantor</label>
-                <textarea
-                  rows={2}
-                  value={buletinConfig.sambutanKepala}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, sambutanKepala: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white resize-none"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Catatan Tajuk Rencana / Strategi Anggaran</label>
-                <textarea
-                  rows={2}
-                  value={buletinConfig.tajukRencana}
-                  onChange={(e) => setBuletinConfig({ ...buletinConfig, tajukRencana: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white resize-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ============================================================ */}
-          {/* LIVE A4 BULETIN PREVIEW (MAGAZINE LAYOUT)                   */}
-          {/* ============================================================ */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between px-2">
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                  Pratinjau Visual Majalah &amp; Warta KPPN Semarang I (3 Halaman Lengkap Standar A4)
-                </span>
-              </div>
-              <span className="text-xs text-slate-500">
-                Otomatis mengolah data Pagu, Realisasi, Top/Bottom Satker, IKPA, dan Tips SAKTI
-              </span>
             </div>
 
             {/* Render Modern Magazine Layout */}
@@ -1187,6 +1065,17 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
               overallSummary={overallSummary}
               satkers={satkers}
               themeStyles={themeStyles}
+              onUpdateBuletinConfig={(newConfig) => {
+                setBuletinConfig(newConfig);
+                safeLocalStorageSet(STORAGE_KEY_BULETIN_CFG, JSON.stringify(newConfig));
+              }}
+              onEditField={(fieldKey) => {
+                const editorElement = document.getElementById('buletin-data-studio-editor');
+                if (editorElement) {
+                  editorElement.scrollIntoView({ behavior: 'smooth' });
+                }
+                addToast(`Silakan perbarui data untuk "${fieldKey}" di panel editor di atas.`, 'info');
+              }}
             />
           </div>
         </div>

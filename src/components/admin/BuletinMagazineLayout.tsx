@@ -44,18 +44,116 @@ interface BuletinMagazineLayoutProps {
     cardBorder: string;
     accentText: string;
   };
+  onUpdateBuletinConfig?: (updated: BuletinConfig) => void;
+  onEditField?: (fieldKey: string) => void;
 }
 
 export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   buletinConfig,
   overallSummary,
   satkers = [],
-  themeStyles
+  themeStyles,
+  onUpdateBuletinConfig,
+  onEditField
 }) => {
   const [selectedPageView, setSelectedPageView] = useState<number | 'all'>('all');
 
   const namaBuletin = buletinConfig.namaBuletin || 'WARTA SEMARANG SATU';
   const tagline = buletinConfig.taglineBuletin || 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I';
+  const currentFormat = buletinConfig.layoutFormat || 'executive_magazine';
+  const isHighlightMissing = buletinConfig.highlightMissingData !== false;
+
+  // Helper to check if a value is empty or missing
+  const isFieldEmpty = (value: string | undefined | null) => {
+    if (!value) return true;
+    const trimmed = value.trim();
+    return trimmed === '' || trimmed === '-' || trimmed.toLowerCase() === 'n/a';
+  };
+
+  // Helper to render text with red missing highlight if empty
+  const renderTextOrMissing = (
+    value: string | undefined | null,
+    fieldName: string,
+    hintText: string,
+    elementClassName: string = "text-slate-700 leading-relaxed",
+    asParagraph = true
+  ) => {
+    const empty = isFieldEmpty(value);
+    if (empty) {
+      if (isHighlightMissing) {
+        return (
+          <div 
+            onClick={() => onEditField?.(fieldName)}
+            className="p-3 my-2 rounded-xl border-2 border-dashed border-rose-500 bg-rose-50 text-rose-800 text-xs font-semibold cursor-pointer hover:bg-rose-100 transition-all flex items-center justify-between gap-3 shadow-xs group"
+            title={`Klik untuk mengedit ${fieldName}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+              </span>
+              <div>
+                <div className="font-bold text-rose-900 flex items-center gap-1.5">
+                  <span>[⚠️ DATA BELUM DIISI: {fieldName.toUpperCase()}]</span>
+                </div>
+                <p className="text-[11px] text-rose-700 font-normal italic mt-0.5">{hintText}</p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold underline text-rose-700 group-hover:text-rose-900 shrink-0 bg-white px-2 py-1 rounded-lg border border-rose-200">
+              ✏️ Isi Sekarang
+            </span>
+          </div>
+        );
+      } else {
+        return null;
+      }
+    }
+
+    return asParagraph ? <p className={elementClassName}>{value}</p> : <span className={elementClassName}>{value}</span>;
+  };
+
+  // Helper to render photo with missing highlight and change trigger
+  const renderPhotoOrMissing = (
+    photoUrl: string | undefined | null,
+    photoLabel: string,
+    aspectRatioClass: string = "h-56",
+    defaultPlaceholderNode: React.ReactNode,
+    editTargetKey: string
+  ) => {
+    if (photoUrl && photoUrl.trim().length > 10) {
+      return (
+        <div className={`relative ${aspectRatioClass} rounded-2xl overflow-hidden shadow-md group`}>
+          <img src={photoUrl} alt={photoLabel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <button
+            onClick={() => onEditField?.(editTargetKey)}
+            className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer"
+          >
+            <Camera className="w-3 h-3" /> Ganti Foto
+          </button>
+        </div>
+      );
+    }
+
+    if (isHighlightMissing) {
+      return (
+        <div
+          onClick={() => onEditField?.(editTargetKey)}
+          className={`${aspectRatioClass} rounded-2xl border-2 border-dashed border-rose-500 bg-rose-50 text-rose-900 flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-rose-100 transition-all group`}
+        >
+          <div className="w-10 h-10 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+            <Camera className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-black uppercase text-rose-800">[⚠️ FOTO BELUM DIUNGGAH]</span>
+          <span className="text-[11px] text-rose-600 font-medium max-w-xs">{photoLabel}</span>
+          <span className="mt-2 text-[10px] font-bold px-3 py-1 rounded-full bg-rose-600 text-white shadow-xs">
+            + Klik Disini Untuk Upload Foto
+          </span>
+        </div>
+      );
+    }
+
+    return defaultPlaceholderNode;
+  };
 
   // Fallback K/L dataset if no Excel has been uploaded yet
   const fallbackKlList = [
@@ -126,62 +224,116 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* 20-Page Selector Toolbar */}
-      <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs shadow-xs">
-            20P
+      {/* 20-Page Selector & Format Switcher Toolbar */}
+      <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+        {/* Row 1: Title and Format Badges */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex flex-col items-center justify-center font-black text-xs shadow-xs shrink-0">
+              <span>20P</span>
+              <span className="text-[8px] uppercase tracking-tighter">A4</span>
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
+                <span>Struktur Lengkap Majalah (20 Halaman Cetak &amp; Digital)</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Pilih format majalah &amp; pantau kelengkapan data sebelum dicetak / diekspor ke Canva &amp; PDF.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
-              Struktur Lengkap Majalah (20 Halaman Edisi Cetak &amp; Digital)
-            </h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Format Majalah Resmi KPPN Tipe A1 Semarang I Berdasarkan Data Riil &amp; Foto Kustom
-            </p>
+
+          {/* Format Quick Selector */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5">Format:</span>
+            {[
+              { id: 'executive_magazine', label: '🏛️ Modern Executive', desc: 'Navy & Gold' },
+              { id: 'canva_vibrant', label: '🎨 Canva Vibrant', desc: 'Gradien Berwarna' },
+              { id: 'clean_treasury', label: '🌿 Clean Treasury', desc: 'Minimalis Elegan' },
+              { id: 'royal_indigo', label: '👑 Royal Indigo', desc: 'Ungu Emas' },
+              { id: 'classic_newsletter', label: '📰 Classic Warta', desc: '2 Kolom Koran' }
+            ].map(fmt => (
+              <button
+                key={fmt.id}
+                onClick={() => {
+                  if (onUpdateBuletinConfig) {
+                    onUpdateBuletinConfig({ ...buletinConfig, layoutFormat: fmt.id as any });
+                  }
+                }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  currentFormat === fmt.id
+                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs ring-1 ring-blue-500'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+                title={fmt.desc}
+              >
+                {fmt.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Page Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto max-w-full py-1">
-          <button
-            onClick={() => setSelectedPageView('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-              selectedPageView === 'all'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-            }`}
-          >
-            Tampilkan Semua (20 Hal)
-          </button>
+        {/* Row 2: Page Navigation & Missing Data Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          {/* Missing Data Highlight Switcher */}
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/40 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <input
+              type="checkbox"
+              checked={isHighlightMissing}
+              onChange={(e) => {
+                if (onUpdateBuletinConfig) {
+                  onUpdateBuletinConfig({ ...buletinConfig, highlightMissingData: e.target.checked });
+                }
+              }}
+              className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+            />
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block animate-pulse" />
+              <span>Sorot Data Kosong / Belum Diisi (Warna Merah)</span>
+            </span>
+          </label>
 
-          <select
-            value={selectedPageView}
-            onChange={(e) => setSelectedPageView(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 cursor-pointer"
-          >
-            <option value="all">📖 Semua 20 Halaman</option>
-            <option value="1">Hal 1: Cover Majalah KPPN Semarang I</option>
-            <option value="2">Hal 2: Kata Pengantar Kepala KPPN</option>
-            <option value="3">Hal 3: Sekilas Tentang Buletin</option>
-            <option value="4">Hal 4: Daftar Isi Majalah</option>
-            <option value="5">Hal 5: Realisasi Belanja (Infografis)</option>
-            <option value="6">Hal 6: Tabel Realisasi Belanja K/L</option>
-            <option value="7">Hal 7: Realisasi 5 K/L &amp; Jenis Belanja</option>
-            <option value="8">Hal 8: Penyaluran Transfer ke Daerah (TKD)</option>
-            <option value="9">Hal 9: Guyub Rukun (Wawancara Satker Bag. 1)</option>
-            <option value="10">Hal 10: Guyub Rukun (Wawancara Satker Bag. 2)</option>
-            <option value="11">Hal 11: Sarwa Sarwi KPPN (Capacity Building)</option>
-            <option value="12">Hal 12: Sarwa Sarwi KPPN (Outbound Tim)</option>
-            <option value="13">Hal 13: Sarwa Sarwi KPPN (Purna Bakti)</option>
-            <option value="14">Hal 14: Sarwa Sarwi KPPN (River Tubing &amp; Foto)</option>
-            <option value="15">Hal 15: Pagelaran Semarang (Semarang Night Carnival)</option>
-            <option value="16">Hal 16: Pagelaran Semarang (Bazar UMKM Binaan)</option>
-            <option value="17">Hal 17: Teropong Semarang (Kota Lama)</option>
-            <option value="18">Hal 18: Teropong Semarang (Lawang Sewu &amp; Johar)</option>
-            <option value="19">Hal 19: Zona Integritas &amp; Pantun Antikorupsi</option>
-            <option value="20">Hal 20: Back Cover &amp; Info Kontak KPPN</option>
-          </select>
+          {/* Page Filter Tabs */}
+          <div className="flex items-center gap-2 max-w-full">
+            <button
+              onClick={() => setSelectedPageView('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedPageView === 'all'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              }`}
+            >
+              Tampilkan Semua (20 Hal)
+            </button>
+
+            <select
+              value={selectedPageView}
+              onChange={(e) => setSelectedPageView(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 cursor-pointer"
+            >
+              <option value="all">📖 Semua 20 Halaman</option>
+              <option value="1">Hal 1: Cover Majalah KPPN Semarang I</option>
+              <option value="2">Hal 2: Kata Pengantar Kepala KPPN</option>
+              <option value="3">Hal 3: Sekilas Tentang Buletin</option>
+              <option value="4">Hal 4: Daftar Isi Majalah</option>
+              <option value="5">Hal 5: Realisasi Belanja (Infografis)</option>
+              <option value="6">Hal 6: Tabel Realisasi Belanja K/L</option>
+              <option value="7">Hal 7: Realisasi 5 K/L &amp; Jenis Belanja</option>
+              <option value="8">Hal 8: Penyaluran Transfer ke Daerah (TKD)</option>
+              <option value="9">Hal 9: Guyub Rukun (Wawancara Satker Bag. 1)</option>
+              <option value="10">Hal 10: Guyub Rukun (Wawancara Satker Bag. 2)</option>
+              <option value="11">Hal 11: Sarwa Sarwi KPPN (Capacity Building)</option>
+              <option value="12">Hal 12: Sarwa Sarwi KPPN (Outbound Tim)</option>
+              <option value="13">Hal 13: Sarwa Sarwi KPPN (Purna Bakti)</option>
+              <option value="14">Hal 14: Sarwa Sarwi KPPN (River Tubing &amp; Foto)</option>
+              <option value="15">Hal 15: Pagelaran Semarang (Semarang Night Carnival)</option>
+              <option value="16">Hal 16: Pagelaran Semarang (Bazar UMKM Binaan)</option>
+              <option value="17">Hal 17: Teropong Semarang (Kota Lama)</option>
+              <option value="18">Hal 18: Teropong Semarang (Lawang Sewu &amp; Johar)</option>
+              <option value="19">Hal 19: Zona Integritas &amp; Pantun Antikorupsi</option>
+              <option value="20">Hal 20: Back Cover &amp; Info Kontak KPPN</option>
+            </select>
+          </div>
         </div>
       </div>
 

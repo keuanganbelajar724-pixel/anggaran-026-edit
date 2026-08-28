@@ -1379,6 +1379,10 @@ export interface BuletinConfig {
   judulUtama: string; // e.g. "OPTIMALISASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN"
   subJudul: string; // e.g. "Kinerja Fiskal Berkualitas, Akselerasi Digitalisasi SAKTI, & Transformasi Layanan"
   
+  // Format / Layout Template Multi-Style
+  layoutFormat?: 'executive_magazine' | 'canva_vibrant' | 'clean_treasury' | 'royal_indigo' | 'classic_newsletter';
+  highlightMissingData?: boolean; // Highlight incomplete / empty data in red
+
   // Hal 1: Cover Images & Highlights
   fotoCoverUrl?: string;
   coverHighlight1?: string;
@@ -1390,9 +1394,18 @@ export interface BuletinConfig {
   fotoKepalaUrl?: string;
   sambutanKepala: string; // Editorial greeting text
 
-  // Hal 3: Sekilas Tentang Buletin
+  // Hal 3: Sekilas Tentang Buletin & Tim Redaksi
   sekilasBuletin?: string; // Sekilas tentang Buletin KPPN
   tajukRencana: string; // Editorial highlight
+  redaksiTim?: {
+    pelindung?: string;
+    penanggungJawab?: string;
+    pemimpinRedaksi?: string;
+    redakturPelaksana?: string;
+    timLiputan?: string;
+    desainTataLetak?: string;
+    sekretariat?: string;
+  };
   temaWarna: 'navy' | 'emerald' | 'indigo' | 'burgundy' | 'gold';
   showRealisasiBelanja: boolean;
   showIKPASection: boolean;
