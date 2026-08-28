@@ -2,21 +2,22 @@
   "entities": {
     "settings": {
       "title": "Global Settings",
-      "description": "Stores admin PIN and global dashboard configuration",
+      "description": "Stores admin PIN, buletin config, and global dashboard configuration",
       "type": "object",
       "properties": {
         "adminPin": { "type": "string" },
         "dashboardConfig": { "type": "object" },
+        "buletinConfig": { "type": "object" },
         "updatedAt": { "type": "string" }
-      },
-      "required": ["adminPin"]
+      }
     },
     "satkerData": {
       "title": "Satker Data List",
-      "description": "Stores list of satkers with IKPA and Capaian Output scores",
+      "description": "Stores list of satkers with IKPA, realisasi belanja, and Capaian Output scores",
       "type": "object",
       "properties": {
         "list": { "type": "array" },
+        "records": { "type": "array" },
         "updatedAt": { "type": "string" }
       }
     },
@@ -51,27 +52,6 @@
         "author": { "type": "string" }
       },
       "required": ["title", "content", "date"]
-    },
-    "trafficStats": {
-      "title": "Traffic & Visitor Analytics",
-      "description": "Stores visitor traffic statistics, device breakdowns, and pageview telemetry for KPPN Semarang I",
-      "type": "object",
-      "properties": {
-        "summary": { "type": "object" },
-        "dailyRecords": { "type": "array" },
-        "recentLogs": { "type": "array" },
-        "updatedAt": { "type": "string" }
-      }
-    },
-    "geminiChats": {
-      "title": "Gemini AI Chat History & Sessions",
-      "description": "Synchronized conversations, analyst notes, and archived chat sessions across devices and deployments",
-      "type": "object",
-      "properties": {
-        "messages": { "type": "array" },
-        "archives": { "type": "array" },
-        "updatedAt": { "type": "string" }
-      }
     }
   },
   "firestore": {
@@ -81,19 +61,11 @@
     },
     "/data/{dataType}": {
       "schema": { "$ref": "#/entities/satkerData" },
-      "description": "Centralized sync datasets for Satker IKPA, Pejabat, and Presensi"
+      "description": "Centralized sync datasets for Satker IKPA, Realisasi Belanja, Pejabat, and Presensi"
     },
     "/announcements/{announcementId}": {
       "schema": { "$ref": "#/entities/announcements" },
       "description": "Public announcements and bulletin notices"
-    },
-    "/traffic/{trafficDoc}": {
-      "schema": { "$ref": "#/entities/trafficStats" },
-      "description": "Visitor traffic and device analytics data"
-    },
-    "/gemini_chats/{chatDoc}": {
-      "schema": { "$ref": "#/entities/geminiChats" },
-      "description": "Synchronized AI analyst chat messages and archived sessions"
     }
   }
 }

@@ -7,6 +7,7 @@ import {
   PengelolaanUPRecord,
   KarwasTUPRecord,
   DigipayRecord,
+  SPMPPPRecord,
   ExcelValidationPreview
 } from '../types';
 import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
@@ -2785,5 +2786,459 @@ export function exportDigipayToExcel(
     : `${fileName}${periodTag}.xlsx`;
 
   XLSX.writeFile(workbook, finalFileName);
+}
+
+/**
+ * 8. VALIDASI & IMPORT EXCEL SPM PPP (PERHITUNGAN PIHAK KETIGA - PLN / TELKOM)
+ * Mendukung pembacaan data monitoring tagihan langganan daya & jasa (PLN, Telkom, dll.)
+ * Header: KD_SATKER, NAMA_SATKER, PERIODE_TAGIHAN, JNS_LAYANAN, NO_PELANGGAN, BULAN, TAHUN, Sum of NILAI_TAGIHAN, NO_SPP, NO_SPM, NO_SP2D, STATUS_SPM
+ */
+export async function validateSPMPPPExcelFile(
+  file: File,
+  masterSatkers: MasterSatker[],
+  forcedPeriod?: string,
+  forcedYear?: number
+): Promise<ExcelValidationPreview<SPMPPPRecord>> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('File Excel SPM PPP kosong atau tidak memiliki lembar kerja.');
+        }
+
+        // Master Satker lookup
+        const masterMap = new Map<string, MasterSatker>();
+        masterSatkers.forEach(m => {
+          if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
+        });
+
+        const allParsedRecords: SPMPPPRecord[] = [];
+        const invalidRows: { rowNumber: number; kodeSatker: string; namaSatker?: string; reason: string; raw?: any }[] = [];
+        let headerDetected = false;
+
+        // Iterate through all sheets to find relevant data
+        for (const sheetName of workbook.SheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+
+          const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+          if (!rows || rows.length < 2) continue;
+
+          let headerIndex = -1;
+          let colKdSatker = -1;
+          let colNamaSatker = -1;
+          let colPeriode = -1;
+          let colJnsLayanan = -1;
+          let colNoPelanggan = -1;
+          let colBulan = -1;
+          let colTahun = -1;
+          let colNilaiTagihan = -1;
+          let colNoSpp = -1;
+          let colNoSpm = -1;
+          let colNoSp2d = -1;
+          let colStatusSpm = -1;
+
+          // Find header row
+          for (let i = 0; i < Math.min(rows.length, 15); i++) {
+            const row = rows[i];
+            if (!Array.isArray(row)) continue;
+
+            const rowTexts = row.map(c => cleanText(c).toUpperCase());
+            const hasKdSatker = rowTexts.some(t => t.includes('KD_SATKER') || t.includes('KODE SATKER') || t.includes('KDSATKER') || t === 'KODE');
+            const hasLayanan = rowTexts.some(t => t.includes('JNS_LAYANAN') || t.includes('LAYANAN') || t.includes('JENIS') || t.includes('PELANGGAN'));
+            const hasTagihan = rowTexts.some(t => t.includes('NILAI_TAGIHAN') || t.includes('TAGIHAN') || t.includes('NOMINAL') || t.includes('SUM OF'));
+
+            if (hasKdSatker || (hasLayanan && hasTagihan)) {
+              headerIndex = i;
+              headerDetected = true;
+
+              rowTexts.forEach((text, colIdx) => {
+                if (text.includes('KD_SATKER') || text.includes('KODE SATKER') || text.includes('KDSATKER') || (text.includes('KODE') && !text.includes('BA'))) {
+                  colKdSatker = colIdx;
+                } else if (text.includes('NAMA_SATKER') || text.includes('NAMA SATKER') || text === 'SATKER' || text.includes('URAIAN SATKER')) {
+                  colNamaSatker = colIdx;
+                } else if (text.includes('PERIODE_TAGIHAN') || text.includes('PERIODE') || text === 'BULAN/TAHUN') {
+                  colPeriode = colIdx;
+                } else if (text.includes('JNS_LAYANAN') || text.includes('JENIS LAYANAN') || text.includes('LAYANAN')) {
+                  colJnsLayanan = colIdx;
+                } else if (text.includes('NO_PELANGGAN') || text.includes('ID_PELANGGAN') || text.includes('PELANGGAN') || text.includes('ID PEL')) {
+                  colNoPelanggan = colIdx;
+                } else if (text.includes('BULAN') || text === 'BLN') {
+                  colBulan = colIdx;
+                } else if (text.includes('TAHUN') || text === 'THN') {
+                  colTahun = colIdx;
+                } else if (text.includes('NILAI_TAGIHAN') || text.includes('TAGIHAN') || text.includes('NOMINAL') || text.includes('SUM OF') || text.includes('JUMLAH')) {
+                  colNilaiTagihan = colIdx;
+                } else if (text.includes('NO_SPP') || text.includes('SPP') || text === 'NOMOR SPP') {
+                  colNoSpp = colIdx;
+                } else if (text.includes('NO_SPM') || text.includes('SPM') || text === 'NOMOR SPM') {
+                  colNoSpm = colIdx;
+                } else if (text.includes('NO_SP2D') || text.includes('SP2D') || text === 'NOMOR SP2D') {
+                  colNoSp2d = colIdx;
+                } else if (text.includes('STATUS_SPM') || text.includes('STATUS') || text === 'STATUS SPM') {
+                  colStatusSpm = colIdx;
+                }
+              });
+              break;
+            }
+          }
+
+          if (headerIndex === -1) {
+            colKdSatker = 0;
+            colNamaSatker = 1;
+            colPeriode = 2;
+            colJnsLayanan = 3;
+            colNoPelanggan = 4;
+            colBulan = 5;
+            colTahun = 6;
+            colNilaiTagihan = 7;
+            colNoSpp = 8;
+            colNoSpm = 9;
+            colNoSp2d = 10;
+            colStatusSpm = 11;
+            headerIndex = 0;
+          }
+
+          // Parse data rows
+          for (let r = headerIndex + 1; r < rows.length; r++) {
+            const row = rows[r];
+            if (!Array.isArray(row) || row.length === 0) continue;
+
+            const rawKode = colKdSatker >= 0 ? row[colKdSatker] : row[0];
+            const kode = normalizeKodeSatker(rawKode);
+
+            if (!kode) {
+              const rowStr = row.map(c => cleanText(c)).join(' ');
+              if (rowStr.trim() !== '') {
+                if (rowStr.toLowerCase().includes('total') || rowStr.toLowerCase().includes('jumlah')) {
+                  continue;
+                }
+              }
+              continue;
+            }
+
+            const masterMatch = masterMap.get(kode);
+            let nama = colNamaSatker >= 0 ? cleanText(row[colNamaSatker]) : '';
+            if (!nama && masterMatch) {
+              nama = masterMatch.namaSatker;
+            }
+            if (!nama) {
+              nama = `Satker ${kode}`;
+            }
+
+            const rawPeriode = colPeriode >= 0 ? cleanText(row[colPeriode]) : '';
+            const rawLayanan = colJnsLayanan >= 0 ? cleanText(row[colJnsLayanan]).toUpperCase() : '';
+            const jenisLayanan = rawLayanan.includes('TELKOM') || rawLayanan.includes('SPEEDY') || rawLayanan.includes('INDIHOME') 
+              ? 'TELKOM' 
+              : 'PLN';
+
+            const noPelanggan = colNoPelanggan >= 0 ? cleanText(row[colNoPelanggan]) : '';
+            const rawBulan = colBulan >= 0 ? parseInt(cleanText(row[colBulan]), 10) : 8;
+            const bulan = !isNaN(rawBulan) && rawBulan >= 1 && rawBulan <= 12 ? rawBulan : 8;
+            
+            const rawTahun = colTahun >= 0 ? parseInt(cleanText(row[colTahun]), 10) : (forcedYear || 2026);
+            const tahun = !isNaN(rawTahun) && rawTahun >= 2020 ? rawTahun : (forcedYear || 2026);
+
+            const nilaiTagihan = colNilaiTagihan >= 0 ? parseFormattedNumber(row[colNilaiTagihan]) : 0;
+            const noSpp = colNoSpp >= 0 ? cleanText(row[colNoSpp]) : '';
+            const noSpm = colNoSpm >= 0 ? cleanText(row[colNoSpm]) : '';
+            const noSp2d = colNoSp2d >= 0 ? cleanText(row[colNoSp2d]) : '';
+            
+            let statusSpm = colStatusSpm >= 0 ? cleanText(row[colStatusSpm]) : '';
+            if (!statusSpm) {
+              if (noSp2d) statusSpm = 'Terbit SP2D';
+              else if (noSpm) statusSpm = 'Cetak SPM';
+              else if (noSpp) statusSpm = 'Cetak SPP';
+              else statusSpm = 'Belum Mengajukan';
+            }
+
+            const periodeTagihan = rawPeriode || `${tahun}${String(bulan).padStart(2, '0')}`;
+
+            const record: SPMPPPRecord = {
+              id: `spm-ppp-${Date.now()}-${r}-${kode}-${noPelanggan || Math.random().toString(36).substr(2, 4)}`,
+              kodeSatker: kode,
+              namaSatker: nama,
+              periodeTagihan,
+              jenisLayanan,
+              noPelanggan,
+              bulan,
+              tahun,
+              nilaiTagihan,
+              noSpp,
+              noSpm,
+              noSp2d,
+              statusSpm
+            };
+
+            allParsedRecords.push(record);
+          }
+        }
+
+        if (allParsedRecords.length === 0) {
+          throw new Error('Tidak ditemukan baris data tagihan SPM PPP yang valid dalam file Excel ini. Pastikan format kolom memuat KD_SATKER, JNS_LAYANAN, NO_PELANGGAN, dan NILAI_TAGIHAN.');
+        }
+
+        let totalNominal = 0;
+        let totalPln = 0;
+        let totalTelkom = 0;
+        let belumMengajukanCount = 0;
+
+        allParsedRecords.forEach(r => {
+          totalNominal += (r.nilaiTagihan || 0);
+          if (r.jenisLayanan === 'PLN') totalPln += 1;
+          else if (r.jenisLayanan === 'TELKOM') totalTelkom += 1;
+          
+          if (!r.statusSpm || r.statusSpm.toLowerCase().includes('belum') || (!r.noSpm && !r.noSp2d)) {
+            belumMengajukanCount += 1;
+          }
+        });
+
+        resolve({
+          file,
+          fileName: file.name,
+          fileSize: file.size,
+          modul: 'SPM_PPP',
+          tahun: forcedYear || 2026,
+          periode: forcedPeriod || allParsedRecords[0]?.periodeTagihan || 'Agustus 2026',
+          totalRows: allParsedRecords.length + invalidRows.length,
+          validData: allParsedRecords,
+          validRecords: allParsedRecords,
+          invalidRows,
+          isValidFormat: allParsedRecords.length > 0,
+          formatErrors: allParsedRecords.length === 0 ? ['Tidak ditemukan baris data tagihan SPM PPP yang valid.'] : [],
+          summary: {
+            totalRows: allParsedRecords.length + invalidRows.length,
+            validCount: allParsedRecords.length,
+            invalidCount: invalidRows.length,
+            kategori: 'SPM_PPP',
+            totalNominal,
+            totalPln,
+            totalTelkom,
+            belumMengajukanCount,
+            detectedPeriod: forcedPeriod || allParsedRecords[0]?.periodeTagihan || 'Agustus 2026'
+          }
+        } as any);
+
+      } catch (err: any) {
+        reject(err);
+      }
+    };
+    reader.onerror = () => reject(new Error('Gagal membaca file Excel.'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Unduh Template Excel SPM PPP Resmi
+ */
+export function downloadSPMPPPTemplate() {
+  const sampleData = [
+    {
+      'KD_SATKER': '119436',
+      'NAMA_SATKER': 'KANTOR WILAYAH DJP JAWA TENGAH I',
+      'PERIODE_TAGIHAN': '202608',
+      'JNS_LAYANAN': 'PLN',
+      'NO_PELANGGAN': '523010017294',
+      'BULAN': 8,
+      'TAHUN': 2026,
+      'Sum of NILAI_TAGIHAN': 94688,
+      'NO_SPP': '',
+      'NO_SPM': '',
+      'NO_SP2D': '',
+      'STATUS_SPM': 'Belum Mengajukan'
+    },
+    {
+      'KD_SATKER': '119436',
+      'NAMA_SATKER': 'KANTOR WILAYAH DJP JAWA TENGAH I',
+      'PERIODE_TAGIHAN': '202608',
+      'JNS_LAYANAN': 'TELKOM',
+      'NO_PELANGGAN': '0243512014',
+      'BULAN': 8,
+      'TAHUN': 2026,
+      'Sum of NILAI_TAGIHAN': 37407,
+      'NO_SPP': '',
+      'NO_SPM': '',
+      'NO_SP2D': '',
+      'STATUS_SPM': 'Belum Mengajukan'
+    },
+    {
+      'KD_SATKER': '689334',
+      'NAMA_SATKER': 'KANTOR PENGELOLAAN TIK DAN BMN SEMARANG',
+      'PERIODE_TAGIHAN': '202608',
+      'JNS_LAYANAN': 'PLN',
+      'NO_PELANGGAN': '521082214348',
+      'BULAN': 8,
+      'TAHUN': 2026,
+      'Sum of NILAI_TAGIHAN': 106541575,
+      'NO_SPP': '06081T/409294/2026',
+      'NO_SPM': '',
+      'NO_SP2D': '',
+      'STATUS_SPM': 'Upload NTT'
+    },
+    {
+      'KD_SATKER': '411234',
+      'NAMA_SATKER': 'PENGADILAN NEGERI SEMARANG',
+      'PERIODE_TAGIHAN': '202608',
+      'JNS_LAYANAN': 'PLN',
+      'NO_PELANGGAN': '523014556677',
+      'BULAN': 8,
+      'TAHUN': 2026,
+      'Sum of NILAI_TAGIHAN': 14500000,
+      'NO_SPP': '08001/411234/2026',
+      'NO_SPM': '00012',
+      'NO_SP2D': '260261301008899',
+      'STATUS_SPM': 'Terbit SP2D'
+    }
+  ];
+
+  const worksheet = XLSX.utils.json_to_sheet(sampleData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Monitoring SPM PPP');
+  XLSX.writeFile(workbook, 'Template_Monitoring_SPM_PPP_PLN_TELKOM.xlsx');
+}
+
+/**
+ * Ekspor Data SPM PPP ke Format Excel Multi-Sheet
+ */
+export function exportSPMPPPToExcel(
+  records: SPMPPPRecord[],
+  fileName: string = 'Daftar_Satker_Belum_SPM_PPP_KPPN026.xlsx',
+  selectedPeriod: string = 'Agustus 2026'
+) {
+  // 1. Rekapitulasi per Satker
+  const satkerMap = new Map<string, {
+    kodeSatker: string;
+    namaSatker: string;
+    totalTagihan: number;
+    totalNominal: number;
+    plnCount: number;
+    plnNominal: number;
+    telkomCount: number;
+    telkomNominal: number;
+    belumSpmCount: number;
+    belumSpmNominal: number;
+    sudahSpmCount: number;
+    sudahSpmNominal: number;
+    statusProgres: string;
+  }>();
+
+  records.forEach(r => {
+    const existing = satkerMap.get(r.kodeSatker) || {
+      kodeSatker: r.kodeSatker,
+      namaSatker: r.namaSatker,
+      totalTagihan: 0,
+      totalNominal: 0,
+      plnCount: 0,
+      plnNominal: 0,
+      telkomCount: 0,
+      telkomNominal: 0,
+      belumSpmCount: 0,
+      belumSpmNominal: 0,
+      sudahSpmCount: 0,
+      sudahSpmNominal: 0,
+      statusProgres: 'Belum SPM'
+    };
+
+    existing.totalTagihan += 1;
+    existing.totalNominal += (r.nilaiTagihan || 0);
+
+    if (r.jenisLayanan === 'PLN') {
+      existing.plnCount += 1;
+      existing.plnNominal += (r.nilaiTagihan || 0);
+    } else {
+      existing.telkomCount += 1;
+      existing.telkomNominal += (r.nilaiTagihan || 0);
+    }
+
+    const isBelum = !r.statusSpm || r.statusSpm.toLowerCase().includes('belum') || (!r.noSpm && !r.noSp2d);
+    if (isBelum) {
+      existing.belumSpmCount += 1;
+      existing.belumSpmNominal += (r.nilaiTagihan || 0);
+    } else {
+      existing.sudahSpmCount += 1;
+      existing.sudahSpmNominal += (r.nilaiTagihan || 0);
+    }
+
+    if (existing.belumSpmCount === 0) {
+      existing.statusProgres = 'Selesai (Semua Terbit SPM/SP2D)';
+    } else if (existing.sudahSpmCount > 0) {
+      existing.statusProgres = 'Sebagian SPM';
+    } else {
+      existing.statusProgres = 'Belum Mengajukan SPM';
+    }
+
+    satkerMap.set(r.kodeSatker, existing);
+  });
+
+  const dataRekap = Array.from(satkerMap.values())
+    .sort((a, b) => b.belumSpmNominal - a.belumSpmNominal || b.totalNominal - a.totalNominal)
+    .map((s, idx) => ({
+      'No': idx + 1,
+      'Kode Satker': s.kodeSatker,
+      'Nama Satker': s.namaSatker,
+      'Jumlah Tagihan PLN': s.plnCount,
+      'Nominal PLN (Rp)': s.plnNominal,
+      'Jumlah Tagihan TELKOM': s.telkomCount,
+      'Nominal TELKOM (Rp)': s.telkomNominal,
+      'Total Seluruh Tagihan': s.totalTagihan,
+      'Total Nominal (Rp)': s.totalNominal,
+      'Tagihan Belum SPM': s.belumSpmCount,
+      'Nominal Belum SPM (Rp)': s.belumSpmNominal,
+      'Status Progres Satker': s.statusProgres,
+      'Periode': selectedPeriod
+    }));
+
+  // 2. Daftar Belum Mengajukan SPM
+  const dataBelum = records
+    .filter(r => !r.statusSpm || r.statusSpm.toLowerCase().includes('belum') || (!r.noSpm && !r.noSp2d))
+    .map((r, idx) => ({
+      'No': idx + 1,
+      'KD_SATKER': r.kodeSatker,
+      'NAMA_SATKER': r.namaSatker,
+      'PERIODE_TAGIHAN': r.periodeTagihan,
+      'JNS_LAYANAN': r.jenisLayanan,
+      'NO_PELANGGAN': r.noPelanggan,
+      'BULAN': r.bulan,
+      'TAHUN': r.tahun,
+      'Sum of NILAI_TAGIHAN': r.nilaiTagihan,
+      'NO_SPP': r.noSpp || '-',
+      'NO_SPM': r.noSpm || '-',
+      'NO_SP2D': r.noSp2d || '-',
+      'STATUS_SPM': r.statusSpm || 'Belum Mengajukan'
+    }));
+
+  // 3. Rincian Seluruh Tagihan
+  const dataAll = records.map((r, idx) => ({
+    'No': idx + 1,
+    'KD_SATKER': r.kodeSatker,
+    'NAMA_SATKER': r.namaSatker,
+    'PERIODE_TAGIHAN': r.periodeTagihan,
+    'JNS_LAYANAN': r.jenisLayanan,
+    'NO_PELANGGAN': r.noPelanggan,
+    'BULAN': r.bulan,
+    'TAHUN': r.tahun,
+    'Sum of NILAI_TAGIHAN': r.nilaiTagihan,
+    'NO_SPP': r.noSpp || '',
+    'NO_SPM': r.noSpm || '',
+    'NO_SP2D': r.noSp2d || '',
+    'STATUS_SPM': r.statusSpm || ''
+  }));
+
+  const workbook = XLSX.utils.book_new();
+
+  const wsRekap = XLSX.utils.json_to_sheet(dataRekap.length > 0 ? dataRekap : [{ 'Info': 'Tidak ada data rekap satker' }]);
+  XLSX.utils.book_append_sheet(workbook, wsRekap, 'Rekapitulasi Satker');
+
+  const wsBelum = XLSX.utils.json_to_sheet(dataBelum.length > 0 ? dataBelum : [{ 'Info': 'Semua tagihan sudah terbit SPM' }]);
+  XLSX.utils.book_append_sheet(workbook, wsBelum, 'Daftar Belum SPM');
+
+  const wsAll = XLSX.utils.json_to_sheet(dataAll.length > 0 ? dataAll : [{ 'Info': 'Tidak ada data tagihan' }]);
+  XLSX.utils.book_append_sheet(workbook, wsAll, 'Semua Tagihan PPP');
+
+  XLSX.writeFile(workbook, fileName);
 }
 

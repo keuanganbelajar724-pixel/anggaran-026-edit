@@ -2,7 +2,7 @@ import { safeLocalStorageSet, safeLocalStorageGet } from './utils/safeStorage';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, PresensiPrintConfig } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import {
   compactSatkersForFirestore,
@@ -31,6 +31,7 @@ import { INITIAL_ADUAN_RECORDS } from './data/initialAduanData';
 import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
 import { INITIAL_DEVIASI_HAL3_DATA } from './data/initialDeviasiHal3Data';
+import { INITIAL_SPM_PPP_DATA } from './data/initialSPMPPPData';
 import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
@@ -39,6 +40,7 @@ import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
 import { TransaksiDigipayDashboard } from './components/TransaksiDigipayDashboard';
 import { DeviasiHal3Dashboard } from './components/DeviasiHal3Dashboard';
+import { SPMPPPDashboard } from './components/SPMPPPDashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
@@ -503,24 +505,12 @@ export default function App() {
       const fetchSatkers = getDoc(doc(db, 'data', 'satkers')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               return merged;
             });
-          } else {
-            // Recover from localStorage or historical uploads if server is empty
-            const savedLocal = localStorage.getItem('kppn_satker_data');
-            if (savedLocal) {
-              try {
-                const parsed = JSON.parse(savedLocal);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setSatkers(parsed);
-                  syncSatkersToFirebase(parsed);
-                }
-              } catch (e) {}
-            }
           }
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
@@ -530,58 +520,39 @@ export default function App() {
         clearTimeout(syncTimeout);
       });
 
-      // Separate dedicated document for historical archives with anti-downgrade merge
+      // Separate dedicated document for historical archives
       getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setDashboardConfig(prev => {
-              const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
-              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
               return {
                 ...prev,
-                historicalUploads: merged
+                historicalUploads: data.list
               };
             });
           }
         }
       }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
 
+      getDoc(doc(db, 'data', 'pejabat')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list)) {
+            setPejabatSertifikasiList(data.list);
+            safeLocalStorageSet('kppn_pejabat_data', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Pejabat fetch notice:", err));
+
       getDoc(doc(db, 'data', 'pengelolaan_up')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             const compacted = compactPengelolaanUPForFirestore(data.list);
             setPengelolaanUPList(compacted);
             safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(compacted));
-          } else {
-            const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
-            if (savedLocal) {
-              try {
-                const parsed = JSON.parse(savedLocal);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  const compacted = compactPengelolaanUPForFirestore(parsed);
-                  if (compacted.length > 0) {
-                    setPengelolaanUPList(compacted);
-                    syncPengelolaanUPToFirebase(compacted);
-                  }
-                }
-              } catch (e) {}
-            }
-          }
-        } else {
-          const savedLocal = localStorage.getItem('kppn_pengelolaan_up');
-          if (savedLocal) {
-            try {
-              const parsed = JSON.parse(savedLocal);
-              if (Array.isArray(parsed) && parsed.length > 0) {
-                const compacted = compactPengelolaanUPForFirestore(parsed);
-                if (compacted.length > 0) {
-                  setPengelolaanUPList(compacted);
-                  syncPengelolaanUPToFirebase(compacted);
-                }
-              }
-            } catch (e) {}
           }
         }
       }).catch(err => console.warn("Initial Firestore UP fetch notice:", err));
@@ -623,6 +594,16 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore Deviasi Hal III fetch notice:", err));
 
+      getDoc(doc(db, 'data', 'spm_ppp')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setSpmPppList(data.list);
+            safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore SPM PPP fetch notice:", err));
+
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
         if (docSnap.exists()) {
@@ -639,7 +620,7 @@ export default function App() {
             setDashboardConfig(prev => ({
               ...prev,
               ...cleanDashboardConfig,
-              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+              historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
             }));
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
             if (cleanDashboardConfig.menuVisibility) {
@@ -651,17 +632,16 @@ export default function App() {
         console.warn("Firebase Firestore settings notice:", error);
       });
 
-      // Realtime Historical Uploads Listener with anti-downgrade
+      // Realtime Historical Uploads Listener
       const unsubHistorical = onSnapshot(doc(db, 'data', 'historical_uploads'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setDashboardConfig(prev => {
-              const merged = mergeHistoricalUploadsAntiDowngrade(data.list, prev.historicalUploads || []);
-              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(merged));
+              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
               return {
                 ...prev,
-                historicalUploads: merged
+                historicalUploads: data.list
               };
             });
           }
@@ -670,11 +650,11 @@ export default function App() {
         console.warn("Firebase historical uploads listener notice:", error);
       });
 
-      // 3. Realtime Satkers Data with anti-downgrade
+      // 3. Realtime Satkers Data
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
@@ -781,6 +761,19 @@ export default function App() {
         console.warn("Firebase Deviasi Hal III listener notice:", error);
       });
 
+      // 11. Realtime SPM PPP Data
+      const unsubSPMPPP = onSnapshot(doc(db, 'data', 'spm_ppp'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setSpmPppList(data.list);
+            safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase SPM PPP listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubHistorical();
@@ -792,6 +785,7 @@ export default function App() {
         unsubKKP();
         unsubDigipay();
         unsubDeviasiHal3();
+        unsubSPMPPP();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -1226,6 +1220,40 @@ export default function App() {
         .catch(err => console.error("Firebase Deviasi Hal III setDoc error:", err));
     } catch (e) {
       console.warn("Error syncing Deviasi Hal III to Firebase:", e);
+    }
+  };
+
+  // SPM PPP (Tagihan Listrik & Internet Belum SPM) State & Persistence
+  const [spmPppList, setSpmPppList] = useState<SPMPPPRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_spm_ppp');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved SPM PPP data:', e);
+      }
+    }
+    return INITIAL_SPM_PPP_DATA;
+  });
+
+  useEffect(() => {
+    try {
+      safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(spmPppList));
+    } catch (e) {
+      console.warn('Error saving SPM PPP data to localStorage:', e);
+    }
+  }, [spmPppList]);
+
+  const handleUpdateSPMPPP = (newList: SPMPPPRecord[]) => {
+    const listToSave = Array.isArray(newList) ? newList : [];
+    setSpmPppList(listToSave);
+    try {
+      safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(listToSave));
+      setDoc(doc(db, 'data', 'spm_ppp'), { list: listToSave, updatedAt: new Date().toISOString() })
+        .catch(err => console.error("Firebase SPM PPP setDoc error:", err));
+    } catch (e) {
+      console.warn("Error syncing SPM PPP to Firebase:", e);
     }
   };
 
@@ -1694,6 +1722,7 @@ export default function App() {
         announcementsCount={dashboardConfig.announcements.length}
         transaksiKkpCount={transaksiKkpList.length}
         transaksiDigipayCount={transaksiDigipayList.length}
+        spmPppCount={spmPppList.length}
         onOpenBroadcastLibrary={() => setIsGlobalBroadcastLibraryOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -1821,6 +1850,20 @@ export default function App() {
                 <DeviasiHal3Dashboard
                   deviasiRecords={deviasiHal3List}
                   onUpdateDeviasiRecords={(records) => handleUpdateDeviasiHal3(records)}
+                  masterSatkers={masterSatkers}
+                  satkers={satkers}
+                  isDark={theme === 'dark'}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSetIsAdminAuthenticated={setIsAdminAuthenticated}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab: Monitoring SPM PPP (PLN & TELKOM Tagihan PFK) */}
+              {activeTab === 'spm-ppp' && (
+                <SPMPPPDashboard
+                  spmPppRecords={spmPppList}
+                  onUpdateSPMPPP={(records) => handleUpdateSPMPPP(records)}
                   masterSatkers={masterSatkers}
                   satkers={satkers}
                   isDark={theme === 'dark'}
@@ -1985,6 +2028,9 @@ export default function App() {
                   deviasiHal3Records={deviasiHal3List}
                   onApplyDeviasiHal3={handleUpdateDeviasiHal3}
                   onClearDeviasiHal3={() => handleUpdateDeviasiHal3([])}
+                  spmPppRecords={spmPppList}
+                  onApplySPMPPP={handleUpdateSPMPPP}
+                  onClearSPMPPP={() => handleUpdateSPMPPP([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

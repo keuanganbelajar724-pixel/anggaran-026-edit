@@ -46,7 +46,6 @@ import {
   resetTrafficData 
 } from '../../utils/trafficTracker';
 import { TrafficAnalyticsData, VisitorLogEntry } from '../../types';
-import { db, doc, onSnapshot } from '../../lib/firebase';
 import { useToast } from '../ToastNotification';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 
@@ -69,25 +68,10 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
   const currentDevDetails = useMemo(() => parseDeviceDetails(), []);
   const currentDeviceId = useMemo(() => getOrCreateDeviceId(), []);
 
-  // Listen to Firestore for remote live updates across devices
+  // Load analytics whenever filter changes
   useEffect(() => {
-    try {
-      const unsub = onSnapshot(doc(db, 'traffic', 'overview'), (snapshot) => {
-        if (snapshot.exists()) {
-          const remoteData = snapshot.data();
-          const updated = getTrafficAnalytics({ excludeTester, remoteData });
-          setTrafficData(updated);
-        } else {
-          const updated = getTrafficAnalytics({ excludeTester });
-          setTrafficData(updated);
-        }
-      }, (err) => {
-        // Silent catch for offline or permission issues
-      });
-      return () => unsub();
-    } catch {
-      // Ignore
-    }
+    const updated = getTrafficAnalytics({ excludeTester });
+    setTrafficData(updated);
   }, [excludeTester]);
 
   // Reload data

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   FileSpreadsheet, 
   Upload, 
@@ -50,7 +50,7 @@ import {
 } from '../../utils/realisasiBelanjaProcessor';
 import { safeLocalStorageSet, safeLocalStorageGet } from '../../utils/safeStorage';
 import { useToast } from '../ToastNotification';
-import { db, doc, setDoc } from '../../lib/firebase';
+import { db, doc, setDoc, onSnapshot } from '../../lib/firebase';
 import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
 
 import { BuletinMagazineLayout } from './BuletinMagazineLayout';
@@ -175,6 +175,29 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     }
     return DEFAULT_BULETIN_CONFIG;
   });
+
+  // Real-time synchronization for Buletin Configuration across devices
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'settings', 'buletin_config'), (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data && typeof data === 'object') {
+            setBuletinConfig(prev => ({
+              ...prev,
+              ...data
+            }));
+            safeLocalStorageSet(STORAGE_KEY_BULETIN_CFG, JSON.stringify(data));
+          }
+        }
+      }, (err) => {
+        console.warn('Notice listening to remote buletin config:', err);
+      });
+      return () => unsub();
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   // Calculate Overall Summary
   const overallSummary = useMemo(() => {

@@ -138,72 +138,61 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
 
 /**
  * Merge Satkers safely without ever downgrading or deleting multi-month history
- * Server data is authoritative for current indicators, while preserving extended contact & history.
+ * Server data is authoritative for satkers list and current indicators, while preserving extended contact & history.
  */
 export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: SatkerIKPA[]): SatkerIKPA[] {
-  if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
-  if (!Array.isArray(localList) || localList.length === 0) return serverList;
+  if (!Array.isArray(serverList)) return localList || [];
+  if (serverList.length === 0) return [];
 
-  const satkerMap = new Map<string, SatkerIKPA>();
+  const localSatkerMap = new Map<string, SatkerIKPA>();
+  if (Array.isArray(localList)) {
+    localList.forEach(localS => {
+      if (localS && localS.kodeSatker) {
+        localSatkerMap.set(localS.kodeSatker.trim(), localS);
+      }
+    });
+  }
 
-  // Helper to count non-empty monthly history
-  const getMonthCount = (s: SatkerIKPA) => (s.riwayatBulanan || []).filter(r => r && r.bulan).length;
-
-  const localMaxMonths = Math.max(0, ...localList.map(getMonthCount));
-  const serverMaxMonths = Math.max(0, ...serverList.map(getMonthCount));
-
-  // Initialize with local list first
-  localList.forEach(localS => {
-    if (localS && localS.kodeSatker) {
-      satkerMap.set(localS.kodeSatker.trim(), { ...localS });
-    }
-  });
-
-  // Apply server list (Server is authoritative Source of Truth)
-  serverList.forEach(serverS => {
+  // Iterate over serverList (server is authoritative source for which satkers exist)
+  return serverList.map(serverS => {
     const kode = serverS.kodeSatker?.trim();
-    if (!kode) return;
+    if (!kode) return serverS;
 
-    const localS = satkerMap.get(kode);
-    if (!localS) {
-      satkerMap.set(kode, { ...serverS });
-    } else {
-      // Merge riwayatBulanan seamlessly (preserve all months)
-      const historyMap = new Map<string, any>();
-      (localS.riwayatBulanan || []).forEach(r => {
-        if (r && r.bulan) {
-          historyMap.set(r.bulan.trim().toLowerCase(), r);
-        }
-      });
-      (serverS.riwayatBulanan || []).forEach(r => {
-        if (r && r.bulan) {
-          historyMap.set(r.bulan.trim().toLowerCase(), r);
-        }
-      });
+    const localS = localSatkerMap.get(kode);
+    if (!localS) return serverS;
 
-      const mergedHistory = Array.from(historyMap.values()).sort((a, b) => {
-        const idxA = MONTHS_ORDER.findIndex(m => (a.bulan || '').toLowerCase().includes(m));
-        const idxB = MONTHS_ORDER.findIndex(m => (b.bulan || '').toLowerCase().includes(m));
-        return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
-      });
+    // Merge riwayatBulanan seamlessly (preserve all distinct months)
+    const historyMap = new Map<string, any>();
+    (localS.riwayatBulanan || []).forEach(r => {
+      if (r && r.bulan) {
+        historyMap.set(r.bulan.trim().toLowerCase(), r);
+      }
+    });
+    (serverS.riwayatBulanan || []).forEach(r => {
+      if (r && r.bulan) {
+        historyMap.set(r.bulan.trim().toLowerCase(), r);
+      }
+    });
 
-      // Server data takes precedence for IKPA scores, indicators, and status
-      satkerMap.set(kode, {
-        ...localS,
-        ...serverS,
-        riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (serverS.riwayatBulanan || localS.riwayatBulanan || []),
-        namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
-        noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
-        emailPic: serverS.emailPic || localS.emailPic || '',
-        passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
-        alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
-        hasIKPAData: serverS.hasIKPAData !== undefined ? serverS.hasIKPAData : localS.hasIKPAData,
-        hasCapaianOutputData: serverS.hasCapaianOutputData !== undefined ? serverS.hasCapaianOutputData : localS.hasCapaianOutputData
-      });
-    }
+    const mergedHistory = Array.from(historyMap.values()).sort((a, b) => {
+      const idxA = MONTHS_ORDER.findIndex(m => (a.bulan || '').toLowerCase().includes(m));
+      const idxB = MONTHS_ORDER.findIndex(m => (b.bulan || '').toLowerCase().includes(m));
+      return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
+    });
+
+    return {
+      ...localS,
+      ...serverS,
+      riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (serverS.riwayatBulanan || localS.riwayatBulanan || []),
+      namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
+      noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
+      emailPic: serverS.emailPic || localS.emailPic || '',
+      passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
+      alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
+      hasIKPAData: serverS.hasIKPAData !== undefined ? serverS.hasIKPAData : localS.hasIKPAData,
+      hasCapaianOutputData: serverS.hasCapaianOutputData !== undefined ? serverS.hasCapaianOutputData : localS.hasCapaianOutputData
+    };
   });
-
-  return Array.from(satkerMap.values());
 }
 
 export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[]): any[] {
@@ -256,44 +245,20 @@ export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[])
  * Merge Pengelolaan UP anti-downgrade (Server data is authoritative)
  */
 export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[], localList: PengelolaanUPRecord[]): PengelolaanUPRecord[] {
-  if (Array.isArray(serverList) && serverList.length > 0) {
+  if (Array.isArray(serverList)) {
     return serverList;
   }
   return Array.isArray(localList) ? localList : [];
 }
 
 /**
- * Merge Historical Uploads anti-downgrade (combines all distinct periods)
+ * Merge Historical Uploads anti-downgrade (Server data is authoritative)
  */
 export function mergeHistoricalUploadsAntiDowngrade(serverList: ExcelUploadHistory[], localList: ExcelUploadHistory[]): ExcelUploadHistory[] {
-  if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
-  if (!Array.isArray(localList) || localList.length === 0) return serverList;
-
-  const histMap = new Map<string, ExcelUploadHistory>();
-
-  // Use (category + periode) as key
-  serverList.forEach(h => {
-    if (h && h.periode) {
-      const key = `${h.category || 'IKPA'}_${h.periode.trim().toLowerCase()}`;
-      histMap.set(key, h);
-    }
-  });
-
-  localList.forEach(localH => {
-    if (localH && localH.periode) {
-      const key = `${localH.category || 'IKPA'}_${localH.periode.trim().toLowerCase()}`;
-      const serverH = histMap.get(key);
-      if (!serverH || (localH.satkersData && localH.satkersData.length >= (serverH.satkersData?.length || 0))) {
-        histMap.set(key, localH);
-      }
-    }
-  });
-
-  return Array.from(histMap.values()).sort((a, b) => {
-    const idxA = MONTHS_ORDER.findIndex(m => (a.periode || '').toLowerCase().includes(m));
-    const idxB = MONTHS_ORDER.findIndex(m => (b.periode || '').toLowerCase().includes(m));
-    return (idxA !== -1 ? idxA : 0) - (idxB !== -1 ? idxB : 0);
-  });
+  if (Array.isArray(serverList)) {
+    return serverList;
+  }
+  return Array.isArray(localList) ? localList : [];
 }
 
 /**
@@ -342,28 +307,13 @@ export function compactKKPForFirestore(records: TransaksiKKPRecord[]): any[] {
 }
 
 /**
- * Merge Digipay records anti-downgrade
+ * Merge Digipay records anti-downgrade (Server is authoritative)
  */
 export function mergeDigipayAntiDowngrade(serverList: DigipayRecord[], localList: DigipayRecord[]): DigipayRecord[] {
-  if (!Array.isArray(serverList) || serverList.length === 0) return localList || [];
-  if (!Array.isArray(localList) || localList.length === 0) return serverList;
-
-  const itemMap = new Map<string, DigipayRecord>();
-  serverList.forEach(r => {
-    if (r && (r.id || r.noTransaksi)) {
-      const key = r.id || `${r.kodeSatker}_${r.noTransaksi}`;
-      itemMap.set(key, r);
-    }
-  });
-
-  localList.forEach(r => {
-    if (r && (r.id || r.noTransaksi)) {
-      const key = r.id || `${r.kodeSatker}_${r.noTransaksi}`;
-      itemMap.set(key, r);
-    }
-  });
-
-  return Array.from(itemMap.values());
+  if (Array.isArray(serverList)) {
+    return serverList;
+  }
+  return Array.isArray(localList) ? localList : [];
 }
 
 /**
@@ -510,32 +460,13 @@ export function hydrateDeviasiHal3FromFirestore(rawList: any[]): DeviasiHal3Reco
 }
 
 /**
- * Merges Deviasi Hal III lists safely anti-downgrade
+ * Merges Deviasi Hal III lists safely anti-downgrade (Server is authoritative)
  */
 export function mergeDeviasiHal3AntiDowngrade(serverRawList: any[], localList: DeviasiHal3Record[]): DeviasiHal3Record[] {
-  const serverHydrated = hydrateDeviasiHal3FromFirestore(serverRawList);
-  if (!Array.isArray(serverHydrated) || serverHydrated.length === 0) return localList || [];
-  if (!Array.isArray(localList) || localList.length === 0) return serverHydrated;
-
-  const itemMap = new Map<string, DeviasiHal3Record>();
-
-  // Local first
-  localList.forEach(r => {
-    if (r && r.kodeSatker) {
-      const key = `${r.kodeSatker}_${r.periodeAngka || r.periodeBulan || '8'}`;
-      itemMap.set(key, r);
-    }
-  });
-
-  // Server is authoritative source of truth
-  serverHydrated.forEach(r => {
-    if (r && r.kodeSatker) {
-      const key = `${r.kodeSatker}_${r.periodeAngka || r.periodeBulan || '8'}`;
-      itemMap.set(key, r);
-    }
-  });
-
-  return Array.from(itemMap.values()).sort((a, b) => (a.periodeAngka || 0) - (b.periodeAngka || 0));
+  if (Array.isArray(serverRawList)) {
+    return hydrateDeviasiHal3FromFirestore(serverRawList);
+  }
+  return Array.isArray(localList) ? localList : [];
 }
 
 

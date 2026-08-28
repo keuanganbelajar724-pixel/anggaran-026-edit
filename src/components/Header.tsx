@@ -27,6 +27,7 @@ import {
   ClipboardCheck,
   CreditCard,
   ShoppingBag,
+  Receipt,
   User,
   Phone,
   ChevronLeft,
@@ -63,6 +64,7 @@ interface HeaderProps {
   masterSatkers?: MasterSatker[];
   transaksiKkpCount?: number;
   transaksiDigipayCount?: number;
+  spmPppCount?: number;
   onOpenBroadcastLibrary?: () => void;
   slideShowConfig?: SlideShowConfig;
   onOpenAdminSlideShow?: () => void;
@@ -91,6 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
   masterSatkers = [],
   transaksiKkpCount = 0,
   transaksiDigipayCount = 0,
+  spmPppCount = 0,
   onOpenBroadcastLibrary,
   slideShowConfig,
   onOpenAdminSlideShow,
@@ -232,6 +235,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <FileSpreadsheet className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Hal III</span>,
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+    },
+    {
+      id: 'spm-ppp',
+      label: 'Monitoring SPM PPP',
+      icon: <Receipt className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{spmPppCount > 0 ? `${spmPppCount}` : 'PPP'}</span>,
+      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
     },
     {
       id: 'pengelolaan-up',

@@ -348,6 +348,38 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     );
   };
 
+  const handleClearAllCaputHistories = () => {
+    if (caputHistories.length === 0) return;
+    requestConfirm(
+      'Hapus Semua Arsip Capaian Output',
+      `Apakah Anda yakin ingin menghapus seluruh (${caputHistories.length} batch) arsip Capaian Output?\n\n⚠️ Tindakan ini akan mengosongkan status Capaian Output seluruh satker pada dashboard dan disinkronkan ke Firestore.`,
+      () => {
+        const remainingOtherHistory = historicalUploads.filter(h => h.category !== 'CAPAIAN_OUTPUT');
+        const resetSatkers = satkers.map(s => ({
+          ...s,
+          hasCapaianOutputData: false,
+          statusCapaianOutput: 'Belum Terlaporkan' as const,
+          indikator: {
+            ...s.indikator,
+            capaianOutput: 0
+          }
+        }));
+        onApplySatkers(resetSatkers, false);
+        onSaveHistoricalUploads(remainingOtherHistory);
+        if (onClearCapaianOutputData) {
+          onClearCapaianOutputData();
+        }
+        addLog('Hapus Semua Arsip Caput', 'UPLOAD', `Seluruh (${caputHistories.length} batch) arsip Capaian Output berhasil dihapus.`, 'WARNING');
+        showToast({
+          type: 'info',
+          title: 'Semua Arsip Caput Dihapus',
+          message: `Seluruh (${caputHistories.length} batch) arsip Capaian Output telah dihapus dan disinkronkan.`
+        });
+      },
+      { confirmText: 'Ya, Hapus Semua Arsip', variant: 'danger' }
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -585,14 +617,28 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
             </p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <input
-              type="text"
-              value={searchHistory}
-              onChange={(e) => setSearchHistory(e.target.value)}
-              placeholder="Cari arsip Capaian Output..."
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-64">
+              <input
+                type="text"
+                value={searchHistory}
+                onChange={(e) => setSearchHistory(e.target.value)}
+                placeholder="Cari arsip Capaian Output..."
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            {caputHistories.length > 0 && (
+              <button
+                type="button"
+                id="btn-clear-all-caput-histories"
+                onClick={handleClearAllCaputHistories}
+                className="shrink-0 inline-flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                title="Hapus Semua Arsip Capaian Output"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hapus Semua</span>
+              </button>
+            )}
           </div>
         </div>
 

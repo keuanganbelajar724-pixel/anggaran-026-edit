@@ -422,6 +422,50 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
     );
   };
 
+  const handleClearAllIKPAHistories = () => {
+    if (ikpaHistories.length === 0) return;
+    requestConfirm(
+      'Hapus Semua Arsip IKPA',
+      `Apakah Anda yakin ingin menghapus seluruh (${ikpaHistories.length} batch) arsip IKPA?\n\n⚠️ Tindakan ini akan mengosongkan data IKPA peserta di dashboard dan disinkronkan ke Firestore.`,
+      () => {
+        const remainingOtherHistory = historicalUploads.filter(h => h.category && h.category !== 'IKPA');
+        const clearedSatkers = satkers.map(s => ({
+          ...s,
+          hasIKPAData: false,
+          nilaiTotalIKPA: 0,
+          predikat: 'Cukup' as const,
+          riwayatBulanan: [],
+          paguAnggaran: 0,
+          realisasiAnggaran: 0,
+          persenPenyerapan: 0,
+          issues: [],
+          indikator: {
+            capaianOutput: s.indikator?.capaianOutput || 0,
+            deviasiHal3Dipa: 0,
+            penyerapanAnggaran: 0,
+            revisiDipa: 0,
+            belanjaKontraktual: 0,
+            penyelesaianTagihan: 0,
+            pengelolaanUpTup: 0,
+            dispensasiSpm: 0
+          }
+        }));
+        onApplySatkers(clearedSatkers, false);
+        onSaveHistoricalUploads(remainingOtherHistory);
+        if (onClearIKPAData) {
+          onClearIKPAData();
+        }
+        addLog('Hapus Semua Arsip IKPA', 'UPLOAD', `Seluruh (${ikpaHistories.length} batch) arsip IKPA dihapus dan dashboard dikosongkan.`, 'WARNING');
+        showToast({
+          type: 'info',
+          title: 'Semua Arsip IKPA Dihapus',
+          message: `Seluruh (${ikpaHistories.length} batch) arsip IKPA telah dihapus dan disinkronkan.`
+        });
+      },
+      { confirmText: 'Ya, Hapus Semua Arsip', variant: 'danger' }
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -684,14 +728,28 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
               </button>
             )}
 
-            <div className="relative w-full sm:w-56">
-              <input
-                type="text"
-                value={searchHistory}
-                onChange={(e) => setSearchHistory(e.target.value)}
-                placeholder="Cari arsip IKPA..."
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-56">
+                <input
+                  type="text"
+                  value={searchHistory}
+                  onChange={(e) => setSearchHistory(e.target.value)}
+                  placeholder="Cari arsip IKPA..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200"
+                />
+              </div>
+              {ikpaHistories.length > 0 && (
+                <button
+                  type="button"
+                  id="btn-clear-all-ikpa-histories"
+                  onClick={handleClearAllIKPAHistories}
+                  className="shrink-0 inline-flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-300 dark:border-rose-800 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95"
+                  title="Hapus Semua Arsip IKPA"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Hapus Semua</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

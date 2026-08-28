@@ -820,10 +820,48 @@ export interface DigipayUploadBatch {
   status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
 }
 
+// -------------------------------------------------------------
+// MODUL SPM PPP (Perhitungan Pihak Ketiga - PLN / TELKOM)
+// -------------------------------------------------------------
+export interface SPMPPPRecord {
+  id: string;
+  kodeSatker: string; // Kolom KD_SATKER (misal: "119436")
+  namaSatker: string; // Kolom NAMA_SATKER
+  periodeTagihan: string; // Kolom PERIODE_TAGIHAN (misal: "202608")
+  jenisLayanan: 'PLN' | 'TELKOM' | string; // Kolom JNS_LAYANAN
+  noPelanggan: string; // Kolom NO_PELANGGAN
+  bulan: number; // Kolom BULAN (1-12)
+  tahun: number; // Kolom TAHUN
+  nilaiTagihan: number; // Kolom Sum of NILAI_TAGIHAN / NILAI_TAGIHAN
+  noSpp?: string; // Kolom NO_SPP
+  noSpm?: string; // Kolom NO_SPM
+  noSp2d?: string; // Kolom NO_SP2D
+  statusSpm: 'Belum Mengajukan' | 'Cetak SPP' | 'Setuju SPP' | 'Upload NTT' | 'Cetak SPM' | 'Terbit SP2D' | string; // Kolom STATUS_SPM
+  catatan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SPMPPPUploadBatch {
+  id: string;
+  fileName: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  totalRows: number;
+  validCount: number;
+  invalidCount: number;
+  totalNominal?: number;
+  totalPln?: number;
+  totalTelkom?: number;
+  belumMengajukanCount?: number;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+}
+
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
   'deviasi-hal3'?: boolean;
+  'spm-ppp'?: boolean;
   'pengelolaan-up'?: boolean;
   'transaksi-kkp'?: boolean;
   'transaksi-digipay'?: boolean;
@@ -1103,6 +1141,7 @@ export interface DashboardConfig {
     pengelolaanUp?: string;
     transaksiKkp?: string;
     transaksiDigipay?: string;
+    spmPpp?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -1120,6 +1159,8 @@ export interface DashboardConfig {
   transaksiDigipayUploads?: DigipayUploadBatch[];
   deviasiHal3Records?: DeviasiHal3Record[];
   deviasiHal3Uploads?: DeviasiHal3UploadBatch[];
+  spmPppRecords?: SPMPPPRecord[];
+  spmPppUploads?: SPMPPPUploadBatch[];
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
@@ -1133,6 +1174,7 @@ export type NavigationTab =
   | 'dashboard' 
   | 'capaian-output' 
   | 'deviasi-hal3'
+  | 'spm-ppp'
   | 'pengelolaan-up'
   | 'transaksi-kkp'
   | 'transaksi-digipay'

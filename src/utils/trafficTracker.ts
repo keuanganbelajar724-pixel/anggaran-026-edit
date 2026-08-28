@@ -6,7 +6,6 @@ import {
   DeviceAnalytics, 
   PageVisitStat 
 } from '../types';
-import { db, doc, getDoc, setDoc, isFirestoreQuotaExhausted, reportFirestoreQuotaExhaustion } from '../lib/firebase';
 import { safeLocalStorageSet, safeLocalStorageGet } from './safeStorage';
 
 const STORAGE_KEY_ANALYTICS = 'kppn_traffic_analytics_real_v2';
@@ -146,6 +145,7 @@ export function getTabReadableTitle(tabId: string): string {
     'dashboard': 'Dashboard Utama IKPA',
     'capaian-output': 'Capaian Output SAKTI',
     'deviasi-hal3': 'Deviasi Halaman III DIPA',
+    'spm-ppp': 'Monitoring SPM PPP (PLN & Telkom)',
     'pengelolaan-up': 'Pengelolaan UP/TUP',
     'transaksi-kkp': 'Transaksi KKP Satker',
     'transaksi-digipay': 'Transaksi Digipay Satu',
@@ -636,24 +636,14 @@ export function getTrafficAnalytics(options?: { excludeTester?: boolean; remoteD
   };
 }
 
-// Reset/Clear Log Traffic (Admin Action - Reset to pure clean 0 on both Local & Remote Firestore)
+// Reset/Clear Log Traffic (Admin Action - Reset to pure clean 0)
 export function resetTrafficData(): PersistedTrafficState {
   const fresh = createInitialCleanState();
   savePersistedTrafficState(fresh);
   try {
     sessionStorage.removeItem(STORAGE_KEY_LAST_TRACKED);
-    const trafficDocRef = doc(db, 'traffic', 'overview');
-    setDoc(trafficDocRef, {
-      pengunjungHariIni: 0,
-      viewsHariIni: 0,
-      pengunjung7Hari: 0,
-      totalPengunjung: 0,
-      totalViews: 0,
-      lastUpdated: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }).catch(e => console.warn('Reset firestore traffic notice:', e));
   } catch (e) {
-    console.warn('Error resetting remote traffic:', e);
+    console.warn('Error resetting traffic session:', e);
   }
   return fresh;
 }

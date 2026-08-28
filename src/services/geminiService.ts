@@ -7,7 +7,6 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { db, doc, getDoc, setDoc, onSnapshot } from '../lib/firebase';
 import { ChatMessage, ArchivedChatSession } from '../types';
 import { safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
 
@@ -254,142 +253,57 @@ export async function generateGeminiContent(
    Synchronizes active chat and archives across preview, deploy & devices
    ========================================================================== */
 
-const FIRESTORE_CHAT_DOC = 'global_session';
-const FIRESTORE_ARCHIVES_DOC = 'archives';
-
-/**
- * Load chat history from Firestore or LocalStorage
- */
+// Chat History & Archives Management (Local storage to save Firestore quota)
 export async function loadCloudChatHistory(): Promise<ChatMessage[] | null> {
   try {
-    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (Array.isArray(data.messages) && data.messages.length > 0) {
-        return data.messages;
-      }
+    const raw = safeLocalStorageGet(LOCAL_GEMINI_CHAT_STORAGE);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {
-    console.warn('Failed to load chat history from Firestore:', e);
+    console.warn('Failed to load local chat history:', e);
   }
   return null;
 }
 
-let geminiChatQuotaExhaustedUntil = 0;
-
-/**
- * Save chat history to both LocalStorage and Firestore
- */
 export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
-  // 1. LocalStorage for instant access (cap at last 30 messages)
   try {
-    const trimmed = messages.slice(-30);
+    const trimmed = messages.slice(-50);
     safeLocalStorageSet(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save chat to local storage', e);
   }
-
-  // 2. Firestore Cloud Backup
-  if (Date.now() < geminiChatQuotaExhaustedUntil) {
-    return;
-  }
-
-  try {
-    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
-    await setDoc(
-      docRef,
-      {
-        messages,
-        updatedAt: new Date().toISOString(),
-        device: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-      },
-      { merge: true }
-    );
-  } catch (e: any) {
-    if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota') || e?.message?.includes('resource-exhausted')) {
-      geminiChatQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
-      console.warn('Firestore chat sync quota reached, operating locally.');
-    }
-  }
 }
 
-/**
- * Subscribe to real-time chat history updates from Firestore
- */
 export function subscribeToCloudChatHistory(
   callback: (messages: ChatMessage[]) => void
 ): () => void {
-  try {
-    const docRef = doc(db, 'gemini_chats', FIRESTORE_CHAT_DOC);
-    return onSnapshot(
-      docRef,
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.messages) && data.messages.length > 0) {
-            callback(data.messages);
-          }
-        }
-      },
-      (error) => {
-        console.warn('Firestore chat subscription notice:', error);
-      }
-    );
-  } catch (e) {
-    console.warn('Failed to subscribe to Firestore chat:', e);
-    return () => {};
-  }
+  // Fire initial state from local storage
+  loadCloudChatHistory().then(msgs => {
+    if (msgs) callback(msgs);
+  });
+  return () => {};
 }
 
-/**
- * Load archived chat sessions from Firestore
- */
 export async function loadCloudArchivedSessions(): Promise<ArchivedChatSession[] | null> {
   try {
-    const docRef = doc(db, 'gemini_chats', FIRESTORE_ARCHIVES_DOC);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (Array.isArray(data.archives)) {
-        return data.archives;
-      }
+    const raw = safeLocalStorageGet(LOCAL_GEMINI_ARCHIVES_STORAGE);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (e) {
-    console.warn('Failed to load archives from Firestore:', e);
+    console.warn('Failed to load archives from local storage:', e);
   }
   return null;
 }
 
-/**
- * Save archived sessions to LocalStorage and Firestore
- */
 export async function saveCloudArchivedSessions(archives: ArchivedChatSession[]): Promise<void> {
   try {
-    const trimmed = archives.slice(-15);
+    const trimmed = archives.slice(-20);
     safeLocalStorageSet(LOCAL_GEMINI_ARCHIVES_STORAGE, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save archives to local storage', e);
-  }
-
-  if (Date.now() < geminiChatQuotaExhaustedUntil) {
-    return;
-  }
-
-  try {
-    const docRef = doc(db, 'gemini_chats', FIRESTORE_ARCHIVES_DOC);
-    await setDoc(
-      docRef,
-      {
-        archives,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
-  } catch (e: any) {
-    if (e?.code === 'resource-exhausted' || e?.message?.includes('Quota') || e?.message?.includes('resource-exhausted')) {
-      geminiChatQuotaExhaustedUntil = Date.now() + 30 * 60 * 1000;
-      console.warn('Firestore archives sync quota reached, operating locally.');
-    }
   }
 }

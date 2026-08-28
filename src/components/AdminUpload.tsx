@@ -25,7 +25,8 @@ import {
   PopUpAnnouncementConfig,
   SlideShowConfig,
   DeviasiHal3Record,
-  PresensiPrintConfig
+  PresensiPrintConfig,
+  SPMPPPRecord
 } from '../types';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
@@ -34,6 +35,7 @@ import { UploadTUPSection } from './admin/UploadTUPSection';
 import { UploadKKPSection } from './admin/UploadKKPSection';
 import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { UploadDeviasiHal3Section } from './admin/UploadDeviasiHal3Section';
+import { UploadSPMPPPSection } from './admin/UploadSPMPPPSection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
@@ -154,7 +156,8 @@ import {
   BookOpen,
   Image as ImageIcon,
   Film,
-  LifeBuoy
+  LifeBuoy,
+  Receipt
 } from 'lucide-react';
 
 interface AdminUploadProps {
@@ -199,6 +202,9 @@ interface AdminUploadProps {
   deviasiHal3Records?: DeviasiHal3Record[];
   onApplyDeviasiHal3?: (records: DeviasiHal3Record[]) => void;
   onClearDeviasiHal3?: () => void;
+  spmPppRecords?: SPMPPPRecord[];
+  onApplySPMPPP?: (records: SPMPPPRecord[]) => void;
+  onClearSPMPPP?: () => void;
   onClearMasterSatkers?: () => void;
 }
 
@@ -375,6 +381,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   deviasiHal3Records = [],
   onApplyDeviasiHal3,
   onClearDeviasiHal3,
+  spmPppRecords = [],
+  onApplySPMPPP,
+  onClearSPMPPP,
   onClearMasterSatkers
 }) => {
   const isDark = theme === 'dark';
@@ -384,8 +393,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3677,6 +3686,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'dashboard',
                         'capaian-output',
                         'deviasi-hal3',
+                        'spm-ppp',
                         'pengelolaan-up',
                         'transaksi-kkp',
                         'transaksi-digipay',
@@ -3712,6 +3722,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                           'dashboard': true,
                           'capaian-output': true,
                           'deviasi-hal3': true,
+                          'spm-ppp': true,
                           'pengelolaan-up': true,
                           'transaksi-kkp': true,
                           'transaksi-digipay': true,
@@ -3729,7 +3740,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                           'guide': false
                         }
                       }));
-                      addToast('Semua 15 menu berhasil diaktifkan & dibuka!', 'success');
+                      addToast('Semua menu berhasil diaktifkan & dibuka!', 'success');
                     }}
                     className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -3747,6 +3758,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                           'dashboard': true,
                           'capaian-output': false,
                           'deviasi-hal3': false,
+                          'spm-ppp': false,
                           'pengelolaan-up': false,
                           'transaksi-kkp': false,
                           'transaksi-digipay': false,
@@ -3808,6 +3820,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'dashboard': 'Dashboard IKPA',
                       'capaian-output': 'Capaian Output',
                       'deviasi-hal3': 'Deviasi Hal III',
+                      'spm-ppp': 'Monitoring SPM PPP',
                       'pengelolaan-up': 'Pengelolaan UP',
                       'transaksi-kkp': 'Transaksi KKP',
                       'transaksi-digipay': 'Digipay',
@@ -3826,6 +3839,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'dashboard',
                       'capaian-output',
                       'deviasi-hal3',
+                      'spm-ppp',
                       'pengelolaan-up',
                       'transaksi-kkp',
                       'transaksi-digipay',
@@ -3868,6 +3882,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'dashboard': { label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker', category: 'Utama', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'capaian-output': { label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload konfirmasi output', category: 'Prioritas', badgeColor: 'bg-sky-100 text-sky-800' },
                     'deviasi-hal3': { label: 'Deviasi Halaman III DIPA', desc: 'Monitoring RPD vs Realisasi & Satker Full Blokir (Bobot IKPA 10%)', category: 'Hal III', badgeColor: 'bg-indigo-100 text-indigo-800' },
+                    'spm-ppp': { label: 'Monitoring SPM PPP (PLN & TELKOM)', desc: 'Monitoring Tagihan PFK Listrik & Internet Satker Belum Terbit SPM', category: 'Tagihan PFK', badgeColor: 'bg-amber-100 text-amber-800' },
                     'pengelolaan-up': { label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP', category: 'Kas & UP', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'transaksi-kkp': { label: 'Transaksi KKP / GUP KKP', desc: 'Monitoring Transaksi & Frekuensi KKP Bank', category: 'Kas & UP', badgeColor: 'bg-amber-100 text-amber-800' },
                     'transaksi-digipay': { label: 'Transaksi Digipay (VA & KKP)', desc: 'Monitoring Transaksi Marketplace Digipay Satu', category: 'Digitalisasi', badgeColor: 'bg-purple-100 text-purple-800' },
@@ -3886,6 +3901,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'dashboard',
                     'capaian-output',
                     'deviasi-hal3',
+                    'spm-ppp',
                     'pengelolaan-up',
                     'transaksi-kkp',
                     'transaksi-digipay',
@@ -9654,6 +9670,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {deviasiHal3Records.length} Data Satker
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('spm-ppp')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'spm-ppp'
+                    ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                  <Receipt className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>8. SPM PPP (PLN &amp; TELKOM)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Daftar Satker Belum Mengajukan SPM PFK Listrik &amp; Internet.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                  {spmPppRecords.length} Tagihan PFK
+                </div>
+              </button>
             </div>
           </div>
 
@@ -9767,9 +9804,28 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               addLog={addLog}
             />
           )}
+
+          {uploadSubTab === 'spm-ppp' && (
+            <UploadSPMPPPSection
+              isDark={isDark}
+              masterSatkers={masterSatkers}
+              spmPppRecords={spmPppRecords}
+              onApplySPMPPP={onApplySPMPPP || (() => {})}
+              onClearSPMPPP={onClearSPMPPP || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
         </div>
       )}
 
+      {/* Global Confirmation Modal */}
+      <ModernConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+        isDark={isDark}
+      />
     </div>
   );
 };
