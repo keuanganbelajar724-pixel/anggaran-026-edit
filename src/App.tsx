@@ -33,6 +33,7 @@ import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
 import { INITIAL_DEVIASI_HAL3_DATA } from './data/initialDeviasiHal3Data';
 import { INITIAL_SPM_PPP_DATA } from './data/initialSPMPPPData';
 import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
+import { loadCloudGeminiConfig } from './services/geminiService';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
@@ -502,6 +503,8 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
 
+      const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
+
       const fetchSatkers = getDoc(doc(db, 'data', 'satkers')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
@@ -515,7 +518,7 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
 
-      Promise.allSettled([fetchSettings, fetchSatkers]).then(() => {
+      Promise.allSettled([fetchSettings, fetchSatkers, fetchGeminiConfig]).then(() => {
         setIsInitialSyncing(false);
         clearTimeout(syncTimeout);
       });

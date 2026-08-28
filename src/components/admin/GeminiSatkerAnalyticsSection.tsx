@@ -49,11 +49,15 @@ import {
   checkGeminiStatus,
   getClientStoredApiKey,
   saveClientStoredApiKey,
+  loadCloudGeminiConfig,
+  saveCloudGeminiConfig,
+  subscribeToCloudGeminiConfig,
   loadCloudChatHistory,
   saveCloudChatHistory,
   subscribeToCloudChatHistory,
   loadCloudArchivedSessions,
   saveCloudArchivedSessions,
+  subscribeToCloudArchivedSessions,
   GeminiServerStatus
 } from '../../services/geminiService';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
@@ -120,7 +124,20 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       }
     });
 
-    // 1. Initial load from Firestore Cloud to sync across dev, deploy & devices
+    // 1. Initial load Gemini Config (API Key & Model) from Firestore Cloud
+    loadCloudGeminiConfig().then((cfg) => {
+      if (isMounted && cfg) {
+        if (cfg.apiKey) {
+          setApiKey(cfg.apiKey);
+          setTempApiKeyInput(cfg.apiKey);
+        }
+        if (cfg.selectedModel) {
+          setSelectedModel(cfg.selectedModel);
+        }
+      }
+    });
+
+    // 2. Initial load Chat Messages & Archives from Firestore Cloud
     loadCloudChatHistory().then((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
         setChatMessages(cloudMsgs);
@@ -133,16 +150,36 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       }
     });
 
-    // 2. Real-time Firestore sync
-    const unsubscribe = subscribeToCloudChatHistory((cloudMsgs) => {
+    // 3. Real-time Firestore sync listeners
+    const unsubConfig = subscribeToCloudGeminiConfig((cfg) => {
+      if (isMounted && cfg) {
+        if (cfg.apiKey !== undefined) {
+          setApiKey(cfg.apiKey);
+          setTempApiKeyInput(cfg.apiKey);
+        }
+        if (cfg.selectedModel) {
+          setSelectedModel(cfg.selectedModel);
+        }
+      }
+    });
+
+    const unsubChat = subscribeToCloudChatHistory((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
         setChatMessages(cloudMsgs);
       }
     });
 
+    const unsubArchives = subscribeToCloudArchivedSessions((cloudArchives) => {
+      if (isMounted && cloudArchives && cloudArchives.length > 0) {
+        setArchivedSessions(cloudArchives);
+      }
+    });
+
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubConfig();
+      unsubChat();
+      unsubArchives();
     };
   }, []);
 
@@ -340,17 +377,17 @@ FORMAT RESPON ANDA:
 - Berikan diagnosis akar masalah (Root Cause), dampak terhadap IKPA KPPN, dan Tindakan Remedial (Action Plan) berjangka waktu jelas (H+1 sampai H+7).`;
   };
 
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = async () => {
     const trimmed = tempApiKeyInput.trim();
-    saveClientStoredApiKey(trimmed);
+    await saveCloudGeminiConfig({ apiKey: trimmed, selectedModel });
     setApiKey(trimmed);
     setShowApiKeyInput(false);
     setIsApiKeyValid(null);
-    alert(trimmed ? 'Google Gemini API Key kustom berhasil disimpan!' : 'API Key kustom dihapus (menggunakan default server Cloud).');
+    alert(trimmed ? 'Google Gemini API Key kustom berhasil disimpan & disinkronkan ke Cloud Firestore (Terkoneksi otomatis antara AI Studio dan Web Deployment)!' : 'API Key kustom dihapus.');
   };
 
   const handleTestApiKey = async () => {
-    const keyToTest = (tempApiKeyInput || apiKey).trim();
+    const keyToTest = (tempApiKeyInput || apiKey || getClientStoredApiKey()).trim();
     setIsTestingKey(true);
     setIsApiKeyValid(null);
 
@@ -361,6 +398,9 @@ FORMAT RESPON ANDA:
       });
 
       setIsApiKeyValid(testRes.success);
+      if (testRes.success && keyToTest) {
+        await saveCloudGeminiConfig({ apiKey: keyToTest, selectedModel });
+      }
       alert(testRes.message);
     } catch (err: any) {
       console.error('Test API Key Error', err);
@@ -372,7 +412,7 @@ FORMAT RESPON ANDA:
   };
 
   const executeGeminiRequest = async (userPromptText: string, satkerContext?: SatkerIKPA | null) => {
-    const activeKey = apiKey.trim();
+    const activeKey = (apiKey || getClientStoredApiKey() || '').trim();
     const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     
     const userMessage: ChatMessage = {
@@ -754,9 +794,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               <div>
                 <h3 className="text-base font-black">Konfigurasi Google Gemini AI</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {serverStatus?.hasServerKey
-                    ? 'Gemini AI sudah terkonfigurasi pada Server Cloud. Anda dapat menambahkan custom API key jika ingin menggunakan kuota tersendiri.'
-                    : 'Kunci API disimpan secara aman di peramban Anda atau disediakan otomatis oleh Server.'}
+                  Tersinkronisasi otomatis via Cloud Firestore: API Key dan percakapan AI terhubung secara real-time antar sesi, baik di Google AI Studio maupun Web Deployment.
                 </p>
               </div>
             </div>
@@ -802,7 +840,7 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               </div>
               {isApiKeyValid === true && (
                 <p className="text-xs text-emerald-500 flex items-center gap-1 font-semibold">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Koneksi Gemini API Berhasil &amp; Valid!
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Koneksi Gemini API Berhasil &amp; Valid (Tersinkron Cloud)!
                 </p>
               )}
               {isApiKeyValid === false && (
@@ -818,7 +856,11 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
               </label>
               <select
                 value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
+                onChange={(e) => {
+                  const newModel = e.target.value;
+                  setSelectedModel(newModel);
+                  saveCloudGeminiConfig({ apiKey, selectedModel: newModel });
+                }}
                 className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-400 ${
                   isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
