@@ -68,19 +68,27 @@ export function saveClientStoredApiKey(key: string): void {
   }
 }
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 
 export const SUPPORTED_GEMINI_MODELS = [
-  'gemini-2.5-flash',
+  'gemini-3.6-flash',
   'gemini-3.7-flash',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-2.5-pro'
+  'gemini-flash-latest',
+  'gemini-3.1-pro-preview'
 ];
 
 export function sanitizeGeminiModel(model?: string): string {
   const m = (model || '').trim();
   if (!m) return DEFAULT_GEMINI_MODEL;
+  if (
+    m.includes('2.5-flash') ||
+    m.includes('2.0-flash') ||
+    m.includes('1.5-flash') ||
+    m.includes('gemini-pro') ||
+    m.includes('2.5-pro')
+  ) {
+    return DEFAULT_GEMINI_MODEL;
+  }
   return m;
 }
 

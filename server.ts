@@ -43,17 +43,26 @@ async function startServer() {
 
   // Supported and fallback models
   const FALLBACK_MODELS = [
-    'gemini-2.5-flash',
+    'gemini-3.6-flash',
     'gemini-3.7-flash',
-    'gemini-2.0-flash',
-    'gemini-1.5-flash',
-    'gemini-2.5-pro'
+    'gemini-flash-latest',
+    'gemini-3.1-pro-preview',
   ];
 
   // Helper to normalize and sanitize model identifiers
   function normalizeModelName(inputModel?: string): string {
     const raw = (inputModel || '').trim();
-    if (!raw) return 'gemini-2.5-flash';
+    if (!raw) return 'gemini-3.6-flash';
+    // Auto-migrate any deprecated model names
+    if (
+      raw.includes('2.5-flash') ||
+      raw.includes('2.0-flash') ||
+      raw.includes('1.5-flash') ||
+      raw.includes('gemini-pro') ||
+      raw.includes('2.5-pro')
+    ) {
+      return 'gemini-3.6-flash';
+    }
     return raw;
   }
 
@@ -63,7 +72,7 @@ async function startServer() {
     res.json({
       connected: hasServerKey,
       hasServerKey,
-      defaultModel: 'gemini-2.5-flash',
+      defaultModel: 'gemini-3.6-flash',
       availableModels: FALLBACK_MODELS,
       message: hasServerKey
         ? 'Gemini AI terhubung otomatis melalui Server Cloud.'
