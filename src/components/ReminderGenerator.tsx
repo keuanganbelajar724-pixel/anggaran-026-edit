@@ -863,18 +863,10 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={handleCopyWA}
-                        className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl border border-emerald-500/50 flex items-center gap-1 transition-colors cursor-pointer"
+                        className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl border border-emerald-500/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                       >
                         {copiedWA ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedWA ? 'Tersalin!' : 'Salin Pesan'}</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenWhatsApp(activeSatker)}
-                        className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Kirim WA Direct</span>
+                        <span>{copiedWA ? 'Tersalin!' : 'Salin Pesan WA'}</span>
                       </button>
                     </div>
                   </div>
@@ -1038,15 +1030,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                               className="px-3 py-1.5 text-xs font-semibold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 text-slate-800 dark:text-slate-200 rounded-xl flex items-center gap-1 cursor-pointer"
                             >
                               <Copy className="w-3.5 h-3.5" />
-                              <span>Salin</span>
-                            </button>
-
-                            <button
-                              onClick={() => handleOpenWhatsApp(satker)}
-                              className="px-3.5 py-1.5 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              <span>Kirim WA</span>
+                              <span>Salin Teks WA</span>
                             </button>
                           </div>
                         </div>

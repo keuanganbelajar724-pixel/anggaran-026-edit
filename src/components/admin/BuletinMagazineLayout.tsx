@@ -26,23 +26,29 @@ import {
   Share2,
   Printer,
   ChevronLeft,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit3,
+  SlidersHorizontal,
+  FileSpreadsheet,
+  AlertCircle
 } from 'lucide-react';
 import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA } from '../../types';
 import { formatRupiahShort, formatRupiahFull } from '../../utils/realisasiBelanjaProcessor';
+import { OFFICIAL_PRESET_IMAGES } from '../../data/buletinEditionPresets';
+import { generateDeepTreasuryAnalysis } from '../../utils/buletinTreasuryEngine';
 
 interface BuletinMagazineLayoutProps {
   buletinConfig: BuletinConfig;
   overallSummary: RealisasiBelanjaSummary | null;
   satkers?: SatkerIKPA[];
-  themeStyles: {
-    primaryBg: string;
-    headerBg: string;
-    accentBorder: string;
-    badgeBg: string;
-    subHeaderBg: string;
-    cardBorder: string;
-    accentText: string;
+  themeStyles?: {
+    primaryBg?: string;
+    headerBg?: string;
+    accentBorder?: string;
+    badgeBg?: string;
+    subHeaderBg?: string;
+    cardBorder?: string;
+    accentText?: string;
   };
   onUpdateBuletinConfig?: (updated: BuletinConfig) => void;
   onEditField?: (fieldKey: string) => void;
@@ -52,7 +58,6 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   buletinConfig,
   overallSummary,
   satkers = [],
-  themeStyles,
   onUpdateBuletinConfig,
   onEditField
 }) => {
@@ -62,6 +67,98 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   const tagline = buletinConfig.taglineBuletin || 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I';
   const currentFormat = buletinConfig.layoutFormat || 'executive_magazine';
   const isHighlightMissing = buletinConfig.highlightMissingData !== false;
+
+  // Deep Treasury Analysis Engine calculation
+  const deepAnalysis = useMemo(() => {
+    return generateDeepTreasuryAnalysis(overallSummary, satkers, buletinConfig.bulanTahun);
+  }, [overallSummary, satkers, buletinConfig.bulanTahun]);
+
+  // Visual Theme Profile definition for each of the 5 layouts
+  const formatTheme = useMemo(() => {
+    switch (currentFormat) {
+      case 'canva_vibrant':
+        return {
+          containerClass: 'bg-gradient-to-br from-indigo-50/50 via-white to-pink-50/40 text-slate-900',
+          pageCardClass: 'bg-white/95 rounded-3xl shadow-xl shadow-indigo-100/70 border border-violet-100 backdrop-blur-sm',
+          headerClass: 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-500 text-white rounded-2xl shadow-md p-4',
+          headerTitleClass: 'font-sans font-black tracking-tight text-white',
+          titleColor: 'text-violet-950 font-black font-sans',
+          badgeClass: 'bg-gradient-to-r from-amber-300 to-yellow-400 text-slate-950 font-black shadow-xs rounded-full px-3 py-1',
+          accentPillClass: 'bg-pink-100 text-pink-700 font-extrabold rounded-full px-3 py-0.5 text-xs',
+          tableHeaderClass: 'bg-gradient-to-r from-violet-800 to-fuchsia-800 text-white font-bold',
+          cardStyleClass: 'bg-white rounded-3xl border border-violet-100 shadow-md shadow-violet-50 p-5',
+          statCardClass: 'p-4 rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 text-center',
+          borderColor: 'border-violet-200',
+          footerClass: 'bg-violet-900 text-violet-200 rounded-full px-6 py-2 shadow-sm font-bold text-xs',
+          coverGradient: 'from-violet-950 via-purple-900 to-fuchsia-950'
+        };
+      case 'clean_treasury':
+        return {
+          containerClass: 'bg-[#fcfdfc] text-slate-900',
+          pageCardClass: 'bg-white rounded-2xl shadow-sm border border-emerald-200',
+          headerClass: 'bg-emerald-900 text-white border-b-4 border-emerald-500 p-4 rounded-xl',
+          headerTitleClass: 'font-sans font-extrabold tracking-wide uppercase text-white',
+          titleColor: 'text-emerald-950 font-extrabold font-sans',
+          badgeClass: 'bg-emerald-500 text-white font-bold tracking-wider rounded-lg px-3 py-1',
+          accentPillClass: 'bg-emerald-100 text-emerald-900 font-bold rounded-md px-2.5 py-0.5 text-xs border border-emerald-300',
+          tableHeaderClass: 'bg-emerald-950 text-emerald-100 font-bold',
+          cardStyleClass: 'bg-emerald-50/30 rounded-xl border border-emerald-200 p-5',
+          statCardClass: 'p-4 rounded-xl bg-emerald-50/70 border border-emerald-300 text-center',
+          borderColor: 'border-emerald-300',
+          footerClass: 'border-t-2 border-emerald-700 text-emerald-900 font-bold text-xs py-2',
+          coverGradient: 'from-emerald-950 via-slate-900 to-teal-950'
+        };
+      case 'royal_indigo':
+        return {
+          containerClass: 'bg-[#fbf9fe] text-slate-900',
+          pageCardClass: 'bg-white rounded-2xl shadow-lg border border-purple-200 ring-1 ring-purple-100',
+          headerClass: 'bg-gradient-to-r from-slate-950 via-indigo-950 to-purple-950 text-white border-b-2 border-rose-400 p-4 rounded-xl shadow-md',
+          headerTitleClass: 'font-serif font-black tracking-tight italic text-amber-200',
+          titleColor: 'text-indigo-950 font-black font-serif italic',
+          badgeClass: 'bg-rose-500 text-white font-black tracking-wider rounded-full px-3 py-1 shadow-xs',
+          accentPillClass: 'bg-purple-100 text-purple-900 font-black rounded-full px-3 py-0.5 text-xs border border-purple-300',
+          tableHeaderClass: 'bg-indigo-950 text-rose-200 font-bold',
+          cardStyleClass: 'bg-white rounded-2xl border border-purple-200 shadow-sm p-5 ring-1 ring-purple-50',
+          statCardClass: 'p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 text-center',
+          borderColor: 'border-purple-300',
+          footerClass: 'border-t-2 border-indigo-900 text-indigo-900 font-serif font-bold text-xs py-2',
+          coverGradient: 'from-slate-950 via-indigo-950 to-purple-950'
+        };
+      case 'classic_newsletter':
+        return {
+          containerClass: 'bg-[#fbf8f1] text-slate-950',
+          pageCardClass: 'bg-[#fdfbf7] rounded-none shadow-[4px_4px_0px_rgba(0,0,0,1)] border-2 border-slate-900',
+          headerClass: 'bg-[#f4efe4] text-slate-950 border-y-4 border-slate-900 p-4',
+          headerTitleClass: 'font-serif font-black tracking-normal uppercase text-slate-950',
+          titleColor: 'text-slate-950 font-black font-serif uppercase',
+          badgeClass: 'bg-slate-900 text-white font-serif font-bold uppercase tracking-widest px-3 py-1',
+          accentPillClass: 'bg-slate-200 text-slate-900 font-mono font-bold px-2 py-0.5 text-xs border border-slate-800',
+          tableHeaderClass: 'bg-slate-900 text-white font-serif uppercase font-bold',
+          cardStyleClass: 'bg-[#fdfbf7] border-2 border-slate-900 p-5 shadow-[2px_2px_0px_rgba(0,0,0,1)]',
+          statCardClass: 'p-4 bg-[#f8f4eb] border-2 border-slate-900 text-center',
+          borderColor: 'border-slate-900',
+          footerClass: 'border-t-2 border-slate-900 text-slate-900 font-serif font-bold text-xs py-2 text-center tracking-widest',
+          coverGradient: 'from-slate-950 via-stone-900 to-slate-900'
+        };
+      case 'executive_magazine':
+      default:
+        return {
+          containerClass: 'bg-[#fafaf9] text-slate-900',
+          pageCardClass: 'bg-white rounded-2xl shadow-md border border-slate-200',
+          headerClass: 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white border-b-2 border-amber-400/80 p-4 rounded-xl shadow-md',
+          headerTitleClass: 'font-serif font-black tracking-tight text-white',
+          titleColor: 'text-slate-900 font-black font-serif',
+          badgeClass: 'bg-amber-400 text-slate-950 font-black uppercase tracking-wider rounded-lg px-3 py-1 shadow-xs',
+          accentPillClass: 'bg-amber-50 text-amber-900 font-bold rounded-lg px-2.5 py-0.5 text-xs border border-amber-200',
+          tableHeaderClass: 'bg-slate-950 text-amber-300 font-bold uppercase',
+          cardStyleClass: 'bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:border-amber-400/40 transition-all',
+          statCardClass: 'p-4 rounded-xl bg-slate-50 border border-slate-200 text-center shadow-2xs',
+          borderColor: 'border-slate-300',
+          footerClass: 'border-t-2 border-slate-900 text-slate-700 font-serif font-bold text-xs py-2',
+          coverGradient: 'from-slate-950 via-slate-900 to-indigo-950'
+        };
+    }
+  }, [currentFormat]);
 
   // Helper to check if a value is empty or missing
   const isFieldEmpty = (value: string | undefined | null) => {
@@ -75,7 +172,8 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
     value: string | undefined | null,
     fieldName: string,
     hintText: string,
-    elementClassName: string = "text-slate-700 leading-relaxed",
+    elementClassName: string = "text-slate-700 leading-relaxed text-justify",
+    fallbackText?: string,
     asParagraph = true
   ) => {
     const empty = isFieldEmpty(value);
@@ -84,7 +182,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         return (
           <div 
             onClick={() => onEditField?.(fieldName)}
-            className="p-3 my-2 rounded-xl border-2 border-dashed border-rose-500 bg-rose-50 text-rose-800 text-xs font-semibold cursor-pointer hover:bg-rose-100 transition-all flex items-center justify-between gap-3 shadow-xs group"
+            className="p-3.5 my-2 rounded-xl border-2 border-dashed border-rose-500 bg-rose-50 text-rose-800 text-xs font-semibold cursor-pointer hover:bg-rose-100 transition-all flex items-center justify-between gap-3 shadow-xs group"
             title={`Klik untuk mengedit ${fieldName}`}
           >
             <div className="flex items-center gap-2">
@@ -99,11 +197,13 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 <p className="text-[11px] text-rose-700 font-normal italic mt-0.5">{hintText}</p>
               </div>
             </div>
-            <span className="text-[11px] font-bold underline text-rose-700 group-hover:text-rose-900 shrink-0 bg-white px-2 py-1 rounded-lg border border-rose-200">
+            <span className="text-[11px] font-bold underline text-rose-700 group-hover:text-rose-900 shrink-0 bg-white px-2.5 py-1 rounded-lg border border-rose-200 shadow-2xs">
               ✏️ Isi Sekarang
             </span>
           </div>
         );
+      } else if (fallbackText) {
+        return asParagraph ? <p className={elementClassName}>{fallbackText}</p> : <span className={elementClassName}>{fallbackText}</span>;
       } else {
         return null;
       }
@@ -117,104 +217,95 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
     photoUrl: string | undefined | null,
     photoLabel: string,
     aspectRatioClass: string = "h-56",
-    defaultPlaceholderNode: React.ReactNode,
+    defaultPlaceholderUrl: string = OFFICIAL_PRESET_IMAGES.coverBuletin,
     editTargetKey: string
   ) => {
-    if (photoUrl && photoUrl.trim().length > 10) {
-      return (
-        <div className={`relative ${aspectRatioClass} rounded-2xl overflow-hidden shadow-md group`}>
-          <img src={photoUrl} alt={photoLabel} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-          <button
-            onClick={() => onEditField?.(editTargetKey)}
-            className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 cursor-pointer"
-          >
-            <Camera className="w-3 h-3" /> Ganti Foto
-          </button>
-        </div>
-      );
-    }
+    const finalUrl = photoUrl && photoUrl.trim().length > 10 ? photoUrl : defaultPlaceholderUrl;
+    const isCustom = photoUrl && photoUrl.trim().length > 10;
 
-    if (isHighlightMissing) {
-      return (
-        <div
-          onClick={() => onEditField?.(editTargetKey)}
-          className={`${aspectRatioClass} rounded-2xl border-2 border-dashed border-rose-500 bg-rose-50 text-rose-900 flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-rose-100 transition-all group`}
-        >
-          <div className="w-10 h-10 rounded-full bg-rose-200 text-rose-700 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-            <Camera className="w-5 h-5" />
+    return (
+      <div className={`relative ${aspectRatioClass} rounded-2xl overflow-hidden shadow-md group border ${formatTheme.borderColor}`}>
+        <img 
+          src={finalUrl} 
+          alt={photoLabel} 
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        
+        {!isCustom && isHighlightMissing && (
+          <div className="absolute top-2 left-2 px-2 py-1 rounded-md bg-amber-500/90 text-slate-950 font-extrabold text-[10px] flex items-center gap-1 shadow-md">
+            <span>📷 Foto Bawaan / Default</span>
           </div>
-          <span className="text-xs font-black uppercase text-rose-800">[⚠️ FOTO BELUM DIUNGGAH]</span>
-          <span className="text-[11px] text-rose-600 font-medium max-w-xs">{photoLabel}</span>
-          <span className="mt-2 text-[10px] font-bold px-3 py-1 rounded-full bg-rose-600 text-white shadow-xs">
-            + Klik Disini Untuk Upload Foto
-          </span>
-        </div>
-      );
-    }
+        )}
 
-    return defaultPlaceholderNode;
+        <button
+          onClick={() => onEditField?.(editTargetKey)}
+          className="absolute bottom-2 right-2 px-3 py-1.5 rounded-lg bg-black/75 backdrop-blur-md text-white text-xs font-bold opacity-90 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 cursor-pointer shadow-lg hover:bg-black"
+        >
+          <Camera className="w-3.5 h-3.5 text-amber-300" />
+          <span>{isCustom ? 'Ganti Foto' : 'Unggah Foto Anda'}</span>
+        </button>
+      </div>
+    );
   };
 
-  // Fallback K/L dataset if no Excel has been uploaded yet
-  const fallbackKlList = [
-    { no: 1, ba: '076', kl: 'KOMISI PEMILIHAN UMUM KOTA SEMARANG', pagu: 145873424000, realisasi: 112250432688, persen: 76.95 },
-    { no: 2, ba: '012', kl: 'KEMENTERIAN PERTAHANAN / KODAM IV DIPONEGORO', pagu: 1825956145000, realisasi: 1206223608892, persen: 66.06 },
-    { no: 3, ba: '060', kl: 'KEPOLISIAN NEGARA REPUBLIK INDONESIA / POLDA JATENG', pagu: 897505559000, realisasi: 574464374518, persen: 64.01 },
-    { no: 4, ba: '005', kl: 'MAHKAMAH AGUNG REPUBLIK INDONESIA', pagu: 73590435000, realisasi: 45725752528, persen: 62.14 },
-    { no: 5, ba: '023', kl: 'KEMENDIKBUDRISTEK / POLINES & PIP SEMARANG', pagu: 932959983000, realisasi: 543340745680, persen: 58.24 },
-    { no: 6, ba: '015', kl: 'KEMENTERIAN KEUANGAN (DJP, DJBC, DJKN, DJPb JATENG)', pagu: 139446816000, realisasi: 80203672844, persen: 57.51 },
-    { no: 7, ba: '006', kl: 'KEJAKSAAN TINGGI JAWA TENGAH', pagu: 64749550000, realisasi: 36240003391, persen: 55.97 },
-    { no: 8, ba: '022', kl: 'KEMENTERIAN PERHUBUNGAN (KSOP / DISTRIK NAVIGASI)', pagu: 391945607000, realisasi: 214387651269, persen: 54.70 },
-    { no: 9, ba: '056', kl: 'KEMENTERIAN ATR / BPN PROVINSI JAWA TENGAH', pagu: 55723452000, realisasi: 29463264309, persen: 52.87 },
-    { no: 10, ba: '025', kl: 'KEMENTERIAN AGAMA (KANWIL & UIN WALISONGO)', pagu: 695654235000, realisasi: 358584227188, persen: 51.55 },
-    { no: 11, ba: '024', kl: 'KEMENTERIAN KESEHATAN (RSUP DR. KARIADI)', pagu: 884710643000, realisasi: 444724180603, persen: 50.27 },
-    { no: 12, ba: '033', kl: 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT', pagu: 1123943650000, realisasi: 523483014231, persen: 46.58 },
-    { no: 13, ba: '027', kl: 'KEMENTERIAN SOSIAL (SENTRA TERPADU SOEHARSO)', pagu: 67898268000, realisasi: 30969291877, persen: 45.61 },
-    { no: 14, ba: '054', kl: 'BADAN PUSAT STATISTIK PROVINSI JAWA TENGAH', pagu: 34067333000, realisasi: 15733832332, persen: 46.18 },
-    { no: 15, ba: '063', kl: 'BALAI BESAR PENGAWAS OBAT DAN MAKANAN SEMARANG', pagu: 14867975000, realisasi: 6296810457, persen: 42.35 },
-    { no: 16, ba: '013', kl: 'KEMENTERIAN HUKUM DAN HAM JAWA TENGAH', pagu: 99701686000, realisasi: 40614856281, persen: 40.74 },
-    { no: 17, ba: '029', kl: 'KEMENTERIAN LINGKUNGAN HIDUP DAN KEHUTANAN', pagu: 48206546000, realisasi: 18454499471, persen: 38.28 },
-    { no: 18, ba: '026', kl: 'KEMENTERIAN KETENAGAKERJAAN (BBPVP SEMARANG)', pagu: 89568845000, realisasi: 31318991497, persen: 34.97 },
-    { no: 19, ba: '059', kl: 'KEMENTERIAN KOMUNIKASI DAN DIGITAL (BPSDMP)', pagu: 18966213000, realisasi: 6437586067, persen: 33.94 },
-    { no: 20, ba: '040', kl: 'KEMENTERIAN PARIWISATA DAN EKONOMI KREATIF', pagu: 4400000000, realisasi: 1241526000, persen: 28.22 }
-  ];
-
-  // Dynamic real K/L data from overallSummary if present
+  // 5 Top K/L list for Page 6 & Page 7
   const klList = useMemo(() => {
     if (overallSummary?.breakdownKementerian && overallSummary.breakdownKementerian.length > 0) {
-      return overallSummary.breakdownKementerian.map((k, idx) => ({
+      return overallSummary.breakdownKementerian.slice(0, 15).map((item, idx) => ({
         no: idx + 1,
-        ba: k.kode || `0${idx + 1}`.slice(-3),
-        kl: k.nama.toUpperCase(),
-        pagu: k.pagu,
-        realisasi: k.realisasi,
-        persen: k.persen
+        ba: item.kode,
+        kl: item.nama,
+        pagu: item.pagu,
+        realisasi: item.realisasi,
+        persen: item.persen
       }));
     }
-    return fallbackKlList;
+    return [
+      { no: 1, ba: '060', kl: 'KEPOLISIAN NEGARA REPUBLIK INDONESIA', pagu: 1850000000000, realisasi: 1425000000000, persen: 77.03 },
+      { no: 2, ba: '025', kl: 'KEMENTERIAN AGAMA', pagu: 820000000000, realisasi: 615000000000, persen: 75.00 },
+      { no: 3, ba: '023', kl: 'KEMENDIKBUDRISTEK', pagu: 1450000000000, realisasi: 980000000000, persen: 67.59 },
+      { no: 4, ba: '033', kl: 'KEMENTERIAN PEKERJAAN UMUM DAN PERUMAHAN RAKYAT', pagu: 920000000000, realisasi: 590000000000, persen: 64.13 },
+      { no: 5, ba: '013', kl: 'KEMENTERIAN HUKUM DAN HAK ASASI MANUSIA', pagu: 340000000000, realisasi: 245000000000, persen: 72.06 },
+      { no: 6, ba: '022', kl: 'KEMENTERIAN PERHUBUNGAN', pagu: 280000000000, realisasi: 195000000000, persen: 69.64 },
+      { no: 7, ba: '004', kl: 'BADAN PEMERIKSA KEUANGAN (BPK)', pagu: 95000000000, realisasi: 72000000000, persen: 75.79 },
+      { no: 8, ba: '015', kl: 'KEMENTERIAN KEUANGAN', pagu: 180000000000, realisasi: 135000000000, persen: 75.00 }
+    ];
   }, [overallSummary]);
 
-  // Helper to render Page Container with A4 aspect ratio
-  const renderPageWrapper = (pageNumber: number, title: string, children: React.ReactNode) => {
-    if (selectedPageView !== 'all' && selectedPageView !== pageNumber) {
+  const renderPageWrapper = (pageNum: number, title: string, children: React.ReactNode) => {
+    if (selectedPageView !== 'all' && selectedPageView !== pageNum) {
       return null;
     }
 
     return (
       <div 
-        key={pageNumber} 
-        id={`buletin-page-${pageNumber}`}
-        className="bg-white rounded-2xl shadow-2xl border border-slate-300 overflow-hidden print:border-none print:shadow-none print:rounded-none page-break-after relative flex flex-col justify-between min-h-[1120px] transition-all"
+        key={`page-${pageNum}`}
+        id={`buletin-page-${pageNum}`} 
+        className={`w-full bg-white rounded-2xl shadow-xl overflow-hidden border ${formatTheme.borderColor} min-h-[1120px] flex flex-col justify-between print:min-h-[1120px] print:shadow-none print:m-0 print:rounded-none page-break-after-always relative transition-all duration-300`}
       >
-        <div className="flex-1 flex flex-col">
+        {/* Page Top Indicator for screen mode */}
+        <div className="bg-slate-900 text-white text-[10px] font-bold px-4 py-1 flex items-center justify-between print:hidden">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span>HALAMAN {pageNum} DARI 20 • {title.toUpperCase()}</span>
+          </span>
+          <span className="text-amber-300 font-mono">Format: {currentFormat.replace('_', ' ').toUpperCase()}</span>
+        </div>
+
+        {/* Page Content */}
+        <div className="flex-1 flex flex-col justify-between">
           {children}
         </div>
 
-        {/* Standard Page Footer for pages 2 through 19 */}
-        {pageNumber > 1 && pageNumber < 20 && (
-          <div className="px-8 py-3 bg-slate-100/90 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500 font-medium">
-            <span className="truncate max-w-md">KPPN Tipe A1 Semarang I • {namaBuletin} ({buletinConfig.edisi})</span>
-            <span className="font-bold text-slate-700">Halaman {pageNumber}</span>
+        {/* Page Footer */}
+        {pageNum > 1 && pageNum < 20 && (
+          <div className="px-10 py-3 bg-slate-50/90 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-500 font-semibold print:bg-transparent">
+            <span>{namaBuletin} • {buletinConfig.edisi}</span>
+            <span className="font-bold text-slate-700">KPPN Tipe A1 Semarang I</span>
+            <span className="w-6 h-6 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-[10px]">
+              {pageNum}
+            </span>
           </div>
         )}
       </div>
@@ -222,61 +313,32 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 print:space-y-0 ${formatTheme.containerClass} p-4 sm:p-6 rounded-3xl`}>
       
-      {/* 20-Page Selector & Format Switcher Toolbar */}
-      <div className="p-5 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-        {/* Row 1: Title and Format Badges */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-700 pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex flex-col items-center justify-center font-black text-xs shadow-xs shrink-0">
-              <span>20P</span>
-              <span className="text-[8px] uppercase tracking-tighter">A4</span>
-            </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                <span>Struktur Lengkap Majalah (20 Halaman Cetak &amp; Digital)</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Pilih format majalah &amp; pantau kelengkapan data sebelum dicetak / diekspor ke Canva &amp; PDF.
-              </p>
-            </div>
+      {/* Control Ribbon Toolbar */}
+      <div className="sticky top-20 z-30 p-4 rounded-2xl bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-lg flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-blue-600 text-white shadow-xs">
+            <BookOpen className="w-5 h-5" />
           </div>
-
-          {/* Format Quick Selector */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
-            <span className="text-[10px] font-bold text-slate-500 uppercase px-1.5">Format:</span>
-            {[
-              { id: 'executive_magazine', label: '🏛️ Modern Executive', desc: 'Navy & Gold' },
-              { id: 'canva_vibrant', label: '🎨 Canva Vibrant', desc: 'Gradien Berwarna' },
-              { id: 'clean_treasury', label: '🌿 Clean Treasury', desc: 'Minimalis Elegan' },
-              { id: 'royal_indigo', label: '👑 Royal Indigo', desc: 'Ungu Emas' },
-              { id: 'classic_newsletter', label: '📰 Classic Warta', desc: '2 Kolom Koran' }
-            ].map(fmt => (
-              <button
-                key={fmt.id}
-                onClick={() => {
-                  if (onUpdateBuletinConfig) {
-                    onUpdateBuletinConfig({ ...buletinConfig, layoutFormat: fmt.id as any });
-                  }
-                }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  currentFormat === fmt.id
-                    ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs ring-1 ring-blue-500'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 hover:bg-slate-200 dark:hover:bg-slate-600'
-                }`}
-                title={fmt.desc}
-              >
-                {fmt.label}
-              </button>
-            ))}
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                Pratinjau Majalah Buletin (20 Halaman Lengkap)
+              </h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${formatTheme.badgeClass}`}>
+                {currentFormat.replace('_', ' ')}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {namaBuletin} • {buletinConfig.edisi} ({buletinConfig.bulanTahun})
+            </p>
           </div>
         </div>
 
-        {/* Row 2: Page Navigation & Missing Data Toggle */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-          {/* Missing Data Highlight Switcher */}
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-700/40 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Missing data highlight toggle */}
+          <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-800 dark:text-rose-300 text-xs font-bold cursor-pointer hover:bg-rose-100 transition-colors">
             <input
               type="checkbox"
               checked={isHighlightMissing}
@@ -289,12 +351,12 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
             />
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block animate-pulse" />
-              <span>Sorot Data Kosong / Belum Diisi (Warna Merah)</span>
+              <span>Sorot Data Belum Diisi (Merah)</span>
             </span>
           </label>
 
           {/* Page Filter Tabs */}
-          <div className="flex items-center gap-2 max-w-full">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setSelectedPageView('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -303,7 +365,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
               }`}
             >
-              Tampilkan Semua (20 Hal)
+              Semua (20 Hal)
             </button>
 
             <select
@@ -314,22 +376,22 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               <option value="all">📖 Semua 20 Halaman</option>
               <option value="1">Hal 1: Cover Majalah KPPN Semarang I</option>
               <option value="2">Hal 2: Kata Pengantar Kepala KPPN</option>
-              <option value="3">Hal 3: Sekilas Tentang Buletin</option>
+              <option value="3">Hal 3: Sekilas Tentang Buletin &amp; Tim Redaksi</option>
               <option value="4">Hal 4: Daftar Isi Majalah</option>
-              <option value="5">Hal 5: Realisasi Belanja (Infografis)</option>
-              <option value="6">Hal 6: Tabel Realisasi Belanja K/L</option>
+              <option value="5">Hal 5: Realisasi Belanja (Infografis &amp; Analisis)</option>
+              <option value="6">Hal 6: Tabel Realisasi Belanja K/L Lengkap</option>
               <option value="7">Hal 7: Realisasi 5 K/L &amp; Jenis Belanja</option>
               <option value="8">Hal 8: Penyaluran Transfer ke Daerah (TKD)</option>
               <option value="9">Hal 9: Guyub Rukun (Wawancara Satker Bag. 1)</option>
-              <option value="10">Hal 10: Guyub Rukun (Wawancara Satker Bag. 2)</option>
-              <option value="11">Hal 11: Sarwa Sarwi KPPN (Capacity Building)</option>
-              <option value="12">Hal 12: Sarwa Sarwi KPPN (Outbound Tim)</option>
-              <option value="13">Hal 13: Sarwa Sarwi KPPN (Purna Bakti)</option>
-              <option value="14">Hal 14: Sarwa Sarwi KPPN (River Tubing &amp; Foto)</option>
-              <option value="15">Hal 15: Pagelaran Semarang (Semarang Night Carnival)</option>
-              <option value="16">Hal 16: Pagelaran Semarang (Bazar UMKM Binaan)</option>
+              <option value="10">Hal 10: Guyub Rukun (Praktik Baik Bag. 2)</option>
+              <option value="11">Hal 11: Sarwa Sarwi (Capacity Building)</option>
+              <option value="12">Hal 12: Sarwa Sarwi (Outbound KPPN)</option>
+              <option value="13">Hal 13: Sarwa Sarwi (Purna Bakti)</option>
+              <option value="14">Hal 14: Sarwa Sarwi (River Tubing)</option>
+              <option value="15">Hal 15: Pagelaran Semarang (Karnaval &amp; Seni)</option>
+              <option value="16">Hal 16: Pagelaran Semarang (UMKM Kemenkeu Satu)</option>
               <option value="17">Hal 17: Teropong Semarang (Kota Lama)</option>
-              <option value="18">Hal 18: Teropong Semarang (Lawang Sewu &amp; Johar)</option>
+              <option value="18">Hal 18: Teropong Semarang (Lawang Sewu)</option>
               <option value="19">Hal 19: Zona Integritas &amp; Pantun Antikorupsi</option>
               <option value="20">Hal 20: Back Cover &amp; Info Kontak KPPN</option>
             </select>
@@ -340,18 +402,21 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
       <div id="buletin-magazine-container" className="max-w-4xl mx-auto space-y-12 print:space-y-0 text-slate-900">
         
         {/* ========================================================================= */}
-        {/* HALAMAN 1: COVER MAJALAH RESMI KPPN SEMARANG I (Format Full Color)       */}
+        {/* HALAMAN 1: COVER MAJALAH RESMI KPPN SEMARANG I (Full Color Theme Adaptive) */}
         {/* ========================================================================= */}
-        {renderPageWrapper(1, 'Cover', (
-          <div className="flex-1 flex flex-col justify-between p-8 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white relative overflow-hidden min-h-[1100px]">
+        {renderPageWrapper(1, 'Cover Depan', (
+          <div className={`flex-1 flex flex-col justify-between p-8 bg-gradient-to-br ${formatTheme.coverGradient} text-white relative overflow-hidden min-h-[1100px]`}>
             {/* Background Image / Pattern */}
             {buletinConfig.fotoCoverUrl ? (
               <div 
-                className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-overlay pointer-events-none"
+                className="absolute inset-0 bg-cover bg-center opacity-35 mix-blend-overlay pointer-events-none"
                 style={{ backgroundImage: `url(${buletinConfig.fotoCoverUrl})` }}
               />
             ) : (
-              <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-overlay pointer-events-none"
+                style={{ backgroundImage: `url(${OFFICIAL_PRESET_IMAGES.coverBuletin})` }}
+              />
             )}
             
             {/* Top Brand Banner */}
@@ -369,13 +434,13 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                     KPPN TIPE A1 SEMARANG I
                   </div>
                   <div className="text-[10px] text-slate-300">
-                    Mengawal APBN, Membangun Negeri • InTress Treasury
+                    Mengawal APBN, Membangun Negeri • InTress Treasury Prime
                   </div>
                 </div>
               </div>
 
               <div className="text-right">
-                <div className="inline-block px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-md">
+                <div className={`inline-block px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider ${formatTheme.badgeClass}`}>
                   {buletinConfig.edisi}
                 </div>
                 <div className="text-xs text-slate-300 font-bold mt-1">
@@ -402,7 +467,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               </p>
 
               {/* Cover Feature Card */}
-              <div className="p-6 rounded-2xl bg-white/10 backdrop-blur-lg border border-white/20 max-w-2xl mx-auto text-left shadow-2xl space-y-3">
+              <div className="p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/20 max-w-2xl mx-auto text-left shadow-2xl space-y-3">
                 <div className="text-xs uppercase font-bold tracking-wider text-amber-300">Fokus Laporan Utama:</div>
                 <h2 className="text-xl sm:text-2xl font-black text-white leading-snug">
                   {buletinConfig.judulUtama}
@@ -415,7 +480,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
             {/* Bottom Highlights Bar */}
             <div className="relative z-10 grid grid-cols-2 gap-4 pt-6 border-t border-white/20 text-xs">
-              <div className="p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
+              <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10">
                 <span className="text-[10px] uppercase font-bold text-amber-300 block">
                   {buletinConfig.coverHighlight1 ? 'HIGHLIGHT 1' : 'RUBRIK SARWA SARWI'}
                 </span>
@@ -423,7 +488,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   {buletinConfig.coverHighlight1 || 'CAPACITY BUILDING: SINERGI & KOLABORASI TINGKATKAN PRESTASI'}
                 </span>
               </div>
-              <div className="p-3.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/10">
+              <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10">
                 <span className="text-[10px] uppercase font-bold text-amber-300 block">
                   {buletinConfig.coverHighlight2 ? 'HIGHLIGHT 2' : 'RUBRIK PAGELARAN SEMARANG'}
                 </span>
@@ -439,128 +504,155 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 2: KATA PENGANTAR KEPALA KPPN SEMARANG I                         */}
         {/* ========================================================================= */}
-        {renderPageWrapper(2, 'Kata Pengantar', (
+        {renderPageWrapper(2, 'Kata Pengantar Kepala Kantor', (
           <div className="p-10 space-y-8 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
-                <h2 className="text-3xl font-black text-slate-900 font-serif tracking-tight">Kata Pengantar</h2>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Editorial KPPN Semarang I</span>
+              <div className={formatTheme.headerClass}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-2xl sm:text-3xl font-black ${formatTheme.headerTitleClass}`}>
+                    Kata Pengantar
+                  </h2>
+                  <span className="text-xs font-bold uppercase tracking-widest text-amber-300">
+                    Editorial Kepala KPPN Semarang I
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
                 <div className="md:col-span-2 space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
                   <p>
-                    Dengan rasa syukur kami panjatkan segala puji kehadirat Allah SWT, Tuhan Yang Maha Esa. Dengan izin dan kehendak-Nya, kami dengan bangga mempersembahkan <strong>{namaBuletin}</strong> edisi <strong>{buletinConfig.edisi}</strong> kepada seluruh mitra kerja Satuan Kerja Kementerian/Lembaga serta para pemangku kepentingan.
+                    Dengan memanjatkan puji dan syukur ke hadirat Allah SWT, Tuhan Yang Maha Kuasa, KPPN Tipe A1 Semarang I dengan penuh rasa bangga mempersembahkan buletin <strong>{namaBuletin}</strong> edisi <strong>{buletinConfig.edisi}</strong> kepada seluruh Kuasa Pengguna Anggaran, Pengelola Perbendaharaan Satker mitra, serta seluruh pemangku kepentingan di wilayah Kota Semarang dan sekitarnya.
                   </p>
+                  
+                  {renderTextOrMissing(
+                    buletinConfig.sambutanKepala,
+                    'sambutanKepala',
+                    'Sambutan resmi Kepala Kantor mengenai pengawalan APBN dan integritas layanan.',
+                    'text-slate-700 leading-relaxed text-justify font-medium bg-slate-50/70 p-4 rounded-xl border border-slate-200'
+                  )}
+
                   <p>
-                    Di tengah lonjakan transformasi digital perbendaharaan yang kian terakselerasi melalui implementasi SAKTI, KPPN Tipe A1 Semarang I berkomitmen untuk senantiasa menyajikan inovasi publikasi digital yang transparan, akuntabel, dan memberikan kemudahan akses data kinerja fiskal di mana pun dan kapan pun.
+                    Di tengah akselerasi modernisasi perbendaharaan melalui ekosistem SAKTI dan digitalisasi pembayaran pemerintah (Digipay Satu &amp; KKP), kami senantiasa menempatkan akuntabilitas, ketepatan waktu penerbitan SP2D, dan mitigasi deviasi Rencana Penarikan Dana (RPD) sebagai prioritas utama.
                   </p>
+                  
                   <p>
-                    {buletinConfig.sambutanKepala}
-                  </p>
-                  <p>
-                    Kami berharap bahwa informasi yang kami sajikan dalam buletin ini akan memberikan wawasan yang berharga bagi semua kalangan. Terutama bagi para Kuasa Pengguna Anggaran (KPA), Pejabat Pembuat Komitmen (PPK), Pejabat Penandatangan SPM (PPSPM), dan Bendahara Pengeluaran dalam mengawal ketepatan pelaksanaan anggaran serta memitigasi deviasi Halaman III DIPA.
-                  </p>
-                  <p>
-                    Selamat membaca dan semoga Anda menikmati setiap untaian rubrik yang kami hadirkan demi penguatan tata kelola keuangan negara yang semakin prima.
+                    Semoga sajian informasi, ulasan analitis data fiskal, dan dokumentasi praktik baik dalam edisi ini dapat menjadi referensi strategis dan penyemangat bagi kita semua dalam mewujudkan tata kelola keuangan negara yang semakin prima, transparan, dan berintegritas.
                   </p>
                 </div>
 
                 {/* Profile Box Kepala KPPN */}
-                <div className="md:col-span-1 p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-4 shadow-sm">
-                  {buletinConfig.fotoKepalaUrl ? (
-                    <div className="w-36 h-44 mx-auto rounded-xl overflow-hidden shadow-md border-2 border-slate-300">
-                      <img 
-                        src={buletinConfig.fotoKepalaUrl} 
-                        alt={buletinConfig.namaKepalaKantor} 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-32 h-40 mx-auto rounded-xl bg-gradient-to-br from-blue-700 to-indigo-900 text-white flex flex-col items-center justify-center p-2 shadow-md relative overflow-hidden">
-                      <UserCheck className="w-12 h-12 text-amber-300 mb-2" />
-                      <span className="text-[10px] uppercase font-bold text-slate-200">Foto Resmi</span>
-                      <span className="text-[9px] text-amber-300 font-bold">KPPN SEMARANG I</span>
-                    </div>
-                  )}
+                <div className={formatTheme.cardStyleClass}>
+                  <div className="text-center space-y-4">
+                    {renderPhotoOrMissing(
+                      buletinConfig.fotoKepalaUrl,
+                      buletinConfig.namaKepalaKantor,
+                      'h-48 w-40 mx-auto',
+                      OFFICIAL_PRESET_IMAGES.kepalaKantor,
+                      'fotoKepalaUrl'
+                    )}
 
-                  <div className="space-y-1">
-                    <div className="inline-block px-3 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
-                      {buletinConfig.namaKepalaKantor}
+                    <div className="space-y-1">
+                      <div className={`inline-block px-3 py-1 rounded-full font-black text-xs uppercase tracking-wider ${formatTheme.badgeClass}`}>
+                        {buletinConfig.namaKepalaKantor}
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-600 uppercase">
+                        {buletinConfig.jabatanKepala || 'Kepala KPPN Tipe A1 Semarang I'}
+                      </p>
+                      <p className="text-[10px] text-slate-400 italic">
+                        Kementerian Keuangan Republik Indonesia
+                      </p>
                     </div>
-                    <p className="text-[11px] font-bold text-slate-600 uppercase">
-                      {buletinConfig.jabatanKepala || 'Kepala KPPN Tipe A1 Semarang I'}
-                    </p>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className={formatTheme.footerClass}>
+              Mengawal APBN • Mendorong Pertumbuhan Ekonomi Kota Semarang
             </div>
           </div>
         ))}
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 3: SEKILAS TENTANG BULETIN & RUBRIKASI                            */}
+        {/* HALAMAN 3: SEKILAS TENTANG BULETIN & TIM REDAKSI                         */}
         {/* ========================================================================= */}
-        {renderPageWrapper(3, 'Sekilas Tentang', (
+        {renderPageWrapper(3, 'Sekilas Tentang & Redaksi', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="flex items-center gap-3 border-b-2 border-slate-900 pb-3">
-                <span className="px-3 py-1 rounded-md bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider">
-                  SEKILAS TENTANG
-                </span>
-                <h2 className="text-2xl font-black text-slate-900 font-serif">
-                  {namaBuletin} (KPPN Tipe A1 Semarang I)
-                </h2>
+              <div className={formatTheme.headerClass}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-2xl font-black ${formatTheme.headerTitleClass}`}>
+                    Sekilas Tentang &amp; Tim Redaksi
+                  </h2>
+                  <span className="text-xs font-bold uppercase text-amber-300">Warta Semarang Satu</span>
+                </div>
               </div>
 
               <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
-                <p>
-                  {buletinConfig.sekilasBuletin || `Buletin ${namaBuletin} merupakan media publikasi berkala yang disusun secara mandiri oleh Seksi Manajemen Satker dan Kepatuhan Internal (MSKI) KPPN Tipe A1 Semarang I. Buletin ini diterbitkan sebagai sarana penyebarluasan informasi kinerja perbendaharaan, edukasi regulasi pengelolaan keuangan negara, serta wadah sinergi dan penguatan integritas bersama seluruh Satuan Kerja mitra kerja.`}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.sekilasBuletin,
+                  'sekilasBuletin',
+                  'Deskripsi profil majalah, tujuan publikasi, dan rubrikasi berkala.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  `Buletin ${namaBuletin} merupakan media publikasi berkala yang disusun secara mandiri oleh Seksi Manajemen Satker dan Kepatuhan Internal (MSKI) KPPN Tipe A1 Semarang I. Buletin ini diterbitkan sebagai sarana penyebarluasan informasi kinerja perbendaharaan, edukasi regulasi pengelolaan keuangan negara, serta wadah sinergi dan penguatan integritas bersama seluruh Satuan Kerja mitra kerja.`
+                )}
 
-                <p>
-                  Setiap edisinya, <strong>{namaBuletin}</strong> mengangkat tema kontekstual dengan 5 (lima) rubrikasi utama:
-                </p>
+                {/* Tajuk Rencana Highlight */}
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-slate-800 space-y-2">
+                  <div className="flex items-center gap-2 font-black text-amber-900 text-xs uppercase tracking-wide">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>Catatan Tajuk Rencana Edisi Ini:</span>
+                  </div>
+                  {renderTextOrMissing(
+                    buletinConfig.tajukRencana,
+                    'tajukRencana',
+                    'Ulasan tajuk rencana edisi ini.',
+                    'text-xs text-slate-800 leading-relaxed italic'
+                  )}
+                </div>
 
+                {/* Tim Redaksi Structured Table */}
                 <div className="space-y-3 pt-2">
-                  <div className="p-3.5 rounded-xl bg-blue-50/70 border border-blue-100 flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</span>
-                    <div>
-                      <strong className="text-blue-950 text-xs font-black uppercase">Realisasi Belanja &amp; Kinerja APBN:</strong>
-                      <p className="text-xs text-slate-600 mt-0.5">Menyajikan ringkasan penyerapan anggaran, evaluasi IKPA satker, dan analisis per jenis belanja di wilayah kerja Semarang.</p>
+                  <h3 className={`text-sm font-black uppercase tracking-wider ${formatTheme.titleColor}`}>
+                    Susunan Tim Redaksi &amp; Penerbitan
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Pelindung:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.pelindung || 'Kepala Kanwil DJPb Provinsi Jawa Tengah'}
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-100 flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</span>
-                    <div>
-                      <strong className="text-emerald-950 text-xs font-black uppercase">Guyub Rukun:</strong>
-                      <p className="text-xs text-slate-600 mt-0.5">Wawancara eksklusif dan bedah praktik baik bersama Satker peraih predikat IKPA terbaik dan pengelola keuangan berprestasi.</p>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Penanggung Jawab:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.penanggungJawab || buletinConfig.namaKepalaKantor}
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-100 flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">3</span>
-                    <div>
-                      <strong className="text-purple-950 text-xs font-black uppercase">Sarwa Sarwi KPPN:</strong>
-                      <p className="text-xs text-slate-600 mt-0.5">Liputan kegiatan internal pegawai, capacity building, pembinaan mental, dan momen kebersamaan insan KPPN Semarang I.</p>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Pemimpin Redaksi:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.pemimpinRedaksi || 'Kepala Seksi MSKI KPPN Semarang I'}
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-100 flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">4</span>
-                    <div>
-                      <strong className="text-amber-950 text-xs font-black uppercase">Pagelaran Semarang:</strong>
-                      <p className="text-xs text-slate-600 mt-0.5">Pojok kebudayaan lokal Kota Semarang, festival rakyat, dan pemberdayaan produk UMKM binaan Kemenkeu Satu.</p>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Redaktur Pelaksana:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.redakturPelaksana || 'Kepala Seksi Pencairan Dana & Seksi Bank'}
+                      </span>
                     </div>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-100 flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">5</span>
-                    <div>
-                      <strong className="text-rose-950 text-xs font-black uppercase">Teropong Semarang &amp; Zona Integritas:</strong>
-                      <p className="text-xs text-slate-600 mt-0.5">Ulasan ikon wisata bersejarah (Kota Lama, Lawang Sewu) serta pantun dan komitmen layanan WBBM tanpa korupsi.</p>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Tim Liputan &amp; Analis:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.timLiputan || 'Staf Seksi MSKI & Seksi Verifikasi Akuntansi'}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-bold uppercase block">Desain &amp; Tata Letak:</span>
+                      <span className="font-extrabold text-slate-900">
+                        {buletinConfig.redaksiTim?.desainTataLetak || 'Tim Media Digital & Publikasi KPPN Semarang I'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -573,15 +665,19 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 4: DAFTAR ISI MAJALAH (Format 20 Halaman Lengkap)                */}
         {/* ========================================================================= */}
-        {renderPageWrapper(4, 'Daftar Isi', (
+        {renderPageWrapper(4, 'Daftar Isi Majalah', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
-                <h2 className="text-3xl font-black text-slate-900 font-serif tracking-tight">Daftar Isi</h2>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{namaBuletin}</span>
+              <div className={formatTheme.headerClass}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-2xl font-black ${formatTheme.headerTitleClass}`}>
+                    Daftar Isi Majalah
+                  </h2>
+                  <span className="text-xs font-bold uppercase text-amber-300">{namaBuletin}</span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5 text-xs">
                 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
                   <span className="font-semibold text-slate-700">Cover Depan Majalah</span>
@@ -594,22 +690,22 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
-                  <span className="font-semibold text-slate-700">Sekilas Tentang Buletin</span>
+                  <span className="font-semibold text-slate-700">Sekilas Tentang &amp; Tim Redaksi</span>
                   <span className="font-mono font-bold text-slate-900">03</span>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
-                  <span className="font-semibold text-slate-700">Daftar Isi</span>
+                  <span className="font-semibold text-slate-700">Daftar Isi Majalah</span>
                   <span className="font-mono font-bold text-slate-900">04</span>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
-                  <span className="font-bold text-blue-900">Realisasi Belanja (Infografis Utama)</span>
+                  <span className="font-bold text-blue-900">Realisasi Belanja (Infografis &amp; Analisis)</span>
                   <span className="font-mono font-bold text-blue-900">05</span>
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
-                  <span className="font-bold text-blue-900">Pagu &amp; Realisasi Belanja K/L</span>
+                  <span className="font-bold text-blue-900">Pagu &amp; Realisasi Belanja K/L Lengkap</span>
                   <span className="font-mono font-bold text-blue-900">06</span>
                 </div>
 
@@ -649,7 +745,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
-                  <span className="font-bold text-purple-900">Sarwa Sarwi: River Tubing &amp; Keseruan</span>
+                  <span className="font-bold text-purple-900">Sarwa Sarwi: River Tubing &amp; Family Day</span>
                   <span className="font-mono font-bold text-purple-900">14</span>
                 </div>
 
@@ -690,78 +786,104 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 5: REALISASI BELANJA KPPN SEMARANG I (INFOGRAFIS PERSIS CONTOH)    */}
+        {/* HALAMAN 5: REALISASI BELANJA (INFOGRAFIS & ANALISIS FISKAL MENDALAM)       */}
         {/* ========================================================================= */}
-        {renderPageWrapper(5, 'Realisasi Belanja', (
+        {renderPageWrapper(5, 'Realisasi Belanja & Analisis', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="text-center space-y-1 border-b-2 border-slate-900 pb-3">
-                <h2 className="text-2xl sm:text-3xl font-black text-blue-900 font-serif uppercase tracking-tight">
-                  REALISASI BELANJA
-                </h2>
-                <h3 className="text-lg sm:text-xl font-extrabold text-amber-500 uppercase tracking-wide">
-                  KPPN SEMARANG I
-                </h3>
+              <div className={formatTheme.headerClass}>
+                <div className="text-center space-y-1">
+                  <h2 className={`text-2xl sm:text-3xl font-black uppercase ${formatTheme.headerTitleClass}`}>
+                    REALISASI BELANJA NEGARA
+                  </h2>
+                  <h3 className="text-sm font-extrabold uppercase text-amber-300 tracking-wider">
+                    KPPN TIPE A1 SEMARANG I • {buletinConfig.bulanTahun}
+                  </h3>
+                </div>
               </div>
 
-              {overallSummary && (
-                <div className="space-y-6">
-                  {/* Hero Summary Box */}
-                  <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white text-center space-y-3 shadow-lg">
-                    <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-xl mx-auto">
-                      Realisasi belanja negara dalam lingkup KPPN Tipe A1 Semarang I untuk periode {buletinConfig.bulanTahun} telah mencapai <strong>{overallSummary.persenRealisasiTotal.toFixed(2)}%</strong> atau sebesar <strong>{formatRupiahShort(overallSummary.totalRealisasi)}</strong> dari total pagu kelolaan sebesar <strong>{formatRupiahShort(overallSummary.totalPagu)}</strong>.
-                    </p>
+              {/* Hero Summary Box */}
+              <div className={formatTheme.cardStyleClass}>
+                <p className="text-xs sm:text-sm text-slate-700 leading-relaxed text-justify mb-4">
+                  {deepAnalysis.headlineSummary}
+                </p>
 
-                    <div className="grid grid-cols-2 gap-4 pt-3 max-w-md mx-auto">
-                      <div className="p-3 rounded-xl bg-white/10 border border-white/10">
-                        <div className="text-[10px] text-slate-300 font-bold uppercase">TOTAL PAGU</div>
-                        <div className="text-xl font-black text-amber-300">{formatRupiahShort(overallSummary.totalPagu)}</div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/10 border border-white/10">
-                        <div className="text-[10px] text-slate-300 font-bold uppercase">TOTAL REALISASI</div>
-                        <div className="text-xl font-black text-emerald-300">{formatRupiahShort(overallSummary.totalRealisasi)}</div>
-                      </div>
+                <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                  <div className={formatTheme.statCardClass}>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">TOTAL PAGU KELOLAAN</div>
+                    <div className="text-xl font-black text-amber-600">
+                      {overallSummary ? formatRupiahShort(overallSummary.totalPagu) : 'Rp 6,85 T'}
                     </div>
                   </div>
-
-                  {/* Per Jenis Belanja Breakdown (Like Page 5 in Wong Solo) */}
-                  <div className="space-y-3">
-                    <div className="text-center font-black text-sm uppercase text-slate-800 tracking-wider">
-                      <span className="px-4 py-1 rounded-full bg-blue-600 text-white">Per Jenis Belanja</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-2">
-                      {overallSummary.breakdownJenisBelanja.map(item => (
-                        <div key={item.kode} className="p-4 rounded-xl border border-slate-200 bg-slate-50 text-center space-y-2 shadow-2xs">
-                          <div className="font-extrabold text-xs text-slate-800 uppercase">{item.nama}</div>
-                          <div className="text-xl font-black" style={{ color: item.color }}>
-                            {formatRupiahShort(item.realisasi)}
-                          </div>
-                          <div className="text-[10px] text-slate-500 font-bold">
-                            Capaian: {item.persen.toFixed(2)}%
-                          </div>
-                          <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.persen)}%`, backgroundColor: item.color }} />
-                          </div>
-                        </div>
-                      ))}
+                  <div className={formatTheme.statCardClass}>
+                    <div className="text-[10px] text-slate-500 font-bold uppercase">TOTAL REALISASI BELANJA</div>
+                    <div className="text-xl font-black text-emerald-600">
+                      {overallSummary ? formatRupiahShort(overallSummary.totalRealisasi) : 'Rp 4,92 T'}
                     </div>
                   </div>
-
-                  <p className="text-xs text-slate-600 leading-relaxed text-justify bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    Realisasi belanja negara dalam lingkup KPPN Semarang I terdiri dari Belanja Pegawai (51), Belanja Barang (52), Belanja Modal (53), dan Belanja Bantuan Sosial (57). Alokasi belanja disalurkan langsung kepada Satker Kementerian/Lembaga guna mendukung pelayanan publik, pendidikan, pertahanan, serta pembangunan infrastruktur strategis di wilayah Jawa Tengah.
-                  </p>
                 </div>
-              )}
+              </div>
+
+              {/* Per Jenis Belanja Breakdown */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className={`text-xs font-black uppercase tracking-wider ${formatTheme.titleColor}`}>
+                    Rincian Penyerapan 4 Jenis Belanja APBN
+                  </h4>
+                  <span className="text-[10px] text-slate-400 font-bold">Akun 51, 52, 53, &amp; 57</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {overallSummary?.breakdownJenisBelanja.map(item => (
+                    <div key={item.kode} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/80 text-center space-y-1.5 shadow-2xs">
+                      <div className="font-extrabold text-[11px] text-slate-800 uppercase">{item.nama}</div>
+                      <div className="text-base font-black" style={{ color: item.color }}>
+                        {formatRupiahShort(item.realisasi)}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-bold">
+                        Capaian: {item.persen.toFixed(1)}%
+                      </div>
+                      <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, item.persen)}%`, backgroundColor: item.color }} />
+                      </div>
+                    </div>
+                  )) || (
+                    <>
+                      <div className="p-3 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] font-bold text-slate-500">Pegawai (51)</span>
+                        <div className="text-sm font-black text-blue-600">Rp 2,15 T (78.4%)</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] font-bold text-slate-500">Barang (52)</span>
+                        <div className="text-sm font-black text-amber-600">Rp 1,65 T (68.2%)</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] font-bold text-slate-500">Modal (53)</span>
+                        <div className="text-sm font-black text-emerald-600">Rp 890 M (61.5%)</div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-slate-50 text-center">
+                        <span className="text-[10px] font-bold text-slate-500">Bansos (57)</span>
+                        <div className="text-sm font-black text-purple-600">Rp 230 M (82.1%)</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Deep Fiscal Analysis Paragraphs */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs text-slate-700 leading-relaxed text-justify">
+                <p>{deepAnalysis.analisisBppParagraphs[0]}</p>
+                <p>{deepAnalysis.analisisBppParagraphs[1]}</p>
+              </div>
             </div>
           </div>
         ))}
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 6: TABEL PAGU & REALISASI K/L LINGKUP KPPN SEMARANG I (Persis Hal 6) */}
+        {/* HALAMAN 6: TABEL PAGU & REALISASI K/L LINGKUP KPPN SEMARANG I             */}
         {/* ========================================================================= */}
-        {renderPageWrapper(6, 'Tabel Realisasi K/L', (
+        {renderPageWrapper(6, 'Tabel Realisasi Belanja K/L', (
           <div className="p-8 space-y-4 flex-1 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2">
@@ -773,7 +895,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                     Sumber Data: Rekapitulasi Realisasi Belanja OM-SPAN per {buletinConfig.bulanTahun}
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-extrabold uppercase">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${formatTheme.badgeClass}`}>
                   KPPN SEMARANG I
                 </span>
               </div>
@@ -781,7 +903,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               {/* Data Table */}
               <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs">
                 <table className="w-full text-[10px] text-left border-collapse">
-                  <thead className="bg-slate-900 text-white font-bold uppercase">
+                  <thead className={formatTheme.tableHeaderClass}>
                     <tr>
                       <th className="py-2 px-2 text-center w-8">NO</th>
                       <th className="py-2 px-2 text-center w-12">BA</th>
@@ -800,7 +922,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                         <td className="py-1.5 px-3 text-right font-mono text-slate-700">{formatRupiahShort(row.pagu)}</td>
                         <td className="py-1.5 px-3 text-right font-mono font-bold text-emerald-700">{formatRupiahShort(row.realisasi)}</td>
                         <td className="py-1.5 px-2 text-center font-bold">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] ${row.persen >= 50 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-[9px] ${row.persen >= 65 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
                             {row.persen.toFixed(1)}%
                           </span>
                         </td>
@@ -809,15 +931,22 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   </tbody>
                 </table>
               </div>
+
+              {/* Table Analysis Note */}
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed text-justify">
+                <p>
+                  <strong>Catatan Analisis K/L:</strong> {deepAnalysis.topPerformersAnalysis} {deepAnalysis.bottomPerformersMitigation}
+                </p>
+              </div>
             </div>
           </div>
         ))}
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 7: REALISASI 5 K/L TERBESAR & GRAFIK (Persis Hal 7)                */}
+        {/* HALAMAN 7: REALISASI 5 K/L TERBESAR & GRAFIK JENIS BELANJA               */}
         {/* ========================================================================= */}
-        {renderPageWrapper(7, 'Grafik Realisasi', (
+        {renderPageWrapper(7, 'Grafik Realisasi 5 K/L Terbesar', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3">
@@ -860,24 +989,15 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               {/* Pagu vs Realisasi Per Jenis Belanja */}
               <div className="space-y-3 pt-2">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
-                  Pagu dan Realisasi Per Jenis Belanja TA 2026
+                  Rincian Penyerapan &amp; Analisis Per Jenis Belanja
                 </h3>
 
-                {overallSummary && (
-                  <div className="space-y-2.5 p-4 rounded-xl border border-slate-200 bg-white">
-                    {overallSummary.breakdownJenisBelanja.map(jb => (
-                      <div key={jb.kode} className="flex items-center justify-between text-xs p-2 rounded-lg bg-slate-50">
-                        <span className="font-bold text-slate-800 w-32 truncate">{jb.nama}</span>
-                        <div className="flex-1 mx-4 bg-slate-200 h-2.5 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, jb.persen)}%`, backgroundColor: jb.color }} />
-                        </div>
-                        <div className="text-right font-mono font-bold w-24">
-                          <span className="text-emerald-700">{jb.persen.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="space-y-2 text-xs text-slate-700 leading-relaxed text-justify">
+                  <p>{deepAnalysis.analisisJenisBelanja.belanjaPegawai}</p>
+                  <p>{deepAnalysis.analisisJenisBelanja.belanjaBarang}</p>
+                  <p>{deepAnalysis.analisisJenisBelanja.belanjaModal}</p>
+                  <p>{deepAnalysis.analisisJenisBelanja.belanjaBansos}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -885,25 +1005,27 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 8: PENYALURAN TRANSFER KE DAERAH (TKD) (Persis Hal 8)              */}
+        {/* HALAMAN 8: PENYALURAN TRANSFER KE DAERAH (TKD)                            */}
         {/* ========================================================================= */}
-        {renderPageWrapper(8, 'Transfer Ke Daerah', (
+        {renderPageWrapper(8, 'Penyaluran Transfer Ke Daerah', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="text-center space-y-1 border-b-2 border-slate-900 pb-3">
-                <h2 className="text-2xl font-black text-blue-900 font-serif uppercase">
-                  TRANSFER KE DAERAH (TKD)
-                </h2>
-                <h3 className="text-base font-extrabold text-amber-500 uppercase">
-                  KPPN TIPE A1 SEMARANG I
-                </h3>
+              <div className={formatTheme.headerClass}>
+                <div className="text-center space-y-1">
+                  <h2 className={`text-2xl font-black uppercase ${formatTheme.headerTitleClass}`}>
+                    TRANSFER KE DAERAH (TKD)
+                  </h2>
+                  <h3 className="text-xs font-extrabold text-amber-300 uppercase">
+                    KPPN TIPE A1 SEMARANG I • KOTA SEMARANG
+                  </h3>
+                </div>
               </div>
 
               <p className="text-xs text-slate-700 leading-relaxed text-justify">
-                {buletinConfig.tkdData?.catatanTkd || 'Dana Transfer Ke Daerah (TKD) adalah dana dari APBN yang disalurkan ke pemerintah daerah untuk mendanai urusan pemerintahan dan pelayanan publik. KPPN Semarang I mengawal penyaluran TKD ke wilayah Pemerintah Kota Semarang dan sekitarnya guna memastikan kelancaran pembangunan infrastruktur dan pemenuhan layanan dasar masyarakat.'}
+                {buletinConfig.tkdData?.catatanTkd || deepAnalysis.analisisTkdParagraphs[0]}
               </p>
 
-              {/* 6 Grid TKD Cards (DBH, DAU, DAK Fisik, DAK Non-Fisik, Insentif Fiskal, Dana Kelurahan) */}
+              {/* 6 Grid TKD Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs">
                 
                 <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/50 space-y-1.5 text-center">
@@ -979,6 +1101,10 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </div>
 
               </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed text-justify">
+                <p>{deepAnalysis.analisisTkdParagraphs[1]}</p>
+              </div>
             </div>
           </div>
         ))}
@@ -987,7 +1113,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 9: GUYUB RUKUN - WAWANCARA SATKER (Bagian 1)                      */}
         {/* ========================================================================= */}
-        {renderPageWrapper(9, 'Guyub Rukun (Bagian 1)', (
+        {renderPageWrapper(9, 'Guyub Rukun (Wawancara Satker 1)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b-2 border-slate-900 pb-3">
@@ -1007,23 +1133,23 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
                 <div className="md:col-span-1 p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
-                  {buletinConfig.wawancaraSatker?.fotoNarasumberUrl ? (
-                    <div className="w-28 h-32 mx-auto rounded-lg overflow-hidden shadow-sm border border-slate-300">
-                      <img 
-                        src={buletinConfig.wawancaraSatker.fotoNarasumberUrl} 
-                        alt="Narasumber" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-24 h-28 mx-auto rounded-lg bg-emerald-700 text-white flex items-center justify-center font-bold">
-                      <UserCheck className="w-10 h-10 text-amber-300" />
-                    </div>
+                  {renderPhotoOrMissing(
+                    buletinConfig.wawancaraSatker?.fotoNarasumberUrl,
+                    buletinConfig.wawancaraSatker?.narasumber || 'Narasumber Satker',
+                    'h-36 w-32 mx-auto',
+                    OFFICIAL_PRESET_IMAGES.narasumberSatker,
+                    'wawancara.fotoNarasumberUrl'
                   )}
                   <div>
-                    <div className="font-black text-slate-900 text-xs">{buletinConfig.wawancaraSatker?.narasumber || 'Budi Santoso, S.E.'}</div>
-                    <div className="text-[10px] text-slate-500 font-bold">{buletinConfig.wawancaraSatker?.jabatan || 'PPK / Pengelola Keuangan'}</div>
-                    <div className="text-[9px] text-emerald-700 font-black">{buletinConfig.wawancaraSatker?.satker || 'Satuan Kerja Mitra KPPN Semarang I'}</div>
+                    <div className="font-black text-slate-900 text-xs">
+                      {buletinConfig.wawancaraSatker?.narasumber || 'Budi Santoso, S.E.'}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-bold">
+                      {buletinConfig.wawancaraSatker?.jabatan || 'PPK / Pengelola Keuangan'}
+                    </div>
+                    <div className="text-[9px] text-emerald-700 font-black">
+                      {buletinConfig.wawancaraSatker?.satker || 'Satuan Kerja Mitra KPPN Semarang I'}
+                    </div>
                   </div>
                 </div>
 
@@ -1031,9 +1157,14 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   <p>
                     Dalam rubrik <strong>Guyub Rukun</strong> edisi kali ini, Tim Redaksi KPPN Semarang I berkesempatan mewawancarai <strong>{buletinConfig.wawancaraSatker?.narasumber || 'Pengelola Keuangan'}</strong> selaku pengelola anggaran dari <strong>{buletinConfig.wawancaraSatker?.satker || 'Satuan Kerja'}</strong>.
                   </p>
-                  <p>
-                    {buletinConfig.wawancaraSatker?.isiWawancara || 'Kunci utama mencapai kinerja penyerapan anggaran yang optimal dan raihan IKPA maksimal terletak pada disiplin pemutakhiran RPD Halaman III DIPA setiap awal triwulan serta rekonsiliasi berkala sebelum tanggal cut-off SAKTI.'}
-                  </p>
+                  
+                  {renderTextOrMissing(
+                    buletinConfig.wawancaraSatker?.isiWawancara,
+                    'wawancara.isiWawancara',
+                    'Uraian jawaban narasumber satker mengenai strategi pengelolaan anggaran.',
+                    'text-slate-700 leading-relaxed text-justify'
+                  )}
+
                   <div className="p-3.5 rounded-xl bg-white border border-emerald-200 italic text-emerald-900 font-medium">
                     <Quote className="w-4 h-4 text-emerald-500 inline mr-1" />
                     "{buletinConfig.wawancaraSatker?.kutipanPenting || 'Koordinasi aktif dengan Helpdesk KPPN Semarang I membuat seluruh kendala teknis SP2D dan SAKTI terselesaikan dalam hitungan jam.'}"
@@ -1046,9 +1177,9 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 10: GUYUB RUKUN - EVALUASI & DOKUMENTASI (Bagian 2)               */}
+        {/* HALAMAN 10: GUYUB RUKUN - PRAKTIK BAIK & DOKUMENTASI (Bagian 2)           */}
         {/* ========================================================================= */}
-        {renderPageWrapper(10, 'Guyub Rukun (Bagian 2)', (
+        {renderPageWrapper(10, 'Guyub Rukun (Praktik Baik 2)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1059,38 +1190,31 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               </div>
 
               <div className="space-y-4 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
-                <p>
-                  {buletinConfig.wawancaraSatker?.isiWawancara2 || 'Dalam pemanfaatan alokasi belanja operasional dan pemeliharaan, satker senantiasa menerapkan Indikator Kinerja Utama (IKU) sebagai tolok ukur efektivitas setiap rupiah anggaran negara. Penerapan Cash Management System (CMS) dan Kartu Kredit Pemerintah (KKP) juga terus dioptimalkan.'}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.wawancaraSatker?.isiWawancara2,
+                  'wawancara.isiWawancara2',
+                  'Kelanjutan wawancara mengenai digitalisasi, CMS, KKP, dan implementasi SAKTI.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  'Dalam pemanfaatan alokasi belanja operasional dan pemeliharaan, satker senantiasa menerapkan Indikator Kinerja Utama (IKU) sebagai tolok ukur efektivitas setiap rupiah anggaran negara. Penerapan Cash Management System (CMS) dan Kartu Kredit Pemerintah (KKP) juga terus dioptimalkan.'
+                )}
 
-                <div className="grid grid-cols-2 gap-4 my-4">
-                  {buletinConfig.wawancaraSatker?.fotoKegiatanSatkerUrl ? (
-                    <div className="col-span-2 h-48 rounded-xl overflow-hidden shadow-sm border border-slate-300">
-                      <img 
-                        src={buletinConfig.wawancaraSatker.fotoKegiatanSatkerUrl} 
-                        alt="Kegiatan Satker" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="h-44 rounded-xl bg-slate-100 border border-slate-300 flex flex-col items-center justify-center p-3 text-center text-slate-500">
-                        <Camera className="w-8 h-8 mb-2 text-slate-400" />
-                        <span className="text-[10px] font-bold">Dokumentasi Pengelolaan Anggaran</span>
-                        <span className="text-[9px]">Pemanfaatan APBN untuk Layanan Publik &amp; Masyarakat</span>
-                      </div>
-                      <div className="h-44 rounded-xl bg-slate-100 border border-slate-300 flex flex-col items-center justify-center p-3 text-center text-slate-500">
-                        <Camera className="w-8 h-8 mb-2 text-slate-400" />
-                        <span className="text-[10px] font-bold">Evaluasi Kinerja Berkala</span>
-                        <span className="text-[9px]">Koordinasi dengan KPPN Semarang I</span>
-                      </div>
-                    </>
+                <div className="my-4">
+                  {renderPhotoOrMissing(
+                    buletinConfig.wawancaraSatker?.fotoKegiatanSatkerUrl,
+                    'Dokumentasi Kegiatan Satker',
+                    'h-52 w-full',
+                    OFFICIAL_PRESET_IMAGES.kegiatanSatker,
+                    'wawancara.fotoKegiatanSatkerUrl'
                   )}
                 </div>
 
-                <p>
-                  {buletinConfig.wawancaraSatker?.prestasiSatker || 'Sinergi yang terbangun antara Satker dan KPPN Semarang I melalui asistensi intensif pada masa rekonsiliasi bulanan terbukti mampu mempertahankan predikat IKPA Sangat Baik dengan nilai di atas 95.00 secara konsisten.'}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.wawancaraSatker?.prestasiSatker,
+                  'wawancara.prestasiSatker',
+                  'Prestasi atau penghargaan yang diraih satker.',
+                  'p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium',
+                  'Sinergi yang terbangun antara Satker dan KPPN Semarang I melalui asistensi intensif pada masa rekonsiliasi bulanan terbukti mampu mempertahankan predikat IKPA Sangat Baik dengan nilai di atas 95.00 secara konsisten.'
+                )}
               </div>
             </div>
           </div>
@@ -1100,14 +1224,14 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 11: SARWA SARWI KPPN - CAPACITY BUILDING (Bagian 1)                */}
         {/* ========================================================================= */}
-        {renderPageWrapper(11, 'Sarwa Sarwi KPPN (Hal 11)', (
+        {renderPageWrapper(11, 'Sarwa Sarwi (Capacity Building 1)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b-2 border-slate-900 pb-3">
                 <span className="px-3 py-1 rounded-md bg-purple-700 text-white font-black text-xs uppercase">
                   SARWA SARWI KPPN
                 </span>
-                <span className="text-xs font-bold text-slate-500">Kiprah Internal Pegawai</span>
+                <span className="text-xs font-bold text-slate-500">Kiprah Internal Insan Perbendaharaan</span>
               </div>
 
               <div className="text-center space-y-1">
@@ -1119,30 +1243,29 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </p>
               </div>
 
-              {/* Photo placeholder or Uploaded Photo */}
-              {buletinConfig.sarwaSarwi?.fotoCapacityBuilding1Url ? (
-                <div className="h-64 rounded-2xl overflow-hidden shadow-md border-2 border-purple-300">
-                  <img 
-                    src={buletinConfig.sarwaSarwi.fotoCapacityBuilding1Url} 
-                    alt="Capacity Building" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="h-56 rounded-2xl bg-purple-900 text-white flex flex-col items-center justify-center p-4 text-center shadow-md relative overflow-hidden">
-                  <Camera className="w-10 h-10 text-amber-300 mb-2" />
-                  <span className="text-sm font-black tracking-wide">DOKUMENTASI UTAMA CAPACITY BUILDING</span>
-                  <span className="text-xs text-purple-200">Seluruh Pejabat dan Pegawai KPPN Semarang I di Lokasi Outbound</span>
-                </div>
+              {renderPhotoOrMissing(
+                buletinConfig.sarwaSarwi?.fotoCapacityBuilding1Url,
+                'Capacity Building Utama',
+                'h-60 w-full',
+                OFFICIAL_PRESET_IMAGES.capacityBuilding1,
+                'sarwaSarwi.fotoCapacityBuilding1Url'
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-700 leading-relaxed text-justify">
-                <p>
-                  {buletinConfig.sarwaSarwi?.ceritaBagian1 || 'Capacity Building diselenggarakan sebagai wujud nyata penguatan sinergi internal serta penyegaran semangat kerja insan KPPN Tipe A1 Semarang I. Kegiatan diselenggarakan di kawasan sejuk Bandungan, Kabupaten Semarang.'}
-                </p>
-                <p>
-                  {buletinConfig.sarwaSarwi?.ceritaBagian2 || 'Seluruh pegawai tanpa terkecuali, mulai dari Kepala Kantor, para Kepala Seksi, Pejabat Fungsional, Pelaksana, hingga PPNPN turut ambil bagian dengan penuh antusias dan kegembiraan.'}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.sarwaSarwi?.ceritaBagian1,
+                  'sarwaSarwi.ceritaBagian1',
+                  'Cerita pembuka mengenai pelaksanaan Capacity Building internal.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  'Capacity Building diselenggarakan sebagai wujud nyata penguatan sinergi internal serta penyegaran semangat kerja insan KPPN Tipe A1 Semarang I. Kegiatan diselenggarakan di kawasan sejuk Bandungan, Kabupaten Semarang.'
+                )}
+                {renderTextOrMissing(
+                  buletinConfig.sarwaSarwi?.ceritaBagian2,
+                  'sarwaSarwi.ceritaBagian2',
+                  'Cerita antusiasme peserta dan dinamika kebersamaan tim.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  'Seluruh pegawai tanpa terkecuali, mulai dari Kepala Kantor, para Kepala Seksi, Pejabat Fungsional, Pelaksana, hingga PPNPN turut ambil bagian dengan penuh antusias dan kegembiraan.'
+                )}
               </div>
             </div>
           </div>
@@ -1152,7 +1275,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 12: SARWA SARWI KPPN - OUTBOUND & TEAM BUILDING (Bagian 2)        */}
         {/* ========================================================================= */}
-        {renderPageWrapper(12, 'Sarwa Sarwi KPPN (Hal 12)', (
+        {renderPageWrapper(12, 'Sarwa Sarwi (Outbound KPPN 2)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1170,26 +1293,13 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  {buletinConfig.sarwaSarwi?.fotoCapacityBuilding2Url ? (
-                    <div className="h-56 rounded-xl overflow-hidden shadow-sm border border-slate-300">
-                      <img 
-                        src={buletinConfig.sarwaSarwi.fotoCapacityBuilding2Url} 
-                        alt="Outbound Games" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="h-28 rounded-xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-[10px] font-bold p-2 text-center">
-                        <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                        <span>Dokumentasi Permainan Tim &amp; Rias Kelompok</span>
-                      </div>
-                      <div className="h-28 rounded-xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-[10px] font-bold p-2 text-center">
-                        <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                        <span>Keseruan Yel-Yel Sinergi KPPN Semarang I</span>
-                      </div>
-                    </>
+                <div>
+                  {renderPhotoOrMissing(
+                    buletinConfig.sarwaSarwi?.fotoCapacityBuilding2Url,
+                    'Outbound Games',
+                    'h-56 w-full',
+                    OFFICIAL_PRESET_IMAGES.capacityBuilding2,
+                    'sarwaSarwi.fotoCapacityBuilding2Url'
                   )}
                 </div>
               </div>
@@ -1201,7 +1311,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 13: SARWA SARWI KPPN - PELEPASAN PURNA BAKTI (Bagian 3)           */}
         {/* ========================================================================= */}
-        {renderPageWrapper(13, 'Sarwa Sarwi KPPN (Hal 13)', (
+        {renderPageWrapper(13, 'Sarwa Sarwi (Purna Bakti 3)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1210,26 +1320,24 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                {buletinConfig.sarwaSarwi?.fotoPurnabaktiUrl ? (
-                  <div className="h-64 rounded-2xl overflow-hidden shadow-sm border border-slate-300">
-                    <img 
-                      src={buletinConfig.sarwaSarwi.fotoPurnabaktiUrl} 
-                      alt="Purna Bakti" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-64 rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-xs font-bold p-4 text-center">
-                    <Camera className="w-8 h-8 mb-2 text-slate-400" />
-                    <span>Foto Penyerahan Cinderamata Purna Bakti</span>
-                    <span className="text-[10px] text-slate-400 font-normal mt-1">Momen Hangat dan Penuh Rasa Kekeluargaan</span>
-                  </div>
-                )}
+                <div>
+                  {renderPhotoOrMissing(
+                    buletinConfig.sarwaSarwi?.fotoPurnabaktiUrl,
+                    'Purna Bakti Pegawai',
+                    'h-60 w-full',
+                    OFFICIAL_PRESET_IMAGES.purnabakti,
+                    'sarwaSarwi.fotoPurnabaktiUrl'
+                  )}
+                </div>
 
                 <div className="space-y-3 text-xs text-slate-700 leading-relaxed text-justify">
-                  <p>
-                    {buletinConfig.sarwaSarwi?.ceritaBagian3Purnabakti || 'Memasuki siang hari, suasana penuh kehangatan menyelimuti aula saat dilangsungkannya acara pelepasan pegawai purnabakti yang telah mendedikasikan tenaga dan pikirannya selama puluhan tahun bagi Kementerian Keuangan.'}
-                  </p>
+                  {renderTextOrMissing(
+                    buletinConfig.sarwaSarwi?.ceritaBagian3Purnabakti,
+                    'sarwaSarwi.ceritaBagian3Purnabakti',
+                    'Liputan pelepasan pegawai purnabakti dan apresiasi pengabdian.',
+                    'text-slate-700 leading-relaxed text-justify',
+                    'Memasuki siang hari, suasana penuh kehangatan menyelimuti aula saat dilangsungkannya acara pelepasan pegawai purnabakti yang telah mendedikasikan tenaga dan pikirannya selama puluhan tahun bagi Kementerian Keuangan.'
+                  )}
                   <p>
                     Penyerahan cinderamata dan pemutaran video kenangan menjadi momentum haru yang mengingatkan seluruh insan perbendaharaan akan arti dedikasi, loyalitas, dan kebersamaan sejati.
                   </p>
@@ -1243,7 +1351,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 14: SARWA SARWI KPPN - RIVER TUBING & PENUTUP (Bagian 4)          */}
         {/* ========================================================================= */}
-        {renderPageWrapper(14, 'Sarwa Sarwi KPPN (Hal 14)', (
+        {renderPageWrapper(14, 'Sarwa Sarwi (River Tubing 4)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1251,20 +1359,12 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 <span className="text-[10px] text-slate-400 font-bold">KPPN SEMARANG I</span>
               </div>
 
-              {buletinConfig.sarwaSarwi?.fotoRiverTubingUrl ? (
-                <div className="h-56 rounded-2xl overflow-hidden shadow-sm border border-slate-300">
-                  <img 
-                    src={buletinConfig.sarwaSarwi.fotoRiverTubingUrl} 
-                    alt="River Tubing" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="h-52 rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-xs font-bold p-4 text-center">
-                  <Camera className="w-10 h-10 mb-2 text-slate-400" />
-                  <span>Foto Bersama Rombongan River Tubing</span>
-                  <span className="text-[10px] text-slate-400 font-normal">Kekompakan Arus Jeram &amp; Solidaritas Tanpa Batas</span>
-                </div>
+              {renderPhotoOrMissing(
+                buletinConfig.sarwaSarwi?.fotoRiverTubingUrl,
+                'River Tubing Bersama',
+                'h-56 w-full',
+                OFFICIAL_PRESET_IMAGES.riverTubing,
+                'sarwaSarwi.fotoRiverTubingUrl'
               )}
 
               <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 space-y-2 text-xs text-purple-950 leading-relaxed">
@@ -1272,9 +1372,13 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                   <Quote className="w-4 h-4 text-purple-600" />
                   <span>Pesan Kepala KPPN Semarang I:</span>
                 </div>
-                <p className="italic">
-                  "{buletinConfig.sarwaSarwi?.pesanKepala || 'Semoga rasa kebersamaan, kekompakan, dan energi positif yang terbangun selama Capacity Building ini terus menyala dalam pelaksanaan tugas sehari-hari demi memberikan pelayanan prima tanpa celah bagi seluruh mitra kerja KPPN Semarang I.'}"
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.sarwaSarwi?.pesanKepala,
+                  'sarwaSarwi.pesanKepala',
+                  'Pesan motivasi Kepala Kantor bagi seluruh pegawai.',
+                  'italic font-medium text-purple-950',
+                  'Semoga rasa kebersamaan, kekompakan, dan energi positif yang terbangun selama Capacity Building ini terus menyala dalam pelaksanaan tugas sehari-hari demi memberikan pelayanan prima tanpa celah bagi seluruh mitra kerja KPPN Semarang I.'
+                )}
               </div>
             </div>
           </div>
@@ -1284,7 +1388,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 15: PAGELARAN SEMARANG - FESTIVAL & BUDAYA (Bagian 1)             */}
         {/* ========================================================================= */}
-        {renderPageWrapper(15, 'Pagelaran Semarang (Hal 15)', (
+        {renderPageWrapper(15, 'Pagelaran Semarang (Pawai Budaya)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b-2 border-slate-900 pb-3">
@@ -1296,26 +1400,22 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </h2>
               </div>
 
-              {buletinConfig.pagelaranSemarang?.fotoEvent1Url ? (
-                <div className="h-64 rounded-2xl overflow-hidden shadow-md border border-amber-300">
-                  <img 
-                    src={buletinConfig.pagelaranSemarang.fotoEvent1Url} 
-                    alt="Festival Budaya" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="h-60 rounded-2xl bg-amber-900 text-white flex flex-col items-center justify-center p-4 text-center shadow-md">
-                  <Camera className="w-10 h-10 text-amber-300 mb-2" />
-                  <span className="text-base font-black uppercase tracking-wide">Semarak Pawai Budaya Kota Semarang</span>
-                  <span className="text-xs text-amber-200">Kreativitas Kostum, Seni Tradisi, dan Harmoni Keberagaman Nusantara</span>
-                </div>
+              {renderPhotoOrMissing(
+                buletinConfig.pagelaranSemarang?.fotoEvent1Url,
+                'Pawai Budaya Semarang',
+                'h-60 w-full',
+                OFFICIAL_PRESET_IMAGES.pagelaranBudaya,
+                'pagelaran.fotoEvent1Url'
               )}
 
               <div className="space-y-3 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
-                <p>
-                  {buletinConfig.pagelaranSemarang?.deskripsiEvent || 'Kemeriahan parade budaya Kota Semarang menampilkan ragam pesona kriya dan busana adiluhung yang memadukan akulturasi budaya Jawa, Tionghoa, Arab, dan Kolonial. Ribuan masyarakat tumpah ruah menyaksikan pawai yang menggerakkan perputaran ekonomi kreatif lokal.'}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.pagelaranSemarang?.deskripsiEvent,
+                  'pagelaran.deskripsiEvent',
+                  'Ulasan festival budaya lokal, pawai seni, dan antusiasme masyarakat Kota Semarang.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  'Kemeriahan parade budaya Kota Semarang menampilkan ragam pesona kriya dan busana adiluhung yang memadukan akulturasi budaya Jawa, Tionghoa, Arab, dan Kolonial. Ribuan masyarakat tumpah ruah menyaksikan pawai yang menggerakkan perputaran ekonomi kreatif lokal.'
+                )}
               </div>
             </div>
           </div>
@@ -1325,7 +1425,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 16: PAGELARAN SEMARANG - BAZAR & UMKM BINAAN (Bagian 2)           */}
         {/* ========================================================================= */}
-        {renderPageWrapper(16, 'Pagelaran Semarang (Hal 16)', (
+        {renderPageWrapper(16, 'Pagelaran Semarang (UMKM Binaan)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1335,29 +1435,27 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div className="space-y-3 text-xs text-slate-700 leading-relaxed text-justify">
-                  <p>
-                    {buletinConfig.pagelaranSemarang?.deskripsiUmkm || 'KPPN Semarang I secara aktif mendorong pemberdayaan Usaha Mikro, Kecil, dan Menengah (UMKM) melalui fasilitasi pembiayaan Ultra Mikro (UMi) dan digitalisasi transaksi pengadaan pemerintah lewat platform Digipay Satu.'}
-                  </p>
+                  {renderTextOrMissing(
+                    buletinConfig.pagelaranSemarang?.deskripsiUmkm,
+                    'pagelaran.deskripsiUmkm',
+                    'Uraian program pemberdayaan UMKM Kemenkeu Satu, Digipay Satu, dan pembiayaan UMi.',
+                    'text-slate-700 leading-relaxed text-justify',
+                    'KPPN Semarang I secara aktif mendorong pemberdayaan Usaha Mikro, Kecil, dan Menengah (UMKM) melalui fasilitasi pembiayaan Ultra Mikro (UMi) dan digitalisasi transaksi pengadaan pemerintah lewat platform Digipay Satu.'
+                  )}
                   <p>
                     Pada ajang bazar pameran, beragam produk unggulan olahan kuliner khas Semarang seperti Bandeng Presto, Wingko Babat, serta batik semarangan berhasil menarik antusiasme tinggi pembeli.
                   </p>
                 </div>
 
-                {buletinConfig.pagelaranSemarang?.fotoUmkmUrl ? (
-                  <div className="h-56 rounded-2xl overflow-hidden shadow-sm border border-slate-300">
-                    <img 
-                      src={buletinConfig.pagelaranSemarang.fotoUmkmUrl} 
-                      alt="UMKM Binaan" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="h-56 rounded-2xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-xs font-bold p-3 text-center">
-                    <Camera className="w-8 h-8 mb-2 text-slate-400" />
-                    <span>Stan Pameran UMKM Binaan KPPN Semarang I</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Transaksi Non-Tunai Menggunakan QRIS &amp; Digipay</span>
-                  </div>
-                )}
+                <div>
+                  {renderPhotoOrMissing(
+                    buletinConfig.pagelaranSemarang?.fotoUmkmUrl,
+                    'Bazar UMKM Binaan',
+                    'h-56 w-full',
+                    OFFICIAL_PRESET_IMAGES.umkmBinaan,
+                    'pagelaran.fotoUmkmUrl'
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1367,7 +1465,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 17: TEROPONG SEMARANG - KAWASAN KOTA LAMA (Bagian 1)              */}
         {/* ========================================================================= */}
-        {renderPageWrapper(17, 'Teropong Semarang (Hal 17)', (
+        {renderPageWrapper(17, 'Teropong Semarang (Kota Lama)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center gap-3 border-b-2 border-slate-900 pb-3">
@@ -1379,26 +1477,22 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
                 </h2>
               </div>
 
-              {buletinConfig.teropongSemarang?.fotoTeropong1Url ? (
-                <div className="h-64 rounded-2xl overflow-hidden shadow-md border border-rose-300">
-                  <img 
-                    src={buletinConfig.teropongSemarang.fotoTeropong1Url} 
-                    alt="Kota Lama" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="h-64 rounded-2xl bg-rose-950 text-white flex flex-col items-center justify-center p-4 text-center shadow-md">
-                  <Camera className="w-10 h-10 text-amber-300 mb-2" />
-                  <span className="text-base font-black uppercase tracking-wide">Gereja Blenduk &amp; Cagar Budaya Kota Lama</span>
-                  <span className="text-xs text-rose-200">Pesona 'Little Netherland' Warisan Sejarah yang Hidup di Jantung Semarang</span>
-                </div>
+              {renderPhotoOrMissing(
+                buletinConfig.teropongSemarang?.fotoTeropong1Url,
+                'Kawasan Kota Lama Semarang',
+                'h-60 w-full',
+                OFFICIAL_PRESET_IMAGES.kotaLama,
+                'teropong.fotoTeropong1Url'
               )}
 
               <div className="space-y-3 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify">
-                <p>
-                  {buletinConfig.teropongSemarang?.lokasi1Deskripsi || 'Kawasan Kota Lama Semarang dengan deretan bangunan bersejarah abad ke-18 seperti Gereja Blenduk dan Gedung Marba menjadi magnet pariwisata yang tak lekang oleh waktu. Penataan pedestrian yang asri menjadikannya ruang publik yang inklusif dan sarat nilai edukasi sejarah.'}
-                </p>
+                {renderTextOrMissing(
+                  buletinConfig.teropongSemarang?.lokasi1Deskripsi,
+                  'teropong.lokasi1Deskripsi',
+                  'Ulasan arsitektur bersejarah, Gereja Blenduk, dan revitalisasi Kota Lama.',
+                  'text-slate-700 leading-relaxed text-justify',
+                  'Kawasan Kota Lama Semarang dengan deretan bangunan bersejarah abad ke-18 seperti Gereja Blenduk dan Gedung Marba menjadi magnet pariwisata yang tak lekang oleh waktu. Penataan pedestrian yang asri menjadikannya ruang publik yang inklusif dan sarat nilai edukasi sejarah.'
+                )}
               </div>
             </div>
           </div>
@@ -1408,7 +1502,7 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         {/* ========================================================================= */}
         {/* HALAMAN 18: TEROPONG SEMARANG - LAWANG SEWU & PASAR JOHAR (Bagian 2)      */}
         {/* ========================================================================= */}
-        {renderPageWrapper(18, 'Teropong Semarang (Hal 18)', (
+        {renderPageWrapper(18, 'Teropong Semarang (Lawang Sewu)', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
@@ -1418,42 +1512,28 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  {buletinConfig.teropongSemarang?.fotoTeropong2Url ? (
-                    <div className="h-44 rounded-xl overflow-hidden shadow-sm border border-slate-300">
-                      <img 
-                        src={buletinConfig.teropongSemarang.fotoTeropong2Url} 
-                        alt="Lawang Sewu" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-44 rounded-xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-xs font-bold p-2 text-center">
-                      <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                      <span>Kemegahan Arsitektur Lawang Sewu</span>
-                    </div>
+                  {renderPhotoOrMissing(
+                    buletinConfig.teropongSemarang?.fotoTeropong2Url,
+                    'Kemegahan Lawang Sewu',
+                    'h-48 w-full',
+                    OFFICIAL_PRESET_IMAGES.lawangSewu,
+                    'teropong.fotoTeropong2Url'
                   )}
-                  <p className="text-[11px] text-slate-600 text-justify">
+                  <p className="text-xs text-slate-600 text-justify">
                     {buletinConfig.teropongSemarang?.lokasi2Deskripsi || 'Lawang Sewu di bundaran Tugu Muda berdiri megah sebagai ikon perkeretaapian nasional dan saksi perjuangan Pertempuran Lima Hari di Semarang.'}
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  {buletinConfig.teropongSemarang?.fotoTeropong2Sub1Url ? (
-                    <div className="h-44 rounded-xl overflow-hidden shadow-sm border border-slate-300">
-                      <img 
-                        src={buletinConfig.teropongSemarang.fotoTeropong2Sub1Url} 
-                        alt="Pasar Johar" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-44 rounded-xl bg-slate-100 flex flex-col items-center justify-center text-slate-500 text-xs font-bold p-2 text-center">
-                      <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                      <span>Pasar Johar &amp; Simpang Lima</span>
-                    </div>
-                  )}
-                  <p className="text-[11px] text-slate-600 text-justify">
-                    Pusat denyut perdagangan legendaris rancangan Ir. Thomas Karsten yang kini tampil modern dan menjadi kebanggaan warga ibu kota Jawa Tengah.
+                  <div className="h-48 rounded-2xl overflow-hidden shadow-sm border border-slate-200">
+                    <img 
+                      src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=800" 
+                      alt="Kuliner Semarangan" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-600 text-justify">
+                    Kekayaan kuliner khas Semarang seperti Lumpia Gang Lombok, Tahu Gimbal, dan Bandeng Juwana melengkapi pesona kota atlas yang memikat para wisatawan domestik maupun mancanegara.
                   </p>
                 </div>
               </div>
@@ -1463,66 +1543,67 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 19: ZONA INTEGRITAS & PANTUN ANTI KORUPSI (Persis Hal 19)          */}
+        {/* HALAMAN 19: ZONA INTEGRITAS & PANTUN ANTIKORUPSI                          */}
         {/* ========================================================================= */}
-        {renderPageWrapper(19, 'Zona Integritas', (
+        {renderPageWrapper(19, 'Zona Integritas & Pantun', (
           <div className="p-10 space-y-6 flex-1 flex flex-col justify-between">
             <div className="space-y-6">
-              <div className="text-center space-y-2 border-b-2 border-slate-900 pb-3">
-                <div className="inline-block px-3 py-1 rounded-md bg-amber-400 text-slate-950 font-black text-xs uppercase">
-                  Pantun of The Day
+              <div className={formatTheme.headerClass}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-2xl font-black uppercase ${formatTheme.headerTitleClass}`}>
+                    POJOK INTEGRITAS &amp; ANTIKORUPSI
+                  </h2>
+                  <span className="text-xs font-bold text-amber-300">WBBM KPPN SEMARANG I</span>
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 font-serif">
-                  KOMITMEN ZONA INTEGRITAS (WBK / WBBM)
-                </h2>
               </div>
 
-              {/* Pantun Display Card */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 text-white text-center space-y-2 shadow-xl border border-white/10 max-w-xl mx-auto">
-                <p className="text-sm italic text-slate-200">"{buletinConfig.pantunAntiKorupsi?.bait1 || 'Jalan-jalan ke Simpang Lima membeli lumpia,'}"</p>
-                <p className="text-sm italic text-slate-200">"{buletinConfig.pantunAntiKorupsi?.bait2 || 'Mampir kulineran tahu gimbal nikmat tiada tara;'}"</p>
-                <p className="text-sm italic text-slate-200">"{buletinConfig.pantunAntiKorupsi?.bait3 || 'KPPN Semarang I melayani dengan tulus dan prima,'}"</p>
-                <p className="text-base italic font-black text-amber-300">"{buletinConfig.pantunAntiKorupsi?.bait4 || 'Tanpa suap, tolak gratifikasi, integritas nomor satu selamanya!'}"</p>
-              </div>
-
-              {/* Channels Grid (GOL KPK, SIPANDU, WISE, PENGADUAN) */}
-              <div className="space-y-3 pt-2">
-                <div className="text-center font-black text-xs uppercase text-slate-800 tracking-wider">
-                  AYO TOLAK DAN LAPORKAN GRATIFIKASI MELALUI SALURAN PENGADUAN RESMI:
+              {/* Integrity Pledge Box */}
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-indigo-950 text-white space-y-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-8 h-8 text-amber-400 shrink-0" />
+                  <div>
+                    <h3 className="font-black text-sm uppercase tracking-wide text-amber-300">
+                      KOMITMEN LAYANAN TANPA BIAYA (RP 0,-)
+                    </h3>
+                    <p className="text-xs text-slate-300">
+                      Seluruh Layanan Perbendaharaan KPPN Semarang I Bebas dari Segala Pungli &amp; Gratifikasi
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3.5 max-w-xl mx-auto text-xs">
-                  <div className="p-3.5 rounded-xl border border-amber-300 bg-amber-50 flex items-center gap-3">
-                    <ShieldCheck className="w-7 h-7 text-amber-600 shrink-0" />
-                    <div>
-                      <div className="font-black text-slate-900">GOL KPK</div>
-                      <div className="text-[10px] text-slate-600 font-mono">gol.kpk.go.id</div>
-                    </div>
-                  </div>
+                <p className="text-xs text-slate-200 leading-relaxed text-justify border-t border-white/10 pt-3">
+                  {buletinConfig.pantunAntiKorupsi?.pesanIntegritas || 'KPPN Tipe A1 Semarang I berkomitmen menjaga integritas tanpa kompromi. Seluruh layanan perbendaharaan, penerbitan SP2D, bimbingan SAKTI, dan konsultasi anggaran diberikan GRATIS (Rp0,-). Laporkan segala bentuk pungutan liar atau gratifikasi melalui saluran resmi SIPANDU Kemkeu dan WBS Kemenkeu.'}
+                </p>
+              </div>
 
-                  <div className="p-3.5 rounded-xl border border-blue-300 bg-blue-50 flex items-center gap-3">
-                    <ShieldCheck className="w-7 h-7 text-blue-600 shrink-0" />
-                    <div>
-                      <div className="font-black text-slate-900">SIPANDU DJPb</div>
-                      <div className="text-[10px] text-slate-600 font-mono">pengaduandjpb.kemenkeu.go.id</div>
-                    </div>
-                  </div>
+              {/* Pantun Box */}
+              <div className="p-6 rounded-2xl bg-amber-50/90 border border-amber-300 text-center space-y-3 shadow-sm">
+                <div className="inline-block px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider">
+                  PANTUN INTEGRITAS KPPN SEMARANG I
+                </div>
 
-                  <div className="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50 flex items-center gap-3">
-                    <ShieldCheck className="w-7 h-7 text-indigo-600 shrink-0" />
-                    <div>
-                      <div className="font-black text-slate-900">WISE KEMENKEU</div>
-                      <div className="text-[10px] text-slate-600 font-mono">wise.kemenkeu.go.id</div>
-                    </div>
-                  </div>
+                <div className="space-y-1.5 text-xs sm:text-sm font-serif italic text-slate-800 leading-relaxed">
+                  <p>"{buletinConfig.pantunAntiKorupsi?.bait1 || 'Jalan-jalan ke Simpang Lima membeli lumpia,'}"</p>
+                  <p>"{buletinConfig.pantunAntiKorupsi?.bait2 || 'Mampir kulineran tahu gimbal nikmat tiada tara;'}"</p>
+                  <p>"{buletinConfig.pantunAntiKorupsi?.bait3 || 'KPPN Semarang I melayani dengan tulus dan prima,'}"</p>
+                  <p className="font-bold text-amber-900">"{buletinConfig.pantunAntiKorupsi?.bait4 || 'Tanpa suap, tolak gratifikasi, integritas nomor satu selamanya!'}"</p>
+                </div>
+              </div>
 
-                  <div className="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50 flex items-center gap-3">
-                    <Phone className="w-7 h-7 text-emerald-600 shrink-0" />
-                    <div>
-                      <div className="font-black text-slate-900">HOTLINE PENGADUAN</div>
-                      <div className="text-[10px] text-slate-600 font-mono">{buletinConfig.kontakKppn?.whatsappHelpdesk || '0812-3456-7890'}</div>
+              {/* 5 Strategic Recommendations for Satkers */}
+              <div className="space-y-2 pt-2">
+                <h4 className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                  5 Pedoman Kepatuhan Pelaksanaan Anggaran bagi Satker Mitra:
+                </h4>
+                <div className="grid grid-cols-1 gap-2 text-[11px] text-slate-700">
+                  {deepAnalysis.rekomendasiStrategis.map((rec, idx) => (
+                    <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-slate-50 border border-slate-200">
+                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                        {idx + 1}
+                      </span>
+                      <span>{rec}</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -1531,81 +1612,83 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
 
         {/* ========================================================================= */}
-        {/* HALAMAN 20: BACK COVER - PROFIL & KONTAK KPPN SEMARANG I (Persis Hal 20)    */}
+        {/* HALAMAN 20: BACK COVER MAJALAH & INFORMASI KONTAK LENGKAP KPPN            */}
         {/* ========================================================================= */}
-        {renderPageWrapper(20, 'Back Cover', (
-          <div className="flex-1 flex flex-col justify-between p-10 bg-slate-950 text-white relative overflow-hidden min-h-[1100px]">
-            {/* Background Texture */}
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:24px_24px]" />
+        {renderPageWrapper(20, 'Back Cover & Kontak', (
+          <div className={`flex-1 flex flex-col justify-between p-8 bg-gradient-to-br ${formatTheme.coverGradient} text-white relative overflow-hidden min-h-[1100px]`}>
+            {/* Background Image / Pattern */}
+            {buletinConfig.kontakKppn?.fotoGedungUrl ? (
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-overlay pointer-events-none"
+                style={{ backgroundImage: `url(${buletinConfig.kontakKppn.fotoGedungUrl})` }}
+              />
+            ) : (
+              <div 
+                className="absolute inset-0 bg-cover bg-center opacity-25 mix-blend-overlay pointer-events-none"
+                style={{ backgroundImage: `url(${OFFICIAL_PRESET_IMAGES.gedungKppn})` }}
+              />
+            )}
 
-            {/* Top Back Header */}
-            <div className="relative z-10 text-center space-y-2 border-b border-white/20 pb-6">
-              <div className="w-14 h-14 rounded-2xl bg-amber-400 text-slate-950 flex flex-col items-center justify-center font-black mx-auto shadow-lg">
-                <span className="text-sm leading-none">KPPN</span>
-                <span className="text-xs leading-none font-bold text-slate-800">026</span>
+            {/* Top Brand Banner */}
+            <div className="relative z-10 flex items-center justify-between border-b border-white/20 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black text-xs">
+                  026
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase text-amber-300">KPPN TIPE A1 SEMARANG I</div>
+                  <div className="text-[10px] text-slate-300">Direktorat Jenderal Perbendaharaan</div>
+                </div>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white">
-                KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I
-              </h2>
-              <p className="text-xs text-amber-300 font-medium">
-                DIREKTORAT JENDERAL PERBENDAHARAAN • KEMENTERIAN KEUANGAN REPUBLIK INDONESIA
-              </p>
+
+              <div className="text-right text-xs font-bold text-amber-300">
+                {buletinConfig.edisi}
+              </div>
             </div>
 
-            {/* Central Building Graphic or Uploaded Building Photo */}
-            <div className="relative z-10 my-auto text-center space-y-4 max-w-lg mx-auto">
-              {buletinConfig.kontakKppn?.fotoGedungUrl ? (
-                <div className="h-64 rounded-3xl overflow-hidden border-2 border-amber-400 shadow-2xl">
-                  <img 
-                    src={buletinConfig.kontakKppn.fotoGedungUrl} 
-                    alt="Gedung KPPN Semarang I" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="h-64 rounded-3xl bg-slate-900 border-2 border-amber-400/40 flex flex-col items-center justify-center p-6 shadow-2xl space-y-3">
-                  <Building2 className="w-16 h-16 text-amber-400 animate-pulse" />
-                  <div className="space-y-1">
-                    <div className="text-base font-black text-white">GEDUNG KPPN SEMARANG I</div>
-                    <p className="text-xs text-slate-300">
-                      {buletinConfig.kontakKppn?.alamat || 'Jl. Ki Mangunsarkoro No. 34, Karangkidul, Kec. Semarang Tengah, Kota Semarang, Jawa Tengah 50241'}
-                    </p>
+            {/* Central Building Card & Info */}
+            <div className="relative z-10 my-auto py-6 space-y-6 text-center">
+              <div className="max-w-md mx-auto p-6 rounded-3xl bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl space-y-4">
+                <Building2 className="w-12 h-12 text-amber-400 mx-auto" />
+
+                <h3 className="text-xl font-black text-white uppercase tracking-wide">
+                  KANTOR PELAYANAN PERBENDAHARAAN NEGARA (KPPN) TIPE A1 SEMARANG I
+                </h3>
+
+                <div className="space-y-2 text-xs text-slate-200 text-left border-t border-white/10 pt-4">
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <span>{buletinConfig.kontakKppn?.alamat || 'Jl. Ki Mangunsarkoro No. 34, Karangkidul, Kec. Semarang Tengah, Kota Semarang, Jawa Tengah 50241'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Phone className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{buletinConfig.kontakKppn?.telepon || '(024) 8414002 / 8414003'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-bold text-emerald-300">{buletinConfig.kontakKppn?.whatsappHelpdesk || '+62 811-2700-026 (Helpdesk SAKTI)'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Mail className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{buletinConfig.kontakKppn?.email || 'kppnsemarang1@kemenkeu.go.id'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>{buletinConfig.kontakKppn?.website || 'djpb.kemenkeu.go.id/kppn/semarang1'}</span>
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Bottom Contact & QR Code Section */}
-            <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-white/20 items-center">
-              {/* QR Code / Portal Info */}
-              <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl bg-white p-1 flex items-center justify-center shrink-0">
-                  <Globe className="w-12 h-12 text-slate-950" />
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold text-amber-300 uppercase block">FIND US HERE</span>
-                  <div className="text-xs font-black text-white">Portal &amp; Informasi Layanan</div>
-                  <div className="text-[10px] text-slate-300">Akses portal resmi {buletinConfig.kontakKppn?.website || 'djpb.kemenkeu.go.id/kppn/semarang1'}</div>
-                </div>
-              </div>
-
-              {/* Social Media & Contact Info */}
-              <div className="space-y-1.5 text-xs text-slate-200">
-                <div className="flex items-center gap-2 font-semibold">
-                  <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Telp: {buletinConfig.kontakKppn?.telepon || '(024) 8414441'} / WA: {buletinConfig.kontakKppn?.whatsappHelpdesk || '0812-3456-7890'}</span>
-                </div>
-                <div className="flex items-center gap-2 font-semibold">
-                  <Mail className="w-4 h-4 text-sky-400 shrink-0" />
-                  <span>Email: {buletinConfig.kontakKppn?.email || 'kppnsemarang1@kemenkeu.go.id'}</span>
-                </div>
-                <div className="flex items-center gap-2 font-semibold">
-                  <Share2 className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>IG: {buletinConfig.kontakKppn?.instagram || '@kppnsemarang1'} • YT: {buletinConfig.kontakKppn?.youtube || 'KPPN Semarang 1'}</span>
-                </div>
               </div>
             </div>
 
+            {/* Bottom Footer Credits */}
+            <div className="relative z-10 text-center border-t border-white/20 pt-4 text-[10px] text-slate-400 space-y-1">
+              <p>© 2026 KPPN Tipe A1 Semarang I • Hak Cipta Dilindungi Undang-Undang</p>
+              <p className="text-amber-300/80 italic">"InTress Treasury: Handal, Amanah, dan Berintegritas Mengawal APBN untuk Negeri"</p>
+            </div>
           </div>
         ))}
 
