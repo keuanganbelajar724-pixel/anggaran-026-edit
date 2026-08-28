@@ -141,27 +141,33 @@ export async function saveCloudGeminiConfig(config: Partial<CloudGeminiConfig>):
   const sanitizedModel = sanitizeGeminiModel(config.selectedModel);
   const cleanKey = (config.apiKey !== undefined ? config.apiKey : getClientStoredApiKey()).trim();
 
-  // 1. Update local storage
+  // 1. Update local storage immediately
   saveClientStoredApiKey(cleanKey);
   if (sanitizedModel) {
     safeLocalStorageSet(LOCAL_GEMINI_MODEL_STORAGE, sanitizedModel);
   }
 
-  // 2. Persist to Firestore Cloud Settings
-  try {
-    await setDoc(
-      doc(db, 'settings', 'gemini_config'),
-      {
-        apiKey: cleanKey,
-        selectedModel: sanitizedModel || DEFAULT_GEMINI_MODEL,
-        updatedAt: new Date().toISOString(),
-        updatedBy: 'Admin KPPN 026'
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn('Failed to save Gemini config to Firestore:', e);
+  // 2. Debounce Persist to Firestore Cloud Settings
+  if (saveConfigDebounceTimer) {
+    clearTimeout(saveConfigDebounceTimer);
   }
+
+  saveConfigDebounceTimer = setTimeout(async () => {
+    try {
+      await setDoc(
+        doc(db, 'settings', 'gemini_config'),
+        {
+          apiKey: cleanKey,
+          selectedModel: sanitizedModel || DEFAULT_GEMINI_MODEL,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'Admin KPPN 026'
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Failed to save Gemini config to Firestore:', e);
+    }
+  }, 1000);
 }
 
 /**
@@ -449,33 +455,43 @@ export async function loadCloudChatHistory(): Promise<ChatMessage[] | null> {
   return null;
 }
 
+let saveChatDebounceTimer: any = null;
+let saveArchivesDebounceTimer: any = null;
+let saveConfigDebounceTimer: any = null;
+
 /**
- * Save Active Chat History to Firestore and localStorage
+ * Save Active Chat History to Firestore and localStorage with debouncing
  */
 export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
   const trimmed = messages.slice(-50);
   
-  // 1. Save locally
+  // 1. Save immediately locally
   try {
     safeLocalStorageSet(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(trimmed));
   } catch (e) {
     console.warn('Failed to save chat to local storage', e);
   }
 
-  // 2. Persist to Firestore
-  try {
-    await setDoc(
-      doc(db, 'settings', 'gemini_chat'),
-      {
-        chatMessages: trimmed,
-        updatedAt: new Date().toISOString(),
-        lastMessageTimestamp: trimmed[trimmed.length - 1]?.timestamp || ''
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn('Failed to sync chat history to Firestore:', e);
+  // 2. Debounce Firestore Cloud Write to prevent quota burning
+  if (saveChatDebounceTimer) {
+    clearTimeout(saveChatDebounceTimer);
   }
+
+  saveChatDebounceTimer = setTimeout(async () => {
+    try {
+      await setDoc(
+        doc(db, 'settings', 'gemini_chat'),
+        {
+          chatMessages: trimmed,
+          updatedAt: new Date().toISOString(),
+          lastMessageTimestamp: trimmed[trimmed.length - 1]?.timestamp || ''
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Failed to sync chat history to Firestore:', e);
+    }
+  }, 1000);
 }
 
 /**
@@ -537,7 +553,7 @@ export async function loadCloudArchivedSessions(): Promise<ArchivedChatSession[]
 }
 
 /**
- * Save Archived Chat Sessions to Firestore and localStorage
+ * Save Archived Chat Sessions to Firestore and localStorage with debouncing
  */
 export async function saveCloudArchivedSessions(archives: ArchivedChatSession[]): Promise<void> {
   const trimmed = archives.slice(-30);
@@ -549,19 +565,25 @@ export async function saveCloudArchivedSessions(archives: ArchivedChatSession[])
     console.warn('Failed to save archives to local storage', e);
   }
 
-  // 2. Persist to Firestore
-  try {
-    await setDoc(
-      doc(db, 'settings', 'gemini_archives'),
-      {
-        archivedSessions: trimmed,
-        updatedAt: new Date().toISOString()
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    console.warn('Failed to sync archives to Firestore:', e);
+  // 2. Debounce Persist to Firestore
+  if (saveArchivesDebounceTimer) {
+    clearTimeout(saveArchivesDebounceTimer);
   }
+
+  saveArchivesDebounceTimer = setTimeout(async () => {
+    try {
+      await setDoc(
+        doc(db, 'settings', 'gemini_archives'),
+        {
+          archivedSessions: trimmed,
+          updatedAt: new Date().toISOString()
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Failed to sync archives to Firestore:', e);
+    }
+  }, 1000);
 }
 
 /**

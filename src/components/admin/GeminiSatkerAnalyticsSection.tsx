@@ -235,18 +235,6 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   // Role Persona State
   const [selectedPersona, setSelectedPersona] = useState<AnalystRolePersona>('mski_analyst');
 
-  // Save chat to localStorage & Firestore
-  useEffect(() => {
-    if (chatMessages && chatMessages.length > 0) {
-      saveCloudChatHistory(chatMessages);
-    }
-  }, [chatMessages]);
-
-  // Save archived sessions to localStorage & Firestore
-  useEffect(() => {
-    saveCloudArchivedSessions(archivedSessions);
-  }, [archivedSessions]);
-
   // Auto-scroll ONLY the chat messages container to bottom without affecting the parent page scroll
   useEffect(() => {
     if (isInitialMount.current) {
@@ -424,7 +412,9 @@ FORMAT RESPON ANDA:
       rolePersona: selectedPersona
     };
 
-    setChatMessages(prev => [...prev, userMessage]);
+    const updatedWithUser = [...chatMessages, userMessage];
+    setChatMessages(updatedWithUser);
+    saveCloudChatHistory(updatedWithUser);
     setIsLoading(true);
 
     try {
@@ -456,7 +446,11 @@ FORMAT RESPON ANDA:
         rolePersona: selectedPersona
       };
 
-      setChatMessages(prev => [...prev, botMessage]);
+      setChatMessages(prev => {
+        const next = [...prev, botMessage];
+        saveCloudChatHistory(next);
+        return next;
+      });
     } catch (err: any) {
       console.warn('Gemini Analysis Request Error, fallback to local AI engine', err);
       const fallbackReply = generateLocalFinancialAnalysis(
@@ -474,7 +468,11 @@ FORMAT RESPON ANDA:
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         rolePersona: selectedPersona
       };
-      setChatMessages(prev => [...prev, errorMessage]);
+      setChatMessages(prev => {
+        const next = [...prev, errorMessage];
+        saveCloudChatHistory(next);
+        return next;
+      });
     } finally {
       setIsLoading(false);
     }
@@ -580,7 +578,11 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
   };
 
   const handleDeleteSingleMessage = (id: string) => {
-    setChatMessages(prev => prev.filter(m => m.id !== id));
+    setChatMessages(prev => {
+      const next = prev.filter(m => m.id !== id);
+      saveCloudChatHistory(next);
+      return next;
+    });
   };
 
   const handleDownloadChat = () => {
@@ -620,7 +622,9 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
       messages: [...chatMessages]
     };
 
-    setArchivedSessions(prev => [newArchive, ...prev]);
+    const updatedArchives = [newArchive, ...archivedSessions];
+    setArchivedSessions(updatedArchives);
+    saveCloudArchivedSessions(updatedArchives);
 
     // Reset active chat to initial welcome
     const initialWelcome: ChatMessage = {
@@ -630,12 +634,14 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
     };
     setChatMessages([initialWelcome]);
+    saveCloudChatHistory([initialWelcome]);
     alert(`Sesi percakapan berhasil diarsipkan! Anda dapat membukanya kembali dari menu "Arsip Percakapan".`);
   };
 
   const handleRestoreArchivedSession = (session: ArchivedChatSession) => {
     if (confirm(`Buka dan pulihkan arsip percakapan "${session.title}" ke konsol aktif?`)) {
       setChatMessages(session.messages);
+      saveCloudChatHistory(session.messages);
       if (session.targetSatkerKode) {
         setSelectedSatkerFilter(session.targetSatkerKode);
       }
@@ -646,7 +652,11 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
 
   const handleDeleteArchivedSession = (id: string) => {
     if (confirm('Hapus arsip percakapan ini secara permanen?')) {
-      setArchivedSessions(prev => prev.filter(a => a.id !== id));
+      setArchivedSessions(prev => {
+        const next = prev.filter(a => a.id !== id);
+        saveCloudArchivedSessions(next);
+        return next;
+      });
       if (viewingArchivedSession?.id === id) {
         setViewingArchivedSession(null);
       }

@@ -14,13 +14,11 @@ import {
   SetOptions
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { emergencyPruneStorage, safeLocalStorageRemove } from '../utils/safeStorage';
+import { emergencyPruneStorage, safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
 import { trackFirestoreRead, trackFirestoreWrite } from '../utils/firestoreQuotaTracker';
 
-// Clean up any stale quota blocks or lock flags from previous sessions
+// Clean up any stale storage blocks
 emergencyPruneStorage();
-safeLocalStorageRemove('kppn_firestore_quota_exhausted_until');
-safeLocalStorageRemove('kppn_firestore_lock');
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
@@ -44,16 +42,90 @@ try {
 
 export const db = firestoreDb;
 
-// Direct, reliable getDoc wrapper with quota tracking
+// ==========================================
+// Robust Quota Guard & Circuit Breaker State
+// ==========================================
+const QUOTA_EXHAUSTED_KEY = 'kppn_firestore_quota_exhausted_until';
+let inMemoryQuotaExhaustedUntil = 0;
+
+try {
+  const savedUntil = safeLocalStorageGet(QUOTA_EXHAUSTED_KEY);
+  if (savedUntil) {
+    const ts = parseInt(savedUntil, 10);
+    if (!isNaN(ts) && ts > Date.now()) {
+      inMemoryQuotaExhaustedUntil = ts;
+    }
+  }
+} catch {
+  // ignore
+}
+
+export function isFirestoreQuotaExhausted(): boolean {
+  if (inMemoryQuotaExhaustedUntil > Date.now()) {
+    return true;
+  }
+  return false;
+}
+
+export function reportFirestoreQuotaExhaustion(durationMinutes = 15): void {
+  const until = Date.now() + durationMinutes * 60 * 1000;
+  inMemoryQuotaExhaustedUntil = until;
+  try {
+    safeLocalStorageSet(QUOTA_EXHAUSTED_KEY, until.toString());
+  } catch {
+    // ignore
+  }
+  console.warn(
+    `[Firestore Quota Guard] Quota limit reached on Spark Free Tier. Cloud write stream paused for ${durationMinutes} min. App seamlessly operating in high-performance local offline mode.`
+  );
+}
+
+export function resetFirestoreQuotaExhaustion(): void {
+  inMemoryQuotaExhaustedUntil = 0;
+  try {
+    safeLocalStorageRemove(QUOTA_EXHAUSTED_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+function isQuotaError(err: any): boolean {
+  if (!err) return false;
+  const msg = (err.message || String(err)).toLowerCase();
+  const code = (err.code || '').toLowerCase();
+  return (
+    code.includes('resource-exhausted') ||
+    msg.includes('resource-exhausted') ||
+    msg.includes('quota limit exceeded') ||
+    msg.includes('write units per project') ||
+    msg.includes('exhausted maximum allowed queued writes')
+  );
+}
+
+// Direct, reliable getDoc wrapper with quota tracking & graceful offline fallback
 export async function getDoc<T = any>(
   reference: DocumentReference<T>
 ): Promise<any> {
+  if (isFirestoreQuotaExhausted()) {
+    return {
+      exists: () => false,
+      data: () => undefined,
+      id: reference?.id || '',
+      ref: reference,
+      metadata: { hasPendingWrites: false, fromCache: true }
+    };
+  }
+
   try {
     const snap = await rawGetDoc(reference);
     trackFirestoreRead(reference?.path || 'unknown_doc');
     return snap;
   } catch (err: any) {
-    console.warn('Firestore getDoc notice (falling back gracefully):', err?.message || err);
+    if (isQuotaError(err)) {
+      reportFirestoreQuotaExhaustion(15);
+    } else {
+      console.warn('Firestore getDoc notice (falling back gracefully):', err?.message || err);
+    }
     return {
       exists: () => false,
       data: () => undefined,
@@ -64,12 +136,17 @@ export async function getDoc<T = any>(
   }
 }
 
-// Direct, reliable setDoc wrapper with error resilience and quota tracking
+// Direct, reliable setDoc wrapper with circuit breaker and write stream protection
 export async function setDoc<T = any>(
   reference: DocumentReference<T>,
   data: any,
   options?: SetOptions
 ): Promise<void> {
+  // If Firestore daily write quota is exhausted, skip pushing to rawSetDoc to prevent write stream overflow
+  if (isFirestoreQuotaExhausted()) {
+    return;
+  }
+
   try {
     if (options) {
       await rawSetDoc(reference, data, options);
@@ -78,11 +155,15 @@ export async function setDoc<T = any>(
     }
     trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {
-    console.warn('Firestore setDoc notice:', err?.message || err);
+    if (isQuotaError(err)) {
+      reportFirestoreQuotaExhaustion(15);
+    } else {
+      console.warn('Firestore setDoc notice:', err?.message || err);
+    }
   }
 }
 
-// Direct, reliable onSnapshot wrapper for real-time cloud data propagation with quota telemetry
+// Direct, reliable onSnapshot wrapper with quota tracking & error guard
 export function onSnapshot(...args: any[]): () => void {
   try {
     const targetRef = args[0];
@@ -103,7 +184,6 @@ export function onSnapshot(...args: any[]): () => void {
     }
 
     const wrappedNextCallback = (snapshot: any) => {
-      // Track real-time snapshot read events
       trackFirestoreRead(pathStr, 1);
       if (nextCallback) {
         try {
@@ -115,6 +195,9 @@ export function onSnapshot(...args: any[]): () => void {
     };
 
     const wrappedErrorCallback = (err: any) => {
+      if (isQuotaError(err)) {
+        reportFirestoreQuotaExhaustion(15);
+      }
       if (errorCallback) {
         try {
           errorCallback(err);
@@ -132,22 +215,13 @@ export function onSnapshot(...args: any[]): () => void {
 
     return (rawOnSnapshot as any)(...args);
   } catch (err: any) {
-    console.warn('Firestore onSnapshot notice:', err?.message || err);
+    if (isQuotaError(err)) {
+      reportFirestoreQuotaExhaustion(15);
+    } else {
+      console.warn('Firestore onSnapshot notice:', err?.message || err);
+    }
     return () => {};
   }
 }
 
-export function isFirestoreQuotaExhausted(): boolean {
-  return false;
-}
-
-export function reportFirestoreQuotaExhaustion(_durationMinutes = 5): void {
-  // No-op: do not block global Firestore sync
-}
-
 export { doc, collection, query };
-
-
-
-
-
