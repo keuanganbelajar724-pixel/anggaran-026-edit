@@ -68,13 +68,19 @@ export function saveClientStoredApiKey(key: string): void {
   }
 }
 
-export const DEFAULT_GEMINI_MODEL = 'gemini-3.7-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+export const SUPPORTED_GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-3.7-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-2.5-pro'
+];
 
 export function sanitizeGeminiModel(model?: string): string {
   const m = (model || '').trim();
-  if (!m || m === 'gemini-2.5-flash' || m === 'gemini-2.5-pro' || m === 'gemini-1.5-flash') {
-    return DEFAULT_GEMINI_MODEL;
-  }
+  if (!m) return DEFAULT_GEMINI_MODEL;
   return m;
 }
 
@@ -98,7 +104,7 @@ export async function checkGeminiStatus(): Promise<GeminiServerStatus> {
     connected: hasLocal,
     hasServerKey: false,
     defaultModel: DEFAULT_GEMINI_MODEL,
-    availableModels: ['gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.1-pro-preview'],
+    availableModels: SUPPORTED_GEMINI_MODELS,
     message: hasLocal
       ? 'Gemini terhubung menggunakan API Key Kustom peramban.'
       : 'API Key belum terpasang. Anda dapat memasukkan Gemini API Key dari Google AI Studio.',
@@ -106,12 +112,12 @@ export async function checkGeminiStatus(): Promise<GeminiServerStatus> {
 }
 
 /**
- * Test Gemini API connection using server or client-side fallback
+ * Test Gemini API connection using server or client-side fallback with multi-model cascade
  */
 export async function testGeminiConnection(options?: {
   apiKey?: string;
   model?: string;
-}): Promise<{ success: boolean; message: string; reply?: string }> {
+}): Promise<{ success: boolean; message: string; reply?: string; usedModel?: string; fallbackUsed?: boolean }> {
   const activeKey = options?.apiKey?.trim() || getClientStoredApiKey();
   const targetModel = sanitizeGeminiModel(options?.model);
 
@@ -133,6 +139,8 @@ export async function testGeminiConnection(options?: {
           success: true,
           message: data.message || 'Koneksi ke Google Gemini AI Berhasil!',
           reply: data.reply,
+          usedModel: data.model,
+          fallbackUsed: data.fallbackUsed,
         };
       }
     }
@@ -140,27 +148,46 @@ export async function testGeminiConnection(options?: {
     console.warn('Server test failed, attempting direct client SDK test', err);
   }
 
-  // 2. Direct client-side SDK test if client key exists
+  // 2. Direct client-side SDK test if client key exists (with model fallback cascade)
   if (activeKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: activeKey });
-      const response = await ai.models.generateContent({
-        model: targetModel,
-        contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
-      });
-      const text = response.text || '';
-      return {
-        success: true,
-        message: 'Koneksi Google Gemini API Berhasil langsung dari peramban!',
-        reply: text,
-      };
-    } catch (sdkErr: any) {
-      console.error('Client SDK test failed', sdkErr);
-      return {
-        success: false,
-        message: `Gagal verifikasi API Key: ${sdkErr?.message || 'Periksa kembali API Key atau kuota Anda.'}`,
-      };
+    const candidateModels = [
+      targetModel,
+      ...SUPPORTED_GEMINI_MODELS.filter(m => m !== targetModel)
+    ];
+
+    let lastError: any = null;
+    for (const modelToTry of candidateModels) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: activeKey });
+        const response = await ai.models.generateContent({
+          model: modelToTry,
+          contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
+        });
+        const text = response.text || '';
+        const isFallback = modelToTry !== targetModel;
+        return {
+          success: true,
+          message: isFallback
+            ? `Koneksi Google Gemini API Berhasil! (Menggunakan model stabil ${modelToTry} karena ${targetModel} sedang mengalami antrean padat di server Google).`
+            : 'Koneksi Google Gemini API Berhasil langsung dari peramban!',
+          reply: text,
+          usedModel: modelToTry,
+          fallbackUsed: isFallback,
+        };
+      } catch (sdkErr: any) {
+        lastError = sdkErr;
+        console.warn(`Client SDK test model ${modelToTry} failed:`, sdkErr);
+        const msg = (sdkErr?.message || '').toLowerCase();
+        if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+          break;
+        }
+      }
     }
+
+    return {
+      success: false,
+      message: `Gagal verifikasi API Key: ${lastError?.message || 'Periksa kembali API Key atau kuota Anda.'}`,
+    };
   }
 
   return {
@@ -177,7 +204,7 @@ export async function generateGeminiContent(
 ): Promise<GeminiGenerateResponse> {
   const customKey = options.apiKey?.trim() || getClientStoredApiKey();
   const targetPrompt = options.prompt || options.contents || '';
-  const targetModel = sanitizeGeminiModel(options.model);
+  const requestedModel = sanitizeGeminiModel(options.model);
 
   if (!targetPrompt) {
     throw new Error('Prompt tidak boleh kosong.');
@@ -187,7 +214,7 @@ export async function generateGeminiContent(
   try {
     const payload: Record<string, any> = {
       prompt: targetPrompt,
-      model: targetModel,
+      model: requestedModel,
     };
     if (options.systemInstruction) {
       payload.systemInstruction = options.systemInstruction;
@@ -208,7 +235,7 @@ export async function generateGeminiContent(
         return {
           success: true,
           text: data.text,
-          model: data.model || targetModel,
+          model: data.model || requestedModel,
           source: 'server',
         };
       }
@@ -217,32 +244,48 @@ export async function generateGeminiContent(
     console.warn('Server generation proxy unavailable, attempting client SDK fallback', serverErr);
   }
 
-  // 2. Direct client-side SDK fallback
+  // 2. Direct client-side SDK fallback with model cascade
   if (customKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: customKey });
-      const config: Record<string, any> = {};
-      if (options.systemInstruction) {
-        config.systemInstruction = options.systemInstruction;
+    const candidateModels = [
+      requestedModel,
+      ...SUPPORTED_GEMINI_MODELS.filter(m => m !== requestedModel)
+    ];
+
+    let lastError: any = null;
+    for (const modelToTry of candidateModels) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: customKey });
+        const config: Record<string, any> = {};
+        if (options.systemInstruction) {
+          config.systemInstruction = options.systemInstruction;
+        }
+
+        const response = await ai.models.generateContent({
+          model: modelToTry,
+          contents: targetPrompt,
+          ...(Object.keys(config).length > 0 ? { config } : {}),
+        });
+
+        const text = response.text || '';
+        if (text) {
+          return {
+            success: true,
+            text,
+            model: modelToTry,
+            source: 'client_sdk',
+          };
+        }
+      } catch (sdkErr: any) {
+        lastError = sdkErr;
+        console.warn(`Client SDK model ${modelToTry} failed:`, sdkErr);
+        const msg = (sdkErr?.message || '').toLowerCase();
+        if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+          break;
+        }
       }
-
-      const response = await ai.models.generateContent({
-        model: targetModel,
-        contents: targetPrompt,
-        ...(Object.keys(config).length > 0 ? { config } : {}),
-      });
-
-      const text = response.text || '';
-      return {
-        success: true,
-        text,
-        model: targetModel,
-        source: 'client_sdk',
-      };
-    } catch (sdkErr: any) {
-      console.error('Client SDK generation error:', sdkErr);
-      throw new Error(`Gemini AI Error: ${sdkErr?.message || 'Gagal menghasilkan analisis.'}`);
     }
+
+    throw new Error(`Gemini AI Error: ${lastError?.message || 'Gagal menghasilkan analisis.'}`);
   }
 
   throw new Error('Tidak ada API Key Google Gemini yang tersedia untuk memproses permintaan.');

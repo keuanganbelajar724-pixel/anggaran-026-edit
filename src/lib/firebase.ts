@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { emergencyPruneStorage, safeLocalStorageRemove } from '../utils/safeStorage';
+import { trackFirestoreRead, trackFirestoreWrite } from '../utils/firestoreQuotaTracker';
 
 // Clean up any stale quota blocks or lock flags from previous sessions
 emergencyPruneStorage();
@@ -43,12 +44,13 @@ try {
 
 export const db = firestoreDb;
 
-// Direct, reliable getDoc wrapper
+// Direct, reliable getDoc wrapper with quota tracking
 export async function getDoc<T = any>(
   reference: DocumentReference<T>
 ): Promise<any> {
   try {
     const snap = await rawGetDoc(reference);
+    trackFirestoreRead(reference?.path || 'unknown_doc');
     return snap;
   } catch (err: any) {
     console.warn('Firestore getDoc notice (falling back gracefully):', err?.message || err);
@@ -62,7 +64,7 @@ export async function getDoc<T = any>(
   }
 }
 
-// Direct, reliable setDoc wrapper with error resilience
+// Direct, reliable setDoc wrapper with error resilience and quota tracking
 export async function setDoc<T = any>(
   reference: DocumentReference<T>,
   data: any,
@@ -74,15 +76,17 @@ export async function setDoc<T = any>(
     } else {
       await rawSetDoc(reference, data);
     }
+    trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {
     console.warn('Firestore setDoc notice:', err?.message || err);
   }
 }
 
-// Direct, reliable onSnapshot wrapper for real-time cloud data propagation
+// Direct, reliable onSnapshot wrapper for real-time cloud data propagation with quota telemetry
 export function onSnapshot(...args: any[]): () => void {
   try {
     const targetRef = args[0];
+    const pathStr = targetRef?.path || 'snapshot_ref';
     let nextCallback: any = null;
     let errorCallback: any = null;
 
@@ -98,6 +102,18 @@ export function onSnapshot(...args: any[]): () => void {
       }
     }
 
+    const wrappedNextCallback = (snapshot: any) => {
+      // Track real-time snapshot read events
+      trackFirestoreRead(pathStr, 1);
+      if (nextCallback) {
+        try {
+          nextCallback(snapshot);
+        } catch (e) {
+          console.warn('Error inside onSnapshot subscriber callback:', e);
+        }
+      }
+    };
+
     const wrappedErrorCallback = (err: any) => {
       if (errorCallback) {
         try {
@@ -111,7 +127,7 @@ export function onSnapshot(...args: any[]): () => void {
     };
 
     if (nextCallback) {
-      return (rawOnSnapshot as any)(targetRef, nextCallback, wrappedErrorCallback);
+      return (rawOnSnapshot as any)(targetRef, wrappedNextCallback, wrappedErrorCallback);
     }
 
     return (rawOnSnapshot as any)(...args);

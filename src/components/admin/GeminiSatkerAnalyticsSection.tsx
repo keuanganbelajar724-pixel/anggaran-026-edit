@@ -109,7 +109,7 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [tempApiKeyInput, setTempApiKeyInput] = useState<string>('');
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean | null>(null);
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.7-flash');
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-2.5-flash');
 
   // Check server status & Sync with Firestore on mount
   useEffect(() => {
@@ -823,12 +823,14 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                   isDark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
                 }`}
               >
-                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Terkini, Respons Cepat &amp; Direkomendasikan)</option>
-                <option value="gemini-3.6-flash">Gemini 3.6 Flash (Stabil &amp; Efisien)</option>
-                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (Penalaran Mendalam &amp; Kompleks)</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Paling Stabil, Cepat &amp; Direkomendasikan)</option>
+                <option value="gemini-3.7-flash">Gemini 3.7 Flash (Terkini &amp; High Reasoning)</option>
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (Ultra Cepat &amp; Respons Instan)</option>
+                <option value="gemini-1.5-flash">Gemini 1.5 Flash (Cadangan Ringan)</option>
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Penalaran Kompleks &amp; Mendalam)</option>
               </select>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Model <strong>gemini-3.7-flash</strong> dirancang khusus untuk kecepatan tinggi, akurasi penalaran keuangan, dan efisiensi kuota.
+                Dilengkapi <strong>Smart Auto-Fallback</strong>: Jika salah satu model mengalami lonjakan antrean (503), sistem otomatis mengalihkan ke model stabil lainnya tanpa error.
               </p>
             </div>
           </div>

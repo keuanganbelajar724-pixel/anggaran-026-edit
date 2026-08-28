@@ -41,12 +41,19 @@ async function startServer() {
     });
   });
 
+  // Supported and fallback models
+  const FALLBACK_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-3.7-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-pro'
+  ];
+
   // Helper to normalize and sanitize model identifiers
   function normalizeModelName(inputModel?: string): string {
     const raw = (inputModel || '').trim();
-    if (!raw || raw === 'gemini-2.5-flash' || raw === 'gemini-2.5-pro' || raw === 'gemini-1.5-flash') {
-      return 'gemini-3.7-flash';
-    }
+    if (!raw) return 'gemini-2.5-flash';
     return raw;
   }
 
@@ -56,47 +63,67 @@ async function startServer() {
     res.json({
       connected: hasServerKey,
       hasServerKey,
-      defaultModel: 'gemini-3.7-flash',
-      availableModels: [
-        'gemini-3.7-flash',
-        'gemini-3.6-flash',
-        'gemini-3.1-pro-preview',
-      ],
+      defaultModel: 'gemini-2.5-flash',
+      availableModels: FALLBACK_MODELS,
       message: hasServerKey
         ? 'Gemini AI terhubung otomatis melalui Server Cloud.'
         : 'Server siap menerima konfigurasi API Key.',
     });
   });
 
-  // Gemini Test Connection endpoint
+  // Gemini Test Connection endpoint with auto-fallback cascade
   app.post('/api/gemini/test', async (req, res) => {
     try {
       const { apiKey, model } = req.body || {};
       const ai = getGeminiClient(apiKey);
-      const targetModel = normalizeModelName(model);
+      const requestedModel = normalizeModelName(model);
 
-      const response = await ai.models.generateContent({
-        model: targetModel,
-        contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
-      });
+      const candidateModels = [
+        requestedModel,
+        ...FALLBACK_MODELS.filter(m => m !== requestedModel)
+      ];
 
-      const reply = response.text || '';
-      return res.json({
-        success: true,
-        reply,
-        model: targetModel,
-        message: 'Koneksi ke Google Gemini AI Berhasil!',
-      });
+      let lastError: any = null;
+      for (const targetModel of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: targetModel,
+            contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
+          });
+
+          const reply = response.text || '';
+          const usedFallback = targetModel !== requestedModel;
+          return res.json({
+            success: true,
+            reply,
+            model: targetModel,
+            fallbackUsed: usedFallback,
+            message: usedFallback
+              ? `Koneksi Google Gemini AI Berhasil! (Menggunakan model stabil ${targetModel} karena ${requestedModel} sedang padat antrean).`
+              : 'Koneksi ke Google Gemini AI Berhasil & Valid!',
+          });
+        } catch (mErr: any) {
+          lastError = mErr;
+          console.warn(`Model ${targetModel} test error:`, mErr?.message || mErr);
+          // If error is not high-demand/model-specific (e.g. invalid API key), break early
+          const msg = (mErr?.message || '').toLowerCase();
+          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+            break;
+          }
+        }
+      }
+
+      throw lastError || new Error('Semua model Gemini sedang tidak dapat dihubungi.');
     } catch (err: any) {
       console.error('Gemini test connection error:', err?.message || err);
       return res.status(400).json({
         success: false,
-        error: err?.message || 'Gagal menghubungi Google Gemini AI.',
+        error: err?.message || 'Gagal menghubungi Google Gemini AI. Pastikan API Key valid.',
       });
     }
   });
 
-  // Gemini Text Generation endpoint
+  // Gemini Text Generation endpoint with auto-fallback cascade
   app.post('/api/gemini/generate', async (req, res) => {
     try {
       const { prompt, contents, model, systemInstruction, apiKey } = req.body || {};
@@ -110,25 +137,47 @@ async function startServer() {
       }
 
       const ai = getGeminiClient(apiKey);
-      const targetModel = normalizeModelName(model);
+      const requestedModel = normalizeModelName(model);
 
       const config: Record<string, any> = {};
       if (systemInstruction) {
         config.systemInstruction = systemInstruction;
       }
 
-      const response = await ai.models.generateContent({
-        model: targetModel,
-        contents: targetPrompt,
-        ...(Object.keys(config).length > 0 ? { config } : {}),
-      });
+      const candidateModels = [
+        requestedModel,
+        ...FALLBACK_MODELS.filter(m => m !== requestedModel)
+      ];
 
-      const text = response.text || '';
-      return res.json({
-        success: true,
-        text,
-        model: targetModel,
-      });
+      let lastError: any = null;
+      for (const targetModel of candidateModels) {
+        try {
+          const response = await ai.models.generateContent({
+            model: targetModel,
+            contents: targetPrompt,
+            ...(Object.keys(config).length > 0 ? { config } : {}),
+          });
+
+          const text = response.text || '';
+          if (text) {
+            return res.json({
+              success: true,
+              text,
+              model: targetModel,
+              fallbackUsed: targetModel !== requestedModel,
+            });
+          }
+        } catch (mErr: any) {
+          lastError = mErr;
+          console.warn(`Model ${targetModel} generate error:`, mErr?.message || mErr);
+          const msg = (mErr?.message || '').toLowerCase();
+          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+            break;
+          }
+        }
+      }
+
+      throw lastError || new Error('Gagal menghasilkan teks melalui Gemini AI.');
     } catch (err: any) {
       console.error('Gemini generation error:', err?.message || err);
       return res.status(500).json({

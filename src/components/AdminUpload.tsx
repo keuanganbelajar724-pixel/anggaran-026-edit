@@ -44,6 +44,7 @@ import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
 import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisSection';
 import { BuletinWartaSection } from './admin/BuletinWartaSection';
+import { FirebaseQuotaMonitorSection } from './admin/FirebaseQuotaMonitorSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -137,6 +138,7 @@ import {
   Star,
   Link2,
   Loader2,
+  Database,
   Printer,
   ClipboardCheck,
   PenTool,
@@ -389,7 +391,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -2980,6 +2982,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>16. Buletin &amp; Warta KPPN Semarang I</span>
           <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             🎨 Majalah &amp; Canva
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('firestore-quota')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'firestore-quota'
+              ? 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-sky-500/25 border border-sky-400/40 ring-2 ring-sky-400/30'
+              : 'text-sky-700 hover:text-sky-900 hover:bg-sky-50 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60'
+          }`}
+        >
+          <Database className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
+          <span>17. Monitor Kuota Firebase</span>
+          <span className="bg-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
+            ⚡ Spark 50k Reads
           </span>
         </button>
       </div>
@@ -8752,6 +8769,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             onUpdateDashboardConfig(newCfg);
           }}
           isAdminAuthenticated={isAdminAuthenticated}
+        />
+      )}
+
+      {/* 17. Monitor Kuota Firebase Spark Plan & Firestore Telemetry */}
+      {adminTab === 'firestore-quota' && (
+        <FirebaseQuotaMonitorSection
+          satkers={satkers}
+          masterSatkers={masterSatkers}
+          pejabatList={pejabatList}
+          spmPppRecords={spmPppRecords}
+          dashboardConfig={tempConfig}
+          pengelolaanUpRecords={pengelolaanUpRecords}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
+          deviasiHal3Records={deviasiHal3Records}
+          isDark={isDark}
         />
       )}
 
