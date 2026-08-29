@@ -1,5 +1,12 @@
 import * as XLSX from 'xlsx';
-import { RealisasiBelanjaRecord, RealisasiBelanjaSummary, BuletinConfig } from '../types';
+import { 
+  RealisasiBelanjaRecord, 
+  RealisasiBelanjaSummary, 
+  BuletinConfig,
+  MyIntressRecord,
+  MyIntressSummary,
+  SatkerReconciliationDiff
+} from '../types';
 
 // Helper to clean text
 function cleanText(val: any): string {
@@ -40,7 +47,41 @@ export function getJenisBelanjaInfo(akunKode: string): { kode: string; nama: str
 }
 
 /**
- * Process Excel file from OM-SPAN / SAKTI Inquiry Data Realisasi Belanja
+ * Process Excel file from SINTESA / MonSAKTI Inquiry Data Realisasi Belanja
+ * Standard SINTESA Column Positions:
+ * - Kolom A (0): kementerian_kode
+ * - Kolom B (1): kementerian_uraian (Kementerian / Lembaga)
+ * - Kolom C (2): eseloni_kode
+ * - Kolom D (3): eseloni_uraian
+ * - Kolom E (4): kewenangan_kode
+ * - Kolom F (5): kewenangan_uraian
+ * - Kolom G (6): provinsi_kode
+ * - Kolom H (7): provinsi_uraian
+ * - Kolom I (8): kabkota_kode
+ * - Kolom J (9): kabkota_uraian
+ * - Kolom K (10): kanwil_kode
+ * - Kolom L (11): kanwil_uraian
+ * - Kolom M (12): kppn_kode
+ * - Kolom N (13): kppn_uraian
+ * - Kolom O (14): satker_kode
+ * - Kolom P (15): satker_uraian
+ * - Kolom Q (16): fungsi_kode
+ * - Kolom R (17): fungsi_uraian
+ * - Kolom S (18): subfungsi_kode
+ * - Kolom T (19): subfungsi_uraian
+ * - Kolom U (20): program_kode
+ * - Kolom V (21): program_uraian
+ * - Kolom W (22): kegiatan_kode
+ * - Kolom X (23): kegiatan_uraian
+ * - Kolom Y (24): outputkro_kode
+ * - Kolom Z (25): outputkro_uraian
+ * - Kolom AA (26): akun_kode
+ * - Kolom AB (27): akun_uraian
+ * - Kolom AC (28): sumberdana_kode
+ * - Kolom AD (29): sumberdana_uraian
+ * - Kolom AP (41): pagu_dipa
+ * - Kolom AQ (42): realisasi
+ * - Kolom AR (43): blokir
  */
 export async function processRealisasiBelanjaExcel(file: File): Promise<{
   records: RealisasiBelanjaRecord[];
@@ -56,8 +97,12 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
 
-        // Select the sheet (prefer 'Inquiry Data' or the first one)
-        let sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('inquiry')) || workbook.SheetNames[0];
+        // Select the sheet (prefer 'Inquiry Data' or 'Sintesa' or the first one)
+        let sheetName = workbook.SheetNames.find(n => 
+          n.toLowerCase().includes('inquiry') || 
+          n.toLowerCase().includes('sintesa') ||
+          n.toLowerCase().includes('realisasi')
+        ) || workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
 
         const matrix: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
@@ -65,11 +110,11 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
           throw new Error('File Excel tidak memiliki baris data yang cukup.');
         }
 
-        // Find header row (search for row containing 'kementerian_kode' or 'satker_kode' or 'pagu_dipa' or 'realisasi')
+        // Find header row
         let headerRowIndex = 0;
         for (let i = 0; i < Math.min(15, matrix.length); i++) {
           const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
-          if (rowStr.includes('satker') || rowStr.includes('pagu') || rowStr.includes('kementerian')) {
+          if (rowStr.includes('satker') || rowStr.includes('pagu') || rowStr.includes('kementerian') || rowStr.includes('realisasi')) {
             headerRowIndex = i;
             break;
           }
@@ -79,24 +124,47 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
           String(h).trim().toLowerCase().replace(/[\s\.\-\/]/g, '_')
         );
 
-        // Map column indices
-        const getColIdx = (aliases: string[]) => {
-          return headers.findIndex(h => aliases.some(alias => h.includes(alias)));
+        // Map column indices with robust aliases and positional fallbacks
+        const getColIdx = (aliases: string[], fallbackPos?: number) => {
+          const found = headers.findIndex(h => aliases.some(alias => h === alias || h.includes(alias)));
+          if (found >= 0) return found;
+          if (fallbackPos !== undefined && fallbackPos < headers.length) return fallbackPos;
+          return -1;
         };
 
-        const idxKemKode = getColIdx(['kementerian_kode', 'kemen_kode', 'kd_kemen', 'kd_kl', 'ba_kode']);
-        const idxKemUraian = getColIdx(['kementerian_uraian', 'kemen_uraian', 'ur_kemen', 'nm_kl', 'kementerian']);
-        const idxSatkerKode = getColIdx(['satker_kode', 'kd_satker', 'kdsatker', 'kode_satker']);
-        const idxSatkerUraian = getColIdx(['satker_uraian', 'ur_satker', 'nmsatker', 'nama_satker', 'satker']);
-        const idxAkunKode = getColIdx(['akun_kode', 'kd_akun', 'kdakun', 'kode_akun', 'akun']);
-        const idxAkunUraian = getColIdx(['akun_uraian', 'ur_akun', 'nm_akun', 'nama_akun']);
-        const idxPagu = getColIdx(['pagu_dipa', 'pagu', 'alokasi', 'dipa']);
-        const idxRealisasi = getColIdx(['realisasi', 'penyerapan', 'sp2d']);
-        const idxBlokir = getColIdx(['blokir', 'pagu_blokir', 'blok']);
-        const idxKewenangan = getColIdx(['kewenangan_uraian', 'kewenangan', 'ur_kewenangan']);
-        const idxSumberdana = getColIdx(['sumberdana_uraian', 'sumber_dana', 'sumberdana', 'ur_sumberdana']);
-        const idxProgram = getColIdx(['program_uraian', 'program', 'ur_program']);
-        const idxKegiatan = getColIdx(['kegiatan_uraian', 'kegiatan', 'ur_kegiatan']);
+        const idxKemKode = getColIdx(['kementerian_kode', 'kemen_kode', 'kd_kemen', 'kd_kl', 'ba_kode'], 0);
+        const idxKemUraian = getColIdx(['kementerian_uraian', 'kemen_uraian', 'ur_kemen', 'nm_kl', 'kementerian'], 1);
+        const idxEselonIKode = getColIdx(['eseloni_kode', 'eselon1_kode', 'kd_eselon1'], 2);
+        const idxEselonIUraian = getColIdx(['eseloni_uraian', 'eselon1_uraian', 'ur_eselon1'], 3);
+        const idxKewenanganKode = getColIdx(['kewenangan_kode', 'kd_kewenangan'], 4);
+        const idxKewenanganUraian = getColIdx(['kewenangan_uraian', 'kewenangan', 'ur_kewenangan'], 5);
+        const idxProvinsiKode = getColIdx(['provinsi_kode', 'kd_provinsi'], 6);
+        const idxProvinsiUraian = getColIdx(['provinsi_uraian', 'ur_provinsi'], 7);
+        const idxKabKotaKode = getColIdx(['kabkota_kode', 'kd_kabkota'], 8);
+        const idxKabKotaUraian = getColIdx(['kabkota_uraian', 'ur_kabkota'], 9);
+        const idxKanwilKode = getColIdx(['kanwil_kode', 'kd_kanwil'], 10);
+        const idxKanwilUraian = getColIdx(['kanwil_uraian', 'ur_kanwil'], 11);
+        const idxKppnKode = getColIdx(['kppn_kode', 'kd_kppn'], 12);
+        const idxKppnUraian = getColIdx(['kppn_uraian', 'ur_kppn'], 13);
+        const idxSatkerKode = getColIdx(['satker_kode', 'kd_satker', 'kdsatker', 'kode_satker'], 14);
+        const idxSatkerUraian = getColIdx(['satker_uraian', 'ur_satker', 'nmsatker', 'nama_satker', 'satker'], 15);
+        const idxFungsiKode = getColIdx(['fungsi_kode', 'kd_fungsi'], 16);
+        const idxFungsiUraian = getColIdx(['fungsi_uraian', 'ur_fungsi'], 17);
+        const idxSubfungsiKode = getColIdx(['subfungsi_kode', 'kd_subfungsi'], 18);
+        const idxSubfungsiUraian = getColIdx(['subfungsi_uraian', 'ur_subfungsi'], 19);
+        const idxProgramKode = getColIdx(['program_kode', 'kd_program'], 20);
+        const idxProgramUraian = getColIdx(['program_uraian', 'program', 'ur_program'], 21);
+        const idxKegiatanKode = getColIdx(['kegiatan_kode', 'kd_kegiatan'], 22);
+        const idxKegiatanUraian = getColIdx(['kegiatan_uraian', 'kegiatan', 'ur_kegiatan'], 23);
+        const idxOutputKroKode = getColIdx(['outputkro_kode', 'kro_kode', 'output_kode', 'kro'], 24);
+        const idxOutputKroUraian = getColIdx(['outputkro_uraian', 'ur_outputkro', 'ur_kro', 'output_uraian', 'uraian_kro'], 25);
+        const idxAkunKode = getColIdx(['akun_kode', 'kd_akun', 'kdakun', 'kode_akun', 'akun'], 26);
+        const idxAkunUraian = getColIdx(['akun_uraian', 'ur_akun', 'nm_akun', 'nama_akun'], 27);
+        const idxSumberdanaKode = getColIdx(['sumberdana_kode', 'kd_sumberdana', 'kd_sd'], 28);
+        const idxSumberdanaUraian = getColIdx(['sumberdana_uraian', 'sumber_dana', 'sumberdana', 'ur_sumberdana'], 29);
+        const idxPagu = getColIdx(['pagu_dipa', 'pagu', 'alokasi', 'dipa'], 41);
+        const idxRealisasi = getColIdx(['realisasi', 'penyerapan', 'sp2d'], 42);
+        const idxBlokir = getColIdx(['blokir', 'pagu_blokir', 'blok'], 43);
 
         const records: RealisasiBelanjaRecord[] = [];
 
@@ -117,30 +185,70 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
 
           const kemKode = cleanText(idxKemKode >= 0 ? row[idxKemKode] : '');
           const kemUraian = cleanText(idxKemUraian >= 0 ? row[idxKemUraian] : 'Kementerian / Lembaga');
+          const eselonIKode = cleanText(idxEselonIKode >= 0 ? row[idxEselonIKode] : '');
+          const eselonIUraian = cleanText(idxEselonIUraian >= 0 ? row[idxEselonIUraian] : '');
+          const kewenanganKode = cleanText(idxKewenanganKode >= 0 ? row[idxKewenanganKode] : '');
+          const kewenanganUraian = cleanText(idxKewenanganUraian >= 0 ? row[idxKewenanganUraian] : 'Kantor Daerah');
+          const provinsiKode = cleanText(idxProvinsiKode >= 0 ? row[idxProvinsiKode] : '');
+          const provinsiUraian = cleanText(idxProvinsiUraian >= 0 ? row[idxProvinsiUraian] : '');
+          const kabkotaKode = cleanText(idxKabKotaKode >= 0 ? row[idxKabKotaKode] : '');
+          const kabkotaUraian = cleanText(idxKabKotaUraian >= 0 ? row[idxKabKotaUraian] : '');
+          const kanwilKode = cleanText(idxKanwilKode >= 0 ? row[idxKanwilKode] : '');
+          const kanwilUraian = cleanText(idxKanwilUraian >= 0 ? row[idxKanwilUraian] : '');
+          const kppnKode = cleanText(idxKppnKode >= 0 ? row[idxKppnKode] : '');
+          const kppnUraian = cleanText(idxKppnUraian >= 0 ? row[idxKppnUraian] : '');
+          const fungsiKode = cleanText(idxFungsiKode >= 0 ? row[idxFungsiKode] : '');
+          const fungsiUraian = cleanText(idxFungsiUraian >= 0 ? row[idxFungsiUraian] : '');
+          const subfungsiKode = cleanText(idxSubfungsiKode >= 0 ? row[idxSubfungsiKode] : '');
+          const subfungsiUraian = cleanText(idxSubfungsiUraian >= 0 ? row[idxSubfungsiUraian] : '');
+          const programKode = cleanText(idxProgramKode >= 0 ? row[idxProgramKode] : '');
+          const programUraian = cleanText(idxProgramUraian >= 0 ? row[idxProgramUraian] : '');
+          const kegiatanKode = cleanText(idxKegiatanKode >= 0 ? row[idxKegiatanKode] : '');
+          const kegiatanUraian = cleanText(idxKegiatanUraian >= 0 ? row[idxKegiatanUraian] : '');
+          const outputKroKode = cleanText(idxOutputKroKode >= 0 ? row[idxOutputKroKode] : '');
+          const outputKroUraian = cleanText(idxOutputKroUraian >= 0 ? row[idxOutputKroUraian] : '');
           const akunUraian = cleanText(idxAkunUraian >= 0 ? row[idxAkunUraian] : 'Belanja Negara');
-          const kewenangan = cleanText(idxKewenangan >= 0 ? row[idxKewenangan] : 'Kantor Daerah');
-          const sumberdana = cleanText(idxSumberdana >= 0 ? row[idxSumberdana] : 'RM');
-          const program = cleanText(idxProgram >= 0 ? row[idxProgram] : '');
-          const kegiatan = cleanText(idxKegiatan >= 0 ? row[idxKegiatan] : '');
+          const sumberdanaKode = cleanText(idxSumberdanaKode >= 0 ? row[idxSumberdanaKode] : '');
+          const sumberdanaUraian = cleanText(idxSumberdanaUraian >= 0 ? row[idxSumberdanaUraian] : 'RM');
 
           const jenisInfo = getJenisBelanjaInfo(akunKode);
           const sisaPagu = Math.max(0, paguVal - realisasiVal);
           const persenRealisasi = paguVal > 0 ? (realisasiVal / paguVal) * 100 : 0;
 
           records.push({
-            id: `rb_${satkerKode}_${akunKode}_${r}`,
+            id: `sintesa_rb_${satkerKode}_${akunKode}_${r}`,
             kementerianKode: kemKode,
             kementerianUraian: kemUraian,
-            kewenanganUraian: kewenangan,
+            eselonIKode,
+            eselonIUraian,
+            kewenanganKode,
+            kewenanganUraian,
+            provinsiKode,
+            provinsiUraian,
+            kabkotaKode,
+            kabkotaUraian,
+            kanwilKode,
+            kanwilUraian,
+            kppnKode,
+            kppnUraian,
             satkerKode: satkerKode || '000000',
             satkerUraian: satkerUraian || 'Satuan Kerja',
+            fungsiKode,
+            fungsiUraian,
+            subfungsiKode,
+            subfungsiUraian,
+            programKode,
+            programUraian,
+            kegiatanKode,
+            kegiatanUraian,
+            outputKroKode,
+            outputKroUraian,
             akunKode: akunKode || '521111',
-            akunUraian: akunUraian,
+            akunUraian,
             jenisBelanjaKode: jenisInfo.kode,
             jenisBelanjaUraian: jenisInfo.nama,
-            sumberdanaUraian: sumberdana,
-            programUraian: program,
-            kegiatanUraian: kegiatan,
+            sumberdanaKode,
+            sumberdanaUraian,
             paguDipa: paguVal,
             realisasi: realisasiVal,
             blokir: blokirVal,
@@ -150,7 +258,7 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
         }
 
         if (records.length === 0) {
-          throw new Error('Tidak ditemukan data baris realisasi belanja yang valid.');
+          throw new Error('Tidak ditemukan data baris realisasi belanja SINTESA yang valid.');
         }
 
         const summary = computeRealisasiBelanjaSummary(records);
@@ -165,7 +273,7 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
       }
     };
 
-    reader.onerror = () => reject(new Error('Gagal membaca file Excel.'));
+    reader.onerror = () => reject(new Error('Gagal membaca file Excel SINTESA.'));
     reader.readAsArrayBuffer(file);
   });
 }
@@ -215,10 +323,10 @@ export function computeRealisasiBelanjaSummary(records: RealisasiBelanjaRecord[]
     satkerMap[sKey].realisasi += r.realisasi;
 
     // Kementerian Map
-    const kKey = r.kementerianKode || '000';
+    const kKey = r.kementerianKode || r.kementerianUraian || '000';
     if (!kementerianMap[kKey]) {
       kementerianMap[kKey] = {
-        kode: kKey,
+        kode: r.kementerianKode || kKey,
         nama: r.kementerianUraian || 'Kementerian/Lembaga',
         pagu: 0,
         realisasi: 0
@@ -258,8 +366,7 @@ export function computeRealisasiBelanjaSummary(records: RealisasiBelanjaRecord[]
       ...k,
       persen: (k.realisasi / k.pagu) * 100
     }))
-    .sort((a, b) => b.realisasi - a.realisasi)
-    .slice(0, 15);
+    .sort((a, b) => b.realisasi - a.realisasi);
 
   return {
     totalPagu,
@@ -399,33 +506,604 @@ export function generateCanvaBulkCreateCSV(
 }
 
 /**
- * Export filtered realisasi belanja records to Excel
+ * Export filtered realisasi belanja records to Excel with complete SINTESA details
  */
 export function exportRealisasiBelanjaToExcel(
   records: RealisasiBelanjaRecord[],
-  fileName = 'Data_Realisasi_Belanja_KPPN.xlsx'
+  fileName = 'Data_Realisasi_Belanja_SINTESA_KPPN.xlsx'
 ): void {
   const exportData = records.map((r, idx) => ({
     'No': idx + 1,
-    'Kode Satker': r.satkerKode,
-    'Nama Satker': r.satkerUraian,
-    'Kode K/L': r.kementerianKode,
-    'Kementerian / Lembaga': r.kementerianUraian,
-    'Kewenangan': r.kewenanganUraian || '-',
-    'Kode Akun': r.akunKode,
-    'Uraian Akun': r.akunUraian,
-    'Jenis Belanja': r.jenisBelanjaUraian,
-    'Sumber Dana': r.sumberdanaUraian || '-',
-    'Program': r.programUraian || '-',
-    'Pagu DIPA (Rp)': r.paguDipa,
-    'Realisasi (Rp)': r.realisasi,
+    'Kode K/L (B)': r.kementerianKode || '',
+    'Kementerian / Lembaga (B)': r.kementerianUraian || '',
+    'Kode Eselon I (C)': r.eselonIKode || '',
+    'Uraian Eselon I (D)': r.eselonIUraian || '',
+    'Kode Kewenangan (E)': r.kewenanganKode || '',
+    'Uraian Kewenangan (F)': r.kewenanganUraian || '',
+    'Kode Satker (O)': r.satkerKode || '',
+    'Nama Satuan Kerja (P)': r.satkerUraian || '',
+    'Kode Fungsi (Q)': r.fungsiKode || '',
+    'Uraian Fungsi (R)': r.fungsiUraian || '',
+    'Kode Subfungsi (S)': r.subfungsiKode || '',
+    'Uraian Subfungsi (T)': r.subfungsiUraian || '',
+    'Kode Program (U)': r.programKode || '',
+    'Uraian Program (V)': r.programUraian || '',
+    'Kode Kegiatan (W)': r.kegiatanKode || '',
+    'Uraian Kegiatan (X)': r.kegiatanUraian || '',
+    'Kode Output/KRO (Y)': r.outputKroKode || '',
+    'Uraian Output KRO (Z)': r.outputKroUraian || '',
+    'Kode Akun 6-Digit (AA)': r.akunKode || '',
+    'Uraian Akun (AB)': r.akunUraian || '',
+    'Jenis Belanja': r.jenisBelanjaUraian || '',
+    'Kode Sumber Dana (AC)': r.sumberdanaKode || '',
+    'Uraian Sumber Dana (AD)': r.sumberdanaUraian || '',
+    'Pagu DIPA (AP) (Rp)': r.paguDipa,
+    'Realisasi (AQ) (Rp)': r.realisasi,
     'Sisa Pagu (Rp)': r.sisaPagu,
     'Persentase Realisasi (%)': Number(r.persenRealisasi.toFixed(2)),
-    'Pagu Blokir (Rp)': r.blokir
+    'Pagu Blokir (AR) (Rp)': r.blokir
   }));
 
   const worksheet = XLSX.utils.json_to_sheet(exportData);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Realisasi Belanja');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'SINTESA Realisasi Belanja');
   XLSX.writeFile(workbook, fileName);
 }
+
+/**
+ * Process Excel / CSV file from MY INTRESS (Realisasi Belanja Satker Per Jenis Belanja)
+ */
+export async function processMyIntressExcel(file: File): Promise<{
+  records: MyIntressRecord[];
+  summary: MyIntressSummary;
+  fileName: string;
+  waktuUnduh: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        let waktuUnduh = '';
+        const records: MyIntressRecord[] = [];
+        let currentSatker: Partial<MyIntressRecord> | null = null;
+        let satkerIndex = 0;
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length === 0) continue;
+
+          // Check download timestamp
+          const rowStr = row.join(' ');
+          if (rowStr.toLowerCase().includes('waktu unduh')) {
+            const match = rowStr.match(/Waktu unduh[^:]*:\s*([^,\n\r]+)/i);
+            if (match) waktuUnduh = match[1].trim();
+          }
+
+          const col0 = cleanText(row[0]);
+          const col1 = cleanText(row[1]);
+
+          // Ignore Grand Total line from satker list
+          if (col0.toUpperCase().includes('GRAND TOTAL') || col1.toUpperCase().includes('GRAND TOTAL')) {
+            currentSatker = null;
+            continue;
+          }
+
+          // Check if this row starts a new satker
+          if (/^\d+$/.test(col0) && col1.includes('|')) {
+            satkerIndex++;
+            const parts = col1.split('|');
+            const kodeSatker = parts[0]?.trim() || '';
+            const namaSatker = parts[1]?.trim() || '';
+
+            currentSatker = {
+              id: `myintress_satker_${satkerIndex}_${kodeSatker}`,
+              no: parseInt(col0, 10),
+              kodeSatker,
+              namaSatker,
+              paguPegawai: 0,
+              paguBarang: 0,
+              paguModal: 0,
+              paguBebanBunga: 0,
+              paguSubsidi: 0,
+              paguHibah: 0,
+              paguBansos: 0,
+              paguLain: 0,
+              paguTransfer: 0,
+              paguTotal: 0,
+              realPegawai: 0,
+              realBarang: 0,
+              realModal: 0,
+              realBebanBunga: 0,
+              realSubsidi: 0,
+              realHibah: 0,
+              realBansos: 0,
+              realLain: 0,
+              realTransfer: 0,
+              realTotal: 0,
+              persenPegawai: 0,
+              persenBarang: 0,
+              persenModal: 0,
+              persenBansos: 0,
+              persenTransfer: 0,
+              persenTotal: 0,
+              sisaPegawai: 0,
+              sisaBarang: 0,
+              sisaModal: 0,
+              sisaBansos: 0,
+              sisaTransfer: 0,
+              sisaTotal: 0,
+              waktuUnduh
+            };
+            records.push(currentSatker as MyIntressRecord);
+          }
+
+          if (currentSatker) {
+            const ket = cleanText(row[2]).toUpperCase();
+            if (ket === 'PAGU') {
+              currentSatker.paguPegawai = parseNum(row[3]);
+              currentSatker.paguBarang = parseNum(row[4]);
+              currentSatker.paguModal = parseNum(row[5]);
+              currentSatker.paguBebanBunga = parseNum(row[6]);
+              currentSatker.paguSubsidi = parseNum(row[7]);
+              currentSatker.paguHibah = parseNum(row[8]);
+              currentSatker.paguBansos = parseNum(row[9]);
+              currentSatker.paguLain = parseNum(row[10]);
+              currentSatker.paguTransfer = parseNum(row[11]);
+              currentSatker.paguTotal = parseNum(row[12]);
+            } else if (ket === 'REALISASI') {
+              currentSatker.realPegawai = parseNum(row[3]);
+              currentSatker.realBarang = parseNum(row[4]);
+              currentSatker.realModal = parseNum(row[5]);
+              currentSatker.realBebanBunga = parseNum(row[6]);
+              currentSatker.realSubsidi = parseNum(row[7]);
+              currentSatker.realHibah = parseNum(row[8]);
+              currentSatker.realBansos = parseNum(row[9]);
+              currentSatker.realLain = parseNum(row[10]);
+              currentSatker.realTransfer = parseNum(row[11]);
+              currentSatker.realTotal = parseNum(row[12]);
+            } else if (ket === 'SISA') {
+              currentSatker.sisaPegawai = parseNum(row[3]);
+              currentSatker.sisaBarang = parseNum(row[4]);
+              currentSatker.sisaModal = parseNum(row[5]);
+              currentSatker.sisaBansos = parseNum(row[9]);
+              currentSatker.sisaTransfer = parseNum(row[11]);
+              currentSatker.sisaTotal = parseNum(row[12]);
+            } else if (ket === '' || ket === '%' || String(row[12] || '').includes('%')) {
+              currentSatker.persenPegawai = parseNum(row[3]);
+              currentSatker.persenBarang = parseNum(row[4]);
+              currentSatker.persenModal = parseNum(row[5]);
+              currentSatker.persenBansos = parseNum(row[9]);
+              currentSatker.persenTransfer = parseNum(row[11]);
+              currentSatker.persenTotal = parseNum(row[12]);
+            }
+          }
+        }
+
+        // Compute percentages and calculate sisa
+        for (const r of records) {
+          if (r.paguPegawai > 0 && r.persenPegawai === 0) r.persenPegawai = Number(((r.realPegawai / r.paguPegawai) * 100).toFixed(2));
+          if (r.paguBarang > 0 && r.persenBarang === 0) r.persenBarang = Number(((r.realBarang / r.paguBarang) * 100).toFixed(2));
+          if (r.paguModal > 0 && r.persenModal === 0) r.persenModal = Number(((r.realModal / r.paguModal) * 100).toFixed(2));
+          if (r.paguBansos > 0 && r.persenBansos === 0) r.persenBansos = Number(((r.realBansos / r.paguBansos) * 100).toFixed(2));
+          if (r.paguTransfer > 0 && r.persenTransfer === 0) r.persenTransfer = Number(((r.realTransfer / r.paguTransfer) * 100).toFixed(2));
+          if (r.paguTotal > 0 && r.persenTotal === 0) r.persenTotal = Number(((r.realTotal / r.paguTotal) * 100).toFixed(2));
+          if (r.sisaTotal === 0) r.sisaTotal = Math.max(0, r.paguTotal - r.realTotal);
+        }
+
+        const summary = computeMyIntressSummary(records);
+        resolve({
+          records,
+          summary,
+          fileName: file.name,
+          waktuUnduh: waktuUnduh || new Date().toLocaleString('id-ID')
+        });
+      } catch (err: any) {
+        reject(new Error(`Gagal memproses file My InTress: ${err.message}`));
+      }
+    };
+
+    reader.onerror = () => reject(new Error('Gagal membaca file My InTress'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/**
+ * Compute summary aggregation for My InTress records
+ */
+export function computeMyIntressSummary(records: MyIntressRecord[]): MyIntressSummary {
+  const totalPagu = records.reduce((sum, r) => sum + r.paguTotal, 0);
+  const totalRealisasi = records.reduce((sum, r) => sum + r.realTotal, 0);
+  const totalSisa = records.reduce((sum, r) => sum + r.sisaTotal, 0);
+  const persenRealisasiTotal = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
+
+  const pagu51 = records.reduce((sum, r) => sum + r.paguPegawai, 0);
+  const real51 = records.reduce((sum, r) => sum + r.realPegawai, 0);
+
+  const pagu52 = records.reduce((sum, r) => sum + r.paguBarang, 0);
+  const real52 = records.reduce((sum, r) => sum + r.realBarang, 0);
+
+  const pagu53 = records.reduce((sum, r) => sum + r.paguModal, 0);
+  const real53 = records.reduce((sum, r) => sum + r.realModal, 0);
+
+  const pagu57 = records.reduce((sum, r) => sum + r.paguBansos, 0);
+  const real57 = records.reduce((sum, r) => sum + r.realBansos, 0);
+
+  const paguTransfer = records.reduce((sum, r) => sum + r.paguTransfer, 0);
+  const realTransfer = records.reduce((sum, r) => sum + r.realTransfer, 0);
+
+  const breakdownJenisBelanja = [
+    {
+      kode: '51',
+      nama: 'Belanja Pegawai (51)',
+      pagu: pagu51,
+      realisasi: real51,
+      persen: pagu51 > 0 ? (real51 / pagu51) * 100 : 0,
+      sisa: Math.max(0, pagu51 - real51),
+      color: '#3B82F6'
+    },
+    {
+      kode: '52',
+      nama: 'Belanja Barang (52)',
+      pagu: pagu52,
+      realisasi: real52,
+      persen: pagu52 > 0 ? (real52 / pagu52) * 100 : 0,
+      sisa: Math.max(0, pagu52 - real52),
+      color: '#10B981'
+    },
+    {
+      kode: '53',
+      nama: 'Belanja Modal (53)',
+      pagu: pagu53,
+      realisasi: real53,
+      persen: pagu53 > 0 ? (real53 / pagu53) * 100 : 0,
+      sisa: Math.max(0, pagu53 - real53),
+      color: '#F59E0B'
+    },
+    {
+      kode: '57',
+      nama: 'Belanja Bansos (57)',
+      pagu: pagu57,
+      realisasi: real57,
+      persen: pagu57 > 0 ? (real57 / pagu57) * 100 : 0,
+      sisa: Math.max(0, pagu57 - real57),
+      color: '#8B5CF6'
+    },
+    {
+      kode: '61',
+      nama: 'Transfer Ke Daerah (TKD)',
+      pagu: paguTransfer,
+      realisasi: realTransfer,
+      persen: paguTransfer > 0 ? (realTransfer / paguTransfer) * 100 : 0,
+      sisa: Math.max(0, paguTransfer - realTransfer),
+      color: '#06B6D4'
+    }
+  ];
+
+  const sorted = [...records].sort((a, b) => b.persenTotal - a.persenTotal);
+  const topSatkers = sorted.slice(0, 10);
+  const bottomSatkers = [...records].filter(r => r.paguTotal > 0).sort((a, b) => a.persenTotal - b.persenTotal).slice(0, 10);
+
+  return {
+    totalPagu,
+    totalRealisasi,
+    totalSisa,
+    persenRealisasiTotal,
+    totalSatkerCount: records.length,
+    breakdownJenisBelanja,
+    topSatkers,
+    bottomSatkers
+  };
+}
+
+/**
+ * Reconcile SINTESA records with MY INTRESS records to pinpoint differences per Satker and per Jenis Belanja
+ */
+export function reconcileSintesaAndMyIntress(
+  sintesaRecords: RealisasiBelanjaRecord[],
+  intressRecords: MyIntressRecord[]
+): SatkerReconciliationDiff[] {
+  // Aggregate SINTESA data by Satker and by Jenis Belanja
+  const sintesaMap = new Map<string, {
+    namaSatker: string;
+    paguTotal: number;
+    realTotal: number;
+    pagu51: number; real51: number;
+    pagu52: number; real52: number;
+    pagu53: number; real53: number;
+    pagu57: number; real57: number;
+    pagu61: number; real61: number;
+    paguLain: number; realLain: number;
+  }>();
+
+  for (const r of sintesaRecords) {
+    const k = r.satkerKode;
+    if (!sintesaMap.has(k)) {
+      sintesaMap.set(k, {
+        namaSatker: r.satkerUraian,
+        paguTotal: 0,
+        realTotal: 0,
+        pagu51: 0, real51: 0,
+        pagu52: 0, real52: 0,
+        pagu53: 0, real53: 0,
+        pagu57: 0, real57: 0,
+        pagu61: 0, real61: 0,
+        paguLain: 0, realLain: 0,
+      });
+    }
+
+    const entry = sintesaMap.get(k)!;
+    const pagu = r.paguDipa || 0;
+    const real = r.realisasi || 0;
+    const jb = String(r.jenisBelanjaKode || '');
+
+    entry.paguTotal += pagu;
+    entry.realTotal += real;
+
+    if (jb === '51' || String(r.akunKode).startsWith('51')) {
+      entry.pagu51 += pagu; entry.real51 += real;
+    } else if (jb === '52' || String(r.akunKode).startsWith('52')) {
+      entry.pagu52 += pagu; entry.real52 += real;
+    } else if (jb === '53' || String(r.akunKode).startsWith('53')) {
+      entry.pagu53 += pagu; entry.real53 += real;
+    } else if (jb === '57' || String(r.akunKode).startsWith('57')) {
+      entry.pagu57 += pagu; entry.real57 += real;
+    } else if (jb.startsWith('6') || String(r.akunKode).startsWith('6')) {
+      entry.pagu61 += pagu; entry.real61 += real;
+    } else {
+      entry.paguLain += pagu; entry.realLain += real;
+    }
+  }
+
+  // Create Map for MY INTRESS
+  const intressMap = new Map<string, MyIntressRecord>();
+  for (const r of intressRecords) {
+    intressMap.set(r.kodeSatker, r);
+  }
+
+  // Collect all unique satker codes
+  const allCodes = Array.from(new Set([...sintesaMap.keys(), ...intressMap.keys()]));
+
+  const diffList: SatkerReconciliationDiff[] = [];
+
+  for (const code of allCodes) {
+    const s = sintesaMap.get(code);
+    const m = intressMap.get(code);
+
+    const namaSatker = s?.namaSatker || m?.namaSatker || `Satker ${code}`;
+
+    const sintesaPaguTotal = s?.paguTotal || 0;
+    const sintesaRealTotal = s?.realTotal || 0;
+    const sintesaPersenTotal = sintesaPaguTotal > 0 ? (sintesaRealTotal / sintesaPaguTotal) * 100 : 0;
+
+    const intressPaguTotal = m?.paguTotal || 0;
+    const intressRealTotal = m?.realTotal || 0;
+    const intressPersenTotal = m?.persenTotal || (intressPaguTotal > 0 ? (intressRealTotal / intressPaguTotal) * 100 : 0);
+
+    const diffPaguTotal = sintesaPaguTotal - intressPaguTotal;
+    const diffRealTotal = sintesaRealTotal - intressRealTotal;
+
+    let statusDiff: SatkerReconciliationDiff['statusDiff'] = 'MATCH';
+    if (!s && m) {
+      statusDiff = 'ONLY_INTRESS';
+    } else if (s && !m) {
+      statusDiff = 'ONLY_SINTESA';
+    } else {
+      const hasDiffPagu = Math.abs(diffPaguTotal) > 100;
+      const hasDiffReal = Math.abs(diffRealTotal) > 100;
+      if (hasDiffPagu && hasDiffReal) statusDiff = 'DIFF_BOTH';
+      else if (hasDiffPagu) statusDiff = 'DIFF_PAGU';
+      else if (hasDiffReal) statusDiff = 'DIFF_REALISASI';
+      else statusDiff = 'MATCH';
+    }
+
+    // Breakdown per jenis belanja
+    const b51_s_pagu = s?.pagu51 || 0;
+    const b51_m_pagu = m?.paguPegawai || 0;
+    const b51_s_real = s?.real51 || 0;
+    const b51_m_real = m?.realPegawai || 0;
+
+    const b52_s_pagu = s?.pagu52 || 0;
+    const b52_m_pagu = m?.paguBarang || 0;
+    const b52_s_real = s?.real52 || 0;
+    const b52_m_real = m?.realBarang || 0;
+
+    const b53_s_pagu = s?.pagu53 || 0;
+    const b53_m_pagu = m?.paguModal || 0;
+    const b53_s_real = s?.real53 || 0;
+    const b53_m_real = m?.realModal || 0;
+
+    const b57_s_pagu = s?.pagu57 || 0;
+    const b57_m_pagu = m?.paguBansos || 0;
+    const b57_s_real = s?.real57 || 0;
+    const b57_m_real = m?.realBansos || 0;
+
+    const b61_s_pagu = s?.pagu61 || 0;
+    const b61_m_pagu = m?.paguTransfer || 0;
+    const b61_s_real = s?.real61 || 0;
+    const b61_m_real = m?.realTransfer || 0;
+
+    const checkStatus = (dP: number, dR: number) => {
+      const p = Math.abs(dP) > 100;
+      const r = Math.abs(dR) > 100;
+      if (p && r) return 'DIFF_BOTH';
+      if (p) return 'DIFF_PAGU';
+      if (r) return 'DIFF_REAL';
+      return 'MATCH';
+    };
+
+    const breakdown: SatkerReconciliationDiff['breakdown'] = [
+      {
+        jenisKode: '51',
+        jenisNama: 'Belanja Pegawai (51)',
+        sintesaPagu: b51_s_pagu,
+        intressPagu: b51_m_pagu,
+        diffPagu: b51_s_pagu - b51_m_pagu,
+        sintesaReal: b51_s_real,
+        intressReal: b51_m_real,
+        diffReal: b51_s_real - b51_m_real,
+        status: checkStatus(b51_s_pagu - b51_m_pagu, b51_s_real - b51_m_real)
+      },
+      {
+        jenisKode: '52',
+        jenisNama: 'Belanja Barang (52)',
+        sintesaPagu: b52_s_pagu,
+        intressPagu: b52_m_pagu,
+        diffPagu: b52_s_pagu - b52_m_pagu,
+        sintesaReal: b52_s_real,
+        intressReal: b52_m_real,
+        diffReal: b52_s_real - b52_m_real,
+        status: checkStatus(b52_s_pagu - b52_m_pagu, b52_s_real - b52_m_real)
+      },
+      {
+        jenisKode: '53',
+        jenisNama: 'Belanja Modal (53)',
+        sintesaPagu: b53_s_pagu,
+        intressPagu: b53_m_pagu,
+        diffPagu: b53_s_pagu - b53_m_pagu,
+        sintesaReal: b53_s_real,
+        intressReal: b53_m_real,
+        diffReal: b53_s_real - b53_m_real,
+        status: checkStatus(b53_s_pagu - b53_m_pagu, b53_s_real - b53_m_real)
+      },
+      {
+        jenisKode: '57',
+        jenisNama: 'Belanja Bansos (57)',
+        sintesaPagu: b57_s_pagu,
+        intressPagu: b57_m_pagu,
+        diffPagu: b57_s_pagu - b57_m_pagu,
+        sintesaReal: b57_s_real,
+        intressReal: b57_m_real,
+        diffReal: b57_s_real - b57_m_real,
+        status: checkStatus(b57_s_pagu - b57_m_pagu, b57_s_real - b57_m_real)
+      },
+      {
+        jenisKode: '61',
+        jenisNama: 'Transfer Ke Daerah (TKD)',
+        sintesaPagu: b61_s_pagu,
+        intressPagu: b61_m_pagu,
+        diffPagu: b61_s_pagu - b61_m_pagu,
+        sintesaReal: b61_s_real,
+        intressReal: b61_m_real,
+        diffReal: b61_s_real - b61_m_real,
+        status: checkStatus(b61_s_pagu - b61_m_pagu, b61_s_real - b61_m_real)
+      }
+    ];
+
+    // Generate intelligent analytical explanation & recommended action
+    const diffBelanjas: string[] = [];
+    breakdown.forEach(b => {
+      if (b.status !== 'MATCH') {
+        const parts = [];
+        if (Math.abs(b.diffPagu) > 100) parts.push(`Pagu ${b.diffPagu > 0 ? '+' : ''}${formatRupiahShort(b.diffPagu)}`);
+        if (Math.abs(b.diffReal) > 100) parts.push(`Real ${b.diffReal > 0 ? '+' : ''}${formatRupiahShort(b.diffReal)}`);
+        diffBelanjas.push(`${b.jenisNama} (${parts.join(', ')})`);
+      }
+    });
+
+    let catatanAnalisis = '';
+    let saranTindakan = '';
+
+    if (statusDiff === 'MATCH') {
+      catatanAnalisis = 'Data SINTESA dan MY INTRESS 100% konsisten dan mutakhir.';
+      saranTindakan = 'Tidak diperlukan tindakan konfirmasi.';
+    } else if (statusDiff === 'DIFF_REALISASI') {
+      const direction = diffRealTotal < 0 ? 'lebih tinggi di My InTress' : 'lebih tinggi di SINTESA';
+      catatanAnalisis = `Terdapat selisih realisasi ${formatRupiahShort(Math.abs(diffRealTotal))} (${direction}). Teridentifikasi pada: ${diffBelanjas.join('; ')}. Umumnya disebabkan oleh perbedaan cut-off penerbitan SP2D harian atau transaksi SPM yang baru terbit di SPAN/OM-SPAN.`;
+      saranTindakan = 'Konfirmasi nomor SP2D terakhir yang diterbitkan dan lakukan rekonsiliasi data transaksi harian SAKTI satker.';
+    } else if (statusDiff === 'DIFF_PAGU') {
+      catatanAnalisis = `Terdapat selisih Pagu DIPA sebesar ${formatRupiahShort(Math.abs(diffPaguTotal))}. Teridentifikasi pada: ${diffBelanjas.join('; ')}. Kemungkinan terdapat revisi DIPA/POK yang baru disahkan di SAKTI namun belum tersinkron penuh di modul Inquiry SINTESA.`;
+      saranTindakan = 'Verifikasi tanggal pengesahan revisi DIPA terakhir dan nomor register DIPA satker.';
+    } else if (statusDiff === 'DIFF_BOTH') {
+      catatanAnalisis = `Terdapat selisih ganda pada Pagu (${formatRupiahShort(Math.abs(diffPaguTotal))}) dan Realisasi (${formatRupiahShort(Math.abs(diffRealTotal))}). Teridentifikasi pada: ${diffBelanjas.join('; ')}.`;
+      saranTindakan = 'Lakukan koordinasi langsung dengan Bendahara Pengeluaran / PPK satker terkait update revisi DIPA dan SPM-LS/UP/TUP.';
+    } else {
+      catatanAnalisis = `Satker hanya tercatat pada salah satu sistem (${statusDiff === 'ONLY_SINTESA' ? 'Hanya di SINTESA' : 'Hanya di MY INTRESS'}).`;
+      saranTindakan = 'Periksa mapping kode satker aktif di database KPPN.';
+    }
+
+    // Generate formatted WhatsApp message template ready to copy/send
+    const templateKonfirmasiWa = `Yth. Pengelola Keuangan / PPK / Bendahara ${namaSatker} (${code}),\n\n` +
+      `Sehubungan dengan hasil pemantauan & rekonsiliasi berkala data realisasi anggaran antara sistem SINTESA dan MY INTRESS di KPPN Semarang I, teridentifikasi catatan sebagai berikut:\n` +
+      `• Pagu SINTESA: ${formatRupiahFull(sintesaPaguTotal)} vs My InTress: ${formatRupiahFull(intressPaguTotal)} (Selisih: ${formatRupiahShort(diffPaguTotal)})\n` +
+      `• Realisasi SINTESA: ${formatRupiahFull(sintesaRealTotal)} (${sintesaPersenTotal.toFixed(2)}%) vs My InTress: ${formatRupiahFull(intressRealTotal)} (${intressPersenTotal.toFixed(2)}%) (Selisih: ${formatRupiahShort(diffRealTotal)})\n` +
+      `• Rincian Akun Belanja yang berselisih:\n${diffBelanjas.map(d => `  - ${d}`).join('\n') || '  - Nihil'}\n\n` +
+      `Mohon bantuannya untuk mengonfirmasi status revisi DIPA terakhir serta nomor SP2D/SPM terakhir yang telah terbit di SAKTI. Terima kasih.\n\n` +
+      `— Tim Pembina Satker KPPN Semarang I`;
+
+    diffList.push({
+      kodeSatker: code,
+      namaSatker,
+      sintesaPaguTotal,
+      sintesaRealTotal,
+      sintesaPersenTotal,
+      intressPaguTotal,
+      intressRealTotal,
+      intressPersenTotal,
+      diffPaguTotal,
+      diffRealTotal,
+      statusDiff,
+      breakdown,
+      catatanAnalisis,
+      saranTindakan,
+      templateKonfirmasiWa
+    });
+  }
+
+  // Sort: show discrepancies with largest absolute realisasi difference first
+  return diffList.sort((a, b) => {
+    if (a.statusDiff === 'MATCH' && b.statusDiff !== 'MATCH') return 1;
+    if (a.statusDiff !== 'MATCH' && b.statusDiff === 'MATCH') return -1;
+    return Math.abs(b.diffRealTotal) - Math.abs(a.diffRealTotal);
+  });
+}
+
+/**
+ * Export reconciliation diffs to Excel for reporting and satker inquiries
+ */
+export function exportReconciliationToExcel(
+  diffs: SatkerReconciliationDiff[],
+  fileName = 'Rekonsiliasi_SINTESA_vs_MYINTRESS_KPPN.xlsx'
+): void {
+  const exportData = diffs.map((d, idx) => {
+    const b51 = d.breakdown.find(b => b.jenisKode === '51');
+    const b52 = d.breakdown.find(b => b.jenisKode === '52');
+    const b53 = d.breakdown.find(b => b.jenisKode === '53');
+    const b57 = d.breakdown.find(b => b.jenisKode === '57');
+    const b61 = d.breakdown.find(b => b.jenisKode === '61');
+
+    return {
+      'No': idx + 1,
+      'Kode Satker': d.kodeSatker,
+      'Nama Satuan Kerja': d.namaSatker,
+      'Status Rekon': d.statusDiff === 'MATCH' ? 'Cocok (Match)' : d.statusDiff === 'DIFF_REALISASI' ? 'Selisih Realisasi' : d.statusDiff === 'DIFF_PAGU' ? 'Selisih Pagu' : 'Selisih Pagu & Realisasi',
+      'Pagu SINTESA (Rp)': d.sintesaPaguTotal,
+      'Pagu MY INTRESS (Rp)': d.intressPaguTotal,
+      'Selisih Pagu (Rp)': d.diffPaguTotal,
+      'Real SINTESA (Rp)': d.sintesaRealTotal,
+      'Real MY INTRESS (Rp)': d.intressRealTotal,
+      'Selisih Realisasi (Rp)': d.diffRealTotal,
+      '% Real SINTESA': Number(d.sintesaPersenTotal.toFixed(2)),
+      '% Real MY INTRESS': Number(d.intressPersenTotal.toFixed(2)),
+      'Selisih Real Pegawai 51 (Rp)': b51?.diffReal || 0,
+      'Selisih Real Barang 52 (Rp)': b52?.diffReal || 0,
+      'Selisih Real Modal 53 (Rp)': b53?.diffReal || 0,
+      'Selisih Real Bansos 57 (Rp)': b57?.diffReal || 0,
+      'Selisih Real Transfer 61 (Rp)': b61?.diffReal || 0,
+      'Catatan Analisis Perbedaan': d.catatanAnalisis,
+      'Saran Tindakan Konfirmasi': d.saranTindakan
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Rekon SINTESA vs INTRESS');
+  XLSX.writeFile(workbook, fileName);
+}
+

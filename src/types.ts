@@ -1370,6 +1370,103 @@ export interface RealisasiBelanjaSummary {
   }[];
 }
 
+export interface MyIntressRecord {
+  id: string;
+  no: number;
+  kodeSatker: string;
+  namaSatker: string;
+  paguPegawai: number;
+  paguBarang: number;
+  paguModal: number;
+  paguBebanBunga?: number;
+  paguSubsidi?: number;
+  paguHibah?: number;
+  paguBansos: number;
+  paguLain?: number;
+  paguTransfer: number;
+  paguTotal: number;
+  realPegawai: number;
+  realBarang: number;
+  realModal: number;
+  realBebanBunga?: number;
+  realSubsidi?: number;
+  realHibah?: number;
+  realBansos: number;
+  realLain?: number;
+  realTransfer: number;
+  realTotal: number;
+  persenPegawai: number;
+  persenBarang: number;
+  persenModal: number;
+  persenBansos: number;
+  persenTransfer: number;
+  persenTotal: number;
+  sisaPegawai: number;
+  sisaBarang: number;
+  sisaModal: number;
+  sisaBansos: number;
+  sisaTransfer: number;
+  sisaTotal: number;
+  waktuUnduh?: string;
+}
+
+export interface MyIntressSummary {
+  totalPagu: number;
+  totalRealisasi: number;
+  totalSisa: number;
+  persenRealisasiTotal: number;
+  totalSatkerCount: number;
+  breakdownJenisBelanja: {
+    kode: string;
+    nama: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+    sisa: number;
+    color: string;
+  }[];
+  topSatkers: MyIntressRecord[];
+  bottomSatkers: MyIntressRecord[];
+}
+
+export interface SatkerReconciliationDiff {
+  kodeSatker: string;
+  namaSatker: string;
+  
+  // SINTESA Summary
+  sintesaPaguTotal: number;
+  sintesaRealTotal: number;
+  sintesaPersenTotal: number;
+  
+  // MY INTRESS Summary
+  intressPaguTotal: number;
+  intressRealTotal: number;
+  intressPersenTotal: number;
+  
+  // Overall Differences (SINTESA - InTress)
+  diffPaguTotal: number;
+  diffRealTotal: number;
+  statusDiff: 'MATCH' | 'DIFF_REALISASI' | 'DIFF_PAGU' | 'DIFF_BOTH' | 'ONLY_SINTESA' | 'ONLY_INTRESS';
+  
+  // Details per Jenis Belanja (51, 52, 53, 57, 61)
+  breakdown: {
+    jenisKode: '51' | '52' | '53' | '57' | '61' | 'LAIN' | string;
+    jenisNama: string;
+    sintesaPagu: number;
+    intressPagu: number;
+    diffPagu: number;
+    sintesaReal: number;
+    intressReal: number;
+    diffReal: number;
+    status: 'MATCH' | 'DIFF_PAGU' | 'DIFF_REAL' | 'DIFF_BOTH';
+  }[];
+  
+  // AI/Rule Analysis Note
+  catatanAnalisis: string;
+  saranTindakan: string;
+  templateKonfirmasiWa: string;
+}
+
 export interface CustomBuletinPage {
   id: string;
   title: string;
