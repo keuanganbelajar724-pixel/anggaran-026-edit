@@ -129,17 +129,38 @@ export async function getDoc<T = any>(
   }
 }
 
-// Direct, reliable setDoc wrapper with circuit breaker and write stream protection
+// Helper to recursively strip undefined properties to ensure Firestore compatibility
+function sanitizeFirestorePayload(val: any): any {
+  if (val === undefined) return null;
+  if (val === null) return null;
+  if (typeof val !== 'object') return val;
+  if (val instanceof Date) return val;
+  if (Array.isArray(val)) {
+    return val
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeFirestorePayload(item));
+  }
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(val)) {
+    if (v !== undefined) {
+      clean[k] = sanitizeFirestorePayload(v);
+    }
+  }
+  return clean;
+}
+
+// Direct, reliable setDoc wrapper with circuit breaker, undefined sanitizer, and write stream protection
 export async function setDoc<T = any>(
   reference: DocumentReference<T>,
   data: any,
   options?: SetOptions
 ): Promise<void> {
   try {
+    const cleanData = sanitizeFirestorePayload(data);
     if (options) {
-      await rawSetDoc(reference, data, options);
+      await rawSetDoc(reference, cleanData, options);
     } else {
-      await rawSetDoc(reference, data);
+      await rawSetDoc(reference, cleanData);
     }
     trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {

@@ -154,7 +154,12 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
         }
 
         if (cloudMsgs && cloudMsgs.length > 0) {
-          setChatMessages(cloudMsgs);
+          setChatMessages((prev) => {
+            if (prev.length > cloudMsgs.length) {
+              return prev;
+            }
+            return cloudMsgs;
+          });
         }
 
         if (cloudArchives && cloudArchives.length > 0) {
@@ -187,7 +192,16 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
 
     const unsubChat = subscribeToCloudChatHistory((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
-        setChatMessages(cloudMsgs);
+        setChatMessages((prev) => {
+          if (prev.length > cloudMsgs.length) {
+            return prev;
+          }
+          const isIdentical =
+            prev.length === cloudMsgs.length &&
+            prev[prev.length - 1]?.id === cloudMsgs[cloudMsgs.length - 1]?.id;
+          if (isIdentical) return prev;
+          return cloudMsgs;
+        });
         setCloudSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
       }
     });
@@ -470,13 +484,13 @@ FORMAT RESPON ANDA:
       sender: 'user',
       text: userPromptText,
       timestamp,
-      targetSatkerKode: satkerContext?.kodeSatker,
+      ...(satkerContext?.kodeSatker ? { targetSatkerKode: satkerContext.kodeSatker } : {}),
       rolePersona: selectedPersona
     };
 
     const updatedWithUser = [...chatMessages, userMessage];
     setChatMessages(updatedWithUser);
-    saveCloudChatHistory(updatedWithUser);
+    await saveCloudChatHistory(updatedWithUser);
     setIsLoading(true);
 
     try {
@@ -504,7 +518,7 @@ FORMAT RESPON ANDA:
         sender: 'gemini',
         text: replyText,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        targetSatkerKode: satkerContext?.kodeSatker,
+        ...(satkerContext?.kodeSatker ? { targetSatkerKode: satkerContext.kodeSatker } : {}),
         rolePersona: selectedPersona
       };
 
@@ -528,6 +542,7 @@ FORMAT RESPON ANDA:
         sender: 'gemini',
         text: `${fallbackReply}\n\n> 💡 *Catatan: Analisis di atas dihasilkan melalui Mesin Analitik Finansial Terintegrasi (Koneksi API Gemini: ${err.message || 'Offline mode'}).*`,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        ...(satkerContext?.kodeSatker ? { targetSatkerKode: satkerContext.kodeSatker } : {}),
         rolePersona: selectedPersona
       };
       setChatMessages(prev => {

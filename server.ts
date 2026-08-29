@@ -44,10 +44,13 @@ async function startServer() {
   // Supported and fallback models according to official @google/genai specification
   const FALLBACK_MODELS = [
     'gemini-3.7-flash',
-    'gemini-flash-latest',
     'gemini-3.1-flash-lite',
+    'gemini-flash-latest',
     'gemini-3.1-pro-preview',
   ];
+
+  // Simple sleep helper for backoff
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   // Helper to normalize and sanitize model identifiers
   function normalizeModelName(inputModel?: string): string {
@@ -94,30 +97,34 @@ async function startServer() {
 
       let lastError: any = null;
       for (const targetModel of candidateModels) {
-        try {
-          const response = await ai.models.generateContent({
-            model: targetModel,
-            contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
-          });
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              await sleep(600);
+            }
+            const response = await ai.models.generateContent({
+              model: targetModel,
+              contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
+            });
 
-          const reply = response.text || '';
-          const usedFallback = targetModel !== requestedModel;
-          return res.json({
-            success: true,
-            reply,
-            model: targetModel,
-            fallbackUsed: usedFallback,
-            message: usedFallback
-              ? `Koneksi Google Gemini AI Berhasil! (Menggunakan model stabil ${targetModel} karena ${requestedModel} sedang padat antrean).`
-              : 'Koneksi ke Google Gemini AI Berhasil & Valid!',
-          });
-        } catch (mErr: any) {
-          lastError = mErr;
-          console.warn(`Model ${targetModel} test error:`, mErr?.message || mErr);
-          // If error is not high-demand/model-specific (e.g. invalid API key), break early
-          const msg = (mErr?.message || '').toLowerCase();
-          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
-            break;
+            const reply = response.text || '';
+            const usedFallback = targetModel !== requestedModel;
+            return res.json({
+              success: true,
+              reply,
+              model: targetModel,
+              fallbackUsed: usedFallback,
+              message: usedFallback
+                ? `Koneksi Google Gemini AI Berhasil! (Menggunakan model stabil ${targetModel} karena ${requestedModel} sedang padat antrean).`
+                : 'Koneksi ke Google Gemini AI Berhasil & Valid!',
+            });
+          } catch (mErr: any) {
+            lastError = mErr;
+            console.warn(`Model ${targetModel} attempt ${attempt + 1} test error:`, mErr?.message || mErr);
+            const msg = (mErr?.message || '').toLowerCase();
+            if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+              break;
+            }
           }
         }
       }
@@ -160,28 +167,33 @@ async function startServer() {
 
       let lastError: any = null;
       for (const targetModel of candidateModels) {
-        try {
-          const response = await ai.models.generateContent({
-            model: targetModel,
-            contents: targetPrompt,
-            ...(Object.keys(config).length > 0 ? { config } : {}),
-          });
-
-          const text = response.text || '';
-          if (text) {
-            return res.json({
-              success: true,
-              text,
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              await sleep(600);
+            }
+            const response = await ai.models.generateContent({
               model: targetModel,
-              fallbackUsed: targetModel !== requestedModel,
+              contents: targetPrompt,
+              ...(Object.keys(config).length > 0 ? { config } : {}),
             });
-          }
-        } catch (mErr: any) {
-          lastError = mErr;
-          console.warn(`Model ${targetModel} generate error:`, mErr?.message || mErr);
-          const msg = (mErr?.message || '').toLowerCase();
-          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
-            break;
+
+            const text = response.text || '';
+            if (text) {
+              return res.json({
+                success: true,
+                text,
+                model: targetModel,
+                fallbackUsed: targetModel !== requestedModel,
+              });
+            }
+          } catch (mErr: any) {
+            lastError = mErr;
+            console.warn(`Model ${targetModel} attempt ${attempt + 1} generate error:`, mErr?.message || mErr);
+            const msg = (mErr?.message || '').toLowerCase();
+            if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+              break;
+            }
           }
         }
       }

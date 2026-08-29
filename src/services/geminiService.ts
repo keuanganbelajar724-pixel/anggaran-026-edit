@@ -81,10 +81,12 @@ export const DEFAULT_GEMINI_MODEL = 'gemini-3.7-flash';
 
 export const SUPPORTED_GEMINI_MODELS = [
   'gemini-3.7-flash',
-  'gemini-flash-latest',
   'gemini-3.1-flash-lite',
+  'gemini-flash-latest',
   'gemini-3.1-pro-preview'
 ];
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function sanitizeGeminiModel(model?: string): string {
   const m = (model || '').trim();
@@ -287,29 +289,34 @@ export async function testGeminiConnection(options?: {
 
     let lastError: any = null;
     for (const modelToTry of candidateModels) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: activeKey });
-        const response = await ai.models.generateContent({
-          model: modelToTry,
-          contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
-        });
-        const text = response.text || '';
-        const isFallback = modelToTry !== targetModel;
-        return {
-          success: true,
-          message: isFallback
-            ? `Koneksi Google Gemini API Berhasil! (Menggunakan model stabil ${modelToTry} karena ${targetModel} sedang mengalami antrean padat di server Google).`
-            : 'Koneksi Google Gemini API Berhasil langsung dari peramban!',
-          reply: text,
-          usedModel: modelToTry,
-          fallbackUsed: isFallback,
-        };
-      } catch (sdkErr: any) {
-        lastError = sdkErr;
-        console.warn(`Client SDK test model ${modelToTry} failed:`, sdkErr);
-        const msg = (sdkErr?.message || '').toLowerCase();
-        if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
-          break;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (attempt > 0) {
+            await sleep(600);
+          }
+          const ai = new GoogleGenAI({ apiKey: activeKey });
+          const response = await ai.models.generateContent({
+            model: modelToTry,
+            contents: 'Katakan "KONEKSI_GEMINI_BERHASIL" dalam 1 kata.',
+          });
+          const text = response.text || '';
+          const isFallback = modelToTry !== targetModel;
+          return {
+            success: true,
+            message: isFallback
+              ? `Koneksi Google Gemini API Berhasil! (Menggunakan model stabil ${modelToTry} karena ${targetModel} sedang mengalami antrean padat di server Google).`
+              : 'Koneksi Google Gemini API Berhasil langsung dari peramban!',
+            reply: text,
+            usedModel: modelToTry,
+            fallbackUsed: isFallback,
+          };
+        } catch (sdkErr: any) {
+          lastError = sdkErr;
+          console.warn(`Client SDK test model ${modelToTry} attempt ${attempt + 1} failed:`, sdkErr);
+          const msg = (sdkErr?.message || '').toLowerCase();
+          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+            break;
+          }
         }
       }
     }
@@ -383,34 +390,39 @@ export async function generateGeminiContent(
 
     let lastError: any = null;
     for (const modelToTry of candidateModels) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: customKey });
-        const config: Record<string, any> = {};
-        if (options.systemInstruction) {
-          config.systemInstruction = options.systemInstruction;
-        }
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          if (attempt > 0) {
+            await sleep(600);
+          }
+          const ai = new GoogleGenAI({ apiKey: customKey });
+          const config: Record<string, any> = {};
+          if (options.systemInstruction) {
+            config.systemInstruction = options.systemInstruction;
+          }
 
-        const response = await ai.models.generateContent({
-          model: modelToTry,
-          contents: targetPrompt,
-          ...(Object.keys(config).length > 0 ? { config } : {}),
-        });
-
-        const text = response.text || '';
-        if (text) {
-          return {
-            success: true,
-            text,
+          const response = await ai.models.generateContent({
             model: modelToTry,
-            source: 'client_sdk',
-          };
-        }
-      } catch (sdkErr: any) {
-        lastError = sdkErr;
-        console.warn(`Client SDK model ${modelToTry} failed:`, sdkErr);
-        const msg = (sdkErr?.message || '').toLowerCase();
-        if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
-          break;
+            contents: targetPrompt,
+            ...(Object.keys(config).length > 0 ? { config } : {}),
+          });
+
+          const text = response.text || '';
+          if (text) {
+            return {
+              success: true,
+              text,
+              model: modelToTry,
+              source: 'client_sdk',
+            };
+          }
+        } catch (sdkErr: any) {
+          lastError = sdkErr;
+          console.warn(`Client SDK model ${modelToTry} attempt ${attempt + 1} failed:`, sdkErr);
+          const msg = (sdkErr?.message || '').toLowerCase();
+          if (msg.includes('api_key_invalid') || msg.includes('api key not valid')) {
+            break;
+          }
         }
       }
     }
@@ -460,15 +472,27 @@ let saveChatDebounceTimer: any = null;
 let saveArchivesDebounceTimer: any = null;
 let saveConfigDebounceTimer: any = null;
 
+function sanitizeChatMessage(msg: any): ChatMessage {
+  const clean: ChatMessage = {
+    id: String(msg?.id || `msg-${Date.now()}`),
+    sender: (msg?.sender === 'user' || msg?.sender === 'gemini' || msg?.sender === 'system') ? msg.sender : 'system',
+    text: String(msg?.text || ''),
+    timestamp: String(msg?.timestamp || new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }))
+  };
+  if (msg?.targetSatkerKode) clean.targetSatkerKode = String(msg.targetSatkerKode);
+  if (msg?.rolePersona) clean.rolePersona = String(msg.rolePersona);
+  return clean;
+}
+
 /**
  * Save Active Chat History to Firestore and localStorage immediately and securely
  */
 export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
-  const trimmed = messages.slice(-50);
+  const sanitized = messages.map(sanitizeChatMessage).slice(-50);
   
   // 1. Save immediately locally
   try {
-    safeLocalStorageSet(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(trimmed));
+    safeLocalStorageSet(LOCAL_GEMINI_CHAT_STORAGE, JSON.stringify(sanitized));
   } catch (e) {
     console.warn('Failed to save chat to local storage', e);
   }
@@ -478,9 +502,9 @@ export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<voi
     await setDoc(
       doc(db, 'settings', 'gemini_chat'),
       {
-        chatMessages: trimmed,
+        chatMessages: sanitized,
         updatedAt: new Date().toISOString(),
-        lastMessageTimestamp: trimmed[trimmed.length - 1]?.timestamp || ''
+        lastMessageTimestamp: sanitized[sanitized.length - 1]?.timestamp || ''
       },
       { merge: true }
     );
