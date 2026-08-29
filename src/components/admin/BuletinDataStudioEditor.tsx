@@ -35,7 +35,9 @@ import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA } from '../../types'
 import { formatRupiahShort, formatRupiahFull } from '../../utils/realisasiBelanjaProcessor';
 import { useToast } from '../ToastNotification';
 import { BULETIN_MONTH_PRESETS, OFFICIAL_PRESET_IMAGES } from '../../data/buletinEditionPresets';
-import { generateDeepTreasuryAnalysis } from '../../utils/buletinTreasuryEngine';
+import { generateDeepTreasuryAnalysis, generateCompletePrintReadyBuletinConfig } from '../../utils/buletinTreasuryEngine';
+import { generateAiBuletinEditorial } from '../../services/buletinAiEngine';
+import { Wand2, Download, UploadCloud } from 'lucide-react';
 
 interface BuletinDataStudioEditorProps {
   buletinConfig: BuletinConfig;
@@ -52,9 +54,99 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
   satkers = []
 }) => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'edisi' | 'foto' | 'identitas' | 'anggaran' | 'wawancara' | 'sarwasarwi' | 'pagelaran' | 'teropong' | 'integritas'>('edisi');
+  const [activeTab, setActiveTab] = useState<'edisi' | 'foto' | 'identitas' | 'anggaran' | 'semarang_data' | 'wawancara' | 'sarwasarwi' | 'pagelaran' | 'teropong' | 'integritas'>('edisi');
   const [imageUploadTarget, setImageUploadTarget] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 1-Click Complete Automation (Isi Semua 20 Halaman & Format Bersih Siap Cetak)
+  const handleCompleteAutomation = () => {
+    const printReady = generateCompletePrintReadyBuletinConfig(buletinConfig, overallSummary, satkers);
+    onUpdateBuletinConfig(printReady);
+    addToast({
+      title: '🪄 Otomatisasi Lengkap Berhasil!',
+      message: 'Seluruh 20 halaman buletin telah terisi teks resmi, analisis fiskal akurat, dan foto berkualitas tinggi siap cetak.',
+      type: 'success'
+    });
+  };
+
+  // 1-Click AI Editorial Generator (Gemini 3.7 Flash)
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
+  const handleGenerateAiEditorialClick = async () => {
+    setIsGeneratingAi(true);
+    try {
+      addToast({
+        title: '✨ Menghubungi Google Gemini 3.7 Flash...',
+        message: 'AI sedang menganalisis data realisasi & menyusun naskah redaksi resmi berbobot tinggi...',
+        type: 'info'
+      });
+
+      const updated = await generateAiBuletinEditorial(buletinConfig, overallSummary, satkers);
+      onUpdateBuletinConfig({
+        ...buletinConfig,
+        ...updated
+      });
+
+      addToast({
+        title: '🎉 Naskah Redaksi AI Berhasil Disusun!',
+        message: 'Kata Pengantar Kepala KPPN, Opini Pranata Keuangan, Wawancara Satker, dan Pesan Integritas telah disempurnakan.',
+        type: 'success'
+      });
+    } catch (err: any) {
+      addToast({
+        title: 'Notice AI Drafting',
+        message: err?.message || 'Gagal menyusun naskah AI otomatis.',
+        type: 'warning'
+      });
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  // Export JSON Backup
+  const handleExportJson = () => {
+    const jsonStr = JSON.stringify(buletinConfig, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `buletin_config_${buletinConfig.edisi?.replace(/\s+/g, '_') || 'backup'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addToast({
+      title: 'Backup JSON Berhasil Diunduh',
+      message: 'Konfigurasi buletin telah disimpan ke file .json lokal.',
+      type: 'success'
+    });
+  };
+
+  // Import JSON Backup
+  const jsonImportInputRef = useRef<HTMLInputElement>(null);
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        onUpdateBuletinConfig(parsed);
+        addToast({
+          title: 'Konfigurasi JSON Berhasil Dimuat!',
+          message: 'Seluruh rubrik dan foto buletin telah dipulihkan.',
+          type: 'success'
+        });
+      } catch {
+        addToast({
+          title: 'File JSON Tidak Valid',
+          message: 'Pastikan file yang dipilih merupakan berkas konfigurasi buletin yang valid.',
+          type: 'error'
+        });
+      }
+    };
+    reader.readAsText(file);
+    if (jsonImportInputRef.current) jsonImportInputRef.current.value = '';
+  };
 
   // Helper to handle local file upload to Base64
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, targetField: string) => {
@@ -339,22 +431,89 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
               </span>
             </div>
             <h3 className="text-xl font-black text-white flex items-center gap-2">
-              <span>Studio Redaksi &amp; Pemutakhiran Bulanan Buletin</span>
+              <span>Studio Redaksi &amp; Pemutakhiran Otomatis Buletin</span>
             </h3>
             <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-              Pilih edisi bulan di bawah untuk memuat konten siap pakai, atau sesuaikan setiap tulisan dan foto secara mandiri. Kolom yang belum diisi akan otomatis <strong>dikosongkan dan dimerahin</strong> di pratinjau agar mudah ditinjau.
+              Semua halaman buletin dapat diotomatisasi 100% sehingga siap cetak (A4) tanpa perlu mengetik manual.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
-              onClick={handleAutoPullAnggaranData}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+              onClick={handleGenerateAiEditorialClick}
+              disabled={isGeneratingAi}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+              title="Susun Naskah Redaksi Otomatis dengan AI Gemini 3.7 Flash"
             >
-              <Zap className="w-4 h-4" />
-              <span>⚡ Sinkronkan Analisis Fiskal Mendalam</span>
+              <Sparkles className={`w-4 h-4 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+              <span>{isGeneratingAi ? 'Menyusun Naskah AI...' : '✨ Susun Naskah Redaksi AI (Gemini)'}</span>
+            </button>
+
+            <button
+              onClick={handleCompleteAutomation}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 shadow-lg shadow-emerald-500/25 transition-all transform hover:scale-102 cursor-pointer"
+              title="Isi otomatis seluruh halaman dengan narasi formal dan data valid siap cetak"
+            >
+              <Wand2 className="w-4 h-4 text-slate-950" />
+              <span>🪄 Otomatisasi Lengkap (Siap Cetak)</span>
+            </button>
+
+            <button
+              onClick={handleAutoPullAnggaranData}
+              className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-black bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 shadow-md transition-all cursor-pointer"
+              title="Tarik data realisasi belanja terbaru dari OM-SPAN"
+            >
+              <Zap className="w-4 h-4 text-amber-400" />
+              <span>⚡ Sinkron Data</span>
+            </button>
+
+            <button
+              onClick={handleExportJson}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-white/10 transition-colors cursor-pointer"
+              title="Unduh Cadangan Konfigurasi Buletin (JSON)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Ekspor JSON</span>
+            </button>
+
+            <button
+              onClick={() => jsonImportInputRef.current?.click()}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-white/10 transition-colors cursor-pointer"
+              title="Pulihkan Konfigurasi Buletin dari Berkas JSON"
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Impor JSON</span>
+            </button>
+            <input
+              ref={jsonImportInputRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleImportJson}
+            />
+          </div>
+        </div>
+
+        {/* Highlight Mode Toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-200">Mode Tampilan Pratinjau:</span>
+            <button
+              onClick={() => onUpdateBuletinConfig({ ...buletinConfig, highlightMissingData: !buletinConfig.highlightMissingData })}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                buletinConfig.highlightMissingData === false
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                  : 'bg-rose-500/20 text-rose-300 border-rose-500/50'
+              }`}
+            >
+              {buletinConfig.highlightMissingData === false 
+                ? '✅ Mode Siap Cetak (Pratinjau Bersih & Rapi)' 
+                : '🔍 Mode Deteksi Data Kosong (Kotak Merah Aktif)'}
             </button>
           </div>
+          <span className="text-[11px] text-slate-400">
+            💡 Tips: Saat mencetak fisik (Ctrl+P), semua kotak merah dan tombol navigasi otomatis disembunyikan.
+          </span>
         </div>
 
         {/* 5 Distinct Format Selector Bar */}
@@ -400,12 +559,13 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
           { id: 'edisi', label: '📅 Update Tiap Bulan (Presets)', icon: Calendar },
           { id: 'foto', label: '📸 Galeri & Upload Foto (13 Spot)', icon: Camera },
           { id: 'identitas', label: '🏛️ Cover, Edisi & Sambutan (Hal 1-4)', icon: User },
-          { id: 'anggaran', label: '📊 Kinerja Belanja & TKD (Hal 5-8)', icon: FileText },
-          { id: 'wawancara', label: '🤝 Guyub Rukun Satker (Hal 9-10)', icon: HeartHandshake },
-          { id: 'sarwasarwi', label: '🏃 Sarwa Sarwi KPPN (Hal 11-14)', icon: Award },
-          { id: 'pagelaran', label: '🎪 Pagelaran Budaya & UMKM (Hal 15-16)', icon: Compass },
-          { id: 'teropong', label: '🏛️ Teropong Semarang (Hal 17-18)', icon: MapPin },
-          { id: 'integritas', label: '🛡️ Integritas, Pantun & Kontak (Hal 19-20)', icon: Phone }
+          { id: 'anggaran', label: '📊 Kinerja Belanja & K/L (Hal 5-7)', icon: FileText },
+          { id: 'semarang_data', label: '🏢 Data KPPN Semarang I (Hal 8-12)', icon: Building2 },
+          { id: 'wawancara', label: '🤝 TKD & Wawancara Satker (Hal 13-15)', icon: HeartHandshake },
+          { id: 'sarwasarwi', label: '🏃 Sarwa Sarwi KPPN (Hal 16-19)', icon: Award },
+          { id: 'pagelaran', label: '🎪 Opini & Pagelaran Budaya (Hal 20-21)', icon: Compass },
+          { id: 'teropong', label: '🏛️ Teropong Semarang (Hal 22)', icon: MapPin },
+          { id: 'integritas', label: '🛡️ Integritas, TTS & Kontak (Hal 23-24)', icon: Phone }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -792,7 +952,7 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
             </div>
 
             <div className="sm:col-span-2 lg:col-span-3 space-y-1">
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Catatan Analisis Penyaluran TKD (Hal 08)</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Catatan Analisis Penyaluran TKD (Hal 13)</label>
               <textarea
                 rows={3}
                 value={buletinConfig.tkdData?.catatanTkd || ''}
@@ -808,7 +968,210 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: GUYUB RUKUN - WAWANCARA SATKER (HAL 9-10)                          */}
+      {/* TAB: DATA KPPN SEMARANG I (HALAMAN 8-12)                                  */}
+      {/* ========================================================================= */}
+      {activeTab === 'semarang_data' && (
+        <div className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Data Khusus KPPN Semarang I: Rapor Satker, 8 IKPA, Belanja Modal 53, Retur SP2D &amp; Digipay
+              </h4>
+              <p className="text-xs text-slate-500">
+                Ubah atau sesuaikan statistik analisis perbendaharaan pada Halaman 8 sampai 12.
+              </p>
+            </div>
+            <button
+              onClick={handleCompleteAutomation}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+            >
+              🪄 Muat Otomatis Data Semarang I
+            </button>
+          </div>
+
+          {/* Evaluasi 8 Indikator IKPA */}
+          <div className="space-y-3">
+            <h5 className="text-xs font-black uppercase text-indigo-900 dark:text-indigo-400">
+              1. Evaluasi 8 Indikator IKPA KPPN Semarang I (Hal 09)
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Revisi DIPA</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={buletinConfig.evaluasiDelapanIkpa?.revisiDipa.nilai || 98.5}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    if (buletinConfig.evaluasiDelapanIkpa) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        evaluasiDelapanIkpa: {
+                          ...buletinConfig.evaluasiDelapanIkpa,
+                          revisiDipa: { ...buletinConfig.evaluasiDelapanIkpa.revisiDipa, nilai: val }
+                        }
+                      });
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-slate-800 border text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Deviasi Hal III DIPA</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={buletinConfig.evaluasiDelapanIkpa?.deviasiHal3.nilai || 91.2}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    if (buletinConfig.evaluasiDelapanIkpa) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        evaluasiDelapanIkpa: {
+                          ...buletinConfig.evaluasiDelapanIkpa,
+                          deviasiHal3: { ...buletinConfig.evaluasiDelapanIkpa.deviasiHal3, nilai: val }
+                        }
+                      });
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-slate-800 border text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Penyerapan Anggaran</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={buletinConfig.evaluasiDelapanIkpa?.penyerapanAnggaran.nilai || 96.8}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    if (buletinConfig.evaluasiDelapanIkpa) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        evaluasiDelapanIkpa: {
+                          ...buletinConfig.evaluasiDelapanIkpa,
+                          penyerapanAnggaran: { ...buletinConfig.evaluasiDelapanIkpa.penyerapanAnggaran, nilai: val }
+                        }
+                      });
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-slate-800 border text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200">Penyelesaian Tagihan 17 Hari</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={buletinConfig.evaluasiDelapanIkpa?.penyelesaianTagihan.nilai || 98.9}
+                  onChange={e => {
+                    const val = Number(e.target.value);
+                    if (buletinConfig.evaluasiDelapanIkpa) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        evaluasiDelapanIkpa: {
+                          ...buletinConfig.evaluasiDelapanIkpa,
+                          penyelesaianTagihan: { ...buletinConfig.evaluasiDelapanIkpa.penyelesaianTagihan, nilai: val }
+                        }
+                      });
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-slate-800 border text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1 pt-1">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Kesimpulan Evaluasi IKPA</label>
+              <textarea
+                rows={2}
+                value={buletinConfig.evaluasiDelapanIkpa?.kesimpulan || ''}
+                onChange={e => {
+                  if (buletinConfig.evaluasiDelapanIkpa) {
+                    onUpdateBuletinConfig({
+                      ...buletinConfig,
+                      evaluasiDelapanIkpa: { ...buletinConfig.evaluasiDelapanIkpa, kesimpulan: e.target.value }
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Belanja Modal 53 */}
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <h5 className="text-xs font-black uppercase text-indigo-900 dark:text-indigo-400">
+              2. Monitoring Belanja Modal Akun 53 &amp; Proyek Strategis (Hal 10)
+            </h5>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Rekomendasi Proyek Modal</label>
+              <textarea
+                rows={2}
+                value={buletinConfig.belanjaModalProyek?.rekomendasi || ''}
+                onChange={e => {
+                  if (buletinConfig.belanjaModalProyek) {
+                    onUpdateBuletinConfig({
+                      ...buletinConfig,
+                      belanjaModalProyek: { ...buletinConfig.belanjaModalProyek, rekomendasi: e.target.value }
+                    });
+                  }
+                }}
+                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
+              />
+            </div>
+          </div>
+
+          {/* Zero Retur Campaign */}
+          <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+            <h5 className="text-xs font-black uppercase text-indigo-900 dark:text-indigo-400">
+              3. Monitoring Retur SP2D &amp; SOP Penanganan (Hal 11)
+            </h5>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">Rasio Zero Retur (%)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={buletinConfig.monitoringReturSp2d?.rasioZeroRetur || 99.98}
+                  onChange={e => {
+                    if (buletinConfig.monitoringReturSp2d) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        monitoringReturSp2d: { ...buletinConfig.monitoringReturSp2d, rasioZeroRetur: Number(e.target.value) }
+                      });
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">SOP Penanganan Retur</label>
+                <input
+                  type="text"
+                  value={buletinConfig.monitoringReturSp2d?.sopPenanganan || ''}
+                  onChange={e => {
+                    if (buletinConfig.monitoringReturSp2d) {
+                      onUpdateBuletinConfig({
+                        ...buletinConfig,
+                        monitoringReturSp2d: { ...buletinConfig.monitoringReturSp2d, sopPenanganan: e.target.value }
+                      });
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 4: GUYUB RUKUN - WAWANCARA SATKER (HAL 13-15)                         */}
       {/* ========================================================================= */}
       {activeTab === 'wawancara' && (
         <div className="p-6 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs space-y-5">

@@ -118,6 +118,10 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
   const [isTestingKey, setIsTestingKey] = useState<boolean>(false);
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3.7-flash');
 
+  // Realtime Sync and Cloud Status
+  const [isSyncingCloud, setIsSyncingCloud] = useState<boolean>(false);
+  const [cloudSyncedTime, setCloudSyncedTime] = useState<string>('');
+
   // Check server status & Sync with Firestore on mount
   useEffect(() => {
     let isMounted = true;
@@ -127,38 +131,48 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       }
     });
 
-    // 1. Initial load Gemini Config (API Key & Model) from Firestore Cloud
-    loadCloudGeminiConfig().then((cfg) => {
-      if (isMounted && cfg) {
-        if (cfg.apiKey) {
-          setApiKey(cfg.apiKey);
-          setTempApiKeyInput(cfg.apiKey);
-        }
-        if (cfg.selectedModel) {
-          setSelectedModel(cfg.selectedModel);
-        }
-      }
-    });
+    const syncFromCloud = async () => {
+      if (!isMounted) return;
+      setIsSyncingCloud(true);
+      try {
+        const [cfg, cloudMsgs, cloudArchives] = await Promise.all([
+          loadCloudGeminiConfig(),
+          loadCloudChatHistory(),
+          loadCloudArchivedSessions()
+        ]);
 
-    // 2. Initial load Chat Messages & Archives from Firestore Cloud
-    loadCloudChatHistory().then((cloudMsgs) => {
-      if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
-        setChatMessages(prev => {
-          if (prev.length <= 1 || cloudMsgs.length >= prev.length) {
-            return cloudMsgs;
+        if (!isMounted) return;
+
+        if (cfg) {
+          if (cfg.apiKey) {
+            setApiKey(cfg.apiKey);
+            setTempApiKeyInput(cfg.apiKey);
           }
-          return prev;
-        });
-      }
-    });
+          if (cfg.selectedModel) {
+            setSelectedModel(cfg.selectedModel);
+          }
+        }
 
-    loadCloudArchivedSessions().then((cloudArchives) => {
-      if (isMounted && cloudArchives && cloudArchives.length > 0) {
-        setArchivedSessions(cloudArchives);
-      }
-    });
+        if (cloudMsgs && cloudMsgs.length > 0) {
+          setChatMessages(cloudMsgs);
+        }
 
-    // 3. Real-time Firestore sync listeners
+        if (cloudArchives && cloudArchives.length > 0) {
+          setArchivedSessions(cloudArchives);
+        }
+
+        setCloudSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+      } catch (err) {
+        console.warn('Sync from cloud error:', err);
+      } finally {
+        if (isMounted) setIsSyncingCloud(false);
+      }
+    };
+
+    // 1. Initial full sync
+    syncFromCloud();
+
+    // 2. Real-time Firestore sync listeners
     const unsubConfig = subscribeToCloudGeminiConfig((cfg) => {
       if (isMounted && cfg) {
         if (cfg.apiKey && cfg.apiKey.trim()) {
@@ -173,12 +187,8 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
 
     const unsubChat = subscribeToCloudChatHistory((cloudMsgs) => {
       if (isMounted && cloudMsgs && cloudMsgs.length > 0) {
-        setChatMessages(prev => {
-          if (prev.length <= 1 || cloudMsgs.length >= prev.length) {
-            return cloudMsgs;
-          }
-          return prev;
-        });
+        setChatMessages(cloudMsgs);
+        setCloudSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
       }
     });
 
@@ -188,13 +198,51 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       }
     });
 
+    // 3. Tab visibility / Focus sync for multi-tab and deployment switching
+    const handleFocusOrVisible = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromCloud();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusOrVisible);
+    document.addEventListener('visibilitychange', handleFocusOrVisible);
+
     return () => {
       isMounted = false;
       unsubConfig();
       unsubChat();
       unsubArchives();
+      window.removeEventListener('focus', handleFocusOrVisible);
+      document.removeEventListener('visibilitychange', handleFocusOrVisible);
     };
   }, []);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const [cloudMsgs, cloudArchives, cfg] = await Promise.all([
+        loadCloudChatHistory(),
+        loadCloudArchivedSessions(),
+        loadCloudGeminiConfig()
+      ]);
+
+      if (cloudMsgs && cloudMsgs.length > 0) {
+        setChatMessages(cloudMsgs);
+      }
+      if (cloudArchives && cloudArchives.length > 0) {
+        setArchivedSessions(cloudArchives);
+      }
+      if (cfg?.apiKey) {
+        setApiKey(cfg.apiKey);
+      }
+      setCloudSyncedTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    } catch (e: any) {
+      console.warn('Manual sync notice:', e);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   // Storage Info Modal State
   const [showStorageInfoModal, setShowStorageInfoModal] = useState<boolean>(false);
@@ -1256,6 +1304,26 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* Cloud Sync Status & Manual Sync Button */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleManualCloudSync}
+                disabled={isSyncingCloud}
+                className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isSyncingCloud
+                    ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300'
+                    : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                }`}
+                title="Sinkronkan riwayat chat dengan Cloud Firestore (Multi-perangkat / Deployment)"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCloud ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">
+                  {isSyncingCloud ? 'Menyinkronkan...' : cloudSyncedTime ? `Cloud: ${cloudSyncedTime}` : 'Sinkron Cloud'}
+                </span>
+              </button>
             </div>
 
             {/* Archive Current Session Button */}

@@ -461,7 +461,7 @@ let saveArchivesDebounceTimer: any = null;
 let saveConfigDebounceTimer: any = null;
 
 /**
- * Save Active Chat History to Firestore and localStorage with debouncing
+ * Save Active Chat History to Firestore and localStorage immediately and securely
  */
 export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<void> {
   const trimmed = messages.slice(-50);
@@ -473,26 +473,20 @@ export async function saveCloudChatHistory(messages: ChatMessage[]): Promise<voi
     console.warn('Failed to save chat to local storage', e);
   }
 
-  // 2. Debounce Firestore Cloud Write to prevent quota burning
-  if (saveChatDebounceTimer) {
-    clearTimeout(saveChatDebounceTimer);
+  // 2. Persist to Firestore Cloud Settings document for instant multi-device / deploy sync
+  try {
+    await setDoc(
+      doc(db, 'settings', 'gemini_chat'),
+      {
+        chatMessages: trimmed,
+        updatedAt: new Date().toISOString(),
+        lastMessageTimestamp: trimmed[trimmed.length - 1]?.timestamp || ''
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn('Failed to sync chat history to Firestore:', e);
   }
-
-  saveChatDebounceTimer = setTimeout(async () => {
-    try {
-      await setDoc(
-        doc(db, 'settings', 'gemini_chat'),
-        {
-          chatMessages: trimmed,
-          updatedAt: new Date().toISOString(),
-          lastMessageTimestamp: trimmed[trimmed.length - 1]?.timestamp || ''
-        },
-        { merge: true }
-      );
-    } catch (e) {
-      console.warn('Failed to sync chat history to Firestore:', e);
-    }
-  }, 1000);
 }
 
 /**
@@ -554,7 +548,7 @@ export async function loadCloudArchivedSessions(): Promise<ArchivedChatSession[]
 }
 
 /**
- * Save Archived Chat Sessions to Firestore and localStorage with debouncing
+ * Save Archived Chat Sessions to Firestore and localStorage immediately
  */
 export async function saveCloudArchivedSessions(archives: ArchivedChatSession[]): Promise<void> {
   const trimmed = archives.slice(-30);
@@ -566,25 +560,19 @@ export async function saveCloudArchivedSessions(archives: ArchivedChatSession[])
     console.warn('Failed to save archives to local storage', e);
   }
 
-  // 2. Debounce Persist to Firestore
-  if (saveArchivesDebounceTimer) {
-    clearTimeout(saveArchivesDebounceTimer);
+  // 2. Persist to Firestore Cloud Settings
+  try {
+    await setDoc(
+      doc(db, 'settings', 'gemini_archives'),
+      {
+        archivedSessions: trimmed,
+        updatedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.warn('Failed to sync archives to Firestore:', e);
   }
-
-  saveArchivesDebounceTimer = setTimeout(async () => {
-    try {
-      await setDoc(
-        doc(db, 'settings', 'gemini_archives'),
-        {
-          archivedSessions: trimmed,
-          updatedAt: new Date().toISOString()
-        },
-        { merge: true }
-      );
-    } catch (e) {
-      console.warn('Failed to sync archives to Firestore:', e);
-    }
-  }, 1000);
 }
 
 /**

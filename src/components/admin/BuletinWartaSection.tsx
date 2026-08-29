@@ -55,6 +55,7 @@ import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
 
 import { BuletinMagazineLayout } from './BuletinMagazineLayout';
 import { BuletinDataStudioEditor } from './BuletinDataStudioEditor';
+import { generateCompletePrintReadyBuletinConfig } from '../../utils/buletinTreasuryEngine';
 
 interface BuletinWartaSectionProps {
   theme?: AppTheme;
@@ -68,64 +69,7 @@ interface BuletinWartaSectionProps {
 const STORAGE_KEY_REALISASI = 'kppn_realisasi_belanja_records';
 const STORAGE_KEY_BULETIN_CFG = 'kppn_buletin_config';
 
-const DEFAULT_BULETIN_CONFIG: BuletinConfig = {
-  id: 'buletin_kppn_current',
-  edisi: 'EDISI 2 | TW.II/2026',
-  bulanTahun: 'Triwulan II 2026',
-  namaBuletin: 'WARTA SEMARANG SATU',
-  taglineBuletin: 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I',
-  judulUtama: 'OPTIMALISASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN',
-  subJudul: 'Kinerja Fiskal Berkualitas, Akselerasi Digitalisasi SAKTI, & Transformasi Layanan Menuju WBBM',
-  namaKepalaKantor: 'Drs. H. Ahmad Fauzi, M.Si.',
-  jabatanKepala: 'Kepala KPPN Tipe A1 Semarang I',
-  sambutanKepala: 'Puji syukur kita panjatkan ke hadirat Tuhan Yang Maha Esa. Melalui Warta Semarang Satu ini, KPPN Tipe A1 Semarang I terus berkomitmen mengawal pelaksanaan anggaran satker agar senantiasa efektif, transparan, dan akuntabel guna mendukung pertumbuhan ekonomi Kota Semarang dan Jawa Tengah.',
-  tajukRencana: 'Fokus triwulan ini diarahkan pada percepatan penyelesaian tagihan kontraktual, mitigasi deviasi Halaman III DIPA, serta pemanfaatan optimal instrumen digital perbendaharaan seperti KKP dan Digipay demi mendorong efisiensi belanja pemerintah.',
-  temaWarna: 'navy',
-  showRealisasiBelanja: true,
-  showIKPASection: true,
-  showPojokSakti: true,
-  showSambutan: true,
-  showAgendaKegiatan: true,
-  
-  wawancaraSatker: {
-    judul: 'Kiat Sukses Mengamankan Nilai IKPA 100 & Zero Retur',
-    narasumber: 'Budi Santoso, S.E.',
-    jabatan: 'PPK / Bendahara Pengeluaran',
-    satker: 'Politeknik Ilmu Pelayaran Semarang',
-    isiWawancara: 'Kunci utama mencapai IKPA maksimal terletak pada disiplin pemutakhiran RPD Halaman III DIPA setiap awal triwulan serta rekonsiliasi berkala sebelum tanggal cut-off SAKTI.',
-    kutipanPenting: 'Koordinasi aktif dengan Helpdesk KPPN Semarang I membuat seluruh kendala teknis SP2D dan SAKTI terselesaikan dalam hitungan jam.'
-  },
-
-  kegiatanKppn: {
-    judul: 'Bimtek Tata Kelola Keuangan & Sosialisasi Antikorupsi',
-    subJudul: 'Penguatan Integritas dan Mitigasi Deviasi Halaman III DIPA Satker Mitra',
-    tanggal: '12 Juni 2026',
-    lokasi: 'Aula Sumbing KPPN Semarang I, Jl. Ki Mangunsarkoro No. 34',
-    deskripsi: 'Kegiatan dihadiri oleh seluruh KPA dan PPK Satuan Kerja guna mengevaluasi realisasi belanja semester I serta menyamakan persepsi mitigasi deviasi RPD.'
-  },
-
-  teropongSemarang: {
-    lokasi1Nama: 'Kawasan Kota Lama Semarang (Little Netherland)',
-    lokasi1Deskripsi: 'Cagar budaya bersejarah dengan arsitektur kolonial megah seperti Gereja Blenduk, menjadi ikon pariwisata unggulan dan sentra ekonomi kreatif.',
-    lokasi2Nama: 'Landmark Lawang Sewu & Kawasan Tugu Muda',
-    lokasi2Deskripsi: 'Simbol perjuangan dan kebanggaan warga Kota Semarang yang terus berbenah menjadi pusat edukasi warisan perkeretaapian dan sejarah kemerdekaan.'
-  },
-
-  pantunAntiKorupsi: {
-    bait1: 'Jalan-jalan ke Simpang Lima membeli lumpia,',
-    bait2: 'Mampir kulineran tahu gimbal nikmat tiada tara;',
-    bait3: 'KPPN Semarang I melayani dengan tulus dan prima,',
-    bait4: 'Tanpa suap, tolak gratifikasi, integritas nomor satu selamanya!'
-  },
-
-  tipsSaktiCustom: [
-    'Pastikan SPM Kontraktual diterbitkan maksimal 17 hari kerja sejak BAST ditandatangani untuk menjaga indikator Ketepatan Waktu.',
-    'Lakukan Rekonsiliasi Eksternal SAKTI-SPAN setiap bulan sebelum batas cut-off tanggal 10 pukul 23:59 WIB.',
-    'Optimalkan penggunaan CMS dan KKP untuk meminimalkan saldo idle kas tunai pada rekening Bendahara Pengeluaran.'
-  ],
-  catatanAnalis: 'Realisasi Belanja Modal perlu diakselerasi melalui monitoring berkala terhadap progres fisik pengadaan barang/jasa sebelum batas akhir tahun anggaran.',
-  canvaTemplateUrl: 'https://www.canva.com/templates/?query=newsletter+annual+report+a4'
-};
+const DEFAULT_BULETIN_CONFIG: BuletinConfig = generateCompletePrintReadyBuletinConfig();
 
 export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   theme = 'light',

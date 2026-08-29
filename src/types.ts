@@ -1370,6 +1370,26 @@ export interface RealisasiBelanjaSummary {
   }[];
 }
 
+export interface CustomBuletinPage {
+  id: string;
+  title: string;
+  section: string; // e.g. "Sorotan Khusus", "Artikel Tambahan", "Infografis Tematik", "Inovasi Satker"
+  template: 'split_article' | 'infographic_cards' | 'interview_spotlight' | 'photo_story' | 'data_table';
+  subtitle?: string;
+  contentParagraph1?: string;
+  contentParagraph2?: string;
+  contentParagraph3?: string;
+  quote?: string;
+  quoteAuthor?: string;
+  stats?: { label: string; value: string; desc?: string }[];
+  photoUrl?: string;
+  photoCaption?: string;
+  tableData?: { col1: string; col2: string; col3: string; col4: string }[];
+  tableHeaders?: [string, string, string, string];
+  tags?: string[];
+  createdAt: string;
+}
+
 export interface BuletinConfig {
   id: string;
   edisi: string; // e.g. "EDISI 2 | TW.II/2026"
@@ -1491,7 +1511,91 @@ export interface BuletinConfig {
     pesanIntegritas?: string;
   };
 
-  // Hal 20: Back Cover & Kontak
+  // Rubrik Tambahan Eksekutif (Keren & Interaktif)
+  opiniPranata?: {
+    judul: string;
+    penulis: string;
+    jabatanPenulis: string;
+    fotoPenulisUrl?: string;
+    isiOpini: string;
+    kutipanOpini?: string;
+  };
+  kamusSakti?: {
+    istilah: string;
+    kepanjangan: string;
+    definisi: string;
+  }[];
+  ttsPerbendaharaan?: {
+    judul?: string;
+    petunjuk?: string;
+    pertanyaanMendatar: { no: number; tanya: string; jawaban: string; length: number }[];
+    pertanyaanMenurun: { no: number; tanya: string; jawaban: string; length: number }[];
+  };
+  wallOfFameSatker?: {
+    kode: string;
+    nama: string;
+    predikat: string;
+    nilai: number;
+    kategori: string;
+    highlight: string;
+  }[];
+  statistikDigital?: {
+    volumeDigipay: number;
+    nominalDigipay: number;
+    volumeKkp: number;
+    nominalKkp: number;
+    zeroReturPersen: number;
+  };
+
+  // Expanded Deep Treasury Data Sections (Halaman Khusus KPPN Semarang I)
+  evaluasiDelapanIkpa?: {
+    revisiDipa: { nilai: number; analisis: string };
+    deviasiHal3: { nilai: number; analisis: string };
+    penyerapanAnggaran: { nilai: number; analisis: string };
+    belanjaKontraktual: { nilai: number; analisis: string };
+    penyelesaianTagihan: { nilai: number; analisis: string };
+    pengelolaanUpTup: { nilai: number; analisis: string };
+    dispensasiSpm: { nilai: number; analisis: string };
+    capaianOutput: { nilai: number; analisis: string };
+    rataRataKppn: number;
+    kesimpulan: string;
+  };
+  satkerPaguBesarTable?: {
+    kode: string;
+    nama: string;
+    pagu: number;
+    realisasi: number;
+    persen: number;
+    ikpa: number;
+    status: string;
+  }[];
+  belanjaModalProyek?: {
+    judul: string;
+    totalPaguModal: number;
+    realisasiModal: number;
+    persenModal: number;
+    daftarProyek: { namaPaket: string; satker: string; pagu: number; progres: string; status: string }[];
+    rekomendasi: string;
+  };
+  monitoringReturSp2d?: {
+    totalSpmDiterbitkan: number;
+    totalSp2dTerbit: number;
+    totalRetur: number;
+    rasioZeroRetur: number;
+    nominalRetur: number;
+    penyebabRetur: { penyebab: string; persen: number; solusi: string }[];
+    sopPenanganan: string;
+  };
+  leaderboardDigipayKkp?: {
+    topDigipaySatker: { nama: string; transaksi: number; nominal: number }[];
+    topKkpSatker: { nama: string; transaksi: number; nominal: number }[];
+    jumlahVendorUmkm: number;
+    pertumbuhanPersen: number;
+  };
+  customPages?: CustomBuletinPage[]; // Daftar halaman kustom tambahan yang dibuat oleh admin
+  excludedPages?: number[]; // Daftar halaman yang disembunyikan/dihapus jika pengguna tidak menginginkannya
+
+  // Hal 20 / 24: Back Cover & Kontak
   kontakKppn?: {
     alamat: string;
     telepon: string;

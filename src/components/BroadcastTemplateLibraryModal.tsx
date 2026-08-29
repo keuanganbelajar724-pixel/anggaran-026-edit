@@ -748,7 +748,7 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                   Katalog Template &amp; Generator AI Broadcast WhatsApp
                 </h3>
                 <span className="bg-gradient-to-r from-indigo-600 to-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                  Gemini 2.5 Flash + Portal Mandiri
+                  Gemini 3.7 Flash + Portal Mandiri
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

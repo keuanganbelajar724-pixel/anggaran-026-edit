@@ -3582,7 +3582,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                       Asisten AI Gemini - Poles &amp; Susun Pesan WhatsApp
                     </h3>
                     <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-extrabold border border-indigo-200 dark:border-indigo-800">
-                      Gemini 2.5 Flash
+                      Gemini 3.7 Flash
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">

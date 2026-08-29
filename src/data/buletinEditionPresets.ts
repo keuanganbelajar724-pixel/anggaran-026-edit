@@ -67,12 +67,49 @@ export const BULETIN_MONTH_PRESETS: BuletinMonthPreset[] = [
     }
   },
   {
+    id: 'preset_februari',
+    monthIndex: 2,
+    monthName: 'Februari',
+    quarter: 'TW I',
+    edisi: 'EDISI 2 | FEBRUARI 2026',
+    periodeLabel: 'Februari 2026 (Penguatan RPD)',
+    themeTitle: 'AKURASI PERENCANAAN: PENGUATAN RPD HALAMAN III DIPA & PENDAFTARAN KONTRAK DINI',
+    subTitle: 'Optimalisasi Belanja Operasional, Penggunaan KKP, & Kepatuhan Batas Waktu 17 Hari Kerja',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I',
+      sambutanKepala: 'Bulan Februari merupakan fase pemantapan operasional. Seluruh satuan kerja diharapkan segera menyelesaikan pendaftaran kontrak pengadaan barang dan jasa serta memanfaatkan fasilitas KKP untuk belanja operasional sehari-hari.',
+      tajukRencana: 'Deviasi Halaman III DIPA dapat diminimalisir jika PPK dan Bendahara proaktif menyesuaikan jadwal penarikan dana bulanan dengan kalender kegiatan masing-masing unit kerja.',
+      wawancaraSatker: {
+        judul: 'Penerapan KKP & Pengendalian Kas Operasional Secara Real-Time',
+        narasumber: 'Mayor Cku Agus Prasetyo, S.E.',
+        jabatan: 'Pekas / PPK',
+        satker: 'Kodam IV/Diponegoro - Keuangan Militer Semarang',
+        isiWawancara: 'Penggunaan Kartu Kredit Pemerintah (KKP) secara masif memangkas kebutuhan uang tunai brankas dan mempermudah rekonsiliasi SP2D GUP di SAKTI.',
+        isiWawancara2: 'Kami juga menjalin komunikasi harian dengan Seksi Bank KPPN Semarang I untuk memastikan validitas rekening tujuan pembayaran mitra rekanan.',
+        kutipanPenting: 'Disiplin non-tunai menciptakan tata kelola keuangan yang transparan, akuntabel, dan bebas dari celah penyimpangan.',
+        prestasiSatker: 'Satker dengan Kepatuhan Penggunaan KKP Terbaik Kategori Pagu Besar.'
+      },
+      sarwaSarwi: {
+        judul: 'Bimtek SAKTI & Asistensi One-on-One',
+        temaKegiatan: 'Klinik Layanan SAKTI: Solusi Tuntas Kendala Validasi & Pendaftaran Kontrak',
+        tanggal: '18 Februari 2026',
+        lokasi: 'Ruang Mini Teater KPPN Semarang I',
+        ceritaBagian1: 'KPPN Semarang I membuka klinik asistensi intensif untuk membantu para operator SAKTI satker baru dalam proses perekaman SPK dan SPM.',
+        ceritaBagian2: 'Fasilitator dari Seksi MSKI memberikan panduan langkah demi langkah terkait mitigasi penolakan SPM dan tata cara pendaftaran supplier tipe 7.',
+        ceritaBagian3Purnabakti: 'Apresiasi khusus diberikan kepada peserta pelatihan teraktif yang berhasil menyelesaikan simulasi penerbitan SPM dalam waktu tercepat.',
+        ceritaBagian4RiverTubing: 'Kegiatan diakhiri dengan diskusi santai bedah regulasi Perdirjen Perbendaharaan nomor PER-5/PB/2022 tentang IKPA.',
+        pesanKepala: 'Pintu konsultasi KPPN Semarang I selalu terbuka lebar demi kenyamanan dan kelancaran tugas bapak dan ibu pengelola keuangan.'
+      }
+    }
+  },
+  {
     id: 'preset_maret',
     monthIndex: 3,
     monthName: 'Maret',
     quarter: 'TW I',
     edisi: 'EDISI 3 | TW.I/2026',
-    periodeLabel: 'Triwulan I 2026 (Penutupan TW I)',
+    periodeLabel: 'Maret 2026 (Penutupan Triwulan I)',
     themeTitle: 'EVALUASI TRIWULAN I: AKSELERASI TARGET REALISASI 20% & PENGUATAN IKPA',
     subTitle: 'Pengawalan Kualitas Belanja Modal, Tertib Rekonsiliasi SAKTI, & Realisasi TKD Kota Semarang',
     config: {
@@ -86,7 +123,7 @@ export const BULETIN_MONTH_PRESETS: BuletinMonthPreset[] = [
         jabatan: 'Pejabat Pembuat Komitmen (PPK)',
         satker: 'Politeknik Ilmu Pelayaran (PIP) Semarang',
         isiWawancara: 'Kunci keberhasilan kami adalah melakukan rekonsiliasi internal setiap hari Jumat serta memastikan data suplier dan nomor rekening penerima telah divalidasi ke bank sebelum penerbitan SPM.',
-        isiWawancara2: 'Kami juga memaksimalkan transaksi non-tunai melalui KKP (Kartu Kredit Pemerintah) dan Digipay Satu untuk belanja operasional kantor, sehingga pengelolaan UP/TUP selalu tertib dan tepat waktu.',
+        isiWawancara2: 'Kami juga memaksimalkan transaksi non-tunai melalui KKP dan Digipay Satu untuk belanja operasional kantor, sehingga pengelolaan UP/TUP selalu tertib dan tepat waktu.',
         kutipanPenting: 'Disiplin rekonsiliasi dan koordinasi harian dengan KPPN Semarang I menghindarkan satker dari potensi retur SP2D.',
         prestasiSatker: 'Peraih Nilai IKPA Sempurna 100.00 Kategori Pagu Sedang Periode Triwulan I 2026.'
       },
@@ -104,13 +141,87 @@ export const BULETIN_MONTH_PRESETS: BuletinMonthPreset[] = [
     }
   },
   {
+    id: 'preset_april',
+    monthIndex: 4,
+    monthName: 'April',
+    quarter: 'TW II',
+    edisi: 'EDISI 4 | APRIL 2026',
+    periodeLabel: 'April 2026 (Awal Triwulan II)',
+    themeTitle: 'AKSELERASI BELANJA MODAL & DIGITALISASI UMKM LEWAT DIGIPAY SATU',
+    subTitle: 'Penguatan Efisiensi Pengadaan, Tertib BAST, dan Optimalisasi Pasar Digital Pengadaan Pemerintah',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I',
+      sambutanKepala: 'Mengawali Triwulan II, KPPN Semarang I mendorong percepatan penyerapan belanja modal fisik dan konstruksi. Melalui platform Digipay Satu, satker juga diajak berkontribusi langsung membangkitkan UMKM lokal Semarang.',
+      tajukRencana: 'Triwulan II adalah masa emas pelaksanaan konstruksi fisik. Satuan kerja diharapkan segera memproses termin pembayaran sesuai Berita Acara Kemajuan Fisik guna menjaga likuiditas penyedia jasa.',
+      wawancaraSatker: {
+        judul: 'Pemberdayaan UMKM Kuliner & ATK Melalui Marketplace Digipay Satu',
+        narasumber: 'Siti Aminah, S.Kom.',
+        jabatan: 'Pejabat Pengadaan / Bendahara',
+        satker: 'Balai Karantina Hewan, Ikan, dan Tumbuhan Jawa Tengah',
+        isiWawancara: 'Dengan Digipay Satu, seluruh proses belanja kebutuhan kantor mulai dari konsumsi rapat hingga perlengkapan komputer berlangsung cepat dan pajaknya langsung terpotong otomatis.',
+        isiWawancara2: 'Kami membina belasan warung dan toko UMKM di sekitar kantor untuk bergabung di Digipay Satu sehingga omzet mereka melonjak signifikan.',
+        kutipanPenting: 'Belanja APBN harus menjadi berkah langsung bagi para pelaku usaha kecil di sekitar kita.',
+        prestasiSatker: 'Satker Teraktif Transaksi Digipay Satu Kategori K/L Non-BLU.'
+      },
+      sarwaSarwi: {
+        judul: 'Bazar UMKM & Sosialisasi Antikorupsi',
+        temaKegiatan: 'Pojok UMKM Kemenkeu Satu: Dukung Produk Lokal, Tolak Gratifikasi',
+        tanggal: '24 April 2026',
+        lokasi: 'Halaman Gedung Keuangan Negara Semarang',
+        ceritaBagian1: 'KPPN Semarang I berkolaborasi dengan KPP Pratama dan Bea Cukai menggelar Bazar UMKM Ramadhan menghadirkan aneka kuliner khas dan kriya semarangan.',
+        ceritaBagian2: 'Pengunjung dapat bertransaksi mudah menggunakan QRIS dan Digipay Satu sembari mendapatkan brosur edukasi antikorupsi dan saluran aduan SIPANDU.',
+        ceritaBagian3Purnabakti: 'Para purnabakti yang memiliki usaha rumahan turut diundang memamerkan produk kreasinya dengan penuh kebanggaan.',
+        ceritaBagian4RiverTubing: 'Kegiatan diakhiri dengan santunan bagi anak yatim piatu dan buka puasa bersama keluarga besar Kemenkeu Satu.',
+        pesanKepala: 'Integritas dan kepedulian sosial adalah dua sayap yang harus selalu mengepak seirama.'
+      }
+    }
+  },
+  {
+    id: 'preset_mei',
+    monthIndex: 5,
+    monthName: 'Mei',
+    quarter: 'TW II',
+    edisi: 'EDISI 5 | MEI 2026',
+    periodeLabel: 'Mei 2026 (Bulan Pendidikan & Hardiknas)',
+    themeTitle: 'APBN MENCERDASKAN BANGSA: PENYALURAN DANA BOS & BANTUAN OPERASIONAL PTN',
+    subTitle: 'Pengawalan Kualitas Belanja Pendidikan, Tertib LPJ Bendahara, & Akuntabilitas BLU',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Mengawal Kinerja Fiskal & Tata Kelola Keuangan Prima di Wilayah KPPN Semarang I',
+      sambutanKepala: 'Peringatan Hari Pendidikan Nasional menjadi pengingat pentingnya alokasi 20% APBN untuk masa depan generasi penerus. KPPN Semarang I menjamin penyaluran dana BOS, BOPTN, dan tunjangan profesi guru berjalan cepat, tepat waktu, dan tepat sasaran.',
+      tajukRencana: 'Efektivitas belanja sektor pendidikan tidak hanya diukur dari persentase serapan, melainkan dari ketercapaian Indikator Capaian Output (CRO) yang langsung dirasakan manfaatnya oleh para siswa dan mahasiswa.',
+      wawancaraSatker: {
+        judul: 'Tata Kelola Anggaran BLU Pendidikan & Peningkatan Sarana Riset Kampus',
+        narasumber: 'Prof. Dr. Ir. Hadi Purwanto, M.Eng.',
+        jabatan: 'Wakil Rektor Bidang Keuangan & Sumber Daya',
+        satker: 'Universitas Negeri Semarang (Unnes)',
+        isiWawancara: 'Dana APBN yang disalurkan melalui KPPN Semarang I kami prioritaskan untuk pembangunan laboratorium terpadu dan pemberian beasiswa bagi ribuan mahasiswa berprestasi dari keluarga prasejahtera.',
+        isiWawancara2: 'Sinergi sistem SAKTI dengan ERP internal kampus mempercepat rekonsiliasi penerimaan PNBP dan belanja operasional perkuliahan.',
+        kutipanPenting: 'Pendidikan bermutu lahir dari tata kelola anggaran yang transparan dan akuntabel.',
+        prestasiSatker: 'Satker BLU Pendidikan Terbaik dalam Kepatuhan Pelaporan Capaian Output.'
+      },
+      sarwaSarwi: {
+        judul: 'Kunjungan Edukasi Perbendaharaan (Treasury Goes to Campus)',
+        temaKegiatan: 'Kenal APBN Sejak Dini: Peran KPPN dalam Mengawal Uang Kita',
+        tanggal: '14 Mei 2026',
+        lokasi: 'Auditorium Unnes Sekaran & Undip Tembalang',
+        ceritaBagian1: 'KPPN Semarang I menggelar roadshow edukasi APBN dan literasi perbendaharaan kepada ratusan mahasiswa fakultas ekonomi dan bisnis.',
+        ceritaBagian2: 'Para pejabat fungsional memaparkan siklus pencairan anggaran negara, pentingnya integritas, serta peluang karier di Kementerian Keuangan.',
+        ceritaBagian3Purnabakti: 'Kuis interaktif berbasis aplikasi berhadiah cenderamata menarik memicu antusiasme tinggi dari para peserta.',
+        ceritaBagian4RiverTubing: 'Sesi ditutup dengan penyerahan buku panduan APBN dan foto bersama seluruh civitas akademika.',
+        pesanKepala: 'Generasi muda yang cerdas finansial adalah pondasi kokoh menuju Indonesia Emas 2045.'
+      }
+    }
+  },
+  {
     id: 'preset_juni',
     monthIndex: 6,
     monthName: 'Juni',
     quarter: 'TW II',
     edisi: 'EDISI 6 | SEMESTER I/2026',
     periodeLabel: 'Juni 2026 (Penutupan Semester I & Gaji 13)',
-    themeTitle: 'KONSOLIDASI SEMESTER I: SUKSES PENYALURAN GAJI KE-13 & AKSIS BELANJA MODAL',
+    themeTitle: 'KONSOLIDASI SEMESTER I: SUKSES PENYALURAN GAJI KE-13 & AKSI BELANJA MODAL',
     subTitle: 'Penguatan Efektivitas APBN sebagai Shock Absorber Ekonomi & Akselerasi Digitalisasi Digipay Satu',
     config: {
       namaBuletin: 'WARTA SEMARANG SATU',
@@ -137,6 +248,43 @@ export const BULETIN_MONTH_PRESETS: BuletinMonthPreset[] = [
         ceritaBagian3Purnabakti: 'Kegiatan dilanjutkan dengan temu alumni dan silaturahmi purnabakti Ditjen Perbendaharaan yang berlangsung penuh kehangatan.',
         ceritaBagian4RiverTubing: 'Bazar kuliner binaan UMKM KPPN turut memeriahkan suasana dengan transaksi non-tunai QRIS.',
         pesanKepala: 'Insan perbendaharaan harus senantiasa hadir memberi manfaat nyata bagi masyarakat di sekitar kita.'
+      }
+    }
+  },
+  {
+    id: 'preset_juli',
+    monthIndex: 7,
+    monthName: 'Juli',
+    quarter: 'TW III',
+    edisi: 'EDISI 7 | JULI 2026',
+    periodeLabel: 'Juli 2026 (Awal Semester II)',
+    themeTitle: 'AKSELERASI PARUH KEDUA: KAWAL PROYEK STRATEGIS FISIK & INFRASTRUKTUR DAERAH',
+    subTitle: 'Pengawasan Ketat Progres Termin BAST, Mitigasi Deviasi RPD, & Penguatan Akuntansi SPAN',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Mengawal Kinerja Fiskal & Tata Kelola Keuangan Prima di Wilayah KPPN Semarang I',
+      sambutanKepala: 'Memasuki Semester II TA 2026, fokus pengawalan diarahkan pada percepatan proyek-proyek fisik yang memiliki alokasi anggaran besar. Kami mengajak seluruh PPK untuk tidak menunda penerbitan SPM termin pekerjaan yang telah rampung di lapangan.',
+      tajukRencana: 'Semester kedua adalah penentu kualitas penyerapan anggaran. Penumpukan tagihan di bulan Desember dapat dicegah bila satker konsisten mencairkan dana sesuai progres fisik bulanan.',
+      wawancaraSatker: {
+        judul: 'Strategi Pengendalian Proyek Normalisasi Sungai & Pengendalian Banjir Semarang',
+        narasumber: 'Ir. Yulius Baskoro, S.T., M.T.',
+        jabatan: 'PPK Sungai & Pantai',
+        satker: 'Balai Besar Wilayah Sungai (BBWS) Pemali Juana',
+        isiWawancara: 'Proyek penanganan rob dan normalisasi tanggul di wilayah pesisir Semarang dipantau perkembangannya mingguan. SPM diajukan secara bertahap begitu sertifikat pengujian fisik diterbitkan konsultan pengawas.',
+        isiWawancara2: 'Dukungan verifikasi cepat dari KPPN Semarang I sangat membantu kontraktor menjaga arus kas pembelian material konstruksi di lapangan.',
+        kutipanPenting: 'Infrastruktur yang selesai tepat waktu adalah wujud perlindungan nyata negara terhadap keselamatan warga.',
+        prestasiSatker: 'Satker dengan Serapan Belanja Modal Terbesar Tanpa Retur Periode Semester I 2026.'
+      },
+      sarwaSarwi: {
+        judul: 'Rapat Evaluasi Kinerja Semester I & Penegakan Disiplin',
+        temaKegiatan: 'Refleksi Tengah Tahun: Pertahankan Integritas, Pacu Inovasi Layanan',
+        tanggal: '22 Juli 2026',
+        lokasi: 'Aula Sumbing KPPN Semarang I',
+        ceritaBagian1: 'Seluruh pegawai KPPN Semarang I mengikuti Rapat Evaluasi Kinerja dan Pembinaan Mental Pegawai menyongsong semester II.',
+        ceritaBagian2: 'Kepala Kantor memberikan apresiasi atas pencapaian nilai kepuasan pengguna layanan yang mencapai angka 4.98 dari skala 5.00.',
+        ceritaBagian3Purnabakti: 'Sesi sharing session menghadirkan narasumber motivasi kerja profesional dan manajemen stres dalam menghadapi lonjakan beban kerja akhir tahun.',
+        ceritaBagian4RiverTubing: 'Acara ditutup dengan komitmen bersama menjaga zero complain dan zero gratifikasi di setiap loket layanan.',
+        pesanKepala: 'Prestasi adalah hasil dari konsistensi melakukan hal-hal benar secara disiplin setiap hari.'
       }
     }
   },
@@ -174,6 +322,80 @@ export const BULETIN_MONTH_PRESETS: BuletinMonthPreset[] = [
         ceritaBagian3Purnabakti: 'Para purnabakti yang hadir turut memberikan motivasi dan wejangan bagi para pegawai muda perbendaharaan.',
         ceritaBagian4RiverTubing: 'Penyerahan hadiah lomba dan panggung hiburan musik akustik menutup perayaan dengan semarak.',
         pesanKepala: 'Pertahankan kemerdekaan dengan integritas kerja yang tak tergoyahkan dan dedikasi tiada henti.'
+      }
+    }
+  },
+  {
+    id: 'preset_september',
+    monthIndex: 9,
+    monthName: 'September',
+    quarter: 'TW III',
+    edisi: 'EDISI 9 | TW.III/2026',
+    periodeLabel: 'September 2026 (Penutupan Triwulan III)',
+    themeTitle: 'TARGET REALISASI 75%: OPTIMALISASI PENYERAPAN TW III & PERSIAPAN LLAT',
+    subTitle: 'Penguatan Capaian Output, Tertib Rekonsiliasi Eksternal, & Kesiapan Menuju Triwulan Terakhir',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I',
+      sambutanKepala: 'Menutup Triwulan III TA 2026, KPPN Semarang I mendorong seluruh Satker mencapai target minimal realisasi 75%. Triwulan ini adalah fondasi penentu sebelum memasuki periode krusial Langkah-Langkah Akhir Tahun (LLAT).',
+      tajukRencana: 'Kunci keberhasilan di akhir September adalah memastikan seluruh data capaian output (CRO) telah terkonfirmasi di SAKTI serta tidak ada sisa dana UP/TUP yang menganggur di rekening kas satker.',
+      wawancaraSatker: {
+        judul: 'Kiat Mengawal Akurasi Konfirmasi Capaian Output SAKTI 100%',
+        narasumber: 'Bambang Triyono, S.H., M.H.',
+        jabatan: 'Sekretaris / KPA',
+        satker: 'Pengadilan Tinggi Semarang',
+        isiWawancara: 'Kami membentuk tim pengendali mutu yang merekonsiliasi jumlah berkas perkara yang selesai disidangkan dengan target capaian output di modul komitmen SAKTI setiap akhir bulan.',
+        isiWawancara2: 'Dengan sistem ini, deviasi data realisasi fisik dan finansial selalu berada di bawah ambang batas toleransi.',
+        kutipanPenting: 'Kinerja peradilan yang bersih tercermin dari transparansi dan akurasi pelaporan anggarannya.',
+        prestasiSatker: 'Peringkat 1 Kategori Lembaga Peradilan dengan Nilai IKPA Sempurna Triwulan III.'
+      },
+      sarwaSarwi: {
+        judul: 'Donor Darah & Bakti Lingkungan Pantai Marina',
+        temaKegiatan: 'Insan Perbendaharaan Peduli: Aksi Bersih Pantai & Konservasi Mangrove',
+        tanggal: '26 September 2026',
+        lokasi: 'Kawasan Konservasi Mangrove Pantai Marina Semarang',
+        ceritaBagian1: 'Keluarga besar KPPN Semarang I menanam seribu bibit mangrove di pesisir utara Semarang sebagai wujud kepedulian lingkungan hidup.',
+        ceritaBagian2: 'Kegiatan gotong royong membersihkan sampah plastik pantai melibatkan komunitas pemuda dan nelayan setempat.',
+        ceritaBagian3Purnabakti: 'Suasana keakraban terjalin hangat saat santap siang ikan bakar bersama warga nelayan.',
+        ceritaBagian4RiverTubing: 'Aksi peduli ini memperkuat nilai-nilai kemanusiaan dan kepekaan sosial insan perbendaharaan.',
+        pesanKepala: 'Menjaga kelestarian alam adalah bagian dari amanah kita kepada generasi masa depan.'
+      }
+    }
+  },
+  {
+    id: 'preset_oktober',
+    monthIndex: 10,
+    monthName: 'Oktober',
+    quarter: 'TW IV',
+    edisi: 'EDISI 10 | HORI/2026',
+    periodeLabel: 'Oktober 2026 (Bulan Hari Oeang RI / HORI ke-80)',
+    themeTitle: 'HARI OEANG REPUBLIK INDONESIA: APBN TULANG PUNGGUNG KEDAULATAN BANGSA',
+    subTitle: 'Refleksi Sejarah Uang Pertama RI, Penguatan Kemenkeu Satu, & Sosialisasi Awal Pedoman LLAT',
+    config: {
+      namaBuletin: 'WARTA SEMARANG SATU',
+      taglineBuletin: 'Mengawal Kinerja Fiskal & Tata Kelola Keuangan Prima di Wilayah KPPN Semarang I',
+      sambutanKepala: 'Memperingati Hari Oeang Republik Indonesia (HORI) ke-80, kita mengenang sejarah terbitnya ORI pada 30 Oktober 1946 sebagai lambang kedaulatan negara. Semangat juang pendahulu menjadi suluh bagi kita untuk mengawal APBN dengan kejujuran dan profesionalisme tertinggi.',
+      tajukRencana: 'Bulan Oktober menjadi gerbang sosialisasi Peraturan Direktur Jenderal Perbendaharaan tentang Pedoman Pelaksanaan Penerimaan dan Pengeluaran Negara pada Akhir Tahun Anggaran (LLAT).',
+      wawancaraSatker: {
+        judul: 'Kesiapan Satker Menghadapi Batas Waktu SPM Kontraktual Akhir Tahun',
+        narasumber: 'Dr. apt. Retno Widyastuti, M.Farm.',
+        jabatan: 'KPA / Kepala Balai',
+        satker: 'Balai Besar Pengawas Obat dan Makanan (BBPOM) di Semarang',
+        isiWawancara: 'Kami telah menyusun matriks jadwal penyerahan BAST untuk seluruh paket pengadaan laboratorium sehingga seluruh SPM dapat diajukan sebelum tanggal cut-off LLAT tahap pertama.',
+        isiWawancara2: 'Koordinasi proaktif dengan KPPN Semarang I memastikan tidak ada kendala dispensasi SPM di penghujung tahun.',
+        kutipanPenting: 'Perencanaan matang di bulan Oktober adalah garansi ketenangan di bulan Desember.',
+        prestasiSatker: 'Satker Terdisiplin dalam Pengajuan Rencana Penarikan Dana LLAT 2026.'
+      },
+      sarwaSarwi: {
+        judul: 'Pekan Olahraga & Seni Hari Oeang ke-80',
+        temaKegiatan: 'Porseni Kemenkeu Satu Semarang: Soliditas, Sportivitas, Integritas',
+        tanggal: '30 Oktober 2026',
+        lokasi: 'Kompleks Gedung Keuangan Negara (GKN) Semarang',
+        ceritaBagian1: 'Peringatan HORI ke-80 dimeriahkan dengan kompetisi bulutangkis, tenis meja, catur, dan lomba vokal antar unit vertikal Kementerian Keuangan se-Kota Semarang.',
+        ceritaBagian2: 'Tim KPPN Semarang I berhasil meraih medali emas pada cabang tenis meja ganda dan juara umum defile busana adat.',
+        ceritaBagian3Purnabakti: 'Upacara bendera HORI dipimpin langsung oleh Kepala Kanwil Ditjen Perbendaharaan Jawa Tengah di lapangan GKN.',
+        ceritaBagian4RiverTubing: 'Malam penganugerahan dan ramah tamah menjadi ajang silaturahmi yang mempererat persaudaraan Kemenkeu Satu.',
+        pesanKepala: 'Satu Kemenkeu, Satu Tekad, Mengawal Kemakmuran Nusantara.'
       }
     }
   },
@@ -358,6 +580,110 @@ export const DEFAULT_BULETIN_FULL_CONFIG: BuletinConfig = {
     lokasi2Deskripsi: 'Lawang Sewu di bundaran Tugu Muda berdiri megah sebagai ikon perkeretaapian nasional dan saksi perjuangan Pertempuran Lima Hari di Semarang. Kawasan ini telah direvitalisasi menjadi destinasi cagar budaya berkelas dunia.',
     fotoTeropong2Url: OFFICIAL_PRESET_IMAGES.lawangSewu
   },
+
+  // Halaman Khusus Semarang 1: Evaluasi 8 Indikator IKPA
+  evaluasiDelapanIkpa: {
+    revisiDipa: { nilai: 98.50, analisis: 'Pengendalian revisi DIPA sangat tertib dengan rata-rata revisi per satker terkendali.' },
+    deviasiHal3: { nilai: 91.20, analisis: 'Deviasi penarikan dana bulanan terjaga di bawah ambang batas toleransi nasional.' },
+    penyerapanAnggaran: { nilai: 96.80, analisis: 'Realisasi penyerapan anggaran melampaui target triwulanan secara proporsional.' },
+    belanjaKontraktual: { nilai: 94.30, analisis: 'Pendaftaran kontrak ke KPPN terlaksana tepat waktu maksimal 5 hari kerja.' },
+    penyelesaianTagihan: { nilai: 98.90, analisis: 'Penerbitan SPM tagihan kontraktual 17 hari kerja terlaksana tanpa keterlambatan.' },
+    pengelolaanUpTup: { nilai: 99.10, analisis: 'Revolving UP tepat waktu 1 bulan dan pertanggungjawaban TUP tertib.' },
+    dispensasiSpm: { nilai: 100.00, analisis: 'Nol dispensasi penerbitan SPM di luar batas waktu reguler (sempurna).' },
+    capaianOutput: { nilai: 97.40, analisis: 'Konfirmasi capaian output terverifikasi 100% dengan anomali 0%.' },
+    rataRataKppn: 96.78,
+    kesimpulan: 'Nilai IKPA lingkup KPPN Semarang I stabil pada kategori Sangat Baik dengan akselerasi penyelesaian tagihan 17 hari kerja dan nol dispensasi SPM.'
+  },
+
+  // Rapor Satker Pagu Besar
+  satkerPaguBesarTable: [
+    { kode: '648123', nama: 'POLDA JAWA TENGAH', pagu: 850000000000, realisasi: 795000000000, persen: 93.53, ikpa: 98.75, status: 'Sangat Baik' },
+    { kode: '412345', nama: 'UNIVERSITAS DIPONEGORO (BLU)', pagu: 620000000000, realisasi: 589000000000, persen: 95.00, ikpa: 99.10, status: 'Sangat Baik' },
+    { kode: '523890', nama: 'BALAI BESAR WILAYAH SUNGAI PEMALI JUANA', pagu: 450000000000, realisasi: 405000000000, persen: 90.00, ikpa: 94.80, status: 'Baik' },
+    { kode: '341901', nama: 'KEJAKSAAN TINGGI JAWA TENGAH', pagu: 210000000000, realisasi: 198000000000, persen: 94.28, ikpa: 97.20, status: 'Sangat Baik' },
+    { kode: '654321', nama: 'LPP TELEVISI REPUBLIK INDONESIA JATENG', pagu: 85000000000, realisasi: 79000000000, persen: 92.94, ikpa: 96.50, status: 'Sangat Baik' }
+  ],
+
+  // Belanja Modal Akun 53
+  belanjaModalProyek: {
+    judul: 'Monitoring Realisasi Belanja Modal (Akun 53) & Proyek Strategis',
+    totalPaguModal: 890000000000,
+    realisasiModal: 785000000000,
+    persenModal: 88.20,
+    daftarProyek: [
+      { namaPaket: 'Pembangunan Bendungan Jragung Paket 1 & 2', satker: 'BBWS Pemali Juana', pagu: 320000000000, progres: '94.5%', status: 'Sesuai Target' },
+      { namaPaket: 'Pengadaan Lab Riset Terpadu & Biomedis', satker: 'Universitas Diponegoro', pagu: 85000000000, progres: '100%', status: 'Selesai 100%' },
+      { namaPaket: 'Rehabilitasi Gedung Pelayanan & Sarpras Command Center', satker: 'Polda Jateng', pagu: 45000000000, progres: '98.0%', status: 'Sesuai Target' }
+    ],
+    rekomendasi: 'Satker pengelola Akun 53 diimbau menyelesaikan pendaftaran kontrak tepat waktu (maksimal 5 hari kerja) dan mempercepat BAST termin akhir sebelum cut-off akhir tahun anggaran.'
+  },
+
+  // Monitoring Retur SP2D
+  monitoringReturSp2d: {
+    totalSpmDiterbitkan: 45290,
+    totalSp2dTerbit: 45280,
+    totalRetur: 2,
+    nominalRetur: 14500000,
+    rasioZeroRetur: 99.99,
+    penyebabRetur: [
+      { penyebab: 'Perubahan nomor rekening penerima tanpa update supplier di SAKTI', persen: 75, solusi: 'Update data supplier terpadu' },
+      { penyebab: 'Rekening penerima berstatus dormant/pasif', persen: 25, solusi: 'Konfirmasi aktifasi bank persepsi' }
+    ],
+    sopPenanganan: 'Penerbitan surat ralat rekening maksimal 2 hari kerja dan rekonsiliasi data supplier terpadu.'
+  },
+
+  // Leaderboard Digipay & KKP
+  leaderboardDigipayKkp: {
+    topDigipaySatker: [
+      { nama: 'Polda Jawa Tengah Terpadu', transaksi: 340, nominal: 1450000000 },
+      { nama: 'BPS Provinsi Jawa Tengah', transaksi: 210, nominal: 890000000 },
+      { nama: 'Politeknik Ilmu Pelayaran Semarang', transaksi: 165, nominal: 620000000 }
+    ],
+    topKkpSatker: [
+      { nama: 'Polda Jawa Tengah', transaksi: 220, nominal: 4500000000 },
+      { nama: 'Kejaksaan Tinggi Jawa Tengah', transaksi: 140, nominal: 2300000000 }
+    ],
+    jumlahVendorUmkm: 185,
+    pertumbuhanPersen: 32.5
+  },
+
+  // Opini Pranata Keuangan
+  opiniPranata: {
+    judul: 'Akselerasi Green Budgeting & Ekosistem Digital SAKTI dalam Penguatan Ekonomi Regional',
+    penulis: 'Drs. H. Mulyono, M.Ak., CFrA',
+    jabatanPenulis: 'Pranata Keuangan APBN Ahli Madya / Analis Perbendaharaan',
+    fotoPenulisUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+    kutipanOpini: 'Modernisasi perbendaharaan negara bukan sekadar perpindahan ke sistem digital, melainkan transformasi budaya kerja menuju akuntabilitas fiskal yang berdampak nyata bagi masyarakat.',
+    isiOpini: 'Integrasi sistem perbendaharaan melalui platform SAKTI telah membawa revolusi efisiensi yang signifikan pada satker lingkup KPPN Semarang I. Penerapan SPAN dan SAKTI secara penuh menekan potensi kesalahan penerbitan SP2D, memotong waktu layanan dari hitungan hari menjadi hanya 1 jam (One Hour Service untuk SPM non-gaji), serta mewujudkan prinsip paperless office yang ramah lingkungan. Di samping itu, penguatan peran KPPN sebagai Financial Advisor dan Regional Chief Economist (RCE) menuntut seluruh Pranata Keuangan untuk proaktif menganalisis multiplier effect belanja APBN terhadap pertumbuhan PDRB Kota Semarang.'
+  },
+
+  // Glosarium SAKTI
+  kamusSakti: [
+    { istilah: 'SAKTI', kepanjangan: 'Sistem Aplikasi Keuangan Tingkat Instansi', definisi: 'Aplikasi tunggal yang digunakan oleh seluruh kementerian/lembaga untuk mengelola keuangan negara dari tahap penganggaran hingga pelaporan.' },
+    { istilah: 'SP2D', kepanjangan: 'Surat Perintah Pencairan Dana', definisi: 'Surat perintah yang diterbitkan oleh KPPN selaku Kuasa BUN untuk memindahbukukan dana dari Rekening Kas Umum Negara ke rekening penerima.' },
+    { istilah: 'IKPA', kepanjangan: 'Indikator Kinerja Pelaksanaan Anggaran', definisi: 'Alat ukur penetapan kualitas kinerja pelaksanaan anggaran yang terdiri dari 8 indikator terintegrasi.' },
+    { istilah: 'DIGIPAY SATU', kepanjangan: 'Digital Payment Marketplace Pemerintah', definisi: 'Sistem aplikasi pembayaran terpadu berbasis marketplace untuk belanja pemerintah dengan melibatkan pelaku UMKM lokal.' }
+  ],
+
+  // Teka-Teki Silang Perbendaharaan
+  ttsPerbendaharaan: {
+    judul: 'TTS Interaktif Perbendaharaan KPPN Semarang I',
+    pertanyaanMendatar: [
+      { no: 1, tanya: 'Aplikasi terpadu pengelola anggaran kementerian/lembaga', jawaban: 'SAKTI', length: 5 },
+      { no: 3, tanya: 'Surat perintah pencairan dana yang diterbitkan KPPN', jawaban: 'SP2D', length: 4 },
+      { no: 5, tanya: 'Rencana Penarikan Dana bulanan diatur dalam Halaman...', jawaban: 'TIGA', length: 4 },
+      { no: 7, tanya: 'Batas hari penyelesaian tagihan kontraktual (angka)', jawaban: 'TUJUHBELAS', length: 10 },
+      { no: 8, tanya: 'Nama jalan alamat kantor KPPN Semarang I', jawaban: 'MANGUNSARKORO', length: 13 }
+    ],
+    pertanyaanMenurun: [
+      { no: 1, tanya: 'Alat bayar non-tunai kartu kredit pemerintah', jawaban: 'KKP', length: 3 },
+      { no: 2, tanya: 'Indikator Kinerja Pelaksanaan Anggaran', jawaban: 'IKPA', length: 4 },
+      { no: 4, tanya: 'Pemberitahuan Retur dan Penolakan SPM diterbitkan Seksi...', jawaban: 'PENCAIRAN', length: 9 },
+      { no: 6, tanya: 'Predikat Zona Integritas Wilayah Birokrasi Bersih dan...', jawaban: 'MELAYANI', length: 8 }
+    ]
+  },
+
+  excludedPages: [],
 
   // Hal 19: Zona Integritas & Pantun
   pantunAntiKorupsi: {
