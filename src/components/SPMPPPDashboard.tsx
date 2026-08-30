@@ -66,7 +66,7 @@ export const SPMPPPDashboard: React.FC<SPMPPPDashboardProps> = ({
   const updateHandler = onUpdateSPMRecords || onUpdateSPMPPP;
   const navigateToUpload = onGoToUpload || onGoToAdmin;
 
-  const rawRecords = spmPppRecords.length > 0 ? spmPppRecords : spmRecords;
+  const rawRecords = spmPppRecords ?? spmRecords;
   const effectiveRecords = useMemo(() => {
     return Array.isArray(rawRecords) ? rawRecords : [];
   }, [rawRecords]);

@@ -600,7 +600,7 @@ export default function App() {
       getDoc(doc(db, 'data', 'spm_ppp')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setSpmPppList(data.list);
             safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
           }
@@ -768,7 +768,7 @@ export default function App() {
       const unsubSPMPPP = onSnapshot(doc(db, 'data', 'spm_ppp'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setSpmPppList(data.list);
             safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
           }
@@ -1232,7 +1232,7 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error parsing saved SPM PPP data:', e);
       }

@@ -67,7 +67,7 @@ import {
   removeLargeDataset
 } from '../../utils/safeStorage';
 import { useToast } from '../ToastNotification';
-import { db, doc, setDoc, onSnapshot } from '../../lib/firebase';
+import { db, doc, setDoc, getDoc, onSnapshot } from '../../lib/firebase';
 import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
 import { INITIAL_MY_INTRESS_DATA } from '../../data/initialMyIntressData';
 
@@ -259,6 +259,93 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     } catch {
       // Ignore
     }
+  }, []);
+
+  // Real-time synchronization for SINTESA Realisasi & My InTress across web & devices
+  useEffect(() => {
+    let isMounted = true;
+
+    // 1. Initial Fetch from Firestore
+    getDoc(doc(db, 'data', 'my_intress')).then(snap => {
+      if (!isMounted) return;
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+          setIntressRecords([]);
+          setIntressFileName(data.activeFileName || 'Data My InTress Kosong');
+          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, '[]');
+          removeLargeDataset(STORAGE_KEY_MY_INTRESS);
+        } else if (Array.isArray(data.list) && data.list.length > 0) {
+          setIntressRecords(data.list);
+          if (data.activeFileName) setIntressFileName(data.activeFileName);
+          if (data.waktuUnduh) setIntressWaktuUnduh(data.waktuUnduh);
+          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(data.list));
+          saveLargeDataset(STORAGE_KEY_MY_INTRESS, data.list);
+        }
+      }
+    }).catch(err => console.warn('Notice fetching my_intress from Firestore:', err));
+
+    getDoc(doc(db, 'data', 'sintesa_realisasi')).then(snap => {
+      if (!isMounted) return;
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+          setRecords([]);
+          setActiveFileName(data.activeFileName || 'Data Realisasi Belanja Kosong');
+          safeLocalStorageSet(STORAGE_KEY_REALISASI, '[]');
+          removeLargeDataset(STORAGE_KEY_REALISASI);
+        } else if (Array.isArray(data.list) && data.list.length > 0) {
+          setRecords(data.list);
+          if (data.activeFileName) setActiveFileName(data.activeFileName);
+          safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(data.list));
+          saveLargeDataset(STORAGE_KEY_REALISASI, data.list);
+        }
+      }
+    }).catch(err => console.warn('Notice fetching sintesa_realisasi from Firestore:', err));
+
+    // 2. Real-time Listeners
+    const unsubMyIntress = onSnapshot(doc(db, 'data', 'my_intress'), (snapshot) => {
+      if (!isMounted) return;
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+          setIntressRecords([]);
+          setIntressFileName(data.activeFileName || 'Data My InTress Kosong');
+          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, '[]');
+          removeLargeDataset(STORAGE_KEY_MY_INTRESS);
+        } else if (Array.isArray(data.list) && data.list.length > 0) {
+          setIntressRecords(data.list);
+          if (data.activeFileName) setIntressFileName(data.activeFileName);
+          if (data.waktuUnduh) setIntressWaktuUnduh(data.waktuUnduh);
+          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(data.list));
+          saveLargeDataset(STORAGE_KEY_MY_INTRESS, data.list);
+        }
+      }
+    }, (err) => console.warn('Notice listening to my_intress:', err));
+
+    const unsubSintesa = onSnapshot(doc(db, 'data', 'sintesa_realisasi'), (snapshot) => {
+      if (!isMounted) return;
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+          setRecords([]);
+          setActiveFileName(data.activeFileName || 'Data Realisasi Belanja Kosong');
+          safeLocalStorageSet(STORAGE_KEY_REALISASI, '[]');
+          removeLargeDataset(STORAGE_KEY_REALISASI);
+        } else if (Array.isArray(data.list) && data.list.length > 0) {
+          setRecords(data.list);
+          if (data.activeFileName) setActiveFileName(data.activeFileName);
+          safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(data.list));
+          saveLargeDataset(STORAGE_KEY_REALISASI, data.list);
+        }
+      }
+    }, (err) => console.warn('Notice listening to sintesa_realisasi:', err));
+
+    return () => {
+      isMounted = false;
+      unsubMyIntress();
+      unsubSintesa();
+    };
   }, []);
 
   // Calculate Overall Summary (Total Dataset)
@@ -626,6 +713,17 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       await saveLargeDataset(STORAGE_KEY_REALISASI, result.records);
       safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records));
 
+      try {
+        await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
+          list: result.records,
+          isEmpty: false,
+          activeFileName: result.fileName,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Error syncing SINTESA upload to Firebase:', e);
+      }
+
       addToast({
         title: 'Upload Realisasi Belanja Berhasil',
         message: `Berhasil memproses ${result.totalRows.toLocaleString('id-ID')} baris data realisasi dari ${file.name}.`,
@@ -675,6 +773,18 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setSelectedSatkerKode(null);
     setShowClearConfirmModal(false);
     setCurrentPage(1);
+
+    try {
+      await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
+        list: [],
+        isEmpty: true,
+        activeFileName: 'Data Realisasi Belanja Kosong',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Error syncing clear SINTESA to Firebase:', e);
+    }
+
     addToast({
       title: 'Data Realisasi Dikosongkan',
       message: 'Seluruh baris data realisasi belanja telah dikosongkan. Anda dapat mengunggah file Excel baru atau memulihkan data bawaan kapan saja.',
@@ -692,6 +802,18 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setSelectedSatkerKode(null);
     setShowClearConfirmModal(false);
     setCurrentPage(1);
+
+    try {
+      await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
+        list: defaultRecs,
+        isEmpty: false,
+        activeFileName: 'Data Realisasi Belanja SINTESA Kemenkeu',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Error syncing reset SINTESA to Firebase:', e);
+    }
+
     addToast({
       title: 'Data Asli SINTESA Dipulihkan',
       message: `Memuat ulang ${defaultRecs.length.toLocaleString('id-ID')} baris data SINTESA lengkap (20 K/L & 127 Satker).`,
@@ -709,6 +831,19 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       if (result.waktuUnduh) setIntressWaktuUnduh(result.waktuUnduh);
       await saveLargeDataset(STORAGE_KEY_MY_INTRESS, result.records);
       safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
+
+      try {
+        await setDoc(doc(db, 'data', 'my_intress'), {
+          list: result.records,
+          isEmpty: false,
+          activeFileName: result.fileName,
+          waktuUnduh: result.waktuUnduh || '',
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn('Error syncing My InTress upload to Firebase:', e);
+      }
+
       addToast({
         title: 'Upload My InTress Berhasil',
         message: `Berhasil memproses ${result.records.length} satker dari file ${file.name}.`,
@@ -734,6 +869,19 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(defaultData));
     setIntressFileName('Data Realisasi Belanja My InTress (127 Satker)');
     setIntressWaktuUnduh('24/10/2024 10:28:44');
+
+    try {
+      await setDoc(doc(db, 'data', 'my_intress'), {
+        list: defaultData,
+        isEmpty: false,
+        activeFileName: 'Data Realisasi Belanja My InTress (127 Satker)',
+        waktuUnduh: '24/10/2024 10:28:44',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Error syncing reset My InTress to Firebase:', e);
+    }
+
     addToast({
       title: 'Data My InTress Dipulihkan',
       message: `Memuat ulang ${defaultData.length} satker per jenis belanja dari data My InTress.`,
@@ -747,6 +895,18 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     await removeLargeDataset(STORAGE_KEY_MY_INTRESS);
     safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify([]));
     setIntressFileName('Data My InTress Kosong');
+
+    try {
+      await setDoc(doc(db, 'data', 'my_intress'), {
+        list: [],
+        isEmpty: true,
+        activeFileName: 'Data My InTress Kosong',
+        updatedAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Error syncing clear My InTress to Firebase:', e);
+    }
+
     addToast({
       title: 'Data My InTress Dikosongkan',
       message: 'Seluruh data My InTress telah dikosongkan.',
