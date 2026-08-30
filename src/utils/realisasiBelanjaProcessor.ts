@@ -14,17 +14,59 @@ function cleanText(val: any): string {
   return String(val).trim().replace(/\s+/g, ' ');
 }
 
-// Helper to parse currency or formatted number
-function parseNum(val: any): number {
+// Helper to parse currency or formatted number from Excel / CSV
+export function parseNum(val: any): number {
   if (val === null || val === undefined || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
   
   let str = String(val).trim().replace(/Rp|\$|%|\s/gi, '');
-  if (str.includes(',') && str.includes('.')) {
-    str = str.replace(/\./g, '').replace(',', '.');
-  } else if (str.includes(',')) {
-    str = str.replace(',', '.');
+  if (!str) return 0;
+
+  // Check if string contains dots and/or commas
+  const hasComma = str.includes(',');
+  const hasDot = str.includes('.');
+
+  if (hasComma && hasDot) {
+    const lastCommaIndex = str.lastIndexOf(',');
+    const lastDotIndex = str.lastIndexOf('.');
+    if (lastCommaIndex > lastDotIndex) {
+      // Indonesian format: 1.234.567,89 -> remove dots, replace comma with dot
+      str = str.replace(/\./g, '').replace(/,/g, '.');
+    } else {
+      // US format: 1,234,567.89 -> remove commas
+      str = str.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    const commaCount = (str.match(/,/g) || []).length;
+    if (commaCount > 1) {
+      // Multiple commas -> thousands separators: "24,878,687,727"
+      str = str.replace(/,/g, '');
+    } else {
+      // Single comma: "960,788" vs "74,07"
+      const parts = str.split(',');
+      if (parts[1] && parts[1].length === 3 && parts[0].length >= 1) {
+        // Thousand separator: "960,788" -> "960788"
+        str = str.replace(/,/g, '');
+      } else {
+        // Decimal: "74,07" -> "74.07"
+        str = str.replace(/,/g, '.');
+      }
+    }
+  } else if (hasDot) {
+    const dotCount = (str.match(/\./g) || []).length;
+    if (dotCount > 1) {
+      // Multiple dots -> Indonesian thousands separators: "24.878.687.727"
+      str = str.replace(/\./g, '');
+    } else {
+      // Single dot: "960.788" vs "74.07"
+      const parts = str.split('.');
+      if (parts[1] && parts[1].length === 3 && parts[0].length >= 1 && parseInt(parts[0], 10) > 0) {
+        // Thousand separator in Indonesian format: "960.788" -> "960788"
+        str = str.replace(/\./g, '');
+      }
+    }
   }
+
   const n = parseFloat(str);
   return isNaN(n) ? 0 : n;
 }
@@ -683,6 +725,52 @@ export async function processMyIntressExcel(file: File): Promise<{
               currentSatker.persenTransfer = parseNum(row[11]);
               currentSatker.persenTotal = parseNum(row[12]);
             }
+          }
+        }
+
+        // Check if the dataset was exported in "Dalam Ribuan Rupiah" (standard OM-SPAN / My InTress export)
+        let isRibuan = false;
+        const fileContentStr = rows.slice(0, 15).map(r => r.join(' ')).join(' ').toLowerCase();
+        if (fileContentStr.includes('ribuan') || fileContentStr.includes('dalam ribuan')) {
+          isRibuan = true;
+        } else {
+          // Auto-detect: if raw total pagu is < 100 Miliar (e.g. 11.069.611 representing 11,07 Triliun in thousands)
+          const rawTotalPagu = records.reduce((sum, r) => sum + (r.paguTotal || 0), 0);
+          if (rawTotalPagu > 0 && rawTotalPagu < 100_000_000_000) {
+            isRibuan = true;
+          }
+        }
+
+        if (isRibuan) {
+          for (const r of records) {
+            r.paguPegawai *= 1000;
+            r.paguBarang *= 1000;
+            r.paguModal *= 1000;
+            r.paguBebanBunga *= 1000;
+            r.paguSubsidi *= 1000;
+            r.paguHibah *= 1000;
+            r.paguBansos *= 1000;
+            r.paguLain *= 1000;
+            r.paguTransfer *= 1000;
+            r.paguTotal *= 1000;
+
+            r.realPegawai *= 1000;
+            r.realBarang *= 1000;
+            r.realModal *= 1000;
+            r.realBebanBunga *= 1000;
+            r.realSubsidi *= 1000;
+            r.realHibah *= 1000;
+            r.realBansos *= 1000;
+            r.realLain *= 1000;
+            r.realTransfer *= 1000;
+            r.realTotal *= 1000;
+
+            r.sisaPegawai *= 1000;
+            r.sisaBarang *= 1000;
+            r.sisaModal *= 1000;
+            r.sisaBansos *= 1000;
+            r.sisaTransfer *= 1000;
+            r.sisaTotal *= 1000;
           }
         }
 

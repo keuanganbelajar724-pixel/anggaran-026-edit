@@ -49,6 +49,12 @@ import {
   MyIntressSummary
 } from '../../types';
 import { 
+  saveSintesaToFirestore, 
+  fetchSintesaFromFirestore, 
+  saveMyIntressToFirestore, 
+  fetchMyIntressFromFirestore 
+} from '../../utils/firestoreDatasetSync';
+import { 
   processRealisasiBelanjaExcel, 
   computeRealisasiBelanjaSummary, 
   processMyIntressExcel,
@@ -278,95 +284,73 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     let isMounted = true;
 
     // 1. Initial Fetch from Firestore
-    getDoc(doc(db, 'data', 'my_intress')).then(snap => {
-      if (!isMounted) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
-          setIntressRecords([]);
-          setIntressFileName(data.activeFileName || 'Data My InTress Kosong');
-          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, '[]');
-          removeLargeDataset(STORAGE_KEY_MY_INTRESS);
-        } else if (Array.isArray(data.list) && data.list.length > 0) {
-          setIntressRecords(data.list);
-          if (data.activeFileName) setIntressFileName(data.activeFileName);
-          if (data.waktuUnduh) setIntressWaktuUnduh(data.waktuUnduh);
-          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(data.list));
-          saveLargeDataset(STORAGE_KEY_MY_INTRESS, data.list);
-        }
+    fetchMyIntressFromFirestore().then(result => {
+      if (!isMounted || !result) return;
+      if (result.isEmpty || result.records.length === 0) {
+        setIntressRecords([]);
+        setIntressFileName(result.activeFileName || 'Data My InTress Kosong');
+        safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, '[]');
+        removeLargeDataset(STORAGE_KEY_MY_INTRESS);
       } else {
-        // Document does not exist yet on Firestore, ensure clean state is synced
-        setDoc(doc(db, 'data', 'my_intress'), {
-          list: [],
-          isEmpty: true,
-          activeFileName: 'Data My InTress Kosong',
-          updatedAt: new Date().toISOString()
-        }).catch(() => {});
+        setIntressRecords(result.records);
+        setIntressFileName(result.activeFileName);
+        if (result.waktuUnduh) setIntressWaktuUnduh(result.waktuUnduh);
+        safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
+        saveLargeDataset(STORAGE_KEY_MY_INTRESS, result.records);
       }
     }).catch(err => console.warn('Notice fetching my_intress from Firestore:', err));
 
-    getDoc(doc(db, 'data', 'sintesa_realisasi')).then(snap => {
-      if (!isMounted) return;
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
-          setRecords([]);
-          setActiveFileName(data.activeFileName || 'Data Realisasi Belanja Kosong');
-          safeLocalStorageSet(STORAGE_KEY_REALISASI, '[]');
-          removeLargeDataset(STORAGE_KEY_REALISASI);
-        } else if (Array.isArray(data.list) && data.list.length > 0) {
-          setRecords(data.list);
-          if (data.activeFileName) setActiveFileName(data.activeFileName);
-          safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(data.list));
-          saveLargeDataset(STORAGE_KEY_REALISASI, data.list);
-        }
+    fetchSintesaFromFirestore().then(result => {
+      if (!isMounted || !result) return;
+      if (result.isEmpty || result.records.length === 0) {
+        setRecords([]);
+        setActiveFileName(result.activeFileName || 'Data Realisasi Belanja Kosong');
+        safeLocalStorageSet(STORAGE_KEY_REALISASI, '[]');
+        removeLargeDataset(STORAGE_KEY_REALISASI);
       } else {
-        // Document does not exist yet on Firestore, ensure clean state is synced
-        setDoc(doc(db, 'data', 'sintesa_realisasi'), {
-          list: [],
-          isEmpty: true,
-          activeFileName: 'Data Realisasi Belanja Kosong',
-          updatedAt: new Date().toISOString()
-        }).catch(() => {});
+        setRecords(result.records);
+        setActiveFileName(result.activeFileName);
+        safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records));
+        saveLargeDataset(STORAGE_KEY_REALISASI, result.records);
       }
     }).catch(err => console.warn('Notice fetching sintesa_realisasi from Firestore:', err));
 
     // 2. Real-time Listeners
-    const unsubMyIntress = onSnapshot(doc(db, 'data', 'my_intress'), (snapshot) => {
+    const unsubMyIntress = onSnapshot(doc(db, 'data', 'my_intress'), () => {
       if (!isMounted) return;
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+      fetchMyIntressFromFirestore().then(result => {
+        if (!isMounted || !result) return;
+        if (result.isEmpty || result.records.length === 0) {
           setIntressRecords([]);
-          setIntressFileName(data.activeFileName || 'Data My InTress Kosong');
+          setIntressFileName(result.activeFileName || 'Data My InTress Kosong');
           safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, '[]');
           removeLargeDataset(STORAGE_KEY_MY_INTRESS);
-        } else if (Array.isArray(data.list) && data.list.length > 0) {
-          setIntressRecords(data.list);
-          if (data.activeFileName) setIntressFileName(data.activeFileName);
-          if (data.waktuUnduh) setIntressWaktuUnduh(data.waktuUnduh);
-          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(data.list));
-          saveLargeDataset(STORAGE_KEY_MY_INTRESS, data.list);
+        } else {
+          setIntressRecords(result.records);
+          setIntressFileName(result.activeFileName);
+          if (result.waktuUnduh) setIntressWaktuUnduh(result.waktuUnduh);
+          safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
+          saveLargeDataset(STORAGE_KEY_MY_INTRESS, result.records);
         }
-      }
+      });
     }, (err) => console.warn('Notice listening to my_intress:', err));
 
-    const unsubSintesa = onSnapshot(doc(db, 'data', 'sintesa_realisasi'), (snapshot) => {
+    const unsubSintesa = onSnapshot(doc(db, 'data', 'sintesa_realisasi'), () => {
       if (!isMounted) return;
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+      fetchSintesaFromFirestore().then(result => {
+        if (!isMounted || !result) return;
+        if (result.isEmpty || result.records.length === 0) {
           setRecords([]);
-          setActiveFileName(data.activeFileName || 'Data Realisasi Belanja Kosong');
+          setActiveFileName(result.activeFileName || 'Data Realisasi Belanja Kosong');
           safeLocalStorageSet(STORAGE_KEY_REALISASI, '[]');
           removeLargeDataset(STORAGE_KEY_REALISASI);
-        } else if (Array.isArray(data.list) && data.list.length > 0) {
-          setRecords(data.list);
-          if (data.activeFileName) setActiveFileName(data.activeFileName);
-          safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(data.list));
-          saveLargeDataset(STORAGE_KEY_REALISASI, data.list);
+        } else {
+          setRecords(result.records);
+          setActiveFileName(result.activeFileName);
+          safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records));
+          saveLargeDataset(STORAGE_KEY_REALISASI, result.records);
         }
-      }
+      });
     }, (err) => console.warn('Notice listening to sintesa_realisasi:', err));
 
     return () => {
@@ -741,16 +725,8 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       await saveLargeDataset(STORAGE_KEY_REALISASI, result.records);
       safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records));
 
-      try {
-        await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
-          list: result.records,
-          isEmpty: false,
-          activeFileName: result.fileName,
-          updatedAt: new Date().toISOString()
-        });
-      } catch (e) {
-        console.warn('Error syncing SINTESA upload to Firebase:', e);
-      }
+      // Multi-chunk save to Firestore ensuring all 5,196 rows sync across browsers
+      await saveSintesaToFirestore(result.records, result.fileName);
 
       addToast({
         title: 'Upload Realisasi Belanja Berhasil',
@@ -802,16 +778,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setShowClearConfirmModal(false);
     setCurrentPage(1);
 
-    try {
-      await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
-        list: [],
-        isEmpty: true,
-        activeFileName: 'Data Realisasi Belanja Kosong',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn('Error syncing clear SINTESA to Firebase:', e);
-    }
+    await saveSintesaToFirestore([], 'Data Realisasi Belanja Kosong');
 
     addToast({
       title: 'Data Realisasi Dikosongkan',
@@ -831,16 +798,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setShowClearConfirmModal(false);
     setCurrentPage(1);
 
-    try {
-      await setDoc(doc(db, 'data', 'sintesa_realisasi'), {
-        list: defaultRecs,
-        isEmpty: false,
-        activeFileName: 'Data Realisasi Belanja SINTESA Kemenkeu',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn('Error syncing reset SINTESA to Firebase:', e);
-    }
+    await saveSintesaToFirestore(defaultRecs, 'Data Realisasi Belanja SINTESA Kemenkeu');
 
     addToast({
       title: 'Data Asli SINTESA Dipulihkan',
@@ -860,17 +818,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       await saveLargeDataset(STORAGE_KEY_MY_INTRESS, result.records);
       safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
 
-      try {
-        await setDoc(doc(db, 'data', 'my_intress'), {
-          list: result.records,
-          isEmpty: false,
-          activeFileName: result.fileName,
-          waktuUnduh: result.waktuUnduh || '',
-          updatedAt: new Date().toISOString()
-        });
-      } catch (e) {
-        console.warn('Error syncing My InTress upload to Firebase:', e);
-      }
+      await saveMyIntressToFirestore(result.records, result.fileName, result.waktuUnduh || '');
 
       addToast({
         title: 'Upload My InTress Berhasil',
@@ -898,17 +846,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setIntressFileName('Data Realisasi Belanja My InTress (127 Satker)');
     setIntressWaktuUnduh('24/10/2024 10:28:44');
 
-    try {
-      await setDoc(doc(db, 'data', 'my_intress'), {
-        list: defaultData,
-        isEmpty: false,
-        activeFileName: 'Data Realisasi Belanja My InTress (127 Satker)',
-        waktuUnduh: '24/10/2024 10:28:44',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn('Error syncing reset My InTress to Firebase:', e);
-    }
+    await saveMyIntressToFirestore(defaultData, 'Data Realisasi Belanja My InTress (127 Satker)', '24/10/2024 10:28:44');
 
     addToast({
       title: 'Data My InTress Dipulihkan',
@@ -924,16 +862,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify([]));
     setIntressFileName('Data My InTress Kosong');
 
-    try {
-      await setDoc(doc(db, 'data', 'my_intress'), {
-        list: [],
-        isEmpty: true,
-        activeFileName: 'Data My InTress Kosong',
-        updatedAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn('Error syncing clear My InTress to Firebase:', e);
-    }
+    await saveMyIntressToFirestore([], 'Data My InTress Kosong', '');
 
     addToast({
       title: 'Data My InTress Dikosongkan',
@@ -1018,7 +947,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       namaPaket: m.kegiatanUraian || m.outputKroUraian || m.akunUraian || `Paket Belanja Modal ${idx + 1}`,
       satker: m.satkerUraian,
       pagu: m.paguDipa,
-      progres: `${m.persenRealisasi.toFixed(1)}%`,
+      progres: `${(Number.isFinite(m.persenRealisasi) ? m.persenRealisasi : 0).toFixed(1)}%`,
       status: m.persenRealisasi >= 80 ? 'Optimal' : m.persenRealisasi >= 50 ? 'On Track' : 'Akselerasi'
     }));
 
@@ -1026,7 +955,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
 
     const updatedConfig: BuletinConfig = {
       ...buletinConfig,
-      coverHighlight1: `Pagu Total: ${formatRupiahShort(summaryToUse.totalPagu)} | Realisasi: ${summaryToUse.persenRealisasiTotal.toFixed(2)}%${filterNote}`,
+      coverHighlight1: `Pagu Total: ${formatRupiahShort(summaryToUse.totalPagu)} | Realisasi: ${(Number.isFinite(summaryToUse.persenRealisasiTotal) ? summaryToUse.persenRealisasiTotal : 0).toFixed(2)}%${filterNote}`,
       coverHighlight2: `Terdiri dari ${summaryToUse.totalSatkerCount} Satker di ${summaryToUse.breakdownKementerian.length} K/L (${summaryToUse.totalRows.toLocaleString('id-ID')} baris data)`,
       satkerPaguBesarTable: satkerPaguBesar,
       belanjaModalProyek: {
@@ -1564,7 +1493,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Porsi dari Total Pagu:</span>
                       <span className="font-bold text-blue-600 dark:text-blue-400">
-                        {((activeSummary.totalPagu / overallSummary.totalPagu) * 100).toFixed(1)}%
+                        {((activeSummary.totalPagu / (overallSummary.totalPagu || 1)) * 100).toFixed(1)}%
                       </span>
                     </div>
                   )}
@@ -1583,7 +1512,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     Total Realisasi Belanja
                   </span>
                   <span className="text-xs font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                    {activeSummary.persenRealisasiTotal.toFixed(2)}%
+                    {(Number.isFinite(activeSummary.persenRealisasiTotal) ? activeSummary.persenRealisasiTotal : 0).toFixed(2)}%
                   </span>
                 </div>
                 <div className="mt-2">
@@ -1597,7 +1526,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Porsi dari Total Realisasi:</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {((activeSummary.totalRealisasi / overallSummary.totalRealisasi) * 100).toFixed(1)}%
+                        {((activeSummary.totalRealisasi / (overallSummary.totalRealisasi || 1)) * 100).toFixed(1)}%
                       </span>
                     </div>
                   )}
@@ -1611,7 +1540,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     Sisa Pagu Anggaran
                   </span>
                   <span className="text-xs font-bold text-slate-400">
-                    {(100 - activeSummary.persenRealisasiTotal).toFixed(2)}%
+                    {(Number.isFinite(100 - activeSummary.persenRealisasiTotal) ? Math.max(0, 100 - activeSummary.persenRealisasiTotal) : 0).toFixed(2)}%
                   </span>
                 </div>
                 <div className="mt-2">
@@ -1624,7 +1553,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">Efisiensi / Sisa:</span>
                     <span className="font-bold text-amber-600 dark:text-amber-400">
-                      {(100 - activeSummary.persenRealisasiTotal).toFixed(1)}% belum terserap
+                      {(Number.isFinite(100 - activeSummary.persenRealisasiTotal) ? Math.max(0, 100 - activeSummary.persenRealisasiTotal) : 0).toFixed(1)}% belum terserap
                     </span>
                   </div>
                 </div>
@@ -1648,7 +1577,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                     <span className="text-slate-400">Dari total KPPN:</span>
                     <span className="font-bold text-purple-600 dark:text-purple-400">
-                      {overallSummary ? `${((activeSummary.totalSatkerCount / Math.max(1, overallSummary.totalSatkerCount)) * 100).toFixed(0)}% Satker` : ''}
+                      {overallSummary && overallSummary.totalSatkerCount > 0 ? `${((activeSummary.totalSatkerCount / overallSummary.totalSatkerCount) * 100).toFixed(0)}% Satker` : ''}
                     </span>
                   </div>
                 </div>
@@ -1727,7 +1656,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                         className="text-xs font-black px-2 py-0.5 rounded-md"
                         style={{ backgroundColor: `${item.color}20`, color: item.color }}
                       >
-                        {item.persen.toFixed(2)}%
+                        {(Number.isFinite(item.persen) ? item.persen : 0).toFixed(2)}%
                       </span>
                     </div>
 
@@ -2037,7 +1966,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
-                          {s.persen.toFixed(2)}%
+                          {(Number.isFinite(s.persen) ? s.persen : 0).toFixed(2)}%
                         </span>
                         <ChevronRight className="w-3.5 h-3.5 text-emerald-600" />
                       </div>
@@ -2084,7 +2013,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
                         <span className="text-xs font-black text-rose-700 dark:text-rose-400">
-                          {s.persen.toFixed(2)}%
+                          {(Number.isFinite(s.persen) ? s.persen : 0).toFixed(2)}%
                         </span>
                         <ChevronRight className="w-3.5 h-3.5 text-rose-600" />
                       </div>
@@ -2218,7 +2147,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                                     ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                                     : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                                 }`}>
-                                  {s.persenRealisasi.toFixed(2)}%
+                                  {(Number.isFinite(s.persenRealisasi) ? s.persenRealisasi : 0).toFixed(2)}%
                                 </span>
                               </td>
                               <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
@@ -2370,7 +2299,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                                     ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                                     : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                                 }`}>
-                                  {r.persenRealisasi.toFixed(1)}%
+                                  {(Number.isFinite(r.persenRealisasi) ? r.persenRealisasi : 0).toFixed(1)}%
                                 </span>
                               </td>
 
@@ -2448,7 +2377,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                             }`}>
-                              {k.persenRealisasi.toFixed(2)}%
+                              {(Number.isFinite(k.persenRealisasi) ? k.persenRealisasi : 0).toFixed(2)}%
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
@@ -2498,7 +2427,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                                 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                                 : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                             }`}>
-                              {sd.persenRealisasi.toFixed(2)}%
+                              {(Number.isFinite(sd.persenRealisasi) ? sd.persenRealisasi : 0).toFixed(2)}%
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-300">
@@ -2836,7 +2765,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                   <tr>
                     <td className="py-2 px-3 font-bold text-pink-600">{'{{Persen_Realisasi_Total}}'}</td>
                     <td className="py-2 px-3 text-slate-600 dark:text-slate-300 font-sans">Persentase Penyerapan Belanja Total</td>
-                    <td className="py-2 px-3 font-bold text-emerald-600">{(overallSummary?.persenRealisasiTotal || 0).toFixed(2)}%</td>
+                    <td className="py-2 px-3 font-bold text-emerald-600">{(Number.isFinite(overallSummary?.persenRealisasiTotal) ? overallSummary!.persenRealisasiTotal : 0).toFixed(2)}%</td>
                   </tr>
                   <tr>
                     <td className="py-2 px-3 font-bold text-pink-600">{'{{Top_Satker_1_Nama}}'}</td>

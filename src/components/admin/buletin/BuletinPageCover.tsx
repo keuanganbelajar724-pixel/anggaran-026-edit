@@ -115,7 +115,7 @@ export const BuletinPageCover: React.FC<BuletinPageCoverProps> = ({
           <div className="text-right">
             <div className="text-[10px] text-slate-300">REALISASI AGREGAT</div>
             <div className="font-mono font-black text-emerald-400 text-sm">
-              {overallSummary ? `${overallSummary.persenRealisasiTotal.toFixed(1)}%` : '78.5%'}
+              {overallSummary && Number.isFinite(overallSummary.persenRealisasiTotal) ? `${overallSummary.persenRealisasiTotal.toFixed(1)}%` : '78.5%'}
             </div>
           </div>
           <div className="w-9 h-9 rounded-lg bg-white p-1 flex items-center justify-center">

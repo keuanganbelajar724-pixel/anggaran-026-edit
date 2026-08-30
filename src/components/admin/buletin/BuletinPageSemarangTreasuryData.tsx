@@ -83,10 +83,10 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
                       {formatRupiahShort(s.realisasi)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono font-black text-emerald-700">
-                      {s.persen.toFixed(1)}%
+                      {(Number.isFinite(s.persen) ? s.persen : 0).toFixed(1)}%
                     </td>
                     <td className="py-2 px-3 text-center font-mono font-black text-indigo-700">
-                      {s.ikpa.toFixed(2)}
+                      {(Number.isFinite(s.ikpa) ? s.ikpa : 0).toFixed(2)}
                     </td>
                     <td className="py-2 px-3 text-center">
                       <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[10px]">
@@ -281,7 +281,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
                 <strong className="text-emerald-300">
                   {modal ? formatRupiahShort(modal.realisasiModal) : 'Rp420.00 M'}
                 </strong>{' '}
-                ({modal ? modal.persenModal.toFixed(1) : '62.7'}%)
+                ({modal && Number.isFinite(modal.persenModal) ? modal.persenModal.toFixed(1) : '62.7'}%)
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center">

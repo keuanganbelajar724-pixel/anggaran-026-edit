@@ -243,10 +243,10 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                 <tbody>
                   {bottomSatkers.map((s, idx) => {
                     const kendala: string[] = [];
-                    const deviasiVal = s.indikator?.deviasiHal3Dipa ?? 100;
-                    const penyerapanVal = s.persenPenyerapan ?? s.indikator?.penyerapanAnggaran ?? 100;
-                    const outputVal = s.indikator?.capaianOutput ?? 100;
-                    const upVal = s.indikator?.pengelolaanUPTUP ?? 100;
+                    const deviasiVal = Number(s.indikator?.deviasiHal3Dipa) || 100;
+                    const penyerapanVal = Number(s.persenPenyerapan ?? s.indikator?.penyerapanAnggaran) || 100;
+                    const outputVal = Number(s.indikator?.capaianOutput) || 100;
+                    const upVal = Number(s.indikator?.pengelolaanUPTUP) || 100;
 
                     if (deviasiVal < 85) kendala.push('Deviasi Hal III');
                     if (penyerapanVal < 85) kendala.push('Penyerapan Rendah');
@@ -258,10 +258,10 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                         <td className="border border-slate-300 p-1.5 text-center font-bold">{idx + 1}</td>
                         <td className="border border-slate-300 p-1.5 text-center font-mono font-bold text-slate-700">{s.kodeSatker}</td>
                         <td className="border border-slate-300 p-1.5 font-bold text-slate-800">{s.namaSatker}</td>
-                        <td className="border border-slate-300 p-1.5 text-center">{deviasiVal.toFixed(1)}</td>
-                        <td className="border border-slate-300 p-1.5 text-center">{penyerapanVal.toFixed(1)}</td>
-                        <td className="border border-slate-300 p-1.5 text-center font-bold text-rose-700">{outputVal.toFixed(1)}</td>
-                        <td className="border border-slate-300 p-1.5 text-center font-black text-rose-700">{(s.nilaiTotalIKPA || 0).toFixed(2)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center">{(Number.isFinite(deviasiVal) ? deviasiVal : 0).toFixed(1)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center">{(Number.isFinite(penyerapanVal) ? penyerapanVal : 0).toFixed(1)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-bold text-rose-700">{(Number.isFinite(outputVal) ? outputVal : 0).toFixed(1)}</td>
+                        <td className="border border-slate-300 p-1.5 text-center font-black text-rose-700">{(Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0).toFixed(2)}</td>
                         <td className="border border-slate-300 p-1.5 text-slate-600 font-medium">
                           {kendala.length > 0 ? kendala.join(', ') : 'Nilai Komposit Rendah'}
                         </td>

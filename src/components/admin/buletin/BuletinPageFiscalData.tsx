@@ -59,7 +59,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
             <div className="text-right bg-white/10 px-5 py-3 rounded-xl border border-white/20">
               <div className="text-[10px] text-amber-300 font-bold uppercase">Capaian Agregat</div>
               <div className="text-3xl font-mono font-black text-emerald-400">
-                {overallSummary ? `${overallSummary.persenRealisasiTotal.toFixed(2)}%` : '78.05%'}
+                {overallSummary ? `${(Number.isFinite(overallSummary.persenRealisasiTotal) ? overallSummary.persenRealisasiTotal : 0).toFixed(2)}%` : '78.05%'}
               </div>
             </div>
           </div>
@@ -72,7 +72,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
                   <span className="font-mono font-black text-[11px] bg-slate-900 text-amber-400 px-1.5 py-0.5 rounded">
                     Akun {b.kode}
                   </span>
-                  <span className="font-bold text-emerald-700">{b.persen.toFixed(1)}%</span>
+                  <span className="font-bold text-emerald-700">{(Number.isFinite(b.persen) ? b.persen : 0).toFixed(1)}%</span>
                 </div>
                 <div className="font-extrabold text-slate-800 text-[11px] truncate">{b.nama}</div>
                 <div className="text-[10px] text-slate-500">
@@ -81,7 +81,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
                 <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-indigo-600 h-full rounded-full"
-                    style={{ width: `${Math.min(b.persen, 100)}%` }}
+                    style={{ width: `${Math.min(Number.isFinite(b.persen) ? b.persen : 0, 100)}%` }}
                   />
                 </div>
               </div>
@@ -161,7 +161,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
                         {formatRupiahShort(kl.realisasi || 0)}
                       </td>
                       <td className="py-2 px-3 text-right font-mono font-black text-emerald-700">
-                        {(kl.persen || 0).toFixed(1)}%
+                        {(Number.isFinite(kl.persen) ? kl.persen : 0).toFixed(1)}%
                       </td>
                     </tr>
                   );
@@ -214,7 +214,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
                     #{i + 1} {nama}
                   </div>
                   <div className="font-mono font-black text-indigo-900">
-                    {formatRupiahShort(kl.realisasi || 0)} / {formatRupiahShort(kl.pagu || 0)} ({persen.toFixed(1)}%)
+                    {formatRupiahShort(kl.realisasi || 0)} / {formatRupiahShort(kl.pagu || 0)} ({(Number.isFinite(persen) ? persen : 0).toFixed(1)}%)
                   </div>
                 </div>
                 <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">

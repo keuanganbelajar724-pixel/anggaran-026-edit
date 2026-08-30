@@ -357,7 +357,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                {dynamicSummary.persenRealisasiTotal.toFixed(2)}%
+                {(Number.isFinite(dynamicSummary.persenRealisasiTotal) ? dynamicSummary.persenRealisasiTotal : 0).toFixed(2)}%
               </span>
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 ({formatRupiahShort(dynamicSummary.totalRealisasi)})
@@ -366,7 +366,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mt-2 overflow-hidden">
               <div 
                 className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, dynamicSummary.persenRealisasiTotal)}%` }}
+                style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persenRealisasiTotal) ? dynamicSummary.persenRealisasiTotal : 0)}%` }}
               />
             </div>
             <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
@@ -391,7 +391,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
               {formatRupiahShort(dynamicSummary.totalSisa)}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Belum terserap: {((100 - dynamicSummary.persenRealisasiTotal) || 0).toFixed(2)}%
+              Belum terserap: {(Number.isFinite(100 - dynamicSummary.persenRealisasiTotal) ? Math.max(0, 100 - dynamicSummary.persenRealisasiTotal) : 0).toFixed(2)}%
             </p>
             <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
               <span>Sisa Pagu Lengkap:</span>
@@ -412,7 +412,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
               </div>
             </div>
             <div className="text-xl sm:text-2xl font-black text-cyan-600 dark:text-cyan-400">
-              {dynamicSummary.persen61.toFixed(2)}%
+              {(Number.isFinite(dynamicSummary.persen61) ? dynamicSummary.persen61 : 0).toFixed(2)}%
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               Realisasi: {formatRupiahShort(dynamicSummary.real61)} / {formatRupiahShort(dynamicSummary.pagu61)}
@@ -443,7 +443,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-blue-800 dark:text-blue-300">51 - Pegawai</span>
-                <span className="text-xs font-black text-blue-600 dark:text-blue-400">{dynamicSummary.persen51.toFixed(1)}%</span>
+                <span className="text-xs font-black text-blue-600 dark:text-blue-400">{(Number.isFinite(dynamicSummary.persen51) ? dynamicSummary.persen51 : 0).toFixed(1)}%</span>
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-white">
                 {formatRupiahShort(dynamicSummary.real51)}
@@ -452,7 +452,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 Pagu: {formatRupiahShort(dynamicSummary.pagu51)}
               </p>
               <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-1.5 mt-2">
-                <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, dynamicSummary.persen51)}%` }} />
+                <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persen51) ? dynamicSummary.persen51 : 0)}%` }} />
               </div>
             </div>
 
@@ -460,7 +460,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/50">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-emerald-800 dark:text-emerald-300">52 - Barang</span>
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{dynamicSummary.persen52.toFixed(1)}%</span>
+                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">{(Number.isFinite(dynamicSummary.persen52) ? dynamicSummary.persen52 : 0).toFixed(1)}%</span>
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-white">
                 {formatRupiahShort(dynamicSummary.real52)}
@@ -469,7 +469,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 Pagu: {formatRupiahShort(dynamicSummary.pagu52)}
               </p>
               <div className="w-full bg-emerald-200 dark:bg-emerald-900 rounded-full h-1.5 mt-2">
-                <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, dynamicSummary.persen52)}%` }} />
+                <div className="bg-emerald-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persen52) ? dynamicSummary.persen52 : 0)}%` }} />
               </div>
             </div>
 
@@ -477,7 +477,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/50">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-amber-800 dark:text-amber-300">53 - Modal</span>
-                <span className="text-xs font-black text-amber-600 dark:text-amber-400">{dynamicSummary.persen53.toFixed(1)}%</span>
+                <span className="text-xs font-black text-amber-600 dark:text-amber-400">{(Number.isFinite(dynamicSummary.persen53) ? dynamicSummary.persen53 : 0).toFixed(1)}%</span>
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-white">
                 {formatRupiahShort(dynamicSummary.real53)}
@@ -486,7 +486,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 Pagu: {formatRupiahShort(dynamicSummary.pagu53)}
               </p>
               <div className="w-full bg-amber-200 dark:bg-amber-900 rounded-full h-1.5 mt-2">
-                <div className="bg-amber-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, dynamicSummary.persen53)}%` }} />
+                <div className="bg-amber-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persen53) ? dynamicSummary.persen53 : 0)}%` }} />
               </div>
             </div>
 
@@ -494,7 +494,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="p-3.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/50">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-purple-800 dark:text-purple-300">57 - Bansos</span>
-                <span className="text-xs font-black text-purple-600 dark:text-purple-400">{dynamicSummary.persen57.toFixed(1)}%</span>
+                <span className="text-xs font-black text-purple-600 dark:text-purple-400">{(Number.isFinite(dynamicSummary.persen57) ? dynamicSummary.persen57 : 0).toFixed(1)}%</span>
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-white">
                 {formatRupiahShort(dynamicSummary.real57)}
@@ -503,7 +503,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 Pagu: {formatRupiahShort(dynamicSummary.pagu57)}
               </p>
               <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-1.5 mt-2">
-                <div className="bg-purple-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, dynamicSummary.persen57)}%` }} />
+                <div className="bg-purple-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persen57) ? dynamicSummary.persen57 : 0)}%` }} />
               </div>
             </div>
 
@@ -511,7 +511,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <div className="p-3.5 rounded-xl bg-cyan-50/70 dark:bg-cyan-950/30 border border-cyan-100 dark:border-cyan-900/50">
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-black text-cyan-800 dark:text-cyan-300">Transfer (TKD)</span>
-                <span className="text-xs font-black text-cyan-600 dark:text-cyan-400">{dynamicSummary.persen61.toFixed(1)}%</span>
+                <span className="text-xs font-black text-cyan-600 dark:text-cyan-400">{(Number.isFinite(dynamicSummary.persen61) ? dynamicSummary.persen61 : 0).toFixed(1)}%</span>
               </div>
               <div className="text-sm font-black text-slate-900 dark:text-white">
                 {formatRupiahShort(dynamicSummary.real61)}
@@ -520,7 +520,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 Pagu: {formatRupiahShort(dynamicSummary.pagu61)}
               </p>
               <div className="w-full bg-cyan-200 dark:bg-cyan-900 rounded-full h-1.5 mt-2">
-                <div className="bg-cyan-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, dynamicSummary.persen61)}%` }} />
+                <div className="bg-cyan-600 h-1.5 rounded-full" style={{ width: `${Math.min(100, Number.isFinite(dynamicSummary.persen61) ? dynamicSummary.persen61 : 0)}%` }} />
               </div>
             </div>
           </div>
