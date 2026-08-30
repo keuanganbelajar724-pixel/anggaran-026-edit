@@ -107,7 +107,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   // Sub-tabs in Buletin section
   const [activeSubTab, setActiveSubTab] = useState<'analisis' | 'my-intress' | 'rekonsiliasi' | 'desain-buletin' | 'canva-ekspor'>('analisis');
 
-  // Realisasi Belanja SINTESA Data state (Default to full 5,196 SINTESA records)
+  // Realisasi Belanja SINTESA Data state (Default to empty if not in storage/firestore)
   const [records, setRecords] = useState<RealisasiBelanjaRecord[]>(() => {
     try {
       const raw = safeLocalStorageGet(STORAGE_KEY_REALISASI);
@@ -120,7 +120,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     } catch (e) {
       console.warn('Error loading cached realisasi belanja:', e);
     }
-    return INITIAL_REALISASI_BELANJA || [];
+    return [];
   });
 
   // Load persistent full datasets from IndexedDB on mount
@@ -176,10 +176,16 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     };
   }, []);
 
-  const [activeFileName, setActiveFileName] = useState<string>('Data Realisasi Belanja SINTESA Kemenkeu');
+  const [activeFileName, setActiveFileName] = useState<string>(() => {
+    try {
+      const raw = safeLocalStorageGet(STORAGE_KEY_REALISASI);
+      if (raw && JSON.parse(raw).length > 0) return 'Data Realisasi Belanja SINTESA Kemenkeu';
+    } catch { /* ignore */ }
+    return 'Data Realisasi Belanja Kosong';
+  });
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
-  // MY INTRESS Data state (Default to 127 satkers)
+  // MY INTRESS Data state (Default to empty if not in storage/firestore)
   const [intressRecords, setIntressRecords] = useState<MyIntressRecord[]>(() => {
     try {
       const raw = safeLocalStorageGet(STORAGE_KEY_MY_INTRESS);
@@ -192,10 +198,16 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     } catch (e) {
       console.warn('Error loading cached my intress:', e);
     }
-    return INITIAL_MY_INTRESS_DATA || [];
+    return [];
   });
 
-  const [intressFileName, setIntressFileName] = useState<string>('Data Realisasi Belanja My InTress (127 Satker)');
+  const [intressFileName, setIntressFileName] = useState<string>(() => {
+    try {
+      const raw = safeLocalStorageGet(STORAGE_KEY_MY_INTRESS);
+      if (raw && JSON.parse(raw).length > 0) return 'Data Realisasi Belanja My InTress (127 Satker)';
+    } catch { /* ignore */ }
+    return 'Data My InTress Kosong';
+  });
   const [intressWaktuUnduh, setIntressWaktuUnduh] = useState<string>('24/10/2024 10:28:44');
   const [isIntressProcessing, setIsIntressProcessing] = useState<boolean>(false);
 
@@ -282,6 +294,14 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
           safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(data.list));
           saveLargeDataset(STORAGE_KEY_MY_INTRESS, data.list);
         }
+      } else {
+        // Document does not exist yet on Firestore, ensure clean state is synced
+        setDoc(doc(db, 'data', 'my_intress'), {
+          list: [],
+          isEmpty: true,
+          activeFileName: 'Data My InTress Kosong',
+          updatedAt: new Date().toISOString()
+        }).catch(() => {});
       }
     }).catch(err => console.warn('Notice fetching my_intress from Firestore:', err));
 
@@ -300,6 +320,14 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
           safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(data.list));
           saveLargeDataset(STORAGE_KEY_REALISASI, data.list);
         }
+      } else {
+        // Document does not exist yet on Firestore, ensure clean state is synced
+        setDoc(doc(db, 'data', 'sintesa_realisasi'), {
+          list: [],
+          isEmpty: true,
+          activeFileName: 'Data Realisasi Belanja Kosong',
+          updatedAt: new Date().toISOString()
+        }).catch(() => {});
       }
     }).catch(err => console.warn('Notice fetching sintesa_realisasi from Firestore:', err));
 

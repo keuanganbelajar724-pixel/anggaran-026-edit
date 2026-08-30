@@ -1,4 +1,4 @@
-import { safeLocalStorageSet, safeLocalStorageGet } from './utils/safeStorage';
+import { safeLocalStorageSet, safeLocalStorageGet, saveLargeDataset, removeLargeDataset } from './utils/safeStorage';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
@@ -607,6 +607,33 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore SPM PPP fetch notice:", err));
 
+      // SINTESA Realisasi & My InTress Initial Cloud Fetch
+      getDoc(doc(db, 'data', 'sintesa_realisasi')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+            safeLocalStorageSet('kppn_realisasi_belanja_records', '[]');
+            removeLargeDataset('kppn_realisasi_belanja_records');
+          } else if (Array.isArray(data.list) && data.list.length > 0) {
+            safeLocalStorageSet('kppn_realisasi_belanja_records', JSON.stringify(data.list));
+            saveLargeDataset('kppn_realisasi_belanja_records', data.list);
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore SINTESA fetch notice:", err));
+
+      getDoc(doc(db, 'data', 'my_intress')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+            safeLocalStorageSet('kppn_my_intress_records', '[]');
+            removeLargeDataset('kppn_my_intress_records');
+          } else if (Array.isArray(data.list) && data.list.length > 0) {
+            safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(data.list));
+            saveLargeDataset('kppn_my_intress_records', data.list);
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore My InTress fetch notice:", err));
+
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
         if (docSnap.exists()) {
@@ -777,6 +804,37 @@ export default function App() {
         console.warn("Firebase SPM PPP listener notice:", error);
       });
 
+      // 12. Realtime SINTESA & My InTress Data
+      const unsubSintesa = onSnapshot(doc(db, 'data', 'sintesa_realisasi'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+            safeLocalStorageSet('kppn_realisasi_belanja_records', '[]');
+            removeLargeDataset('kppn_realisasi_belanja_records');
+          } else if (Array.isArray(data.list) && data.list.length > 0) {
+            safeLocalStorageSet('kppn_realisasi_belanja_records', JSON.stringify(data.list));
+            saveLargeDataset('kppn_realisasi_belanja_records', data.list);
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase SINTESA listener notice:", error);
+      });
+
+      const unsubMyIntress = onSnapshot(doc(db, 'data', 'my_intress'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.isEmpty === true || (Array.isArray(data.list) && data.list.length === 0)) {
+            safeLocalStorageSet('kppn_my_intress_records', '[]');
+            removeLargeDataset('kppn_my_intress_records');
+          } else if (Array.isArray(data.list) && data.list.length > 0) {
+            safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(data.list));
+            saveLargeDataset('kppn_my_intress_records', data.list);
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase My InTress listener notice:", error);
+      });
+
       return () => {
         unsubSettings();
         unsubHistorical();
@@ -789,6 +847,8 @@ export default function App() {
         unsubDigipay();
         unsubDeviasiHal3();
         unsubSPMPPP();
+        unsubSintesa();
+        unsubMyIntress();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
