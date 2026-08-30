@@ -614,9 +614,18 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState | null>(null);
 
   const requestConfirm = (
-    title: string,
-    message: string,
-    onConfirm: () => void | Promise<void>,
+    titleOrOptions: string | {
+      title: string;
+      message: string;
+      onConfirm?: () => void | Promise<void>;
+      confirmText?: string;
+      cancelText?: string;
+      type?: 'danger' | 'warning' | 'info' | 'success';
+      variant?: 'danger' | 'warning' | 'info' | 'success';
+      iconType?: any;
+    },
+    message?: string,
+    onConfirm?: () => void | Promise<void>,
     options?: { 
       confirmText?: string; 
       cancelText?: string; 
@@ -624,15 +633,29 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       iconType?: 'trash' | 'warning' | 'shield' | 'check' | 'info' | 'sparkles' | 'reload';
     }
   ) => {
+    if (typeof titleOrOptions === 'object' && titleOrOptions !== null) {
+      setConfirmModal({
+        isOpen: true,
+        title: titleOrOptions.title || 'Konfirmasi',
+        message: titleOrOptions.message || '',
+        confirmText: titleOrOptions.confirmText || 'Ya, Lanjutkan',
+        cancelText: titleOrOptions.cancelText || 'Batal',
+        variant: (titleOrOptions.variant || titleOrOptions.type || 'danger') as any,
+        iconType: titleOrOptions.iconType || ((titleOrOptions.variant === 'danger' || titleOrOptions.type === 'danger') ? 'trash' : 'alert'),
+        onConfirm: titleOrOptions.onConfirm || (() => {})
+      });
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
-      title,
-      message,
+      title: typeof titleOrOptions === 'string' ? titleOrOptions : 'Konfirmasi',
+      message: message || '',
       confirmText: options?.confirmText || 'Ya, Lanjutkan',
       cancelText: options?.cancelText || 'Batal',
       variant: options?.variant || 'danger',
-      iconType: options?.iconType,
-      onConfirm
+      iconType: options?.iconType as any,
+      onConfirm: onConfirm || (() => {})
     });
   };
 

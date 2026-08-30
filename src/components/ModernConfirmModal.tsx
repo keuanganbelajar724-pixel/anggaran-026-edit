@@ -45,7 +45,22 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
 
   if (!modal || !modal.isOpen) return null;
 
-  const variant = modal.variant || 'default';
+  // Defensive extraction in case modal.title or modal.message is an object or improperly passed
+  const displayTitle: string = typeof modal.title === 'string' 
+    ? modal.title 
+    : (typeof (modal.title as any)?.title === 'string' 
+      ? (modal.title as any).title 
+      : 'Konfirmasi Tindakan');
+
+  const displayMessage: string = typeof modal.message === 'string' 
+    ? modal.message 
+    : (typeof (modal.title as any)?.message === 'string' 
+      ? (modal.title as any).message 
+      : '');
+
+  const variant = modal.variant || (modal.title as any)?.type || (modal.title as any)?.variant || 'default';
+  const effectiveConfirmText = modal.confirmText || (modal.title as any)?.confirmText || 'Ya, Lanjutkan';
+  const effectiveCancelText = modal.cancelText || (modal.title as any)?.cancelText || 'Batal';
 
   const handleExecute = async () => {
     try {
@@ -177,7 +192,7 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
                 </span>
               </div>
               <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-snug">
-                {modal.title}
+                {displayTitle}
               </h3>
             </div>
           </div>
@@ -185,7 +200,7 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
           {/* Message Body */}
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium whitespace-pre-line leading-relaxed">
-              {modal.message}
+              {displayMessage}
             </p>
           </div>
 
@@ -197,7 +212,7 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
               onClick={handleCancelAction}
               className="px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
             >
-              {modal.cancelText || 'Batal'}
+              {effectiveCancelText}
             </button>
 
             <button
@@ -217,7 +232,7 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
                   <span>Selesai!</span>
                 </>
               ) : (
-                <span>{modal.confirmText || 'Ya, Lanjutkan'}</span>
+                <span>{effectiveConfirmText}</span>
               )}
             </button>
           </div>

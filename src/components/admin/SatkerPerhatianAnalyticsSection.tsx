@@ -267,14 +267,15 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
       const upRec = pengelolaanUpRecords.find(r => r.kodeSatker?.trim() === cleanKode);
       let upStatus: SatkerDiagnosticProfile['upStatus'] = undefined;
       if (upRec) {
-        const sisaHari = upRec.sisaHariRevolving !== undefined ? upRec.sisaHariRevolving : 30;
-        const persenRevolving = upRec.persentaseRevolving !== undefined ? upRec.persentaseRevolving : 100;
+        const sisaHari = typeof upRec.sisaHariRevolving === 'number' && !isNaN(upRec.sisaHariRevolving) ? upRec.sisaHariRevolving : 30;
+        const rawPersen = upRec.persentaseRevolving !== undefined ? upRec.persentaseRevolving : (upRec.persenRevolving !== undefined ? upRec.persenRevolving : 100);
+        const persenRevolving = typeof rawPersen === 'number' && !isNaN(rawPersen) ? rawPersen : 100;
         const isCriticalUP = sisaHari <= 3 || persenRevolving < 30 || (upRec.statusPeringatan && upRec.statusPeringatan.toLowerCase().includes('kritis'));
         const isWarningUP = sisaHari <= 7 || persenRevolving < 50 || (ind.pengelolaanUPTUP ?? 100) < 85;
 
         upStatus = {
-          hasWarning: isWarningUP || isCriticalUP,
-          isCritical: isCriticalUP,
+          hasWarning: Boolean(isWarningUP || isCriticalUP),
+          isCritical: Boolean(isCriticalUP),
           label: isCriticalUP
             ? `🔴 Kritis (Sisa ${sisaHari} Hari / Revolving ${persenRevolving}%)`
             : isWarningUP
@@ -282,7 +283,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
             : `✅ UP Terkendali (${persenRevolving}%)`,
           sisaHari,
           persenRevolving,
-          nilaiSisaUP: upRec.sisaUP,
+          nilaiSisaUP: Number.isFinite(upRec.sisaUP) ? upRec.sisaUP : 0,
           record: upRec
         };
 
@@ -1385,14 +1386,14 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                       <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                         <span className="text-slate-500 font-bold block text-[11px]">Sisa Hari Revolving:</span>
                         <span className="font-black text-purple-600 dark:text-purple-400 mt-1 block text-base">
-                          {selectedSatkerDiagnostic.upStatus.sisaHari} Hari
+                          {Number.isFinite(selectedSatkerDiagnostic.upStatus.sisaHari) ? selectedSatkerDiagnostic.upStatus.sisaHari : 0} Hari
                         </span>
                       </div>
 
                       <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                         <span className="text-slate-500 font-bold block text-[11px]">Persentase Revolving:</span>
                         <span className="font-black text-slate-800 dark:text-slate-100 mt-1 block text-base">
-                          {selectedSatkerDiagnostic.upStatus.persenRevolving}%
+                          {Number.isFinite(selectedSatkerDiagnostic.upStatus.persenRevolving) ? selectedSatkerDiagnostic.upStatus.persenRevolving : 100}%
                         </span>
                       </div>
 

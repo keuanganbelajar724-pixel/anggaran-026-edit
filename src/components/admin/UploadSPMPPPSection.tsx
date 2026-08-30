@@ -228,21 +228,8 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
 
   // Clear all data
   const handleClearAll = () => {
-    if (!requestConfirm) {
-      if (window.confirm('Apakah Anda yakin ingin menghapus seluruh data SPM PPP?')) {
-        if (onClearSPMPPP) onClearSPMPPP();
-        showToast?.({ type: 'info', title: 'Data Dikosongkan', message: 'Seluruh data SPM PPP telah dihapus.' });
-      }
-      return;
-    }
-
-    requestConfirm({
-      title: 'Kosongkan Seluruh Data SPM PPP?',
-      message: `Terdapat ${effectiveCount} baris data tagihan (${formatRupiah(activeStats.totalNominal)}) yang tersimpan. Tindakan ini akan mengosongkan seluruh data pada dashboard SPM PPP.`,
-      type: 'danger',
-      confirmText: 'Ya, Hapus Semua Data',
-      cancelText: 'Batal',
-      onConfirm: () => {
+    const doClear = () => {
+      try {
         if (onClearSPMPPP) {
           onClearSPMPPP();
         } else if (onResetData) {
@@ -254,36 +241,64 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
           title: 'Data Berhasil Dikosongkan',
           message: 'Semua data monitoring SPM PPP telah dihapus dari sistem.'
         });
+      } catch (err) {
+        console.error('Error clearing SPM PPP data:', err);
       }
-    });
+    };
+
+    if (typeof requestConfirm === 'function') {
+      requestConfirm(
+        'Kosongkan Seluruh Data SPM PPP?',
+        `Terdapat ${effectiveCount} baris data tagihan (${formatRupiah(activeStats.totalNominal)}) yang tersimpan. Tindakan ini akan mengosongkan seluruh data pada dashboard SPM PPP.`,
+        doClear,
+        {
+          variant: 'danger',
+          iconType: 'trash',
+          confirmText: 'Ya, Hapus Semua Data',
+          cancelText: 'Batal'
+        }
+      );
+    } else {
+      if (window.confirm('Apakah Anda yakin ingin menghapus seluruh data SPM PPP?')) {
+        doClear();
+      }
+    }
   };
 
   // Batch delete selected rows
   const handleDeleteSelected = () => {
     if (selectedIds.size === 0) return;
+    const countToDelete = selectedIds.size;
 
-    if (requestConfirm) {
-      requestConfirm({
-        title: `Hapus ${selectedIds.size} Data Terpilih?`,
-        message: 'Baris tagihan yang dipilih akan dihapus secara permanen dari dataset aktif.',
-        type: 'danger',
-        confirmText: 'Hapus Terpilih',
-        cancelText: 'Batal',
-        onConfirm: () => {
-          const remaining = effectiveRecords.filter(r => !selectedIds.has(r.id));
-          if (onApplySPMPPP) onApplySPMPPP(remaining);
-          setSelectedIds(new Set());
-          showToast?.({
-            type: 'success',
-            title: 'Data Dihapus',
-            message: `Berhasil menghapus ${selectedIds.size} data tagihan.`
-          });
+    const doDelete = () => {
+      try {
+        const remaining = effectiveRecords.filter(r => !selectedIds.has(r.id));
+        if (onApplySPMPPP) onApplySPMPPP(remaining);
+        setSelectedIds(new Set());
+        showToast?.({
+          type: 'success',
+          title: 'Data Dihapus',
+          message: `Berhasil menghapus ${countToDelete} data tagihan.`
+        });
+      } catch (err) {
+        console.error('Error deleting selected SPM PPP data:', err);
+      }
+    };
+
+    if (typeof requestConfirm === 'function') {
+      requestConfirm(
+        `Hapus ${countToDelete} Data Terpilih?`,
+        'Baris tagihan yang dipilih akan dihapus secara permanen dari dataset aktif.',
+        doDelete,
+        {
+          variant: 'danger',
+          iconType: 'trash',
+          confirmText: 'Hapus Terpilih',
+          cancelText: 'Batal'
         }
-      });
+      );
     } else {
-      const remaining = effectiveRecords.filter(r => !selectedIds.has(r.id));
-      if (onApplySPMPPP) onApplySPMPPP(remaining);
-      setSelectedIds(new Set());
+      doDelete();
     }
   };
 

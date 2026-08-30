@@ -59,7 +59,13 @@ import {
   exportRealisasiBelanjaToExcel,
   getJenisBelanjaInfo 
 } from '../../utils/realisasiBelanjaProcessor';
-import { safeLocalStorageSet, safeLocalStorageGet } from '../../utils/safeStorage';
+import { 
+  safeLocalStorageSet, 
+  safeLocalStorageGet,
+  saveLargeDataset,
+  getLargeDataset,
+  removeLargeDataset
+} from '../../utils/safeStorage';
 import { useToast } from '../ToastNotification';
 import { db, doc, setDoc, onSnapshot } from '../../lib/firebase';
 import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
@@ -105,10 +111,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   const [records, setRecords] = useState<RealisasiBelanjaRecord[]>(() => {
     try {
       const raw = safeLocalStorageGet(STORAGE_KEY_REALISASI);
-      if (raw) {
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
-        // If parsed cached data is incomplete (e.g. less than 3000 rows), prefer the full INITIAL_REALISASI_BELANJA
-        if (Array.isArray(parsed) && parsed.length >= (INITIAL_REALISASI_BELANJA?.length || 0)) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -118,6 +123,59 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     return INITIAL_REALISASI_BELANJA || [];
   });
 
+  // Load persistent full datasets from IndexedDB on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const rawLocal = safeLocalStorageGet(STORAGE_KEY_REALISASI);
+        if (rawLocal !== null) {
+          const parsed = JSON.parse(rawLocal);
+          if (Array.isArray(parsed) && parsed.length === 0) {
+            if (isMounted) setRecords([]);
+          } else {
+            const idbRecords = await getLargeDataset<RealisasiBelanjaRecord[]>(STORAGE_KEY_REALISASI);
+            if (isMounted && Array.isArray(idbRecords) && idbRecords.length > 0) {
+              setRecords(idbRecords);
+            }
+          }
+        } else {
+          const idbRecords = await getLargeDataset<RealisasiBelanjaRecord[]>(STORAGE_KEY_REALISASI);
+          if (isMounted && Array.isArray(idbRecords) && idbRecords.length > 0) {
+            setRecords(idbRecords);
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading SINTESA records from IndexedDB:', err);
+      }
+
+      try {
+        const rawIntressLocal = safeLocalStorageGet(STORAGE_KEY_MY_INTRESS);
+        if (rawIntressLocal !== null) {
+          const parsed = JSON.parse(rawIntressLocal);
+          if (Array.isArray(parsed) && parsed.length === 0) {
+            if (isMounted) setIntressRecords([]);
+          } else {
+            const idbIntress = await getLargeDataset<MyIntressRecord[]>(STORAGE_KEY_MY_INTRESS);
+            if (isMounted && Array.isArray(idbIntress) && idbIntress.length > 0) {
+              setIntressRecords(idbIntress);
+            }
+          }
+        } else {
+          const idbIntress = await getLargeDataset<MyIntressRecord[]>(STORAGE_KEY_MY_INTRESS);
+          if (isMounted && Array.isArray(idbIntress) && idbIntress.length > 0) {
+            setIntressRecords(idbIntress);
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading MyIntress records from IndexedDB:', err);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const [activeFileName, setActiveFileName] = useState<string>('Data Realisasi Belanja SINTESA Kemenkeu');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
@@ -125,9 +183,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   const [intressRecords, setIntressRecords] = useState<MyIntressRecord[]>(() => {
     try {
       const raw = safeLocalStorageGet(STORAGE_KEY_MY_INTRESS);
-      if (raw) {
+      if (raw !== null) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -564,8 +622,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       setActiveFileName(result.fileName);
       setCurrentPage(1);
 
-      // Save a compact snapshot (cap at 1000 items in localStorage to stay lightweight)
-      safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records.slice(0, 1000)));
+      // Save complete dataset to IndexedDB (zero truncation)
+      await saveLargeDataset(STORAGE_KEY_REALISASI, result.records);
+      safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(result.records));
 
       addToast({
         title: 'Upload Realisasi Belanja Berhasil',
@@ -608,8 +667,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   };
 
   // Clear all realisasi data
-  const handleClearAllData = () => {
+  const handleClearAllData = async () => {
     setRecords([]);
+    await removeLargeDataset(STORAGE_KEY_REALISASI);
     safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify([]));
     setActiveFileName('Data Realisasi Belanja Kosong');
     setSelectedSatkerKode(null);
@@ -623,10 +683,11 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   };
 
   // Reset / Restore default 5,196 SINTESA data
-  const handleResetDefaultData = () => {
+  const handleResetDefaultData = async () => {
     const defaultRecs = INITIAL_REALISASI_BELANJA || [];
     setRecords(defaultRecs);
-    safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(defaultRecs.slice(0, 1000)));
+    await saveLargeDataset(STORAGE_KEY_REALISASI, defaultRecs);
+    safeLocalStorageSet(STORAGE_KEY_REALISASI, JSON.stringify(defaultRecs));
     setActiveFileName('Data Realisasi Belanja SINTESA Kemenkeu');
     setSelectedSatkerKode(null);
     setShowClearConfirmModal(false);
@@ -646,6 +707,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       setIntressRecords(result.records);
       setIntressFileName(result.fileName);
       if (result.waktuUnduh) setIntressWaktuUnduh(result.waktuUnduh);
+      await saveLargeDataset(STORAGE_KEY_MY_INTRESS, result.records);
       safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
       addToast({
         title: 'Upload My InTress Berhasil',
@@ -665,9 +727,10 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   };
 
   // Reset / Restore default My InTress Data (127 Satker)
-  const handleResetDefaultMyIntress = () => {
+  const handleResetDefaultMyIntress = async () => {
     const defaultData = INITIAL_MY_INTRESS_DATA || [];
     setIntressRecords(defaultData);
+    await saveLargeDataset(STORAGE_KEY_MY_INTRESS, defaultData);
     safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(defaultData));
     setIntressFileName('Data Realisasi Belanja My InTress (127 Satker)');
     setIntressWaktuUnduh('24/10/2024 10:28:44');
@@ -679,8 +742,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   };
 
   // Clear all My InTress data
-  const handleClearMyIntress = () => {
+  const handleClearMyIntress = async () => {
     setIntressRecords([]);
+    await removeLargeDataset(STORAGE_KEY_MY_INTRESS);
     safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify([]));
     setIntressFileName('Data My InTress Kosong');
     addToast({

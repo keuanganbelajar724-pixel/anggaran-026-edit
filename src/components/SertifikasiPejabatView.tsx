@@ -1297,13 +1297,13 @@ export const SertifikasiPejabatView: React.FC<SertifikasiPejabatViewProps> = ({
                               <span className="bg-rose-600 text-white font-bold text-[10px] px-2.5 py-0.5 rounded-md shadow-xs">
                                 HABIS
                               </span>
-                            ) : p.sisaHariMasaBerlaku !== undefined && p.sisaHariMasaBerlaku <= 60 ? (
+                            ) : p.sisaHariMasaBerlaku !== undefined && Number.isFinite(p.sisaHariMasaBerlaku) && p.sisaHariMasaBerlaku <= 60 ? (
                               <span className="bg-amber-500 text-slate-950 font-bold text-[10px] px-2.5 py-0.5 rounded-md shadow-xs">
                                 Sisa {p.sisaHariMasaBerlaku} Hari
                               </span>
                             ) : (
                               <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px] px-2.5 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-800">
-                                Aktif ({p.sisaHariMasaBerlaku || '-'} Hari)
+                                Aktif ({Number.isFinite(p.sisaHariMasaBerlaku) ? p.sisaHariMasaBerlaku : '-'} Hari)
                               </span>
                             )}
                           </td>

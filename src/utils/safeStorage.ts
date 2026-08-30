@@ -43,6 +43,79 @@ export function safeLocalStorageRemove(key: string): void {
   }
 }
 
+// -------------------------------------------------------------
+// IndexedDB Large Dataset Storage (Zero Size Limit Persistence)
+// -------------------------------------------------------------
+const IDB_NAME = 'KPPN_Semarang1_Storage';
+const IDB_STORE = 'app_datasets';
+const IDB_VERSION = 1;
+
+function openAppIndexedDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      return reject(new Error('IndexedDB not supported'));
+    }
+    const request = indexedDB.open(IDB_NAME, IDB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveLargeDataset<T = any>(key: string, data: T): Promise<boolean> {
+  try {
+    const db = await openAppIndexedDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.put(data, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => {
+        console.warn(`[safeStorage] IndexedDB put error for key ${key}:`, tx.error);
+        resolve(false);
+      };
+    });
+  } catch (err) {
+    console.warn(`[safeStorage] IndexedDB open failed for key ${key}:`, err);
+    return false;
+  }
+}
+
+export async function getLargeDataset<T = any>(key: string): Promise<T | null> {
+  try {
+    const db = await openAppIndexedDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function removeLargeDataset(key: string): Promise<void> {
+  try {
+    const db = await openAppIndexedDB();
+    return new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // Ignore
+  }
+}
+
 /**
  * Emergency Pruning to free up LocalStorage headroom
  */

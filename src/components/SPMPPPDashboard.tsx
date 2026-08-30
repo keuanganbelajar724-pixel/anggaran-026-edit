@@ -876,7 +876,7 @@ Terima kasih atas kerja sama dan sinergi yang baik.
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-emerald-600 font-semibold">Sudah Selesai SP2D:</span>
-                  <span className="font-mono font-bold text-emerald-600">{summary.plnCount - summary.plnBelumCount} Tagihan</span>
+                  <span className="font-mono font-bold text-emerald-600">{(summary.plnCount || 0) - (summary.plnBelumCount || 0)} Tagihan</span>
                 </div>
 
                 <div className="pt-3 border-t border-amber-200/60 dark:border-slate-700">
@@ -931,7 +931,7 @@ Terima kasih atas kerja sama dan sinergi yang baik.
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-emerald-600 font-semibold">Sudah Selesai SP2D:</span>
-                  <span className="font-mono font-bold text-emerald-600">{summary.telkomCount - summary.telkomBelumCount} Tagihan</span>
+                  <span className="font-mono font-bold text-emerald-600">{(summary.telkomCount || 0) - (summary.telkomBelumCount || 0)} Tagihan</span>
                 </div>
 
                 <div className="pt-3 border-t border-indigo-200/60 dark:border-slate-700">
