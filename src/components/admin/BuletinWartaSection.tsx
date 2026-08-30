@@ -2371,13 +2371,19 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       {activeSubTab === 'my-intress' && (
         <div className="space-y-6">
           <MyIntressAnalysisView
+            theme={theme}
+            isDark={isDark}
+            records={intressRecords}
             intressRecords={intressRecords}
+            summary={intressSummary}
             intressSummary={intressSummary}
             activeFileName={intressFileName}
             waktuUnduh={intressWaktuUnduh}
             isProcessing={isIntressProcessing}
             onUploadExcel={handleUploadMyIntressExcel}
+            onResetDefaultData={handleResetDefaultMyIntress}
             onResetDefault={handleResetDefaultMyIntress}
+            onClearAllData={handleClearMyIntress}
             onClearData={handleClearMyIntress}
             onSyncToBuletin={handleSyncMyIntressToBuletin}
             onNavigateToReconciliation={() => setActiveSubTab('rekonsiliasi')}
@@ -2392,8 +2398,13 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       {activeSubTab === 'rekonsiliasi' && (
         <div className="space-y-6">
           <RealisasiReconciliationView
+            theme={theme}
+            isDark={isDark}
             sintesaRecords={records}
+            intressRecords={intressRecords}
             myIntressRecords={intressRecords}
+            sintesaFileName={activeFileName}
+            intressFileName={intressFileName}
             onNavigateToSintesa={() => setActiveSubTab('analisis')}
             onNavigateToMyIntress={() => setActiveSubTab('my-intress')}
           />

@@ -1714,6 +1714,21 @@ export interface BuletinConfig {
   };
   tipsSaktiCustom?: string[];
   catatanAnalis?: string;
+  rekonsiliasiSelisihData?: {
+    totalSatkerSelisih: number;
+    totalDiffReal: number;
+    totalDiffPagu: number;
+    catatanRingkas: string;
+    satkerList?: {
+      kode: string;
+      nama: string;
+      diffReal: number;
+      diffPagu: number;
+      jenisBelanjaDiff: string;
+      catatan?: string;
+    }[];
+    updatedAt?: string;
+  };
   canvaTemplateUrl?: string;
   updatedAt?: string;
 }

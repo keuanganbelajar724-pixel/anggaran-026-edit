@@ -39,21 +39,34 @@ import { PaginationControl } from '../PaginationControl';
 interface RealisasiReconciliationViewProps {
   theme?: AppTheme;
   isDark?: boolean;
-  sintesaRecords: RealisasiBelanjaRecord[];
-  intressRecords: MyIntressRecord[];
+  sintesaRecords?: RealisasiBelanjaRecord[];
+  intressRecords?: MyIntressRecord[];
+  myIntressRecords?: MyIntressRecord[];
   sintesaFileName?: string;
   intressFileName?: string;
+  onNavigateToSintesa?: () => void;
+  onNavigateToMyIntress?: () => void;
+  onSyncToBuletin?: (diffs: SatkerReconciliationDiff[]) => void;
+  onTransferToBroadcast?: (diffs: SatkerReconciliationDiff[]) => void;
 }
 
 export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewProps> = ({
   theme = 'light',
   isDark = false,
-  sintesaRecords,
+  sintesaRecords = [],
   intressRecords,
+  myIntressRecords,
   sintesaFileName = 'Data SINTESA Kemenkeu',
-  intressFileName = 'Data MY INTRESS Kemenkeu'
+  intressFileName = 'Data MY INTRESS Kemenkeu',
+  onNavigateToSintesa,
+  onNavigateToMyIntress,
+  onSyncToBuletin,
+  onTransferToBroadcast
 }) => {
   const { addToast } = useToast();
+
+  const safeSintesa = Array.isArray(sintesaRecords) ? sintesaRecords : [];
+  const safeIntress = Array.isArray(intressRecords) ? intressRecords : (Array.isArray(myIntressRecords) ? myIntressRecords : []);
 
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -62,13 +75,14 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
   const [sortBy, setSortBy] = useState<'diff_real' | 'diff_pagu' | 'nama' | 'sintesa_real'>('diff_real');
   const [expandedSatkerKode, setExpandedSatkerKode] = useState<string | null>(null);
   const [copiedSatkerKode, setCopiedSatkerKode] = useState<string | null>(null);
+  const [isSyncingBuletin, setIsSyncingBuletin] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const itemsPerPage = 10;
 
   // Run automated reconciliation
   const allReconciledDiffs = useMemo(() => {
-    return reconcileSintesaAndMyIntress(sintesaRecords, intressRecords);
-  }, [sintesaRecords, intressRecords]);
+    return reconcileSintesaAndMyIntress(safeSintesa, safeIntress);
+  }, [safeSintesa, safeIntress]);
 
   // Overall Reconciliation Summary
   const reconsSummary = useMemo(() => {
@@ -97,9 +111,41 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
       netDiffPagu,
       totalSintesaReal,
       totalIntressReal,
-      netDiffReal
+      netDiffReal,
     };
   }, [allReconciledDiffs]);
+
+  // Handle Sync to Buletin
+  const handleSyncToBuletinClick = () => {
+    setIsSyncingBuletin(true);
+    try {
+      if (onSyncToBuletin) {
+        onSyncToBuletin(allReconciledDiffs);
+      } else {
+        addToast({
+          title: 'Sinkronisasi Buletin Berhasil',
+          message: `Rangkuman rekonsiliasi (${reconsSummary.diffCount} satker dengan perbedaan data) berhasil disinkronkan ke draf Buletin Warta KPPN.`,
+          type: 'success'
+        });
+      }
+    } finally {
+      setTimeout(() => setIsSyncingBuletin(false), 600);
+    }
+  };
+
+  // Handle Transfer to Broadcast WA
+  const handleTransferToBroadcastClick = () => {
+    const diffsOnly = allReconciledDiffs.filter(d => d.statusDiff !== 'MATCH');
+    if (onTransferToBroadcast) {
+      onTransferToBroadcast(diffsOnly);
+    } else {
+      addToast({
+        title: 'Transfer ke Broadcast WA',
+        message: `${diffsOnly.length} Satker dengan selisih data berhasil dikirim ke antrean Broadcast WA.`,
+        type: 'success'
+      });
+    }
+  };
 
   // Filtered Diffs
   const filteredDiffs = useMemo(() => {
@@ -199,12 +245,49 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Tombol Sinkronkan ke Buletin */}
+            <button
+              onClick={handleSyncToBuletinClick}
+              disabled={isSyncingBuletin}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+              title="Sinkronkan rangkuman dan temuan rekonsiliasi data belanja ke draf Buletin KPPN"
+            >
+              <Sparkles className={`w-4 h-4 text-slate-950 ${isSyncingBuletin ? 'animate-spin' : ''}`} />
+              <span>{isSyncingBuletin ? 'Menyinkronkan...' : 'Sinkronkan ke Buletin'}</span>
+            </button>
+
+            {/* Tombol Kirim ke Broadcast WA */}
+            <button
+              onClick={handleTransferToBroadcastClick}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-white shadow-md hover:shadow-lg transition-all cursor-pointer"
+              title="Transfer daftar Satker dengan selisih data ke menu Broadcast Masif WA"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Broadcast WA ({reconsSummary.diffCount} Satker)</span>
+            </button>
+
+            {onNavigateToSintesa && (
+              <button
+                onClick={onNavigateToSintesa}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-blue-600/80 hover:bg-blue-600 text-white border border-blue-400/30 shadow-xs transition-all cursor-pointer"
+              >
+                <span>SINTESA →</span>
+              </button>
+            )}
+            {onNavigateToMyIntress && (
+              <button
+                onClick={onNavigateToMyIntress}
+                className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold bg-emerald-600/80 hover:bg-emerald-600 text-white border border-emerald-400/30 shadow-xs transition-all cursor-pointer"
+              >
+                <span>My InTress →</span>
+              </button>
+            )}
             <button
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-xs transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 shadow-xs transition-all cursor-pointer"
             >
               <Download className="w-4 h-4 text-emerald-300" />
-              <span>Ekspor Rekon (Excel)</span>
+              <span>Ekspor (Excel)</span>
             </button>
           </div>
         </div>
@@ -481,14 +564,14 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
                       <div>
                         <span className="text-slate-400">SINTESA Real:</span>{' '}
                         <strong className="text-slate-900 dark:text-white font-mono">
-                          {formatRupiahShort(diff.sintesaRealTotal)} ({diff.sintesaPersenTotal.toFixed(1)}%)
+                          {formatRupiahShort(diff.sintesaRealTotal)} ({(Number.isFinite(diff.sintesaPersenTotal) ? diff.sintesaPersenTotal : 0).toFixed(1)}%)
                         </strong>
                       </div>
                       <div className="text-slate-300 dark:text-slate-600">•</div>
                       <div>
                         <span className="text-slate-400">My InTress Real:</span>{' '}
                         <strong className="text-slate-900 dark:text-white font-mono">
-                          {formatRupiahShort(diff.intressRealTotal)} ({diff.intressPersenTotal.toFixed(1)}%)
+                          {formatRupiahShort(diff.intressRealTotal)} ({(Number.isFinite(diff.intressPersenTotal) ? diff.intressPersenTotal : 0).toFixed(1)}%)
                         </strong>
                       </div>
                       {hasDiffReal && (
@@ -521,39 +604,50 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
                     {!isMatch && (
                       <>
                         <button
+                          type="button"
                           onClick={() => handleCopyWaTemplate(diff)}
-                          className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
-                          title="Salin draf teks konfirmasi untuk dikirimkan ke satker"
+                          className={`inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs border ${
+                            copiedSatkerKode === diff.kodeSatker
+                              ? 'bg-emerald-600 text-white border-emerald-500'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600'
+                          }`}
+                          title="Salin Draf Pesan Konfirmasi WhatsApp"
                         >
                           {copiedSatkerKode === diff.kodeSatker ? (
                             <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span className="text-emerald-600">Tersalin</span>
+                              <Check className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Tersalin</span>
                             </>
                           ) : (
                             <>
-                              <Copy className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                              <span>Salin Draf WA</span>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Salin WA</span>
                             </>
                           )}
                         </button>
 
                         <button
+                          type="button"
                           onClick={() => handleOpenWhatsApp(diff)}
                           className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors cursor-pointer"
-                          title="Buka WhatsApp dengan draf pesan konfirmasi"
+                          title="Buka WhatsApp Langsung"
                         >
                           <MessageSquare className="w-3.5 h-3.5" />
-                          <span>Kirim WA</span>
+                          <span className="hidden sm:inline">Kirim WA</span>
                         </button>
                       </>
                     )}
 
                     <button
                       onClick={() => setExpandedSatkerKode(isExpanded ? null : diff.kodeSatker)}
-                      className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60 transition-colors cursor-pointer"
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+                        isExpanded
+                          ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200 dark:shadow-none'
+                          : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 dark:hover:bg-indigo-900/80 border border-indigo-200/60 dark:border-indigo-800/60'
+                      }`}
                     >
-                      <span>{isExpanded ? 'Tutup Detail' : 'Rincian Belanja'}</span>
+                      <Layers className="w-3.5 h-3.5" />
+                      <span>{isExpanded ? 'Tutup Rincian' : 'Rincian Belanja & Analisis'}</span>
                       {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                     </button>
                   </div>
@@ -567,7 +661,7 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
                       <div className="p-3 bg-slate-100/70 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                         <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                           <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                          <span>Perbandingan Detail Per Jenis Belanja: SINTESA vs MY INTRESS</span>
+                          <span>Rincian Komparasi Per Jenis Belanja: SINTESA vs MY INTRESS</span>
                         </span>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                           Satker: {diff.kodeSatker}
@@ -653,38 +747,34 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
                       </div>
                     </div>
 
-                    {/* AI Analysis & Recommended Satker Inquiry Note */}
-                    <div className="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-2">
+                    {/* AI Analysis & Root Cause Breakdown Note */}
+                    <div className="p-4 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 space-y-3">
                       <div className="flex items-center gap-2 text-indigo-900 dark:text-indigo-200 font-bold text-xs">
                         <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                        <span>Catatan Analisis KPPN & Rekomendasi Tindakan</span>
+                        <span>Catatan Analisis KPPN & Potensi Penyebab Perbedaan Data</span>
                       </div>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
                         {diff.catatanAnalisis}
                       </p>
-                      <div className="pt-1.5 flex items-center gap-2 text-xs font-semibold text-indigo-800 dark:text-indigo-300">
-                        <span>Langkah Konfirmasi:</span>
-                        <span className="font-normal text-slate-700 dark:text-slate-300">{diff.saranTindakan}</span>
-                      </div>
-                    </div>
 
-                    {/* Preview of WhatsApp Message */}
-                    <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
-                        <span className="flex items-center gap-1.5">
-                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Draf Teks Konfirmasi Resmi (Siap Dikirim):</span>
-                        </span>
-                        <button
-                          onClick={() => handleCopyWaTemplate(diff)}
-                          className="text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-bold hover:underline cursor-pointer"
-                        >
-                          {copiedSatkerKode === diff.kodeSatker ? 'Berhasil Disalin ✓' : 'Salin Teks'}
-                        </button>
+                      <div className="pt-2 border-t border-indigo-200/60 dark:border-indigo-800/60 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-white/80 dark:bg-slate-800/80 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                          <span className="font-bold text-indigo-950 dark:text-indigo-200 block mb-1">🔍 Potensi Faktor Penyebab:</span>
+                          <ul className="text-slate-600 dark:text-slate-300 space-y-1 list-disc list-inside">
+                            <li>Perbedaan waktu cut-off pembukuan data SP2D antara SINTESA dan My InTress.</li>
+                            <li>Adanya transaksi SP2D GUP/LS akhir periode yang belum tersinkron di salah satu basis data.</li>
+                            <li>Revisi DIPA / POK atau pergeseran akun belanja yang belum efektif ter-update.</li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-white/80 dark:bg-slate-800/80 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/40">
+                          <span className="font-bold text-emerald-900 dark:text-emerald-300 block mb-1">📌 Rekomendasi Tindak Lanjut:</span>
+                          <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {diff.saranTindakan}
+                          </p>
+                        </div>
                       </div>
-                      <pre className="text-[11px] font-mono whitespace-pre-wrap bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 leading-relaxed">
-                        {diff.templateKonfirmasiWa}
-                      </pre>
                     </div>
                   </div>
                 )}

@@ -30,31 +30,49 @@ import * as XLSX from 'xlsx';
 interface MyIntressAnalysisViewProps {
   theme?: AppTheme;
   isDark?: boolean;
-  records: MyIntressRecord[];
-  summary: MyIntressSummary | null;
-  activeFileName: string;
+  records?: MyIntressRecord[];
+  intressRecords?: MyIntressRecord[];
+  summary?: MyIntressSummary | null;
+  intressSummary?: MyIntressSummary | null;
+  activeFileName?: string;
   waktuUnduh?: string;
-  isProcessing: boolean;
+  isProcessing?: boolean;
   onUploadExcel: (file: File) => void;
-  onResetDefaultData: () => void;
-  onClearAllData: () => void;
+  onResetDefaultData?: () => void;
+  onResetDefault?: () => void;
+  onClearAllData?: () => void;
+  onClearData?: () => void;
   onSyncToBuletin?: () => void;
+  onNavigateToReconciliation?: () => void;
+  onNavigateToSintesa?: () => void;
 }
 
 export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
   theme = 'light',
   isDark = false,
   records,
+  intressRecords,
   summary,
-  activeFileName,
+  intressSummary,
+  activeFileName = 'Data Realisasi Belanja My InTress',
   waktuUnduh,
-  isProcessing,
+  isProcessing = false,
   onUploadExcel,
   onResetDefaultData,
+  onResetDefault,
   onClearAllData,
-  onSyncToBuletin
+  onClearData,
+  onSyncToBuletin,
+  onNavigateToReconciliation,
+  onNavigateToSintesa
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Safe records resolution
+  const rawRecords = Array.isArray(records) ? records : (Array.isArray(intressRecords) ? intressRecords : []);
+  const activeSummary = summary || intressSummary || null;
+  const handleReset = onResetDefaultData || onResetDefault || (() => {});
+  const handleClear = onClearAllData || onClearData || (() => {});
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -70,44 +88,45 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
 
   // Filtered records
   const filteredRecords = useMemo(() => {
-    return records.filter(r => {
+    return rawRecords.filter(r => {
+      if (!r) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchKode = r.kodeSatker.toLowerCase().includes(q);
-        const matchNama = r.namaSatker.toLowerCase().includes(q);
+        const matchKode = (r.kodeSatker || '').toLowerCase().includes(q);
+        const matchNama = (r.namaSatker || '').toLowerCase().includes(q);
         if (!matchKode && !matchNama) return false;
       }
 
-      if (filterJenisBelanja === '51' && r.paguPegawai <= 0 && r.realPegawai <= 0) return false;
-      if (filterJenisBelanja === '52' && r.paguBarang <= 0 && r.realBarang <= 0) return false;
-      if (filterJenisBelanja === '53' && r.paguModal <= 0 && r.realModal <= 0) return false;
-      if (filterJenisBelanja === '57' && r.paguBansos <= 0 && r.realBansos <= 0) return false;
-      if (filterJenisBelanja === '61' && r.paguTransfer <= 0 && r.realTransfer <= 0) return false;
+      if (filterJenisBelanja === '51' && (r.paguPegawai || 0) <= 0 && (r.realPegawai || 0) <= 0) return false;
+      if (filterJenisBelanja === '52' && (r.paguBarang || 0) <= 0 && (r.realBarang || 0) <= 0) return false;
+      if (filterJenisBelanja === '53' && (r.paguModal || 0) <= 0 && (r.realModal || 0) <= 0) return false;
+      if (filterJenisBelanja === '57' && (r.paguBansos || 0) <= 0 && (r.realBansos || 0) <= 0) return false;
+      if (filterJenisBelanja === '61' && (r.paguTransfer || 0) <= 0 && (r.realTransfer || 0) <= 0) return false;
 
-      if (filterRealisasiLevel === 'UNDER_50' && r.persenTotal >= 50) return false;
-      if (filterRealisasiLevel === '50_TO_80' && (r.persenTotal < 50 || r.persenTotal > 80)) return false;
-      if (filterRealisasiLevel === 'OVER_80' && r.persenTotal < 80) return false;
-      if (filterRealisasiLevel === 'HUNDRED' && r.persenTotal < 99.99) return false;
+      if (filterRealisasiLevel === 'UNDER_50' && (r.persenTotal || 0) >= 50) return false;
+      if (filterRealisasiLevel === '50_TO_80' && ((r.persenTotal || 0) < 50 || (r.persenTotal || 0) > 80)) return false;
+      if (filterRealisasiLevel === 'OVER_80' && (r.persenTotal || 0) < 80) return false;
+      if (filterRealisasiLevel === 'HUNDRED' && (r.persenTotal || 0) < 99.99) return false;
 
       return true;
     }).sort((a, b) => {
       let valA = 0;
       let valB = 0;
       if (sortBy === 'pagu') {
-        valA = a.paguTotal;
-        valB = b.paguTotal;
+        valA = a.paguTotal || 0;
+        valB = b.paguTotal || 0;
       } else if (sortBy === 'realisasi') {
-        valA = a.realTotal;
-        valB = b.realTotal;
+        valA = a.realTotal || 0;
+        valB = b.realTotal || 0;
       } else if (sortBy === 'persen') {
-        valA = a.persenTotal;
-        valB = b.persenTotal;
+        valA = a.persenTotal || 0;
+        valB = b.persenTotal || 0;
       } else if (sortBy === 'nama') {
-        return sortOrder === 'asc' ? a.namaSatker.localeCompare(b.namaSatker) : b.namaSatker.localeCompare(a.namaSatker);
+        return sortOrder === 'asc' ? (a.namaSatker || '').localeCompare(b.namaSatker || '') : (b.namaSatker || '').localeCompare(a.namaSatker || '');
       }
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     });
-  }, [records, searchQuery, filterJenisBelanja, filterRealisasiLevel, sortBy, sortOrder]);
+  }, [rawRecords, searchQuery, filterJenisBelanja, filterRealisasiLevel, sortBy, sortOrder]);
 
   // Active Summary on filtered records
   const dynamicSummary = useMemo(() => {
@@ -206,9 +225,9 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
               <h4 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
                 {activeFileName}
               </h4>
-              {records.length > 0 ? (
+              {rawRecords.length > 0 ? (
                 <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
-                  Aktif ({records.length} Satker)
+                  Aktif ({rawRecords.length} Satker)
                 </span>
               ) : (
                 <span className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
@@ -217,7 +236,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
               )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {records.length > 0 
+              {rawRecords.length > 0 
                 ? `Laporan Realisasi Belanja Satker Per Jenis Belanja (51, 52, 53, 57, Transfer) • ${waktuUnduh ? `Waktu Unduh: ${waktuUnduh}` : 'Sumber: Aplikasi My InTress'}`
                 : 'Belum ada data My InTress. Silakan upload file Excel atau pulihkan dataset bawaan.'}
             </p>
@@ -238,7 +257,17 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             className="hidden"
           />
 
-          {onSyncToBuletin && records.length > 0 && (
+          {onNavigateToReconciliation && (
+            <button
+              onClick={onNavigateToReconciliation}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors cursor-pointer"
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Cek Selisih Data vs SINTESA</span>
+            </button>
+          )}
+
+          {onSyncToBuletin && rawRecords.length > 0 && (
             <button
               onClick={onSyncToBuletin}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs transition-all cursor-pointer"
@@ -249,7 +278,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             </button>
           )}
 
-          {records.length > 0 && (
+          {rawRecords.length > 0 && (
             <button
               onClick={handleExportExcel}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
@@ -268,9 +297,9 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             <span>{isProcessing ? 'Memproses...' : 'Upload Excel My InTress'}</span>
           </button>
 
-          {records.length < 127 && (
+          {rawRecords.length < 127 && (
             <button
-              onClick={onResetDefaultData}
+              onClick={handleReset}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-teal-50 hover:bg-teal-100 text-teal-700 dark:bg-teal-950/60 dark:text-teal-300 dark:hover:bg-teal-900/60 transition-colors cursor-pointer"
               title="Pulihkan dataset bawaan My InTress (127 Satker)"
             >
@@ -279,9 +308,9 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
             </button>
           )}
 
-          {records.length > 0 && (
+          {rawRecords.length > 0 && (
             <button
-              onClick={onClearAllData}
+              onClick={handleClear}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/50 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
@@ -586,7 +615,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
         {isFilterActive && (
           <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-slate-700/60">
             <span className="text-slate-500 dark:text-slate-400">
-              Menampilkan <strong>{filteredRecords.length}</strong> dari <strong>{records.length}</strong> Satker terfilter.
+              Menampilkan <strong>{filteredRecords.length}</strong> dari <strong>{rawRecords.length}</strong> Satker terfilter.
             </span>
             <button
               onClick={resetFilters}
@@ -641,6 +670,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
               ) : (
                 paginatedRecords.map((r, idx) => {
                   const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
+                  const safePersenTotal = Number.isFinite(r.persenTotal) ? r.persenTotal : 0;
                   return (
                     <tr
                       key={r.id || r.kodeSatker}
@@ -663,7 +693,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           {formatRupiahShort(r.realPegawai)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {r.persenPegawai > 0 ? `${r.persenPegawai.toFixed(1)}%` : '-'}
+                          {Number.isFinite(r.persenPegawai) && r.persenPegawai > 0 ? `${r.persenPegawai.toFixed(1)}%` : '-'}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono">
@@ -671,7 +701,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           {formatRupiahShort(r.realBarang)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {r.persenBarang > 0 ? `${r.persenBarang.toFixed(1)}%` : '-'}
+                          {Number.isFinite(r.persenBarang) && r.persenBarang > 0 ? `${r.persenBarang.toFixed(1)}%` : '-'}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono">
@@ -679,7 +709,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           {formatRupiahShort(r.realModal)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {r.persenModal > 0 ? `${r.persenModal.toFixed(1)}%` : '-'}
+                          {Number.isFinite(r.persenModal) && r.persenModal > 0 ? `${r.persenModal.toFixed(1)}%` : '-'}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono">
@@ -687,7 +717,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           {formatRupiahShort(r.realBansos)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {r.persenBansos > 0 ? `${r.persenBansos.toFixed(1)}%` : '-'}
+                          {Number.isFinite(r.persenBansos) && r.persenBansos > 0 ? `${r.persenBansos.toFixed(1)}%` : '-'}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono">
@@ -695,7 +725,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           {formatRupiahShort(r.realTransfer)}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          {r.persenTransfer > 0 ? `${r.persenTransfer.toFixed(1)}%` : '-'}
+                          {Number.isFinite(r.persenTransfer) && r.persenTransfer > 0 ? `${r.persenTransfer.toFixed(1)}%` : '-'}
                         </div>
                       </td>
                       <td className="py-3 px-3.5 text-right font-mono font-bold text-slate-900 dark:text-white">
@@ -707,13 +737,13 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                       <td className="py-3 px-3 text-center">
                         <div className="inline-flex items-center gap-1.5">
                           <span className={`px-2 py-0.5 rounded-full font-black text-xs ${
-                            r.persenTotal >= 80
+                            safePersenTotal >= 80
                               ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                              : r.persenTotal >= 50
+                              : safePersenTotal >= 50
                               ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
                               : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
                           }`}>
-                            {r.persenTotal.toFixed(2)}%
+                            {safePersenTotal.toFixed(2)}%
                           </span>
                         </div>
                       </td>
@@ -818,7 +848,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                           Real: {formatRupiahFull(b.real)}
                         </div>
                         <div className="text-[11px] font-black text-slate-700 dark:text-slate-300">
-                          {b.persen.toFixed(2)}%
+                          {(Number.isFinite(b.persen) ? b.persen : 0).toFixed(2)}%
                         </div>
                       </div>
                     </div>

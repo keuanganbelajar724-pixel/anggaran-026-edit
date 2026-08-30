@@ -688,13 +688,21 @@ export async function processMyIntressExcel(file: File): Promise<{
 
         // Compute percentages and calculate sisa
         for (const r of records) {
-          if (r.paguPegawai > 0 && r.persenPegawai === 0) r.persenPegawai = Number(((r.realPegawai / r.paguPegawai) * 100).toFixed(2));
-          if (r.paguBarang > 0 && r.persenBarang === 0) r.persenBarang = Number(((r.realBarang / r.paguBarang) * 100).toFixed(2));
-          if (r.paguModal > 0 && r.persenModal === 0) r.persenModal = Number(((r.realModal / r.paguModal) * 100).toFixed(2));
-          if (r.paguBansos > 0 && r.persenBansos === 0) r.persenBansos = Number(((r.realBansos / r.paguBansos) * 100).toFixed(2));
-          if (r.paguTransfer > 0 && r.persenTransfer === 0) r.persenTransfer = Number(((r.realTransfer / r.paguTransfer) * 100).toFixed(2));
-          if (r.paguTotal > 0 && r.persenTotal === 0) r.persenTotal = Number(((r.realTotal / r.paguTotal) * 100).toFixed(2));
-          if (r.sisaTotal === 0) r.sisaTotal = Math.max(0, r.paguTotal - r.realTotal);
+          if (r.paguPegawai > 0 && (!r.persenPegawai || isNaN(r.persenPegawai))) r.persenPegawai = Number(((r.realPegawai / r.paguPegawai) * 100).toFixed(2));
+          if (r.paguBarang > 0 && (!r.persenBarang || isNaN(r.persenBarang))) r.persenBarang = Number(((r.realBarang / r.paguBarang) * 100).toFixed(2));
+          if (r.paguModal > 0 && (!r.persenModal || isNaN(r.persenModal))) r.persenModal = Number(((r.realModal / r.paguModal) * 100).toFixed(2));
+          if (r.paguBansos > 0 && (!r.persenBansos || isNaN(r.persenBansos))) r.persenBansos = Number(((r.realBansos / r.paguBansos) * 100).toFixed(2));
+          if (r.paguTransfer > 0 && (!r.persenTransfer || isNaN(r.persenTransfer))) r.persenTransfer = Number(((r.realTransfer / r.paguTransfer) * 100).toFixed(2));
+          if (r.paguTotal > 0 && (!r.persenTotal || isNaN(r.persenTotal))) r.persenTotal = Number(((r.realTotal / r.paguTotal) * 100).toFixed(2));
+          
+          r.persenPegawai = Number.isFinite(r.persenPegawai) ? r.persenPegawai : 0;
+          r.persenBarang = Number.isFinite(r.persenBarang) ? r.persenBarang : 0;
+          r.persenModal = Number.isFinite(r.persenModal) ? r.persenModal : 0;
+          r.persenBansos = Number.isFinite(r.persenBansos) ? r.persenBansos : 0;
+          r.persenTransfer = Number.isFinite(r.persenTransfer) ? r.persenTransfer : 0;
+          r.persenTotal = Number.isFinite(r.persenTotal) ? r.persenTotal : 0;
+
+          if (!r.sisaTotal || r.sisaTotal === 0) r.sisaTotal = Math.max(0, (r.paguTotal || 0) - (r.realTotal || 0));
         }
 
         const summary = computeMyIntressSummary(records);
@@ -717,26 +725,27 @@ export async function processMyIntressExcel(file: File): Promise<{
 /**
  * Compute summary aggregation for My InTress records
  */
-export function computeMyIntressSummary(records: MyIntressRecord[]): MyIntressSummary {
-  const totalPagu = records.reduce((sum, r) => sum + r.paguTotal, 0);
-  const totalRealisasi = records.reduce((sum, r) => sum + r.realTotal, 0);
-  const totalSisa = records.reduce((sum, r) => sum + r.sisaTotal, 0);
+export function computeMyIntressSummary(records: MyIntressRecord[] = []): MyIntressSummary {
+  const safeRecords = Array.isArray(records) ? records : [];
+  const totalPagu = safeRecords.reduce((sum, r) => sum + (r.paguTotal || 0), 0);
+  const totalRealisasi = safeRecords.reduce((sum, r) => sum + (r.realTotal || 0), 0);
+  const totalSisa = safeRecords.reduce((sum, r) => sum + (r.sisaTotal || 0), 0);
   const persenRealisasiTotal = totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 0;
 
-  const pagu51 = records.reduce((sum, r) => sum + r.paguPegawai, 0);
-  const real51 = records.reduce((sum, r) => sum + r.realPegawai, 0);
+  const pagu51 = safeRecords.reduce((sum, r) => sum + (r.paguPegawai || 0), 0);
+  const real51 = safeRecords.reduce((sum, r) => sum + (r.realPegawai || 0), 0);
 
-  const pagu52 = records.reduce((sum, r) => sum + r.paguBarang, 0);
-  const real52 = records.reduce((sum, r) => sum + r.realBarang, 0);
+  const pagu52 = safeRecords.reduce((sum, r) => sum + (r.paguBarang || 0), 0);
+  const real52 = safeRecords.reduce((sum, r) => sum + (r.realBarang || 0), 0);
 
-  const pagu53 = records.reduce((sum, r) => sum + r.paguModal, 0);
-  const real53 = records.reduce((sum, r) => sum + r.realModal, 0);
+  const pagu53 = safeRecords.reduce((sum, r) => sum + (r.paguModal || 0), 0);
+  const real53 = safeRecords.reduce((sum, r) => sum + (r.realModal || 0), 0);
 
-  const pagu57 = records.reduce((sum, r) => sum + r.paguBansos, 0);
-  const real57 = records.reduce((sum, r) => sum + r.realBansos, 0);
+  const pagu57 = safeRecords.reduce((sum, r) => sum + (r.paguBansos || 0), 0);
+  const real57 = safeRecords.reduce((sum, r) => sum + (r.realBansos || 0), 0);
 
-  const paguTransfer = records.reduce((sum, r) => sum + r.paguTransfer, 0);
-  const realTransfer = records.reduce((sum, r) => sum + r.realTransfer, 0);
+  const paguTransfer = safeRecords.reduce((sum, r) => sum + (r.paguTransfer || 0), 0);
+  const realTransfer = safeRecords.reduce((sum, r) => sum + (r.realTransfer || 0), 0);
 
   const breakdownJenisBelanja = [
     {
@@ -786,16 +795,16 @@ export function computeMyIntressSummary(records: MyIntressRecord[]): MyIntressSu
     }
   ];
 
-  const sorted = [...records].sort((a, b) => b.persenTotal - a.persenTotal);
+  const sorted = [...safeRecords].sort((a, b) => b.persenTotal - a.persenTotal);
   const topSatkers = sorted.slice(0, 10);
-  const bottomSatkers = [...records].filter(r => r.paguTotal > 0).sort((a, b) => a.persenTotal - b.persenTotal).slice(0, 10);
+  const bottomSatkers = [...safeRecords].filter(r => r.paguTotal > 0).sort((a, b) => a.persenTotal - b.persenTotal).slice(0, 10);
 
   return {
     totalPagu,
     totalRealisasi,
     totalSisa,
     persenRealisasiTotal,
-    totalSatkerCount: records.length,
+    totalSatkerCount: safeRecords.length,
     breakdownJenisBelanja,
     topSatkers,
     bottomSatkers
@@ -806,9 +815,12 @@ export function computeMyIntressSummary(records: MyIntressRecord[]): MyIntressSu
  * Reconcile SINTESA records with MY INTRESS records to pinpoint differences per Satker and per Jenis Belanja
  */
 export function reconcileSintesaAndMyIntress(
-  sintesaRecords: RealisasiBelanjaRecord[],
-  intressRecords: MyIntressRecord[]
+  sintesaRecords: RealisasiBelanjaRecord[] = [],
+  intressRecords: MyIntressRecord[] = []
 ): SatkerReconciliationDiff[] {
+  const safeSintesa = Array.isArray(sintesaRecords) ? sintesaRecords : [];
+  const safeIntress = Array.isArray(intressRecords) ? intressRecords : [];
+
   // Aggregate SINTESA data by Satker and by Jenis Belanja
   const sintesaMap = new Map<string, {
     namaSatker: string;
@@ -822,11 +834,12 @@ export function reconcileSintesaAndMyIntress(
     paguLain: number; realLain: number;
   }>();
 
-  for (const r of sintesaRecords) {
-    const k = r.satkerKode;
+  for (const r of safeSintesa) {
+    if (!r) continue;
+    const k = r.satkerKode || 'UNKNOWN';
     if (!sintesaMap.has(k)) {
       sintesaMap.set(k, {
-        namaSatker: r.satkerUraian,
+        namaSatker: r.satkerUraian || `Satker ${k}`,
         paguTotal: 0,
         realTotal: 0,
         pagu51: 0, real51: 0,
@@ -863,8 +876,10 @@ export function reconcileSintesaAndMyIntress(
 
   // Create Map for MY INTRESS
   const intressMap = new Map<string, MyIntressRecord>();
-  for (const r of intressRecords) {
-    intressMap.set(r.kodeSatker, r);
+  for (const r of safeIntress) {
+    if (r && r.kodeSatker) {
+      intressMap.set(r.kodeSatker, r);
+    }
   }
 
   // Collect all unique satker codes
@@ -880,11 +895,15 @@ export function reconcileSintesaAndMyIntress(
 
     const sintesaPaguTotal = s?.paguTotal || 0;
     const sintesaRealTotal = s?.realTotal || 0;
-    const sintesaPersenTotal = sintesaPaguTotal > 0 ? (sintesaRealTotal / sintesaPaguTotal) * 100 : 0;
+    const rawSintesaPersen = sintesaPaguTotal > 0 ? (sintesaRealTotal / sintesaPaguTotal) * 100 : 0;
+    const sintesaPersenTotal = Number.isFinite(rawSintesaPersen) ? rawSintesaPersen : 0;
 
     const intressPaguTotal = m?.paguTotal || 0;
     const intressRealTotal = m?.realTotal || 0;
-    const intressPersenTotal = m?.persenTotal || (intressPaguTotal > 0 ? (intressRealTotal / intressPaguTotal) * 100 : 0);
+    const rawIntressPersen = Number.isFinite(m?.persenTotal) && (m?.persenTotal ?? 0) > 0
+      ? (m?.persenTotal || 0)
+      : (intressPaguTotal > 0 ? (intressRealTotal / intressPaguTotal) * 100 : 0);
+    const intressPersenTotal = Number.isFinite(rawIntressPersen) ? rawIntressPersen : 0;
 
     const diffPaguTotal = sintesaPaguTotal - intressPaguTotal;
     const diffRealTotal = sintesaRealTotal - intressRealTotal;
