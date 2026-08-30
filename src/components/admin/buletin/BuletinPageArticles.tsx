@@ -248,7 +248,7 @@ export const BuletinPageArticles: React.FC<BuletinPageArticlesProps> = ({
               <div className="text-right shrink-0">
                 <div className="text-[10px] font-bold text-slate-400 uppercase">Nilai IKPA</div>
                 <div className="text-xl font-mono font-black text-emerald-700">
-                  {satker.nilai.toFixed(2)}
+                  {(Number.isFinite(satker.nilai) ? satker.nilai : 0).toFixed(2)}
                 </div>
               </div>
             </div>
