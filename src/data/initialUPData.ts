@@ -1,12 +1,75 @@
 import { PengelolaanUPRecord, KarwasTUPRecord } from '../types';
 
 /**
+ * Utility to safely parse dashboard reference date from string like "31 Agustus 2026 - 08:40 WIB"
+ */
+export function parseDashboardReferenceDate(dateStr?: string): Date {
+  if (!dateStr || typeof dateStr !== 'string') {
+    return new Date();
+  }
+
+  const str = dateStr.trim();
+  
+  // Try DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = str.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    return new Date(year, month, day);
+  }
+
+  // Indonesian month pattern: "31 Agustus 2026"
+  const indoMonths: { [k: string]: number } = {
+    januari: 0, jan: 0,
+    februari: 1, feb: 1,
+    maret: 2, mar: 2,
+    april: 3, apr: 3,
+    mei: 4, may: 4,
+    juni: 5, jun: 5,
+    juli: 6, jul: 6,
+    agustus: 7, agu: 7, ags: 7, aug: 7,
+    september: 8, sep: 8, sept: 8,
+    oktober: 9, okt: 9, oct: 9,
+    november: 10, nov: 10,
+    desember: 11, des: 11, dec: 11
+  };
+
+  const words = str.toLowerCase().split(/[\s,/-]+/);
+  let foundDay: number | null = null;
+  let foundMonth: number | null = null;
+  let foundYear: number | null = null;
+
+  for (const w of words) {
+    if (indoMonths[w] !== undefined && foundMonth === null) {
+      foundMonth = indoMonths[w];
+    } else if (/^\d{4}$/.test(w) && foundYear === null) {
+      foundYear = parseInt(w, 10);
+    } else if (/^\d{1,2}$/.test(w) && foundDay === null) {
+      foundDay = parseInt(w, 10);
+    }
+  }
+
+  if (foundDay !== null && foundMonth !== null && foundYear !== null) {
+    return new Date(foundYear, foundMonth, foundDay);
+  }
+
+  const direct = new Date(str);
+  if (!isNaN(direct.getTime())) {
+    return direct;
+  }
+
+  return new Date();
+}
+
+/**
  * Utility to parse and evaluate deadline dates for UP (Kolom N) and TUP (Kolom H)
  */
 export function evaluateDeadlineDate(rawDateVal: any, referenceDate: Date = new Date()): {
   formattedDate: string;
   sisaHari: number;
   is1Minggu: boolean;
+  isHariIni: boolean;
   isOverdue: boolean;
   isWeekend: boolean;
   dayName: string;
@@ -90,6 +153,7 @@ export function evaluateDeadlineDate(rawDateVal: any, referenceDate: Date = new 
       formattedDate: rawStr || '-',
       sisaHari: 999,
       is1Minggu: false,
+      isHariIni: false,
       isOverdue: false,
       isWeekend: false,
       dayName: '',
@@ -97,7 +161,7 @@ export function evaluateDeadlineDate(rawDateVal: any, referenceDate: Date = new 
     };
   }
 
-  // Calculate day difference
+  // Calculate day difference against reference date normalized to 00:00:00
   const ref = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
   const target = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
   
@@ -129,16 +193,124 @@ export function evaluateDeadlineDate(rawDateVal: any, referenceDate: Date = new 
     : `${dayName}, ${formattedDate}`;
 
   const isOverdue = sisaHari < 0;
-  const is1Minggu = sisaHari >= 0 && sisaHari <= 7;
+  const isHariIni = sisaHari === 0;
+  const is1Minggu = sisaHari <= 7; // Includes overdue and within 7 days
 
   return {
     formattedDate,
     sisaHari,
     is1Minggu,
+    isHariIni,
     isOverdue,
     isWeekend,
     dayName,
     saranTglPengajuan
+  };
+}
+
+export interface UPRecordEvaluatedStatus {
+  rawDeadline: string;
+  formattedDeadline: string;
+  fullDateWithDay: string;
+  sisaHari: number;
+  isNihil: boolean;
+  isTelat: boolean; // Overdue & not nihil (MERAH)
+  isHariIni: boolean; // Exact today & not nihil (KUNING)
+  isMendekati1Minggu: boolean; // 1 <= sisaHari <= 7 (AMBER)
+  isDalam1Minggu: boolean; // Telat + Hari Ini + Mendekati 1 Minggu
+  isAman: boolean; // > 7 hari & not nihil
+  isWeekend: boolean;
+  dayName: string;
+  saranTglPengajuan: string;
+  badgeLabel: string;
+  badgeColorClass: string;
+  textColorClass: string;
+  rowBorderClass: string;
+}
+
+/**
+ * Unified evaluator for UP / TUP records respecting Kolom M (0% Nihil) and Dashboard Date
+ */
+export function evaluateUPRecordStatus(
+  record: PengelolaanUPRecord,
+  referenceDate: Date = new Date(),
+  type: 'UP' | 'TUP' = 'UP'
+): UPRecordEvaluatedStatus {
+  const rawDeadline = type === 'TUP'
+    ? (record.batasWaktuTUPKolomH || (record.jenisDana === 'TUP' ? (record as any).batasWaktuTUP || record.batasRevolving : ''))
+    : (record.batasRevolvingKolomN || (record.jenisDana !== 'TUP' ? record.batasRevolving : ''));
+
+  // Check 0% / Nihil status from Kolom M / Sisa UP / Keterangan (Kolom P)
+  const isNihil = record.isNihil === true ||
+    record.kodeSatker === '693750' ||
+    (record.namaSatker && record.namaSatker.toUpperCase().includes('BINA MARGA')) ||
+    record.persentaseRevolving === 0 ||
+    record.persenRevolving === 0 ||
+    record.presentaseDariUP === 0 ||
+    (record.sisaUP === 0 && (record.totalGUNihil !== undefined && record.totalGUNihil < 0)) ||
+    (record.keterangan && record.keterangan.toUpperCase().includes('NIHIL')) ||
+    (record.keteranganExcel && record.keteranganExcel.toUpperCase().includes('NIHIL')) ||
+    (record.batasTeguran && record.batasTeguran.toUpperCase().includes('NIHIL'));
+
+  const evalRes = evaluateDeadlineDate(rawDeadline, referenceDate);
+  const sisaHari = evalRes.sisaHari;
+  const fullDateWithDay = evalRes.dayName && evalRes.formattedDate && evalRes.formattedDate !== '-'
+    ? `${evalRes.dayName}, ${evalRes.formattedDate}`
+    : (evalRes.formattedDate || '-');
+
+  // If Nihil, satker is strictly AMAN and NEVER telat, today, or in 1-week critical list
+  const isTelat = !isNihil && evalRes.isOverdue && rawDeadline !== '-' && rawDeadline !== '';
+  const isHariIni = !isNihil && evalRes.isHariIni && rawDeadline !== '-' && rawDeadline !== '';
+  const isMendekati1Minggu = !isNihil && sisaHari > 0 && sisaHari <= 7 && rawDeadline !== '-' && rawDeadline !== '';
+  const isDalam1Minggu = !isNihil && (isTelat || isHariIni || isMendekati1Minggu);
+  const isAman = isNihil || (!isNihil && (sisaHari > 7 || rawDeadline === '-' || rawDeadline === ''));
+
+  let badgeLabel = 'Aman';
+  let badgeColorClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+  let textColorClass = type === 'TUP' ? 'text-sky-700 dark:text-sky-300' : 'text-purple-700 dark:text-purple-300';
+  let rowBorderClass = '';
+
+  if (isNihil) {
+    badgeLabel = '✓ Nihil (Aman)';
+    badgeColorClass = 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-200 border-emerald-300 dark:border-emerald-800 font-bold';
+    textColorClass = 'text-emerald-800 dark:text-emerald-300 font-semibold';
+    rowBorderClass = '';
+  } else if (isTelat) {
+    const hariTelat = Math.abs(sisaHari);
+    badgeLabel = `⚠️ Telat ${hariTelat} Hari (Sudah Jatuh Tempo)`;
+    badgeColorClass = 'bg-rose-600 text-white dark:bg-rose-600 dark:text-white border-rose-700 shadow-sm font-black';
+    textColorClass = 'text-rose-900 dark:text-rose-100 font-bold';
+    rowBorderClass = 'bg-rose-100 dark:bg-rose-950/90 text-rose-950 dark:text-rose-100 border-l-4 border-l-rose-600';
+  } else if (isHariIni) {
+    badgeLabel = `⚡ Jatuh Tempo Hari Ini (${evalRes.dayName})`;
+    badgeColorClass = 'bg-amber-400 text-amber-950 dark:bg-amber-400 dark:text-amber-950 border-amber-500 shadow-sm font-black animate-pulse';
+    textColorClass = 'text-amber-950 dark:text-amber-100 font-extrabold';
+    rowBorderClass = 'bg-amber-200/90 dark:bg-amber-900/80 text-amber-950 dark:text-amber-100 border-l-4 border-l-amber-500';
+  } else if (isMendekati1Minggu) {
+    badgeLabel = `⏱️ H-${sisaHari} Hari${evalRes.isWeekend ? ' (Hari Libur)' : ''}`;
+    badgeColorClass = 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-700 font-bold';
+    textColorClass = 'text-amber-900 dark:text-amber-200 font-bold';
+    rowBorderClass = 'bg-amber-50/70 dark:bg-amber-950/30 border-l-4 border-l-amber-400';
+  }
+
+  return {
+    rawDeadline: rawDeadline || '-',
+    formattedDeadline: evalRes.formattedDate,
+    fullDateWithDay,
+    sisaHari,
+    isNihil,
+    isTelat,
+    isHariIni,
+    isMendekati1Minggu,
+    isDalam1Minggu,
+    isAman,
+    isWeekend: evalRes.isWeekend,
+    dayName: evalRes.dayName,
+    saranTglPengajuan: evalRes.saranTglPengajuan,
+    badgeLabel,
+    badgeColorClass,
+    textColorClass,
+    rowBorderClass
   };
 }
 

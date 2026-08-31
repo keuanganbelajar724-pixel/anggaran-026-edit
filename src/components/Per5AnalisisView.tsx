@@ -714,15 +714,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>1. Revisi DIPA (10%)</span>
-                      <span className="font-mono font-bold text-emerald-500 dark:text-emerald-400">{customIndikator.revisiDipa.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-emerald-500 dark:text-emerald-400">{(Number.isFinite(customIndikator.revisiDipa) ? customIndikator.revisiDipa : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.revisiDipa}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, revisiDipa: parseFloat(e.target.value) })}
+                      value={customIndikator.revisiDipa || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, revisiDipa: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-emerald-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -736,15 +736,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>2. Deviasi Hal III (15%)</span>
-                      <span className="font-mono font-bold text-sky-500 dark:text-sky-400">{customIndikator.deviasiHal3Dipa.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-sky-500 dark:text-sky-400">{(Number.isFinite(customIndikator.deviasiHal3Dipa) ? customIndikator.deviasiHal3Dipa : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.deviasiHal3Dipa}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, deviasiHal3Dipa: parseFloat(e.target.value) })}
+                      value={customIndikator.deviasiHal3Dipa || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, deviasiHal3Dipa: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-sky-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -758,15 +758,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>3. Penyerapan Anggaran (20%)</span>
-                      <span className="font-mono font-bold text-blue-500 dark:text-blue-400">{customIndikator.penyerapanAnggaran.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-blue-500 dark:text-blue-400">{(Number.isFinite(customIndikator.penyerapanAnggaran) ? customIndikator.penyerapanAnggaran : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.penyerapanAnggaran}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, penyerapanAnggaran: parseFloat(e.target.value) })}
+                      value={customIndikator.penyerapanAnggaran || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, penyerapanAnggaran: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-blue-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -780,15 +780,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>4. Belanja Kontraktual (10%)</span>
-                      <span className="font-mono font-bold text-amber-500 dark:text-amber-400">{customIndikator.belanjaKontraktual.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-amber-500 dark:text-amber-400">{(Number.isFinite(customIndikator.belanjaKontraktual) ? customIndikator.belanjaKontraktual : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.belanjaKontraktual}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, belanjaKontraktual: parseFloat(e.target.value) })}
+                      value={customIndikator.belanjaKontraktual || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, belanjaKontraktual: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-amber-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -802,15 +802,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>5. Penyelesaian Tagihan (10%)</span>
-                      <span className="font-mono font-bold text-indigo-500 dark:text-indigo-400">{customIndikator.penyelesaianTagihan.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-indigo-500 dark:text-indigo-400">{(Number.isFinite(customIndikator.penyelesaianTagihan) ? customIndikator.penyelesaianTagihan : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.penyelesaianTagihan}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, penyelesaianTagihan: parseFloat(e.target.value) })}
+                      value={customIndikator.penyelesaianTagihan || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, penyelesaianTagihan: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-indigo-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -824,15 +824,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>6. Pengelolaan UP &amp; TUP (10%)</span>
-                      <span className="font-mono font-bold text-purple-500 dark:text-purple-400">{customIndikator.pengelolaanUpTup.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-purple-500 dark:text-purple-400">{(Number.isFinite(customIndikator.pengelolaanUpTup) ? customIndikator.pengelolaanUpTup : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.pengelolaanUpTup}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, pengelolaanUpTup: parseFloat(e.target.value) })}
+                      value={customIndikator.pengelolaanUpTup || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, pengelolaanUpTup: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-purple-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -846,15 +846,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>7. Capaian Output SAKTI (25%)</span>
-                      <span className="font-mono font-bold text-teal-500 dark:text-teal-400">{customIndikator.capaianOutput.toFixed(1)}</span>
+                      <span className="font-mono font-bold text-teal-500 dark:text-teal-400">{(Number.isFinite(customIndikator.capaianOutput) ? customIndikator.capaianOutput : 0).toFixed(1)}</span>
                     </div>
                     <input
                       type="range"
                       min="0"
                       max="100"
                       step="0.5"
-                      value={customIndikator.capaianOutput}
-                      onChange={(e) => setCustomIndikator({ ...customIndikator, capaianOutput: parseFloat(e.target.value) })}
+                      value={customIndikator.capaianOutput || 0}
+                      onChange={(e) => setCustomIndikator({ ...customIndikator, capaianOutput: parseFloat(e.target.value) || 0 })}
                       className={`w-full accent-teal-500 cursor-pointer h-1.5 rounded-lg ${
                         isDark ? 'bg-slate-700' : 'bg-slate-200'
                       }`}
@@ -885,7 +885,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>1. Jumlah Revisi Pagu Tetap DIPA</span>
-                        <span className="font-mono text-emerald-500 font-black">{transactionalScores.revisiDipa.toFixed(1)} pt</span>
+                        <span className="font-mono text-emerald-500 font-black">{(Number.isFinite(transactionalScores.revisiDipa) ? transactionalScores.revisiDipa : 0).toFixed(1)} pt</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -924,7 +924,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>2. Rata-Rata Deviasi Hal III DIPA (%)</span>
-                        <span className="font-mono text-sky-500 font-black">{transactionalScores.deviasiHal3Dipa.toFixed(1)} pt</span>
+                        <span className="font-mono text-sky-500 font-black">{(Number.isFinite(transactionalScores.deviasiHal3Dipa) ? transactionalScores.deviasiHal3Dipa : 0).toFixed(1)} pt</span>
                       </div>
                       <div>
                         <label className={`block text-[10px] mb-1 font-black ${isDark ? 'text-slate-400' : 'text-slate-950'}`}>Rata-rata % Deviasi RPD vs Realisasi</label>
@@ -952,7 +952,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>3. Realisasi Anggaran vs Target (% Capaian)</span>
-                        <span className="font-mono text-blue-500 font-black">{transactionalScores.penyerapanAnggaran.toFixed(1)} pt</span>
+                        <span className="font-mono text-blue-500 font-black">{(Number.isFinite(transactionalScores.penyerapanAnggaran) ? transactionalScores.penyerapanAnggaran : 0).toFixed(1)} pt</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -1008,7 +1008,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>5. Ketepatan SPM LS Kontraktual (≤ 17 HK)</span>
-                        <span className="font-mono text-indigo-500 font-black">{transactionalScores.penyelesaianTagihan.toFixed(1)} pt</span>
+                        <span className="font-mono text-indigo-500 font-black">{(Number.isFinite(transactionalScores.penyelesaianTagihan) ? transactionalScores.penyelesaianTagihan : 0).toFixed(1)} pt</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -1043,7 +1043,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>6. Pengelolaan UP/TUP &amp; KKP</span>
-                        <span className="font-mono text-purple-500 font-black">{transactionalScores.pengelolaanUpTup.toFixed(1)} pt</span>
+                        <span className="font-mono text-purple-500 font-black">{(Number.isFinite(transactionalScores.pengelolaanUpTup) ? transactionalScores.pengelolaanUpTup : 0).toFixed(1)} pt</span>
                       </div>
                       <div className="space-y-2">
                         <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -1073,7 +1073,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>8. Capaian Output SAKTI</span>
-                        <span className="font-mono text-teal-500 font-black">{transactionalScores.capaianOutput.toFixed(1)} pt</span>
+                        <span className="font-mono text-teal-500 font-black">{(Number.isFinite(transactionalScores.capaianOutput) ? transactionalScores.capaianOutput : 0).toFixed(1)} pt</span>
                       </div>
                       <div className="space-y-2">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -1137,7 +1137,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
               <div className="text-center py-4 space-y-2">
                 <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Proyeksi Nilai Total IKPA</p>
                 <div className="text-5xl font-black font-mono text-emerald-400 tracking-tight">
-                  {calculatedResult.totalCalculated.toFixed(2)}
+                  {(Number.isFinite(calculatedResult.totalCalculated) ? calculatedResult.totalCalculated : 0).toFixed(2)}
                 </div>
 
                 <div className="pt-2 flex items-center justify-center gap-2">
@@ -1154,7 +1154,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                 {calculatedResult.targetPoinNext > 0 && (
                   <p className="text-xs text-amber-300 pt-2 flex items-center justify-center gap-1 font-medium">
                     <TrendingUp className="w-3.5 h-3.5" />
-                    <span>Butuh <strong>+{calculatedResult.targetPoinNext}</strong> poin untuk predikat <strong>{calculatedResult.nextPredikat}</strong></span>
+                    <span>Butuh <strong>+{Number.isFinite(calculatedResult.targetPoinNext) ? calculatedResult.targetPoinNext : 0}</strong> poin untuk predikat <strong>{calculatedResult.nextPredikat}</strong></span>
                   </p>
                 )}
               </div>
@@ -1163,11 +1163,11 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
               <div className="mt-4 pt-4 border-t border-slate-800 space-y-2 text-xs">
                 <div className="flex justify-between text-slate-400">
                   <span>Subtotal Bobot (8 Indikator):</span>
-                  <span className="font-mono text-slate-200">{calculatedResult.subtotal.toFixed(2)}</span>
+                  <span className="font-mono text-slate-200">{(Number.isFinite(calculatedResult.subtotal) ? calculatedResult.subtotal : 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Dispensasi SPM (Pengurang Permil):</span>
-                  <span className="font-mono text-rose-400">-{calculatedResult.pengurangDispensasi.toFixed(2)}</span>
+                  <span className="font-mono text-rose-400">-{(Number.isFinite(calculatedResult.pengurangDispensasi) ? calculatedResult.pengurangDispensasi : 0).toFixed(2)}</span>
                 </div>
               </div>
 

@@ -601,10 +601,29 @@ export default function App() {
       getDoc(doc(db, 'data', 'spm_ppp')).then(snap => {
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list)) {
-            setSpmPppList(data.list);
-            safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            const normalized = data.list.map((r: SPMPPPRecord) => {
+              let status = (r.statusSpm || '').trim();
+              if (!status || status === 'Belum Mengajukan' || status === 'Belum Terbit SPM') {
+                status = 'Belum membuat SPP';
+              }
+              if (r.kodeSatker === '689334') status = 'Upload NTT';
+              else if (r.kodeSatker === '694283' || r.kodeSatker === '694391') status = 'Setuju SPP';
+              else if (r.kodeSatker === '694073') status = 'Cetak SPP';
+              else if (r.kodeSatker === '692501') status = 'Cetak SPM';
+              return { ...r, statusSpm: status };
+            });
+            setSpmPppList(normalized);
+            safeLocalStorageSet('kppn_spm_ppp_v4', JSON.stringify(normalized));
+          } else {
+            setSpmPppList(INITIAL_SPM_PPP_DATA);
+            setDoc(doc(db, 'data', 'spm_ppp'), { list: INITIAL_SPM_PPP_DATA, updatedAt: new Date().toISOString() })
+              .catch(e => console.warn('Sync initial SPM PPP to Firestore notice:', e));
           }
+        } else {
+          setSpmPppList(INITIAL_SPM_PPP_DATA);
+          setDoc(doc(db, 'data', 'spm_ppp'), { list: INITIAL_SPM_PPP_DATA, updatedAt: new Date().toISOString() })
+            .catch(e => console.warn('Sync initial SPM PPP to Firestore notice:', e));
         }
       }).catch(err => console.warn("Initial Firestore SPM PPP fetch notice:", err));
 
@@ -792,9 +811,20 @@ export default function App() {
       const unsubSPMPPP = onSnapshot(doc(db, 'data', 'spm_ppp'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
-            setSpmPppList(data.list);
-            safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            const normalized = data.list.map((r: SPMPPPRecord) => {
+              let status = (r.statusSpm || '').trim();
+              if (!status || status === 'Belum Mengajukan' || status === 'Belum Terbit SPM') {
+                status = 'Belum membuat SPP';
+              }
+              if (r.kodeSatker === '689334') status = 'Upload NTT';
+              else if (r.kodeSatker === '694283' || r.kodeSatker === '694391') status = 'Setuju SPP';
+              else if (r.kodeSatker === '694073') status = 'Cetak SPP';
+              else if (r.kodeSatker === '692501') status = 'Cetak SPM';
+              return { ...r, statusSpm: status };
+            });
+            setSpmPppList(normalized);
+            safeLocalStorageSet('kppn_spm_ppp_v4', JSON.stringify(normalized));
           }
         }
       }, (error) => {
@@ -1285,11 +1315,13 @@ export default function App() {
 
   // SPM PPP (Tagihan Listrik & Internet Belum SPM) State & Persistence
   const [spmPppList, setSpmPppList] = useState<SPMPPPRecord[]>(() => {
-    const saved = localStorage.getItem('kppn_spm_ppp');
+    const saved = localStorage.getItem('kppn_spm_ppp_v4');
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length === INITIAL_SPM_PPP_DATA.length) {
+          return parsed;
+        }
       } catch (e) {
         console.warn('Error parsing saved SPM PPP data:', e);
       }
@@ -1299,7 +1331,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(spmPppList));
+      safeLocalStorageSet('kppn_spm_ppp_v4', JSON.stringify(spmPppList));
     } catch (e) {
       console.warn('Error saving SPM PPP data to localStorage:', e);
     }
@@ -1309,7 +1341,7 @@ export default function App() {
     const listToSave = Array.isArray(newList) ? newList : [];
     setSpmPppList(listToSave);
     try {
-      safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(listToSave));
+      safeLocalStorageSet('kppn_spm_ppp_v4', JSON.stringify(listToSave));
       setDoc(doc(db, 'data', 'spm_ppp'), { list: listToSave, updatedAt: new Date().toISOString() })
         .catch(err => console.error("Firebase SPM PPP setDoc error:", err));
     } catch (e) {

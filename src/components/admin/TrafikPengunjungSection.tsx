@@ -605,7 +605,7 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
 
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 {historySlice.length > 0 ? (
-                  <>Rata-rata: <strong>{Math.round(historySlice.reduce((a, b) => a + b.uniqueVisitors, 0) / historySlice.length)}</strong> Pengunjung / Hari</>
+                  <>Rata-rata: <strong>{Number.isFinite(Math.round(historySlice.reduce((a, b) => a + (b.uniqueVisitors || 0), 0) / (historySlice.length || 1))) ? Math.round(historySlice.reduce((a, b) => a + (b.uniqueVisitors || 0), 0) / (historySlice.length || 1)) : 0}</strong> Pengunjung / Hari</>
                 ) : (
                   <span>Belum ada data historis</span>
                 )}
@@ -764,7 +764,7 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
                   trafficData.deviceStats.browserList.slice(0, 3).map((b, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
                       <span className="font-semibold">{b.name}</span>
-                      <span className="font-bold text-indigo-500">{b.percentage}% ({b.count})</span>
+                      <span className="font-bold text-indigo-500">{Number.isFinite(b.percentage) ? b.percentage : 0}% ({b.count || 0})</span>
                     </div>
                   ))
                 )}
@@ -780,7 +780,7 @@ export const TrafikPengunjungSection: React.FC<TrafikPengunjungSectionProps> = (
                   trafficData.deviceStats.osList.slice(0, 3).map((os, i) => (
                     <div key={i} className="flex items-center justify-between text-xs">
                       <span className="font-semibold">{os.name}</span>
-                      <span className="font-bold text-emerald-500">{os.percentage}% ({os.count})</span>
+                      <span className="font-bold text-emerald-500">{Number.isFinite(os.percentage) ? os.percentage : 0}% ({os.count || 0})</span>
                     </div>
                   ))
                 )}

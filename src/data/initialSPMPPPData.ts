@@ -10,11 +10,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010017294",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 94688.0,
+    "nilaiTagihan": 94688,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-2-119436",
@@ -25,11 +25,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010167878",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 127134.0,
+    "nilaiTagihan": 127134,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-3-119436",
@@ -40,11 +40,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013283319",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 127134.0,
+    "nilaiTagihan": 127134,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-4-119436",
@@ -55,11 +55,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243512014",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-5-119436",
@@ -70,11 +70,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243518014",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-6-119436",
@@ -85,11 +85,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243518865",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-7-119436",
@@ -100,11 +100,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243522775",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 42957.0,
+    "nilaiTagihan": 42957,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-8-119436",
@@ -115,11 +115,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243540416",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-9-119436",
@@ -130,11 +130,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243542346",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 55356.0,
+    "nilaiTagihan": 55356,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-10-119436",
@@ -145,11 +145,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544055",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 66600.0,
+    "nilaiTagihan": 66600,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-11-119436",
@@ -160,11 +160,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544065",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-12-119436",
@@ -175,11 +175,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544137",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 46431.0,
+    "nilaiTagihan": 46431,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-13-119436",
@@ -190,11 +190,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545075",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 87357.0,
+    "nilaiTagihan": 87357,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-14-119436",
@@ -205,11 +205,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545327",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-15-119436",
@@ -220,11 +220,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243548672",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-16-119436",
@@ -235,11 +235,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243553233",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-17-119436",
@@ -250,11 +250,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243563365",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-18-119436",
@@ -265,11 +265,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243564583",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-19-119436",
@@ -280,11 +280,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243569942",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-20-119436",
@@ -295,11 +295,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248503968",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 42957.0,
+    "nilaiTagihan": 42957,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-21-119436",
@@ -310,11 +310,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486400894",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 55500.0,
+    "nilaiTagihan": 55500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-22-119436",
@@ -325,11 +325,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406100453",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 832500.0,
+    "nilaiTagihan": 832500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-23-119436",
@@ -340,11 +340,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406100708",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 388500.0,
+    "nilaiTagihan": 388500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-24-119436",
@@ -355,11 +355,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406110419",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 355200.0,
+    "nilaiTagihan": 355200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-25-119436",
@@ -370,11 +370,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406110901",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 574980.0,
+    "nilaiTagihan": 574980,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-26-119436",
@@ -385,11 +385,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143422109679",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 463980.0,
+    "nilaiTagihan": 463980,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-27-119436",
@@ -400,11 +400,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146406109894",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 432900.0,
+    "nilaiTagihan": 432900,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-28-119440",
@@ -415,11 +415,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523011409611",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36127392.0,
+    "nilaiTagihan": 36127392,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-29-119440",
@@ -430,11 +430,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248316302",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 27750.0,
+    "nilaiTagihan": 27750,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-30-119440",
@@ -445,11 +445,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248316482",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-31-119440",
@@ -460,11 +460,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248316493",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-32-119440",
@@ -475,11 +475,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248316902",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-33-119440",
@@ -490,11 +490,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248414439",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-34-119440",
@@ -505,11 +505,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248414787",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 45762.0,
+    "nilaiTagihan": 45762,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-35-119440",
@@ -520,11 +520,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248454987",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-36-119440",
@@ -535,11 +535,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141408103912",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1386390.0,
+    "nilaiTagihan": 1386390,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-37-119440",
@@ -550,11 +550,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141408116402",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1164390.0,
+    "nilaiTagihan": 1164390,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-38-409546",
@@ -565,11 +565,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010015975",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 26795952.0,
+    "nilaiTagihan": 26795952,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-39-409546",
@@ -580,11 +580,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544194",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-40-409546",
@@ -595,11 +595,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545464",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-41-409546",
@@ -610,11 +610,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243555065",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-42-409546",
@@ -625,11 +625,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243561168",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-43-409546",
@@ -640,11 +640,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243561169",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 44400.0,
+    "nilaiTagihan": 44400,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-44-409546",
@@ -655,11 +655,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243561170",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 146238.0,
+    "nilaiTagihan": 146238,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-45-409546",
@@ -670,11 +670,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406102880",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1164390.0,
+    "nilaiTagihan": 1164390,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-46-409546",
@@ -685,11 +685,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406110385",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 277500.0,
+    "nilaiTagihan": 277500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-47-409546",
@@ -700,11 +700,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142406103304",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 742590.0,
+    "nilaiTagihan": 742590,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-48-409552",
@@ -715,11 +715,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243510796",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 49161.0,
+    "nilaiTagihan": 49161,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-49-409552",
@@ -730,11 +730,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544152",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-50-409552",
@@ -745,11 +745,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544173",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-51-409552",
@@ -760,11 +760,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544729",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-52-409552",
@@ -775,11 +775,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544738",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-53-409552",
@@ -790,11 +790,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243548908",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 147333.0,
+    "nilaiTagihan": 147333,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-54-409552",
@@ -805,11 +805,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243561971",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 90687.0,
+    "nilaiTagihan": 90687,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-55-409552",
@@ -820,11 +820,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243584394",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 42957.0,
+    "nilaiTagihan": 42957,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-56-409552",
@@ -835,11 +835,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486569052",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-57-409552",
@@ -850,11 +850,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486570467",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22200.0,
+    "nilaiTagihan": 22200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-58-409552",
@@ -865,11 +865,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486570468",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 16650.0,
+    "nilaiTagihan": 16650,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-59-409552",
@@ -880,11 +880,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486570469",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22200.0,
+    "nilaiTagihan": 22200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-60-409552",
@@ -895,11 +895,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406114465",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 914640.0,
+    "nilaiTagihan": 914640,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-61-409552",
@@ -910,11 +910,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146406108490",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 660450.0,
+    "nilaiTagihan": 660450,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-62-409552",
@@ -925,11 +925,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146406108492",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1353090.0,
+    "nilaiTagihan": 1353090,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-63-410351",
@@ -940,11 +940,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010091720",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36980896.0,
+    "nilaiTagihan": 36980896,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-64-410351",
@@ -955,11 +955,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523020649939",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 277608.0,
+    "nilaiTagihan": 277608,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-65-410351",
@@ -970,11 +970,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243510510",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-66-410351",
@@ -985,11 +985,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545421",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 98823.0,
+    "nilaiTagihan": 98823,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-67-410351",
@@ -1000,11 +1000,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545422",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 34215.0,
+    "nilaiTagihan": 34215,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-68-410351",
@@ -1015,11 +1015,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545423",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-69-410351",
@@ -1030,11 +1030,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243560183",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-70-410351",
@@ -1045,11 +1045,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243561341",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-71-410351",
@@ -1060,11 +1060,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243585419",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-72-410351",
@@ -1075,11 +1075,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406110357",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 277500.0,
+    "nilaiTagihan": 277500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-73-410351",
@@ -1090,11 +1090,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143406115361",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 964590.0,
+    "nilaiTagihan": 964590,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-74-410351",
@@ -1105,11 +1105,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143406118987",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1386390.0,
+    "nilaiTagihan": 1386390,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-75-411620",
@@ -1120,11 +1120,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013266048",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2333455.0,
+    "nilaiTagihan": 2333455,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-76-411620",
@@ -1135,11 +1135,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476631967",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 54224.0,
+    "nilaiTagihan": 54224,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-77-411620",
@@ -1150,11 +1150,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476631968",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 67988.0,
+    "nilaiTagihan": 67988,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-78-411620",
@@ -1165,11 +1165,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141420111653",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 549450.0,
+    "nilaiTagihan": 549450,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-79-417044",
@@ -1180,11 +1180,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010227299",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1351126.0,
+    "nilaiTagihan": 1351126,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-80-417044",
@@ -1195,11 +1195,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013438992",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2425229.0,
+    "nilaiTagihan": 2425229,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-81-417044",
@@ -1210,11 +1210,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013492728",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 45120519.0,
+    "nilaiTagihan": 45120519,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-82-417044",
@@ -1225,11 +1225,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523020013773",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1271336.0,
+    "nilaiTagihan": 1271336,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-83-417044",
@@ -1240,11 +1240,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476442013",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-84-417044",
@@ -1255,11 +1255,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476442525",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 82393.0,
+    "nilaiTagihan": 82393,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-85-449812",
@@ -1270,11 +1270,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010009577",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 39235339.0,
+    "nilaiTagihan": 39235339,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-86-449812",
@@ -1285,11 +1285,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010219245",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 54548.0,
+    "nilaiTagihan": 54548,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-87-449812",
@@ -1300,11 +1300,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243552562",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-88-449812",
@@ -1315,11 +1315,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243552563",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 51929.0,
+    "nilaiTagihan": 51929,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-89-449812",
@@ -1330,11 +1330,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243552564",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-90-449812",
@@ -1345,11 +1345,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486041608",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 66600.0,
+    "nilaiTagihan": 66600,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-91-449812",
@@ -1360,11 +1360,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486405896",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 33300.0,
+    "nilaiTagihan": 33300,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-92-449812",
@@ -1375,11 +1375,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02486569058",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 27750.0,
+    "nilaiTagihan": 27750,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-93-449812",
@@ -1390,11 +1390,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141406110176",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 277500.0,
+    "nilaiTagihan": 277500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-94-449812",
@@ -1405,11 +1405,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142406119665",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 487290.0,
+    "nilaiTagihan": 487290,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-95-449812",
@@ -1420,11 +1420,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143406109861",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 574980.0,
+    "nilaiTagihan": 574980,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-96-449812",
@@ -1435,11 +1435,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146406100237",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 251970.0,
+    "nilaiTagihan": 251970,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-97-449812",
@@ -1450,11 +1450,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146406109527",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1885890.0,
+    "nilaiTagihan": 1885890,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-98-451547",
@@ -1465,11 +1465,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248413762",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48507.0,
+    "nilaiTagihan": 48507,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-99-451547",
@@ -1480,11 +1480,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248419664",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-100-488119",
@@ -1495,11 +1495,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02718591399",
     "bulan": 7,
     "tahun": 2026,
-    "nilaiTagihan": 44400.0,
+    "nilaiTagihan": 44400,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-101-488119",
@@ -1510,11 +1510,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02718591399",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 44400.0,
+    "nilaiTagihan": 44400,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-102-524931",
@@ -1525,11 +1525,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523510011486",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22802057.0,
+    "nilaiTagihan": 22802057,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-103-524931",
@@ -1540,11 +1540,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523510027231",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-104-524931",
@@ -1555,11 +1555,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523530132056",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 3351473.0,
+    "nilaiTagihan": 3351473,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-105-524931",
@@ -1570,11 +1570,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523530132072",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 678112.0,
+    "nilaiTagihan": 678112,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-106-524931",
@@ -1585,11 +1585,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0246921456",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 42957.0,
+    "nilaiTagihan": 42957,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-107-524931",
@@ -1600,11 +1600,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0246922355",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22200.0,
+    "nilaiTagihan": 22200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-108-524931",
@@ -1615,11 +1615,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312774",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 33300.0,
+    "nilaiTagihan": 33300,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-109-524931",
@@ -1630,11 +1630,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312801",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 109557.0,
+    "nilaiTagihan": 109557,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-110-524931",
@@ -1645,11 +1645,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312802",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-111-524931",
@@ -1660,11 +1660,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312803",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-112-524931",
@@ -1675,11 +1675,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312804",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-113-524931",
@@ -1690,11 +1690,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312805",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 62525.0,
+    "nilaiTagihan": 62525,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-114-524931",
@@ -1705,11 +1705,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0298312806",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-115-524931",
@@ -1720,11 +1720,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141434100059",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1115550.0,
+    "nilaiTagihan": 1115550,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-116-524931",
@@ -1735,11 +1735,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142425105129",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 505050.0,
+    "nilaiTagihan": 505050,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-117-524931",
@@ -1750,11 +1750,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142434100542",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1004550.0,
+    "nilaiTagihan": 1004550,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-118-524931",
@@ -1765,11 +1765,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142434100914",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1164390.0,
+    "nilaiTagihan": 1164390,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-119-524931",
@@ -1780,11 +1780,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143434102372",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 277500.0,
+    "nilaiTagihan": 277500,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-120-524931",
@@ -1795,11 +1795,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146434101088",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 355200.0,
+    "nilaiTagihan": 355200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-121-527268",
@@ -1810,11 +1810,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010221366",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 127134.0,
+    "nilaiTagihan": 127134,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-122-527268",
@@ -1825,11 +1825,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010222679",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1839316.0,
+    "nilaiTagihan": 1839316,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-123-527268",
@@ -1840,11 +1840,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010504878",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 237934.0,
+    "nilaiTagihan": 237934,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-124-527268",
@@ -1855,11 +1855,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523020736001",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-125-527268",
@@ -1870,11 +1870,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040181264",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-126-527268",
@@ -1885,11 +1885,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243540815",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-127-527268",
@@ -1900,11 +1900,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243544255",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-128-527268",
@@ -1915,11 +1915,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243545877",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-129-527268",
@@ -1930,11 +1930,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243547980",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-130-527268",
@@ -1945,11 +1945,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243553119",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-131-527268",
@@ -1960,11 +1960,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243555852",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-132-527268",
@@ -1975,11 +1975,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243556642",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-133-527268",
@@ -1990,11 +1990,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243581078",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-134-527272",
@@ -2005,11 +2005,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523011866598",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 50876496.0,
+    "nilaiTagihan": 50876496,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-135-527272",
@@ -2020,11 +2020,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248312987",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-136-527272",
@@ -2035,11 +2035,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248411086",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-137-527272",
@@ -2050,11 +2050,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248411089",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 56721.0,
+    "nilaiTagihan": 56721,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-138-527272",
@@ -2065,11 +2065,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248412018",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-139-527272",
@@ -2080,11 +2080,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248412019",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-140-560965",
@@ -2095,11 +2095,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040206677",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 26854416.0,
+    "nilaiTagihan": 26854416,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-141-560965",
@@ -2110,11 +2110,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247462365",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 34713.0,
+    "nilaiTagihan": 34713,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-142-560965",
@@ -2125,11 +2125,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247462383",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-143-560965",
@@ -2140,11 +2140,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247462404",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48668.0,
+    "nilaiTagihan": 48668,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-144-560965",
@@ -2155,11 +2155,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247465608",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 99203.0,
+    "nilaiTagihan": 99203,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-145-560965",
@@ -2170,11 +2170,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247471983",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-146-560965",
@@ -2185,11 +2185,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247472797",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 45577.0,
+    "nilaiTagihan": 45577,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-147-560965",
@@ -2200,11 +2200,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247474345",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-148-560965",
@@ -2215,11 +2215,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247474352",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-149-560965",
@@ -2230,11 +2230,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247475106",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-150-560965",
@@ -2245,11 +2245,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247478211",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-151-560965",
@@ -2260,11 +2260,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247479343",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-152-560965",
@@ -2275,11 +2275,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476401606",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22200.0,
+    "nilaiTagihan": 22200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-153-560965",
@@ -2290,11 +2290,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476481774",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 61050.0,
+    "nilaiTagihan": 61050,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-154-560965",
@@ -2305,11 +2305,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0248311744",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-155-560965",
@@ -2320,11 +2320,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141423101153",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 954600.0,
+    "nilaiTagihan": 954600,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-156-560965",
@@ -2335,11 +2335,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "146423109631",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1048950.0,
+    "nilaiTagihan": 1048950,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-157-635780",
@@ -2350,11 +2350,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243520211",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-158-635780",
@@ -2365,11 +2365,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243521100",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-159-635780",
@@ -2380,11 +2380,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243564005",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 33245.0,
+    "nilaiTagihan": 33245,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-160-635780",
@@ -2395,11 +2395,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243584536",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 57805.0,
+    "nilaiTagihan": 57805,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-161-635780",
@@ -2410,11 +2410,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142406115791",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 382950.0,
+    "nilaiTagihan": 382950,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-162-635780",
@@ -2425,11 +2425,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "142406118412",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1663890.0,
+    "nilaiTagihan": 1663890,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-163-663562",
@@ -2440,11 +2440,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0247613331",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 103429.0,
+    "nilaiTagihan": 103429,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-164-663562",
@@ -2455,11 +2455,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476430536",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22200.0,
+    "nilaiTagihan": 22200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-165-663562",
@@ -2470,11 +2470,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141421102311",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1459650.0,
+    "nilaiTagihan": 1459650,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-166-675524",
@@ -2485,11 +2485,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523020892697",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 123339548.0,
+    "nilaiTagihan": 123339548,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-167-675524",
@@ -2500,11 +2500,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476430205",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 59019.0,
+    "nilaiTagihan": 59019,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-168-675524",
@@ -2515,11 +2515,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476430207",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-169-675524",
@@ -2530,11 +2530,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476430765",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-170-689334",
@@ -2545,7 +2545,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "521082214348",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 106541575.0,
+    "nilaiTagihan": 106541575,
     "noSpp": "06081T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2560,7 +2560,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010196608",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 96389161.0,
+    "nilaiTagihan": 96389161,
     "noSpp": "06081T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2575,7 +2575,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523011424124",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 78186473.0,
+    "nilaiTagihan": 78186473,
     "noSpp": "06081T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2590,7 +2590,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "535510598857",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 123826469.0,
+    "nilaiTagihan": 123826469,
     "noSpp": "06081T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2605,7 +2605,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "535512465225",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 7148026.0,
+    "nilaiTagihan": 7148026,
     "noSpp": "06081T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2620,7 +2620,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224230129",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2635,7 +2635,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224230132",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2650,7 +2650,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224230161",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2665,7 +2665,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224230194",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2680,7 +2680,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224230195",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2695,7 +2695,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224241407",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2710,7 +2710,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224241415",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2725,7 +2725,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224241418",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2740,7 +2740,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0224241467",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 36186.0,
+    "nilaiTagihan": 36186,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2755,7 +2755,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243510835",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2770,7 +2770,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243514782",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 37407.0,
+    "nilaiTagihan": 37407,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2785,7 +2785,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243515482",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2800,7 +2800,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243515989",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2815,7 +2815,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243542161",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 53391.0,
+    "nilaiTagihan": 53391,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2830,7 +2830,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0243567922",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 35187.0,
+    "nilaiTagihan": 35187,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2845,7 +2845,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0274512304",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2860,7 +2860,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0274512305",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2875,7 +2875,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0274562375",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2890,7 +2890,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0274563732",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "06082T/409294/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -2905,11 +2905,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010299980",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 6000843.0,
+    "nilaiTagihan": 6000843,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-195-691295",
@@ -2920,11 +2920,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523011984686",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 4134956.0,
+    "nilaiTagihan": 4134956,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-196-691295",
@@ -2935,11 +2935,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "141408115528",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1663890.0,
+    "nilaiTagihan": 1663890,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-197-691295",
@@ -2950,11 +2950,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143422115408",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1663890.0,
+    "nilaiTagihan": 1663890,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-198-691295",
@@ -2965,11 +2965,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143422115856",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1354200.0,
+    "nilaiTagihan": 1354200,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-199-691295",
@@ -2980,11 +2980,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143422116071",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1673890.0,
+    "nilaiTagihan": 1673890,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-200-691400",
@@ -2995,11 +2995,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523531569184",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 21066197.0,
+    "nilaiTagihan": 21066197,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-201-692501",
@@ -3010,7 +3010,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523024828783",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 6017839.0,
+    "nilaiTagihan": 6017839,
     "noSpp": "00154T/692501/2026",
     "noSpm": "00154A/692501/2026",
     "noSp2d": "",
@@ -3025,7 +3025,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143420117920",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 742590.0,
+    "nilaiTagihan": 742590,
     "noSpp": "00153T/692501/2026",
     "noSpm": "00153A/692501/2026",
     "noSp2d": "",
@@ -3040,11 +3040,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040180382",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 41849030.0,
+    "nilaiTagihan": 41849030,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-204-693235",
@@ -3055,11 +3055,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040433163",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 45430279.0,
+    "nilaiTagihan": 45430279,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-205-693235",
@@ -3070,11 +3070,11 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040631712",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31017585.0,
+    "nilaiTagihan": 31017585,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-206-693235",
@@ -3085,26 +3085,26 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040997493",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22819052.0,
+    "nilaiTagihan": 22819052,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-207-694011",
     "kodeSatker": "694011",
-    "namaSatker": "BALAI PENATAAN BANGUNAN, PRASARANA DAN KAWASAN JAWA TENGAH",
+    "namaSatker": "\"BALAI PENATAAN BANGUNAN, PRASARANA DAN KAWASAN JAWA TENGAH\"",
     "periodeTagihan": "202608",
     "jenisLayanan": "TELKOM",
     "noPelanggan": "143422110786",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 405688.0,
+    "nilaiTagihan": 405688,
     "noSpp": "",
     "noSpm": "",
     "noSp2d": "",
-    "statusSpm": "Belum Mengajukan"
+    "statusSpm": "Belum membuat SPP"
   },
   {
     "id": "spm-ppp-208-694073",
@@ -3115,7 +3115,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523520926990",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 471288.0,
+    "nilaiTagihan": 471288,
     "noSpp": "02989T/694073/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3130,7 +3130,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "525520417662",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 3062764.0,
+    "nilaiTagihan": 3062764,
     "noSpp": "02992T/694073/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3145,7 +3145,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520010468805",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1121690.0,
+    "nilaiTagihan": 1121690,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3160,7 +3160,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520010482236",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 189376.0,
+    "nilaiTagihan": 189376,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3175,7 +3175,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520011661705",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 199369.0,
+    "nilaiTagihan": 199369,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3190,7 +3190,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520011661713",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 335170.0,
+    "nilaiTagihan": 335170,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3205,7 +3205,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520013050476",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 4767510.0,
+    "nilaiTagihan": 4767510,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3220,7 +3220,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520020738999",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 189376.0,
+    "nilaiTagihan": 189376,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3235,7 +3235,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520040380136",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 167856.0,
+    "nilaiTagihan": 167856,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3250,7 +3250,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520040536234",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 343244.0,
+    "nilaiTagihan": 343244,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3265,7 +3265,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520040536242",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 56460.0,
+    "nilaiTagihan": 56460,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3280,7 +3280,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520040850074",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 38340.0,
+    "nilaiTagihan": 38340,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3295,7 +3295,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520071498669",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 597180.0,
+    "nilaiTagihan": 597180,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3310,7 +3310,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520080695440",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 139256.0,
+    "nilaiTagihan": 139256,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3325,7 +3325,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "520591073077",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 237934.0,
+    "nilaiTagihan": 237934,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3340,7 +3340,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522510074958",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 127134.0,
+    "nilaiTagihan": 127134,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3355,7 +3355,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522531105357",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 310960.0,
+    "nilaiTagihan": 310960,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3370,7 +3370,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522540538517",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 4950.0,
+    "nilaiTagihan": 4950,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3385,7 +3385,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522540553076",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 63390.0,
+    "nilaiTagihan": 63390,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3400,7 +3400,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522560038107",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 16140.0,
+    "nilaiTagihan": 16140,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3415,7 +3415,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522560589966",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 258240.0,
+    "nilaiTagihan": 258240,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3430,7 +3430,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522570904976",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 106808.0,
+    "nilaiTagihan": 106808,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3445,7 +3445,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "522590406498",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 411208.0,
+    "nilaiTagihan": 411208,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3460,7 +3460,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010214506",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2686345.0,
+    "nilaiTagihan": 2686345,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3475,7 +3475,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010229011",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2114215.0,
+    "nilaiTagihan": 2114215,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3490,7 +3490,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523010877969",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2946985.0,
+    "nilaiTagihan": 2946985,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3505,7 +3505,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013288041",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1271336.0,
+    "nilaiTagihan": 1271336,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3520,7 +3520,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013288058",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 9516314.0,
+    "nilaiTagihan": 9516314,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3535,7 +3535,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013308801",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 542150.0,
+    "nilaiTagihan": 542150,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3550,7 +3550,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013441571",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 9000.0,
+    "nilaiTagihan": 9000,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3565,7 +3565,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523013602365",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 299117.0,
+    "nilaiTagihan": 299117,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3580,7 +3580,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523024544315",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 803878.0,
+    "nilaiTagihan": 803878,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3595,7 +3595,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523024585076",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 431476.0,
+    "nilaiTagihan": 431476,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3610,7 +3610,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030259556",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2243380.0,
+    "nilaiTagihan": 2243380,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3625,7 +3625,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030259564",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 6691905.0,
+    "nilaiTagihan": 6691905,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3640,7 +3640,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030259572",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 21142126.0,
+    "nilaiTagihan": 21142126,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3655,7 +3655,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030259580",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 20411498.0,
+    "nilaiTagihan": 20411498,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3670,7 +3670,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030259627",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1271336.0,
+    "nilaiTagihan": 1271336,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3685,7 +3685,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523030508594",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1495586.0,
+    "nilaiTagihan": 1495586,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3700,7 +3700,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523031057498",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 116112.0,
+    "nilaiTagihan": 116112,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3715,7 +3715,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523031427230",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 39849702.0,
+    "nilaiTagihan": 39849702,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3730,7 +3730,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523031623352",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 8531953.0,
+    "nilaiTagihan": 8531953,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3745,7 +3745,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523032671428",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 10476860.0,
+    "nilaiTagihan": 10476860,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3760,7 +3760,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040144138",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 3275776.0,
+    "nilaiTagihan": 3275776,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3775,7 +3775,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040150393",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 94688.0,
+    "nilaiTagihan": 94688,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3790,7 +3790,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523060339969",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 94740.0,
+    "nilaiTagihan": 94740,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3805,7 +3805,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523060507798",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 781505.0,
+    "nilaiTagihan": 781505,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3820,7 +3820,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523060531734",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 397026.0,
+    "nilaiTagihan": 397026,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3835,7 +3835,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070088626",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3850,7 +3850,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070088634",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3865,7 +3865,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070094721",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 22140.0,
+    "nilaiTagihan": 22140,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3880,7 +3880,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070114161",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 150640.0,
+    "nilaiTagihan": 150640,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3895,7 +3895,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070152346",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1121690.0,
+    "nilaiTagihan": 1121690,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3910,7 +3910,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070256128",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 54548.0,
+    "nilaiTagihan": 54548,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3925,7 +3925,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523070569629",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 2376000.0,
+    "nilaiTagihan": 2376000,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3940,7 +3940,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523071474418",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 1001023.0,
+    "nilaiTagihan": 1001023,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3955,7 +3955,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523071619046",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 452996.0,
+    "nilaiTagihan": 452996,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3970,7 +3970,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523071950915",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 239304.0,
+    "nilaiTagihan": 239304,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -3985,7 +3985,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523072298829",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 150640.0,
+    "nilaiTagihan": 150640,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4000,7 +4000,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523080288388",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 189540.0,
+    "nilaiTagihan": 189540,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4015,7 +4015,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "524030999747",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 25140.0,
+    "nilaiTagihan": 25140,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4030,7 +4030,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "524520811455",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 136740.0,
+    "nilaiTagihan": 136740,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4045,7 +4045,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "524531336922",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 48672.0,
+    "nilaiTagihan": 48672,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4060,7 +4060,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "524540797474",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 28740.0,
+    "nilaiTagihan": 28740,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4075,7 +4075,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "525520126233",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 206856.0,
+    "nilaiTagihan": 206856,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4090,7 +4090,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "525520128295",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 135200.0,
+    "nilaiTagihan": 135200,
     "noSpp": "01356T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4105,7 +4105,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "0246723212",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 31857.0,
+    "nilaiTagihan": 31857,
     "noSpp": "01355T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4120,7 +4120,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "143422110770",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 410700.0,
+    "nilaiTagihan": 410700,
     "noSpp": "01355T/694283/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4135,7 +4135,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "523040144120",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 12161640.0,
+    "nilaiTagihan": 12161640,
     "noSpp": "00193T/694391/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4150,7 +4150,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476404325",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 57124.0,
+    "nilaiTagihan": 57124,
     "noSpp": "00194T/694391/2026",
     "noSpm": "",
     "noSp2d": "",
@@ -4165,7 +4165,7 @@ export const INITIAL_SPM_PPP_DATA: SPMPPPRecord[] = [
     "noPelanggan": "02476407443",
     "bulan": 8,
     "tahun": 2026,
-    "nilaiTagihan": 64921.0,
+    "nilaiTagihan": 64921,
     "noSpp": "00194T/694391/2026",
     "noSpm": "",
     "noSp2d": "",

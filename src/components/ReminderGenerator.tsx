@@ -642,7 +642,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                 >
                   {satkers.map((s) => (
                     <option key={s.id} value={s.id}>
-                      [{s.kodeSatker}] {s.namaSatker} (IKPA: {s.nilaiTotalIKPA})
+                      [{s.kodeSatker}] {s.namaSatker} (IKPA: {Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0})
                     </option>
                   ))}
                 </select>
@@ -732,7 +732,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                             </div>
 
                             <span className="text-[10px] shrink-0 font-mono text-rose-600 dark:text-rose-400">
-                              IKPA: {s.nilaiTotalIKPA}
+                              IKPA: {Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0}
                             </span>
                           </label>
                         );
@@ -956,17 +956,17 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                     <div className="flex items-center justify-between text-xs font-bold">
                       <span className="text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
                         <Clock className="w-4 h-4 text-amber-500 animate-spin" />
-                        Progres Broadcast: {broadcastIndex + 1} dari {selectedBulkSatkers.length} Pesan
+                        Progres Broadcast: {broadcastIndex + 1} dari {selectedBulkSatkers.length || 1} Pesan
                       </span>
                       <span className="font-mono text-amber-600 dark:text-amber-400 font-black">
-                        {Math.round(((broadcastIndex) / selectedBulkSatkers.length) * 100)}%
+                        {selectedBulkSatkers.length > 0 ? Math.round(((broadcastIndex) / selectedBulkSatkers.length) * 100) : 0}%
                       </span>
                     </div>
 
                     <div className="w-full bg-slate-200 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                       <div 
                         className="bg-amber-500 h-full transition-all duration-500"
-                        style={{ width: `${((broadcastIndex) / selectedBulkSatkers.length) * 100}%` }}
+                        style={{ width: `${selectedBulkSatkers.length > 0 ? Math.min(100, Math.max(0, ((broadcastIndex) / selectedBulkSatkers.length) * 100)) : 0}%` }}
                       ></div>
                     </div>
 
@@ -1016,7 +1016,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
                             </div>
 
                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                              PIC: <strong>{satker.namaPic || 'Bendahara'}</strong> ({satker.noHpPic || 'Tanpa No HP'}) • Nilai IKPA: <span className="font-bold text-rose-600">{satker.nilaiTotalIKPA}</span> ({satker.predikat})
+                              PIC: <strong>{satker.namaPic || 'Bendahara'}</strong> ({satker.noHpPic || 'Tanpa No HP'}) • Nilai IKPA: <span className="font-bold text-rose-600">{Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA : 0}</span> ({satker.predikat})
                             </p>
                           </div>
 

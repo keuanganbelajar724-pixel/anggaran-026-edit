@@ -17,7 +17,7 @@ function cleanText(val: any): string {
 // Helper to parse currency or formatted number from Excel / CSV
 export function parseNum(val: any): number {
   if (val === null || val === undefined || val === '') return 0;
-  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  if (typeof val === 'number') return isNaN(val) || !Number.isFinite(val) ? 0 : val;
   
   let str = String(val).trim().replace(/Rp|\$|%|\s/gi, '');
   if (!str) return 0;
@@ -44,7 +44,7 @@ export function parseNum(val: any): number {
     } else {
       // Single comma: "960,788" vs "74,07"
       const parts = str.split(',');
-      if (parts[1] && parts[1].length === 3 && parts[0].length >= 1) {
+      if (parts[1] && parts[1].length === 3 && parts[0].length >= 1 && parseInt(parts[0], 10) > 0) {
         // Thousand separator: "960,788" -> "960788"
         str = str.replace(/,/g, '');
       } else {
@@ -68,7 +68,7 @@ export function parseNum(val: any): number {
   }
 
   const n = parseFloat(str);
-  return isNaN(n) ? 0 : n;
+  return isNaN(n) || !Number.isFinite(n) ? 0 : n;
 }
 
 // Get jenis belanja name from 2-digit account prefix
@@ -429,7 +429,7 @@ export function computeRealisasiBelanjaSummary(records: RealisasiBelanjaRecord[]
  * Format currency to Indonesian Rupiah (Miliar / Triliun / Full)
  */
 export function formatRupiahShort(amount: number): string {
-  if (!amount || isNaN(amount)) return 'Rp 0';
+  if (!amount || isNaN(amount) || !Number.isFinite(amount)) return 'Rp 0';
   const abs = Math.abs(amount);
   if (abs >= 1_000_000_000_000) {
     return `Rp ${(amount / 1_000_000_000_000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} T`;
@@ -440,11 +440,14 @@ export function formatRupiahShort(amount: number): string {
   if (abs >= 1_000_000) {
     return `Rp ${(amount / 1_000_000).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Jt`;
   }
-  return `Rp ${amount.toLocaleString('id-ID')}`;
+  if (abs >= 1_000) {
+    return `Rp ${(amount / 1_000).toLocaleString('id-ID', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} Rb`;
+  }
+  return `Rp ${Math.round(amount).toLocaleString('id-ID')}`;
 }
 
 export function formatRupiahFull(amount: number): string {
-  if (!amount || isNaN(amount)) return 'Rp 0';
+  if (!amount || isNaN(amount) || !Number.isFinite(amount)) return 'Rp 0';
   return `Rp ${Math.round(amount).toLocaleString('id-ID')}`;
 }
 
@@ -728,49 +731,75 @@ export async function processMyIntressExcel(file: File): Promise<{
           }
         }
 
-        // Check if the dataset was exported in "Dalam Ribuan Rupiah" (standard OM-SPAN / My InTress export)
-        let isRibuan = false;
+        // Determine unit multiplier and scale amounts to actual full Rupiah
+        // Check file header text for explicit units
         const fileContentStr = rows.slice(0, 15).map(r => r.join(' ')).join(' ').toLowerCase();
-        if (fileContentStr.includes('ribuan') || fileContentStr.includes('dalam ribuan')) {
-          isRibuan = true;
+        let multiplier = 1;
+
+        if (fileContentStr.includes('dalam triliun') || fileContentStr.includes('triliun rupiah')) {
+          multiplier = 1_000_000_000_000;
+        } else if (fileContentStr.includes('dalam miliar') || fileContentStr.includes('miliar rupiah')) {
+          multiplier = 1_000_000_000;
+        } else if (fileContentStr.includes('dalam juta') || fileContentStr.includes('juta rupiah')) {
+          multiplier = 1_000_000;
+        } else if (fileContentStr.includes('dalam ribuan') || fileContentStr.includes('ribuan rupiah') || fileContentStr.includes('ribuan')) {
+          multiplier = 1_000;
+        } else if (fileContentStr.includes('dalam rupiah') || fileContentStr.includes('rupiah penuh')) {
+          multiplier = 1;
         } else {
-          // Auto-detect: if raw total pagu is < 100 Miliar (e.g. 11.069.611 representing 11,07 Triliun in thousands)
+          // Auto-detection based on total raw pagu across all satkers:
+          // In KPPN Semarang I datasets, total pagu is approximately 20-30 Triliun Rupiah.
           const rawTotalPagu = records.reduce((sum, r) => sum + (r.paguTotal || 0), 0);
-          if (rawTotalPagu > 0 && rawTotalPagu < 100_000_000_000) {
-            isRibuan = true;
+          if (rawTotalPagu > 0) {
+            if (rawTotalPagu < 1_000) {
+              // e.g. 24.87 (unit is in Triliun)
+              multiplier = 1_000_000_000_000;
+            } else if (rawTotalPagu < 1_000_000) {
+              // e.g. 24,878.68 or 11,069.61 (unit is in Miliar)
+              multiplier = 1_000_000_000;
+            } else if (rawTotalPagu < 1_000_000_000) {
+              // e.g. 24,878,687.72 (unit is in Juta)
+              multiplier = 1_000_000;
+            } else if (rawTotalPagu < 1_000_000_000_000) {
+              // e.g. 24,878,687,727 (unit is in Ribuan Rupiah)
+              multiplier = 1_000;
+            } else {
+              // >= 1 Triliun: already in full Rupiah
+              multiplier = 1;
+            }
           }
         }
 
-        if (isRibuan) {
+        if (multiplier !== 1) {
           for (const r of records) {
-            r.paguPegawai *= 1000;
-            r.paguBarang *= 1000;
-            r.paguModal *= 1000;
-            r.paguBebanBunga *= 1000;
-            r.paguSubsidi *= 1000;
-            r.paguHibah *= 1000;
-            r.paguBansos *= 1000;
-            r.paguLain *= 1000;
-            r.paguTransfer *= 1000;
-            r.paguTotal *= 1000;
+            r.paguPegawai = (r.paguPegawai || 0) * multiplier;
+            r.paguBarang = (r.paguBarang || 0) * multiplier;
+            r.paguModal = (r.paguModal || 0) * multiplier;
+            r.paguBebanBunga = (r.paguBebanBunga || 0) * multiplier;
+            r.paguSubsidi = (r.paguSubsidi || 0) * multiplier;
+            r.paguHibah = (r.paguHibah || 0) * multiplier;
+            r.paguBansos = (r.paguBansos || 0) * multiplier;
+            r.paguLain = (r.paguLain || 0) * multiplier;
+            r.paguTransfer = (r.paguTransfer || 0) * multiplier;
+            r.paguTotal = (r.paguTotal || 0) * multiplier;
 
-            r.realPegawai *= 1000;
-            r.realBarang *= 1000;
-            r.realModal *= 1000;
-            r.realBebanBunga *= 1000;
-            r.realSubsidi *= 1000;
-            r.realHibah *= 1000;
-            r.realBansos *= 1000;
-            r.realLain *= 1000;
-            r.realTransfer *= 1000;
-            r.realTotal *= 1000;
+            r.realPegawai = (r.realPegawai || 0) * multiplier;
+            r.realBarang = (r.realBarang || 0) * multiplier;
+            r.realModal = (r.realModal || 0) * multiplier;
+            r.realBebanBunga = (r.realBebanBunga || 0) * multiplier;
+            r.realSubsidi = (r.realSubsidi || 0) * multiplier;
+            r.realHibah = (r.realHibah || 0) * multiplier;
+            r.realBansos = (r.realBansos || 0) * multiplier;
+            r.realLain = (r.realLain || 0) * multiplier;
+            r.realTransfer = (r.realTransfer || 0) * multiplier;
+            r.realTotal = (r.realTotal || 0) * multiplier;
 
-            r.sisaPegawai *= 1000;
-            r.sisaBarang *= 1000;
-            r.sisaModal *= 1000;
-            r.sisaBansos *= 1000;
-            r.sisaTransfer *= 1000;
-            r.sisaTotal *= 1000;
+            r.sisaPegawai = (r.sisaPegawai || 0) * multiplier;
+            r.sisaBarang = (r.sisaBarang || 0) * multiplier;
+            r.sisaModal = (r.sisaModal || 0) * multiplier;
+            r.sisaBansos = (r.sisaBansos || 0) * multiplier;
+            r.sisaTransfer = (r.sisaTransfer || 0) * multiplier;
+            r.sisaTotal = (r.sisaTotal || 0) * multiplier;
           }
         }
 

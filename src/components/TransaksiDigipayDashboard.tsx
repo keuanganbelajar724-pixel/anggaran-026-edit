@@ -706,11 +706,11 @@ export const TransaksiDigipayDashboard: React.FC<TransaksiDigipayDashboardProps>
               <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                 <div
                   className="bg-cyan-500 h-full rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (stats.uniqueSatkersWithTx / stats.totalMasterCount) * 100)}%` }}
+                  style={{ width: `${stats.totalMasterCount > 0 ? Math.min(100, Math.max(0, (stats.uniqueSatkersWithTx / stats.totalMasterCount) * 100)) : 0}%` }}
                 />
               </div>
               <span className="text-xs font-bold text-cyan-600 dark:text-cyan-400 whitespace-nowrap">
-                {((stats.uniqueSatkersWithTx / stats.totalMasterCount) * 100).toFixed(1)}%
+                {stats.totalMasterCount > 0 ? ((stats.uniqueSatkersWithTx / stats.totalMasterCount) * 100).toFixed(1) : '0.0'}%
               </span>
             </div>
           </div>

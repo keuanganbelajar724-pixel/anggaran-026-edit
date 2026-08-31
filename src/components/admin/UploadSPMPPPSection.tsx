@@ -68,7 +68,7 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
   // Table & Management state for active uploaded records
   const [searchTableQuery, setSearchTableQuery] = useState('');
   const [serviceFilter, setServiceFilter] = useState<'ALL' | 'PLN' | 'TELKOM'>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'BELUM' | 'PROSES' | 'SELESAI'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -136,6 +136,16 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
       uniqueSatkers,
       uniqueSatkerBelum
     };
+  }, [effectiveRecords]);
+
+  // Distinct statuses breakdown from Excel Kolom L
+  const distinctStatuses = useMemo(() => {
+    const counts: Record<string, number> = {};
+    effectiveRecords.forEach(r => {
+      const raw = (r.statusSpm && r.statusSpm.trim() !== '') ? r.statusSpm.trim() : 'Belum membuat SPP';
+      counts[raw] = (counts[raw] || 0) + 1;
+    });
+    return counts;
   }, [effectiveRecords]);
 
   // Handle file selection
@@ -309,13 +319,23 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
       if (serviceFilter !== 'ALL' && r.jenisLayanan !== serviceFilter) return false;
 
       // Status filter
+      const rawStatus = (r.statusSpm && r.statusSpm.trim() !== '') ? r.statusSpm.trim() : 'Belum membuat SPP';
       const isBelum = !r.statusSpm || r.statusSpm.toLowerCase().includes('belum') || (!r.noSpm && !r.noSp2d);
       const isSelesai = r.noSp2d || (r.statusSpm && r.statusSpm.toLowerCase().includes('sp2d'));
       const isProses = !isBelum && !isSelesai;
 
-      if (statusFilter === 'BELUM' && !isBelum) return false;
-      if (statusFilter === 'SELESAI' && !isSelesai) return false;
-      if (statusFilter === 'PROSES' && !isProses) return false;
+      if (statusFilter === 'ALL') {
+        // pass
+      } else if (statusFilter === 'BELUM') {
+        if (!isBelum) return false;
+      } else if (statusFilter === 'SELESAI' || statusFilter === 'SP2D') {
+        if (!isSelesai) return false;
+      } else if (statusFilter === 'PROSES') {
+        if (!isProses) return false;
+      } else {
+        // Exact status filter (e.g., 'Upload NTT', 'Setuju SPP', 'Cetak SPP', 'Cetak SPM', 'Belum membuat SPP')
+        if (rawStatus.toLowerCase() !== statusFilter.toLowerCase()) return false;
+      }
 
       // Search query
       if (searchTableQuery.trim()) {
@@ -337,11 +357,12 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
 
   // Paginated active records
   const paginatedActiveRecords = useMemo(() => {
+    if (pageSize <= 0) return filteredActiveRecords;
     const start = (currentPage - 1) * pageSize;
     return filteredActiveRecords.slice(start, start + pageSize);
   }, [filteredActiveRecords, currentPage, pageSize]);
 
-  const totalPages = Math.ceil(filteredActiveRecords.length / pageSize) || 1;
+  const totalPages = pageSize <= 0 ? 1 : (Math.ceil(filteredActiveRecords.length / pageSize) || 1);
 
   // Toggle selection
   const handleToggleSelectAll = () => {
@@ -630,15 +651,29 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
                     <td className="px-3 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-400">{r.noSpp || '-'}</td>
                     <td className="px-3 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-400">{r.noSpm || '-'}</td>
                     <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                        r.statusSpm.toLowerCase().includes('belum') 
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300' 
-                          : r.statusSpm.toLowerCase().includes('sp2d')
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                      }`}>
-                        {r.statusSpm}
-                      </span>
+                      {(() => {
+                        const statusText = (r.statusSpm && r.statusSpm.trim() !== '') ? r.statusSpm.trim() : 'Belum membuat SPP';
+                        const lowerStatus = statusText.toLowerCase();
+                        let badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
+                        if (lowerStatus.includes('sp2d') || lowerStatus.includes('selesai')) {
+                          badgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+                        } else if (lowerStatus.includes('belum')) {
+                          badgeClass = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+                        } else if (lowerStatus.includes('upload') || lowerStatus.includes('ntt')) {
+                          badgeClass = 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300';
+                        } else if (lowerStatus.includes('setuju')) {
+                          badgeClass = 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300';
+                        } else if (lowerStatus.includes('spp')) {
+                          badgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300';
+                        } else if (lowerStatus.includes('spm')) {
+                          badgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+                        }
+                        return (
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}`}>
+                            {statusText}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -728,26 +763,24 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
             </button>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl text-xs font-semibold">
-            <button
-              onClick={() => { setStatusFilter('ALL'); setCurrentPage(1); }}
-              className={`flex-1 py-1.5 rounded-lg transition-all text-center ${statusFilter === 'ALL' ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
+          {/* Status Filter Dropdown */}
+          <div className="relative">
+            <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <select
+              value={statusFilter}
+              onChange={e => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={`w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500 ${isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
             >
-              Semua Status
-            </button>
-            <button
-              onClick={() => { setStatusFilter('BELUM'); setCurrentPage(1); }}
-              className={`flex-1 py-1.5 rounded-lg transition-all text-center ${statusFilter === 'BELUM' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              Belum SPM ({activeStats.belumCount})
-            </button>
-            <button
-              onClick={() => { setStatusFilter('SELESAI'); setCurrentPage(1); }}
-              className={`flex-1 py-1.5 rounded-lg transition-all text-center ${statusFilter === 'SELESAI' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-400'}`}
-            >
-              SP2D ({activeStats.selesaiCount})
-            </button>
+              <option value="ALL">(Select All) - Semua Status ({effectiveRecords.length})</option>
+              {Object.entries(distinctStatuses).map(([stName, cnt]) => (
+                <option key={stName} value={stName}>
+                  {stName} ({cnt} data)
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Page size */}
@@ -765,8 +798,70 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
               <option value={25}>25 Baris</option>
               <option value={50}>50 Baris</option>
               <option value={100}>100 Baris</option>
+              <option value={250}>250 Baris</option>
+              <option value={-1}>Semua Data ({filteredActiveRecords.length})</option>
             </select>
           </div>
+        </div>
+
+        {/* Status Filter Pills (Matching Excel Kolom L AutoFilter) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mt-3 text-xs scrollbar-thin">
+          <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 shrink-0">
+            <Filter className="w-3.5 h-3.5 text-amber-500" /> Filter Kolom L:
+          </span>
+          <button
+            onClick={() => { setStatusFilter('ALL'); setCurrentPage(1); }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 transition-all ${
+              statusFilter === 'ALL'
+                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            (Select All) ({effectiveRecords.length})
+          </button>
+          {Object.entries(distinctStatuses).map(([statusName, count]) => {
+            const isSelected = statusFilter.toLowerCase() === statusName.toLowerCase();
+            const lower = statusName.toLowerCase();
+            let badgeClass = isSelected
+              ? 'bg-blue-600 text-white shadow-sm border-blue-600'
+              : 'bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
+            
+            if (lower.includes('upload') || lower.includes('ntt')) {
+              badgeClass = isSelected
+                ? 'bg-teal-600 text-white shadow-sm border-teal-600'
+                : 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800';
+            } else if (lower.includes('setuju')) {
+              badgeClass = isSelected
+                ? 'bg-cyan-600 text-white shadow-sm border-cyan-600'
+                : 'bg-cyan-50 text-cyan-800 border-cyan-300 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-800';
+            } else if (lower.includes('cetak spp') || (lower.includes('spp') && !lower.includes('belum'))) {
+              badgeClass = isSelected
+                ? 'bg-indigo-600 text-white shadow-sm border-indigo-600'
+                : 'bg-indigo-50 text-indigo-800 border-indigo-300 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800';
+            } else if (lower.includes('spm')) {
+              badgeClass = isSelected
+                ? 'bg-amber-600 text-white shadow-sm border-amber-600'
+                : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800';
+            } else if (lower.includes('sp2d') || lower.includes('selesai')) {
+              badgeClass = isSelected
+                ? 'bg-emerald-600 text-white shadow-sm border-emerald-600'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800';
+            } else if (lower.includes('belum')) {
+              badgeClass = isSelected
+                ? 'bg-rose-600 text-white shadow-sm border-rose-600'
+                : 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800';
+            }
+
+            return (
+              <button
+                key={statusName}
+                onClick={() => { setStatusFilter(statusName); setCurrentPage(1); }}
+                className={`px-2.5 py-1 rounded-lg border text-xs font-bold shrink-0 transition-all ${badgeClass}`}
+              >
+                {statusName} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Table of Active Records */}
@@ -822,7 +917,7 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
                         />
                       </td>
                       <td className="px-3 py-2.5 text-slate-400 font-mono">
-                        {(currentPage - 1) * pageSize + idx + 1}
+                        {(pageSize > 0 ? (currentPage - 1) * pageSize : 0) + idx + 1}
                       </td>
                       <td className="px-3 py-2.5 font-medium max-w-[200px] truncate" title={`${r.kodeSatker} - ${r.namaSatker}`}>
                         <span className="font-mono font-bold text-amber-600">{r.kodeSatker}</span> - {r.namaSatker}
@@ -854,15 +949,29 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
                         {r.noSp2d || '-'}
                       </td>
                       <td className="px-3 py-2.5">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          isBelum
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
-                            : isSelesai
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                        }`}>
-                          {r.statusSpm || (isBelum ? 'Belum Mengajukan' : 'Proses')}
-                        </span>
+                        {(() => {
+                          const statusText = (r.statusSpm && r.statusSpm.trim() !== '') ? r.statusSpm.trim() : 'Belum membuat SPP';
+                          const lowerStatus = statusText.toLowerCase();
+                          let badgeClass = 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300';
+                          if (lowerStatus.includes('sp2d') || lowerStatus.includes('selesai')) {
+                            badgeClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300';
+                          } else if (lowerStatus.includes('belum')) {
+                            badgeClass = 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+                          } else if (lowerStatus.includes('upload') || lowerStatus.includes('ntt')) {
+                            badgeClass = 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 border border-teal-300';
+                          } else if (lowerStatus.includes('setuju')) {
+                            badgeClass = 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300';
+                          } else if (lowerStatus.includes('spp')) {
+                            badgeClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300';
+                          } else if (lowerStatus.includes('spm')) {
+                            badgeClass = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+                          }
+                          return (
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}`}>
+                              {statusText}
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -873,33 +982,37 @@ export const UploadSPMPPPSection: React.FC<UploadSPMPPPSectionProps> = ({
         </div>
 
         {/* Pagination controls */}
-        {totalPages > 1 && (
+        {filteredActiveRecords.length > 0 && (
           <div className="flex items-center justify-between mt-4 text-xs">
             <span className={isDark ? 'text-slate-400' : 'text-slate-500'}>
-              Menampilkan {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredActiveRecords.length)} dari {filteredActiveRecords.length} data
+              {pageSize <= 0
+                ? `Menampilkan semua (${filteredActiveRecords.length} data)`
+                : `Menampilkan ${(currentPage - 1) * pageSize + 1} - ${Math.min(currentPage * pageSize, filteredActiveRecords.length)} dari ${filteredActiveRecords.length} data`}
             </span>
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
+            {pageSize > 0 && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
 
-              <span className={`px-3 py-1.5 rounded-lg font-semibold ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-900'}`}>
-                {currentPage} / {totalPages}
-              </span>
+                <span className={`px-3 py-1.5 rounded-lg font-semibold ${isDark ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-900'}`}>
+                  {currentPage} / {totalPages}
+                </span>
 
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

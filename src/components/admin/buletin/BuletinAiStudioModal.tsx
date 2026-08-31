@@ -306,7 +306,7 @@ Gunakan gaya penulisan jurnalisme data modern yang mudah dipahami stakeholder pi
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-700/60">
                     <span className="text-slate-400 block text-[10px]">Realisasi Total</span>
-                    <strong className="text-emerald-400 font-bold">{overallSummary ? `${overallSummary.persenRealisasiTotal.toFixed(1)}%` : '65.5%'}</strong>
+                    <strong className="text-emerald-400 font-bold">{overallSummary ? `${Number.isFinite(overallSummary.persenRealisasiTotal) ? overallSummary.persenRealisasiTotal.toFixed(1) : '0.0'}%` : '65.5%'}</strong>
                   </div>
                   <div className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-700/60">
                     <span className="text-slate-400 block text-[10px]">Satker Terdepan</span>

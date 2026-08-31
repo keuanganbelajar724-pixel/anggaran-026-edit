@@ -8,10 +8,16 @@ import {
   Sparkles,
   CalendarDays,
   FileSpreadsheet,
-  RotateCcw
+  AlertTriangle,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 import { PengelolaanUPRecord, MasterSatker } from '../types';
-import { formatBatasHariTanggal } from '../data/initialUPData';
+import {
+  formatBatasHariTanggal,
+  parseDashboardReferenceDate,
+  evaluateUPRecordStatus
+} from '../data/initialUPData';
 import { PaginationControl } from './PaginationControl';
 
 interface PengelolaanUPDashboardProps {
@@ -43,6 +49,13 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   customTexts
 }) => {
   const isDark = theme === 'dark';
+
+  // Extract reference date from dashboard update dates
+  const referenceDate = useMemo(() => {
+    const rawDateStr = dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard;
+    return parseDashboardReferenceDate(rawDateStr);
+  }, [dashboardConfig]);
+
   const activeRecords = useMemo(() => {
     const raw = (records && records.length > 0) ? records : (upRecords || []);
     return raw.filter(r => {
@@ -56,7 +69,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   }, [records, upRecords]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'TELAT' | 'HARI_INI' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
@@ -90,6 +103,64 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
     return list;
   }, [activeRecords, userRole, userSatkerCode, activeSatkerMap]);
 
+  // Evaluated record map for consistent sorting & filtering
+  const evaluatedMap = useMemo(() => {
+    const map = new Map<string, { up: ReturnType<typeof evaluateUPRecordStatus>; tup: ReturnType<typeof evaluateUPRecordStatus> }>();
+    scopedRecords.forEach(item => {
+      const up = evaluateUPRecordStatus(item, referenceDate, 'UP');
+      const tup = evaluateUPRecordStatus(item, referenceDate, 'TUP');
+      map.set(item.id || item.kodeSatker, { up, tup });
+    });
+    return map;
+  }, [scopedRecords, referenceDate]);
+
+  // Summary counts
+  const stats = useMemo(() => {
+    const total = scopedRecords.length;
+    let countUP = 0;
+    let countTUP = 0;
+    let satuMinggu = 0;
+    let countTelat = 0;
+    let countHariIni = 0;
+    let countMendekati = 0;
+    let countNihil = 0;
+
+    scopedRecords.forEach(r => {
+      const evalData = evaluatedMap.get(r.id || r.kodeSatker);
+      const up = evalData?.up;
+      const tup = evalData?.tup;
+
+      const hasUP = up && up.rawDeadline !== '-' && up.rawDeadline !== '';
+      const hasTUP = tup && tup.rawDeadline !== '-' && tup.rawDeadline !== '';
+
+      if (hasUP) countUP++;
+      if (hasTUP) countTUP++;
+
+      const isTelatAny = (hasUP && up.isTelat) || (hasTUP && tup.isTelat);
+      const isHariIniAny = (hasUP && up.isHariIni) || (hasTUP && tup.isHariIni);
+      const isMendekatiAny = (hasUP && up.isMendekati1Minggu) || (hasTUP && tup.isMendekati1Minggu);
+      const is1MingguAny = (hasUP && up.isDalam1Minggu) || (hasTUP && tup.isDalam1Minggu);
+      const isNihilAny = (hasUP && up.isNihil) || (hasTUP && tup.isNihil);
+
+      if (isTelatAny) countTelat++;
+      if (isHariIniAny) countHariIni++;
+      if (isMendekatiAny) countMendekati++;
+      if (is1MingguAny) satuMinggu++;
+      if (isNihilAny) countNihil++;
+    });
+
+    return {
+      total,
+      countUP,
+      countTUP,
+      satuMinggu,
+      countTelat,
+      countHariIni,
+      countMendekati,
+      countNihil
+    };
+  }, [scopedRecords, evaluatedMap]);
+
   // Filtered by search & activeFilter
   const displayedRecords = useMemo(() => {
     return scopedRecords.filter(item => {
@@ -102,38 +173,34 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
         (item.batasWaktuTUPKolomH && item.batasWaktuTUPKolomH.toLowerCase().includes(q)) ||
         (item.batasRevolving && item.batasRevolving.toLowerCase().includes(q));
 
+      const evalData = evaluatedMap.get(item.id || item.kodeSatker);
+      const up = evalData?.up;
+      const tup = evalData?.tup;
+
+      const hasUP = up && up.rawDeadline !== '-' && up.rawDeadline !== '';
+      const hasTUP = tup && tup.rawDeadline !== '-' && tup.rawDeadline !== '';
+
       let matchFilter = true;
       if (activeFilter === '1_MINGGU') {
-        matchFilter = item.isJatuhTempo1Minggu === true || (item.sisaHariRevolving !== undefined && item.sisaHariRevolving >= 0 && item.sisaHariRevolving <= 7);
+        matchFilter = (hasUP && up.isDalam1Minggu) || (hasTUP && tup.isDalam1Minggu) || false;
+      } else if (activeFilter === 'TELAT') {
+        matchFilter = (hasUP && up.isTelat) || (hasTUP && tup.isTelat) || false;
+      } else if (activeFilter === 'HARI_INI') {
+        matchFilter = (hasUP && up.isHariIni) || (hasTUP && tup.isHariIni) || false;
       } else if (activeFilter === 'UP_ONLY') {
-        matchFilter = !!(item.batasRevolvingKolomN || (item.jenisDana !== 'TUP' && item.batasRevolving));
+        matchFilter = hasUP || false;
       } else if (activeFilter === 'TUP_ONLY') {
-        matchFilter = !!(item.batasWaktuTUPKolomH || (item.jenisDana === 'TUP' || (item as any).batasWaktuTUP));
+        matchFilter = hasTUP || false;
       }
 
       return matchSearch && matchFilter;
     });
-  }, [scopedRecords, searchTerm, activeFilter]);
+  }, [scopedRecords, searchTerm, activeFilter, evaluatedMap]);
 
   const paginatedRecords = useMemo(() => {
     if (pageSize <= 0) return displayedRecords;
     return displayedRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   }, [displayedRecords, currentPage, pageSize]);
-
-  // Summary counts
-  const stats = useMemo(() => {
-    const total = scopedRecords.length;
-    const countUP = scopedRecords.filter(r => r.batasRevolvingKolomN || (r.jenisDana !== 'TUP' && r.batasRevolving)).length;
-    const countTUP = scopedRecords.filter(r => r.batasWaktuTUPKolomH || (r.jenisDana === 'TUP' || (r as any).batasWaktuTUP)).length;
-    const satuMinggu = scopedRecords.filter(r => r.isJatuhTempo1Minggu || (r.sisaHariRevolving !== undefined && r.sisaHariRevolving >= 0 && r.sisaHariRevolving <= 7)).length;
-
-    return {
-      total,
-      countUP,
-      countTUP,
-      satuMinggu
-    };
-  }, [scopedRecords]);
 
   return (
     <div className="space-y-6">
@@ -149,14 +216,14 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/80 text-purple-200 text-xs font-bold">
                 <Clock className="w-3.5 h-3.5 text-purple-400" />
-                <span>Update: <strong>{dashboardConfig?.updateDates?.pengelolaanUp || '07 Agustus 2026 - 09:00 WIB'}</strong></span>
+                <span>Update Dashboard: <strong>{dashboardConfig?.updateDates?.pengelolaanUp || '31 Agustus 2026 - 08:40 WIB'}</strong></span>
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               {customTexts?.pengelolaanUpTitle || 'Monitoring Batas Waktu UP & TUP'}
             </h1>
             <p className="text-sm text-slate-300">
-              {customTexts?.pengelolaanUpSubtitle || 'Monitoring batas waktu UP (Kolom N) & Karwas TUP (Kolom H) per Satker dalam format hari dan tanggal.'}
+              {customTexts?.pengelolaanUpSubtitle || 'Monitoring batas waktu UP (Kolom N) & Karwas TUP (Kolom H) per Satker dengan evaluasi status jatuh tempo real-time.'}
             </p>
           </div>
 
@@ -176,11 +243,14 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Satker */}
         <div
-          onClick={() => setActiveFilter('ALL')}
+          onClick={() => {
+            setActiveFilter('ALL');
+            setCurrentPage(1);
+          }}
           className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
             activeFilter === 'ALL'
               ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/30'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-purple-300'
           }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -195,11 +265,14 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
         {/* Card 2: Batas Waktu UP */}
         <div
-          onClick={() => setActiveFilter('UP_ONLY')}
+          onClick={() => {
+            setActiveFilter('UP_ONLY');
+            setCurrentPage(1);
+          }}
           className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
             activeFilter === 'UP_ONLY'
               ? 'bg-purple-500/10 border-purple-500 ring-2 ring-purple-500/30'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-purple-300'
           }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -214,11 +287,14 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
         {/* Card 3: Batas Waktu TUP */}
         <div
-          onClick={() => setActiveFilter('TUP_ONLY')}
+          onClick={() => {
+            setActiveFilter('TUP_ONLY');
+            setCurrentPage(1);
+          }}
           className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
             activeFilter === 'TUP_ONLY'
               ? 'bg-sky-500/10 border-sky-500 ring-2 ring-sky-500/30'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-sky-300'
           }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
@@ -231,29 +307,36 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           <div className="text-[11px] text-sky-700 dark:text-sky-300 font-semibold">Memiliki batas waktu TUP</div>
         </div>
 
-        {/* Card 4: 1 Minggu Jatuh Tempo */}
+        {/* Card 4: Kurun 1 Minggu & Telat */}
         <div
-          onClick={() => setActiveFilter('1_MINGGU')}
+          onClick={() => {
+            setActiveFilter('1_MINGGU');
+            setCurrentPage(1);
+          }}
           className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
             activeFilter === '1_MINGGU'
               ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30'
-              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-amber-300'
           }`}
         >
           <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Kurun 1 Minggu</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Kurun 1 Minggu &amp; Telat</span>
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
             {stats.satuMinggu} <span className="text-xs font-semibold text-slate-400">Satker</span>
           </div>
-          <div className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold">Jatuh tempo &le; 7 hari</div>
+          <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+            {stats.countTelat > 0 && <span className="text-rose-600">⚠️ {stats.countTelat} Telat</span>}
+            {stats.countHariIni > 0 && <span>• ⚡ {stats.countHariIni} Hari Ini</span>}
+            <span>• ⏱️ {stats.countMendekati} &le; 7 Hari</span>
+          </div>
         </div>
       </div>
 
       {/* Main Table Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-        {/* Toolbar & Filters */}
+        {/* Toolbar & Filter Badges */}
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           <div className="relative w-full md:w-80">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -291,13 +374,47 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeFilter === '1_MINGGU'
-                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+                  ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400 font-black'
                   : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
               }`}
             >
               <Clock className="w-3.5 h-3.5" />
               <span>Kurun 1 Minggu ({stats.satuMinggu})</span>
             </button>
+
+            {stats.countTelat > 0 && (
+              <button
+                onClick={() => {
+                  setActiveFilter('TELAT');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'TELAT'
+                    ? 'bg-rose-600 text-white shadow-md ring-2 ring-rose-400 font-black'
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Telat ({stats.countTelat})</span>
+              </button>
+            )}
+
+            {stats.countHariIni > 0 && (
+              <button
+                onClick={() => {
+                  setActiveFilter('HARI_INI');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'HARI_INI'
+                    ? 'bg-amber-400 text-amber-950 shadow-md ring-2 ring-amber-300 font-black'
+                    : 'bg-amber-100/70 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Hari Ini ({stats.countHariIni})</span>
+              </button>
+            )}
 
             <button
               onClick={() => {
@@ -329,12 +446,46 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           </div>
         </div>
 
+        {/* Legend Indicator & Explanation */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Info className="w-3.5 h-3.5 text-purple-600" />
+              <span>Keterangan Status:</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 font-bold border border-rose-300">
+              🔴 Merah: Telat / Sudah Jatuh Tempo (UP &gt; 0%)
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-900/70 dark:text-amber-200 font-bold border border-amber-400">
+              🟡 Kuning: Jatuh Tempo Hari Ini ({referenceDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 font-semibold border border-amber-200">
+              ⏱️ Amber: Kurun 1 Minggu (&le; 7 Hari)
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium border border-emerald-200">
+              ✓ Nihil (0.00% / Sisa UP 0 - Tidak Telat)
+            </span>
+          </div>
+
+          {activeFilter !== 'ALL' && (
+            <button
+              onClick={() => {
+                setActiveFilter('ALL');
+                setCurrentPage(1);
+              }}
+              className="text-purple-600 dark:text-purple-400 font-bold underline text-[11px] cursor-pointer"
+            >
+              Reset ke Semua Satker
+            </button>
+          )}
+        </div>
+
         {/* Informational Filter Tag */}
         {activeFilter === '1_MINGGU' && (
           <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Menampilkan satker yang memiliki batas waktu dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong>.</span>
+              <span>Menampilkan satker yang memiliki batas waktu dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong> dan satker yang <strong>sudah jatuh tempo/telat</strong> (UP &gt; 0%).</span>
             </div>
             <button
               onClick={() => {
@@ -355,10 +506,14 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
               {activeFilter === '1_MINGGU'
                 ? 'Tidak ada satker dengan batas waktu dalam kurun waktu 1 minggu.'
+                : activeFilter === 'TELAT'
+                ? 'Hebat! Tidak ada satker yang telat melewati batas waktu.'
+                : activeFilter === 'HARI_INI'
+                ? 'Tidak ada satker yang jatuh tempo hari ini.'
                 : 'Belum ada data Batas Waktu UP & TUP.'}
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {activeFilter === '1_MINGGU' ? (
+              {activeFilter !== 'ALL' ? (
                 <button
                   onClick={() => {
                     setActiveFilter('ALL');
@@ -380,44 +535,109 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
                 <tr className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700 uppercase">
                   <th className="py-3 px-3 w-12 text-center">NO</th>
                   <th className="py-3 px-4">KODE &amp; SATKER</th>
-                  <th className="py-3 px-4">BATAS WAKTU UP</th>
-                  <th className="py-3 px-4">BATAS WAKTU TUP</th>
+                  <th className="py-3 px-4">BATAS WAKTU UP (KOLOM N)</th>
+                  <th className="py-3 px-4">BATAS WAKTU TUP (KOLOM H)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedRecords.map((item, idx) => {
                   const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
-                  const upDeadline = formatBatasHariTanggal(item.batasRevolvingKolomN || (item.jenisDana !== 'TUP' ? item.batasRevolving : undefined));
-                  const tupDeadline = formatBatasHariTanggal(item.batasWaktuTUPKolomH || (item.jenisDana === 'TUP' ? (item as any).batasWaktuTUP || item.batasRevolving : undefined));
+                  const evalData = evaluatedMap.get(item.id || item.kodeSatker);
+                  const upStatus = evalData?.up || evaluateUPRecordStatus(item, referenceDate, 'UP');
+                  const tupStatus = evalData?.tup || evaluateUPRecordStatus(item, referenceDate, 'TUP');
+
+                  // Row background style based on status priority: Telat (Full Red) > Hari Ini (Full Yellow) > Mendekati (Amber)
+                  let rowStyle = 'hover:bg-slate-50/80 dark:hover:bg-slate-800/50';
+                  const isRowTelat = upStatus.isTelat || tupStatus.isTelat;
+                  const isRowHariIni = !isRowTelat && (upStatus.isHariIni || tupStatus.isHariIni);
+                  const isRowMendekati = !isRowTelat && !isRowHariIni && (upStatus.isMendekati1Minggu || tupStatus.isMendekati1Minggu);
+
+                  if (isRowTelat) {
+                    rowStyle = 'bg-red-500/15 dark:bg-red-950/80 border-l-4 border-l-red-600 hover:bg-red-500/25 dark:hover:bg-red-900/90 text-red-950 dark:text-red-100';
+                  } else if (isRowHariIni) {
+                    rowStyle = 'bg-amber-300/35 dark:bg-amber-900/70 border-l-4 border-l-amber-500 hover:bg-amber-300/50 dark:hover:bg-amber-800/80 text-amber-950 dark:text-amber-100';
+                  } else if (isRowMendekati) {
+                    rowStyle = 'bg-amber-50/70 dark:bg-amber-950/30 border-l-4 border-l-amber-400 hover:bg-amber-100/60 dark:hover:bg-amber-900/40 text-slate-800 dark:text-slate-200';
+                  }
 
                   return (
                     <tr
                       key={item.id || idx}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
+                      className={`transition-colors ${rowStyle}`}
                     >
                       <td className="py-3 px-3 text-center font-mono text-slate-400">{globalIdx}</td>
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{item.namaSatker}</div>
-                        <div className="font-mono text-purple-600 dark:text-purple-400 font-semibold">{item.kodeSatker}</div>
+                        <div className={`font-bold ${isRowTelat ? 'text-red-950 dark:text-red-100' : isRowHariIni ? 'text-amber-950 dark:text-amber-100' : 'text-slate-900 dark:text-slate-100'}`}>
+                          {item.namaSatker}
+                        </div>
+                        <div className={`font-mono font-semibold ${isRowTelat ? 'text-red-700 dark:text-red-300' : isRowHariIni ? 'text-amber-800 dark:text-amber-300' : 'text-purple-600 dark:text-purple-400'}`}>
+                          {item.kodeSatker}
+                        </div>
                         {item.kementerianLembaga && (
-                          <div className="text-[10px] text-slate-400">{item.kementerianLembaga}</div>
+                          <div className={`text-[10px] ${isRowTelat ? 'text-red-800/80 dark:text-red-300/80' : isRowHariIni ? 'text-amber-800/80 dark:text-amber-300/80' : 'text-slate-400'}`}>
+                            {item.kementerianLembaga}
+                          </div>
                         )}
                       </td>
+
+                      {/* Kolom Batas Waktu UP */}
                       <td className="py-3 px-4">
-                        {upDeadline !== '-' ? (
-                          <div className="font-mono font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                            <span>{upDeadline}</span>
+                        {upStatus.rawDeadline !== '-' && upStatus.rawDeadline !== '' ? (
+                          <div className="space-y-1">
+                            <div className={`font-mono flex items-center gap-1.5 ${upStatus.textColorClass}`}>
+                              {upStatus.isTelat ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              ) : upStatus.isHariIni ? (
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              ) : (
+                                <Calendar className={`w-3.5 h-3.5 ${upStatus.isMendekati1Minggu ? 'text-amber-600' : 'text-purple-600'} shrink-0`} />
+                              )}
+                              <span>{upStatus.fullDateWithDay}</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border ${upStatus.badgeColorClass}`}>
+                                {upStatus.badgeLabel}
+                              </span>
+
+                              {upStatus.isWeekend && !upStatus.isNihil && (
+                                <span className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
+                                  • Libur ({upStatus.saranTglPengajuan.split('(')[0].trim()})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-slate-400 font-mono">-</span>
                         )}
                       </td>
+
+                      {/* Kolom Batas Waktu TUP */}
                       <td className="py-3 px-4">
-                        {tupDeadline !== '-' ? (
-                          <div className="font-mono font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
-                            <Calendar className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                            <span>{tupDeadline}</span>
+                        {tupStatus.rawDeadline !== '-' && tupStatus.rawDeadline !== '' ? (
+                          <div className="space-y-1">
+                            <div className={`font-mono flex items-center gap-1.5 ${tupStatus.textColorClass}`}>
+                              {tupStatus.isTelat ? (
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              ) : tupStatus.isHariIni ? (
+                                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              ) : (
+                                <Calendar className={`w-3.5 h-3.5 ${tupStatus.isMendekati1Minggu ? 'text-amber-600' : 'text-sky-600'} shrink-0`} />
+                              )}
+                              <span>{tupStatus.fullDateWithDay}</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border ${tupStatus.badgeColorClass}`}>
+                                {tupStatus.badgeLabel}
+                              </span>
+
+                              {tupStatus.isWeekend && !tupStatus.isNihil && (
+                                <span className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
+                                  • Libur ({tupStatus.saranTglPengajuan.split('(')[0].trim()})
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-slate-400 font-mono">-</span>
@@ -446,3 +666,4 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
     </div>
   );
 };
+

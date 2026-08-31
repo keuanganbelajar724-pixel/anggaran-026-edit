@@ -29,13 +29,16 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
 
   // Compute key analytics
   const totalSatker = satkers.length;
-  const totalIKPA = satkers.reduce((acc, s) => acc + (s.nilaiTotalIKPA || 0), 0);
+  const totalIKPA = satkers.reduce((acc, s) => acc + (Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0), 0);
   const avgIKPA = totalSatker > 0 ? (totalIKPA / totalSatker).toFixed(2) : '0.00';
-  const avgNum = parseFloat(avgIKPA);
+  const avgNum = parseFloat(avgIKPA) || 0;
 
   // Distribution
-  const sangatBaik = satkers.filter(s => (s.nilaiTotalIKPA || 0) >= 95);
-  const baik = satkers.filter(s => (s.nilaiTotalIKPA || 0) >= 89 && (s.nilaiTotalIKPA || 0) < 95);
+  const sangatBaik = satkers.filter(s => (Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0) >= 95);
+  const baik = satkers.filter(s => {
+    const val = Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0;
+    return val >= 89 && val < 95;
+  });
 
   // Red attention satkers (<89 or incomplete outputs or deviasi > 10)
   const attentionSatkers = satkers
@@ -46,10 +49,15 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
   const bottomSatkers = attentionSatkers.slice(0, 7);
 
   // Indicator analysis across all satkers
-  const avgDeviasi = (satkers.reduce((acc, s) => acc + (s.indikator?.deviasiHal3Dipa || 0), 0) / (totalSatker || 1)).toFixed(2);
-  const avgPenyerapan = (satkers.reduce((acc, s) => acc + (s.persenPenyerapan || s.indikator?.penyerapanAnggaran || 0), 0) / (totalSatker || 1)).toFixed(2);
-  const avgOutput = (satkers.reduce((acc, s) => acc + (s.indikator?.capaianOutput || 0), 0) / (totalSatker || 1)).toFixed(2);
-  const avgUP = (satkers.reduce((acc, s) => acc + (s.indikator?.pengelolaanUPTUP || 0), 0) / (totalSatker || 1)).toFixed(2);
+  const deviasiSum = satkers.reduce((acc, s) => acc + (Number.isFinite(s.indikator?.deviasiHal3Dipa) ? Number(s.indikator!.deviasiHal3Dipa) : 0), 0);
+  const penyerapanSum = satkers.reduce((acc, s) => acc + (Number.isFinite(s.persenPenyerapan) ? Number(s.persenPenyerapan) : (Number.isFinite(s.indikator?.penyerapanAnggaran) ? Number(s.indikator!.penyerapanAnggaran) : 0)), 0);
+  const outputSum = satkers.reduce((acc, s) => acc + (Number.isFinite(s.indikator?.capaianOutput) ? Number(s.indikator!.capaianOutput) : 0), 0);
+  const upSum = satkers.reduce((acc, s) => acc + (Number.isFinite(s.indikator?.pengelolaanUpTup) ? Number(s.indikator!.pengelolaanUpTup) : 0), 0);
+
+  const avgDeviasi = totalSatker > 0 ? (deviasiSum / totalSatker).toFixed(2) : '0.00';
+  const avgPenyerapan = totalSatker > 0 ? (penyerapanSum / totalSatker).toFixed(2) : '0.00';
+  const avgOutput = totalSatker > 0 ? (outputSum / totalSatker).toFixed(2) : '0.00';
+  const avgUP = totalSatker > 0 ? (upSum / totalSatker).toFixed(2) : '0.00';
 
   const currentDateStr = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',

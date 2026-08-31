@@ -42,7 +42,11 @@ export const BuletinDataExportModal: React.FC<BuletinDataExportModalProps> = ({
 
   const totalPagu = overallSummary?.totalPagu || 14250000000000;
   const totalRealisasi = overallSummary?.totalRealisasi || 10830000000000;
-  const persenRealisasi = overallSummary?.persentaseRealisasi || 76.0;
+  const persenRealisasi = Number.isFinite(overallSummary?.persenRealisasiTotal)
+    ? (overallSummary?.persenRealisasiTotal as number)
+    : (Number.isFinite(overallSummary?.persentaseRealisasi)
+      ? (overallSummary?.persentaseRealisasi as number)
+      : (totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 76.0));
 
   const handleExport = () => {
     let content = '';

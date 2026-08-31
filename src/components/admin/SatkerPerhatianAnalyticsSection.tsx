@@ -492,8 +492,9 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
     const tinggiCount = diagnosticProfiles.filter(p => p.urgencyLevel === 'TINGGI').length;
     const sedangCount = diagnosticProfiles.filter(p => p.urgencyLevel === 'SEDANG').length;
 
-    const avgIkpa = all > 0 
-      ? (diagnosticProfiles.reduce((acc, p) => acc + p.satker.nilaiTotalIKPA, 0) / all).toFixed(2)
+    const totalIkpaSum = diagnosticProfiles.reduce((acc, p) => acc + (Number.isFinite(p.satker?.nilaiTotalIKPA) ? Number(p.satker.nilaiTotalIKPA) : 0), 0);
+    const avgIkpa = all > 0 && Number.isFinite(totalIkpaSum / all)
+      ? (totalIkpaSum / all).toFixed(2)
       : '0.00';
 
     return {
@@ -1002,7 +1003,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                             ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
                             : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
                         }`}>
-                          {s.nilaiTotalIKPA.toFixed(2)}
+                          {(Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0).toFixed(2)}
                         </span>
                         <div className="text-[9px] text-slate-400 uppercase mt-0.5 font-extrabold">{s.predikat}</div>
                       </td>
@@ -1013,7 +1014,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                           {p.outputStatus.label}
                         </div>
                         <div className="text-[10px] text-slate-400">
-                          Skor: {p.outputStatus.score.toFixed(1)}%
+                          Skor: {(Number.isFinite(p.outputStatus.score) ? p.outputStatus.score : 0).toFixed(1)}%
                         </div>
                       </td>
 
@@ -1166,7 +1167,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
               <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
                 <span className="text-slate-500 font-bold block">Nilai Total IKPA</span>
                 <span className="text-2xl font-black text-rose-600 mt-1 block">
-                  {selectedSatkerDiagnostic.satker.nilaiTotalIKPA.toFixed(2)}
+                  {(Number.isFinite(selectedSatkerDiagnostic.satker.nilaiTotalIKPA) ? selectedSatkerDiagnostic.satker.nilaiTotalIKPA : 0).toFixed(2)}
                 </span>
                 <span className="text-[10px] text-slate-400 font-extrabold uppercase">
                   Predikat: {selectedSatkerDiagnostic.satker.predikat}
@@ -1191,7 +1192,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                   {selectedSatkerDiagnostic.outputStatus.label}
                 </span>
                 <span className="text-[10px] text-slate-400">
-                  Skor Output: {selectedSatkerDiagnostic.outputStatus.score.toFixed(1)}%
+                  Skor Output: {(Number.isFinite(selectedSatkerDiagnostic.outputStatus.score) ? selectedSatkerDiagnostic.outputStatus.score : 0).toFixed(1)}%
                 </span>
               </div>
 
@@ -1321,7 +1322,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                         >
                           <div className="text-[11px] font-bold text-slate-500 truncate">{name}</div>
                           <div className={`text-base font-black mt-0.5 ${isLow ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>
-                            {Number(val).toFixed(1)}
+                            {(Number.isFinite(Number(val)) ? Number(val) : 0).toFixed(1)}
                           </div>
                         </div>
                       );
@@ -1354,7 +1355,7 @@ export const SatkerPerhatianAnalyticsSection: React.FC<SatkerPerhatianAnalyticsS
                     <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                       <span className="text-slate-500 font-bold block text-[11px]">Skor Capaian Output:</span>
                       <span className="font-extrabold text-indigo-600 dark:text-indigo-400 mt-1 block text-base">
-                        {(selectedSatkerDiagnostic.satker.indikator?.capaianOutput || 0).toFixed(1)}%
+                        {(Number.isFinite(selectedSatkerDiagnostic.satker.indikator?.capaianOutput) ? selectedSatkerDiagnostic.satker.indikator!.capaianOutput : 0).toFixed(1)}%
                       </span>
                     </div>
 

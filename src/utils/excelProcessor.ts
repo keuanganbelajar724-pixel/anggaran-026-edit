@@ -16,11 +16,12 @@ function cleanText(val: any): string {
 // Clean number strings like "Rp 12.500.000", "85,50%", "90.5" -> number
 function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   if (val === null || val === undefined || val === '') return defaultValue;
-  if (typeof val === 'number') return isNaN(val) ? defaultValue : val;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : defaultValue;
   
   let str = String(val).trim();
   // Remove currency symbol, %, space
   str = str.replace(/Rp|\$|%|\s/gi, '');
+  if (!str) return defaultValue;
   
   // Handle Indonesian decimal comma e.g., "85,5" -> "85.5" or "1.500.000,00"
   if (str.includes(',') && str.includes('.')) {
@@ -32,7 +33,7 @@ function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   }
   
   const num = parseFloat(str);
-  return isNaN(num) ? defaultValue : num;
+  return Number.isFinite(num) ? num : defaultValue;
 }
 
 export async function processExcelFile(file: File, requestedCategory?: string): Promise<ProcessedExcelResult> {

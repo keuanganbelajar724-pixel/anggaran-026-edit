@@ -351,18 +351,21 @@ export const GeminiSatkerAnalyticsSection: React.FC<GeminiSatkerAnalyticsSection
       };
     }
 
-    const avgIKPA = Number((satkers.reduce((acc, s) => acc + (s.nilaiTotalIKPA || 0), 0) / total).toFixed(2));
-    const belowIKPA = satkers.filter(s => s.nilaiTotalIKPA < 87.5);
+    const totalIkpaSum = satkers.reduce((acc, s) => acc + (Number.isFinite(s.nilaiTotalIKPA) ? Number(s.nilaiTotalIKPA) : 0), 0);
+    const avgIKPA = total > 0 && Number.isFinite(totalIkpaSum / total)
+      ? Number((totalIkpaSum / total).toFixed(2))
+      : 0;
+    const belowIKPA = satkers.filter(s => (s.nilaiTotalIKPA || 0) < 87.5);
     const belowOutput = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan');
     const belowDeviasi = satkers.filter(s => (s.indikator?.deviasiHal3Dipa || 0) < 75);
     const belowPenyerapan = satkers.filter(s => (s.persenPenyerapan || 0) < 75);
 
     const satkerDalamPerhatian = satkers.filter(s => 
-      s.nilaiTotalIKPA < 87.5 || 
+      (s.nilaiTotalIKPA || 0) < 87.5 || 
       s.statusCapaianOutput !== 'Sudah Terlaporkan' || 
       (s.persenPenyerapan || 0) < 75 || 
       (s.indikator?.deviasiHal3Dipa || 0) < 75
-    ).sort((a, b) => a.nilaiTotalIKPA - b.nilaiTotalIKPA);
+    ).sort((a, b) => (a.nilaiTotalIKPA || 0) - (b.nilaiTotalIKPA || 0));
 
     return {
       total,

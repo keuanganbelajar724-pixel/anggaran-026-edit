@@ -43,7 +43,11 @@ export const BuletinInfographicStudioModal: React.FC<BuletinInfographicStudioMod
 
   const totalPagu = overallSummary?.totalPagu || 14250000000000;
   const totalRealisasi = overallSummary?.totalRealisasi || 10830000000000;
-  const persenRealisasi = overallSummary?.persentaseRealisasi || 76.0;
+  const persenRealisasi = Number.isFinite(overallSummary?.persenRealisasiTotal)
+    ? (overallSummary?.persenRealisasiTotal as number)
+    : (Number.isFinite(overallSummary?.persentaseRealisasi)
+      ? (overallSummary?.persentaseRealisasi as number)
+      : (totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 76.0));
 
   // Sorted Top 5 Satkers
   const topSatkers = [...satkers]
@@ -258,11 +262,11 @@ export const BuletinInfographicStudioModal: React.FC<BuletinInfographicStudioMod
                       <div className="flex items-baseline justify-between">
                         <span className="text-xs text-slate-400">Tingkat Penyerapan Anggaran</span>
                         <span className={`text-2xl font-black ${themeStyles.accent}`}>
-                          {persenRealisasi.toFixed(1)}%
+                          {(Number.isFinite(persenRealisasi) ? persenRealisasi : 0).toFixed(1)}%
                         </span>
                       </div>
                       <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
-                        <div className={`h-full ${themeStyles.barBg}`} style={{ width: `${persenRealisasi}%` }} />
+                        <div className={`h-full ${themeStyles.barBg}`} style={{ width: `${Math.min(100, Math.max(0, Number.isFinite(persenRealisasi) ? persenRealisasi : 0))}%` }} />
                       </div>
                     </div>
 
@@ -302,7 +306,7 @@ export const BuletinInfographicStudioModal: React.FC<BuletinInfographicStudioMod
                           <span className="font-bold text-slate-200 truncate">{satker.namaSatker}</span>
                         </div>
                         <span className="font-mono font-black text-amber-300 shrink-0 ml-2">
-                          {(satker.nilaiIKPA || 98).toFixed(2)}
+                          {(Number.isFinite(satker.nilaiIKPA) ? satker.nilaiIKPA : 98).toFixed(2)}
                         </span>
                       </div>
                     ))}

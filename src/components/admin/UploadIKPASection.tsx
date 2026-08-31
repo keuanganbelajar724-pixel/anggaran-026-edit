@@ -677,9 +677,9 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
                         <div className="font-mono font-bold text-sky-700 dark:text-sky-300">{s.kodeSatker}</div>
                         <div className="font-medium text-slate-800 dark:text-slate-200">{s.namaSatker}</div>
                       </td>
-                      <td className="py-2 px-3 text-right font-mono">Rp {s.paguAnggaran.toLocaleString('id-ID')}</td>
-                      <td className="py-2 px-3 text-right font-mono">Rp {s.realisasiAnggaran.toLocaleString('id-ID')}</td>
-                      <td className="py-2 px-3 text-center font-black font-mono text-emerald-600">{s.nilaiTotalIKPA}</td>
+                      <td className="py-2 px-3 text-right font-mono">Rp {(Number.isFinite(s.paguAnggaran) ? s.paguAnggaran : 0).toLocaleString('id-ID')}</td>
+                      <td className="py-2 px-3 text-right font-mono">Rp {(Number.isFinite(s.realisasiAnggaran) ? s.realisasiAnggaran : 0).toLocaleString('id-ID')}</td>
+                      <td className="py-2 px-3 text-center font-black font-mono text-emerald-600">{Number.isFinite(s.nilaiTotalIKPA) ? s.nilaiTotalIKPA : 0}</td>
                       <td className="py-2 px-3 text-center">
                         <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold">
                           {s.predikat}

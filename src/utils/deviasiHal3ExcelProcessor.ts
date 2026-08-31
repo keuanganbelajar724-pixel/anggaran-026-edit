@@ -57,34 +57,36 @@ export const NAMA_BULAN_TO_NUM: Record<string, number> = {
 };
 
 export function parseNumeric(val: any, fallback = 0): number {
-  if (typeof val === 'number') return isNaN(val) ? fallback : val;
-  if (!val) return fallback;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : fallback;
+  if (val === null || val === undefined) return fallback;
   const str = String(val).trim().replace(/Rp/gi, '').replace(/\s+/g, '');
   if (!str) return fallback;
   
+  let res: number;
   // Format Indonesia: 1.000.000,00 atau International: 1,000,000.00
   if (str.includes('.') && str.includes(',')) {
     if (str.indexOf('.') < str.indexOf(',')) {
       // 1.000.000,50 -> 1000000.50
-      return parseFloat(str.replace(/\./g, '').replace(',', '.')) || fallback;
+      res = parseFloat(str.replace(/\./g, '').replace(',', '.'));
     } else {
       // 1,000,000.50 -> 1000000.50
-      return parseFloat(str.replace(/,/g, '')) || fallback;
+      res = parseFloat(str.replace(/,/g, ''));
     }
-  }
-  if (str.includes(',')) {
+  } else if (str.includes(',')) {
     // 1000000,50 atau 10,5%
-    return parseFloat(str.replace(',', '.')) || fallback;
-  }
-  if (str.includes('.')) {
+    res = parseFloat(str.replace(',', '.'));
+  } else if (str.includes('.')) {
     const parts = str.split('.');
     if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
       // 1.000.000 -> 1000000
-      return parseFloat(str.replace(/\./g, '')) || fallback;
+      res = parseFloat(str.replace(/\./g, ''));
+    } else {
+      res = parseFloat(str);
     }
-    return parseFloat(str) || fallback;
+  } else {
+    res = parseFloat(str);
   }
-  return parseFloat(str) || fallback;
+  return Number.isFinite(res) ? res : fallback;
 }
 
 export function parsePeriodeBulan(rawPeriode: any, fallbackMonth = 'Agustus'): { periodeAngka: number; periodeBulan: string; periodeFormatted: string } {

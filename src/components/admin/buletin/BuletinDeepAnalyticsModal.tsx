@@ -42,7 +42,8 @@ export const BuletinDeepAnalyticsModal: React.FC<BuletinDeepAnalyticsModalProps>
 
   const totalPagu = overallSummary?.totalPagu || 14250000000000;
   const totalRealisasi = overallSummary?.totalRealisasi || 10830000000000;
-  const persenRealisasi = overallSummary?.persentaseRealisasi || 76.0;
+  const rawPersenRealisasi = overallSummary?.persentaseRealisasi ?? (totalPagu > 0 ? (totalRealisasi / totalPagu) * 100 : 76.0);
+  const persenRealisasi = Number.isFinite(rawPersenRealisasi) ? rawPersenRealisasi : 76.0;
 
   // Simulator State
   const [targetSerapan, setTargetSerapan] = useState<number>(96.5);
@@ -55,8 +56,10 @@ export const BuletinDeepAnalyticsModal: React.FC<BuletinDeepAnalyticsModalProps>
   const targetNominal = (totalPagu * targetSerapan) / 100;
   const gapNominal = Math.max(0, targetNominal - totalRealisasi);
   const requiredDailySpending = sisaHariKerja > 0 ? gapNominal / sisaHariKerja : 0;
-  const dailyPaceCurrent = totalRealisasi / (250 - sisaHariKerja || 205);
-  const paceAccelerationRatio = dailyPaceCurrent > 0 ? requiredDailySpending / dailyPaceCurrent : 1.2;
+  const safeDaysElapsed = Math.max(1, 250 - sisaHariKerja);
+  const dailyPaceCurrent = totalRealisasi / safeDaysElapsed;
+  const rawPaceAccelerationRatio = dailyPaceCurrent > 0 ? requiredDailySpending / dailyPaceCurrent : 1.2;
+  const paceAccelerationRatio = Number.isFinite(rawPaceAccelerationRatio) ? rawPaceAccelerationRatio : 1.2;
 
   // Top Risk Satkers (Satker with large budget but realization < 70%)
   const highRiskSatkers = satkers
@@ -407,7 +410,7 @@ Tanggal Analisis: ${new Date().toLocaleDateString('id-ID')}
                       </div>
                       <div className="text-right">
                         <div className="text-amber-400 font-bold font-mono">
-                          {s.persenRealisasi?.toFixed(1) || '0.0'}% Terserap
+                          {(Number.isFinite(s.persenRealisasi) ? s.persenRealisasi : 0).toFixed(1)}% Terserap
                         </div>
                         <div className="text-[10px] text-slate-400">
                           Pagu: Rp {formatRupiahShort(s.pagu || 0)}

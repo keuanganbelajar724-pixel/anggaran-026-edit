@@ -159,6 +159,15 @@ export interface PengelolaanUPRecord {
   hariTanpaRevolving?: number;
   peringatanKritis?: boolean;
   keterangan?: string;
+  keteranganExcel?: string;
+  totalGUNihil?: number;
+  setoranUP?: number;
+  totalGUP?: number;
+  presentaseDariUP?: number;
+  batasTeguran?: string;
+  isNihil?: boolean;
+  isHariIni?: boolean;
+  isTelat?: boolean;
   periode: string;
   tahun: number;
   createdAt?: string;
@@ -836,7 +845,7 @@ export interface SPMPPPRecord {
   noSpp?: string; // Kolom NO_SPP
   noSpm?: string; // Kolom NO_SPM
   noSp2d?: string; // Kolom NO_SP2D
-  statusSpm: 'Belum Mengajukan' | 'Cetak SPP' | 'Setuju SPP' | 'Upload NTT' | 'Cetak SPM' | 'Terbit SP2D' | string; // Kolom STATUS_SPM
+  statusSpm: 'Belum membuat SPP' | 'Upload NTT' | 'Cetak SPP' | 'Setuju SPP' | 'Cetak SPM' | 'Terbit SP2D' | string; // Kolom STATUS_SPM (Kolom L)
   catatan?: string;
   createdAt?: string;
   updatedAt?: string;

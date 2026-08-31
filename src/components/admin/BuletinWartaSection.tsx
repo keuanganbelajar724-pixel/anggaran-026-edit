@@ -1493,7 +1493,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Porsi dari Total Pagu:</span>
                       <span className="font-bold text-blue-600 dark:text-blue-400">
-                        {((activeSummary.totalPagu / (overallSummary.totalPagu || 1)) * 100).toFixed(1)}%
+                        {(Number.isFinite((activeSummary.totalPagu / overallSummary.totalPagu) * 100) ? ((activeSummary.totalPagu / overallSummary.totalPagu) * 100).toFixed(1) : '0.0')}%
                       </span>
                     </div>
                   )}
@@ -1526,7 +1526,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
                       <span className="text-slate-400">Porsi dari Total Realisasi:</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {((activeSummary.totalRealisasi / (overallSummary.totalRealisasi || 1)) * 100).toFixed(1)}%
+                        {(Number.isFinite((activeSummary.totalRealisasi / overallSummary.totalRealisasi) * 100) ? ((activeSummary.totalRealisasi / overallSummary.totalRealisasi) * 100).toFixed(1) : '0.0')}%
                       </span>
                     </div>
                   )}

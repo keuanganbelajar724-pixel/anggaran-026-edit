@@ -304,63 +304,65 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   const currentDisplayPeriodLabel = `s.d. ${activeMonthPeriod} 2026`;
 
-  const avgIKPA = hasAnyIKPA 
-    ? (effectiveSatkers.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / (effectiveSatkers.length || 1)).toFixed(2)
+  const totalIkpaSum = effectiveSatkers.reduce((acc, s) => acc + (Number.isFinite(s.nilaiTotalIKPA) ? Number(s.nilaiTotalIKPA) : 0), 0);
+  const avgIKPA = hasAnyIKPA && totalSatker > 0 && Number.isFinite(totalIkpaSum / totalSatker)
+    ? (totalIkpaSum / totalSatker).toFixed(2)
     : '0.00';
 
-  const totalPagu = effectiveSatkers.reduce((acc, s) => acc + s.paguAnggaran, 0);
-  const totalRealisasi = effectiveSatkers.reduce((acc, s) => acc + s.realisasiAnggaran, 0);
-  const totalPersenPenyerapan = totalPagu > 0 
+  const totalPagu = effectiveSatkers.reduce((acc, s) => acc + (Number.isFinite(s.paguAnggaran) ? Number(s.paguAnggaran) : 0), 0);
+  const totalRealisasi = effectiveSatkers.reduce((acc, s) => acc + (Number.isFinite(s.realisasiAnggaran) ? Number(s.realisasiAnggaran) : 0), 0);
+  const totalPersenPenyerapan = totalPagu > 0 && Number.isFinite((totalRealisasi / totalPagu) * 100)
     ? ((totalRealisasi / totalPagu) * 100).toFixed(2) 
     : '0.00';
 
   // 4 Kategori Resmi IKPA (PER-5/PB/2024 / Standar DJPb)
-  const satkerSangatBaik = hasAnyIKPA ? effectiveSatkers.filter(s => s.nilaiTotalIKPA >= 95.0) : [];
-  const satkerBaik = hasAnyIKPA ? effectiveSatkers.filter(s => s.nilaiTotalIKPA >= 89.0 && s.nilaiTotalIKPA < 95.0) : [];
-  const satkerCukup = hasAnyIKPA ? effectiveSatkers.filter(s => s.nilaiTotalIKPA >= 70.0 && s.nilaiTotalIKPA < 89.0) : [];
-  const satkerKurang = hasAnyIKPA ? effectiveSatkers.filter(s => s.nilaiTotalIKPA < 70.0) : [];
-  const satkerPenyerapanRendah = hasAnyIKPA ? effectiveSatkers.filter(s => s.indikator.penyerapanAnggaran < 85) : [];
+  const satkerSangatBaik = hasAnyIKPA ? effectiveSatkers.filter(s => (s.nilaiTotalIKPA || 0) >= 95.0) : [];
+  const satkerBaik = hasAnyIKPA ? effectiveSatkers.filter(s => (s.nilaiTotalIKPA || 0) >= 89.0 && (s.nilaiTotalIKPA || 0) < 95.0) : [];
+  const satkerCukup = hasAnyIKPA ? effectiveSatkers.filter(s => (s.nilaiTotalIKPA || 0) >= 70.0 && (s.nilaiTotalIKPA || 0) < 89.0) : [];
+  const satkerKurang = hasAnyIKPA ? effectiveSatkers.filter(s => (s.nilaiTotalIKPA || 0) < 70.0) : [];
+  const satkerPenyerapanRendah = hasAnyIKPA ? effectiveSatkers.filter(s => (s.indikator?.penyerapanAnggaran || 0) < 85) : [];
 
   // Filter & Sort Logic for IKPA Satkers
   const filteredSatkers = effectiveSatkers.filter(s => {
+    const ikpaVal = Number.isFinite(s.nilaiTotalIKPA) ? Number(s.nilaiTotalIKPA) : 0;
     // Filter Predikat Dropdown
     if (filterPredikat !== 'ALL') {
       if (filterPredikat === 'Kurang' || filterPredikat === 'Sangat Perlu Perhatian') {
-        if (s.nilaiTotalIKPA >= 70) return false;
+        if (ikpaVal >= 70) return false;
       } else if (filterPredikat === 'Cukup') {
-        if (s.nilaiTotalIKPA < 70 || s.nilaiTotalIKPA >= 89) return false;
+        if (ikpaVal < 70 || ikpaVal >= 89) return false;
       } else if (filterPredikat === 'Baik') {
-        if (s.nilaiTotalIKPA < 89 || s.nilaiTotalIKPA >= 95) return false;
+        if (ikpaVal < 89 || ikpaVal >= 95) return false;
       } else if (filterPredikat === 'Sangat Baik') {
-        if (s.nilaiTotalIKPA < 95) return false;
+        if (ikpaVal < 95) return false;
       }
     }
     // Filter Card Interactive Focus
-    if (filterIssue === 'IKPA_SANGAT_BAIK' && s.nilaiTotalIKPA < 95.0) {
+    if (filterIssue === 'IKPA_SANGAT_BAIK' && ikpaVal < 95.0) {
       return false;
     }
-    if (filterIssue === 'IKPA_BAIK' && (s.nilaiTotalIKPA < 89.0 || s.nilaiTotalIKPA >= 95.0)) {
+    if (filterIssue === 'IKPA_BAIK' && (ikpaVal < 89.0 || ikpaVal >= 95.0)) {
       return false;
     }
-    if (filterIssue === 'IKPA_CUKUP' && (s.nilaiTotalIKPA < 70.0 || s.nilaiTotalIKPA >= 89.0)) {
+    if (filterIssue === 'IKPA_CUKUP' && (ikpaVal < 70.0 || ikpaVal >= 89.0)) {
       return false;
     }
-    if (filterIssue === 'IKPA_KURANG' && s.nilaiTotalIKPA >= 70.0) {
+    if (filterIssue === 'IKPA_KURANG' && ikpaVal >= 70.0) {
       return false;
     }
-    if (filterIssue === 'PENYERAPAN_RENDAH' && s.indikator.penyerapanAnggaran >= 85) {
+    if (filterIssue === 'PENYERAPAN_RENDAH' && (s.indikator?.penyerapanAnggaran || 0) >= 85) {
       return false;
     }
-    if (filterIssue === 'DEVIASI_TINGGI' && s.indikator.deviasiHal3Dipa >= 85) {
+    if (filterIssue === 'DEVIASI_TINGGI' && (s.indikator?.deviasiHal3Dipa || 0) >= 85) {
       return false;
     }
-    if (filterIssue === 'DISPENSASI_SPM' && s.indikator.dispensasiSpm >= 100) {
+    if (filterIssue === 'DISPENSASI_SPM' && (s.indikator?.dispensasiSpm || 0) >= 100) {
       return false;
     }
     return true;
   }).sort((a, b) => {
     // Sorting by Total Nilai IKPA terendah (satker perlu perhatian di awal)
-    return a.nilaiTotalIKPA - b.nilaiTotalIKPA;
+    return (a.nilaiTotalIKPA || 0) - (b.nilaiTotalIKPA || 0);
   });
 
   // Reset page when filter changes
@@ -374,15 +376,25 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     : filteredSatkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Calculate Indicator Averages for Progress Bars
+  const calcAvg = (key: keyof typeof effectiveSatkers[0]['indikator']) => {
+    if (totalSatker === 0) return '0.0';
+    const sum = effectiveSatkers.reduce((acc, s) => {
+      const v = s.indikator ? Number(s.indikator[key]) : 0;
+      return acc + (Number.isFinite(v) ? v : 0);
+    }, 0);
+    const avg = sum / totalSatker;
+    return Number.isFinite(avg) ? avg.toFixed(1) : '0.0';
+  };
+
   const avgIndicators = {
-    revisiDipa: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.revisiDipa, 0) / totalSatker).toFixed(1) : '0.0',
-    deviasiHal3Dipa: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.deviasiHal3Dipa, 0) / totalSatker).toFixed(1) : '0.0',
-    penyerapanAnggaran: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.penyerapanAnggaran, 0) / totalSatker).toFixed(1) : '0.0',
-    belanjaKontraktual: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.belanjaKontraktual, 0) / totalSatker).toFixed(1) : '0.0',
-    penyelesaianTagihan: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.penyelesaianTagihan, 0) / totalSatker).toFixed(1) : '0.0',
-    pengelolaanUpTup: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.pengelolaanUpTup, 0) / totalSatker).toFixed(1) : '0.0',
-    dispensasiSpm: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.dispensasiSpm, 0) / totalSatker).toFixed(1) : '0.0',
-    capaianOutput: totalSatker > 0 ? (effectiveSatkers.reduce((acc, s) => acc + s.indikator.capaianOutput, 0) / totalSatker).toFixed(1) : '0.0',
+    revisiDipa: calcAvg('revisiDipa'),
+    deviasiHal3Dipa: calcAvg('deviasiHal3Dipa'),
+    penyerapanAnggaran: calcAvg('penyerapanAnggaran'),
+    belanjaKontraktual: calcAvg('belanjaKontraktual'),
+    penyelesaianTagihan: calcAvg('penyelesaianTagihan'),
+    pengelolaanUpTup: calcAvg('pengelolaanUpTup'),
+    dispensasiSpm: calcAvg('dispensasiSpm'),
+    capaianOutput: calcAvg('capaianOutput'),
   };
 
   const formatRupiah = (val: number) => {
@@ -1243,10 +1255,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                                     ? (isDark ? 'bg-amber-950/60 text-amber-300 border-amber-800/60' : 'bg-amber-50 text-amber-800 border-amber-200') :
                                     (isDark ? 'bg-rose-950/60 text-rose-300 border-rose-800/60' : 'bg-rose-50 text-rose-800 border-rose-200')
                                 }`}>
-                                  {val.toFixed(2)}
+                                  {Number.isFinite(val) ? val.toFixed(2) : '0.00'}
                                 </span>
-                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5" title={`Total IKPA Kumulatif: ${satker.nilaiTotalIKPA.toFixed(2)}`}>
-                                  Total IKPA: {satker.nilaiTotalIKPA.toFixed(2)}
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono mt-0.5" title={`Total IKPA Kumulatif: ${Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA.toFixed(2) : '0.00'}`}>
+                                  Total IKPA: {Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA.toFixed(2) : '0.00'}
                                 </span>
                               </div>
                             </td>
@@ -1614,19 +1626,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         </div>
                       </td>
 
-                      {/* Nilai Akhir IKPA (Kolom U) */}
+                      {/* Nilai Total IKPA (Kolom U) */}
                       <td className="py-3 px-3 text-center">
                         <div className="inline-flex flex-col items-center">
                           <span className={`font-mono text-base font-black px-3.5 py-1 rounded-xl border shadow-xs ${
-                            satker.nilaiTotalIKPA >= 95 
+                            (satker.nilaiTotalIKPA || 0) >= 95 
                               ? (isDark ? 'bg-emerald-950/90 text-emerald-300 border-emerald-600 shadow-emerald-500/10' : 'bg-emerald-100 text-emerald-950 border-emerald-400') :
-                            satker.nilaiTotalIKPA >= 87.5 
+                            (satker.nilaiTotalIKPA || 0) >= 87.5 
                               ? (isDark ? 'bg-blue-950/90 text-blue-300 border-blue-600' : 'bg-blue-100 text-blue-950 border-blue-400') :
-                            satker.nilaiTotalIKPA >= 70 
+                            (satker.nilaiTotalIKPA || 0) >= 70 
                               ? (isDark ? 'bg-amber-950/90 text-amber-300 border-amber-600' : 'bg-amber-100 text-amber-950 border-amber-400') :
                               (isDark ? 'bg-rose-950/90 text-rose-300 border-rose-600' : 'bg-rose-100 text-rose-950 border-rose-400')
                           }`}>
-                            {satker.nilaiTotalIKPA.toFixed(2)}
+                            {Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA.toFixed(2) : '0.00'}
                           </span>
                           <span className="text-[9px] font-bold text-slate-400 mt-1">Kolom U</span>
                         </div>
@@ -1681,8 +1693,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           ) : (
             paginatedSatkers.map((satker, idx) => {
-              const isRedFlag = satker.nilaiTotalIKPA < 87.5;
-              const ind = satker.indikator;
+              const isRedFlag = (satker.nilaiTotalIKPA || 0) < 87.5;
+              const ind = satker.indikator || ({} as any);
               return (
                 <div key={satker.id} className={`p-4 space-y-3 ${
                   isRedFlag 
@@ -1709,7 +1721,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                     </div>
                     <div className="shrink-0 text-right">
                       <div className="font-mono text-base font-black text-amber-500">
-                        {satker.nilaiTotalIKPA.toFixed(2)}
+                        {Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA.toFixed(2) : '0.00'}
                       </div>
                       {getPredikatBadge(satker.predikat, satker.nilaiTotalIKPA, satker.hasIKPAData)}
                     </div>
@@ -1719,35 +1731,35 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   <div className="grid grid-cols-4 gap-1 text-[10px] pt-1">
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Revisi</span>
-                      <span className="font-mono font-bold">{ind.revisiDipa}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.revisiDipa) ? ind.revisiDipa : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Deviasi</span>
-                      <span className="font-mono font-bold">{ind.deviasiHal3Dipa}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.deviasiHal3Dipa) ? ind.deviasiHal3Dipa : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Serap</span>
-                      <span className="font-mono font-bold">{ind.penyerapanAnggaran}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.penyerapanAnggaran) ? ind.penyerapanAnggaran : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Kontrak</span>
-                      <span className="font-mono font-bold">{ind.belanjaKontraktual}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.belanjaKontraktual) ? ind.belanjaKontraktual : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Tagihan</span>
-                      <span className="font-mono font-bold">{ind.penyelesaianTagihan}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.penyelesaianTagihan) ? ind.penyelesaianTagihan : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">UP/TUP</span>
-                      <span className="font-mono font-bold">{ind.pengelolaanUpTup}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.pengelolaanUpTup) ? ind.pengelolaanUpTup : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Dispen</span>
-                      <span className="font-mono font-bold">{ind.dispensasiSpm}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.dispensasiSpm) ? ind.dispensasiSpm : 0}</span>
                     </div>
                     <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-center">
                       <span className="block text-[8px] text-slate-400">Output</span>
-                      <span className="font-mono font-bold">{ind.capaianOutput}</span>
+                      <span className="font-mono font-bold">{Number.isFinite(ind.capaianOutput) ? ind.capaianOutput : 0}</span>
                     </div>
                   </div>
 

@@ -139,7 +139,7 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
           }`}
         >
           <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Semua Satker Red Flag</div>
-          <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{satkersWithIKPA.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && s.indikator.capaianOutput === 0) || s.persenPenyerapan < 70 || s.indikator.deviasiHal3Dipa < 75).length}</div>
+          <div className={`text-2xl font-black ${isDark ? 'text-white' : 'text-slate-900'}`}>{satkersWithIKPA.filter(s => (s.nilaiTotalIKPA || 0) < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator && (s.indikator.capaianOutput || 0) === 0) || (s.persenPenyerapan || 0) < 70 || (s.indikator?.deviasiHal3Dipa || 0) < 75).length}</div>
           <div className="text-[11px] opacity-80 mt-1">Gagal Target / Belum Output</div>
         </button>
 
@@ -276,7 +276,7 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
                     {/* Score Tag */}
                     <div className="text-right shrink-0">
                       <div className={`text-2xl font-black ${isDark ? 'text-rose-400' : 'text-rose-600'}`}>
-                        {satker.nilaiTotalIKPA}
+                        {Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA : 0}
                       </div>
                       <div className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block border ${
                         isDark ? 'text-rose-300 bg-rose-950/80 border-rose-800' : 'text-rose-800 bg-rose-100 border-rose-200'
@@ -302,17 +302,17 @@ export const RedFlagsView: React.FC<RedFlagsViewProps> = ({
                     <ul className={`text-xs space-y-1 pl-4 list-disc ${isDark ? 'text-rose-200/90' : 'text-rose-800'}`}>
                       {satker.statusCapaianOutput !== 'Sudah Terlaporkan' && (
                         <li className={`font-semibold ${isDark ? 'text-rose-300' : 'text-rose-900'}`}>
-                          Capaian Output: Status <span className="underline">{satker.statusCapaianOutput}</span> (Nilai: {satker.indikator.capaianOutput}%)
+                          Capaian Output: Status <span className="underline">{satker.statusCapaianOutput}</span> (Nilai: {Number.isFinite(satker.indikator?.capaianOutput) ? satker.indikator.capaianOutput : 0}%)
                         </li>
                       )}
-                      {satker.persenPenyerapan < 70 && (
+                      {(satker.persenPenyerapan || 0) < 70 && (
                         <li className="font-medium">
-                          Penyerapan Anggaran Lambat: <strong className={isDark ? 'text-amber-300' : 'text-rose-900'}>{satker.persenPenyerapan}%</strong> (Sisa Pagu: {formatRupiah(satker.paguAnggaran - satker.realisasiAnggaran)})
+                          Penyerapan Anggaran Lambat: <strong className={isDark ? 'text-amber-300' : 'text-rose-900'}>{Number.isFinite(satker.persenPenyerapan) ? satker.persenPenyerapan : 0}%</strong> (Sisa Pagu: {formatRupiah((satker.paguAnggaran || 0) - (satker.realisasiAnggaran || 0))})
                         </li>
                       )}
-                      {satker.indikator.deviasiHal3Dipa < 75 && (
+                      {(satker.indikator?.deviasiHal3Dipa || 0) < 75 && (
                         <li>
-                          Deviasi Hal III DIPA Tinggi (Skor Indikator: {satker.indikator.deviasiHal3Dipa})
+                          Deviasi Hal III DIPA Tinggi (Skor Indikator: {Number.isFinite(satker.indikator?.deviasiHal3Dipa) ? satker.indikator.deviasiHal3Dipa : 0})
                         </li>
                       )}
                       {satker.issues.map((iss, i) => (

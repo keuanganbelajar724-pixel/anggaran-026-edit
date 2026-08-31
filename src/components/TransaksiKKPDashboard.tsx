@@ -275,11 +275,11 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
   // KPI Calculations
   const stats = useMemo(() => {
     const totalSatker = sortedRecords.length;
-    const totalTransaksi = sortedRecords.reduce((acc, r) => acc + (r.jumlahTransaksi || 0), 0);
-    const totalNominal = sortedRecords.reduce((acc, r) => acc + (r.totalNominal || 0), 0);
+    const totalTransaksi = sortedRecords.reduce((acc, r) => acc + (Number.isFinite(r.jumlahTransaksi) ? Number(r.jumlahTransaksi) : 0), 0);
+    const totalNominal = sortedRecords.reduce((acc, r) => acc + (Number.isFinite(r.totalNominal) ? Number(r.totalNominal) : 0), 0);
     const avgNominalPerSatker = totalSatker > 0 ? Math.round(totalNominal / totalSatker) : 0;
     const avgNominalPerTransaksi = totalTransaksi > 0 ? Math.round(totalNominal / totalTransaksi) : 0;
-    const avgTransaksiPerSatker = totalSatker > 0 ? (totalTransaksi / totalSatker).toFixed(1) : '0';
+    const avgTransaksiPerSatker = totalSatker > 0 && Number.isFinite(totalTransaksi / totalSatker) ? (totalTransaksi / totalSatker).toFixed(1) : '0';
 
     return {
       totalSatker,
@@ -829,10 +829,10 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             </div>
           </div>
           <div className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono truncate" title={`Rp ${stats.totalNominal.toLocaleString('id-ID')}`}>
-            Rp {(stats.totalNominal / 1000000).toFixed(1)} Jt
+            Rp {Number.isFinite(stats.totalNominal / 1000000) ? (stats.totalNominal / 1000000).toFixed(1) : '0.0'} Jt
           </div>
           <div className="text-[11px] text-slate-500 truncate">
-            Rata-rata: Rp {(stats.avgNominalPerSatker / 1000000).toFixed(1)} Jt / Satker
+            Rata-rata: Rp {Number.isFinite(stats.avgNominalPerSatker / 1000000) ? (stats.avgNominalPerSatker / 1000000).toFixed(1) : '0.0'} Jt / Satker
           </div>
         </div>
 
@@ -844,7 +844,7 @@ export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({
             </div>
           </div>
           <div className="text-lg sm:text-xl font-black text-slate-900 dark:text-white font-mono truncate" title={`Rp ${stats.avgNominalPerTransaksi.toLocaleString('id-ID')}`}>
-            Rp {(stats.avgNominalPerTransaksi / 1000000).toFixed(2)} Jt
+            Rp {Number.isFinite(stats.avgNominalPerTransaksi / 1000000) ? (stats.avgNominalPerTransaksi / 1000000).toFixed(2) : '0.00'} Jt
           </div>
           <div className="text-[11px] text-slate-500 truncate">
             Nilai Rata-rata per SP2D KKP

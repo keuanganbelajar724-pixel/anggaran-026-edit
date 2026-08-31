@@ -48,9 +48,9 @@ export const BuletinPageAdvancedAnalytics: React.FC<BuletinPageAdvancedAnalytics
   renderTextOrMissing,
   renderPhotoOrMissing
 }) => {
-  const totalPagu = overallSummary?.totalPagu || 12850000000000;
-  const totalRealisasi = overallSummary?.totalRealisasi || 8420000000000;
-  const persen = overallSummary?.persenRealisasiTotal || 65.5;
+  const totalPagu = (overallSummary && Number.isFinite(overallSummary.totalPagu) && overallSummary.totalPagu > 0) ? overallSummary.totalPagu : 12850000000000;
+  const totalRealisasi = (overallSummary && Number.isFinite(overallSummary.totalRealisasi) && overallSummary.totalRealisasi > 0) ? overallSummary.totalRealisasi : 8420000000000;
+  const persen = (overallSummary && Number.isFinite(overallSummary.persenRealisasiTotal)) ? overallSummary.persenRealisasiTotal : 65.5;
 
   // HALAMAN 25: ANALISIS DAMPAK EKONOMI APBN TERHADAP PDRB KOTA SEMARANG
   if (pageNumber === 25) {

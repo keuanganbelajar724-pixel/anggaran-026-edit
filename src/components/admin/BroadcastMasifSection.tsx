@@ -2600,7 +2600,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                             )}
                           </div>
                           <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            Kode: <strong className="text-slate-700 dark:text-slate-300">{rec.satkerKode}</strong> | Nilai IKPA: <span className="font-bold text-rose-600">{rec.nilaiIkpa.toFixed(2)}</span>
+                            Kode: <strong className="text-slate-700 dark:text-slate-300">{rec.satkerKode}</strong> | Nilai IKPA: <span className="font-bold text-rose-600">{Number.isFinite(rec.nilaiIkpa) ? rec.nilaiIkpa.toFixed(2) : '0.00'}</span>
                           </div>
                         </td>
                         <td className="py-2.5 px-3">
@@ -3088,7 +3088,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                           )}
                         </div>
                         <div className="text-[10px] text-slate-500 font-mono mt-0.5">
-                          Kode: <strong className="text-slate-700 dark:text-slate-300">{rec.satkerKode}</strong> | IKPA: <span className="font-bold text-rose-600">{rec.nilaiIkpa.toFixed(2)}</span>
+                          Kode: <strong className="text-slate-700 dark:text-slate-300">{rec.satkerKode}</strong> | IKPA: <span className="font-bold text-rose-600">{Number.isFinite(rec.nilaiIkpa) ? rec.nilaiIkpa.toFixed(2) : '0.00'}</span>
                         </div>
                       </td>
 

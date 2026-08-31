@@ -220,7 +220,7 @@ export const BuletinPageFiscalData: React.FC<BuletinPageFiscalDataProps> = ({
                 <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
                   <div
                     className="bg-gradient-to-r from-indigo-500 to-emerald-500 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(persen, 100)}%` }}
+                    style={{ width: `${Math.min(Math.max(Number.isFinite(persen) ? persen : 0, 0), 100)}%` }}
                   />
                 </div>
               </div>

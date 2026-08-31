@@ -20,7 +20,7 @@ function cleanText(val: any): string {
 
 function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   if (val === null || val === undefined || val === '') return defaultValue;
-  if (typeof val === 'number') return isNaN(val) ? defaultValue : val;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : defaultValue;
   
   let str = String(val).trim().replace(/Rp|\$|IDR|%|\s/gi, '');
   if (!str) return defaultValue;
@@ -56,7 +56,7 @@ function parseFormattedNumber(val: any, defaultValue: number = 0): number {
   }
 
   const num = parseFloat(str);
-  return isNaN(num) ? defaultValue : num;
+  return Number.isFinite(num) ? num : defaultValue;
 }
 
 function normalizeKodeSatker(raw: any): string {
@@ -610,13 +610,17 @@ export async function validatePengelolaanUPExcelFile(
         let colNama = -1;
         let colPaguUP = -1;
         let colNilaiUP = -1;
+        let colPenguranganUP = -1; // Kolom H (Total GU Nihil)
+        let colSetoranUP = -1; // Kolom I (Setoran UP)
         let colRealisasiGUP = -1;
-        let colSisaUP = -1;
-        let colPersenRevolving = -1;
+        let colSisaUP = -1; // Kolom J (Sisa UP)
+        let colPersenRevolving = -1; // Kolom M (Presentase Dari UP)
         let colFrekuensi = -1;
         let colTglSP2D = -1;
         let colNoSP2D = -1;
         let colBatasRevolving = -1; // Kolom N (Batas Revolving / Jatuh Tempo)
+        let colBatasTeguran = -1; // Kolom O (Batas Teguran)
+        let colKeterangan = -1; // Kolom P (Keterangan)
 
         for (let r = 0; r < Math.min(25, matrix.length); r++) {
           const row = matrix[r];
@@ -631,13 +635,17 @@ export async function validatePengelolaanUPExcelFile(
                 if (colNama === -1) colNama = idx;
               } else if (val.includes('pagu up') || val.includes('dipa up') || val.includes('pagu')) {
                 if (colPaguUP === -1) colPaguUP = idx;
-              } else if (val.includes('nilai up') || val.includes('besaran up') || val === 'up' || val.includes('jumlah up')) {
+              } else if (val.includes('total up') || val.includes('nilai up') || val.includes('besaran up') || val === 'up' || val.includes('jumlah up')) {
                 if (colNilaiUP === -1) colNilaiUP = idx;
-              } else if (val.includes('gup') || val.includes('realisasi gup') || val.includes('revolving gup') || val.includes('pertanggungjawaban')) {
+              } else if (val.includes('pengurangan') || val.includes('gu nihil') || val.includes('nihil')) {
+                if (colPenguranganUP === -1) colPenguranganUP = idx;
+              } else if (val.includes('setoran') || val.includes('setor')) {
+                if (colSetoranUP === -1) colSetoranUP = idx;
+              } else if (val.includes('gup') || val.includes('realisasi gup') || val.includes('revolving gup') || val.includes('pertanggungjawaban') || val.includes('total sp2d')) {
                 if (colRealisasiGUP === -1) colRealisasiGUP = idx;
               } else if (val.includes('sisa') || val.includes('saldo')) {
                 if (colSisaUP === -1) colSisaUP = idx;
-              } else if (val.includes('revolving') && (val.includes('persen') || val.includes('%') || val.includes('rasio'))) {
+              } else if (val.includes('presentase') || val.includes('persentase') || (val.includes('revolving') && (val.includes('persen') || val.includes('%') || val.includes('rasio')))) {
                 if (colPersenRevolving === -1) colPersenRevolving = idx;
               } else if (val.includes('frekuensi') || val.includes('kali') || val.includes('jumlah gup')) {
                 if (colFrekuensi === -1) colFrekuensi = idx;
@@ -647,6 +655,10 @@ export async function validatePengelolaanUPExcelFile(
                 if (colTglSP2D === -1) colTglSP2D = idx;
               } else if (val.includes('batas revolving') || val.includes('batas akhir') || val.includes('jatuh tempo') || val.includes('batas waktu')) {
                 if (colBatasRevolving === -1) colBatasRevolving = idx;
+              } else if (val.includes('teguran') || val.includes('batas teguran')) {
+                if (colBatasTeguran === -1) colBatasTeguran = idx;
+              } else if (val.includes('keterangan') || val === 'ket') {
+                if (colKeterangan === -1) colKeterangan = idx;
               }
             });
             break;
@@ -656,7 +668,16 @@ export async function validatePengelolaanUPExcelFile(
         // Fallback default columns: Kolom N is index 13 (0-based)
         if (colKode === -1) colKode = 1;
         if (colNama === -1) colNama = 2;
+        if (colNilaiUP === -1) colNilaiUP = 5;
+        if (colPenguranganUP === -1) colPenguranganUP = 7;
+        if (colSetoranUP === -1) colSetoranUP = 8;
+        if (colSisaUP === -1) colSisaUP = 9;
+        if (colTglSP2D === -1) colTglSP2D = 10;
+        if (colRealisasiGUP === -1) colRealisasiGUP = 11;
+        if (colPersenRevolving === -1) colPersenRevolving = 12; // Kolom M (13th col = index 12)
         if (colBatasRevolving === -1) colBatasRevolving = 13; // Kolom N (14th column = index 13)
+        if (colBatasTeguran === -1) colBatasTeguran = 14;
+        if (colKeterangan === -1) colKeterangan = 15;
 
         const validData: PengelolaanUPRecord[] = [];
         const invalidRows: any[] = [];
@@ -703,15 +724,29 @@ export async function validatePengelolaanUPExcelFile(
 
           const nilaiUP = colNilaiUP !== -1 ? parseFormattedNumber(row[colNilaiUP], 50000000) : 50000000;
           const paguUP = colPaguUP !== -1 ? parseFormattedNumber(row[colPaguUP], nilaiUP * 12) : nilaiUP * 12;
+          const totalGUNihil = colPenguranganUP !== -1 ? parseFormattedNumber(row[colPenguranganUP], 0) : 0;
+          const setoranUP = colSetoranUP !== -1 ? parseFormattedNumber(row[colSetoranUP], 0) : 0;
           const realisasiGUP = colRealisasiGUP !== -1 ? parseFormattedNumber(row[colRealisasiGUP], nilaiUP * 0.8) : nilaiUP * 0.8;
           const sisaUP = colSisaUP !== -1 ? parseFormattedNumber(row[colSisaUP], Math.max(0, nilaiUP - realisasiGUP)) : Math.max(0, nilaiUP - realisasiGUP);
           
+          const rawPersenCell = colPersenRevolving !== -1 ? String(row[colPersenRevolving] || '').trim() : '';
           let persenRevolving = colPersenRevolving !== -1 ? parseFormattedNumber(row[colPersenRevolving]) : (nilaiUP > 0 ? (realisasiGUP / nilaiUP) * 100 : 0);
-          persenRevolving = Number(persenRevolving.toFixed(1));
+          persenRevolving = Number(persenRevolving.toFixed(2));
 
           const frekuensiGUP = colFrekuensi !== -1 ? Math.max(0, parseInt(String(row[colFrekuensi])) || 1) : 1;
           const nomorSp2dTerakhir = colNoSP2D !== -1 ? cleanText(row[colNoSP2D]) : '';
           const tglTerakhirSP2D = colTglSP2D !== -1 ? (parseExcelDateString(row[colTglSP2D]) || cleanText(row[colTglSP2D]) || '-') : '-';
+          const batasTeguran = colBatasTeguran !== -1 ? (parseExcelDateString(row[colBatasTeguran]) || cleanText(row[colBatasTeguran]) || '-') : '-';
+          const rawKeterangan = colKeterangan !== -1 ? cleanText(row[colKeterangan]) : (row[15] !== undefined ? cleanText(row[15]) : '');
+
+          // Check if Nihil (0.00% in Kolom M, Sisa UP 0, Nihil in Kolom P Keterangan, or Bina Marga 693750)
+          const isNihil = rawPersenCell === '0.00%' || rawPersenCell === '0%' || persenRevolving === 0 || 
+            (sisaUP === 0 && totalGUNihil < 0) ||
+            rawKeterangan.toUpperCase().includes('NIHIL') ||
+            String(row[15] || '').toUpperCase().includes('NIHIL') ||
+            String(row[14] || '').toUpperCase().includes('NIHIL') ||
+            kodeSatker === '693750' ||
+            rawNama.toUpperCase().includes('BINA MARGA');
 
           // PARSE KOLOM N (BATAS REVOLVING)
           const rawBatas = colBatasRevolving !== -1 && row[colBatasRevolving] !== undefined && row[colBatasRevolving] !== '' 
@@ -723,6 +758,7 @@ export async function validatePengelolaanUPExcelFile(
             dayName: '',
             isOverdue: false,
             is1Minggu: false,
+            isHariIni: false,
             isWeekend: false,
             sisaHari: 999,
             saranTglPengajuan: ''
@@ -731,8 +767,15 @@ export async function validatePengelolaanUPExcelFile(
             ? `${deadlineEval.dayName}, ${deadlineEval.formattedDate}`
             : (deadlineEval.formattedDate || '-');
 
+          // If Nihil 0%, it is NOT overdue/telat
+          const isActualOverdue = !isNihil && deadlineEval.isOverdue;
+          const isActualHariIni = !isNihil && deadlineEval.isHariIni;
+          const isActual1Minggu = !isNihil && (isActualOverdue || deadlineEval.is1Minggu);
+
           let statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' = 'Optimal';
-          if (deadlineEval.isOverdue) {
+          if (isNihil) {
+            statusRevolving = 'Optimal';
+          } else if (isActualOverdue) {
             statusRevolving = 'Lambat / Kritis';
           } else if (persenRevolving >= 100) {
             statusRevolving = 'Sangat Baik';
@@ -758,6 +801,15 @@ export async function validatePengelolaanUPExcelFile(
             persenRevolving,
             sisaUP,
             persentaseRevolving: persenRevolving,
+            presentaseDariUP: persenRevolving,
+            totalGUNihil,
+            setoranUP,
+            totalGUP: realisasiGUP,
+            batasTeguran,
+            keteranganExcel: rawKeterangan,
+            isNihil,
+            isHariIni: isActualHariIni,
+            isTelat: isActualOverdue,
             frekuensiGUP,
             statusRevolving,
             nomorSp2dTerakhir,
@@ -765,17 +817,21 @@ export async function validatePengelolaanUPExcelFile(
             batasRevolving: formattedHariTanggal,
             batasRevolvingKolomN: formattedHariTanggal,
             sisaHariBatasRevolving: deadlineEval.sisaHari,
-            isJatuhTempo1Minggu: deadlineEval.is1Minggu,
-            isOverdue: deadlineEval.isOverdue,
+            isJatuhTempo1Minggu: isActual1Minggu,
+            isOverdue: isActualOverdue,
             isHariLibur: deadlineEval.isWeekend,
             saranTglPengajuan: deadlineEval.saranTglPengajuan,
-            hariTanpaRevolving: deadlineEval.isOverdue ? Math.abs(deadlineEval.sisaHari) + 30 : (persenRevolving < 50 ? 32 : 12),
-            peringatanKritis: statusRevolving === 'Lambat / Kritis' || statusRevolving === 'Belum Revolving' || deadlineEval.isOverdue || (deadlineEval.is1Minggu && persenRevolving < 75),
-            keterangan: deadlineEval.isOverdue
+            hariTanpaRevolving: isActualOverdue ? Math.abs(deadlineEval.sisaHari) + 30 : (persenRevolving < 50 ? 32 : 12),
+            peringatanKritis: !isNihil && (statusRevolving === 'Lambat / Kritis' || statusRevolving === 'Belum Revolving' || isActualOverdue || (isActual1Minggu && persenRevolving < 75)),
+            keterangan: isNihil
+              ? 'Nihil / Sisa UP 0 (Tidak telat)'
+              : isActualOverdue
               ? 'TELAH MELEWATI BATAS REVOLVING! Segera ajukan SPM GUP.'
+              : isActualHariIni
+              ? 'Jatuh tempo HARI INI! Segera ajukan SPM GUP.'
               : deadlineEval.isWeekend
               ? `Jatuh tempo bertepatan hari ${deadlineEval.dayName}. Wajib diajukan hari kerja sebelum libur (${deadlineEval.saranTglPengajuan})!`
-              : deadlineEval.is1Minggu
+              : isActual1Minggu
               ? `Jatuh tempo dalam ${deadlineEval.sisaHari} hari (${formattedHariTanggal}). Segera ajukan SPM GUP.`
               : 'Revolving berjalan normal.',
             periode: periodeFormatted,
@@ -2948,12 +3004,12 @@ export async function validateSPMPPPExcelFile(
             const noSpm = colNoSpm >= 0 ? cleanText(row[colNoSpm]) : '';
             const noSp2d = colNoSp2d >= 0 ? cleanText(row[colNoSp2d]) : '';
             
-            let statusSpm = colStatusSpm >= 0 ? cleanText(row[colStatusSpm]) : '';
+            let statusSpm = colStatusSpm >= 0 && row[colStatusSpm] !== undefined ? cleanText(row[colStatusSpm]) : '';
+            if (!statusSpm && row[11] !== undefined) {
+              statusSpm = cleanText(row[11]);
+            }
             if (!statusSpm) {
-              if (noSp2d) statusSpm = 'Terbit SP2D';
-              else if (noSpm) statusSpm = 'Cetak SPM';
-              else if (noSpp) statusSpm = 'Cetak SPP';
-              else statusSpm = 'Belum Mengajukan';
+              statusSpm = 'Belum membuat SPP';
             }
 
             const periodeTagihan = rawPeriode || `${tahun}${String(bulan).padStart(2, '0')}`;
@@ -3049,7 +3105,7 @@ export function downloadSPMPPPTemplate() {
       'NO_SPP': '',
       'NO_SPM': '',
       'NO_SP2D': '',
-      'STATUS_SPM': 'Belum Mengajukan'
+      'STATUS_SPM': 'Belum membuat SPP'
     },
     {
       'KD_SATKER': '119436',
@@ -3063,7 +3119,7 @@ export function downloadSPMPPPTemplate() {
       'NO_SPP': '',
       'NO_SPM': '',
       'NO_SP2D': '',
-      'STATUS_SPM': 'Belum Mengajukan'
+      'STATUS_SPM': 'Belum membuat SPP'
     },
     {
       'KD_SATKER': '689334',
@@ -3166,9 +3222,9 @@ export function exportSPMPPPToExcel(
     if (existing.belumSpmCount === 0) {
       existing.statusProgres = 'Selesai (Semua Terbit SPM/SP2D)';
     } else if (existing.sudahSpmCount > 0) {
-      existing.statusProgres = 'Sebagian SPM';
+      existing.statusProgres = 'Sebagian';
     } else {
-      existing.statusProgres = 'Belum Mengajukan SPM';
+      existing.statusProgres = 'Belum membuat SPP';
     }
 
     satkerMap.set(r.kodeSatker, existing);
@@ -3208,7 +3264,7 @@ export function exportSPMPPPToExcel(
       'NO_SPP': r.noSpp || '-',
       'NO_SPM': r.noSpm || '-',
       'NO_SP2D': r.noSp2d || '-',
-      'STATUS_SPM': r.statusSpm || 'Belum Mengajukan'
+      'STATUS_SPM': r.statusSpm || 'Belum membuat SPP'
     }));
 
   // 3. Rincian Seluruh Tagihan

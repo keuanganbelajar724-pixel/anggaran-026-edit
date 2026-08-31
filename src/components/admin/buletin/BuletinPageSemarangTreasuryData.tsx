@@ -374,7 +374,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
               <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
                 <div className="flex items-center justify-between font-bold text-slate-900">
                   <span>{item.penyebab}</span>
-                  <span className="font-mono text-red-700 bg-red-50 px-2 py-0.5 rounded">{item.persen}%</span>
+                  <span className="font-mono text-red-700 bg-red-50 px-2 py-0.5 rounded">{Number.isFinite(item.persen) ? item.persen : 0}%</span>
                 </div>
                 <p className="text-[11px] text-slate-600">
                   <strong>Solusi Mitigasi:</strong> {item.solusi}

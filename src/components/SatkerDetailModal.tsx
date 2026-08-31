@@ -320,8 +320,8 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                     </span>
                     <span className="text-sm font-black">
                       {monthlyHistory.length > 1 
-                        ? (analysis.scoreChange > 0 ? `+${analysis.scoreChange} Poin` : `${analysis.scoreChange} Poin`)
-                        : `${satker.nilaiTotalIKPA} / 100`
+                        ? (Number.isFinite(analysis.scoreChange) && analysis.scoreChange > 0 ? `+${analysis.scoreChange} Poin` : `${Number.isFinite(analysis.scoreChange) ? analysis.scoreChange : 0} Poin`)
+                        : `${Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA : 0} / 100`
                       }
                     </span>
                   </div>
@@ -591,11 +591,11 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                 <div className="bg-slate-900 text-white p-5 rounded-2xl flex flex-col justify-between border border-slate-800">
                   <span className="text-xs text-slate-400 font-semibold">NILAI TOTAL IKPA</span>
                   <div className="my-2">
-                    {satker.hasIKPAData === false || satker.nilaiTotalIKPA === 0 ? (
+                    {satker.hasIKPAData === false || !Number.isFinite(satker.nilaiTotalIKPA) || satker.nilaiTotalIKPA === 0 ? (
                       <span className="text-2xl font-black text-slate-400">Belum Ada IKPA</span>
                     ) : (
                       <>
-                        <span className="text-4xl font-black text-amber-400">{satker.nilaiTotalIKPA}</span>
+                        <span className="text-4xl font-black text-amber-400">{Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA : 0}</span>
                         <span className="text-xs text-slate-400 font-semibold ml-1">/ 100</span>
                       </>
                     )}
@@ -612,15 +612,15 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                   <div>
                     <span className="text-xs text-slate-500 font-semibold block mb-1">PENYERAPAN ANGGARAN</span>
                     <div className="text-2xl font-black text-slate-900 dark:text-white">
-                      {satker.indikator.penyerapanAnggaran}%
+                      {Number.isFinite(satker.indikator?.penyerapanAnggaran) ? satker.indikator.penyerapanAnggaran : 0}%
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden my-2">
                       <div 
                         className={`h-full rounded-full ${
-                          satker.indikator.penyerapanAnggaran >= 85 ? 'bg-emerald-500' :
-                          satker.indikator.penyerapanAnggaran >= 70 ? 'bg-amber-500' : 'bg-rose-500'
+                          (satker.indikator?.penyerapanAnggaran || 0) >= 85 ? 'bg-emerald-500' :
+                          (satker.indikator?.penyerapanAnggaran || 0) >= 70 ? 'bg-amber-500' : 'bg-rose-500'
                         }`} 
-                        style={{ width: `${Math.min(100, satker.indikator.penyerapanAnggaran)}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, satker.indikator?.penyerapanAnggaran || 0))}%` }}
                       ></div>
                     </div>
                   </div>
@@ -637,22 +637,22 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                   <div>
                     <span className="text-xs text-slate-500 font-semibold block mb-1">DEVIASI HALAMAN III DIPA</span>
                     <div className="text-2xl font-black text-slate-900 dark:text-white">
-                      {satker.indikator.deviasiHal3Dipa}%
+                      {Number.isFinite(satker.indikator?.deviasiHal3Dipa) ? satker.indikator.deviasiHal3Dipa : 0}%
                     </div>
                     <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden my-2">
                       <div 
                         className={`h-full rounded-full ${
-                          satker.indikator.deviasiHal3Dipa >= 85 ? 'bg-emerald-500' :
-                          satker.indikator.deviasiHal3Dipa >= 70 ? 'bg-amber-500' : 'bg-rose-500'
+                          (satker.indikator?.deviasiHal3Dipa || 0) >= 85 ? 'bg-emerald-500' :
+                          (satker.indikator?.deviasiHal3Dipa || 0) >= 70 ? 'bg-amber-500' : 'bg-rose-500'
                         }`} 
-                        style={{ width: `${Math.min(100, satker.indikator.deviasiHal3Dipa)}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, satker.indikator?.deviasiHal3Dipa || 0))}%` }}
                       ></div>
                     </div>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-0.5">
                     <div>Bobot Indikator: <strong>10% (PER-5/PB/2024)</strong></div>
-                    <div>Status Deviasi: <strong className={satker.indikator.deviasiHal3Dipa >= 85 ? 'text-emerald-600' : 'text-amber-600'}>
-                      {satker.indikator.deviasiHal3Dipa >= 85 ? 'Sangat Terkendali' : 'Perlu Penyesuaian RPD'}
+                    <div>Status Deviasi: <strong className={(satker.indikator?.deviasiHal3Dipa || 0) >= 85 ? 'text-emerald-600' : 'text-amber-600'}>
+                      {(satker.indikator?.deviasiHal3Dipa || 0) >= 85 ? 'Sangat Terkendali' : 'Perlu Penyesuaian RPD'}
                     </strong></div>
                   </div>
                 </div>
@@ -678,7 +678,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 10%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.revisiDipa}
+                      {Number.isFinite(satker.indikator?.revisiDipa) ? satker.indikator.revisiDipa : 0}
                     </span>
                   </div>
 
@@ -690,9 +690,9 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 10%</span>
                     </div>
                     <span className={`font-mono text-sm font-black px-2.5 py-1 rounded-lg ${
-                      satker.indikator.deviasiHal3Dipa < 75 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 dark:bg-slate-800'
+                      (satker.indikator?.deviasiHal3Dipa || 0) < 75 ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 dark:bg-slate-800'
                     }`}>
-                      {satker.indikator.deviasiHal3Dipa}
+                      {Number.isFinite(satker.indikator?.deviasiHal3Dipa) ? satker.indikator.deviasiHal3Dipa : 0}
                     </span>
                   </div>
 
@@ -704,7 +704,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 20%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.penyerapanAnggaran}
+                      {Number.isFinite(satker.indikator?.penyerapanAnggaran) ? satker.indikator.penyerapanAnggaran : 0}
                     </span>
                   </div>
 
@@ -716,7 +716,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 10%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.belanjaKontraktual}
+                      {Number.isFinite(satker.indikator?.belanjaKontraktual) ? satker.indikator.belanjaKontraktual : 0}
                     </span>
                   </div>
 
@@ -728,7 +728,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 10%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.penyelesaianTagihan}
+                      {Number.isFinite(satker.indikator?.penyelesaianTagihan) ? satker.indikator.penyelesaianTagihan : 0}
                     </span>
                   </div>
 
@@ -740,7 +740,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 10%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.pengelolaanUpTup}
+                      {Number.isFinite(satker.indikator?.pengelolaanUpTup) ? satker.indikator.pengelolaanUpTup : 0}
                     </span>
                   </div>
 
@@ -752,7 +752,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 5%</span>
                     </div>
                     <span className="font-mono text-sm font-black bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
-                      {satker.indikator.dispensasiSpm}
+                      {Number.isFinite(satker.indikator?.dispensasiSpm) ? satker.indikator.dispensasiSpm : 0}
                     </span>
                   </div>
 
@@ -764,9 +764,9 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       <span className="text-[11px] text-slate-400">Bobot 25%</span>
                     </div>
                     <span className={`font-mono text-sm font-black px-2.5 py-1 rounded-lg ${
-                      satker.indikator.capaianOutput < 70 ? 'bg-rose-100 text-rose-900' : 'bg-slate-100 dark:bg-slate-800'
+                      (satker.indikator?.capaianOutput || 0) < 70 ? 'bg-rose-100 text-rose-900' : 'bg-slate-100 dark:bg-slate-800'
                     }`}>
-                      {satker.indikator.capaianOutput}
+                      {Number.isFinite(satker.indikator?.capaianOutput) ? satker.indikator.capaianOutput : 0}
                     </span>
                   </div>
 
@@ -795,7 +795,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
           {activeSubTab === 'comparison' && (() => {
             const historyList = monthlyHistory.length > 0 ? monthlyHistory : [{
               bulan: satker.periodeUpdate || 'Januari 2026',
-              nilaiIKPA: satker.nilaiTotalIKPA,
+              nilaiIKPA: Number.isFinite(satker.nilaiTotalIKPA) ? satker.nilaiTotalIKPA : 0,
               ...satker.indikator
             }];
 
@@ -803,7 +803,10 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
             const prevRecord = isMultiMonth ? historyList[historyList.length - 2] : historyList[0];
             const currentRecord = historyList[historyList.length - 1];
 
-            const totalDelta = Number((currentRecord.nilaiIKPA - prevRecord.nilaiIKPA).toFixed(2));
+            const curIKPA = Number.isFinite(currentRecord?.nilaiIKPA) ? Number(currentRecord.nilaiIKPA) : 0;
+            const prevIKPA = Number.isFinite(prevRecord?.nilaiIKPA) ? Number(prevRecord.nilaiIKPA) : 0;
+            const diff = curIKPA - prevIKPA;
+            const totalDelta = Number.isFinite(diff) ? Number(diff.toFixed(2)) : 0;
 
             const indicatorRows: Array<{
               key: 'revisiDipa' | 'deviasiHal3Dipa' | 'penyerapanAnggaran' | 'belanjaKontraktual' | 'penyelesaianTagihan' | 'pengelolaanUpTup' | 'dispensasiSpm' | 'capaianOutput';
@@ -823,14 +826,17 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
 
             // Calculate indicator with highest improvement and largest drop
             const analyzedIndicators = indicatorRows.map(ind => {
-              const prevVal = Number(prevRecord[ind.key] ?? 0);
-              const curVal = Number(currentRecord[ind.key] ?? 0);
-              const delta = Number((curVal - prevVal).toFixed(2));
+              const rawPrev = prevRecord ? (prevRecord as any)[ind.key] : 0;
+              const rawCur = currentRecord ? (currentRecord as any)[ind.key] : 0;
+              const prevVal = Number.isFinite(Number(rawPrev)) ? Number(rawPrev) : 0;
+              const curVal = Number.isFinite(Number(rawCur)) ? Number(rawCur) : 0;
+              const d = curVal - prevVal;
+              const delta = Number.isFinite(d) ? Number(d.toFixed(2)) : 0;
               return { ...ind, prevVal, curVal, delta };
             });
 
-            const topImprover = [...analyzedIndicators].sort((a, b) => b.delta - a.delta)[0];
-            const topDropper = [...analyzedIndicators].sort((a, b) => a.delta - b.delta)[0];
+            const topImprover = [...analyzedIndicators].sort((a, b) => b.delta - a.delta)[0] || { name: 'Revisi DIPA', weight: '10%', curVal: 100, delta: 0, actionNote: '-' };
+            const topDropper = [...analyzedIndicators].sort((a, b) => a.delta - b.delta)[0] || { name: 'Dispensasi SPM', weight: '5%', curVal: 100, delta: 0, actionNote: '-' };
 
             return (
               <div className="space-y-6">
@@ -846,11 +852,11 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                       </div>
                       <div className="flex items-baseline gap-2 my-2">
                         <span className="text-3xl font-black text-amber-400">
-                          {currentRecord.nilaiIKPA}
+                          {Number.isFinite(currentRecord?.nilaiIKPA) ? currentRecord.nilaiIKPA : 0}
                         </span>
                         {isMultiMonth && (
                           <span className="text-xs text-slate-400">
-                            (Sebelumnya: <strong className="text-slate-200">{prevRecord.nilaiIKPA}</strong>)
+                            (Sebelumnya: <strong className="text-slate-200">{Number.isFinite(prevRecord?.nilaiIKPA) ? prevRecord.nilaiIKPA : 0}</strong>)
                           </span>
                         )}
                       </div>
@@ -867,7 +873,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                             : 'bg-slate-700/60 text-slate-300'
                         }`}>
                           {totalDelta > 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : totalDelta < 0 ? <ArrowDownRight className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
-                          {totalDelta > 0 ? `+${totalDelta}` : `${totalDelta}`} Poin
+                          {Number.isFinite(totalDelta) && totalDelta > 0 ? `+${totalDelta}` : `${Number.isFinite(totalDelta) ? totalDelta : 0}`} Poin
                         </span>
                       ) : (
                         <span className="text-slate-400 font-semibold">1 Periode Terupload</span>
@@ -889,10 +895,10 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                         {topImprover.name} ({topImprover.weight})
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Skor Saat Ini: <strong className="text-slate-900 dark:text-white font-mono font-bold">{topImprover.curVal}</strong>
-                        {isMultiMonth && topImprover.delta > 0 && (
+                        Skor Saat Ini: <strong className="text-slate-900 dark:text-white font-mono font-bold">{Number.isFinite(topImprover.curVal) ? topImprover.curVal : 0}</strong>
+                        {isMultiMonth && (topImprover.delta || 0) > 0 && (
                           <span className="ml-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                            (+{topImprover.delta})
+                            (+{Number.isFinite(topImprover.delta) ? topImprover.delta : 0})
                           </span>
                         )}
                       </div>
@@ -916,10 +922,10 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                         {topDropper.name} ({topDropper.weight})
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        Skor Saat Ini: <strong className="text-slate-900 dark:text-white font-mono font-bold">{topDropper.curVal}</strong>
-                        {isMultiMonth && topDropper.delta < 0 && (
+                        Skor Saat Ini: <strong className="text-slate-900 dark:text-white font-mono font-bold">{Number.isFinite(topDropper.curVal) ? topDropper.curVal : 0}</strong>
+                        {isMultiMonth && (topDropper.delta || 0) < 0 && (
                           <span className="ml-1.5 text-rose-600 dark:text-rose-400 font-bold">
-                            ({topDropper.delta})
+                            ({Number.isFinite(topDropper.delta) ? topDropper.delta : 0})
                           </span>
                         )}
                       </div>
@@ -997,7 +1003,8 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
 
                               {/* Monthly values */}
                               {historyList.map((hist, hIdx) => {
-                                const val = Number(hist[row.key] ?? 0);
+                                const rawVal = (hist as any)[row.key];
+                                const val = Number.isFinite(Number(rawVal)) ? Number(rawVal) : 0;
                                 return (
                                   <td key={hIdx} className="py-3.5 px-4 text-center font-mono font-extrabold text-sm">
                                     <span className={`px-2 py-0.5 rounded-md ${
@@ -1022,7 +1029,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                                       ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 font-black' 
                                       : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
                                   }`}>
-                                    {row.delta > 0 ? `+${row.delta}` : `${row.delta}`}
+                                    {Number.isFinite(row.delta) && row.delta > 0 ? `+${row.delta}` : `${Number.isFinite(row.delta) ? row.delta : 0}`}
                                   </span>
                                 </td>
                               )}
@@ -1052,7 +1059,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
                           </td>
                           {historyList.map((hist, hIdx) => (
                             <td key={hIdx} className="py-4 px-4 text-center font-mono font-black text-base text-amber-600 dark:text-amber-400">
-                              {hist.nilaiIKPA}
+                              {Number.isFinite(hist.nilaiIKPA) ? hist.nilaiIKPA : 0}
                             </td>
                           ))}
                           {isMultiMonth && (

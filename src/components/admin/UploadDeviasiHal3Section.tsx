@@ -765,7 +765,7 @@ export const UploadDeviasiHal3Section: React.FC<UploadDeviasiHal3SectionProps> =
           <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40">
             <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">Rata-rata % Deviasi</span>
             <div className="text-sm sm:text-base font-black text-amber-950 dark:text-amber-100 font-mono mt-1 flex items-center gap-1.5">
-              <span>{activeStats.avgPersen}%</span>
+              <span>{Number.isFinite(activeStats.avgPersen) ? activeStats.avgPersen : 0}%</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
                 Tol. ≤ 5%
               </span>

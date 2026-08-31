@@ -9022,7 +9022,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                             <span className={`px-2.5 py-1 rounded-full font-black text-xs inline-block ${
                               percent === 100 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
                             }`}>
-                              {percent}% Lengkap
+                              {Number.isFinite(percent) ? percent : 0}% Lengkap
                             </span>
                           </td>
 

@@ -58,7 +58,7 @@ export const ModernLoadingOverlay: React.FC<ModernLoadingOverlayProps> = ({
         </div>
 
         {/* Progress Bar if numerical percentage provided */}
-        {typeof progress === 'number' && (
+        {typeof progress === 'number' && Number.isFinite(progress) && (
           <div className="mt-6 space-y-2">
             <div className="flex justify-between items-center text-xs font-bold px-1">
               <span className="text-slate-500 dark:text-slate-400">Progres Pengolahan</span>

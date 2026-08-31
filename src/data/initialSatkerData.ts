@@ -1,24 +1,35 @@
 import { SatkerIKPA, IKPAPredikat } from "../types";
 
 export function getPredikatIKPA(nilai: number): IKPAPredikat {
-  if (nilai >= 95) return "Sangat Baik";
-  if (nilai >= 89) return "Baik";
-  if (nilai >= 70) return "Cukup";
+  const n = Number.isFinite(nilai) ? nilai : 0;
+  if (n >= 95) return "Sangat Baik";
+  if (n >= 89) return "Baik";
+  if (n >= 70) return "Cukup";
   return "Kurang";
 }
 
 export function hitungTotalIKPA(indikator: SatkerIKPA["indikator"]): number {
+  if (!indikator) return 0;
+  const revisi = Number.isFinite(indikator.revisiDipa) ? Number(indikator.revisiDipa) : 0;
+  const deviasi = Number.isFinite(indikator.deviasiHal3Dipa) ? Number(indikator.deviasiHal3Dipa) : 0;
+  const penyerapan = Number.isFinite(indikator.penyerapanAnggaran) ? Number(indikator.penyerapanAnggaran) : 0;
+  const kontraktual = Number.isFinite(indikator.belanjaKontraktual) ? Number(indikator.belanjaKontraktual) : 0;
+  const tagihan = Number.isFinite(indikator.penyelesaianTagihan) ? Number(indikator.penyelesaianTagihan) : 0;
+  const upTup = Number.isFinite(indikator.pengelolaanUpTup) ? Number(indikator.pengelolaanUpTup) : 0;
+  const dispensasi = Number.isFinite(indikator.dispensasiSpm) ? Number(indikator.dispensasiSpm) : 0;
+  const caput = Number.isFinite(indikator.capaianOutput) ? Number(indikator.capaianOutput) : 0;
+
   const total = 
-    (indikator.revisiDipa * 0.10) +
-    (indikator.deviasiHal3Dipa * 0.10) +
-    (indikator.penyerapanAnggaran * 0.20) +
-    (indikator.belanjaKontraktual * 0.10) +
-    (indikator.penyelesaianTagihan * 0.10) +
-    (indikator.pengelolaanUpTup * 0.10) +
-    (indikator.dispensasiSpm * 0.05) +
-    (indikator.capaianOutput * 0.25);
+    (revisi * 0.10) +
+    (deviasi * 0.10) +
+    (penyerapan * 0.20) +
+    (kontraktual * 0.10) +
+    (tagihan * 0.10) +
+    (upTup * 0.10) +
+    (dispensasi * 0.05) +
+    (caput * 0.25);
     
-  return Number(total.toFixed(2));
+  return Number.isFinite(total) ? Number(total.toFixed(2)) : 0;
 }
 
 export const INITIAL_SATKER_DATA: SatkerIKPA[] = [];
@@ -92,16 +103,18 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         capaianOutput: 0
       };
 
-      const finalIKPA = typeof s.nilaiTotalIKPA === 'number' && s.nilaiTotalIKPA > 0 
-        ? s.nilaiTotalIKPA 
-        : (existing?.nilaiTotalIKPA || hitungTotalIKPA(effectiveIndikator));
+      const rawIKPA = Number(s.nilaiTotalIKPA);
+      const existingIKPA = Number(existing?.nilaiTotalIKPA);
+      const finalIKPA = (Number.isFinite(rawIKPA) && rawIKPA > 0)
+        ? rawIKPA 
+        : ((Number.isFinite(existingIKPA) && existingIKPA > 0) ? existingIKPA : hitungTotalIKPA(effectiveIndikator));
 
       const caputMatch = caputMap.get(kode);
       const hasCaput = Boolean(activeCaputHistory && caputMatch);
 
       const mergedIndikator = {
         ...effectiveIndikator,
-        capaianOutput: hasCaput ? (caputMatch.indikator?.capaianOutput ?? 0) : 0
+        capaianOutput: hasCaput ? (Number(caputMatch.indikator?.capaianOutput) || 0) : 0
       };
 
       const mergedSatker: SatkerIKPA = {
@@ -113,11 +126,11 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         kementerianLembaga: s.kementerianLembaga || existing?.kementerianLembaga || '-',
         hasIKPAData: true,
         hasCapaianOutputData: hasCaput,
-        nilaiTotalIKPA: finalIKPA,
+        nilaiTotalIKPA: Number.isFinite(finalIKPA) ? finalIKPA : 0,
         predikat: s.predikat || (existing?.predikat) || getPredikatIKPA(finalIKPA),
-        paguAnggaran: s.paguAnggaran || existing?.paguAnggaran || 0,
-        realisasiAnggaran: s.realisasiAnggaran || existing?.realisasiAnggaran || 0,
-        persenPenyerapan: s.persenPenyerapan || existing?.persenPenyerapan || 0,
+        paguAnggaran: Number(s.paguAnggaran) || Number(existing?.paguAnggaran) || 0,
+        realisasiAnggaran: Number(s.realisasiAnggaran) || Number(existing?.realisasiAnggaran) || 0,
+        persenPenyerapan: Number(s.persenPenyerapan) || Number(existing?.persenPenyerapan) || 0,
         statusCapaianOutput: hasCaput ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') : 'Belum Terlaporkan',
         indikator: mergedIndikator,
         riwayatBulanan: mergedHistory
