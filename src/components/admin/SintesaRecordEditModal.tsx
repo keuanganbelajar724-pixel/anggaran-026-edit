@@ -443,27 +443,58 @@ export const SintesaRecordEditModal: React.FC<SintesaRecordEditModalProps> = ({
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Kode Sumber Dana (Kolom AC)
+                  Kode Sumber Dana
                 </label>
                 <input
                   type="text"
                   value={formData.sumberdanaKode || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, sumberdanaKode: e.target.value }))}
                   className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
-                  placeholder="e.g. 01 / A / D"
+                  placeholder="e.g. 01 / 19 / 06"
                 />
               </div>
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                  Uraian Sumber Dana (Kolom AD)
+                  Uraian Sumber Dana
                 </label>
                 <input
                   type="text"
                   value={formData.sumberdanaUraian || ''}
                   onChange={(e) => setFormData(prev => ({ ...prev, sumberdanaUraian: e.target.value }))}
                   className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  placeholder="e.g. RM / PNBP / SBSN / BLU"
+                  placeholder="e.g. Rupiah Murni (RM) / SBSN / PNBP"
                 />
+              </div>
+            </div>
+
+            {/* Quick Presets for Sumber Dana */}
+            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                Pilihan Cepat Standar Sumber Dana:
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { kode: '01', uraian: 'Rupiah Murni (RM)', label: '🏛️ Rupiah Murni (01)' },
+                  { kode: '19', uraian: 'SBSN Pembiayaan Proyek', label: '🕌 SBSN Proyek (19)' },
+                  { kode: '10', uraian: 'SBSN Project Based Sukuk (PBS)', label: '🕌 SBSN PBS (10)' },
+                  { kode: '06', uraian: 'Penerimaan Negara Bukan Pajak (PNBP)', label: '📊 PNBP (06)' },
+                  { kode: '07', uraian: 'Badan Layanan Umum (BLU)', label: '🏥 BLU (07)' },
+                  { kode: '03', uraian: 'Pinjaman Luar Negeri (PLN)', label: '🌍 PLN (03)' },
+                  { kode: '02', uraian: 'Rupiah Murni Pendamping (RMP)', label: '🏛️ RMP (02)' },
+                ].map(preset => (
+                  <button
+                    key={preset.kode}
+                    type="button"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      sumberdanaKode: preset.kode,
+                      sumberdanaUraian: preset.uraian
+                    }))}
+                    className="px-2 py-1 rounded text-[11px] font-medium bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 dark:bg-slate-700 dark:hover:bg-indigo-950 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 transition-colors cursor-pointer"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

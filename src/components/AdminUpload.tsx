@@ -3725,6 +3725,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       const defaultOrder: NavigationTab[] = [
                         'dashboard',
                         'capaian-output',
+                        'diagnostik-caput',
                         'deviasi-hal3',
                         'spm-ppp',
                         'pengelolaan-up',
@@ -3761,6 +3762,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         menuVisibility: {
                           'dashboard': true,
                           'capaian-output': true,
+                          'diagnostik-caput': true,
                           'deviasi-hal3': true,
                           'spm-ppp': true,
                           'pengelolaan-up': true,
@@ -3797,6 +3799,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         menuVisibility: {
                           'dashboard': true,
                           'capaian-output': false,
+                          'diagnostik-caput': false,
                           'deviasi-hal3': false,
                           'spm-ppp': false,
                           'pengelolaan-up': false,
@@ -3837,6 +3840,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     {(tempConfig.tabOrder || [
                       'dashboard',
                       'capaian-output',
+                      'diagnostik-caput',
                       'deviasi-hal3',
                       'pengelolaan-up',
                       'transaksi-kkp',
@@ -3859,6 +3863,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     const navLabels: Record<string, string> = {
                       'dashboard': 'Dashboard IKPA',
                       'capaian-output': 'Capaian Output',
+                      'diagnostik-caput': 'SI-CAPUT (Diagnostik)',
                       'deviasi-hal3': 'Deviasi Hal III',
                       'spm-ppp': 'Monitoring SPM PPP',
                       'pengelolaan-up': 'Pengelolaan UP',
@@ -3878,6 +3883,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     const order = (tempConfig.tabOrder || [
                       'dashboard',
                       'capaian-output',
+                      'diagnostik-caput',
                       'deviasi-hal3',
                       'spm-ppp',
                       'pengelolaan-up',
@@ -3921,6 +3927,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   const menuMeta: Record<string, { label: string; desc: string; category: string; badgeColor: string }> = {
                     'dashboard': { label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker', category: 'Utama', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'capaian-output': { label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload konfirmasi output', category: 'Prioritas', badgeColor: 'bg-sky-100 text-sky-800' },
+                    'diagnostik-caput': { label: 'SI-CAPUT (Tools Diagnostik Output)', desc: 'Tools deteksi anomali TPCRO=0 & PCRO=0, gap kinerja RO & generator keterangan SAKTI', category: 'Prioritas', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'deviasi-hal3': { label: 'Deviasi Halaman III DIPA', desc: 'Monitoring RPD vs Realisasi & Satker Full Blokir (Bobot IKPA 10%)', category: 'Hal III', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'spm-ppp': { label: 'Monitoring SPM PPP (PLN & TELKOM)', desc: 'Monitoring Tagihan PFK Listrik & Internet Satker Belum Terbit SPM', category: 'Tagihan PFK', badgeColor: 'bg-amber-100 text-amber-800' },
                     'pengelolaan-up': { label: 'Pengelolaan UP/TUP & GUP', desc: 'Monitoring Pagu, Revolving & Batas 30 Hari UP', category: 'Kas & UP', badgeColor: 'bg-indigo-100 text-indigo-800' },
@@ -3940,6 +3947,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   const defaultTabKeys: NavigationTab[] = [
                     'dashboard',
                     'capaian-output',
+                    'diagnostik-caput',
                     'deviasi-hal3',
                     'spm-ppp',
                     'pengelolaan-up',
@@ -4090,6 +4098,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                                 const currVis = prev.menuVisibility || {
                                   'dashboard': true,
                                   'capaian-output': true,
+                                  'diagnostik-caput': true,
                                   'deviasi-hal3': true,
                                   'pengelolaan-up': true,
                                   'transaksi-kkp': true,
@@ -9867,21 +9876,4 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               masterSatkers={masterSatkers}
               spmPppRecords={spmPppRecords}
               onApplySPMPPP={onApplySPMPPP || (() => {})}
-              onClearSPMPPP={onClearSPMPPP || (() => {})}
-              requestConfirm={requestConfirm}
-              showToast={showToast}
-              addLog={addLog}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Global Confirmation Modal */}
-      <ModernConfirmModal
-        modal={confirmModal}
-        onClose={() => setConfirmModal(null)}
-        isDark={isDark}
-      />
-    </div>
-  );
-};
+              onClearSPMPPPxœ\PË‚0¼ó=—~ ,L¼hB¢?P¥jcéÆô°ðï‚<,ô²;3›éì¡ÉµöT‹¢`mËÂ0b1ê¢.`«gå«‘®ÎÑÜ”­€Öx;íø9£p5ÐÒngDYð4ÖµÊ3zYR^ª÷¬õüÔÙ^ãEh6µBÃŽXöTÌgƒ´'¤5ÓÌO]¬«]=íÿïp(th¼“µïšFk/¥r;aŸ@cùi§e…(	º$ø  ÿÿ ˆ±jR

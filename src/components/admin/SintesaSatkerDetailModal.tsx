@@ -20,7 +20,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { RealisasiBelanjaRecord } from '../../types';
-import { formatRupiahFull, formatRupiahShort, exportRealisasiBelanjaToExcel, getJenisBelanjaInfo } from '../../utils/realisasiBelanjaProcessor';
+import { formatRupiahFull, formatRupiahShort, exportRealisasiBelanjaToExcel, getJenisBelanjaInfo, getOfficialSumberDanaName } from '../../utils/realisasiBelanjaProcessor';
 
 interface SintesaSatkerDetailModalProps {
   satkerInfo: {
@@ -329,8 +329,8 @@ export const SintesaSatkerDetailModal: React.FC<SintesaSatkerDetailModalProps> =
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
-                          SD (AD): {r.sumberdanaUraian || 'RM'} {r.sumberdanaKode ? `[${r.sumberdanaKode}]` : ''}
+                        <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          {getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian).label}
                         </span>
                         <button
                           onClick={() => onEditRecord(r)}
@@ -533,8 +533,8 @@ export const SintesaSatkerDetailModal: React.FC<SintesaSatkerDetailModalProps> =
 
                       {/* Sumber Dana */}
                       <td className="py-3 px-3 align-top text-center">
-                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
-                          {r.sumberdanaUraian || 'RM'}
+                        <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-center leading-snug">
+                          {getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian).label}
                         </span>
                       </td>
 

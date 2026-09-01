@@ -19,7 +19,8 @@ import {
   Calendar,
   Layers,
   Check,
-  FolderArchive
+  FolderArchive,
+  Activity
 } from 'lucide-react';
 import { PaginationControl } from './PaginationControl';
 
@@ -28,6 +29,7 @@ interface CapaianOutputDashboardProps {
   onSelectSatker?: (satker: SatkerIKPA) => void;
   onOpenReminder: (satker: SatkerIKPA) => void;
   onGoToUpload?: () => void;
+  onOpenDiagnostik?: () => void;
   onActivatePeriod?: (historyItem: ExcelUploadHistory) => void;
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
@@ -38,6 +40,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   onSelectSatker,
   onOpenReminder,
   onGoToUpload,
+  onOpenDiagnostik,
   onActivatePeriod,
   theme = 'light',
   dashboardConfig
@@ -152,19 +155,37 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             </p>
           </div>
 
-          {/* Quick Progress Dial */}
-          <div className="shrink-0 bg-slate-900/80 border border-sky-500/30 p-5 rounded-2xl flex items-center gap-5 shadow-inner">
-            <div>
-              <div className="text-[11px] font-extrabold text-sky-300 uppercase tracking-wider">Penyampaian Wilayah 026</div>
-              <div className="text-3xl font-black text-white flex items-baseline gap-1">
-                {percentSudah}%
-                <span className="text-xs font-normal text-sky-300">terlaporkan</span>
-              </div>
-              <div className="w-48 bg-slate-700 h-2 rounded-full overflow-hidden mt-2">
-                <div 
-                  className="bg-gradient-to-r from-sky-400 to-emerald-400 h-full transition-all duration-500" 
-                  style={{ width: `${percentSudah}%` }}
-                ></div>
+          {/* Quick Progress Dial & Diagnostic Launcher */}
+          <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {onOpenDiagnostik && (
+              <button
+                type="button"
+                onClick={onOpenDiagnostik}
+                className="px-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-extrabold text-xs rounded-2xl shadow-lg shadow-cyan-900/40 border border-cyan-300/40 flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 group"
+              >
+                <div className="p-1.5 rounded-lg bg-white/20">
+                  <Activity className="w-4 h-4 text-white group-hover:animate-pulse" />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] text-cyan-200 font-bold leading-tight">Tools Kolaka</div>
+                  <div className="text-xs font-black tracking-tight">SI-CAPUT (Diagnostik) &rarr;</div>
+                </div>
+              </button>
+            )}
+
+            <div className="bg-slate-900/80 border border-sky-500/30 p-5 rounded-2xl flex items-center gap-5 shadow-inner">
+              <div>
+                <div className="text-[11px] font-extrabold text-sky-300 uppercase tracking-wider">Penyampaian Wilayah 026</div>
+                <div className="text-3xl font-black text-white flex items-baseline gap-1">
+                  {percentSudah}%
+                  <span className="text-xs font-normal text-sky-300">terlaporkan</span>
+                </div>
+                <div className="w-48 bg-slate-700 h-2 rounded-full overflow-hidden mt-2">
+                  <div 
+                    className="bg-gradient-to-r from-sky-400 to-emerald-400 h-full transition-all duration-500" 
+                    style={{ width: `${percentSudah}%` }}
+                  ></div>
+                </div>
               </div>
             </div>
           </div>

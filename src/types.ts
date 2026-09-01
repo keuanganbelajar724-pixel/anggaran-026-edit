@@ -63,6 +63,81 @@ export interface IKPAUploadBatch {
 // -------------------------------------------------------------
 // MODUL CAPAIAN OUTPUT (Terpisah)
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// MODUL DIAGNOSTIK & KALKULATOR CAPAIAN OUTPUT (SI-CAPUT)
+// -------------------------------------------------------------
+export interface DiagnostikCaputROItem {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  kodeProgram?: string;
+  namaProgram?: string;
+  kodeKegiatan?: string;
+  namaKegiatan?: string;
+  kodeKro?: string;
+  namaKro?: string;
+  kodeRo: string;
+  namaRo: string;
+  volumeTarget: number;       // TVRO (Target Volume RO)
+  volumeRealisasi: number;    // RVRO (Realisasi Volume RO)
+  targetProgres: number;      // TPCRO (%)
+  realisasiProgres: number;   // PCRO (%)
+  paguAnggaran?: number;      // Pagu DIPA RO
+  realisasiAnggaran?: number; // Realisasi Belanja RO
+  persenPenyerapan?: number;  // % Penyerapan Anggaran
+  polarisasi?: 'MAXIMIZE' | 'MINIMIZE' | 'RANGE';
+  keteranganSakti?: string;
+  diagnosaSeverity: 'KRITIS' | 'PERINGATAN' | 'OPTIMAL' | 'INFO';
+  diagnosaCode: 'TPCRO_PCRO_ZERO' | 'PCRO_BELOW_TPCRO' | 'PCRO_100_RVRO_BELOW_TVRO' | 'TPCRO_GT0_PCRO_ZERO' | 'LAGGING_CAPUT' | 'RVRO_ANOMALY' | 'DEVIATION_HIGH' | 'MISSING_EXPLANATION' | 'UNMATCHED_TARGET' | 'OPTIMAL';
+  diagnosaTitle: string;
+  diagnosaDescription: string;
+  rekomendasiTindakan: string[];
+  templateKeteranganSakti: string;
+  gapKinerja: number; // TPCRO - PCRO
+  nilaiKomponenRo: number; // 0 - 100
+  potensiKenaikanSkor: number;
+}
+
+export interface DiagnostikCaputSatkerSummary {
+  kodeSatker: string;
+  namaSatker: string;
+  totalRo: number;
+  roKritisCount: number;
+  roPeringatanCount: number;
+  roOptimalCount: number;
+  currentScoreCaput: number;
+  projectedScoreCaput: number;
+  avgPCRO: number;
+  avgTPCRO: number;
+  totalPagu: number;
+  totalRealisasi: number;
+  persenPenyerapan: number;
+}
+
+export interface DiagnostikCaputResult {
+  summary: {
+    totalRo: number;
+    roKritisCount: number;
+    roPeringatanCount: number;
+    roOptimalCount: number;
+    currentScoreCaput: number;
+    projectedScoreCaput: number;
+    persenKetercapaianTarget: number;
+    avgPCRO: number;
+    avgTPCRO: number;
+    totalPagu: number;
+    totalRealisasi: number;
+    persenPenyerapanTotal: number;
+    kodeSatker: string;
+    namaSatker: string;
+    periode: string;
+  };
+  satkerBreakdown?: DiagnostikCaputSatkerSummary[];
+  items: DiagnostikCaputROItem[];
+  uploadedFileName?: string;
+  analyzedAt: string;
+}
+
 export interface CapaianOutputRecord {
   id: string;
   batchId?: string;
@@ -869,6 +944,7 @@ export interface SPMPPPUploadBatch {
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
   'capaian-output': boolean;
+  'diagnostik-caput'?: boolean;
   'deviasi-hal3'?: boolean;
   'spm-ppp'?: boolean;
   'pengelolaan-up'?: boolean;
@@ -1182,6 +1258,7 @@ export interface DashboardConfig {
 export type NavigationTab = 
   | 'dashboard' 
   | 'capaian-output' 
+  | 'diagnostik-caput'
   | 'deviasi-hal3'
   | 'spm-ppp'
   | 'pengelolaan-up'

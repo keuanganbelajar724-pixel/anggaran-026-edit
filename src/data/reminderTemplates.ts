@@ -2,7 +2,56 @@ import { TemplateMessage } from '../types';
 
 export const REMINDER_TEMPLATES: TemplateMessage[] = [
   // ==========================================
-  // 1. CAPAIAN OUTPUT SAKTI (VERSI DATA SPESIFIK SATKER)
+  // 1. CAPAIAN OUTPUT SAKTI (VERSI REKAP GRUP WA - SUDAH VS BELUM KIRIM)
+  // ==========================================
+  {
+    id: 'temp-capaian-output-rekap-grup-semarang1',
+    jenis: 'Capaian Output',
+    judul: '📢 [BROADCAST GRUP WA] Rekap Satker Belum Kirim Capaian Output (KPPN Semarang 1)',
+    subjekEmail: '[PENGUMUMAN - KPPN SEMARANG I] Rekap Status Pengiriman Capaian Output SAKTI Satker',
+    isiWa: `📢 *[PENGUMUMAN CAPAIAN OUTPUT - KPPN SEMARANG I]* 📢
+
+Yth. Bapak/Ibu Kuasa Pengguna Anggaran (KPA), PPK, dan Operator SAKTI Satuan Kerja Lingkup KPPN Semarang I,
+
+Izin menyampaikan update monitoring pelaporan Realisasi Capaian Output (CAPUT) periode {PERIODE_BULAN} pada Modul Komitmen Aplikasi SAKTI:
+
+✅ *TERIMA KASIH KEPADA SATKER YANG TELAH MENGIRIMKAN CAPAIAN OUTPUT TEPAT WAKTU.*
+
+⏳ *DAFTAR SATKER YANG BELUM MENGIRIMKAN CAPAIAN OUTPUT:*
+{LIST_SATKER_BELUM}
+
+⚠️ *Perhatian & Tindak Lanjut:*
+1. Bagi Satker yang *BELUM mengirimkan*, dimohon *SEGERA* melakukan perekaman dan pengiriman data Capaian Output pada Modul Komitmen SAKTI serta menyelesaikan persetujuan KPA/PPK. *Ditunggu pengirimannya* agar nilai IKPA tetap optimal dan tidak terkena sanksi keterlambatan cut-off.
+2. Bagi Satker yang nilai komponen RO-nya belum optimal (Kolom Z < 100):
+   • Pastikan isian Kolom Q (PCRO) tidak lebih kecil dari Kolom Y (Target TPCRO).
+   • Jika Kolom Q (PCRO) = 100%, pastikan Kolom P (Realisasi Volume) telah terisi sesuai Kolom X.
+   • Jika TPCRO = 0 dan PCRO = 0, segera isi PCRO minimal 0,01 agar sistem SAKTI membentuk progres.
+
+🔍 Lakukan simulasi dan diagnostik mandiri data Excel SAKTI pada menu SI-CAPUT di portal:
+👉 *https://anggaran-026.my.id*
+
+Terima kasih bagi yang sudah mengirimkan, yang belum mengirimkan segera untuk mengirimkan ditunggu. 🙏
+
+_Seksi MSKI - KPPN Semarang I_`,
+    isiSurat: `PENGUMUMAN STATUS PENYAMPAIAN CAPAIAN OUTPUT SAKTI
+Nomor: {NO_SURAT}
+Hal: Rekapitulasi Satker Belum Menyampaikan Capaian Output Periode Berjalan
+
+Yth. Kuasa Pengguna Anggaran (KPA) Satker Lingkup KPPN Semarang I
+di Tempat
+
+Menindaklanjuti batas waktu pelaporan Capaian Output pada Aplikasi SAKTI:
+1. Disampaikan apresiasi dan terima kasih kepada Satker yang telah menyampaikan data Capaian Output tepat waktu.
+2. Bagi Satker yang belum menyampaikan (daftar terlampir), dimohon segera menyelesaikan konfirmasi sebelum batas cut-off.
+3. Portal monitoring dan konsultasi teknis dapat diakses pada https://anggaran-026.my.id.
+
+Demikian disampaikan, atas perhatiannya diucapkan terima kasih.
+
+Kepala KPPN Semarang I`
+  },
+
+  // ==========================================
+  // 2. CAPAIAN OUTPUT SAKTI (VERSI DATA SPESIFIK SATKER)
   // ==========================================
   {
     id: 'temp-capaian-output-satker',

@@ -38,6 +38,7 @@ import { loadCloudGeminiConfig } from './services/geminiService';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
+import { DiagnostikCaputDashboard } from './components/DiagnostikCaputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
 import { TransaksiDigipayDashboard } from './components/TransaksiDigipayDashboard';
@@ -1917,6 +1918,7 @@ export default function App() {
                   onSelectSatker={(satker) => setSelectedSatkerForDetail(satker)}
                   onOpenReminder={handleOpenReminderSingle}
                   onGoToUpload={() => setActiveTab('admin')}
+                  onOpenDiagnostik={() => setActiveTab('diagnostik-caput')}
                   onActivatePeriod={(historyItem) => {
                     handleApplyNewSatkers(historyItem.satkersData, false, 'capaian-output');
                     const newHistoryList = (dashboardConfig.historicalUploads || []).map(h => {
@@ -1934,6 +1936,21 @@ export default function App() {
                   }}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                />
+              )}
+
+              {/* Tab: SI-CAPUT (Tools Diagnostik Capaian Output KPPN Kolaka Inspiration) */}
+              {activeTab === 'diagnostik-caput' && (
+                <DiagnostikCaputDashboard
+                  masterSatkers={masterSatkers}
+                  onGoToUpload={() => setActiveTab('admin')}
+                  onSelectSatker={(satkerCode) => {
+                    const found = satkers.find(s => s.kode === satkerCode);
+                    if (found) {
+                      setSelectedSatkerForDetail(found);
+                    }
+                  }}
+                  isDark={theme === 'dark'}
                 />
               )}
 

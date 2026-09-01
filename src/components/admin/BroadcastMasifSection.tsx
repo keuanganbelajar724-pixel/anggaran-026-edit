@@ -448,6 +448,18 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       setBroadcastTemplateText(
         `*PORTAL TERPADU MONITORING & LAYANAN KPPN SEMARANG I*\n*Website Resmi:* *https://anggaran-026.my.id*\n\nYth. {NAMA_PEJABAT} ({PERAN_PEJABAT}) Satker {NAMA_SATKER} ({KODE_SATKER})\n\nSeluruh data kinerja IKPA, Capaian Output, Batas Revolving UP, Sertifikasi Pejabat, Transaksi KKP, serta Bahan Bimtek SAKTI kini dapat dipantau mandiri secara real-time pada portal resmi:\n\n👉 *https://anggaran-026.my.id*\n\nMari bersama wujudkan tata kelola APBN yang transparan dan akuntabel!\n\n_KPPN Semarang I_`
       );
+    } else if (presetKey === 'preset_grup_semarang_caput') {
+      // Dynamic computation of Satker that have / haven't submitted Capaian Output
+      const sudah = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && (s.indikator?.capaianOutput || 0) > 0);
+      const belum = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator?.capaianOutput || 0) === 0);
+
+      const belumText = belum.length > 0 
+        ? belum.map((s, idx) => `${idx + 1}. [${s.kodeSatker}] ${s.namaSatker} (Skor: ${s.indikator?.capaianOutput || 0}%)`).join('\n')
+        : '🎉 Seluruh Satker telah menyampaikan Capaian Output dengan lengkap!';
+
+      setBroadcastTemplateText(
+        `📢 *[PENGUMUMAN CAPAIAN OUTPUT - KPPN SEMARANG I]* 📢\n\nYth. Bapak/Ibu Kuasa Pengguna Anggaran (KPA), PPK, dan Operator SAKTI Satker Lingkup KPPN Semarang I,\n\nIzin menyampaikan monitoring pengiriman Realisasi Capaian Output (CAPUT) periode {PERIODE_BULAN} pada Modul Komitmen Aplikasi SAKTI:\n\n✅ *TERIMA KASIH KEPADA ${sudah.length} SATKER YANG SUDAH MENGIRIMKAN CAPAIAN OUTPUT TEPAT WAKTU.*\n\n⏳ *DAFTAR SATKER YANG BELUM MENGIRIMKAN CAPAIAN OUTPUT (${belum.length} SATKER):*\n${belumText}\n\n⚠️ *Perhatian & Tindak Lanjut:*\n1. Bagi Satker yang *BELUM mengirimkan*, dimohon *SEGERA* melakukan pengisian dan pengiriman data Capaian Output pada Modul Komitmen SAKTI serta menyelesaikan persetujuan KPA/PPK. *Ditunggu pengirimannya* agar nilai IKPA tetap optimal dan tidak terkena sanksi keterlambatan cut-off.\n2. Bagi Satker yang nilai komponen RO-nya belum optimal (Kolom Z < 100):\n   • Pastikan isian Kolom Q (PCRO) tidak lebih kecil dari Kolom Y (Target TPCRO).\n   • Jika Kolom Q (PCRO) = 100%, pastikan Kolom P (Realisasi Volume) telah terisi sesuai Kolom X.\n   • Jika TPCRO = 0 dan PCRO = 0, segera isi PCRO minimal 0,01 agar sistem SAKTI membentuk progres.\n\n🔍 Lakukan diagnostik mandiri data Excel SAKTI pada menu SI-CAPUT di portal:\n👉 *https://anggaran-026.my.id*\n\nTerima kasih bagi yang sudah mengirimkan, yang belum mengirimkan segera untuk mengirimkan ditunggu. 🙏\n\n_Seksi MSKI - KPPN Semarang I_`
+      );
     }
   };
 
@@ -2228,6 +2240,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
               <span className="font-bold text-slate-500 text-[11px] ml-1">Preset Cepat:</span>
               {[
+                { key: 'preset_grup_semarang_caput', name: '📢 Rekap Caput Grup WA (Semarang 1)', highlight: true },
                 { key: 'preset_perhatian', name: '⚠️ Perhatian' },
                 { key: 'preset_output', name: '🔴 Output' },
                 { key: 'preset_deviasi', name: '📊 Deviasi' },
@@ -2244,7 +2257,9 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                   className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border cursor-pointer transition-all ${
                     broadcastTemplatePreset === p.key
                       ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
-                      : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
+                      : p.highlight 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 font-extrabold'
+                        : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100'
                   }`}
                 >
                   {p.name}
@@ -2277,6 +2292,90 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
               </button>
             ))}
           </div>
+
+          {/* Dynamic Rekap Satker Capaian Output WA Announcement Card */}
+          {satkers.length > 0 && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/30 dark:border-emerald-500/40 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-xs">
+                    <MessageSquareQuote className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-slate-900 dark:text-white text-xs flex items-center gap-2">
+                      <span>Template Broadcast Grup WA Satker KPPN Semarang I</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-mono text-[10px] font-bold">
+                        Live Data
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Laporan daftar satker yang belum/sudah mengirimkan capaian output dari data tab Capaian Output.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectBroadcastPreset('preset_grup_semarang_caput')}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Muat Laporan ke Editor</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleSelectBroadcastPreset('preset_grup_semarang_caput');
+                      const sudah = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && (s.indikator?.capaianOutput || 0) > 0);
+                      const belum = satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator?.capaianOutput || 0) === 0);
+                      const belumText = belum.length > 0 
+                        ? belum.map((s, idx) => `${idx + 1}. [${s.kodeSatker}] ${s.namaSatker} (Skor: ${s.indikator?.capaianOutput || 0}%)`).join('\n')
+                        : '🎉 Seluruh Satker telah menyampaikan Capaian Output dengan lengkap!';
+
+                      const text = `📢 *[PENGUMUMAN CAPAIAN OUTPUT - KPPN SEMARANG I]* 📢\n\nYth. Bapak/Ibu Kuasa Pengguna Anggaran (KPA), PPK, dan Operator SAKTI Satker Lingkup KPPN Semarang I,\n\nIzin menyampaikan monitoring pengiriman Realisasi Capaian Output (CAPUT) periode ${dashboardConfig?.periodeBulan || 'Berjalan'} pada Modul Komitmen Aplikasi SAKTI:\n\n✅ *TERIMA KASIH KEPADA ${sudah.length} SATKER YANG SUDAH MENGIRIMKAN CAPAIAN OUTPUT TEPAT WAKTU.*\n\n⏳ *DAFTAR SATKER YANG BELUM MENGIRIMKAN CAPAIAN OUTPUT (${belum.length} SATKER):*\n${belumText}\n\n⚠️ *Perhatian & Tindak Lanjut:*\n1. Bagi Satker yang *BELUM mengirimkan*, dimohon *SEGERA* melakukan pengisian dan pengiriman data Capaian Output pada Modul Komitmen SAKTI serta menyelesaikan persetujuan KPA/PPK. *Ditunggu pengirimannya* agar nilai IKPA tetap optimal dan tidak terkena sanksi keterlambatan cut-off.\n2. Bagi Satker yang nilai komponen RO-nya belum optimal (Kolom Z < 100):\n   • Pastikan isian Kolom Q (PCRO) tidak lebih kecil dari Kolom Y (Target TPCRO).\n   • Jika Kolom Q (PCRO) = 100%, pastikan Kolom P (Realisasi Volume) telah terisi sesuai Kolom X.\n   • Jika TPCRO = 0 dan PCRO = 0, segera isi PCRO minimal 0,01 agar sistem SAKTI membentuk progres.\n\n🔍 Lakukan diagnostik mandiri data Excel SAKTI pada menu SI-CAPUT di portal:\n👉 https://anggaran-026.my.id\n\nTerima kasih bagi yang sudah mengirimkan, yang belum mengirimkan segera untuk mengirimkan ditunggu. 🙏\n\n_Seksi MSKI - KPPN Semarang I_`;
+
+                      navigator.clipboard.writeText(text);
+                      if (showToast) {
+                        showToast({
+                          type: 'success',
+                          title: 'Teks Siap Kirim Tersalin!',
+                          message: `Laporan rekap ${belum.length} Satker belum kirim berhasil disalin untuk Grup WA.`
+                        });
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-black text-[11px] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Salin Langsung Pesan Grup WA</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status Counters */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="p-2.5 rounded-xl bg-white/70 dark:bg-slate-900/70 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-semibold">Total Satker:</span>
+                  <span className="font-mono font-black text-slate-800 dark:text-slate-200">{satkers.length}</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 flex items-center justify-between">
+                  <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold">✅ Sudah Mengirim:</span>
+                  <span className="font-mono font-black text-emerald-600 dark:text-emerald-400">
+                    {satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan' && (s.indikator?.capaianOutput || 0) > 0).length}
+                  </span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 flex items-center justify-between col-span-2 sm:col-span-1">
+                  <span className="text-[11px] text-rose-700 dark:text-rose-300 font-semibold">⏳ Belum Mengirimkan:</span>
+                  <span className="font-mono font-black text-rose-600 dark:text-rose-400">
+                    {satkers.filter(s => s.statusCapaianOutput !== 'Sudah Terlaporkan' || (s.indikator?.capaianOutput || 0) === 0).length}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <textarea
             rows={6}

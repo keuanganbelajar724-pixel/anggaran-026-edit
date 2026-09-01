@@ -7,6 +7,137 @@ import {
   MyIntressSummary,
   SatkerReconciliationDiff
 } from '../types';
+import { INITIAL_MY_INTRESS_DATA } from '../data/initialMyIntressData';
+
+// Satker Master Lookup Map for resolving official names across all datasets
+const SATKER_MASTER_MAP = new Map<string, string>();
+if (Array.isArray(INITIAL_MY_INTRESS_DATA)) {
+  INITIAL_MY_INTRESS_DATA.forEach(s => {
+    if (s && s.kodeSatker && s.namaSatker) {
+      SATKER_MASTER_MAP.set(String(s.kodeSatker).trim(), String(s.namaSatker).trim());
+    }
+  });
+}
+
+/**
+ * Standard Indonesian APBN Sumber Dana Reference Dictionary (Kemenkeu / SPAN / SAKTI / MonSAKTI)
+ */
+export const SUMBER_DANA_DICTIONARY: Record<string, { kode: string; singkatan: string; nama: string; label: string }> = {
+  '01': { kode: '01', singkatan: 'RM', nama: 'Rupiah Murni', label: 'Rupiah Murni (RM)' },
+  '02': { kode: '02', singkatan: 'RMP', nama: 'Rupiah Murni Pendamping', label: 'Rupiah Murni Pendamping (RMP)' },
+  '03': { kode: '03', singkatan: 'PLN', nama: 'Pinjaman Luar Negeri', label: 'Pinjaman Luar Negeri (PLN)' },
+  '04': { kode: '04', singkatan: 'HLN', nama: 'Hibah Luar Negeri', label: 'Hibah Luar Negeri (HLN)' },
+  '05': { kode: '05', singkatan: 'HDN', nama: 'Hibah Dalam Negeri', label: 'Hibah Dalam Negeri (HDN)' },
+  '06': { kode: '06', singkatan: 'PNBP', nama: 'Penerimaan Negara Bukan Pajak', label: 'Penerimaan Negara Bukan Pajak (PNBP)' },
+  '07': { kode: '07', singkatan: 'BLU', nama: 'Badan Layanan Umum', label: 'Badan Layanan Umum (BLU)' },
+  '08': { kode: '08', singkatan: 'PDN', nama: 'Pinjaman Dalam Negeri', label: 'Pinjaman Dalam Negeri (PDN)' },
+  '09': { kode: '09', singkatan: 'SBSN', nama: 'Surat Berharga Syariah Negara', label: 'Surat Berharga Syariah Negara (SBSN)' },
+  '10': { kode: '10', singkatan: 'SBSN PBS', nama: 'SBSN Project Based Sukuk', label: 'SBSN Project Based Sukuk (PBS)' },
+  '11': { kode: '11', singkatan: 'PNBP-TK', nama: 'PNBP Ditarik Kembali', label: 'PNBP Ditarik Kembali' },
+  '14': { kode: '14', singkatan: 'SBSN Reguler', nama: 'SBSN Reguler', label: 'SBSN Reguler' },
+  '15': { kode: '15', singkatan: 'Hibah Terencana', nama: 'Hibah Terencana', label: 'Hibah Terencana' },
+  '16': { kode: '16', singkatan: 'Hibah Langsung', nama: 'Hibah Langsung', label: 'Hibah Langsung' },
+  '18': { kode: '18', singkatan: 'SBSN DPP', nama: 'SBSN Dana Proyek Pemerintah', label: 'SBSN Dana Proyek Pemerintah (DPP)' },
+  '19': { kode: '19', singkatan: 'SBSN Proyek', nama: 'SBSN Pembiayaan Proyek', label: 'SBSN Pembiayaan Proyek (19)' },
+};
+
+/**
+ * Resolve official Sumber Dana Code and Descriptive Name (e.g. 01 -> Rupiah Murni (RM), 19 -> SBSN Pembiayaan Proyek)
+ */
+export function getOfficialSumberDanaName(kode?: string, uraian?: string): { kode: string; uraian: string; label: string; nama: string; singkatan: string } {
+  const cleanKode = String(kode || '').trim();
+  const cleanUraian = String(uraian || '').trim();
+
+  // Normalize numeric 1-digit code to 2-digits (e.g. "1" -> "01")
+  const paddedKode = /^\d+$/.test(cleanKode) && cleanKode.length === 1 ? `0${cleanKode}` : cleanKode;
+  const paddedUraian = /^\d+$/.test(cleanUraian) && cleanUraian.length === 1 ? `0${cleanUraian}` : cleanUraian;
+
+  // 1. If uraian is actually a numeric code key (e.g. "01", "19", "03", "06", "10", "18")
+  if (SUMBER_DANA_DICTIONARY[paddedUraian]) {
+    const info = SUMBER_DANA_DICTIONARY[paddedUraian];
+    return { kode: info.kode, uraian: info.label, label: info.label, nama: info.nama, singkatan: info.singkatan };
+  }
+
+  // 2. If kode matches dictionary
+  if (SUMBER_DANA_DICTIONARY[paddedKode]) {
+    const info = SUMBER_DANA_DICTIONARY[paddedKode];
+    // If cleanUraian is descriptive text and not just numbers or code
+    const isDescriptive = cleanUraian && cleanUraian !== cleanKode && !/^\d+$/.test(cleanUraian);
+    const resolvedUraian = isDescriptive ? (cleanUraian.length > 3 ? cleanUraian : info.label) : info.label;
+    return { kode: info.kode, uraian: resolvedUraian, label: info.label, nama: info.nama, singkatan: info.singkatan };
+  }
+
+  // 3. Keyword matching on text
+  const upper = `${cleanKode} ${cleanUraian}`.toUpperCase();
+  if (upper.includes('SBSN') && (upper.includes('19') || upper.includes('PROYEK') || upper.includes('PEMBIAYAAN'))) {
+    return { kode: cleanKode || '19', uraian: 'SBSN Pembiayaan Proyek', label: 'SBSN Pembiayaan Proyek (19)', nama: 'SBSN Pembiayaan Proyek', singkatan: 'SBSN Proyek' };
+  }
+  if (upper.includes('SBSN') && (upper.includes('10') || upper.includes('PBS'))) {
+    return { kode: cleanKode || '10', uraian: 'SBSN Project Based Sukuk (PBS)', label: 'SBSN Project Based Sukuk (PBS)', nama: 'SBSN Project Based Sukuk', singkatan: 'SBSN PBS' };
+  }
+  if (upper.includes('SBSN') && (upper.includes('18') || upper.includes('DPP'))) {
+    return { kode: cleanKode || '18', uraian: 'SBSN Dana Proyek Pemerintah (DPP)', label: 'SBSN Dana Proyek Pemerintah (DPP)', nama: 'SBSN Dana Proyek Pemerintah', singkatan: 'SBSN DPP' };
+  }
+  if (upper.includes('SBSN')) {
+    return { kode: cleanKode || '09', uraian: 'Surat Berharga Syariah Negara (SBSN)', label: 'Surat Berharga Syariah Negara (SBSN)', nama: 'Surat Berharga Syariah Negara', singkatan: 'SBSN' };
+  }
+  if (upper.includes('RM') || upper.includes('RUPIAH MURNI')) {
+    if (upper.includes('PENDAMPING') || upper.includes('RMP') || upper.includes('02')) {
+      return { kode: cleanKode || '02', uraian: 'Rupiah Murni Pendamping (RMP)', label: 'Rupiah Murni Pendamping (RMP)', nama: 'Rupiah Murni Pendamping', singkatan: 'RMP' };
+    }
+    return { kode: cleanKode || '01', uraian: 'Rupiah Murni (RM)', label: 'Rupiah Murni (RM)', nama: 'Rupiah Murni', singkatan: 'RM' };
+  }
+  if (upper.includes('PNBP')) {
+    return { kode: cleanKode || '06', uraian: 'Penerimaan Negara Bukan Pajak (PNBP)', label: 'Penerimaan Negara Bukan Pajak (PNBP)', nama: 'Penerimaan Negara Bukan Pajak', singkatan: 'PNBP' };
+  }
+  if (upper.includes('BLU')) {
+    return { kode: cleanKode || '07', uraian: 'Badan Layanan Umum (BLU)', label: 'Badan Layanan Umum (BLU)', nama: 'Badan Layanan Umum', singkatan: 'BLU' };
+  }
+  if (upper.includes('PLN') || upper.includes('PINJAMAN')) {
+    return { kode: cleanKode || '03', uraian: 'Pinjaman Luar Negeri (PLN)', label: 'Pinjaman Luar Negeri (PLN)', nama: 'Pinjaman Luar Negeri', singkatan: 'PLN' };
+  }
+  if (upper.includes('HLN') || upper.includes('HIBAH')) {
+    return { kode: cleanKode || '04', uraian: 'Hibah Luar Negeri (HLN)', label: 'Hibah Luar Negeri (HLN)', nama: 'Hibah Luar Negeri', singkatan: 'HLN' };
+  }
+
+  // 4. If cleanUraian is descriptive and not pure digits
+  if (cleanUraian && !/^\d+$/.test(cleanUraian)) {
+    return { kode: cleanKode || '01', uraian: cleanUraian, label: cleanUraian, nama: cleanUraian, singkatan: cleanUraian };
+  }
+
+  // Fallback default
+  return { kode: cleanKode || '01', uraian: 'Rupiah Murni (RM)', label: 'Rupiah Murni (RM)', nama: 'Rupiah Murni', singkatan: 'RM' };
+}
+
+/**
+ * Resolve official satker name from Column P or master reference
+ */
+export function getOfficialSatkerName(kode: string, fallbackName?: string): string {
+  const cleanKode = String(kode || '').trim();
+  const cleanFallback = String(fallbackName || '').trim();
+
+  // If fallback is already a valid descriptive text (not empty, not equal to code, not purely numbers)
+  if (
+    cleanFallback &&
+    cleanFallback !== cleanKode &&
+    !/^\d+$/.test(cleanFallback) &&
+    cleanFallback.length >= 3 &&
+    !cleanFallback.toLowerCase().startsWith('satker ')
+  ) {
+    return cleanFallback;
+  }
+
+  // Lookup in master dictionary
+  if (cleanKode && SATKER_MASTER_MAP.has(cleanKode)) {
+    return SATKER_MASTER_MAP.get(cleanKode)!;
+  }
+
+  if (cleanFallback && cleanFallback !== cleanKode && !/^\d+$/.test(cleanFallback)) {
+    return cleanFallback;
+  }
+
+  return cleanKode ? `Satker ${cleanKode}` : 'Satuan Kerja';
+}
 
 // Helper to clean text
 function cleanText(val: any): string {
@@ -166,16 +297,28 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
           String(h).trim().toLowerCase().replace(/[\s\.\-\/]/g, '_')
         );
 
-        // Map column indices with robust aliases and positional fallbacks
-        const getColIdx = (aliases: string[], fallbackPos?: number) => {
-          const found = headers.findIndex(h => aliases.some(alias => h === alias || h.includes(alias)));
-          if (found >= 0) return found;
+        // Map column indices with robust aliases, exact match priority, and positional fallbacks
+        const getColIdx = (aliases: string[], fallbackPos?: number, excludeIndices: number[] = []) => {
+          // 1. Exact match check
+          for (let i = 0; i < headers.length; i++) {
+            if (excludeIndices.includes(i)) continue;
+            const h = headers[i];
+            if (aliases.some(alias => h === alias)) return i;
+          }
+          // 2. StartsWith / Includes check (prefer longer alias matches first)
+          const sortedAliases = [...aliases].sort((a, b) => b.length - a.length);
+          for (let i = 0; i < headers.length; i++) {
+            if (excludeIndices.includes(i)) continue;
+            const h = headers[i];
+            if (sortedAliases.some(alias => h === alias || h.includes(alias))) return i;
+          }
+          if (fallbackPos !== undefined && fallbackPos < headers.length && !excludeIndices.includes(fallbackPos)) return fallbackPos;
           if (fallbackPos !== undefined && fallbackPos < headers.length) return fallbackPos;
           return -1;
         };
 
-        const idxKemKode = getColIdx(['kementerian_kode', 'kemen_kode', 'kd_kemen', 'kd_kl', 'ba_kode'], 0);
-        const idxKemUraian = getColIdx(['kementerian_uraian', 'kemen_uraian', 'ur_kemen', 'nm_kl', 'kementerian'], 1);
+        const idxKemKode = getColIdx(['kementerian_kode', 'kemen_kode', 'kd_kemen', 'kd_kl', 'ba_kode', 'kd_ba'], 0);
+        const idxKemUraian = getColIdx(['kementerian_uraian', 'kemen_uraian', 'ur_kemen', 'nm_kl', 'kementerian', 'nama_kementerian'], 1, [idxKemKode]);
         const idxEselonIKode = getColIdx(['eseloni_kode', 'eselon1_kode', 'kd_eselon1'], 2);
         const idxEselonIUraian = getColIdx(['eseloni_uraian', 'eselon1_uraian', 'ur_eselon1'], 3);
         const idxKewenanganKode = getColIdx(['kewenangan_kode', 'kd_kewenangan'], 4);
@@ -188,8 +331,11 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
         const idxKanwilUraian = getColIdx(['kanwil_uraian', 'ur_kanwil'], 11);
         const idxKppnKode = getColIdx(['kppn_kode', 'kd_kppn'], 12);
         const idxKppnUraian = getColIdx(['kppn_uraian', 'ur_kppn'], 13);
-        const idxSatkerKode = getColIdx(['satker_kode', 'kd_satker', 'kdsatker', 'kode_satker'], 14);
-        const idxSatkerUraian = getColIdx(['satker_uraian', 'ur_satker', 'nmsatker', 'nama_satker', 'satker'], 15);
+        
+        // Kolom O (index 14) = Kode Satker, Kolom P (index 15) = Uraian / Nama Satker
+        const idxSatkerKode = getColIdx(['satker_kode', 'kd_satker', 'kdsatker', 'kode_satker', 'kodesatker'], 14);
+        const idxSatkerUraian = getColIdx(['satker_uraian', 'ur_satker', 'ursatker', 'nmsatker', 'nama_satker', 'namasatker', 'uraian_satker', 'nama_satuan_kerja', 'satker_name'], 15, [idxSatkerKode]);
+        
         const idxFungsiKode = getColIdx(['fungsi_kode', 'kd_fungsi'], 16);
         const idxFungsiUraian = getColIdx(['fungsi_uraian', 'ur_fungsi'], 17);
         const idxSubfungsiKode = getColIdx(['subfungsi_kode', 'kd_subfungsi'], 18);
@@ -201,9 +347,12 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
         const idxOutputKroKode = getColIdx(['outputkro_kode', 'kro_kode', 'output_kode', 'kro'], 24);
         const idxOutputKroUraian = getColIdx(['outputkro_uraian', 'ur_outputkro', 'ur_kro', 'output_uraian', 'uraian_kro'], 25);
         const idxAkunKode = getColIdx(['akun_kode', 'kd_akun', 'kdakun', 'kode_akun', 'akun'], 26);
-        const idxAkunUraian = getColIdx(['akun_uraian', 'ur_akun', 'nm_akun', 'nama_akun'], 27);
-        const idxSumberdanaKode = getColIdx(['sumberdana_kode', 'kd_sumberdana', 'kd_sd'], 28);
-        const idxSumberdanaUraian = getColIdx(['sumberdana_uraian', 'sumber_dana', 'sumberdana', 'ur_sumberdana'], 29);
+        const idxAkunUraian = getColIdx(['akun_uraian', 'ur_akun', 'nm_akun', 'nama_akun'], 27, [idxAkunKode]);
+        
+        // Kolom AC (index 28) = Kode Sumber Dana, Kolom AD (index 29) = Uraian Sumber Dana
+        const idxSumberdanaKode = getColIdx(['sumberdana_kode', 'kd_sumberdana', 'kd_sd', 'kdsd', 'kode_sumberdana'], 28);
+        const idxSumberdanaUraian = getColIdx(['sumberdana_uraian', 'ur_sumberdana', 'ursumberdana', 'nama_sumberdana', 'uraian_sumberdana', 'nmsumberdana'], 29, [idxSumberdanaKode]);
+        
         const idxPagu = getColIdx(['pagu_dipa', 'pagu', 'alokasi', 'dipa'], 41);
         const idxRealisasi = getColIdx(['realisasi', 'penyerapan', 'sp2d'], 42);
         const idxBlokir = getColIdx(['blokir', 'pagu_blokir', 'blok'], 43);
@@ -214,19 +363,25 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
           const row = matrix[r];
           if (!row || row.length === 0) continue;
 
-          const satkerKode = cleanText(idxSatkerKode >= 0 ? row[idxSatkerKode] : '');
-          const satkerUraian = cleanText(idxSatkerUraian >= 0 ? row[idxSatkerUraian] : '');
-          const akunKode = cleanText(idxAkunKode >= 0 ? row[idxAkunKode] : '');
-          const paguVal = parseNum(idxPagu >= 0 ? row[idxPagu] : 0);
-          const realisasiVal = parseNum(idxRealisasi >= 0 ? row[idxRealisasi] : 0);
-          const blokirVal = parseNum(idxBlokir >= 0 ? row[idxBlokir] : 0);
+          // In SINTESA / MonSAKTI format: Kolom O (index 14) is Kode Satker, Kolom P (index 15) is Nama Satker
+          const rawSatkerKode = cleanText(idxSatkerKode >= 0 ? row[idxSatkerKode] : (row[14] !== undefined ? row[14] : ''));
+          const rawSatkerUraian = cleanText(idxSatkerUraian >= 0 ? row[idxSatkerUraian] : (row[15] !== undefined ? row[15] : ''));
+          const satkerKode = rawSatkerKode || '000000';
+          const satkerUraian = getOfficialSatkerName(satkerKode, rawSatkerUraian);
+
+          const akunKode = cleanText(idxAkunKode >= 0 ? row[idxAkunKode] : (row[26] !== undefined ? row[26] : ''));
+          const paguVal = parseNum(idxPagu >= 0 ? row[idxPagu] : (row[41] !== undefined ? row[41] : 0));
+          const realisasiVal = parseNum(idxRealisasi >= 0 ? row[idxRealisasi] : (row[42] !== undefined ? row[42] : 0));
+          const blokirVal = parseNum(idxBlokir >= 0 ? row[idxBlokir] : (row[43] !== undefined ? row[43] : 0));
 
           // Skip completely empty lines or totals
           if (!satkerKode && !satkerUraian && paguVal === 0 && realisasiVal === 0) continue;
           if (satkerUraian.toLowerCase().includes('total') || satkerUraian.toLowerCase().includes('jumlah')) continue;
 
-          const kemKode = cleanText(idxKemKode >= 0 ? row[idxKemKode] : '');
-          const kemUraian = cleanText(idxKemUraian >= 0 ? row[idxKemUraian] : 'Kementerian / Lembaga');
+          const rawKemKode = cleanText(idxKemKode >= 0 ? row[idxKemKode] : (row[0] !== undefined ? row[0] : ''));
+          const rawKemUraian = cleanText(idxKemUraian >= 0 ? row[idxKemUraian] : (row[1] !== undefined ? row[1] : ''));
+          const kemKode = rawKemKode || '';
+          const kemUraian = (rawKemUraian && rawKemUraian !== rawKemKode) ? rawKemUraian : (kemKode ? `Kementerian ${kemKode}` : 'Kementerian / Lembaga');
           const eselonIKode = cleanText(idxEselonIKode >= 0 ? row[idxEselonIKode] : '');
           const eselonIUraian = cleanText(idxEselonIUraian >= 0 ? row[idxEselonIUraian] : '');
           const kewenanganKode = cleanText(idxKewenanganKode >= 0 ? row[idxKewenanganKode] : '');
@@ -250,8 +405,13 @@ export async function processRealisasiBelanjaExcel(file: File): Promise<{
           const outputKroKode = cleanText(idxOutputKroKode >= 0 ? row[idxOutputKroKode] : '');
           const outputKroUraian = cleanText(idxOutputKroUraian >= 0 ? row[idxOutputKroUraian] : '');
           const akunUraian = cleanText(idxAkunUraian >= 0 ? row[idxAkunUraian] : 'Belanja Negara');
-          const sumberdanaKode = cleanText(idxSumberdanaKode >= 0 ? row[idxSumberdanaKode] : '');
-          const sumberdanaUraian = cleanText(idxSumberdanaUraian >= 0 ? row[idxSumberdanaUraian] : 'RM');
+          
+          // Resolve Kolom AC & AD (Sumber Dana)
+          const rawSdKode = cleanText(idxSumberdanaKode >= 0 ? row[idxSumberdanaKode] : (row[28] !== undefined ? row[28] : ''));
+          const rawSdUraian = cleanText(idxSumberdanaUraian >= 0 ? row[idxSumberdanaUraian] : (row[29] !== undefined ? row[29] : ''));
+          const resolvedSd = getOfficialSumberDanaName(rawSdKode, rawSdUraian);
+          const sumberdanaKode = resolvedSd.kode;
+          const sumberdanaUraian = resolvedSd.uraian;
 
           const jenisInfo = getJenisBelanjaInfo(akunKode);
           const sisaPagu = Math.max(0, paguVal - realisasiVal);
@@ -356,7 +516,7 @@ export function computeRealisasiBelanjaSummary(records: RealisasiBelanjaRecord[]
     if (!satkerMap[sKey]) {
       satkerMap[sKey] = {
         kodeSatker: r.satkerKode,
-        namaSatker: r.satkerUraian,
+        namaSatker: getOfficialSatkerName(r.satkerKode, r.satkerUraian),
         pagu: 0,
         realisasi: 0
       };
@@ -955,8 +1115,9 @@ export function reconcileSintesaAndMyIntress(
     if (!r) continue;
     const k = r.satkerKode || 'UNKNOWN';
     if (!sintesaMap.has(k)) {
+      const properName = getOfficialSatkerName(k, r.satkerUraian);
       sintesaMap.set(k, {
-        namaSatker: r.satkerUraian || `Satker ${k}`,
+        namaSatker: properName,
         paguTotal: 0,
         realTotal: 0,
         pagu51: 0, real51: 0,
@@ -1008,7 +1169,9 @@ export function reconcileSintesaAndMyIntress(
     const s = sintesaMap.get(code);
     const m = intressMap.get(code);
 
-    const namaSatker = s?.namaSatker || m?.namaSatker || `Satker ${code}`;
+    const rawCandidateName = (s?.namaSatker && s.namaSatker !== code && !/^\d+$/.test(s.namaSatker) ? s.namaSatker : '') ||
+      (m?.namaSatker && m.namaSatker !== code && !/^\d+$/.test(m.namaSatker) ? m.namaSatker : '');
+    const namaSatker = getOfficialSatkerName(code, rawCandidateName);
 
     const sintesaPaguTotal = s?.paguTotal || 0;
     const sintesaRealTotal = s?.realTotal || 0;

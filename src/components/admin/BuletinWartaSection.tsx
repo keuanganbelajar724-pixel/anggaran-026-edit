@@ -63,7 +63,9 @@ import {
   formatRupiahFull, 
   generateCanvaBulkCreateCSV, 
   exportRealisasiBelanjaToExcel,
-  getJenisBelanjaInfo 
+  getJenisBelanjaInfo,
+  getOfficialSatkerName,
+  getOfficialSumberDanaName
 } from '../../utils/realisasiBelanjaProcessor';
 import { 
   safeLocalStorageSet, 
@@ -407,11 +409,19 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   }, [records]);
 
   const uniqueSumberdanas = useMemo(() => {
-    const set = new Set<string>();
+    const map = new Map<string, { value: string; label: string; name: string }>();
     records.forEach(r => {
-      if (r.sumberdanaUraian) set.add(r.sumberdanaUraian);
+      const resolved = getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian);
+      const label = resolved.label;
+      if (!map.has(label)) {
+        map.set(label, {
+          value: label,
+          label: label,
+          name: resolved.nama
+        });
+      }
     });
-    return Array.from(set).sort();
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [records]);
 
   const uniqueKewenangans = useMemo(() => {
@@ -435,7 +445,12 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
         const matchProg = r.programUraian && r.programUraian.toLowerCase().includes(q);
         const matchKeg = r.kegiatanUraian && r.kegiatanUraian.toLowerCase().includes(q);
         const matchKro = (r.outputKroKode && r.outputKroKode.toLowerCase().includes(q)) || (r.outputKroUraian && r.outputKroUraian.toLowerCase().includes(q));
-        const matchSD = r.sumberdanaUraian && r.sumberdanaUraian.toLowerCase().includes(q);
+        
+        const resolvedSD = getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian);
+        const matchSD = resolvedSD.label.toLowerCase().includes(q) || 
+                        resolvedSD.nama.toLowerCase().includes(q) || 
+                        resolvedSD.singkatan.toLowerCase().includes(q) ||
+                        (r.sumberdanaUraian && r.sumberdanaUraian.toLowerCase().includes(q));
 
         if (!matchKode && !matchNama && !matchAkun && !matchKem && !matchProg && !matchKeg && !matchKro && !matchSD) {
           return false;
@@ -457,11 +472,12 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
         return false;
       }
 
-      // Filter Sumber Dana (supports exact or partial match e.g. SBSN, RM, PNBP)
+      // Filter Sumber Dana (supports exact or partial match e.g. SBSN, RM, PNBP, Rupiah Murni)
       if (filterSumberdana !== 'ALL') {
-        const sdVal = (r.sumberdanaUraian || '').toLowerCase();
+        const resolved = getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian);
+        const combined = `${resolved.label} ${resolved.uraian} ${resolved.nama} ${resolved.singkatan} ${resolved.kode} ${r.sumberdanaUraian || ''} ${r.sumberdanaKode || ''}`.toLowerCase();
         const fVal = filterSumberdana.toLowerCase();
-        if (sdVal !== fVal && !sdVal.includes(fVal)) {
+        if (!combined.includes(fVal)) {
           return false;
         }
       }
@@ -537,7 +553,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       if (!map.has(r.satkerKode)) {
         map.set(r.satkerKode, {
           satkerKode: r.satkerKode,
-          satkerUraian: r.satkerUraian,
+          satkerUraian: getOfficialSatkerName(r.satkerKode, r.satkerUraian),
           kementerianKode: r.kementerianKode,
           kementerianUraian: r.kementerianUraian,
           kewenanganUraian: r.kewenanganUraian || 'Kantor Daerah',
@@ -619,7 +635,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
   // Aggregated Sumber Dana for Sumber Dana Mode
   const aggregatedSumberdanas = useMemo(() => {
     const map = new Map<string, {
+      kode: string;
       sumberdana: string;
+      label: string;
       paguDipa: number;
       realisasi: number;
       sisaPagu: number;
@@ -628,10 +646,13 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     }>();
 
     filteredRecords.forEach(r => {
-      const sd = r.sumberdanaUraian || 'RM (Rupiah Murni)';
-      if (!map.has(sd)) {
-        map.set(sd, {
-          sumberdana: sd,
+      const resolved = getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian);
+      const key = resolved.kode || resolved.uraian;
+      if (!map.has(key)) {
+        map.set(key, {
+          kode: resolved.kode,
+          sumberdana: resolved.uraian,
+          label: resolved.label,
           paguDipa: 0,
           realisasi: 0,
           sisaPagu: 0,
@@ -639,7 +660,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
           totalBaris: 0
         });
       }
-      const item = map.get(sd)!;
+      const item = map.get(key)!;
       item.paguDipa += r.paguDipa;
       item.realisasi += r.realisasi;
       item.totalBaris += 1;
@@ -1699,7 +1720,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                  ⚡ Filter Cepat Sumber Dana (Kolom AD):
+                  ⚡ Filter Cepat Sumber Dana:
                 </span>
                 {filterSumberdana !== 'ALL' && (
                   <button 
@@ -1723,15 +1744,25 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                 </button>
                 
                 {/* Specific High-Value Presets */}
-                {['SBSN', 'RM', 'PNBP', 'BLU'].map((sdKey) => {
-                  const matchCount = records.filter(r => (r.sumberDanaKode || '').toUpperCase().includes(sdKey) || (r.sumberDanaUraian || '').toUpperCase().includes(sdKey)).length;
+                {[
+                  { id: 'RM', label: '🏛️ Rupiah Murni (RM)', query: 'Rupiah Murni' },
+                  { id: 'SBSN', label: '🕌 SBSN (Syariah / Proyek)', query: 'SBSN' },
+                  { id: 'PNBP', label: '📊 PNBP', query: 'PNBP' },
+                  { id: 'BLU', label: '🏥 BLU', query: 'BLU' },
+                  { id: 'PLN', label: '🌍 Pinjaman / Hibah (PLN/HLN)', query: 'PLN' }
+                ].map((preset) => {
+                  const matchCount = records.filter(r => {
+                    const resolved = getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian);
+                    const combined = `${resolved.label} ${resolved.nama} ${resolved.singkatan} ${r.sumberdanaKode || ''} ${r.sumberdanaUraian || ''}`.toUpperCase();
+                    return combined.includes(preset.query.toUpperCase()) || combined.includes(preset.id);
+                  }).length;
                   if (matchCount === 0) return null;
-                  const isSelected = filterSumberdana.toUpperCase() === sdKey;
+                  const isSelected = filterSumberdana.toUpperCase() === preset.query.toUpperCase() || filterSumberdana.toUpperCase() === preset.id;
                   return (
                     <button
-                      key={sdKey}
+                      key={preset.id}
                       onClick={() => {
-                        setFilterSumberdana(isSelected ? 'ALL' : sdKey);
+                        setFilterSumberdana(isSelected ? 'ALL' : preset.query);
                         setCurrentPage(1);
                       }}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -1740,7 +1771,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                           : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
-                      <span>{sdKey === 'SBSN' ? '🕌 SBSN (Syariah)' : sdKey === 'RM' ? '🏛️ Rupiah Murni (RM)' : sdKey === 'PNBP' ? '📊 PNBP' : '🏥 BLU'}</span>
+                      <span>{preset.label}</span>
                       <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-indigo-800 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
                         {matchCount}
                       </span>
@@ -1831,9 +1862,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                 </select>
               </div>
 
-              {/* Sumber Dana (Kolom AD) */}
+              {/* Sumber Dana */}
               <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-slate-500">Sumber Dana (Kolom AD)</label>
+                <label className="text-[11px] font-semibold text-slate-500">Sumber Dana</label>
                 <select
                   value={filterSumberdana}
                   onChange={(e) => { setFilterSumberdana(e.target.value); setCurrentPage(1); }}
@@ -1841,7 +1872,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                 >
                   <option value="ALL">Semua Sumber Dana</option>
                   {uniqueSumberdanas.map(sd => (
-                    <option key={sd} value={sd}>{sd}</option>
+                    <option key={sd.value} value={sd.value}>{sd.label}</option>
                   ))}
                 </select>
               </div>
@@ -2077,7 +2108,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                       : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                   }`}
                 >
-                  💰 4. Sumber Dana (AD) ({aggregatedSumberdanas.length})
+                  💰 4. Sumber Dana ({aggregatedSumberdanas.length})
                 </button>
               </div>
             </div>
@@ -2275,8 +2306,8 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
 
                               {/* Sumber Dana */}
                               <td className="py-3 px-3 align-top text-center">
-                                <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
-                                  {r.sumberdanaUraian || 'RM'}
+                                <span className="inline-block px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-center leading-snug">
+                                  {getOfficialSumberDanaName(r.sumberdanaKode, r.sumberdanaUraian).label}
                                 </span>
                               </td>
 
@@ -2399,7 +2430,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     <thead className="bg-slate-50 dark:bg-slate-700/70 text-slate-700 dark:text-slate-200 font-bold border-b border-slate-200 dark:border-slate-700">
                       <tr>
                         <th className="py-3 px-3">No</th>
-                        <th className="py-3 px-3">Sumber Dana (Kolom AD)</th>
+                        <th className="py-3 px-3">Nama &amp; Jenis Sumber Dana</th>
                         <th className="py-3 px-3 text-center">Jumlah Baris Rincian</th>
                         <th className="py-3 px-3 text-right">Pagu DIPA (Rp)</th>
                         <th className="py-3 px-3 text-right">Realisasi (Rp)</th>
@@ -2409,9 +2440,13 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
                       {aggregatedSumberdanas.map((sd, idx) => (
-                        <tr key={sd.sumberdana} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
+                        <tr key={sd.kode || sd.sumberdana} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/40 transition-colors">
                           <td className="py-2.5 px-3 font-semibold text-slate-400">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">{sd.sumberdana}</td>
+                          <td className="py-2.5 px-3">
+                            <span className="font-bold text-slate-900 dark:text-white text-xs">
+                              {sd.label}
+                            </span>
+                          </td>
                           <td className="py-2.5 px-3 text-center font-mono">{sd.totalBaris}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-medium text-slate-900 dark:text-white">
                             {formatRupiahFull(sd.paguDipa)}

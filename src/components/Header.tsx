@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Search,
   Zap,
+  Activity,
   Megaphone,
   Sun,
   Moon,
@@ -228,6 +229,13 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="bg-sky-950 text-sky-200 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold">SAKTI</span>
       ),
       activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
+    },
+    {
+      id: 'diagnostik-caput',
+      label: 'SI-CAPUT (Diagnostik)',
+      icon: <Activity className="w-4 h-4 text-cyan-300" />,
+      badge: <span className="bg-cyan-950 text-cyan-200 border border-cyan-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Kolaka Tool</span>,
+      activeColor: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 ring-1 ring-cyan-400/40'
     },
     {
       id: 'deviasi-hal3',
