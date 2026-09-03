@@ -77,7 +77,7 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
   const [copiedSatkerKode, setCopiedSatkerKode] = useState<string | null>(null);
   const [isSyncingBuletin, setIsSyncingBuletin] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10;
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Run automated reconciliation
   const allReconciledDiffs = useMemo(() => {
@@ -186,11 +186,13 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
     });
   }, [allReconciledDiffs, searchQuery, filterStatus, filterBelanjaDiff, sortBy]);
 
-  const totalPages = Math.ceil(filteredDiffs.length / itemsPerPage) || 1;
+  const effectivePageSize = pageSize <= 0 ? filteredDiffs.length || 1 : pageSize;
+  const totalPages = Math.ceil(filteredDiffs.length / effectivePageSize) || 1;
   const paginatedDiffs = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredDiffs.slice(start, start + itemsPerPage);
-  }, [filteredDiffs, currentPage, itemsPerPage]);
+    if (pageSize <= 0) return filteredDiffs;
+    const start = (currentPage - 1) * pageSize;
+    return filteredDiffs.slice(start, start + pageSize);
+  }, [filteredDiffs, currentPage, pageSize]);
 
   // Handle Copy WhatsApp Template
   const handleCopyWaTemplate = (diff: SatkerReconciliationDiff) => {
@@ -785,12 +787,21 @@ export const RealisasiReconciliationView: React.FC<RealisasiReconciliationViewPr
       </div>
 
       {/* Pagination */}
-      {filteredDiffs.length > itemsPerPage && (
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-xs flex justify-center">
+      {filteredDiffs.length > 0 && (
+        <div className="rounded-2xl overflow-hidden shadow-xs border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <PaginationControl
             currentPage={currentPage}
+            totalItems={filteredDiffs.length}
+            pageSize={pageSize}
             totalPages={totalPages}
             onPageChange={setCurrentPage}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setCurrentPage(1);
+            }}
+            pageSizeOptions={[10, 25, 50, -1]}
+            itemLabel="Satker"
+            isDark={isDark}
           />
         </div>
       )}

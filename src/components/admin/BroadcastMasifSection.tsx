@@ -63,6 +63,7 @@ import {
 } from '../../types';
 import { ensurePejabatOperator } from '../../utils/analysisEngine';
 import { BroadcastTemplateLibraryModal } from '../BroadcastTemplateLibraryModal';
+import { BroadcastGroupSection } from './BroadcastGroupSection';
 
 export interface DeliveryTrackerRecord {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
@@ -141,8 +142,8 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   const [broadcastLogs, setBroadcastLogs] = useState<string[]>([]);
   const [sentStats, setSentStats] = useState<{ success: number; failed: number; total: number }>({ success: 0, failed: 0, total: 0 });
 
-  // Sub-Tab Navigation: COMPOSE (Susun Pesan) vs TRACKER (Progress & Monitoring Real-Time)
-  const [broadcastSubTab, setBroadcastSubTab] = useState<'COMPOSE' | 'TRACKER'>('COMPOSE');
+  // Sub-Tab Navigation: COMPOSE (Pesan Personal) vs GROUP (Pengumuman Grup WA) vs TRACKER (Progress & Monitoring)
+  const [broadcastSubTab, setBroadcastSubTab] = useState<'COMPOSE' | 'GROUP' | 'TRACKER'>('COMPOSE');
 
   // Real-Time Delivery Tracker Storage
   const [deliveryTrackerMap, setDeliveryTrackerMap] = useState<Record<string, DeliveryTrackerRecord>>(() => {
@@ -1593,20 +1594,20 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           </div>
         </div>
 
-        {/* Sub-Tab Navigation Switcher: Susun Broadcast vs Monitoring Pengiriman */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-100 dark:bg-slate-950 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-2 flex-1">
+        {/* Sub-Tab Navigation Switcher: Susun Broadcast vs Pengumuman Grup vs Monitoring Pengiriman */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 bg-slate-100 dark:bg-slate-950 p-2 rounded-2xl border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
             <button
               type="button"
               onClick={() => setBroadcastSubTab('COMPOSE')}
-              className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 broadcastSubTab === 'COMPOSE'
                   ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-md ring-2 ring-rose-500/20'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/50'
               }`}
             >
               <Send className="w-4 h-4" />
-              <span>1. Susun &amp; Kirim Broadcast</span>
+              <span>1. Japri Masif Pejabat</span>
               <span className="bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded-full text-[10px] font-extrabold">
                 {selectedCount} Target
               </span>
@@ -1614,15 +1615,31 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
             <button
               type="button"
-              onClick={() => setBroadcastSubTab('TRACKER')}
-              className={`flex-1 sm:flex-none px-4 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                broadcastSubTab === 'TRACKER'
+              onClick={() => setBroadcastSubTab('GROUP')}
+              className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                broadcastSubTab === 'GROUP'
                   ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md ring-2 ring-emerald-500/20'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/50'
               }`}
             >
-              <Activity className="w-4 h-4 text-emerald-500" />
-              <span>2. Progress &amp; Monitoring Pengiriman</span>
+              <MessageSquare className="w-4 h-4 text-emerald-500" />
+              <span>2. 📢 Pengumuman Grup WA Satker</span>
+              <span className="bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-extrabold">
+                Versi Grup
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBroadcastSubTab('TRACKER')}
+              className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                broadcastSubTab === 'TRACKER'
+                  ? 'bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-md ring-2 ring-blue-500/20'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-white/50 dark:hover:bg-slate-900/50'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-blue-500" />
+              <span>3. Monitoring Log Pengiriman</span>
               
               {/* Real-time Counter Badges */}
               <div className="flex items-center gap-1 text-[10px]">
@@ -1723,6 +1740,31 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Quick Switch to Group Broadcast Callout */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-500/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-xs shrink-0">
+                  <MessageSquare className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="text-xs font-black text-slate-900 dark:text-white">
+                    Butuh Pesan Siaran Langsung ke Grup WhatsApp Satker?
+                  </h5>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Gunakan <strong>Mode Pengumuman Grup WA</strong> untuk mengompilasi daftar satker belum isi CAPUT, belum perpanjangan sertifikat, dll. ke dalam 1 pesan terpadu siap salin.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBroadcastSubTab('GROUP')}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <span>Buka Mode Grup WA 📢</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
 
         {/* 1. Target Roles & Filter Configuration Grid */}
@@ -2815,8 +2857,16 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
         </div>
       </>
+    ) : broadcastSubTab === 'GROUP' ? (
+      <BroadcastGroupSection
+        satkers={satkers}
+        pejabatList={pejabatList}
+        dashboardConfig={dashboardConfig}
+        isDark={isDark}
+        showToast={showToast}
+      />
     ) : (
-      /* Sub-Tab 2: Progress & Monitoring Pengiriman Real-Time */
+      /* Sub-Tab 3: Progress & Monitoring Pengiriman Real-Time */
       <div className="space-y-6 animate-fadeIn">
         
         {/* Scope Selector Switcher & Clarification Banner */}

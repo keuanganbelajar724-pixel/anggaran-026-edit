@@ -81,7 +81,7 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
   const [sortBy, setSortBy] = useState<'pagu' | 'realisasi' | 'persen' | 'nama'>('pagu');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 15;
+  const [pageSize, setPageSize] = useState<number>(15);
 
   // Selected Satker for modal
   const [selectedSatker, setSelectedSatker] = useState<MyIntressRecord | null>(null);
@@ -165,11 +165,13 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
     };
   }, [filteredRecords]);
 
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage) || 1;
+  const effectivePageSize = pageSize <= 0 ? filteredRecords.length || 1 : pageSize;
+  const totalPages = Math.ceil(filteredRecords.length / effectivePageSize) || 1;
   const paginatedRecords = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredRecords.slice(start, start + itemsPerPage);
-  }, [filteredRecords, currentPage, itemsPerPage]);
+    if (pageSize <= 0) return filteredRecords;
+    const start = (currentPage - 1) * pageSize;
+    return filteredRecords.slice(start, start + pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
 
   const isFilterActive = searchQuery.trim() !== '' || filterJenisBelanja !== 'ALL' || filterRealisasiLevel !== 'ALL';
 
@@ -669,7 +671,8 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
                 </tr>
               ) : (
                 paginatedRecords.map((r, idx) => {
-                  const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
+                  const effectiveSize = pageSize <= 0 ? filteredRecords.length : pageSize;
+                  const globalIdx = (currentPage - 1) * effectiveSize + idx + 1;
                   const safePersenTotal = Number.isFinite(r.persenTotal) ? r.persenTotal : 0;
                   return (
                     <tr
@@ -768,12 +771,21 @@ export const MyIntressAnalysisView: React.FC<MyIntressAnalysisViewProps> = ({
         </div>
 
         {/* Pagination */}
-        {filteredRecords.length > itemsPerPage && (
-          <div className="p-3 border-t border-slate-200 dark:border-slate-700 flex justify-center">
+        {filteredRecords.length > 0 && (
+          <div className="border-t border-slate-200 dark:border-slate-700">
             <PaginationControl
               currentPage={currentPage}
+              totalItems={filteredRecords.length}
+              pageSize={pageSize}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[15, 30, 50, -1]}
+              itemLabel="Satker"
+              isDark={isDark}
             />
           </div>
         )}

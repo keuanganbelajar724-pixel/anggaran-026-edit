@@ -8,10 +8,11 @@ import {
 
 export interface PaginationControlProps {
   currentPage: number;
-  totalItems: number;
-  pageSize: number;
+  totalItems?: number;
+  pageSize?: number;
+  totalPages?: number;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
   itemLabel?: string;
   isDark?: boolean;
@@ -19,9 +20,10 @@ export interface PaginationControlProps {
 }
 
 export const PaginationControl: React.FC<PaginationControlProps> = ({
-  currentPage,
+  currentPage = 1,
   totalItems,
-  pageSize,
+  pageSize = 10,
+  totalPages: totalPagesProp,
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = [10, 25, 50, 100, -1],
@@ -29,28 +31,43 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
   isDark = false,
   className = ''
 }) => {
-  // If no items, don't show pagination controls
-  if (totalItems === 0) return null;
+  // Safe number extraction
+  const safePageSize = typeof pageSize === 'number' && !isNaN(pageSize) && pageSize !== 0 ? pageSize : 10;
+  
+  // Resolve effective total items
+  let effectiveTotalItems = 0;
+  if (typeof totalItems === 'number' && !isNaN(totalItems)) {
+    effectiveTotalItems = totalItems;
+  } else if (typeof totalPagesProp === 'number' && !isNaN(totalPagesProp) && totalPagesProp > 0) {
+    effectiveTotalItems = totalPagesProp * Math.abs(safePageSize);
+  }
 
-  const effectivePageSize = pageSize <= 0 ? totalItems : pageSize;
-  const totalPages = Math.max(1, Math.ceil(totalItems / effectivePageSize));
-  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  // If no items and no pages, don't show pagination controls
+  if (effectiveTotalItems === 0 && (!totalPagesProp || totalPagesProp <= 0)) return null;
 
-  const startItem = (validCurrentPage - 1) * effectivePageSize + 1;
-  const endItem = Math.min(validCurrentPage * effectivePageSize, totalItems);
+  const effectivePageSize = safePageSize <= 0 ? Math.max(1, effectiveTotalItems) : safePageSize;
+  const resolvedTotalPages = typeof totalPagesProp === 'number' && !isNaN(totalPagesProp) && totalPagesProp > 0
+    ? totalPagesProp
+    : Math.max(1, Math.ceil(effectiveTotalItems / effectivePageSize));
+
+  const safeCurrentPage = typeof currentPage === 'number' && !isNaN(currentPage) ? currentPage : 1;
+  const validCurrentPage = Math.min(Math.max(1, safeCurrentPage), resolvedTotalPages);
+
+  const startItem = effectiveTotalItems > 0 ? (validCurrentPage - 1) * effectivePageSize + 1 : 1;
+  const endItem = effectiveTotalItems > 0 ? Math.min(validCurrentPage * effectivePageSize, effectiveTotalItems) : resolvedTotalPages;
 
   // Generate visible page numbers
   const getPageNumbers = () => {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (resolvedTotalPages <= 7) {
+      return Array.from({ length: resolvedTotalPages }, (_, i) => i + 1);
     }
     const pages: (number | string)[] = [];
     if (validCurrentPage <= 4) {
-      pages.push(1, 2, 3, 4, 5, '...', totalPages);
-    } else if (validCurrentPage >= totalPages - 3) {
-      pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      pages.push(1, 2, 3, 4, 5, '...', resolvedTotalPages);
+    } else if (validCurrentPage >= resolvedTotalPages - 3) {
+      pages.push(1, '...', resolvedTotalPages - 4, resolvedTotalPages - 3, resolvedTotalPages - 2, resolvedTotalPages - 1, resolvedTotalPages);
     } else {
-      pages.push(1, '...', validCurrentPage - 1, validCurrentPage, validCurrentPage + 1, '...', totalPages);
+      pages.push(1, '...', validCurrentPage - 1, validCurrentPage, validCurrentPage + 1, '...', resolvedTotalPages);
     }
     return pages;
   };
@@ -67,25 +84,36 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
     >
       {/* Range & Total Info */}
       <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 font-medium">
-        <span>
-          Menampilkan <strong className={isDark ? 'text-white' : 'text-slate-900'}>{startItem}</strong> -{' '}
-          <strong className={isDark ? 'text-white' : 'text-slate-900'}>{endItem}</strong> dari total{' '}
-          <strong className={isDark ? 'text-amber-400' : 'text-amber-600'}>{totalItems}</strong> {itemLabel}
-        </span>
+        {effectiveTotalItems > 0 && typeof totalItems === 'number' ? (
+          <span>
+            Menampilkan <strong className={isDark ? 'text-white' : 'text-slate-900'}>{startItem}</strong> -{' '}
+            <strong className={isDark ? 'text-white' : 'text-slate-900'}>{endItem}</strong> dari total{' '}
+            <strong className={isDark ? 'text-amber-400' : 'text-amber-600'}>{effectiveTotalItems}</strong> {itemLabel}
+          </span>
+        ) : (
+          <span>
+            Halaman <strong className={isDark ? 'text-white' : 'text-slate-900'}>{validCurrentPage}</strong> dari{' '}
+            <strong className={isDark ? 'text-amber-400' : 'text-amber-600'}>{resolvedTotalPages}</strong>
+          </span>
+        )}
       </div>
 
       {/* Controls Container */}
       <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2 w-full sm:w-auto">
         {/* Page Size Selector */}
-        {pageSizeOptions.length > 0 && (
+        {Boolean(onPageSizeChange && pageSizeOptions && pageSizeOptions.length > 0) && (
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-slate-400 font-semibold hidden md:inline">Tampilkan:</span>
             <select
-              value={pageSize}
+              value={safePageSize}
               onChange={(e) => {
                 const newSize = Number(e.target.value);
-                onPageSizeChange(newSize);
-                onPageChange(1);
+                if (typeof onPageSizeChange === 'function') {
+                  onPageSizeChange(newSize);
+                }
+                if (typeof onPageChange === 'function') {
+                  onPageChange(1);
+                }
               }}
               className={`px-2 py-1 rounded-lg border text-xs font-bold focus:outline-none cursor-pointer ${
                 isDark
@@ -95,7 +123,7 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
-                  {opt === -1 ? `Semua (${totalItems})` : `${opt} ${itemLabel}`}
+                  {opt === -1 ? `Semua (${effectiveTotalItems})` : `${opt} ${itemLabel}`}
                 </option>
               ))}
             </select>
@@ -103,7 +131,7 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
         )}
 
         {/* Page Nav Buttons (if multiple pages) */}
-        {pageSize > 0 && totalPages > 1 && (
+        {resolvedTotalPages > 1 && (
           <div className="flex items-center gap-1">
             {/* First Page */}
             <button
@@ -169,15 +197,15 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
 
             {/* Mobile simplified page text */}
             <span className="sm:hidden px-2 py-1 font-bold text-xs">
-              {validCurrentPage} / {totalPages}
+              {validCurrentPage} / {resolvedTotalPages}
             </span>
 
             {/* Next Page */}
             <button
-              onClick={() => onPageChange(Math.min(totalPages, validCurrentPage + 1))}
-              disabled={validCurrentPage === totalPages}
+              onClick={() => onPageChange(Math.min(resolvedTotalPages, validCurrentPage + 1))}
+              disabled={validCurrentPage === resolvedTotalPages}
               className={`p-1.5 rounded-lg border transition-all ${
-                validCurrentPage === totalPages
+                validCurrentPage === resolvedTotalPages
                   ? 'opacity-30 cursor-not-allowed border-transparent'
                   : isDark
                   ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white cursor-pointer'
@@ -190,10 +218,10 @@ export const PaginationControl: React.FC<PaginationControlProps> = ({
 
             {/* Last Page */}
             <button
-              onClick={() => onPageChange(totalPages)}
-              disabled={validCurrentPage === totalPages}
+              onClick={() => onPageChange(resolvedTotalPages)}
+              disabled={validCurrentPage === resolvedTotalPages}
               className={`p-1.5 rounded-lg border transition-all ${
-                validCurrentPage === totalPages
+                validCurrentPage === resolvedTotalPages
                   ? 'opacity-30 cursor-not-allowed border-transparent'
                   : isDark
                   ? 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white cursor-pointer'

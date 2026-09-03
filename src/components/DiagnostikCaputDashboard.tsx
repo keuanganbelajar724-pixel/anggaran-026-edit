@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   DiagnostikCaputResult, 
   DiagnostikCaputROItem, 
@@ -64,9 +64,34 @@ import {
   CalendarDays,
   Wand2,
   ShieldCheck,
-  Zap
+  Zap,
+  Lock,
+  Unlock,
+  Settings,
+  Eye,
+  EyeOff,
+  Shield
 } from 'lucide-react';
 import { PaginationControl } from './PaginationControl';
+
+export interface CaputMenuConfig {
+  showAdvancedMenusToSatker: boolean;
+  allowedMenus: Record<string, boolean>;
+}
+
+export const DEFAULT_CAPUT_MENU_CONFIG: CaputMenuConfig = {
+  showAdvancedMenusToSatker: false, // DEFAULT: SATKER HANYA MELIHAT DIAGNOSTIK & PANDUAN UNDUH
+  allowedMenus: {
+    SIMULASI_SAKTI: true,
+    REVERSE_CALC: true,
+    TRAJEKTORI: true,
+    ACTION_PLAN: true,
+    SURAT_KPPN: true,
+    ANALISIS_KRO: true,
+    PLAYBOOK_ANOMALI: true,
+    ATURAN_JUKNIS: true,
+  }
+};
 
 interface DiagnostikCaputDashboardProps {
   theme?: AppTheme;
@@ -76,15 +101,53 @@ interface DiagnostikCaputDashboardProps {
   onGoToUpload?: () => void;
   onSelectSatker?: (code: string) => void;
   onGoToCapaianOutputTab?: () => void;
+  isAdminAuthenticated?: boolean;
 }
 
 export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> = ({
   theme = 'light',
   isDark: isDarkProp,
   kppnName = 'KPPN',
-  onGoToCapaianOutputTab
+  onGoToCapaianOutputTab,
+  isAdminAuthenticated = false
 }) => {
   const isDark = isDarkProp !== undefined ? isDarkProp : theme === 'dark';
+
+  // Local Admin Session & Unlock
+  const [isLocallyAdminUnlocked, setIsLocallyAdminUnlocked] = useState<boolean>(() => {
+    return (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('kppn_admin_session') === 'true');
+  });
+
+  const isEffectiveAdmin = Boolean(isAdminAuthenticated || isLocallyAdminUnlocked);
+
+  // Admin Preview as Satker
+  const [adminPreviewAsSatker, setAdminPreviewAsSatker] = useState<boolean>(false);
+
+  // Menu Visibility Config (Default: false agar hanya Diagnostik & Panduan yang tampil ke Satker)
+  const [menuConfig, setMenuConfig] = useState<CaputMenuConfig>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('kppn_caput_menus_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return {
+            showAdvancedMenusToSatker: parsed.showAdvancedMenusToSatker ?? false,
+            allowedMenus: { ...DEFAULT_CAPUT_MENU_CONFIG.allowedMenus, ...(parsed.allowedMenus || {}) }
+          };
+        }
+      } catch {
+        // ignore fallback
+      }
+    }
+    return DEFAULT_CAPUT_MENU_CONFIG;
+  });
+
+  // Modal Setting Menu State
+  const [isMenuSettingModalOpen, setIsMenuSettingModalOpen] = useState<boolean>(false);
+  const [adminPinInput, setAdminPinInput] = useState<string>('');
+  const [adminPinError, setAdminPinError] = useState<string | null>(null);
+  const [showPinText, setShowPinText] = useState<boolean>(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
   // Analysis State - Kosong secara default sesuai kebutuhan satker
   const [data, setData] = useState<DiagnostikCaputResult | null>(null);
@@ -94,6 +157,53 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
 
   // Sub-tab Navigation: 'DIAGNOSTIK' | 'SIMULASI_SAKTI' | 'REVERSE_CALC' | 'TRAJEKTORI' | 'ACTION_PLAN' | 'SURAT_KPPN' | 'ANALISIS_KRO' | 'PLAYBOOK_ANOMALI' | 'ATURAN_JUKNIS' | 'PANDUAN'
   const [activeSubTab, setActiveSubTab] = useState<'DIAGNOSTIK' | 'SIMULASI_SAKTI' | 'REVERSE_CALC' | 'TRAJEKTORI' | 'ACTION_PLAN' | 'SURAT_KPPN' | 'ANALISIS_KRO' | 'PLAYBOOK_ANOMALI' | 'ATURAN_JUKNIS' | 'PANDUAN'>('DIAGNOSTIK');
+
+  // Helper check apakah sub-tab diizinkan tampil
+  const isSubTabAllowed = (tabKey: string): boolean => {
+    // 2 Tab dasar selalu tampil untuk siapapun
+    if (tabKey === 'DIAGNOSTIK' || tabKey === 'PANDUAN') return true;
+    
+    // Jika Admin dan TIDAK sedang dalam mode pratinjau Satker, Admin bisa melihat semua
+    if (isEffectiveAdmin && !adminPreviewAsSatker) return true;
+    
+    // Untuk Satker umum: hanya tampil jika showAdvancedMenusToSatker bernilai true DAN menu tersebut dicentang
+    return Boolean(menuConfig.showAdvancedMenusToSatker && menuConfig.allowedMenus[tabKey] !== false);
+  };
+
+  // Efek penjaga agar jika activeSubTab sedang berada di tab yang tidak diizinkan, kembali ke DIAGNOSTIK
+  useEffect(() => {
+    if (!isSubTabAllowed(activeSubTab)) {
+      setActiveSubTab('DIAGNOSTIK');
+    }
+  }, [activeSubTab, isEffectiveAdmin, adminPreviewAsSatker, menuConfig]);
+
+  // Handler Simpan Menu Config
+  const handleSaveMenuConfig = (newConfig: CaputMenuConfig) => {
+    setMenuConfig(newConfig);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('kppn_caput_menus_config', JSON.stringify(newConfig));
+    }
+    setSaveToast('Pengaturan visibilitas menu Satker berhasil diperbarui!');
+    setTimeout(() => setSaveToast(null), 3500);
+  };
+
+  // Handler Verifikasi PIN Admin lokal di modal
+  const handleVerifyPin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanPin = adminPinInput.trim();
+    const currentStoredPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+
+    if (cleanPin === currentStoredPin.trim() || cleanPin === 'kppn026') {
+      setIsLocallyAdminUnlocked(true);
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('kppn_admin_session', 'true');
+      }
+      setAdminPinError(null);
+      setAdminPinInput('');
+    } else {
+      setAdminPinError('PIN Admin KPPN tidak tepat. Silakan coba kembali.');
+    }
+  };
 
   // Filter & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -436,14 +546,6 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   <Upload className="w-4 h-4" />
                   <span>Unggah File MyIntress (.xlsx)</span>
                 </button>
-                <button
-                  onClick={handleLoadDemo}
-                  disabled={isLoading}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all border border-slate-200 dark:border-slate-600 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-                  <span>Coba Contoh Data Demo</span>
-                </button>
               </>
             ) : (
               <>
@@ -576,147 +678,213 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
         </div>
       )}
 
-      {/* NAVIGATION SUB-TABS (7 Sub-Tabs) */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-        <button
-          onClick={() => setActiveSubTab('DIAGNOSTIK')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'DIAGNOSTIK'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Activity className="w-4 h-4" />
-          <span>Hasil Diagnostik &amp; Audit {data ? `(${data.summary.totalRo})` : ''}</span>
-        </button>
+      {/* NAVIGATION SUB-TABS */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* TAB 1: Hasil Diagnostik & Audit (Selalu Tampil) */}
+          <button
+            onClick={() => setActiveSubTab('DIAGNOSTIK')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === 'DIAGNOSTIK'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : isDark 
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <Activity className="w-4 h-4" />
+            <span>Hasil Diagnostik &amp; Audit {data ? `(${data.summary.totalRo})` : ''}</span>
+          </button>
 
-        <button
-          onClick={() => setActiveSubTab('SIMULASI_SAKTI')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'SIMULASI_SAKTI'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Sliders className="w-4 h-4 text-indigo-500" />
-          <span>Simulasi &amp; What-If</span>
-        </button>
+          {/* TAB 2: Simulasi & What-If (Kondisional Admin) */}
+          {isSubTabAllowed('SIMULASI_SAKTI') && (
+            <button
+              onClick={() => setActiveSubTab('SIMULASI_SAKTI')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'SIMULASI_SAKTI'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Sliders className="w-4 h-4 text-indigo-500" />
+              <span>Simulasi &amp; What-If</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('REVERSE_CALC')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'REVERSE_CALC'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Wand2 className="w-4 h-4 text-emerald-500" />
-          <span>Kalkulator PCRO Minimum</span>
-        </button>
+          {/* TAB 3: Kalkulator PCRO Minimum (Kondisional Admin) */}
+          {isSubTabAllowed('REVERSE_CALC') && (
+            <button
+              onClick={() => setActiveSubTab('REVERSE_CALC')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'REVERSE_CALC'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Wand2 className="w-4 h-4 text-emerald-500" />
+              <span>Kalkulator PCRO Minimum</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('TRAJEKTORI')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'TRAJEKTORI'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <TrendingUp className="w-4 h-4 text-indigo-500" />
-          <span>Trajektori &amp; Prognosis</span>
-        </button>
+          {/* TAB 4: Trajektori & Prognosis (Kondisional Admin) */}
+          {isSubTabAllowed('TRAJEKTORI') && (
+            <button
+              onClick={() => setActiveSubTab('TRAJEKTORI')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'TRAJEKTORI'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 text-indigo-500" />
+              <span>Trajektori &amp; Prognosis</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('ACTION_PLAN')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'ACTION_PLAN'
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <CalendarDays className="w-4 h-4 text-blue-500" />
-          <span>Jadwal Aksi PPK (4 Pekan)</span>
-        </button>
+          {/* TAB 5: Jadwal Aksi PPK 4 Pekan (Kondisional Admin) */}
+          {isSubTabAllowed('ACTION_PLAN') && (
+            <button
+              onClick={() => setActiveSubTab('ACTION_PLAN')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'ACTION_PLAN'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4 text-blue-500" />
+              <span>Jadwal Aksi PPK (4 Pekan)</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('SURAT_KPPN')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'SURAT_KPPN'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <FileText className="w-4 h-4 text-indigo-500" />
-          <span>Surat Klarifikasi KPPN</span>
-        </button>
+          {/* TAB 6: Surat Klarifikasi KPPN (Kondisional Admin) */}
+          {isSubTabAllowed('SURAT_KPPN') && (
+            <button
+              onClick={() => setActiveSubTab('SURAT_KPPN')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'SURAT_KPPN'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <FileText className="w-4 h-4 text-indigo-500" />
+              <span>Surat Klarifikasi KPPN</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('ANALISIS_KRO')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'ANALISIS_KRO'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4 text-indigo-500" />
-          <span>Portofolio KRO</span>
-        </button>
+          {/* TAB 7: Portofolio KRO (Kondisional Admin) */}
+          {isSubTabAllowed('ANALISIS_KRO') && (
+            <button
+              onClick={() => setActiveSubTab('ANALISIS_KRO')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'ANALISIS_KRO'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Layers className="w-4 h-4 text-indigo-500" />
+              <span>Portofolio KRO</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('PLAYBOOK_ANOMALI')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'PLAYBOOK_ANOMALI'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-amber-500" />
-          <span>Playbook 10 Anomali</span>
-        </button>
+          {/* TAB 8: Playbook 10 Anomali (Kondisional Admin) */}
+          {isSubTabAllowed('PLAYBOOK_ANOMALI') && (
+            <button
+              onClick={() => setActiveSubTab('PLAYBOOK_ANOMALI')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'PLAYBOOK_ANOMALI'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Playbook 10 Anomali</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('ATURAN_JUKNIS')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'ATURAN_JUKNIS'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-indigo-500" />
-          <span>9 Ref &amp; 8 Validasi</span>
-        </button>
+          {/* TAB 9: 9 Ref & 8 Validasi (Kondisional Admin) */}
+          {isSubTabAllowed('ATURAN_JUKNIS') && (
+            <button
+              onClick={() => setActiveSubTab('ATURAN_JUKNIS')}
+              className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'ATURAN_JUKNIS'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : isDark 
+                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-indigo-500" />
+              <span>9 Ref &amp; 8 Validasi</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => setActiveSubTab('PANDUAN')}
-          className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
-            activeSubTab === 'PANDUAN'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : isDark 
-                ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <HelpCircle className="w-4 h-4 text-indigo-500" />
-          <span>Panduan Unduh</span>
-        </button>
+          {/* TAB 10: Panduan Unduh (Selalu Tampil) */}
+          <button
+            onClick={() => setActiveSubTab('PANDUAN')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeSubTab === 'PANDUAN'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                : isDark 
+                  ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' 
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <HelpCircle className="w-4 h-4 text-indigo-500" />
+            <span>Panduan Unduh</span>
+          </button>
+        </div>
+
+        {/* ADMIN SETTINGS / STATUS CONTROL BUTTON */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setAdminPinError(null);
+              setIsMenuSettingModalOpen(true);
+            }}
+            title="Kelola visibilitas menu analisis lanjutan untuk Satker"
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border shadow-sm ${
+              isEffectiveAdmin
+                ? menuConfig.showAdvancedMenusToSatker
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100'
+                  : 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100'
+                : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            {isEffectiveAdmin ? (
+              menuConfig.showAdvancedMenusToSatker ? (
+                <>
+                  <Unlock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>Menu Satker: Terbuka Lengkap</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Menu Satker: Mode Standar (2 Menu)</span>
+                </>
+              )
+            ) : (
+              <>
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span>Pengaturan Menu (Admin)</span>
+              </>
+            )}
+            <Settings className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------- */}
@@ -750,22 +918,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <div className="flex items-center justify-center pt-2">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2.5 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  <Upload className="w-4 h-4" />
-                  <span>Pilih File Excel (.xlsx)</span>
-                </button>
-
-                <button
-                  onClick={handleLoadDemo}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all border border-slate-200 dark:border-slate-600 cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4 text-indigo-500" />
-                  <span>Muat Contoh Data Demo</span>
+                  <Upload className="w-5 h-5" />
+                  <span>Pilih File Excel Capaian Output (.xlsx)</span>
                 </button>
               </div>
 
@@ -1209,55 +1369,160 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                         </div>
                       </div>
 
-                      {/* Diagnostic Box: Red Block for Belum Optimal, Neutral for Optimal */}
-                      <div className={`p-4 rounded-xl border space-y-2 ${
-                        isBelumOptimal 
-                          ? 'bg-rose-50 dark:bg-rose-950/60 border-2 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100' 
-                          : 'bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                      }`}>
-                        <div className={`flex items-center gap-2 font-bold text-xs sm:text-sm ${
-                          isBelumOptimal ? 'text-rose-800 dark:text-rose-200 font-black' : 'text-slate-700 dark:text-slate-300'
-                        }`}>
-                          <Cpu className={`w-4 h-4 shrink-0 ${isBelumOptimal ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500'}`} />
-                          <span>{ro.diagnosaTitle}</span>
-                        </div>
-                        <p className={`text-xs leading-relaxed opacity-95 pl-6 ${
-                          isBelumOptimal ? 'text-rose-900 dark:text-rose-200' : 'text-slate-600 dark:text-slate-400'
-                        }`}>
-                          {ro.diagnosaDescription}
-                        </p>
-                      </div>
+                      {/* ============================================================ */}
+                      {/* PERHATIAN KHUSUS: APA YANG SALAH & APA YANG HARUS DILAKUKAN */}
+                      {/* ============================================================ */}
+                      {isBelumOptimal ? (
+                        <div className="space-y-4">
+                          {/* 1. KOTAK DIAGNOSA MASALAH: APA YANG SALAH (FONTS BESAR & TEGAS) */}
+                          <div className="p-5 sm:p-6 rounded-2xl bg-rose-50/95 dark:bg-rose-950/80 border-2 border-rose-500 dark:border-rose-700 shadow-md space-y-3.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-sm flex items-center gap-2">
+                                  <AlertTriangle className="w-4 h-4 text-white shrink-0" />
+                                  <span>APA YANG SALAH (MASALAH TERDETEKSI):</span>
+                                </span>
+                                <span className="px-3 py-1 rounded-xl bg-rose-200 dark:bg-rose-900 text-rose-950 dark:text-rose-100 font-extrabold text-xs sm:text-sm border border-rose-300 dark:border-rose-700">
+                                  Kolom Z: {ro.nilaiKomponenRo.toFixed(2)} / 100
+                                </span>
+                              </div>
+                              {ro.potensiKenaikanSkor > 0 && (
+                                <span className="text-xs font-extrabold text-rose-700 dark:text-rose-300 flex items-center gap-1 bg-rose-100 dark:bg-rose-900/60 px-2.5 py-1 rounded-lg">
+                                  <span>Hilang {ro.potensiKenaikanSkor.toFixed(2)} Poin</span>
+                                </span>
+                              )}
+                            </div>
 
-                      {/* Explicit Warning for Kolom R Unconfirmed */}
-                      {ro.isUnconfirmedKppn && (
-                        <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-200 text-xs flex items-start gap-3">
-                          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                          <div className="space-y-1">
-                            <strong className="font-extrabold text-rose-800 dark:text-rose-300 block">
-                              🚨 Perhatian Kolom R: Status Konfirmasi KPPN "{ro.statusKonfirmasiKppn}"
-                            </strong>
-                            <p className="text-[11px] leading-relaxed text-rose-800 dark:text-rose-300/90">
-                              Data pada Kolom R MyIntress belum dikonfirmasi KPPN sehingga nilai Caput RO ini menjadi <strong>0,00</strong>. 
-                              Silakan segera lapor / konfirmasi ke KPPN mitra kerja (Seksi MSKI). Apabila di SAKTI sudah divalidasi dan disetujui PPK, harap tunggu siklus update OLAP MyIntress sekitar <strong>2 jam kemudian</strong>.
+                            {/* Headline Diagnosa Besar */}
+                            <h4 className="text-base sm:text-lg lg:text-xl font-black text-rose-950 dark:text-rose-100 leading-snug">
+                              {ro.diagnosaTitle}
+                            </h4>
+
+                            {/* Penjelasan Akar Masalah (Teks Jelas & Besar) */}
+                            <p className="text-sm sm:text-base font-bold text-rose-900 dark:text-rose-200 leading-relaxed">
+                              {ro.diagnosaDescription}
+                            </p>
+
+                            {/* Callout Data Penyebab Nilai Belum 100 */}
+                            <div className="pt-3 border-t border-rose-200/80 dark:border-rose-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-rose-200 dark:border-rose-900/60 shadow-xs">
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                                  Realisasi Fisik (PCRO)
+                                </span>
+                                <span className="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400">
+                                  {ro.realisasiProgres.toFixed(2)}%
+                                </span>
+                                <span className="text-[11px] text-slate-500 block">Target: {ro.targetProgres.toFixed(2)}% (Kolom Y)</span>
+                              </div>
+
+                              <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-rose-200 dark:border-rose-900/60 shadow-xs">
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                                  Kekurangan Progres (Gap)
+                                </span>
+                                <span className="text-sm sm:text-base font-black text-rose-600 dark:text-rose-400">
+                                  {ro.gapKinerja > 0 ? `Kurang -${ro.gapKinerja.toFixed(2)}%` : '0.00%'}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block">Dari target fisik yang ditentukan</span>
+                              </div>
+
+                              <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-rose-200 dark:border-rose-900/60 shadow-xs">
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                                  Status Validasi SAKTI
+                                </span>
+                                <span className={`text-sm sm:text-base font-bold ${
+                                  ro.validasiSaktiStatus?.includes('Ditolak') 
+                                    ? 'text-rose-700 dark:text-rose-400 font-black' 
+                                    : 'text-amber-700 dark:text-amber-400 font-bold'
+                                }`}>
+                                  Kode {ro.validasiSaktiCode || '00'}
+                                </span>
+                                <span className="text-[11px] text-slate-500 block truncate" title={ro.validasiSaktiStatus}>
+                                  {ro.validasiSaktiStatus || 'Normal'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Peringatan Khusus Kolom R jika tidak terkonfirmasi */}
+                          {ro.isUnconfirmedKppn && (
+                            <div className="p-5 rounded-2xl bg-rose-100/90 dark:bg-rose-950 border-2 border-rose-500 text-rose-950 dark:text-rose-100 flex items-start gap-3.5 shadow-sm">
+                              <ShieldAlert className="w-6 h-6 text-rose-600 shrink-0 mt-1" />
+                              <div className="space-y-1.5">
+                                <strong className="font-black text-base sm:text-lg block">
+                                  🚨 Perhatian Kritis: Status Kolom R "{ro.statusKonfirmasiKppn}" di MyIntress
+                                </strong>
+                                <p className="text-sm font-bold leading-relaxed text-rose-900 dark:text-rose-200">
+                                  Data Kolom R tidak/belum terkonfirmasi KPPN menyebabkan nilai Caput RO ini menjadi <strong>0,00</strong>. Segera hubungi KPPN mitra kerja (Seksi MSKI) untuk konfirmasi data. Jika data baru divalidasi PPK di SAKTI, tunggu proses pembaruan OLAP MyIntress sekitar <strong>2 jam</strong>.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 2. KOTAK LANGKAH PERBAIKAN: APA YANG HARUS DILAKUKAN SATKER (STEP-BY-STEP BESAR) */}
+                          {ro.rekomendasiTindakan.length > 0 && (
+                            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 border-2 border-indigo-300 dark:border-indigo-800 shadow-md space-y-4">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-sm flex items-center gap-2">
+                                  <CheckSquare className="w-4 h-4 text-white shrink-0" />
+                                  <span>APA YANG HARUS DILAKUKAN SATKER (LANGKAH PERBAIKAN SAKTI):</span>
+                                </span>
+                                <span className="text-xs font-black text-indigo-700 dark:text-cyan-300 bg-indigo-100/80 dark:bg-indigo-950 px-2.5 py-1 rounded-lg">
+                                  {ro.rekomendasiTindakan.length} Langkah Tindakan
+                                </span>
+                              </div>
+
+                              <p className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white">
+                                Ikuti langkah-langkah konkret di bawah ini pada aplikasi SAKTI agar Nilai Kolom Z mencapai 100,00 penuh:
+                              </p>
+
+                              <div className="space-y-3 pt-1">
+                                {ro.rekomendasiTindakan.map((rek, idx) => (
+                                  <div 
+                                    key={idx} 
+                                    className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/95 border-2 border-indigo-100 dark:border-slate-700 shadow-sm flex items-start gap-4 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all"
+                                  >
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-indigo-600 text-white font-black text-sm sm:text-base flex items-center justify-center shrink-0 shadow-md shadow-indigo-600/30">
+                                      {idx + 1}
+                                    </div>
+                                    <div className="space-y-1 flex-1">
+                                      <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-cyan-400 block">
+                                        Langkah {idx + 1}
+                                      </span>
+                                      <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-relaxed">
+                                        {rek}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-start gap-3 text-xs sm:text-sm text-amber-900 dark:text-amber-200">
+                                <span className="text-lg shrink-0">💡</span>
+                                <p className="leading-relaxed font-semibold">
+                                  <strong>Alur Final SAKTI:</strong> Setelah data diedit di Modul Komitmen &rarr; <strong>PPK wajib melakukan Validasi (Setuju)</strong> &rarr; Operator PPK Umum menekan tombol <strong>KIRIM</strong>. Nilai capaian output akan terupdate di MyIntress setelah proses batch OLAP berjalan (estimasi <strong>2 jam kemudian</strong>).
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Kondisi Optimal: Tetap tenang dan bersih */
+                        <div className="space-y-2.5">
+                          <div className="p-4 rounded-xl border bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                              <span>{ro.diagnosaTitle}</span>
+                            </div>
+                            <p className="text-xs leading-relaxed pl-6 mt-1 text-slate-600 dark:text-slate-400">
+                              {ro.diagnosaDescription}
                             </p>
                           </div>
-                        </div>
-                      )}
-
-                      {/* Action Recommendations */}
-                      {ro.rekomendasiTindakan.length > 0 && (
-                        <div className="space-y-1.5">
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                            <CheckSquare className="w-3.5 h-3.5 text-indigo-500" />
-                            <span>Langkah Perbaikan Rekomendasi (SAKTI Modul Komitmen):</span>
-                          </span>
-                          <ul className="space-y-1 pl-5 list-disc text-xs text-slate-600 dark:text-slate-400">
-                            {ro.rekomendasiTindakan.map((rek, idx) => (
-                              <li key={idx} className="leading-relaxed">
-                                {rek}
-                              </li>
-                            ))}
-                          </ul>
+                          {ro.rekomendasiTindakan.length > 0 && (
+                            <div className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span>{ro.rekomendasiTindakan[0]}</span>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -1713,20 +1978,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   Belum Ada Data RO untuk Disimulasikan
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Silakan unggah file Excel MyIntress Anda atau muat contoh data demo untuk mencoba simulator interaktif SAKTI.
+                  Silakan unggah file Excel MyIntress Anda untuk mencoba simulator interaktif SAKTI.
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -1758,18 +2017,12 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Surat tanggapan dan klarifikasi resmi ke KPPN akan terisi otomatis dengan seluruh rincian RO deviasi setelah Anda mengunggah laporan capaian output.
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -1800,20 +2053,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   Kalkulator Membutuhkan Data Output
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Unggah file Excel MyIntress atau muat contoh demo untuk menghitung target minimum realisasi fisik (PCRO) agar skor IKPA Kolom Z mencapai nilai maksimal.
+                  Unggah file Excel MyIntress untuk menghitung target minimum realisasi fisik (PCRO) agar skor IKPA Kolom Z mencapai nilai maksimal.
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -1843,20 +2090,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   Prognosis Membutuhkan Data Output
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Unggah file Excel MyIntress atau muat contoh demo untuk menghitung trajektori dan kebutuhan akselerasi bulanan menuju target 100%.
+                  Unggah file Excel MyIntress untuk menghitung trajektori dan kebutuhan akselerasi bulanan menuju target 100%.
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -1886,20 +2127,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   Jadwal Aksi Membutuhkan Data Output
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Unggah file Excel MyIntress atau muat contoh demo untuk menyusun agenda aksi 4-mingguan bagi PPK dan tim pengelola keuangan.
+                  Unggah file Excel MyIntress untuk menyusun agenda aksi 4-mingguan bagi PPK dan tim pengelola keuangan.
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -1931,20 +2166,14 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                   Portofolio KRO Membutuhkan Data
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Unggah file Excel MyIntress atau muat contoh demo untuk melihat klasterisasi kinerja per Klasifikasi Rincian Output (KRO).
+                  Unggah file Excel MyIntress untuk melihat klasterisasi kinerja per Klasifikasi Rincian Output (KRO).
                 </p>
-                <div className="flex justify-center gap-3 pt-2">
+                <div className="flex justify-center pt-2">
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+                    className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
                   >
                     Unggah File Excel
-                  </button>
-                  <button
-                    onClick={handleLoadDemo}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold text-xs border border-slate-200 dark:border-slate-600 cursor-pointer transition-all"
-                  >
-                    Muat Contoh Demo
                   </button>
                 </div>
               </div>
@@ -2142,6 +2371,352 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
         onClose={() => setIsSptjmModalOpen(false)}
         isDark={isDark}
       />
+
+      {/* ------------------------------------------------------------- */}
+      {/* FLOATING SAVE TOAST NOTIFICATION                              */}
+      {/* ------------------------------------------------------------- */}
+      {saveToast && (
+        <div className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-emerald-600 text-white text-xs font-bold shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300">
+          <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+          <span>{saveToast}</span>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* MODAL PENGATURAN VISIBILITAS MENU CAPUT (KHUSUS ADMIN KPPN)   */}
+      {/* ------------------------------------------------------------- */}
+      {isMenuSettingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-indigo-50/40 dark:from-slate-800/80 dark:to-indigo-950/40 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/30">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Pengaturan Visibilitas Menu Satker</span>
+                    {isEffectiveAdmin ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        Admin Terverifikasi
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                        Akses Khusus Admin
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Atur menu apa saja yang dapat dilihat oleh Satker pada modul Diagnostik Capaian Output
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsMenuSettingModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+              {!isEffectiveAdmin ? (
+                /* VIEW JIKA BELUM TERVERIFIKASI ADMIN: FORM INPUT PIN */
+                <div className="space-y-4 py-2">
+                  <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-start gap-3">
+                    <Shield className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                    <div className="text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
+                      <strong className="block font-bold mb-1">Mengapa Menu Lain Terkunci?</strong>
+                      Secara bawaan (*default*), Satker hanya ditampilkan 2 menu: <strong>Hasil Diagnostik &amp; Audit</strong> serta <strong>Panduan Unduh</strong> agar alur kerja perbaikan data SAKTI tidak membingungkan.
+                      Untuk mengaktifkan atau menyetujui menu simulasi lanjutan bagi Satker, silakan masukkan PIN Admin KPPN.
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleVerifyPin} className="space-y-4 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Masukkan PIN Admin KPPN:
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPinText ? 'text' : 'password'}
+                          value={adminPinInput}
+                          onChange={(e) => {
+                            setAdminPinInput(e.target.value);
+                            setAdminPinError(null);
+                          }}
+                          placeholder="Masukkan PIN Admin (contoh: kppn026)"
+                          className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPinText(!showPinText)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                        >
+                          {showPinText ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        PIN standar sistem: <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">kppn026</span>
+                      </p>
+                    </div>
+
+                    {adminPinError && (
+                      <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>{adminPinError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsMenuSettingModalOpen(false)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        Batal
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/30 cursor-pointer transition-all"
+                      >
+                        Buka Pengaturan Admin
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                /* VIEW JIKA SUDAH TERVERIFIKASI ADMIN: PENGATURAN LENGKAP */
+                <div className="space-y-6">
+                  {/* Status Banner */}
+                  <div className={`p-4 rounded-2xl border flex items-start gap-3 text-xs leading-relaxed ${
+                    !menuConfig.showAdvancedMenusToSatker
+                      ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200'
+                      : 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                  }`}>
+                    {!menuConfig.showAdvancedMenusToSatker ? (
+                      <>
+                        <Lock className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block font-black text-sm mb-0.5">Mode Standar Satker Sedang Aktif</strong>
+                          Satker saat ini <strong>hanya melihat 2 menu</strong>: <em>Hasil Diagnostik &amp; Audit</em> dan <em>Panduan Unduh</em>. Menu simulasi, kalkulator, dan analisis teknis disembunyikan.
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                        <div>
+                          <strong className="block font-black text-sm mb-0.5">Menu Analisis Lanjutan Terbuka untuk Satker</strong>
+                          Satker saat ini dapat melihat menu-menu analisis lanjutan yang telah disetujui/dicentang di bawah ini.
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* 2 Opsi Cepat (Quick Action Cards) */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Pilihan Cepat Mode Tampilan Satker:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Opsi 1: Mode Standar (2 Menu) */}
+                      <div 
+                        onClick={() => {
+                          const newCfg: CaputMenuConfig = {
+                            ...menuConfig,
+                            showAdvancedMenusToSatker: false
+                          };
+                          handleSaveMenuConfig(newCfg);
+                        }}
+                        className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                          !menuConfig.showAdvancedMenusToSatker
+                            ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/40 ring-2 ring-indigo-600/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-850'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                              <Lock className="w-4 h-4" />
+                              <span>Mode Standar Satker</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
+                              Disarankan
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Hanya menampilkan <strong>Hasil Diagnostik &amp; Audit</strong> dan <strong>Panduan Unduh</strong>. Menu lain disembunyikan agar Satker fokus pada perbaikan data SAKTI.
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                          <span className={`text-[11px] font-bold inline-flex items-center gap-1.5 ${
+                            !menuConfig.showAdvancedMenusToSatker ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
+                          }`}>
+                            {!menuConfig.showAdvancedMenusToSatker ? '✓ Sedang Aktif' : 'Klik untuk Aktifkan'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Opsi 2: Buka Semua Menu */}
+                      <div 
+                        onClick={() => {
+                          const newCfg: CaputMenuConfig = {
+                            ...menuConfig,
+                            showAdvancedMenusToSatker: true,
+                            allowedMenus: {
+                              SIMULASI_SAKTI: true,
+                              REVERSE_CALC: true,
+                              TRAJEKTORI: true,
+                              ACTION_PLAN: true,
+                              SURAT_KPPN: true,
+                              ANALISIS_KRO: true,
+                              PLAYBOOK_ANOMALI: true,
+                              ATURAN_JUKNIS: true,
+                            }
+                          };
+                          handleSaveMenuConfig(newCfg);
+                        }}
+                        className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                          menuConfig.showAdvancedMenusToSatker
+                            ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-600/20'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-850'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
+                              <Unlock className="w-4 h-4" />
+                              <span>Buka Semua Menu</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200">
+                              Lengkap
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                            Menampilkan seluruh 10 menu (Simulasi SAKTI, Kalkulator PCRO, Trajektori, Surat KPPN, dsb.) ke seluruh Satker.
+                          </p>
+                        </div>
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                          <span className={`text-[11px] font-bold inline-flex items-center gap-1.5 ${
+                            menuConfig.showAdvancedMenusToSatker ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                          }`}>
+                            {menuConfig.showAdvancedMenusToSatker ? '✓ Sedang Aktif' : 'Klik untuk Aktifkan'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pengaturan Spesifik Menu yang Diizinkan (Checklist) */}
+                  <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        Atur Izin Menu Tertentu untuk Satker:
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        Hanya berlaku jika menu lanjutan diizinkan
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {[
+                        { key: 'SIMULASI_SAKTI', name: 'Simulasi & What-If SAKTI', desc: 'Uji simulasi realisasi fisik & narasi' },
+                        { key: 'REVERSE_CALC', name: 'Kalkulator PCRO Minimum', desc: 'Hitung target fisik minimal agar Z=100' },
+                        { key: 'TRAJEKTORI', name: 'Trajektori & Prognosis', desc: 'Prediksi trajektori bulanan ke 100%' },
+                        { key: 'ACTION_PLAN', name: 'Jadwal Aksi PPK (4 Pekan)', desc: 'Agenda perbaikan mingguan Satker' },
+                        { key: 'SURAT_KPPN', name: 'Surat Klarifikasi KPPN', desc: 'Format surat tanggapan resmi deviasi' },
+                        { key: 'ANALISIS_KRO', name: 'Portofolio KRO', desc: 'Klasterisasi kinerja capaian per KRO' },
+                        { key: 'PLAYBOOK_ANOMALI', name: 'Playbook 10 Anomali', desc: 'Solusi data anomali & deviasi' },
+                        { key: 'ATURAN_JUKNIS', name: '9 Ref & 8 Validasi', desc: 'Tabel referensi & kode error SAKTI' },
+                      ].map((item) => {
+                        const isChecked = menuConfig.allowedMenus[item.key] !== false;
+                        return (
+                          <div
+                            key={item.key}
+                            onClick={() => {
+                              const newAllowed = {
+                                ...menuConfig.allowedMenus,
+                                [item.key]: !isChecked
+                              };
+                              const newCfg: CaputMenuConfig = {
+                                ...menuConfig,
+                                allowedMenus: newAllowed
+                              };
+                              handleSaveMenuConfig(newCfg);
+                            }}
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
+                              isChecked && menuConfig.showAdvancedMenusToSatker
+                                ? 'bg-indigo-50/40 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800'
+                                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-80'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              readOnly
+                              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 mt-0.5 cursor-pointer pointer-events-none"
+                            />
+                            <div className="space-y-0.5">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                {item.name}
+                              </p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {item.desc}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Mode Pratinjau Admin */}
+                  <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
+                    <div className="space-y-0.5">
+                      <strong className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-indigo-600" />
+                        <span>Mode Pratinjau Tampilan Satker (Admin)</span>
+                      </strong>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        Aktifkan sakelar ini jika Anda ingin melihat persis tampilan tab yang dilihat oleh Satker saat ini di layar Anda.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAdminPreviewAsSatker(!adminPreviewAsSatker)}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        adminPreviewAsSatker ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          adminPreviewAsSatker ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between">
+              <div className="text-[11px] text-slate-400">
+                Penyimpanan: <strong>Lokal Browser (Tersimpan Permanen)</strong>
+              </div>
+              <button
+                onClick={() => setIsMenuSettingModalOpen(false)}
+                className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/30 cursor-pointer transition-all"
+              >
+                Selesai
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

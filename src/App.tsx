@@ -1951,6 +1951,7 @@ export default function App() {
                     }
                   }}
                   isDark={theme === 'dark'}
+                  isAdminAuthenticated={isAdminAuthenticated}
                 />
               )}
 

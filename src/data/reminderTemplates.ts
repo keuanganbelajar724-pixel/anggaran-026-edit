@@ -558,5 +558,91 @@ Portal ini menyediakan pemantauan real-time nilai IKPA, pelaporan capaian output
 Demikian disampaikan untuk dapat dimanfaatkan sebaik-baiknya oleh jajaran pengelola keuangan Satker.
 
 Kepala KPPN Semarang I`
+  },
+
+  // ==========================================
+  // 12. PENGUMUMAN SIARAN GRUP WHATSAPP SATKER (KONSOLIDASI)
+  // ==========================================
+  {
+    id: 'temp-grup-caput-spesifik',
+    jenis: 'Pengumuman Grup WA Satker',
+    judul: '📢 [PENGUMUMAN GRUP] Monitoring Satker Belum Pengisian & Approval CAPUT SAKTI',
+    subjekEmail: '[PENGUMUMAN MONEV] Batas Waktu Pengisian & Approval Capaian Output SAKTI',
+    isiWa: `📢 *[PENGUMUMAN]* 📢
+
+Yth. Bapak/Ibu Satuan Kerja Lingkup KPPN Semarang I,
+
+Berdasarkan hasil monitoring MyIntress per 3 September 2026 pukul 14.20 WIB, masih terdapat beberapa satker yang belum melakukan pengisian dan/atau approval Realisasi Capaian Output (CAPUT) periode Agustus 2026 pada Modul Komitmen SAKTI.
+
+⏳ Batas waktu pengisian: *7 September 2026*
+
+Mohon kepada satker berikut agar segera melakukan pengisian dan approval CAPUT:
+
+{DAFTAR_SATKER_BELUM_OUTPUT}
+
+📌 *Perhatian:*
+Mohon agar pengisian TPCRO dan PCRO dilakukan sesuai kondisi realisasi. Jika TPCRO dan PCRO masih 0, maka progress RO tidak terbentuk dan dapat menyebabkan nilai capaian output menjadi 0 sehingga berpengaruh terhadap kinerja satker.
+
+🔎 *KPPN juga menyediakan Tools Diagnostik Capaian Output (SI-CAPUT)*
+Tools ini dapat membantu satker mengetahui RO yang menyebabkan capaian output belum maksimal, diagnosis permasalahan, rekomendasi perbaikan, serta template keterangan SAKTI.
+
+Cara menggunakan SI-CAPUT:
+1️⃣ Login MyIntress → Tematik → Indikator Pelaksanaan Anggaran
+2️⃣ Pilih periode Agustus → KIRIM
+3️⃣ Klik nilai pada kolom Capaian Output
+4️⃣ Klik Detail pada baris bulan terakhir
+5️⃣ Unduh data menggunakan tombol XLSX
+6️⃣ Buka SI-CAPUT – s.kemenkeu.go.id/Caput156
+7️⃣ Upload file Excel dan klik Jalankan Analisis
+
+Mohon agar CAPUT segera diselesaikan sebelum batas waktu 7 September 2026.
+
+Demikian disampaikan, atas perhatian dan kerja samanya kami ucapkan terima kasih.`,
+    isiSurat: `PENGUMUMAN BATAS WAKTU PENGISIAN CAPAIAN OUTPUT SAKTI
+Nomor: PENG-{NO_SURAT}
+Hal: Batas Akhir Pelaporan Capaian Output Periode Berjalan
+
+Yth. Para Kuasa Pengguna Anggaran Satuan Kerja Mitra KPPN Semarang I
+di Tempat
+
+Menindaklanjuti monitoring pada portal MyIntress, kami mengimbau seluruh satuan kerja yang belum menyelesaikan perekaman dan approval Capaian Output pada Modul Komitmen SAKTI untuk segera menyelesaikan kewajiban tersebut sebelum batas open period berakhir.
+
+Seksi Manajemen Satker dan Kepatuhan Internal`
+  },
+  {
+    id: 'temp-grup-sertifikasi-spesifik',
+    jenis: 'Pengumuman Grup WA Satker',
+    judul: '📢 [PENGUMUMAN GRUP] Perpanjangan Masa Berlaku Sertifikat Kompetensi PPK, PPSPM, dan Bendahara',
+    subjekEmail: '[PENGUMUMAN SERTIFIKASI] Perpanjangan Sertifikat Kompetensi Pejabat Perbendaharaan',
+    isiWa: `📢 *[PENGUMUMAN – PERPANJANGAN SERTIFIKAT KOMPETENSI PPK, PPSPM, DAN BENDAHARA TW IV TAHUN 2026]* 📢
+
+Yth. Bapak/Ibu Satuan Kerja Lingkup KPPN Semarang I,
+
+Izin menyampaikan informasi terkait Perpanjangan Masa Berlaku Sertifikat Kompetensi PPK, PPSPM, dan Bendahara Periode Triwulan IV Tahun 2026.
+
+Berdasarkan hasil identifikasi, terdapat sertifikat kompetensi pada satker yang masuk dalam periode perpanjangan, dengan status sebagai berikut:
+
+✅ *Sudah dilakukan perpanjangan – Perpanjangan Langsung:*
+{DAFTAR_PEJABAT_SUDAH_PERPANJANGAN_LANGSUNG}
+
+⏳ *Masuk Periode Perpanjangan / Belum Selesai Perpanjangan:*
+{DAFTAR_PEJABAT_BELUM_PERPANJANGAN}
+
+📌 *Perhatian:*
+Untuk PPK/PPSPM, perpanjangan langsung dapat dilakukan apabila yang bersangkutan masih menduduki jabatan dan telah mengikuti paling sedikit 1 kali PPL yang relevan dengan kompetensi jabatan.
+
+Mohon agar satker yang sertifikatnya akan kedaluwarsa pada Triwulan IV dapat segera melakukan pengecekan dan menindaklanjuti proses perpanjangannya melalui SIMASPATEN, sehingga tidak sampai melewati masa berlaku sertifikat.
+
+Demikian disampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.`,
+    isiSurat: `PEMBERITAHUAN PERPANJANGAN SERTIFIKAT KOMPETENSI PEJABAT PERBENDAHARAAN
+Nomor: PENG-{NO_SURAT}
+Hal: Penyegaran & Perpanjangan Sertifikat Pejabat Periode Triwulan IV
+
+Yth. Para Kuasa Pengguna Anggaran Satuan Kerja Mitra KPPN Semarang I
+di Tempat
+
+Berdasarkan data aplikasi SIMASPATEN, disampaikan daftar pejabat perbendaharaan pada Satker Saudara yang memasuki batas akhir masa berlaku sertifikat kompetensi agar segera menindaklanjuti usulan perpanjangan langsung atau penjadwalan penilaian kompetensi.
+
+Kepala Seksi MSKI KPPN Semarang I`
   }
 ];
