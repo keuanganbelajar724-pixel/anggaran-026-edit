@@ -9873,7 +9873,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           {uploadSubTab === 'spm-ppp' && (
             <UploadSPMPPPSection
               isDark={isDark}
+              satkers={satkers}
               masterSatkers={masterSatkers}
               spmPppRecords={spmPppRecords}
               onApplySPMPPP={onApplySPMPPP || (() => {})}
-              onClearSPMPPPxœ\PË‚0¼ó=—~ ,L¼hB¢?P¥jcéÆô°ðï‚<,ô²;3›éì¡ÉµöT‹¢`mËÂ0b1ê¢.`«gå«‘®ÎÑÜ”­€Öx;íø9£p5ÐÒngDYð4ÖµÊ3zYR^ª÷¬õüÔÙ^ãEh6µBÃŽXöTÌgƒ´'¤5ÓÌO]¬«]=íÿïp(th¼“µïšFk/¥r;aŸ@cùi§e…(	º$ø  ÿÿ ˆ±jR
+              onClearSPMPPP={onClearSPMPPP || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Global Modern Confirmation Modal */}
+      <ModernConfirmModal
+        modal={confirmModal}
+        onClose={() => setConfirmModal(null)}
+        isDark={isDark}
+      />
+    </div>
+  );
+};
+
+export default AdminUpload;

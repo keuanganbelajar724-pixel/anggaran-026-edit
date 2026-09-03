@@ -1,5 +1,144 @@
 import * as XLSX from 'xlsx';
-import { DiagnostikCaputROItem, DiagnostikCaputResult, DiagnostikCaputSatkerSummary } from '../types';
+import { DiagnostikCaputROItem, DiagnostikCaputResult, DiagnostikCaputSatkerSummary, SaktiReferensiItem } from '../types';
+
+/**
+ * 9 Kode Referensi Keterangan Resmi SAKTI (Sesuai Juknis SAKTI Ver 3.2 Tahun 2026 - Hal 27-31)
+ */
+export const SAKTI_REFERENSI_LIST: SaktiReferensiItem[] = [
+  {
+    kode: '01',
+    judul: 'Adanya efisiensi anggaran',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Tinggi',
+    deskripsiJuknis: 'Tercapainya output dengan jumlah input (anggaran) yang lebih sedikit. Realisasi anggaran tidak mencapai 100% dari alokasi pagu DIPA, namun output tercapai optimal sesuai target.',
+    kondisiPemicu: 'GAP (PCRO - PPA) > 20% (atau > 5% untuk RO PN) dengan efisiensi biaya pelaksanaan.'
+  },
+  {
+    kode: '02',
+    judul: 'Kegiatan sudah dilaksanakan, namun pertanggungjawaban keuangan belum dilakukan/masih dalam proses',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Tinggi',
+    deskripsiJuknis: 'Aktivitas atau tahapan fisik pekerjaan telah terlaksana dan diakui sebagai progres, namun berkas SPJ/pembayaran SP2D masih dalam proses administrasi pengujian/pengajuan.',
+    kondisiPemicu: 'GAP (PCRO - PPA) > 20% karena fisik mendahului pencairan keuangan.'
+  },
+  {
+    kode: '03',
+    judul: 'Alokasi Anggaran terlalu besar/melebihi kebutuhan',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Tinggi',
+    deskripsiJuknis: 'Alokasi anggaran yang ditetapkan pada DIPA awal lebih besar dari kebutuhan riil di lapangan, sehingga output selesai 100% dengan sisa anggaran belanja.',
+    kondisiPemicu: 'GAP (PCRO - PPA) > 20% akibat estimasi biaya awal berlebih.'
+  },
+  {
+    kode: '04',
+    judul: 'Tidak/belum dilakukan revisi penyesuaian target output',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Tinggi',
+    deskripsiJuknis: 'Terdapat perubahan target atau jadwal pelaksanaan kegiatan di lapangan yang belum disesuaikan melalui proses revisi DIPA/POK pada sistem informasi.',
+    kondisiPemicu: 'Terjadi pergeseran target output atau jadwal kegiatan yang belum direvisi.'
+  },
+  {
+    kode: '05',
+    judul: 'Penilaian Progress Output dilakukan secara periodik. Saat ini belum dilakukan penilaian output',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Rendah',
+    deskripsiJuknis: 'Pengumpulan data atau penilaian fisik dilakukan pada periode tertentu (misal akhir triwulan/semester), sedangkan serapan anggaran operasional sudah berjalan rutin.',
+    kondisiPemicu: 'GAP (PCRO - PPA) < -20% (atau < -5% untuk RO PN) karena penilaian fisik belum cut-off.'
+  },
+  {
+    kode: '06',
+    judul: 'Adanya Pembayaran Uang Muka Pekerjaan, sementara pekerjaan belum/baru dilakukan',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Rendah',
+    deskripsiJuknis: 'Telah dilakukan pencairan uang muka kontrak (termin awal), namun tahapan pekerjaan fisik oleh penyedia baru dimulai atau dalam mobilisasi.',
+    kondisiPemicu: 'GAP (PCRO - PPA) < -20% akibat pencairan uang muka kontrak.'
+  },
+  {
+    kode: '07',
+    judul: 'Output telah tercapai, hanya menunggu finalisasi laporan/serah terima',
+    kategoriAnomali: 'Anomali Kuantitatif Lainnya',
+    deskripsiJuknis: 'Pekerjaan fisik telah selesai 100% (PCRO 100%), namun Berita Acara Serah Terima (BAST) atau laporan akhir administratif masih dalam proses penandatanganan/verifikasi.',
+    kondisiPemicu: 'PCRO = 100% namun RVRO masih 0 atau kurang dari target DIPA.'
+  },
+  {
+    kode: '08',
+    judul: 'Adanya pembayaran untuk tunggakan/tagihan tahun lalu',
+    kategoriAnomali: 'Capaian Kinerja Terlalu Rendah',
+    deskripsiJuknis: 'Terjadi realisasi penyerapan anggaran untuk pelunasan tagihan/tunggakan pekerjaan tahun anggaran sebelumnya, tanpa menambah progres fisik output tahun berjalan.',
+    kondisiPemicu: 'GAP (PCRO - PPA) < -20% akibat pembayaran tunggakan belanja tahun lalu.'
+  },
+  {
+    kode: '99',
+    judul: 'Lainnya (⚠️ DIHINDARI - Prioritaskan Kode 01 s.d. 08)',
+    kategoriAnomali: 'Semua Kondisi Anomali',
+    deskripsiJuknis: 'PERHATIAN DJPb & KPPN: Penggunaan Kode 99 (Lain-lain) sebaiknya dihindari. Utamakan penggunaan kode referensi 01 s.d. 08 yang substantif agar data capaian output disetujui dan tidak dipertanyakan atau ditolak KPPN saat rekonsiliasi.',
+    kondisiPemicu: 'Dihindari. Hanya gunakan jika kondisi mutlak tidak tercakup pada kode 01 s.d. 08 dan wajib memuat 3 elemen keterangan lengkap.'
+  }
+];
+
+/**
+ * 8 Variabel Kualitas Data Validasi SAKTI (Juknis SAKTI Hal 8-9 & 31-39)
+ */
+export const SAKTI_VALIDASI_RULES = [
+  {
+    kode: '01',
+    nama: 'Validasi 01',
+    kondisi: 'PCRO dilaporkan 0 meskipun telah ada realisasi anggaran',
+    statusAction: 'Input Ditolak (Wajib Perbaikan)',
+    warningBox: 'Isian data tidak valid. PCRO tidak boleh 0% karena telah ada realisasi anggaran.',
+    petunjuk: 'Operator wajib menginput progres fisik (Kolom Q / PCRO) minimal 0,01% atau sesuai tahapan riil.'
+  },
+  {
+    kode: '02',
+    nama: 'Validasi 02',
+    kondisi: 'PCRO dilaporkan lebih rendah dari realisasi anggaran (PCRO < PPA)',
+    statusAction: 'Input Diterima (Early Warning / Konfirmasi KPPN)',
+    warningBox: 'PCRO lebih rendah dari realisasi anggaran, apakah anda yakin?',
+    petunjuk: 'Satker wajib memilih Referensi substantif (05/06/08 - hindari 99) dan mengisi Keterangan SAKTI yang memadai.'
+  },
+  {
+    kode: '03',
+    nama: 'Validasi 03',
+    kondisi: 'PCRO 100% namun capaian fisik (RVRO) masih 0',
+    statusAction: 'Input Ditolak (Wajib Perbaikan)',
+    warningBox: 'Isian data tidak valid. Realisasi Volume RO tidak boleh 0 karena PCRO telah 100%.',
+    petunjuk: 'Jika fisik tuntas, input Realisasi Volume (Kolom P). Jika belum tuntas, sesuaikan PCRO < 100%.'
+  },
+  {
+    kode: '04',
+    nama: 'Validasi 04',
+    kondisi: 'PCRO 100% namun capaian fisik (RVRO) tidak mencapai target/volume DIPA',
+    statusAction: 'Input Ditolak (Wajib Perbaikan)',
+    warningBox: 'Isian data tidak valid. PCRO telah 100% namun Realisasi Volume RO tidak mencapai target.',
+    petunjuk: 'Samakan RVRO dengan Target Volume DIPA jika pekerjaan tuntas, atau turunkan PCRO jika volume belum tuntas.'
+  },
+  {
+    kode: '05',
+    nama: 'Validasi 05',
+    kondisi: 'Terdapat RVRO yang dilaporkan namun Realisasi Anggaran masih 0',
+    statusAction: 'Input Diterima (Early Warning / Konfirmasi KPPN)',
+    warningBox: 'Terdapat Realisasi Volume RO namun realisasi anggaran 0, apakah anda yakin?',
+    petunjuk: 'Pilih Referensi 02 (kegiatan fisik telah jalan, SPJ masih proses) dan lengkapi Keterangan SAKTI.'
+  },
+  {
+    kode: '06',
+    nama: 'Validasi 06',
+    kondisi: 'RVRO dalam bentuk desimal pada satuan yang tidak diizinkan desimal',
+    statusAction: 'Input Ditolak (Wajib Perbaikan)',
+    warningBox: 'Isian data tidak valid. Realisasi Volume RO tidak boleh diisi menggunakan tanda desimal.',
+    petunjuk: 'Hanya 42 satuan yang boleh desimal (M2, Km, %, kg, dll). Satuan seperti Dokumen, Orang, KK wajib bilangan bulat.'
+  },
+  {
+    kode: '07',
+    nama: 'Validasi 07',
+    kondisi: 'RVRO dengan capaian melebihi target/volume DIPA',
+    statusAction: 'Input Diterima (Early Warning / Konfirmasi KPPN)',
+    warningBox: 'Realisasi Volume RO telah melebihi Target RO, apakah anda yakin?',
+    petunjuk: 'Hanya diizinkan untuk Jenis RO Dinamis. Satker wajib mengisi Keterangan dan konfirmasi KPPN.'
+  },
+  {
+    kode: '08',
+    nama: 'Validasi 08',
+    kondisi: 'RVRO telah mencapai target, tetapi PCRO belum 100%',
+    statusAction: 'Input Diterima (Early Warning / Konfirmasi KPPN)',
+    warningBox: 'PCRO belum 100% namun Realisasi Volume RO telah memenuhi Target RO, apakah anda yakin?',
+    petunjuk: 'Berfungsi sebagai early warning. Jika tahapan penyelesaian akhir masih berjalan, beri Keterangan SAKTI.'
+  }
+];
 
 /**
  * Clean & Parse numeric strings (handles Indonesian format like "1.250.000,50" or "0,01" or percentage strings "75,50%")
@@ -10,32 +149,26 @@ export function parseCaputNumber(val: unknown): number {
   
   let str = String(val)
     .trim()
-    .replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ') // strip non-breaking spaces
+    .replace(/[\u00A0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]/g, ' ')
     .replace(/%/g, '')
     .replace(/Rp\.?/gi, '')
     .replace(/\s+/g, '');
     
   if (!str || str === '-' || str.toLowerCase() === 'nan' || str.includes('#N/A') || str.includes('DIV/0')) return 0;
 
-  // Handle accounting negative format: (123.45) -> -123.45
   let isNegative = false;
   if (str.startsWith('(') && str.endsWith(')')) {
     isNegative = true;
     str = str.substring(1, str.length - 1);
   }
 
-  // Handle Indonesian vs International decimal format:
-  // "1.250.000,50" -> "1250000.50"
   if (str.includes(',') && str.includes('.')) {
     if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
-      // Indonesian: dots are thousand separators, comma is decimal
       str = str.replace(/\./g, '').replace(/,/g, '.');
     } else {
-      // International: commas are thousand separators, dot is decimal
       str = str.replace(/,/g, '');
     }
   } else if (str.includes(',')) {
-    // Only comma present: assume decimal comma "75,5" -> "75.5"
     str = str.replace(/,/g, '.');
   }
 
@@ -49,6 +182,57 @@ export function parseCaputNumber(val: unknown): number {
  */
 export function formatRupiahCaput(val: number): string {
   return 'Rp ' + Math.round(val).toLocaleString('id-ID');
+}
+
+/**
+ * Generate Dynamic Compliant SAKTI Narrative based on official reference code and RO conditions
+ */
+export function generateSaktiTemplateByRef(
+  refCode: string,
+  params: {
+    kodeRo: string;
+    namaRo: string;
+    pcro: number;
+    tpcro: number;
+    ppa: number;
+    rvro: number;
+    tvro: number;
+    nilaiZ: number;
+  }
+): string {
+  const { kodeRo, pcro, tpcro, ppa, rvro, tvro, nilaiZ } = params;
+  const gapKinerja = Number((tpcro - pcro).toFixed(2));
+  const gapPpa = Number((pcro - ppa).toFixed(2));
+
+  switch (refCode) {
+    case '01':
+      return `[Referensi 01 - Efisiensi Anggaran]: Pelaksanaan RO ${kodeRo} telah mencapai progres fisik ${pcro.toFixed(2)}% dengan penyerapan anggaran ${ppa.toFixed(2)}% (GAP: +${gapPpa.toFixed(2)}%). Efisiensi dicapai melalui optimalisasi alokasi operasional dan negosiasi harga pengadaan tanpa mengurangi kualitas volume keluaran (${rvro}/${tvro} vol). Seluruh tahapan telah sesuai standar operasional.`;
+
+    case '02':
+      return `[Referensi 02 - Pertanggungjawaban Keuangan Masih Proses]: Progres fisik RO ${kodeRo} telah terlaksana sebesar ${pcro.toFixed(2)}% mendahului pencatatan belanja (PPA: ${ppa.toFixed(2)}%). Pekerjaan lapangan telah tuntas, saat ini berkas pertanggungjawaban administrasi/SPJ dan pengajuan SPM/SP2D sedang dalam proses verifikasi pejabat perbendaharaan untuk pencairan.`;
+
+    case '03':
+      return `[Referensi 03 - Alokasi Anggaran Melebihi Kebutuhan]: Capaian fisik RO ${kodeRo} telah mencapai ${pcro.toFixed(2)}% (Nilai Kolom Z: ${nilaiZ.toFixed(2)}), sementara realisasi belanja baru terserap ${ppa.toFixed(2)}%. Hal ini disebabkan alokasi anggaran DIPA awal lebih besar dibandingkan kebutuhan riil setelah pelaksanaan efisiensi kegiatan dan standardisasi belanja.`;
+
+    case '04':
+      return `[Referensi 04 - Belum Dilakukan Revisi Target]: Realisasi fisik Kolom Q tercatat ${pcro.toFixed(2)}% terhadap target Kolom Y (${tpcro.toFixed(2)}%). Terdapat penyesuaian jadwal dan volume riil kegiatan di lapangan yang saat ini sedang diajukan pemutakhiran/revisi target kinerja pada menu RUH Target Kinerja SAKTI periode berikutnya.`;
+
+    case '05':
+      return `[Referensi 05 - Penilaian Progres Dilakukan Periodik]: Realisasi belanja RO ${kodeRo} tercatat ${ppa.toFixed(2)}% sementara PCRO terlaporkan ${pcro.toFixed(2)}% (GAP: ${gapPpa.toFixed(2)}%). Penilaian dan pengumpulan instrumen bukti capaian fisik dilakukan secara berkala (cut-off triwulanan/semesteran), sehingga pembaruan data fisik akan terakselerasi pada periode penilaian berikutnya.`;
+
+    case '06':
+      return `[Referensi 06 - Pembayaran Uang Muka Pekerjaan]: Penyerapan anggaran telah terealisasi ${ppa.toFixed(2)}% yang merupakan pembayaran Uang Muka Kontrak pekerjaan fisik/pengadaan, sedangkan pekerjaan lapangan oleh penyedia jasa baru dimulai (PCRO: ${pcro.toFixed(2)}%). Progres tahapan fisik akan meningkat signifikan pada termin pekerjaan berikutnya.`;
+
+    case '07':
+      return `[Referensi 07 - Menunggu Finalisasi Laporan/BAST]: Tahapan pelaksanaan fisik RO ${kodeRo} telah tuntas 100% (PCRO: ${pcro.toFixed(2)}%), namun pencatatan Realisasi Volume (Kolom P: ${rvro} dari target ${tvro} vol) masih menunggu finalisasi verifikasi dokumen Berita Acara Serah Terima (BAST) dan laporan akhir pekerjaan sebelum ditutup tuntas.`;
+
+    case '08':
+      return `[Referensi 08 - Pembayaran Tunggakan/Tagihan Tahun Lalu]: Penyerapan belanja tercatat ${ppa.toFixed(2)}% mencakup penyelesaian pembayaran tagihan/tunggakan kegiatan tahun anggaran sebelumnya sesuai ketentuan regulasi, sehingga belanja tidak berkorelasi langsung dengan kenaikan fisik output tahun berjalan (PCRO: ${pcro.toFixed(2)}%).`;
+
+    case '99':
+    default:
+      return `[Catatan: Disarankan memilih Kode 01 s.d. 08 untuk menghindari penolakan KPPN]. [Capaian & Tahapan Aktivitas]: Pelaksanaan kegiatan RO ${kodeRo} telah berjalan dengan progres fisik ${pcro.toFixed(2)}% dari target ${tpcro.toFixed(2)}% (Nilai Kolom Z = ${nilaiZ.toFixed(2)}). [Permasalahan & Tindak Lanjut]: Terjadi deviasi kinerja sebesar ${gapKinerja > 0 ? '-' : '+'}${Math.abs(gapKinerja).toFixed(2)}% dikarenakan proses penyesuaian teknis di lapangan; langkah akselerasi dan koordinasi intensif telah dijalankan. [Metode Perhitungan & Substansi]: Perhitungan progres didasarkan pada bobot penyelesaian tahapan dokumen pendukung dan verifikasi PPK sesuai regulasi PER-5/PB/2024.`;
+  }
 }
 
 /**
@@ -66,127 +250,206 @@ export function diagnoseRO(raw: {
   namaKro?: string;
   kodeRo: string;
   namaRo: string;
-  volumeTarget: number;       // Kolom X: Target Volume (TVRO)
-  volumeRealisasi: number;    // Kolom P: Realisasi Volume (RVRO)
-  targetProgres: number;      // Kolom Y: Target Progres (TPCRO)
-  realisasiProgres: number;   // Kolom Q: Realisasi Progres (PCRO)
+  volumeTarget: number;       // Kolom X: Target Volume (Target RVRO)
+  volumeRealisasi: number;    // Kolom P: Realisasi Volume (Realisasi RO)
+  targetProgres: number;      // Kolom Y: Target Progres (Target PCRO)
+  realisasiProgres: number;   // Kolom Q: Realisasi Progres (Progress RO)
+  statusKonfirmasi?: string;  // Kolom R: Status Konfirmasi KPPN
+  nilaiCaput?: number;        // Kolom Z: Nilai Capaian Output langsung dari file Excel
   paguAnggaran?: number;
   realisasiAnggaran?: number;
   persenPenyerapan?: number;
   polarisasi?: 'MAXIMIZE' | 'MINIMIZE' | 'RANGE';
   keteranganSakti?: string;
+  selectedRefCode?: string;
 }): DiagnostikCaputROItem {
-  const tpcro = Math.max(0, raw.targetProgres);   // Kolom Y
-  const pcro = Math.max(0, raw.realisasiProgres); // Kolom Q
-  const tvro = Math.max(0, raw.volumeTarget);     // Kolom X
-  const rvro = Math.max(0, raw.volumeRealisasi);  // Kolom P
+  const tpcro = Math.max(0, raw.targetProgres);   // Kolom Y (Target PCRO)
+  const pcro = Math.max(0, raw.realisasiProgres); // Kolom Q (Progress RO)
+  const tvro = Math.max(0, raw.volumeTarget);     // Kolom X (Target RVRO)
+  const rvro = Math.max(0, raw.volumeRealisasi);  // Kolom P (Realisasi RO)
   
   const pagu = Math.max(0, raw.paguAnggaran || 0);
   const realisasi = Math.max(0, raw.realisasiAnggaran || 0);
   const persenSerap = pagu > 0 ? (realisasi / pagu) * 100 : (raw.persenPenyerapan || 0);
 
-  // Perhitungan Nilai Komponen RO (Kolom Z / NKRO):
-  // Aturan SAKTI & IKPA Kemenkeu:
-  // Kolom Z nilainya idealnya 100 semua.
-  // 1. Jika Kolom Y (TPCRO) = 0 dan Kolom Q (PCRO) = 0 -> SAKTI tidak membentuk progres -> Kolom Z = 0,00
-  // 2. Jika Kolom Y (TPCRO) = 0 dan Kolom Q (PCRO) > 0 -> Kolom Z = 100,00
-  // 3. Jika Kolom Y (TPCRO) > 0 -> Kolom Z = Math.min(100, (PCRO / TPCRO) * 100)
-  let nilaiKomponen = 0;
-  let isTpcRoZeroPcroZero = false;
+  // Evaluasi Kolom R: Status Konfirmasi KPPN
+  const rawStatus = (raw.statusKonfirmasi || '').trim();
+  const lowerStatus = rawStatus.toLowerCase();
+  let statusKonfirmasiKppn = rawStatus || 'TERKONFIRMASI';
+  let isUnconfirmedKppn = false;
 
-  if (tpcro === 0 && pcro === 0) {
-    nilaiKomponen = 0;
-    isTpcRoZeroPcroZero = true;
-  } else if (tpcro === 0 && pcro > 0) {
-    nilaiKomponen = 100;
-  } else {
-    nilaiKomponen = Math.min(100, (pcro / tpcro) * 100);
+  if (
+    lowerStatus.includes('tidak terkonfirmasi') ||
+    lowerStatus.includes('belum terkonfirmasi') ||
+    lowerStatus.includes('menunggu konfirmasi') ||
+    lowerStatus.includes('belum dikonfirmasi') ||
+    lowerStatus.includes('ditolak')
+  ) {
+    isUnconfirmedKppn = true;
+    statusKonfirmasiKppn = rawStatus ? rawStatus.toUpperCase() : 'TIDAK TERKONFIRMASI';
+  } else if (lowerStatus.includes('terkonfirmasi otomatis') || lowerStatus.includes('otomatis')) {
+    statusKonfirmasiKppn = 'TERKONFIRMASI OTOMATIS';
+  } else if (lowerStatus.includes('terkonfirmasi') || lowerStatus.includes('setuju') || lowerStatus.includes('disetujui')) {
+    statusKonfirmasiKppn = 'TERKONFIRMASI';
+  } else if (!rawStatus) {
+    statusKonfirmasiKppn = 'TERKONFIRMASI';
   }
 
-  const gapKinerja = tpcro - pcro;
+  // Perhitungan Nilai Komponen RO (Kolom Z / NKRO):
+  let nilaiKomponen = 0;
+  const isTpcRoZeroPcroZero = (tpcro === 0 && pcro === 0);
+
+  if (raw.nilaiCaput !== undefined && raw.nilaiCaput !== null && !isNaN(raw.nilaiCaput) && raw.nilaiCaput >= 0) {
+    nilaiKomponen = Number(raw.nilaiCaput.toFixed(2));
+  } else {
+    if (isUnconfirmedKppn) {
+      // Pada sistem MyIntress, status tidak terkonfirmasi di Kolom R umumnya menghasilkan nilai 0
+      nilaiKomponen = 0;
+    } else if (isTpcRoZeroPcroZero) {
+      nilaiKomponen = 0;
+    } else if (tpcro === 0 && pcro > 0) {
+      nilaiKomponen = 100;
+    } else {
+      nilaiKomponen = Number(Math.min(100, (pcro / tpcro) * 100).toFixed(2));
+    }
+  }
+
+  const gapKinerja = Number((tpcro - pcro).toFixed(2));
+  const gapPpa = Number((pcro - persenSerap).toFixed(2));
+
   let severity: DiagnostikCaputROItem['diagnosaSeverity'] = 'OPTIMAL';
   let code: DiagnostikCaputROItem['diagnosaCode'] = 'OPTIMAL';
-  let title = '✅ Kolom Z Optimal: Nilai Komponen RO = 100 (Target Terpenuhi)';
-  let description = `Progres fisik Kolom Q (PCRO: ${pcro.toFixed(2)}%) telah memenuhi Kolom Y (Target: ${tpcro.toFixed(2)}%) dengan Nilai Komponen Kolom Z = ${nilaiKomponen.toFixed(2)}.`;
+  let title = '✅ Kolom Z Optimal: Nilai Komponen RO = 100.00';
+  let description = `Progres fisik Kolom Q (PCRO: ${pcro.toFixed(2)}%) telah memenuhi Kolom Y (Target: ${tpcro.toFixed(2)}%) dengan Nilai Komponen Kolom Z = 100.00. Status Kolom R Terkonfirmasi (Aman).`;
   const rekomendasi: string[] = [];
-  let templateKeterangan = '';
 
-  // KENDALA 3: Nilai pada Kolom Y (Target TPCRO) = 0 dan di Kolom Q (PCRO) juga 0 (harusnya > 0)
-  if (isTpcRoZeroPcroZero) {
+  // Tentukan Kode Referensi SAKTI & Kode Validasi SAKTI
+  let defaultRefCode = '07';
+  let validasiCode: DiagnostikCaputROItem['validasiSaktiCode'] = '00';
+  let validasiStatus: DiagnostikCaputROItem['validasiSaktiStatus'] = 'Valid by System';
+
+  // 1. Validasi 01: PCRO = 0 padahal ada realisasi anggaran
+  if (persenSerap > 0 && pcro === 0) {
+    validasiCode = '01';
+    validasiStatus = 'Input Ditolak (Wajib Perbaikan)';
+  }
+  // 2. Validasi 03: PCRO 100% tapi RVRO masih 0
+  else if (pcro >= 100 && rvro === 0 && tvro > 0) {
+    validasiCode = '03';
+    validasiStatus = 'Input Ditolak (Wajib Perbaikan)';
+    defaultRefCode = '07';
+  }
+  // 3. Validasi 04: PCRO 100% tapi RVRO < TVRO
+  else if (pcro >= 100 && rvro < tvro && tvro > 0) {
+    validasiCode = '04';
+    validasiStatus = 'Input Ditolak (Wajib Perbaikan)';
+    defaultRefCode = '07';
+  }
+  // 4. Validasi 02: PCRO < PPA (GAP < -20%)
+  else if (pcro < persenSerap && gapPpa < -20) {
+    validasiCode = '02';
+    validasiStatus = 'Input Diterima (Early Warning / Konfirmasi KPPN)';
+    defaultRefCode = '05';
+  }
+  // 5. Validasi 05: RVRO > 0 tapi Realisasi Anggaran 0%
+  else if (rvro > 0 && persenSerap === 0) {
+    validasiCode = '05';
+    validasiStatus = 'Input Diterima (Early Warning / Konfirmasi KPPN)';
+    defaultRefCode = '02';
+  }
+  // 6. Validasi 08: RVRO >= TVRO tapi PCRO belum 100%
+  else if (tvro > 0 && rvro >= tvro && pcro < 100) {
+    validasiCode = '08';
+    validasiStatus = 'Input Diterima (Early Warning / Konfirmasi KPPN)';
+    defaultRefCode = '04';
+  }
+  // 7. GAP Kinerja Tinggi (PCRO > PPA)
+  else if (gapPpa > 20) {
+    defaultRefCode = '02';
+  }
+
+  // -------------------------------------------------------------
+  // EVALUASI KEPARAHAN (SEVERITY) BERDASARKAN KOLOM Z, KOLOM R & JUKNIS
+  // -------------------------------------------------------------
+  if (isUnconfirmedKppn) {
+    severity = 'KRITIS';
+    code = 'MISSING_EXPLANATION';
+    title = `🚨 Perhatian Kolom R: Status "${statusKonfirmasiKppn}" oleh KPPN (Potensi Nilai Kolom Z = 0)`;
+    description = `Status pada Kolom R (Konfirmasi KPPN) terdeteksi "${statusKonfirmasiKppn}". Perlu jadi perhatian serius: Jika status Kolom R tidak terkonfirmasi, biasanya nilainya menjadi 0 (Nol) pada aplikasi MyIntress sehingga satker harus segera konfirmasi atau lapor ke KPPN mitra kerja. (Catatan: Jika seluruh data sudah OK dan divalidasi namun belum 100, silakan tunggu pembaruan batch OLAP MyIntress sekitar 2 jam kemudian).`;
+    rekomendasi.push(
+      'Segera lapor dan lakukan konfirmasi ke KPPN mitra kerja (Seksi MSKI / PIC Caput) untuk memohon persetujuan/konfirmasi atas data output ini.',
+      'Pastikan Operator Komitmen telah memilih Kode Referensi yang tepat dan mengisi kolom Keterangan SAKTI secara lengkap (minimal 3 elemen substansi).',
+      'Pastikan Pejabat Pembuat Komitmen (PPK) telah memvalidasi (Setuju) dan Operator PPK Umum telah melakukan pengiriman data.',
+      'Tunggu Siklus OLAP MyIntress: Apabila data di SAKTI sudah OK dan KPPN telah konfirmasi, nilai pada MyIntress akan ter-refresh setelah proses OLAP berjalan (estimasi 2 jam kemudian).'
+    );
+    defaultRefCode = '07';
+  } else if (isTpcRoZeroPcroZero) {
     severity = 'KRITIS';
     code = 'TPCRO_PCRO_ZERO';
-    title = '🚨 Kritis: Kolom Y (Target TPCRO) = 0 & Kolom Q (PCRO) = 0 (Harusnya > 0) — Sistem SAKTI Tidak Membentuk Progres';
+    title = '🚨 Kritis: Kolom Y (Target TPCRO) = 0 & Kolom Q (PCRO) = 0 — SAKTI Tidak Membentuk Progres (Kolom Z = 0)';
     description = 'Kondisi Kolom Y (Target TPCRO) = 0 dan Kolom Q (PCRO) = 0 menyebabkan sistem SAKTI TIDAK MEMBENTUK PROGRES sehingga Nilai Kolom Z menjadi 0,00 dan merusak capaian IKPA Satker.';
     rekomendasi.push(
-      'Isi Kolom Q (PCRO) minimal 0,01 pada periode berjalan di Modul Komitmen SAKTI agar sistem membentuk progres perhitungan dan Nilai Kolom Z tidak nol.',
-      'Lakukan pemutakhiran proyeksi target pada Kolom Y (Target TPCRO) pada periode pembukaan pemutakhiran berikutnya agar target realistis.',
+      'Isi Kolom Q (PCRO) minimal 0,01 pada periode berjalan di Modul Komitmen SAKTI agar sistem membentuk progres perhitungan.',
+      'Lakukan pemutakhiran proyeksi target pada Kolom Y (Target TPCRO) pada periode pembukaan pemutakhiran berikutnya.',
       'Segera simpan data dan mintakan approval Pejabat Pembuat Komitmen (PPK) sebelum batas waktu cut-off.'
     );
-    templateKeterangan = `[Permasalahan]: Progres fisik RO ${raw.kodeRo} dalam tahap persiapan teknis/administrasi awal (Kolom Y Target = 0 & Kolom Q Realisasi = 0). [Langkah Tindak Lanjut]: Telah diinput Kolom Q (PCRO) minimal 0,01 di SAKTI agar sistem membentuk progres perhitungan sesuai juknis DJPb. [Target Waktu]: Pelaksanaan kegiatan dan pemutakhiran target akan direalisasikan optimal pada periode berikutnya.`;
-  }
-  // KENDALA 1 (Paling Sering): Kolom Q (isian PCRO) di bawah nilai Kolom Y (Target TPCRO) -> Kolom Z tidak bisa 100
-  else if (pcro < tpcro) {
-    const isBigGap = gapKinerja > 20 || pcro === 0;
-    severity = isBigGap ? 'KRITIS' : 'PERINGATAN';
+    defaultRefCode = '04';
+  } else if (nilaiKomponen < 60) {
+    severity = 'KRITIS';
     code = 'PCRO_BELOW_TPCRO';
-    title = `🚨 Kolom Q (PCRO: ${pcro.toFixed(2)}%) di Bawah Kolom Y (Target TPCRO: ${tpcro.toFixed(2)}%) — Kolom Z = ${nilaiKomponen.toFixed(2)} (Tidak Bisa 100)`;
-    description = `Realisasi Progres (Kolom Q) terisi ${pcro.toFixed(2)}%, di bawah Target Progres (Kolom Y) sebesar ${tpcro.toFixed(2)}% (Gap: -${gapKinerja.toFixed(2)}%). Ini kendala utama penyebab Nilai Kolom Z hanya ${nilaiKomponen.toFixed(2)} (tidak bisa mencapai 100).`;
+    title = `🚨 Kritis: Nilai Kolom Z = ${nilaiKomponen.toFixed(2)} (< 60) — Realisasi (Kolom Q: ${pcro.toFixed(2)}%) Jauh di Bawah Target (Kolom Y: ${tpcro.toFixed(2)}%)`;
+    description = `Nilai Capaian Output Kolom Z sangat rendah (${nilaiKomponen.toFixed(2)} / 100) karena Realisasi Progres (Kolom Q) baru terisi ${pcro.toFixed(2)}% dari Target (Kolom Y) sebesar ${tpcro.toFixed(2)}% (Gap: -${gapKinerja.toFixed(2)}%).`;
     rekomendasi.push(
-      `Akselerasi penyelesaian fisik dan perbarui Kolom Q (PCRO) di Modul Komitmen SAKTI agar minimal sama dengan Kolom Y (${tpcro.toFixed(2)}%) agar Nilai Kolom Z mencapai 100.`,
+      `Akselerasi penyelesaian fisik dan perbarui Kolom Q (PCRO) di Modul Komitmen SAKTI agar minimal sama dengan Kolom Y (${tpcro.toFixed(2)}%) sehingga Nilai Kolom Z mencapai 100.`,
       'Wajib mengisi kolom Keterangan SAKTI mengenai kendala atau tahapan pekerjaan yang sedang berlangsung sebelum approval PPK.',
-      'Jika target di Kolom Y terlalu tinggi akibat perubahan jadwal kerja, lakukan pemutakhiran proyeksi target pada kesempatan pemutakhiran berikutnya.'
+      'Jika target di Kolom Y terlalu tinggi akibat pergeseran jadwal, lakukan pemutakhiran proyeksi target.'
     );
-    templateKeterangan = `[Permasalahan]: Realisasi fisik RO ${raw.kodeRo} pada Kolom Q baru tercapai ${pcro.toFixed(2)}% dari target Kolom Y sebesar ${tpcro.toFixed(2)}% (deviasi ${gapKinerja.toFixed(1)}%) dikarenakan penyesuaian jadwal teknis. [Langkah Tindak Lanjut]: Percepatan tahapan kegiatan dan penyelesaian administrasi BAST sedang diakselerasi. [Target Waktu]: Target capaian 100% dipenuhi pada akhir triwulan berjalan.`;
-  }
-  // KENDALA 2: Progres PCRO pada Kolom Q = 100, AKAN TETAPI Kolom P (Realisasi Volume) < Kolom X (Target Volume)
-  else if (pcro >= 100 && tvro > 0 && rvro < tvro) {
+    defaultRefCode = '04';
+  } else if (nilaiKomponen < 99.99) {
+    severity = 'PERINGATAN';
+    code = 'PCRO_BELOW_TPCRO';
+    title = `⚠️ Peringatan: Nilai Kolom Z = ${nilaiKomponen.toFixed(2)} (Belum 100) — Kolom Q (PCRO: ${pcro.toFixed(2)}%) Belum Memenuhi Kolom Y (Target: ${tpcro.toFixed(2)}%)`;
+    description = `Nilai Capaian Output Kolom Z belum optimal (${nilaiKomponen.toFixed(2)} / 100) karena Realisasi Progres (Kolom Q: ${pcro.toFixed(2)}%) masih di bawah Target Progres (Kolom Y: ${tpcro.toFixed(2)}%) dengan Gap -${gapKinerja.toFixed(2)}%.`;
+    rekomendasi.push(
+      `Tingkatkan progres fisik pada Kolom Q (PCRO) di SAKTI hingga mencapai target Kolom Y (${tpcro.toFixed(2)}%) agar Nilai Kolom Z menjadi 100.`,
+      'Lengkapi pengisian kolom Keterangan SAKTI mengenai perkembangan capaian fisik output.',
+      'Pastikan dokumen BAST atau bukti fisik telah diverifikasi oleh PPK sebelum cut-off pelaporan.'
+    );
+    defaultRefCode = '04';
+  } else if (nilaiKomponen >= 99.99 && tvro > 0 && rvro < tvro && pcro >= 100) {
     severity = 'PERINGATAN';
     code = 'PCRO_100_RVRO_BELOW_TVRO';
     title = `⚠️ Kolom Q (PCRO) Sudah 100% namun Kolom P (Realisasi Volume: ${rvro}) < Kolom X (Target Volume: ${tvro})`;
-    description = `Progres tahapan fisik pada Kolom Q sudah terisi 100%, akan tetapi Realisasi Volume pada Kolom P baru terisi ${rvro} dari Target Volume Kolom X (${tvro}). Perlu sinkronisasi agar volume fisik output tercatat tuntas 100%.`;
+    description = `Progres tahapan fisik pada Kolom Q sudah terisi 100%, akan tetapi Realisasi Volume pada Kolom P baru terisi ${rvro} dari Target Volume Kolom X (${tvro}). Perlu sinkronisasi agar volume fisik output tercatat tuntas.`;
     rekomendasi.push(
       `Periksa kelengkapan Berita Acara Serah Terima (BAST) / laporan akhir pekerjaan fisik apakah target ${tvro} volume telah tuntas.`,
       `Inputkan jumlah Realisasi Volume (RVRO) pada Kolom P di Modul Komitmen SAKTI hingga bernilai ${tvro} jika seluruh keluaran output telah selesai.`,
       'Jika terdapat efisiensi atau perubahan target volume dari DIPA awal, cantumkan penjelasan perubahan volume pada kolom Keterangan SAKTI.'
     );
-    templateKeterangan = `[Permasalahan]: Tahapan pelaksanaan fisik RO ${raw.kodeRo} telah tuntas 100% (Kolom Q = 100%), namun pencatatan Realisasi Volume Kolom P baru terisi ${rvro} dari target Kolom X (${tvro} vol) karena proses verifikasi administrasi BAST akhir. [Langkah Tindak Lanjut]: Sinkronisasi penginputan Kolom P (RVRO = ${tvro}) dilakukan di SAKTI. [Target Waktu]: Selesai pada periode berjalan.`;
-  }
-  // Kasus Tambahan: Realisasi Anggaran Belanja Tinggi tapi PCRO Jauh Tertinggal (Lagging Output)
-  else if (persenSerap >= 30 && pcro < 10 && gapKinerja > 20) {
-    severity = 'KRITIS';
-    code = 'LAGGING_CAPUT';
-    title = '🚨 Kritis: Realisasi Anggaran Tinggi namun Kolom Q (Fisik) Tertinggal Signifikan';
-    description = `Penyerapan anggaran belanja telah mencapai ${persenSerap.toFixed(1)}% (${formatRupiahCaput(realisasi)}), namun Kolom Q (PCRO) baru terlaporkan ${pcro.toFixed(2)}% (Target Kolom Y: ${tpcro.toFixed(2)}%).`;
-    rekomendasi.push(
-      'Pastikan dokumen BAST / laporan kemajuan pekerjaan fisik terbaru telah direkam pada Modul Komitmen SAKTI.',
-      `Sinkronkan persentase Kolom Q (PCRO) agar sejalan dengan serapan belanja yang sudah ${persenSerap.toFixed(1)}%.`,
-      'Jika pembayaran merupakan uang muka kontrak, cantumkan narasi penjelasan uang muka pada kolom Keterangan SAKTI.'
-    );
-    templateKeterangan = `[Permasalahan]: Realisasi belanja RO ${raw.kodeRo} sebesar ${formatRupiahCaput(realisasi)} (${persenSerap.toFixed(1)}%) mencakup pembayaran termin/uang muka pengadaan. [Langkah Tindak Lanjut]: Pelaksanaan fisik sedang berlangsung dan BAST bertahap diproses. [Target Waktu]: Capaian PCRO dimutakhirkan penuh pada periode berjalan.`;
-  }
-  // Kasus Tambahan: Volume Realisasi (Kolom P) Ada tapi PCRO (Kolom Q) Nol/Sangat Rendah
-  else if (rvro > 0 && pcro < 10) {
-    severity = 'PERINGATAN';
-    code = 'RVRO_ANOMALY';
-    title = '⚠️ Anomali Kolom P & Q: Volume Realisasi (Kolom P) Terisi namun Progres (Kolom Q) Belum Sinkron';
-    description = `Volume realisasi (Kolom P) telah terisi ${rvro} ${tvro > 0 ? `dari target ${tvro}` : 'output'}, namun Progres Capaian (Kolom Q) baru ${pcro.toFixed(2)}%.`;
-    rekomendasi.push(
-      'Perbarui nilai Kolom Q (PCRO) di SAKTI agar proporsional dengan volume output yang sudah selesai di Kolom P (RVRO).',
-      'Pastikan validasi antara volume fisik dan persentase tahapan pekerjaan telah sinkron.'
-    );
-    templateKeterangan = `[Permasalahan]: Telah diserahterimakan volume realisasi fisik sebanyak ${rvro} output pada RO ${raw.kodeRo}. [Langkah Tindak Lanjut]: Persentase Kolom Q (PCRO) disesuaikan sejalan dengan penyelesaian BAST pekerjaan. [Target Waktu]: Sinkronisasi data tuntas pada periode berjalan.`;
-  }
-  // Default Optimal (Kolom Z = 100)
-  else {
+    defaultRefCode = '07';
+  } else {
     severity = 'OPTIMAL';
     code = 'OPTIMAL';
-    title = '✅ Kolom Z Optimal: Nilai Komponen RO = 100,00';
-    description = `Progres fisik Kolom Q (PCRO: ${pcro.toFixed(2)}%) telah memenuhi Kolom Y (Target: ${tpcro.toFixed(2)}%) dengan Nilai Komponen Kolom Z = 100,00.`;
+    title = '✅ Kolom Z Optimal: Nilai Komponen RO = 100.00';
+    description = `Progres fisik Kolom Q (PCRO: ${pcro.toFixed(2)}%) telah memenuhi Kolom Y (Target: ${tpcro.toFixed(2)}%) dengan Nilai Komponen Kolom Z = 100.00. Status Kolom R Terkonfirmasi (Aman).`;
     rekomendasi.push('Pertahankan ketertiban pengisian dan approval PPK tepat waktu setiap periode pelaporan.');
-    templateKeterangan = `Kegiatan RO ${raw.kodeRo} terlaksana optimal dan memenuhi target yang ditetapkan (Kolom Z = 100,00). Dokumen pendukung BAST lengkap.`;
   }
 
-  const potensiKenaikan = Math.max(0, 100 - nilaiKomponen);
+  const finalRefCode = raw.selectedRefCode || defaultRefCode;
+  const refObj = SAKTI_REFERENSI_LIST.find(r => r.kode === finalRefCode) || SAKTI_REFERENSI_LIST[8];
+  
+  const templateKeterangan = generateSaktiTemplateByRef(finalRefCode, {
+    kodeRo: raw.kodeRo,
+    namaRo: raw.namaRo,
+    pcro,
+    tpcro,
+    ppa: persenSerap,
+    rvro,
+    tvro,
+    nilaiZ: nilaiKomponen
+  });
+
+  const potensiKenaikan = Math.max(0, Number((100 - nilaiKomponen).toFixed(2)));
 
   return {
     id: raw.id || `RO-${raw.kodeRo}-${Math.random().toString(36).substring(2, 7)}`,
@@ -200,23 +463,30 @@ export function diagnoseRO(raw: {
     namaKro: raw.namaKro,
     kodeRo: raw.kodeRo,
     namaRo: raw.namaRo,
-    volumeTarget: tvro,         // Kolom X
-    volumeRealisasi: rvro,      // Kolom P
-    targetProgres: tpcro,       // Kolom Y
-    realisasiProgres: pcro,     // Kolom Q
+    volumeTarget: tvro,
+    volumeRealisasi: rvro,
+    targetProgres: tpcro,
+    realisasiProgres: pcro,
     paguAnggaran: pagu,
     realisasiAnggaran: realisasi,
     persenPenyerapan: persenSerap,
     polarisasi: raw.polarisasi || 'MAXIMIZE',
     keteranganSakti: raw.keteranganSakti || '',
+    statusKonfirmasiKppn,
+    isUnconfirmedKppn,
     diagnosaSeverity: severity,
     diagnosaCode: code,
     diagnosaTitle: title,
     diagnosaDescription: description,
     rekomendasiTindakan: rekomendasi,
     templateKeteranganSakti: templateKeterangan,
+    selectedReferensiSakti: finalRefCode,
+    uraianReferensiSakti: `${refObj.kode}) ${refObj.judul}`,
+    validasiSaktiCode: validasiCode,
+    validasiSaktiStatus: validasiStatus,
     gapKinerja,
-    nilaiKomponenRo: nilaiKomponen, // Kolom Z
+    gapPpa,
+    nilaiKomponenRo: nilaiKomponen,
     potensiKenaikanSkor: potensiKenaikan
   };
 }
@@ -234,7 +504,6 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     throw new Error('File Excel tidak memiliki lembar kerja (worksheet) yang valid.');
   }
 
-  // Convert to 2D array of strings/values for flexible header detection
   const matrix: (string | number | undefined)[][] = XLSX.utils.sheet_to_json(sheet, {
     header: 1,
     defval: '',
@@ -245,7 +514,6 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     throw new Error('File Excel kosong atau tidak memiliki baris data.');
   }
 
-  // Extract Top-Level Metadata from rows 0-15 (e.g. Satker info, Bulan, Tahun)
   let extractedKodeSatker = '';
   let extractedNamaSatker = '';
   let extractedPeriode = 'Agustus 2026';
@@ -254,27 +522,25 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     const rowStr = (matrix[r] || []).join(' ').trim();
     if (!rowStr) continue;
 
-    // Detect Satker: e.g. "Satker: 651046 - KEMENAG KOLAKA" or "Kode Satker : 651046"
     const satkerMatch = rowStr.match(/satker\s*[:=]?\s*([0-9]{6})\s*[-–]?\s*([^,\n\r]+)?/i) ||
-                        rowStr.match(/kode\s*satker\s*[:=]?\s*([0-9]{6})/i);
+                        rowStr.match(/kode\s*satker\s*[:=]?\s*([0-9]{6})/i) ||
+                        rowStr.match(/([0-9]{6})\s*[-–]\s*([A-Za-z0-9\s.]+)/);
     if (satkerMatch) {
       if (satkerMatch[1] && !extractedKodeSatker) extractedKodeSatker = satkerMatch[1];
       if (satkerMatch[2] && !extractedNamaSatker) extractedNamaSatker = satkerMatch[2].trim();
     }
 
-    // Detect Periode / Bulan: e.g. "Periode : Agustus 2026" or "Bulan : Agustus"
     const periodeMatch = rowStr.match(/(?:periode|bulan|cut\s*off)\s*[:=]?\s*([A-Za-z0-9\s]+)/i);
     if (periodeMatch && periodeMatch[1] && periodeMatch[1].length < 30) {
       extractedPeriode = periodeMatch[1].trim();
     }
   }
 
-  // Keywords to find the actual table header row
   const headerKeywords = [
     'satker', 'kdsatker', 'kodesatker',
     'kro', 'ro', 'kodero', 'rincianoutput', 'namaro', 'uraianro',
     'tvro', 'rvro', 'tpcro', 'pcro', 'target', 'realisasi', 'progres', 'progress',
-    'pagu', 'anggaran', 'keterangan'
+    'pagu', 'anggaran', 'keterangan', 'nilai'
   ];
 
   let headerRowIndex = -1;
@@ -296,11 +562,9 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
   }
 
   if (headerRowIndex === -1 || maxKeywordMatches < 2) {
-    // Fallback to row 0 if no clear header was detected
     headerRowIndex = 0;
   }
 
-  // Build Normalized Column Map
   const headerRow = matrix[headerRowIndex] || [];
   const prevHeaderRow = headerRowIndex > 0 ? matrix[headerRowIndex - 1] || [] : [];
   const columnHeaders: string[] = [];
@@ -309,7 +573,6 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     const currCell = String(headerRow[c] || '').trim();
     const prevCell = String(prevHeaderRow[c] || '').trim();
     
-    // Combine 2-row headers if applicable (e.g. Row 1: "TARGET", Row 2: "PROGRES (%)" -> "TARGET PROGRES (%)")
     let combined = currCell;
     if (prevCell && prevCell !== currCell && !currCell.toLowerCase().includes(prevCell.toLowerCase())) {
       combined = `${prevCell} ${currCell}`;
@@ -317,49 +580,75 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     columnHeaders.push(combined);
   }
 
-  // Helper matcher for column indices
-  const findColIndex = (patterns: string[]): number => {
+  const findColIndex = (positivePatterns: string[], negativePatterns: string[] = []): number => {
     for (let c = 0; c < columnHeaders.length; c++) {
       const cleanHeader = columnHeaders[c].toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (patterns.some(p => cleanHeader.includes(p.toLowerCase().replace(/[^a-z0-9]/g, '')))) {
-        return c;
-      }
+      if (!cleanHeader) continue;
+      const hasNegative = negativePatterns.some(neg => cleanHeader.includes(neg.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      if (hasNegative) continue;
+
+      const hasExactPositive = positivePatterns.some(pos => cleanHeader === pos.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      if (hasExactPositive) return c;
+    }
+
+    for (let c = 0; c < columnHeaders.length; c++) {
+      const cleanHeader = columnHeaders[c].toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!cleanHeader) continue;
+      const hasNegative = negativePatterns.some(neg => cleanHeader.includes(neg.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      if (hasNegative) continue;
+
+      const hasPositive = positivePatterns.some(pos => cleanHeader.includes(pos.toLowerCase().replace(/[^a-z0-9]/g, '')));
+      if (hasPositive) return c;
     }
     return -1;
   };
 
-  const colKodeSatker = findColIndex(['kodesatker', 'kdsatker', 'satker', 'kode_satker', 'kdkantor']);
-  const colNamaSatker = findColIndex(['namasatker', 'nmsatker', 'satker_nama', 'nama_satker', 'nmkantor', 'uraiansatker']);
-  const colProgram = findColIndex(['kodeprogram', 'kdprogram', 'program']);
+  const colKodeSatker = findColIndex(['kodesatker', 'kdsatker', 'satker', 'kode_satker', 'kdkantor'], ['nama', 'uraian', 'target', 'realisasi', 'nilai']);
+  const colNamaSatker = findColIndex(['namasatker', 'nmsatker', 'satker_nama', 'nama_satker', 'nmkantor', 'uraiansatker'], ['kode']);
+  const colProgram = findColIndex(['kodeprogram', 'kdprogram', 'program'], ['nama', 'uraian']);
   const colNamaProgram = findColIndex(['namaprogram', 'nmprogram', 'uraianprogram']);
-  const colKegiatan = findColIndex(['kodekegiatan', 'kdkegiatan', 'kegiatan']);
+  const colKegiatan = findColIndex(['kodekegiatan', 'kdkegiatan', 'kegiatan'], ['nama', 'uraian']);
   const colNamaKegiatan = findColIndex(['namakegiatan', 'nmkegiatan', 'uraiankegiatan']);
-  const colKro = findColIndex(['kodekro', 'kdkro', 'kro', 'klasifikasirincianoutput']);
+  const colKro = findColIndex(['kodekro', 'kdkro', 'kro', 'klasifikasirincianoutput'], ['nama', 'uraian']);
   const colNamaKro = findColIndex(['namakro', 'nmkro', 'uraiankro']);
-  const colKodeRo = findColIndex(['kodero', 'kdro', 'rincianoutput', 'koderincianoutput', 'output', 'kategorioutput']);
-  const colNamaRo = findColIndex(['namaro', 'nmro', 'uraianro', 'nama_ro', 'uraian_ro', 'namarincianoutput', 'uraianrincianoutput', 'deskripsiro']);
+  const colKodeRo = findColIndex(['kodero', 'kdro', 'rincianoutput', 'koderincianoutput', 'output', 'kategorioutput'], ['nama', 'uraian', 'target', 'realisasi', 'progress', 'progres', 'nilai']);
+  const colNamaRo = findColIndex(['namaro', 'nmro', 'uraianro', 'nama_ro', 'uraian_ro', 'namarincianoutput', 'uraianrincianoutput', 'deskripsiro'], ['kode']);
   
-  const colTvro = findColIndex(['targetvolume', 'tvro', 'volumetarget', 'target_volume', 'voltarget', 'trvro', 't_rvro']);
-  const colRvro = findColIndex(['realisasivolume', 'rvro', 'volumerealisasi', 'realisasi_volume', 'volrealisasi', 'realisasirvro']);
-  const colTpcro = findColIndex(['targetprogres', 'tpcro', 'targetpcro', 't_pcro', 'targetprogress', 'progrestarget', 'progresstarget', 'progreskemenkeu']);
-  const colPcro = findColIndex(['realisasiprogres', 'pcro', 'realisasipcro', 'progressrealisasi', 'progresrealisasi', 'progrescapaian', 'progresfisik', 'capaianoutput']);
+  // Kolom X: Target RVRO
+  const colTvro = findColIndex(['targetrvro', 'trvro', 'target_rvro', 'targetvolume', 'tvro', 'volumetarget', 'target_volume', 'voltarget'], ['pcro', 'progres', 'progress', 'realisasi']);
   
-  const colPagu = findColIndex(['paguanggaran', 'pagudipa', 'pagu', 'alokasi', 'pagu_dipa', 'anggaran']);
-  const colRealisasi = findColIndex(['realisasianggaran', 'realisasibelanja', 'realisasispan', 'realisasi', 'penyerapan', 'realisasi_anggaran']);
+  // Kolom P: Realisasi RO / Realisasi Volume (RVRO)
+  const colRvro = findColIndex(['realisasiro', 'realisasi_ro', 'realisasirvro', 'realisasivolume', 'rvro', 'volumerealisasi', 'realisasi_volume', 'volrealisasi'], ['pcro', 'progres', 'progress', 'target']);
+  
+  // Kolom Y: Target PCRO / Target Progres (TPCRO)
+  const colTpcro = findColIndex(['targetpcro', 'target_pcro', 'targetprogres', 'targetprogress', 'tpcro', 't_pcro', 'progrestarget', 'progresstarget'], ['realisasi', 'rvro', 'volume', 'nilai']);
+  
+  // Kolom Q: Progress RO / Realisasi Progres (PCRO)
+  const colPcro = findColIndex(['progressro', 'progresro', 'realisasipcro', 'realisasiprogres', 'realisasi_pcro', 'realisasi_progres', 'progresrealisasi', 'progressrealisasi', 'progrescapaian', 'progresfisik'], ['target', 'tpcro', 'polarisasi', 'rvro', 'volume', 'nilai']);
+  
+  // Kolom R: Status Konfirmasi KPPN (Kolom R)
+  const colStatusKonfirmasi = findColIndex(
+    ['statuskonfirmasi', 'statuskonfirmasikppn', 'konfirmasikppn', 'statkonfirmasi', 'statusapproval', 'approvalkppn', 'kolomr', 'statuskonfir'],
+    ['satker', 'ro', 'kro', 'kegiatan', 'program', 'validasi']
+  );
+
+  // Kolom Z: Nilai / Nilai Caput / Nilai Komponen RO
+  const colNilaiCaput = findColIndex(['nilai', 'nilaicaput', 'nilaikomponen', 'nilaikomponenro', 'nkro', 'nilaikinerja', 'skorcaput', 'skor', 'kolomz'], ['pagu', 'belanja', 'realisasianggaran', 'persen', 'target', 'progres', 'progress', 'volume', 'rupiah', 'satuan', 'status']);
+  
+  const colPagu = findColIndex(['paguanggaran', 'pagudipa', 'pagu', 'alokasi', 'pagu_dipa', 'anggaran'], ['realisasi', 'nilai']);
+  const colRealisasi = findColIndex(['realisasianggaran', 'realisasibelanja', 'realisasispan', 'realisasi', 'penyerapan', 'realisasi_anggaran'], ['pagu', 'nilai', 'pcro', 'rvro', 'target']);
   const colKet = findColIndex(['keterangansakti', 'keterangan', 'alasandeviasi', 'penjelasan', 'kendala', 'alasan', 'catatan']);
 
   const items: DiagnostikCaputROItem[] = [];
   const satkerMap: Record<string, { kodeSatker: string; namaSatker: string; items: DiagnostikCaputROItem[] }> = {};
 
-  // Parse Rows starting after the header
   for (let r = headerRowIndex + 1; r < matrix.length; r++) {
     const row = matrix[r] || [];
     if (!row || row.length === 0) continue;
 
     const rawKodeRo = String(colKodeRo >= 0 ? row[colKodeRo] : '').trim();
-    const rawNamaRo = String(colNamaRo >= 0 ? row[colNamaRo] : '').trim();
+    const rawNamaRo = String(colNamaRo >= 0 ? row[colNamaRo] : (row.length > 7 ? row[7] : '')).trim();
 
-    // Skip empty lines or summary rows
     if (!rawKodeRo && !rawNamaRo) continue;
     const testSummary = `${rawKodeRo} ${rawNamaRo}`.toLowerCase();
     if (
@@ -374,11 +663,14 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
       continue;
     }
 
-    // Extract Satker info
+    const hasAnyText = row.slice(0, 12).some(cell => typeof cell === 'string' && cell.trim().length > 1 && isNaN(Number(cell.trim())));
+    if (!hasAnyText && !rawNamaRo) {
+      continue;
+    }
+
     let rowKodeSatker = String(colKodeSatker >= 0 ? row[colKodeSatker] : '').trim();
     let rowNamaSatker = String(colNamaSatker >= 0 ? row[colNamaSatker] : '').trim();
 
-    // Normalize 6-digit satker code if combined
     if (rowKodeSatker && rowKodeSatker.length > 6) {
       const matchSix = rowKodeSatker.match(/\b([0-9]{6})\b/);
       if (matchSix) rowKodeSatker = matchSix[1];
@@ -387,10 +679,9 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     if (rowKodeSatker && !extractedKodeSatker) extractedKodeSatker = rowKodeSatker;
     if (rowNamaSatker && !extractedNamaSatker) extractedNamaSatker = rowNamaSatker;
 
-    const finalSatkerKode = rowKodeSatker || extractedKodeSatker || '651046';
-    const finalSatkerNama = rowNamaSatker || extractedNamaSatker || 'Satuan Kerja Lingkup KPPN';
+    const finalSatkerKode = rowKodeSatker || extractedKodeSatker || '643131';
+    const finalSatkerNama = rowNamaSatker || extractedNamaSatker || 'Satuan Kerja';
 
-    // Parse Program/Kegiatan/KRO/RO compound logic (e.g. 2129.EBA.994)
     let kodeProgram = String(colProgram >= 0 ? row[colProgram] : '').trim();
     let namaProgram = String(colNamaProgram >= 0 ? row[colNamaProgram] : '').trim();
     let kodeKegiatan = String(colKegiatan >= 0 ? row[colKegiatan] : '').trim();
@@ -400,7 +691,6 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     let kodeRo = rawKodeRo;
     let namaRo = rawNamaRo;
 
-    // If kodeRo is compound like "2129.EBA.994" or "025.01.WA.2129.EBA.994"
     if (kodeRo.includes('.')) {
       const parts = kodeRo.split('.');
       if (parts.length >= 3) {
@@ -409,11 +699,27 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
       }
     }
 
-    // Column fallback: Kolom X (idx 23: TVRO), Kolom P (idx 15: RVRO), Kolom Y (idx 24: TPCRO), Kolom Q (idx 16: PCRO)
     const tvro = parseCaputNumber(colTvro >= 0 ? row[colTvro] : (row.length > 23 ? row[23] : 0));
     const rvro = parseCaputNumber(colRvro >= 0 ? row[colRvro] : (row.length > 15 ? row[15] : 0));
     const tpcro = parseCaputNumber(colTpcro >= 0 ? row[colTpcro] : (row.length > 24 ? row[24] : 0));
     const pcro = parseCaputNumber(colPcro >= 0 ? row[colPcro] : (row.length > 16 ? row[16] : 0));
+    
+    // Status Konfirmasi KPPN (Kolom R / Kolom 17)
+    let rawStatusKonfirmasi = '';
+    if (colStatusKonfirmasi >= 0 && row[colStatusKonfirmasi] !== undefined) {
+      rawStatusKonfirmasi = String(row[colStatusKonfirmasi] || '').trim();
+    } else if (row.length > 17 && typeof row[17] === 'string' && (
+      row[17].toLowerCase().includes('konfirmasi') ||
+      row[17].toLowerCase().includes('terkonfirmasi') ||
+      row[17].toLowerCase().includes('setuju') ||
+      row[17].toLowerCase().includes('tolak')
+    )) {
+      rawStatusKonfirmasi = String(row[17] || '').trim();
+    }
+
+    const rawNilaiZ = colNilaiCaput >= 0 ? row[colNilaiCaput] : (row.length > 25 ? row[25] : undefined);
+    const nilaiZ = rawNilaiZ !== undefined && rawNilaiZ !== '' ? parseCaputNumber(rawNilaiZ) : undefined;
+
     const pagu = parseCaputNumber(colPagu >= 0 ? row[colPagu] : 0);
     const realisasi = parseCaputNumber(colRealisasi >= 0 ? row[colRealisasi] : 0);
     const ket = String(colKet >= 0 ? row[colKet] : '').trim();
@@ -434,6 +740,8 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
       volumeRealisasi: rvro,
       targetProgres: tpcro,
       realisasiProgres: pcro,
+      statusKonfirmasi: rawStatusKonfirmasi,
+      nilaiCaput: nilaiZ,
       paguAnggaran: pagu,
       realisasiAnggaran: realisasi,
       keteranganSakti: ket
@@ -441,7 +749,6 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
 
     items.push(diagnosed);
 
-    // Group by Satker for breakdown
     if (!satkerMap[finalSatkerKode]) {
       satkerMap[finalSatkerKode] = {
         kodeSatker: finalSatkerKode,
@@ -456,11 +763,11 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     throw new Error('Tidak ditemukan data Rincian Output (RO) yang valid pada file Excel tersebut. Pastikan format kolom Target/Realisasi Progres sesuai format MyIntress/SAKTI.');
   }
 
-  // Calculate Overall Aggregates
   const totalRo = items.length;
   const roKritisCount = items.filter(it => it.diagnosaSeverity === 'KRITIS').length;
   const roPeringatanCount = items.filter(it => it.diagnosaSeverity === 'PERINGATAN').length;
   const roOptimalCount = items.filter(it => it.diagnosaSeverity === 'OPTIMAL').length;
+  const roUnconfirmedCount = items.filter(it => it.isUnconfirmedKppn).length;
 
   const sumKomponen = items.reduce((acc, it) => acc + it.nilaiKomponenRo, 0);
   const currentScoreCaput = totalRo > 0 ? Number((sumKomponen / totalRo).toFixed(2)) : 0;
@@ -480,12 +787,12 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
   const avgPCRO = Number((items.reduce((acc, it) => acc + it.realisasiProgres, 0) / totalRo).toFixed(2));
   const avgTPCRO = Number((items.reduce((acc, it) => acc + it.targetProgres, 0) / totalRo).toFixed(2));
 
-  // Build Satker Breakdown Matrix
   const satkerBreakdown: DiagnostikCaputSatkerSummary[] = Object.values(satkerMap).map(s => {
     const sTotal = s.items.length;
     const sKritis = s.items.filter(it => it.diagnosaSeverity === 'KRITIS').length;
     const sPeringatan = s.items.filter(it => it.diagnosaSeverity === 'PERINGATAN').length;
     const sOptimal = s.items.filter(it => it.diagnosaSeverity === 'OPTIMAL').length;
+    const sUnconfirmed = s.items.filter(it => it.isUnconfirmedKppn).length;
     const sSumKomp = s.items.reduce((acc, it) => acc + it.nilaiKomponenRo, 0);
     const sCurrentScore = sTotal > 0 ? Number((sSumKomp / sTotal).toFixed(2)) : 0;
 
@@ -510,6 +817,7 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
       roKritisCount: sKritis,
       roPeringatanCount: sPeringatan,
       roOptimalCount: sOptimal,
+      roUnconfirmedCount: sUnconfirmed,
       currentScoreCaput: sCurrentScore,
       projectedScoreCaput: sProjectedScore,
       avgPCRO: sAvgPcro,
@@ -520,12 +828,16 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
     };
   });
 
+  const finalSatkerCode = extractedKodeSatker || (satkerBreakdown.length === 1 ? satkerBreakdown[0].kodeSatker : 'SATKER');
+  const finalSatkerName = extractedNamaSatker || (satkerBreakdown.length === 1 ? satkerBreakdown[0].namaSatker : 'Satuan Kerja');
+
   return {
     summary: {
       totalRo,
       roKritisCount,
       roPeringatanCount,
       roOptimalCount,
+      roUnconfirmedCount,
       currentScoreCaput,
       projectedScoreCaput,
       persenKetercapaianTarget: avgTPCRO > 0 ? Number(Math.min(100, (avgPCRO / avgTPCRO) * 100).toFixed(2)) : 100,
@@ -534,8 +846,8 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
       totalPagu,
       totalRealisasi,
       persenPenyerapanTotal,
-      kodeSatker: extractedKodeSatker || (satkerBreakdown.length === 1 ? satkerBreakdown[0].kodeSatker : 'WILAYAH-156'),
-      namaSatker: extractedNamaSatker || (satkerBreakdown.length === 1 ? satkerBreakdown[0].namaSatker : 'Seluruh Satuan Kerja Lingkup KPPN Kolaka'),
+      kodeSatker: finalSatkerCode,
+      namaSatker: finalSatkerName,
       periode: extractedPeriode
     },
     satkerBreakdown,
@@ -548,7 +860,7 @@ export async function parseMyIntressCaputExcel(file: File): Promise<DiagnostikCa
 /**
  * Export Cleaned & Diagnosed Data to multi-sheet Excel file (.xlsx)
  */
-export function exportDiagnostikCaputToExcel(data: DiagnostikCaputResult, fileNamePrefix = 'Analisis_SI_CAPUT_Kolaka'): void {
+export function exportDiagnostikCaputToExcel(data: DiagnostikCaputResult, fileNamePrefix = 'Analisis_Caput_Satker'): void {
   const wb = XLSX.utils.book_new();
 
   // 1. Sheet 1: Analisis & Diagnostik RO (Cleaned & Diagnosed)
@@ -560,199 +872,165 @@ export function exportDiagnostikCaputToExcel(data: DiagnostikCaputResult, fileNa
     'Kode KRO': it.kodeKro || '',
     'Kode RO': it.kodeRo,
     'Nama Rincian Output (RO)': it.namaRo,
-    'Target Vol (TVRO)': it.volumeTarget,
-    'Realisasi Vol (RVRO)': it.volumeRealisasi,
-    'Target Progres (TPCRO) %': it.targetProgres,
-    'Realisasi Progres (PCRO) %': it.realisasiProgres,
-    'Deviasi / Gap Kinerja (%)': Number(it.gapKinerja.toFixed(2)),
-    'Nilai Komponen RO (NKRO)': Number(it.nilaiKomponenRo.toFixed(2)),
+    'Kolom X (Target RVRO)': it.volumeTarget,
+    'Kolom P (Realisasi RO)': it.volumeRealisasi,
+    'Kolom Y (Target PCRO %)': it.targetProgres,
+    'Kolom Q (Progress RO %)': it.realisasiProgres,
+    'Kolom R (Status Konfirmasi KPPN)': it.statusKonfirmasiKppn || 'TERKONFIRMASI',
+    'Kolom Z (Nilai Caput)': Number(it.nilaiKomponenRo.toFixed(2)),
+    'Deviasi Kinerja (%)': Number(it.gapKinerja.toFixed(2)),
+    'GAP PCRO vs PPA (%)': Number(it.gapPpa.toFixed(2)),
     'Pagu Anggaran (Rp)': it.paguAnggaran || 0,
     'Realisasi Belanja (Rp)': it.realisasiAnggaran || 0,
-    '% Penyerapan Anggaran': Number((it.persenPenyerapan || 0).toFixed(2)),
+    '% Penyerapan Anggaran (PPA)': Number((it.persenPenyerapan || 0).toFixed(2)),
     'Status Diagnosa': it.diagnosaSeverity,
-    'Kode Diagnosa': it.diagnosaCode,
+    'Kode Referensi SAKTI': it.selectedReferensiSakti || '99',
+    'Uraian Referensi SAKTI': it.uraianReferensiSakti || '',
+    'Status Validasi SAKTI': it.validasiSaktiStatus || 'Valid by System',
     'Judul Diagnosa & Masalah': it.diagnosaTitle,
-    'Uraian Masalah': it.diagnosaDescription,
     'Rekomendasi Tindakan Teknis': it.rekomendasiTindakan.join(' | '),
     'Template Keterangan SAKTI (Siap Salin)': it.templateKeteranganSakti
   }));
   const ws1 = XLSX.utils.json_to_sheet(sheet1Data);
-  XLSX.utils.book_append_sheet(wb, ws1, '1. Diagnosa RO');
+  XLSX.utils.book_append_sheet(wb, ws1, '1. Diagnosa RO Satker');
 
-  // 2. Sheet 2: Rekapitulasi per Satker
-  const satkers = data.satkerBreakdown || [{
-    kodeSatker: data.summary.kodeSatker,
-    namaSatker: data.summary.namaSatker,
-    totalRo: data.summary.totalRo,
-    roKritisCount: data.summary.roKritisCount,
-    roPeringatanCount: data.summary.roPeringatanCount,
-    roOptimalCount: data.summary.roOptimalCount,
-    currentScoreCaput: data.summary.currentScoreCaput,
-    projectedScoreCaput: data.summary.projectedScoreCaput,
-    avgPCRO: data.summary.avgPCRO,
-    avgTPCRO: data.summary.avgTPCRO,
-    totalPagu: data.summary.totalPagu,
-    totalRealisasi: data.summary.totalRealisasi,
-    persenPenyerapan: data.summary.persenPenyerapanTotal
-  }];
-
-  const sheet2Data = satkers.map((s, idx) => ({
-    'No': idx + 1,
-    'Kode Satker': s.kodeSatker,
-    'Nama Satker': s.namaSatker,
-    'Total RO': s.totalRo,
-    'RO Kritis (TPCRO=0 & PCRO=0)': s.roKritisCount,
-    'RO Peringatan (Deviasi >20%)': s.roPeringatanCount,
-    'RO Optimal': s.roOptimalCount,
-    'Rata-rata PCRO (%)': s.avgPCRO,
-    'Rata-rata TPCRO (%)': s.avgTPCRO,
-    'Pagu DIPA (Rp)': s.totalPagu,
-    'Realisasi Belanja (Rp)': s.totalRealisasi,
-    '% Penyerapan Belanja': s.persenPenyerapan,
-    'Skor IKPA Caput Saat Ini': s.currentScoreCaput,
-    'Potensi Skor Setelah Perbaikan': s.projectedScoreCaput
-  }));
-  const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
-  XLSX.utils.book_append_sheet(wb, ws2, '2. Rekap Satker');
-
-  // 3. Sheet 3: Template Keterangan SAKTI (Khusus RO yang Perlu Perbaikan)
+  // 2. Sheet 2: Template Keterangan SAKTI (Khusus RO yang Perlu Perbaikan)
   const problematicItems = data.items.filter(it => it.diagnosaSeverity !== 'OPTIMAL');
-  const sheet3Data = (problematicItems.length > 0 ? problematicItems : data.items).map((it, idx) => ({
+  const sheet2Data = (problematicItems.length > 0 ? problematicItems : data.items).map((it, idx) => ({
     'No': idx + 1,
     'Kode Satker': it.kodeSatker,
     'Kode RO': it.kodeRo,
     'Nama Rincian Output': it.namaRo,
     'Status Diagnosa': it.diagnosaSeverity,
-    'TPCRO (%)': it.targetProgres,
-    'PCRO (%)': it.realisasiProgres,
+    'Kolom Y (Target PCRO %)': it.targetProgres,
+    'Kolom Q (Progress RO %)': it.realisasiProgres,
+    'Kolom R (Status Konfirmasi)': it.statusKonfirmasiKppn || 'TERKONFIRMASI',
+    'Kolom Z (Nilai Caput)': it.nilaiKomponenRo,
+    'Kode Referensi SAKTI': it.selectedReferensiSakti || '07',
+    'Uraian Referensi': it.uraianReferensiSakti || '',
     'Template Keterangan SAKTI (Format DJPb)': it.templateKeteranganSakti
   }));
-  const ws3 = XLSX.utils.json_to_sheet(sheet3Data);
-  XLSX.utils.book_append_sheet(wb, ws3, '3. Template SAKTI');
+  const ws2 = XLSX.utils.json_to_sheet(sheet2Data);
+  XLSX.utils.book_append_sheet(wb, ws2, '2. Template SAKTI');
 
-  // Write file & trigger browser download
   const timestamp = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${fileNamePrefix}_${data.summary.kodeSatker}_${timestamp}.xlsx`);
 }
 
 /**
- * Built-in Realistic Demonstration Data (Kemenkeu KPPN Kolaka 156 Cases)
+ * Built-in Demonstration Data
  */
 export function getDemoDiagnostikCaputData(): DiagnostikCaputResult {
   const rawList = [
     {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      kodeProgram: '025.01.WA',
-      namaProgram: 'Program Dukungan Manajemen',
-      kodeKegiatan: '2129',
-      namaKegiatan: 'Penyelenggaraan Bimas Islam',
-      kodeKro: '2129.EBA',
-      namaKro: 'Layanan Pembinaan & Bimbingan Masyarakat',
-      kodeRo: '2129.EBA.994',
-      namaRo: 'Layanan Perkantoran dan Operasional Bimas Islam',
-      volumeTarget: 1,
-      volumeRealisasi: 0,
-      targetProgres: 0,
-      realisasiProgres: 0,
-      paguAnggaran: 1250000000,
-      realisasiAnggaran: 350000000,
-      keteranganSakti: ''
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      kodeProgram: '060.01.WA',
+      namaProgram: 'Program Pemeliharaan Keamanan dan Ketertiban Masyarakat',
+      kodeKegiatan: '5001',
+      namaKegiatan: 'Operasi Kepolisian Terpadu',
+      kodeKro: '5001.EBA',
+      namaKro: 'Layanan Operasional Kepolisian',
+      kodeRo: 'RO-1',
+      namaRo: 'Kerjasama Dalam Negeri',
+      volumeTarget: 7,          // Kolom X: Target RVRO
+      volumeRealisasi: 7,       // Kolom P: Realisasi RO
+      targetProgres: 30.0,      // Kolom Y: Target PCRO
+      realisasiProgres: 27.0,   // Kolom Q: Progress RO
+      statusKonfirmasi: 'TERKONFIRMASI', // Kolom R: Terkonfirmasi (Aman)
+      nilaiCaput: 90.0,         // Kolom Z: Nilai = 90.00
+      paguAnggaran: 77884615,
+      realisasiAnggaran: 7087500,
+      keteranganSakti: '',
+      selectedRefCode: '02'
     },
     {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      kodeProgram: '025.01.WA',
-      namaProgram: 'Program Dukungan Manajemen',
-      kodeKegiatan: '2130',
-      namaKegiatan: 'Peningkatan Kualitas Pendidikan Madrasah',
-      kodeKro: '2130.QDB',
-      namaKro: 'Bantuan Sarana & Prasarana Madrasah',
-      kodeRo: '2130.QDB.001',
-      namaRo: 'Rehabilitasi Ruang Kelas Madrasah Aliyah',
-      volumeTarget: 4,
-      volumeRealisasi: 0,
-      targetProgres: 75.0,
-      realisasiProgres: 5.0,
-      paguAnggaran: 850000000,
-      realisasiAnggaran: 425000000,
-      keteranganSakti: ''
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      kodeProgram: '060.01.WA',
+      namaProgram: 'Program Pemeliharaan Keamanan dan Ketertiban Masyarakat',
+      kodeKegiatan: '5002',
+      namaKegiatan: 'Pengamanan VVIP & VIP',
+      kodeKro: '5002.QDB',
+      namaKro: 'Bantuan Pengamanan Khusus',
+      kodeRo: 'RO-2',
+      namaRo: 'Pengamanan Kontinjensi dan Pengendalian Konflik Sosial',
+      volumeTarget: 1,          // Kolom X: Target RVRO
+      volumeRealisasi: 0,       // Kolom P: Realisasi RO
+      targetProgres: 100.0,     // Kolom Y: Target PCRO
+      realisasiProgres: 55.0,   // Kolom Q: Progress RO
+      statusKonfirmasi: 'TIDAK TERKONFIRMASI', // Kolom R: Perhatian Kritis -> Nilai 0 di MyIntress / lapor KPPN
+      nilaiCaput: 0.0,          // Kolom Z: Nilai = 0.00 karena Tidak Terkonfirmasi
+      paguAnggaran: 120000000,
+      realisasiAnggaran: 45000000,
+      keteranganSakti: '',
+      selectedRefCode: '04'
     },
     {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      kodeProgram: '025.01.WA',
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      kodeProgram: '060.01.WA',
       namaProgram: 'Program Dukungan Manajemen',
-      kodeKegiatan: '2132',
-      namaKegiatan: 'Penyelenggaraan Haji dan Umrah',
-      kodeKro: '2132.EBA',
-      namaKro: 'Layanan Bimbingan Manasik Haji',
-      kodeRo: '2132.EBA.005',
-      namaRo: 'Pelaksanaan Bimbingan Manasik Haji Reguler Kecamatan',
-      volumeTarget: 12,
-      volumeRealisasi: 8,
-      targetProgres: 70.0,
-      realisasiProgres: 45.0,
-      paguAnggaran: 320000000,
-      realisasiAnggaran: 190000000,
-      keteranganSakti: 'Kegiatan manasik sedang berlangsung'
-    },
-    {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      kodeProgram: '025.01.WA',
-      namaProgram: 'Program Dukungan Manajemen',
-      kodeKegiatan: '2135',
-      namaKegiatan: 'Pelayanan Administrasi Kepegawaian & Keuangan',
-      kodeKro: '2135.EBA',
+      kodeKegiatan: '5003',
+      namaKegiatan: 'Pelayanan Perkantoran Biro Operasi',
+      kodeKro: '5003.EBA',
       namaKro: 'Layanan Perkantoran',
-      kodeRo: '2135.EBA.994',
-      namaRo: 'Gaji dan Tunjangan ASN Kemenag Kolaka',
-      volumeTarget: 12,
-      volumeRealisasi: 8,
-      targetProgres: 66.67,
-      realisasiProgres: 66.67,
-      paguAnggaran: 4500000000,
-      realisasiAnggaran: 3000000000,
-      keteranganSakti: 'Realisasi gaji dan tunjangan lancar sampai periode Agustus 2026.'
+      kodeRo: 'RO-3',
+      namaRo: 'Layanan Administrasi Umum dan Ketatausahaan',
+      volumeTarget: 0,          // Kolom X: Target RVRO
+      volumeRealisasi: 0,       // Kolom P: Realisasi RO
+      targetProgres: 58.31,     // Kolom Y: Target PCRO
+      realisasiProgres: 58.31,  // Kolom Q: Progress RO
+      statusKonfirmasi: 'TERKONFIRMASI OTOMATIS',
+      nilaiCaput: 100.0,        // Kolom Z: Nilai = 100.00
+      paguAnggaran: 250000000,
+      realisasiAnggaran: 145775000,
+      keteranganSakti: 'Realisasi operasional berjalan normal sesuai target.',
+      selectedRefCode: '01'
     },
     {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      kodeProgram: '025.01.WA',
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      kodeProgram: '060.01.WA',
+      namaProgram: 'Program Pemeliharaan Keamanan dan Ketertiban Masyarakat',
+      kodeKegiatan: '5004',
+      namaKegiatan: 'Pelaksanaan Patroli Presisi',
+      kodeKro: '5004.EBA',
+      namaKro: 'Patroli Wilayah',
+      kodeRo: 'RO-4',
+      namaRo: 'Patroli Skala Besar Kamseltibcarlantas',
+      volumeTarget: 3,          // Kolom X: Target RVRO
+      volumeRealisasi: 3,       // Kolom P: Realisasi RO
+      targetProgres: 75.0,      // Kolom Y: Target PCRO
+      realisasiProgres: 95.0,   // Kolom Q: Progress RO
+      statusKonfirmasi: 'TERKONFIRMASI',
+      nilaiCaput: 100.0,        // Kolom Z: Nilai = 100.00
+      paguAnggaran: 85000000,
+      realisasiAnggaran: 68000000,
+      keteranganSakti: 'Patroli skala besar terlaksana melampaui target berkala.',
+      selectedRefCode: '01'
+    },
+    {
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      kodeProgram: '060.01.WA',
       namaProgram: 'Program Dukungan Manajemen',
-      kodeKegiatan: '2138',
-      namaKegiatan: 'Pengembangan Kerukunan Umat Beragama',
-      kodeKro: '2138.QDC',
-      namaKro: 'Forum Dialog Kerukunan',
-      kodeRo: '2138.QDC.002',
-      namaRo: 'Sosialisasi Moderasi Beragama Pelajar & Pemuda',
-      volumeTarget: 3,
-      volumeRealisasi: 3,
-      targetProgres: 100.0,
-      realisasiProgres: 100.0,
-      paguAnggaran: 180000000,
-      realisasiAnggaran: 175000000,
-      keteranganSakti: 'Seluruh paket sosialisasi telah selesai 100% dengan BAST lengkap.'
-    },
-    {
-      kodeSatker: '418721',
-      namaSatker: 'KANTOR PERTANAHAN KAB. KOLAKA',
-      kodeProgram: '056.01.WA',
-      namaProgram: 'Pengelolaan Pertanahan dan Tata Ruang',
-      kodeKegiatan: '3410',
-      namaKegiatan: 'Pendaftaran Tanah Sistematis Lengkap (PTSL)',
-      kodeKro: '3410.RAE',
-      namaKro: 'Sertifikasi Hak Atas Tanah Masyarakat',
-      kodeRo: '3410.RAE.001',
-      namaRo: 'Penerbitan Sertipikat Tanah Program PTSL Kolaka',
-      volumeTarget: 1500,
-      volumeRealisasi: 1200,
-      targetProgres: 80.0,
-      realisasiProgres: 80.0,
-      paguAnggaran: 1800000000,
-      realisasiAnggaran: 1440000000,
-      keteranganSakti: 'Realisasi fisik PTSL telah mencapai 80% pengukuran bidang tanah.'
+      kodeKegiatan: '5005',
+      namaKegiatan: 'Pengelolaan Sarana Prasarana Operasi',
+      kodeKro: '5005.QDC',
+      namaKro: 'Sarpras Harkamtibmas',
+      kodeRo: 'RO-5',
+      namaRo: 'Pemeliharaan Alat Komunikasi dan Perangkat Khusus',
+      volumeTarget: 0,          // Kolom X: Target RVRO
+      volumeRealisasi: 0,       // Kolom P: Realisasi RO
+      targetProgres: 58.31,     // Kolom Y: Target PCRO
+      realisasiProgres: 58.31,  // Kolom Q: Progress RO
+      statusKonfirmasi: 'TERKONFIRMASI',
+      nilaiCaput: 100.0,        // Kolom Z: Nilai = 100.00
+      paguAnggaran: 95000000,
+      realisasiAnggaran: 55394500,
+      keteranganSakti: 'Pemeliharaan berkala tuntas sesuai jadwal.',
+      selectedRefCode: '07'
     }
   ];
 
@@ -761,6 +1039,7 @@ export function getDemoDiagnostikCaputData(): DiagnostikCaputResult {
   const roKritisCount = items.filter(it => it.diagnosaSeverity === 'KRITIS').length;
   const roPeringatanCount = items.filter(it => it.diagnosaSeverity === 'PERINGATAN').length;
   const roOptimalCount = items.filter(it => it.diagnosaSeverity === 'OPTIMAL').length;
+  const roUnconfirmedCount = items.filter(it => it.isUnconfirmedKppn).length;
 
   const sumKomponen = items.reduce((acc, it) => acc + it.nilaiKomponenRo, 0);
   const currentScoreCaput = Number((sumKomponen / totalRo).toFixed(2));
@@ -782,34 +1061,20 @@ export function getDemoDiagnostikCaputData(): DiagnostikCaputResult {
 
   const satkerBreakdown: DiagnostikCaputSatkerSummary[] = [
     {
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
-      totalRo: 5,
-      roKritisCount: 2,
-      roPeringatanCount: 1,
-      roOptimalCount: 2,
-      currentScoreCaput: 68.33,
-      projectedScoreCaput: 100.0,
-      avgPCRO: 43.33,
-      avgTPCRO: 62.33,
-      totalPagu: 7100000000,
-      totalRealisasi: 4115000000,
-      persenPenyerapan: 57.96
-    },
-    {
-      kodeSatker: '418721',
-      namaSatker: 'KANTOR PERTANAHAN KAB. KOLAKA',
-      totalRo: 1,
-      roKritisCount: 0,
-      roPeringatanCount: 0,
-      roOptimalCount: 1,
-      currentScoreCaput: 100.0,
-      projectedScoreCaput: 100.0,
-      avgPCRO: 80.0,
-      avgTPCRO: 80.0,
-      totalPagu: 1800000000,
-      totalRealisasi: 1440000000,
-      persenPenyerapan: 80.0
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
+      totalRo,
+      roKritisCount,
+      roPeringatanCount,
+      roOptimalCount,
+      roUnconfirmedCount,
+      currentScoreCaput,
+      projectedScoreCaput,
+      avgPCRO,
+      avgTPCRO,
+      totalPagu,
+      totalRealisasi,
+      persenPenyerapan: persenPenyerapanTotal
     }
   ];
 
@@ -819,6 +1084,7 @@ export function getDemoDiagnostikCaputData(): DiagnostikCaputResult {
       roKritisCount,
       roPeringatanCount,
       roOptimalCount,
+      roUnconfirmedCount,
       currentScoreCaput,
       projectedScoreCaput,
       persenKetercapaianTarget: Number(((avgPCRO / avgTPCRO) * 100).toFixed(2)),
@@ -827,13 +1093,13 @@ export function getDemoDiagnostikCaputData(): DiagnostikCaputResult {
       totalPagu,
       totalRealisasi,
       persenPenyerapanTotal,
-      kodeSatker: '651046',
-      namaSatker: 'KANTOR KEMENTERIAN AGAMA KAB. KOLAKA',
+      kodeSatker: '643131',
+      namaSatker: 'ROOPS POLDA JATENG',
       periode: 'Agustus 2026'
     },
     satkerBreakdown,
     items,
-    uploadedFileName: 'Data_Capaian_Output_Detail_Agustus2026.xlsx',
+    uploadedFileName: 'Detail_Indikator_Kinerja_Detail_Capaian_RO_2026-09-01.xlsx',
     analyzedAt: new Date().toISOString()
   };
 }

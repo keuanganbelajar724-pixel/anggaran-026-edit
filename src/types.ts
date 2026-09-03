@@ -66,6 +66,14 @@ export interface IKPAUploadBatch {
 // -------------------------------------------------------------
 // MODUL DIAGNOSTIK & KALKULATOR CAPAIAN OUTPUT (SI-CAPUT)
 // -------------------------------------------------------------
+export interface SaktiReferensiItem {
+  kode: string; // '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '99'
+  judul: string;
+  kategoriAnomali: 'Capaian Kinerja Terlalu Tinggi' | 'Capaian Kinerja Terlalu Rendah' | 'Anomali Kuantitatif Lainnya' | 'Semua Kondisi Anomali';
+  deskripsiJuknis: string;
+  kondisiPemicu: string;
+}
+
 export interface DiagnostikCaputROItem {
   id: string;
   kodeSatker: string;
@@ -78,23 +86,30 @@ export interface DiagnostikCaputROItem {
   namaKro?: string;
   kodeRo: string;
   namaRo: string;
-  volumeTarget: number;       // TVRO (Target Volume RO)
-  volumeRealisasi: number;    // RVRO (Realisasi Volume RO)
-  targetProgres: number;      // TPCRO (%)
-  realisasiProgres: number;   // PCRO (%)
+  volumeTarget: number;       // TVRO (Target Volume RO - Kolom X)
+  volumeRealisasi: number;    // RVRO (Realisasi Volume RO - Kolom P)
+  targetProgres: number;      // TPCRO (% - Kolom Y)
+  realisasiProgres: number;   // PCRO (% - Kolom Q)
   paguAnggaran?: number;      // Pagu DIPA RO
   realisasiAnggaran?: number; // Realisasi Belanja RO
-  persenPenyerapan?: number;  // % Penyerapan Anggaran
+  persenPenyerapan?: number;  // % Penyerapan Anggaran (PPA)
   polarisasi?: 'MAXIMIZE' | 'MINIMIZE' | 'RANGE';
   keteranganSakti?: string;
+  statusKonfirmasiKppn?: string; // Kolom R: 'TERKONFIRMASI' | 'TIDAK TERKONFIRMASI' | 'BELUM TERKONFIRMASI' | 'TERKONFIRMASI OTOMATIS' | 'MENUNGGU KONFIRMASI' | string
+  isUnconfirmedKppn?: boolean;   // True if Kolom R is unconfirmed (causes score 0 in MyIntress)
   diagnosaSeverity: 'KRITIS' | 'PERINGATAN' | 'OPTIMAL' | 'INFO';
   diagnosaCode: 'TPCRO_PCRO_ZERO' | 'PCRO_BELOW_TPCRO' | 'PCRO_100_RVRO_BELOW_TVRO' | 'TPCRO_GT0_PCRO_ZERO' | 'LAGGING_CAPUT' | 'RVRO_ANOMALY' | 'DEVIATION_HIGH' | 'MISSING_EXPLANATION' | 'UNMATCHED_TARGET' | 'OPTIMAL';
   diagnosaTitle: string;
   diagnosaDescription: string;
   rekomendasiTindakan: string[];
   templateKeteranganSakti: string;
+  selectedReferensiSakti?: string; // '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '99'
+  uraianReferensiSakti?: string;
+  validasiSaktiCode?: '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08';
+  validasiSaktiStatus?: 'Input Ditolak (Wajib Perbaikan)' | 'Input Diterima (Early Warning / Konfirmasi KPPN)' | 'Valid by System';
   gapKinerja: number; // TPCRO - PCRO
-  nilaiKomponenRo: number; // 0 - 100
+  gapPpa: number;     // PCRO - PPA
+  nilaiKomponenRo: number; // 0 - 100 (Kolom Z)
   potensiKenaikanSkor: number;
 }
 
@@ -105,6 +120,7 @@ export interface DiagnostikCaputSatkerSummary {
   roKritisCount: number;
   roPeringatanCount: number;
   roOptimalCount: number;
+  roUnconfirmedCount?: number;
   currentScoreCaput: number;
   projectedScoreCaput: number;
   avgPCRO: number;
@@ -120,6 +136,7 @@ export interface DiagnostikCaputResult {
     roKritisCount: number;
     roPeringatanCount: number;
     roOptimalCount: number;
+    roUnconfirmedCount?: number;
     currentScoreCaput: number;
     projectedScoreCaput: number;
     persenKetercapaianTarget: number;
