@@ -76,11 +76,14 @@ interface BroadcastMasifSectionProps {
   masterSatkers?: MasterSatker[];
   pejabatList?: PejabatSertifikasi[];
   pengelolaanUpRecords?: PengelolaanUPRecord[];
+  transaksiKkpRecords?: TransaksiKKPRecord[];
+  transaksiDigipayRecords?: DigipayRecord[];
   dashboardConfig: DashboardConfig;
   onUpdateDashboardConfig: (config: DashboardConfig) => void;
   isDark?: boolean;
   theme?: AppTheme;
   onNavigateToPerhatian?: () => void;
+  onNavigateToJarkomGrup?: () => void;
   onConsultSatkerWithAI?: (satker: SatkerIKPA) => void;
   onOpenAiTab?: () => void;
   initialTemplateText?: string | null;
@@ -94,11 +97,14 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   masterSatkers = [],
   pejabatList = [],
   pengelolaanUpRecords = [],
+  transaksiKkpRecords = [],
+  transaksiDigipayRecords = [],
   dashboardConfig,
   onUpdateDashboardConfig,
   isDark = false,
   theme,
   onNavigateToPerhatian,
+  onNavigateToJarkomGrup,
   onConsultSatkerWithAI,
   onOpenAiTab,
   initialTemplateText,
@@ -1615,7 +1621,13 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
             <button
               type="button"
-              onClick={() => setBroadcastSubTab('GROUP')}
+              onClick={() => {
+                if (onNavigateToJarkomGrup) {
+                  onNavigateToJarkomGrup();
+                } else {
+                  setBroadcastSubTab('GROUP');
+                }
+              }}
               className={`flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
                 broadcastSubTab === 'GROUP'
                   ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-md ring-2 ring-emerald-500/20'
@@ -1759,10 +1771,16 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
               </div>
               <button
                 type="button"
-                onClick={() => setBroadcastSubTab('GROUP')}
+                onClick={() => {
+                  if (onNavigateToJarkomGrup) {
+                    onNavigateToJarkomGrup();
+                  } else {
+                    setBroadcastSubTab('GROUP');
+                  }
+                }}
                 className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
               >
-                <span>Buka Mode Grup WA 📢</span>
+                <span>Buka Tab Jarkom Grup WA 📢</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -2392,6 +2410,18 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Salin Langsung Pesan Grup WA</span>
                   </button>
+
+                  {onNavigateToJarkomGrup && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToJarkomGrup}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-[11px] flex items-center gap-1.5 shadow-xs cursor-pointer transition-all active:scale-95"
+                      title="Buka Tab Jarkom Grup WA khusus untuk Peringkat Digipay/KKP, Caput, UP/GUP"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Tab Jarkom Grup WA 📢</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -2860,8 +2890,13 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     ) : broadcastSubTab === 'GROUP' ? (
       <BroadcastGroupSection
         satkers={satkers}
+        masterSatkers={masterSatkers}
         pejabatList={pejabatList}
+        pengelolaanUpRecords={pengelolaanUpRecords}
+        transaksiKkpRecords={transaksiKkpRecords}
+        transaksiDigipayRecords={transaksiDigipayRecords}
         dashboardConfig={dashboardConfig}
+        onNavigateToJarkomPribadi={() => setBroadcastSubTab('COMPOSE')}
         isDark={isDark}
         showToast={showToast}
       />

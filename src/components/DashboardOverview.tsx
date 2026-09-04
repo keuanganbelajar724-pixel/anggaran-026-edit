@@ -1,14 +1,15 @@
-import { safeLocalStorageSet } from '../utils/safeStorage';
 import React, { useState, useEffect } from 'react';
 import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme, DeviasiHal3Record } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
 import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
 import { PaginationControl } from './PaginationControl';
-import { DeviasiHal3OverviewWidget } from './DeviasiHal3OverviewWidget';
+import { IkpaAnomalyTrendSection } from './IkpaAnomalyTrendSection';
 import { 
   Building2, 
   TrendingUp, 
+  TrendingDown,
   AlertCircle, 
+  AlertTriangle,
   CheckCircle2, 
   Clock, 
   FileCheck, 
@@ -87,41 +88,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       : 'ALL';
   });
 
-  // Toggle state for Deviasi Hal III DIPA Widget in Dashboard Overview
-  const [showDeviasiWidget, setShowDeviasiWidget] = useState<boolean>(() => {
-    if (dashboardConfig?.showDeviasiHal3Widget !== undefined) {
-      return dashboardConfig.showDeviasiHal3Widget;
-    }
-    try {
-      const saved = localStorage.getItem('kppn_show_deviasi_widget');
-      return saved !== null ? saved === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  // Keep widget state in sync with config updates
-  useEffect(() => {
-    if (dashboardConfig?.showDeviasiHal3Widget !== undefined) {
-      setShowDeviasiWidget(dashboardConfig.showDeviasiHal3Widget);
-    }
-  }, [dashboardConfig?.showDeviasiHal3Widget]);
-
-  const handleToggleDeviasiWidget = (visible: boolean) => {
-    setShowDeviasiWidget(visible);
-    try {
-      safeLocalStorageSet('kppn_show_deviasi_widget', String(visible));
-    } catch (e) {
-      console.warn('Error saving showDeviasiWidget to localStorage:', e);
-    }
-    if (onUpdateDashboardConfig && dashboardConfig) {
-      onUpdateDashboardConfig({
-        ...dashboardConfig,
-        showDeviasiHal3Widget: visible
-      });
-    }
-  };
-
   // Sync defaultFilter when dashboardConfig updates
   useEffect(() => {
     if (dashboardConfig?.defaultFilter && dashboardConfig.defaultFilter !== 'BELUM_OUTPUT') {
@@ -142,6 +108,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // By default, hide/collapse initial diagnostic section ("tampilan pertama sembunyikan")
   const [isDiagnosticExpanded, setIsDiagnosticExpanded] = useState<boolean>(false);
   const [indicatorAnalysisModalData, setIndicatorAnalysisModalData] = useState<IndicatorAnalysisModalData | null>(null);
+
+  // Diagnostic View Mode: 'INDIKATOR' (Evaluasi 8 Indikator) vs 'ANOMALI_TREN' (Radar Anomali & Tren Penurunan)
+  const [diagnosticViewMode, setDiagnosticViewMode] = useState<'INDIKATOR' | 'ANOMALI_TREN'>('INDIKATOR');
 
   // Protected Admin/KPPN Unlock State for Dashboard
   const [isLocallyUnlocked, setIsLocallyUnlocked] = useState<boolean>(() => {
@@ -500,27 +469,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
                 <span>Update Terakhir: <strong className="text-white font-bold">{dashboardConfig?.updateDates?.dashboard || '18 Agustus 2026'}</strong></span>
               </div>
-
-              {/* Deviasi Hal III Widget Quick Toggle in Banner */}
-              <button
-                type="button"
-                onClick={() => handleToggleDeviasiWidget(!showDeviasiWidget)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-xs ${
-                  showDeviasiWidget
-                    ? 'bg-indigo-900/80 text-indigo-200 border-indigo-400/50 hover:bg-indigo-800'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700/80 hover:bg-slate-700 hover:text-slate-200'
-                }`}
-                title={showDeviasiWidget ? 'Klik untuk menonaktifkan Widget Deviasi Hal III di Beranda' : 'Klik untuk mengaktifkan Widget Deviasi Hal III di Beranda'}
-              >
-                {showDeviasiWidget ? <Eye className="w-3.5 h-3.5 text-indigo-400" /> : <EyeOff className="w-3.5 h-3.5 text-slate-400" />}
-                <span>Widget Deviasi Hal III: <strong className={showDeviasiWidget ? 'text-emerald-400' : 'text-slate-400'}>{showDeviasiWidget ? 'AKTIF' : 'NONAKTIF'}</strong></span>
-              </button>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
               {dashboardConfig?.customTexts?.dashboardTitle || 'Monitoring Real-Time IKPA Satker Lingkup KPPN Semarang I'}
             </h2>
             <p className="text-slate-300 text-xs sm:text-sm max-w-3xl leading-relaxed">
-              {dashboardConfig?.customTexts?.dashboardSubtitle || 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA, deteksi dini deviasi Halaman III DIPA, dan percepatan penyelesaian laporan Capaian Output SAKTI.'}
+              {dashboardConfig?.customTexts?.dashboardSubtitle || 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA dan percepatan penyelesaian laporan Capaian Output SAKTI.'}
             </p>
           </div>
 
@@ -809,6 +763,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                 PUSAT ANALISIS &amp; DIAGNOSTIK 8 INDIKATOR IKPA (KPPN SMG I)
               </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isUnlocked) {
+                    setShowUnlockModal(true);
+                  } else {
+                    setDiagnosticViewMode('ANOMALI_TREN');
+                    setIsDiagnosticExpanded(true);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-50 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 hover:scale-105 transition-all cursor-pointer shadow-2xs"
+                title="Buka Radar Monitoring Anomali & Tren Penurunan IKPA"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                <span>Radar Anomali &amp; Tren Penurunan</span>
+              </button>
               <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
                 isUnlocked 
                   ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
@@ -884,8 +854,58 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Diagnostic Body Content (Only rendered when expanded and unlocked) */}
         {isDiagnosticExpanded && isUnlocked && (
         <div className="p-5 sm:p-6 space-y-6 animate-in fade-in duration-200">
-        {/* 7 Indikator IKPA Interactive Selection Grid (Capaian Output dipisah di Dashboard khusus & Detail) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+          {/* Mode Switcher: Evaluasi 8 Indikator vs Radar Anomali & Tren Kinerja */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 w-fit">
+              <button
+                type="button"
+                onClick={() => setDiagnosticViewMode('INDIKATOR')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                  diagnosticViewMode === 'INDIKATOR'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Evaluasi 8 Indikator (Standar)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDiagnosticViewMode('ANOMALI_TREN')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                  diagnosticViewMode === 'ANOMALI_TREN'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+                <span>Radar Anomali &amp; Tren Penurunan</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-800 text-rose-100 dark:bg-rose-200 dark:text-rose-950">
+                  Early Warning
+                </span>
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <span>Periode Aktif: <strong>{currentDisplayPeriodLabel}</strong></span>
+            </div>
+          </div>
+
+          {diagnosticViewMode === 'ANOMALI_TREN' ? (
+            <IkpaAnomalyTrendSection
+              satkers={effectiveSatkers}
+              currentPeriodLabel={currentDisplayPeriodLabel}
+              activeMonth={activeMonthPeriod}
+              isDark={isDark}
+              onSelectSatker={onSelectSatker}
+              onOpenIndicatorAnalysis={setIndicatorAnalysisModalData}
+            />
+          ) : (
+            <div className="space-y-6">
+              {/* 7 Indikator IKPA Interactive Selection Grid (Capaian Output dipisah di Dashboard khusus & Detail) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
           {[
             { key: 'revisiDipa' as const, label: 'Revisi DIPA', bobot: '10%', icon: FileEdit, avg: avgIndicators.revisiDipa },
             { key: 'deviasiHal3Dipa' as const, label: 'Deviasi Hal III', bobot: '10%', icon: BarChart3, avg: avgIndicators.deviasiHal3Dipa },
@@ -1327,19 +1347,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           );
         })()}
+            </div>
+          )}
         </div>
         )}
       </div>
-
-      {/* Modul Radar & Monitoring Deviasi Halaman III DIPA (Toggleable: Aktif / Nonaktif) */}
-      <DeviasiHal3OverviewWidget
-        records={deviasiHal3Records}
-        isVisible={showDeviasiWidget}
-        onToggleVisibility={handleToggleDeviasiWidget}
-        onGoToFullDashboard={onGoToDeviasiHal3}
-        onGoToUpload={onGoToUpload}
-        isDark={isDark}
-      />
 
       {/* Satker Main Table Section */}
       <div className={`rounded-2xl border shadow-xs overflow-hidden ${

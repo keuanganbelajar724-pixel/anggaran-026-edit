@@ -39,6 +39,7 @@ import { UploadSPMPPPSection } from './admin/UploadSPMPPPSection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
+import { BroadcastGroupSection } from './admin/BroadcastGroupSection';
 import { KelolaAduanSatkerSection } from './admin/KelolaAduanSatkerSection';
 import { SlideShowAdminSection } from './admin/SlideShowAdminSection';
 import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
@@ -391,7 +392,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -2916,14 +2917,29 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           onClick={() => setAdminTab('broadcast')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'broadcast'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-rose-500/20'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
           }`}
         >
           <Send className="w-4 h-4 text-rose-600" />
-          <span>11. Broadcast Masif Satker</span>
+          <span>11. Jarkom Pribadi (Japri Pejabat)</span>
           <span className="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Dynamic Mail Merge
+            Japri 1-on-1
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAdminTab('jarkom-grup')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'jarkom-grup'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20 border border-emerald-500 ring-2 ring-emerald-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+          }`}
+        >
+          <MessageSquare className={`w-4 h-4 ${adminTab === 'jarkom-grup' ? 'text-white' : 'text-emerald-600'}`} />
+          <span>12. 📢 Jarkom Grup WA Satker</span>
+          <span className={`${adminTab === 'jarkom-grup' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'} text-[10px] px-2 py-0.5 rounded-full font-bold`}>
+            Peringkat &amp; Rekap Grup
           </span>
         </button>
 
@@ -2936,7 +2952,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <ShieldAlert className="w-4 h-4 text-rose-600" />
-          <span>12. Kelola Aduan &amp; Tiket Satker</span>
+          <span>13. Kelola Aduan &amp; Tiket Satker</span>
           {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length > 0 ? (
             <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">
               {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length} Baru
@@ -2957,7 +2973,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <History className="w-4 h-4 text-purple-600" />
-          <span>13. Log Admin</span>
+          <span>14. Log Admin</span>
           <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
             {activityLogs.length}
           </span>
@@ -2972,7 +2988,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Bot className="w-4 h-4 text-purple-400 animate-pulse shrink-0" />
-          <span>14. Asisten Analis Gemini AI</span>
+          <span>15. Asisten Analis Gemini AI</span>
           <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             ✨ AI Live
           </span>
@@ -2987,7 +3003,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <BookOpen className="w-4 h-4 text-cyan-500 shrink-0" />
-          <span>15. Juknis &amp; Pengetahuan SAKTI</span>
+          <span>16. Juknis &amp; Pengetahuan SAKTI</span>
           <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
             Direktori &amp; Panduan
           </span>
@@ -3002,7 +3018,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Sparkles className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
-          <span>16. Buletin &amp; Warta KPPN Semarang I</span>
+          <span>17. Buletin &amp; Warta KPPN Semarang I</span>
           <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             🎨 Majalah &amp; Canva
           </span>
@@ -3017,7 +3033,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <Database className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
-          <span>17. Monitor Kuota Firebase</span>
+          <span>18. Monitor Kuota Firebase</span>
           <span className="bg-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             ⚡ Spark 50k Reads
           </span>
@@ -8671,13 +8687,15 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         );
       })()}
 
-      {/* Broadcast & Mass Notification Tab */}
+      {/* Broadcast & Mass Notification Tab (Japri Pribadi) */}
       {adminTab === 'broadcast' && (
         <BroadcastMasifSection
           satkers={satkers}
           masterSatkers={masterSatkers}
           pejabatList={pejabatList}
-          pengelolaanUpRecords={dashboardConfig.pengelolaanUpRecords || []}
+          pengelolaanUpRecords={pengelolaanUpRecords.length > 0 ? pengelolaanUpRecords : (dashboardConfig.pengelolaanUpRecords || [])}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
           dashboardConfig={tempConfig}
           onUpdateDashboardConfig={(newCfg) => {
             setTempConfig(newCfg);
@@ -8686,10 +8704,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           isDark={isDark}
           theme={theme}
           onNavigateToPerhatian={() => setAdminTab('perhatian')}
+          onNavigateToJarkomGrup={() => setAdminTab('jarkom-grup')}
           onOpenAiTab={() => setAdminTab('gemini-ai')}
           initialTemplateText={aiGeneratedBroadcastTemplate}
           onClearInitialTemplateText={() => setAiGeneratedBroadcastTemplate(null)}
           addLog={addLog}
+          showToast={(opts) => addToast(opts.message, opts.type)}
+        />
+      )}
+
+      {/* Jarkom Grup WA Satker Tab (Pengumuman Grup WA) */}
+      {adminTab === 'jarkom-grup' && (
+        <BroadcastGroupSection
+          satkers={satkers}
+          masterSatkers={masterSatkers}
+          pejabatList={pejabatList}
+          pengelolaanUpRecords={pengelolaanUpRecords.length > 0 ? pengelolaanUpRecords : (dashboardConfig.pengelolaanUpRecords || [])}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
+          dashboardConfig={tempConfig}
+          onNavigateToJarkomPribadi={() => setAdminTab('broadcast')}
+          isDark={isDark}
           showToast={(opts) => addToast(opts.message, opts.type)}
         />
       )}
