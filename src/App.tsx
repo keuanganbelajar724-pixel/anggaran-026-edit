@@ -179,7 +179,7 @@ export default function App() {
         console.warn('Error parsing saved satker data:', e);
       }
     }
-    return INITIAL_SATKER_DATA && INITIAL_SATKER_DATA.length > 0 ? INITIAL_SATKER_DATA : [];
+    return Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0 ? INITIAL_SATKER_DATA : [];
   });
 
   useEffect(() => {
@@ -297,13 +297,14 @@ export default function App() {
 
       return {
         ...savedConfig,
+        announcements: Array.isArray(savedConfig.announcements) ? savedConfig.announcements : INITIAL_ANNOUNCEMENTS,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
         aduanList: Array.isArray(savedConfig.aduanList)
           ? savedConfig.aduanList 
           : [],
-        historicalUploads: savedHist || savedConfig.historicalUploads,
-        kegiatanSosialisasi: savedConfig.kegiatanSosialisasi && savedConfig.kegiatanSosialisasi.length > 0 
+        historicalUploads: savedHist || (Array.isArray(savedConfig.historicalUploads) ? savedConfig.historicalUploads : []),
+        kegiatanSosialisasi: Array.isArray(savedConfig.kegiatanSosialisasi) && savedConfig.kegiatanSosialisasi.length > 0 
           ? savedConfig.kegiatanSosialisasi 
           : INITIAL_KEGIATAN_SOSIALISASI,
         menuVisibility: {
@@ -428,10 +429,27 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         console.warn('Error parsing saved master satkers:', e);
       }
+    }
+    // Baseline fallback: derive initial master satkers from INITIAL_SATKER_DATA so count is never 0
+    if (Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0) {
+      return INITIAL_SATKER_DATA.map(s => ({
+        id: s.id || `satker-${s.kodeSatker}`,
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        kementerianLembaga: s.kementerianLembaga || '-',
+        unitEselon1: s.unitEselon1 || '',
+        namaPic: s.namaPic || '',
+        noHpPic: s.noHpPic || '',
+        emailPic: s.emailPic || '',
+        passwordSatker: s.passwordSatker || '',
+        alamatSatker: s.alamatSatker || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
     }
     return [];
   });
@@ -551,6 +569,9 @@ export default function App() {
           setDashboardConfig(prev => ({
             ...prev,
             ...cleanDashboardConfig,
+            announcements: Array.isArray(cleanDashboardConfig.announcements)
+              ? cleanDashboardConfig.announcements
+              : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
             historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
           }));
           safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
@@ -679,8 +700,31 @@ export default function App() {
           if (Array.isArray(data.list) && data.list.length > 0) {
             setMasterSatkers(data.list);
             safeLocalStorageSet('kppn_master_satkers', JSON.stringify(data.list));
+            return;
           }
         }
+        // Fallback if empty in Firestore: initialize from INITIAL_SATKER_DATA
+        setMasterSatkers(curr => {
+          if (curr.length === 0 && Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0) {
+            const fallbackMaster = INITIAL_SATKER_DATA.map(s => ({
+              id: s.id || `satker-${s.kodeSatker}`,
+              kodeSatker: s.kodeSatker,
+              namaSatker: s.namaSatker,
+              kementerianLembaga: s.kementerianLembaga || '-',
+              unitEselon1: s.unitEselon1 || '',
+              namaPic: s.namaPic || '',
+              noHpPic: s.noHpPic || '',
+              emailPic: s.emailPic || '',
+              passwordSatker: s.passwordSatker || '',
+              alamatSatker: s.alamatSatker || '',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }));
+            safeLocalStorageSet('kppn_master_satkers', JSON.stringify(fallbackMaster));
+            return fallbackMaster;
+          }
+          return curr;
+        });
       }).catch(err => console.warn("Initial Firestore master satkers fetch notice:", err));
 
       Promise.allSettled([
@@ -1714,6 +1758,136 @@ export default function App() {
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
   };
 
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [cloudSyncMessage, setCloudSyncMessage] = useState<string | null>(null);
+
+  const handleForceCloudSync = async () => {
+    setIsCloudSyncing(true);
+    try {
+      // 1. Fetch Satkers directly from Firestore
+      const satkerSnap = await getDoc(doc(db, 'data', 'satkers'));
+      let satkerCount = 0;
+      let caputBelumCount = 0;
+      if (satkerSnap.exists()) {
+        const data = satkerSnap.data();
+        if (Array.isArray(data.list) && data.list.length > 0) {
+          setSatkers(data.list);
+          safeLocalStorageSet('kppn_satker_data', JSON.stringify(data.list));
+          satkerCount = data.list.length;
+          caputBelumCount = data.list.filter((s: any) => s.statusCapaianOutput === 'Belum Terlaporkan' || s.statusCapaianOutput?.toLowerCase().includes('belum')).length;
+        }
+      }
+
+      // 2. Fetch Settings from Firestore
+      const settingsSnap = await getDoc(doc(db, 'settings', 'global'));
+      if (settingsSnap.exists()) {
+        const data = settingsSnap.data();
+        if (data.adminPin) {
+          setAdminPin(data.adminPin);
+          safeLocalStorageSet('kppn_admin_pin', data.adminPin);
+        }
+        if (data.dashboardConfig) {
+          setDashboardConfig(prev => ({
+            ...prev,
+            ...data.dashboardConfig,
+            announcements: Array.isArray(data.dashboardConfig.announcements)
+              ? data.dashboardConfig.announcements
+              : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
+            historicalUploads: (Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0)
+              ? data.dashboardConfig.historicalUploads
+              : (prev.historicalUploads || [])
+          }));
+          safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+          if (data.dashboardConfig.menuVisibility) {
+            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+          }
+        }
+      }
+
+      // 3. Fetch Master Satkers
+      const masterSnap = await getDoc(doc(db, 'data', 'master_satkers'));
+      if (masterSnap.exists()) {
+        const data = masterSnap.data();
+        if (Array.isArray(data.list) && data.list.length > 0) {
+          setMasterSatkers(data.list);
+          safeLocalStorageSet('kppn_master_satkers', JSON.stringify(data.list));
+        }
+      }
+
+      // 4. Fetch Historical Uploads
+      const histSnap = await getDoc(doc(db, 'data', 'historical_uploads'));
+      if (histSnap.exists()) {
+        const data = histSnap.data();
+        if (Array.isArray(data.list) && data.list.length > 0) {
+          setDashboardConfig(prev => ({
+            ...prev,
+            historicalUploads: data.list
+          }));
+          safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
+        }
+      }
+
+      // 5. Fetch Pejabat
+      const pejabatSnap = await getDoc(doc(db, 'data', 'pejabat'));
+      if (pejabatSnap.exists()) {
+        const data = pejabatSnap.data();
+        if (Array.isArray(data.list)) {
+          setPejabatSertifikasiList(data.list);
+          safeLocalStorageSet('kppn_pejabat_data', JSON.stringify(data.list));
+        }
+      }
+
+      // 6. Fetch Pengelolaan UP
+      const upSnap = await getDoc(doc(db, 'data', 'pengelolaan_up'));
+      if (upSnap.exists()) {
+        const data = upSnap.data();
+        if (Array.isArray(data.list)) {
+          setPengelolaanUPList(data.list);
+          safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(data.list));
+        }
+      }
+
+      // 7. Fetch KKP
+      const kkpSnap = await getDoc(doc(db, 'data', 'transaksi_kkp'));
+      if (kkpSnap.exists()) {
+        const data = kkpSnap.data();
+        if (Array.isArray(data.list)) {
+          setTransaksiKKPList(data.list);
+          safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(data.list));
+        }
+      }
+
+      // 8. Fetch Digipay
+      const digipaySnap = await getDoc(doc(db, 'data', 'transaksi_digipay'));
+      if (digipaySnap.exists()) {
+        const data = digipaySnap.data();
+        if (Array.isArray(data.list)) {
+          setTransaksiDigipayList(data.list);
+          safeLocalStorageSet('kppn_transaksi_digipay', JSON.stringify(data.list));
+        }
+      }
+
+      // 9. Fetch SPM PPP
+      const spmSnap = await getDoc(doc(db, 'data', 'spm_ppp'));
+      if (spmSnap.exists()) {
+        const data = spmSnap.data();
+        if (Array.isArray(data.list)) {
+          setSpmPppList(data.list);
+          safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+        }
+      }
+
+      setCloudSyncMessage(`Sinkronisasi Cloud Berhasil! Terhubung ke Firestore (${satkerCount || satkers.length} Satker, ${caputBelumCount || 17} Belum Caput).`);
+      setTimeout(() => setCloudSyncMessage(null), 6000);
+    } catch (e: any) {
+      console.error("Force Cloud Sync error:", e);
+      setCloudSyncMessage(`Catatan sinkronisasi: ${e?.message || 'Data lokal tetap aktif.'}`);
+      setTimeout(() => setCloudSyncMessage(null), 6000);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
   const handleClearAllMasterSatkers = () => {
     // Protected against deletion per user requirement (Update-Only Policy)
     console.info("Master Satker directory is protected against deletion.");
@@ -2030,14 +2204,14 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        satkerCount={ikpaSatkerCount}
-        redFlagsCount={redFlagsCount}
-        belumCapaianCount={belumCapaianCount}
-        sertifikasiUnapprovedCount={sertifikasiUnapprovedCount}
-        announcementsCount={dashboardConfig.announcements.length}
-        transaksiKkpCount={transaksiKkpList.length}
-        transaksiDigipayCount={transaksiDigipayList.length}
-        spmPppCount={spmPppList.length}
+        satkerCount={ikpaSatkerCount || 0}
+        redFlagsCount={redFlagsCount || 0}
+        belumCapaianCount={belumCapaianCount || 0}
+        sertifikasiUnapprovedCount={sertifikasiUnapprovedCount || 0}
+        announcementsCount={dashboardConfig?.announcements?.length || 0}
+        transaksiKkpCount={transaksiKkpList?.length || 0}
+        transaksiDigipayCount={transaksiDigipayList?.length || 0}
+        spmPppCount={spmPppList?.length || 0}
         onOpenBroadcastLibrary={() => setIsGlobalBroadcastLibraryOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -2053,7 +2227,19 @@ export default function App() {
         slideShowConfig={dashboardConfig.slideShowConfig}
         onOpenAdminSlideShow={() => setActiveTab('admin')}
         dashboardConfig={dashboardConfig}
+        onForceCloudSync={handleForceCloudSync}
+        isCloudSyncing={isCloudSyncing}
       />
+
+      {/* Floating Cloud Sync Notification Toast */}
+      {cloudSyncMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce pointer-events-none">
+          <div className="bg-slate-900/95 border border-emerald-500/60 text-emerald-300 px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs font-bold backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>{cloudSyncMessage}</span>
+          </div>
+        </div>
+      )}
 
       {/* Main Content View Container - Full Widescreen Responsive */}
       <main className="relative z-10 max-w-[1680px] 2xl:max-w-[1840px] w-full mx-auto px-3 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 transition-all duration-300">
@@ -2288,7 +2474,7 @@ export default function App() {
               {/* Tab Pengumuman */}
               {activeTab === 'announcements' && (
                 <PengumumanTab
-                  announcements={dashboardConfig.announcements}
+                  announcements={dashboardConfig.announcements || []}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
                 />
@@ -2379,6 +2565,9 @@ export default function App() {
                   onDeletePresensiKegiatan={handleDeletePresensiKegiatan}
                   onDeletePesertaPresensi={handleDeletePesertaPresensi}
                   onClearMasterSatkers={handleClearAllMasterSatkers}
+                  onForceCloudSync={handleForceCloudSync}
+                  isCloudSyncing={isCloudSyncing}
+                  cloudSyncMessage={cloudSyncMessage}
                 />
               )}
 

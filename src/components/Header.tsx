@@ -35,7 +35,8 @@ import {
   ChevronRight,
   Clock,
   Radio,
-  Smartphone
+  Smartphone,
+  RefreshCw
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -70,6 +71,8 @@ interface HeaderProps {
   slideShowConfig?: SlideShowConfig;
   onOpenAdminSlideShow?: () => void;
   dashboardConfig?: DashboardConfig;
+  onForceCloudSync?: () => void;
+  isCloudSyncing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -98,7 +101,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenBroadcastLibrary,
   slideShowConfig,
   onOpenAdminSlideShow,
-  dashboardConfig
+  dashboardConfig,
+  onForceCloudSync,
+  isCloudSyncing = false
 }) => {
   const isDark = theme === 'dark';
   const themeSettings = dashboardConfig?.themeSettings;
@@ -521,6 +526,20 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">App Android</span>
               <span className="sm:hidden text-[10px]">App</span>
             </button>
+
+            {/* Force Cloud Sync Button */}
+            {onForceCloudSync && (
+              <button
+                type="button"
+                onClick={onForceCloudSync}
+                disabled={isCloudSyncing}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95 disabled:opacity-50"
+                title="Sinkronkan data dengan Firebase Firestore Cloud Database"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden lg:inline">{isCloudSyncing ? 'Sinkron...' : 'Sinkron Cloud'}</span>
+              </button>
+            )}
 
             {/* Template Broadcast Quick Access (Admin Only) */}
             {isAdminAuthenticated && onOpenBroadcastLibrary && (

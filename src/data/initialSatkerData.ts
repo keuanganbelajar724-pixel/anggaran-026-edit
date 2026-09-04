@@ -1,4 +1,17 @@
 import { SatkerIKPA, IKPAPredikat } from "../types";
+import rawSatkersBaseline from './satkersBaseline.json';
+
+const baselineArray: any[] = Array.isArray(rawSatkersBaseline)
+  ? rawSatkersBaseline
+  : ((rawSatkersBaseline as any)?.default && Array.isArray((rawSatkersBaseline as any).default))
+    ? (rawSatkersBaseline as any).default
+    : [];
+
+export const INITIAL_SATKER_DATA: SatkerIKPA[] = baselineArray.map((s: any) => ({
+  ...s,
+  hasIKPAData: typeof s.hasIKPAData === 'boolean' ? s.hasIKPAData : true,
+  hasCapaianOutputData: typeof s.hasCapaianOutputData === 'boolean' ? s.hasCapaianOutputData : true,
+})) as SatkerIKPA[];
 
 export function getPredikatIKPA(nilai: number): IKPAPredikat {
   const n = Number.isFinite(nilai) ? nilai : 0;
@@ -31,16 +44,6 @@ export function hitungTotalIKPA(indikator: SatkerIKPA["indikator"]): number {
     
   return Number.isFinite(total) ? Number(total.toFixed(2)) : 0;
 }
-
-import rawSatkersBaseline from './satkersBaseline.json';
-
-export const INITIAL_SATKER_DATA: SatkerIKPA[] = Array.isArray(rawSatkersBaseline)
-  ? (rawSatkersBaseline as any[]).map(s => ({
-      ...s,
-      hasIKPAData: typeof s.hasIKPAData === 'boolean' ? s.hasIKPAData : true,
-      hasCapaianOutputData: typeof s.hasCapaianOutputData === 'boolean' ? s.hasCapaianOutputData : true,
-    })) as SatkerIKPA[]
-  : [];
 
 export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] {
   if (!Array.isArray(histories) || histories.length === 0) return [];

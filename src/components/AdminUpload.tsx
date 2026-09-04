@@ -209,6 +209,9 @@ interface AdminUploadProps {
   onApplySPMPPP?: (records: SPMPPPRecord[]) => void;
   onClearSPMPPP?: () => void;
   onClearMasterSatkers?: () => void;
+  onForceCloudSync?: () => void;
+  isCloudSyncing?: boolean;
+  cloudSyncMessage?: string | null;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -387,7 +390,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   spmPppRecords = [],
   onApplySPMPPP,
   onClearSPMPPP,
-  onClearMasterSatkers
+  onClearMasterSatkers,
+  onForceCloudSync,
+  isCloudSyncing = false,
+  cloudSyncMessage = null
 }) => {
   const isDark = theme === 'dark';
 
@@ -2738,9 +2744,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
             Pusat kendali penuh KPPN Semarang I: Pengolahan file Excel SAKTI mentah, broadcast WhatsApp pejabat, pengelolaan riwayat arsip, penerbitan pengumuman, serta kunci visibilitas menu Satker.
           </p>
+          {cloudSyncMessage && (
+            <div className="mt-2.5 inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-200 px-3.5 py-1.5 rounded-xl text-xs font-bold animate-fadeIn">
+              <Activity className="w-4 h-4 text-emerald-400" />
+              <span>{cloudSyncMessage}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0 relative z-10">
+          {onForceCloudSync && (
+            <button
+              onClick={onForceCloudSync}
+              disabled={isCloudSyncing}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95 border border-emerald-400/40"
+              title="Tarik data terbaru dari Firebase Cloud Database untuk menyelaraskan dengan semua perangkat"
+            >
+              <RefreshCw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Sinkronkan Cloud'}</span>
+            </button>
+          )}
+
           <button
             onClick={downloadExcelTemplate}
             className="bg-sky-500 hover:bg-sky-400 text-slate-950 font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer"
