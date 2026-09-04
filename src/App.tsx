@@ -559,22 +559,30 @@ export default function App() {
           safeLocalStorageSet('kppn_admin_pin', data.adminPin);
         }
         if (data.dashboardConfig) {
+          const incomingSlideShow = data.dashboardConfig.slideShowConfig
+            ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+            : undefined;
           const cleanDashboardConfig = {
             ...data.dashboardConfig,
-            slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+            slideShowConfig: incomingSlideShow
           };
           if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
             cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
           }
-          setDashboardConfig(prev => ({
-            ...prev,
-            ...cleanDashboardConfig,
-            announcements: Array.isArray(cleanDashboardConfig.announcements)
-              ? cleanDashboardConfig.announcements
-              : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
-            historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
-          }));
-          safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+          setDashboardConfig(prev => {
+            const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+            const updated = {
+              ...prev,
+              ...cleanDashboardConfig,
+              slideShowConfig: mergedSlideShow,
+              announcements: Array.isArray(cleanDashboardConfig.announcements)
+                ? cleanDashboardConfig.announcements
+                : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
+              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+            };
+            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
+            return updated;
+          });
           if (cleanDashboardConfig.menuVisibility) {
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
           }
@@ -877,19 +885,27 @@ export default function App() {
             safeLocalStorageSet('kppn_admin_pin', data.adminPin);
           }
           if (data.dashboardConfig) {
+            const incomingSlideShow = data.dashboardConfig.slideShowConfig
+              ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+              : undefined;
             const cleanDashboardConfig = {
               ...data.dashboardConfig,
-              slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+              slideShowConfig: incomingSlideShow
             };
             if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
               cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
             }
-            setDashboardConfig(prev => ({
-              ...prev,
-              ...cleanDashboardConfig,
-              historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
-            }));
-            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+            setDashboardConfig(prev => {
+              const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+              const updated = {
+                ...prev,
+                ...cleanDashboardConfig,
+                slideShowConfig: mergedSlideShow,
+                historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
+              };
+              safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
+              return updated;
+            });
             if (cleanDashboardConfig.menuVisibility) {
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
             }
@@ -1787,17 +1803,25 @@ export default function App() {
           safeLocalStorageSet('kppn_admin_pin', data.adminPin);
         }
         if (data.dashboardConfig) {
-          setDashboardConfig(prev => ({
-            ...prev,
-            ...data.dashboardConfig,
-            announcements: Array.isArray(data.dashboardConfig.announcements)
-              ? data.dashboardConfig.announcements
-              : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
-            historicalUploads: (Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0)
-              ? data.dashboardConfig.historicalUploads
-              : (prev.historicalUploads || [])
-          }));
-          safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(data.dashboardConfig));
+          const incomingSlideShow = data.dashboardConfig.slideShowConfig
+            ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+            : undefined;
+          setDashboardConfig(prev => {
+            const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+            const updated = {
+              ...prev,
+              ...data.dashboardConfig,
+              slideShowConfig: mergedSlideShow,
+              announcements: Array.isArray(data.dashboardConfig.announcements)
+                ? data.dashboardConfig.announcements
+                : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
+              historicalUploads: (Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0)
+                ? data.dashboardConfig.historicalUploads
+                : (prev.historicalUploads || [])
+            };
+            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
+            return updated;
+          });
           if (data.dashboardConfig.menuVisibility) {
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
           }

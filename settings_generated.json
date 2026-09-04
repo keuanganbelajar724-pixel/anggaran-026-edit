@@ -24,6 +24,50 @@
       "guide": false
     },
     "defaultActiveTab": "capaian-output",
+    "slideShowConfig": {
+      "isEnabled": true,
+      "autoPlay": true,
+      "intervalSeconds": 6,
+      "aspectRatioMode": "responsive",
+      "showOnTabs": ["ALL"],
+      "pauseOnHover": true,
+      "slides": [
+        {
+          "id": "slide-1787504389920",
+          "title": "",
+          "subtitle": "",
+          "badge": "",
+          "imageUrl": "https://lh3.googleusercontent.com/d/1-A24n4dOjL5SkhPcuFHhsTF929lN476O",
+          "imageFit": "contain",
+          "eventDate": "",
+          "eventTime": "",
+          "eventLocation": "",
+          "linkUrl": "",
+          "linkLabel": "Buka Tautan / Gabung Acara",
+          "targetTabs": ["ALL"],
+          "isActive": true,
+          "order": 1,
+          "createdAt": "2026-08-23T16:59:49.920Z"
+        },
+        {
+          "id": "slide-1787504452222",
+          "title": "",
+          "subtitle": "",
+          "badge": "",
+          "imageUrl": "https://lh3.googleusercontent.com/d/1uzQOR8nfAITnObIYEYzD3bGMZPoSiJjJ",
+          "imageFit": "contain",
+          "eventDate": "",
+          "eventTime": "",
+          "eventLocation": "",
+          "linkUrl": "",
+          "linkLabel": "Buka Tautan / Gabung Acara",
+          "targetTabs": ["ALL"],
+          "isActive": true,
+          "order": 2,
+          "createdAt": "2026-08-23T17:00:52.222Z"
+        }
+      ]
+    },
     "updatedAt": "2026-09-04T06:30:00.000Z"
   }
 }
