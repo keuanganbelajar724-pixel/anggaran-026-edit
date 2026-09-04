@@ -156,7 +156,7 @@ export default function App() {
         console.warn('Error parsing saved satker data:', e);
       }
     }
-    return []; // Default empty (0 satker, no dummy data)
+    return INITIAL_SATKER_DATA && INITIAL_SATKER_DATA.length > 0 ? INITIAL_SATKER_DATA : [];
   });
 
   useEffect(() => {
@@ -554,9 +554,39 @@ export default function App() {
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               return merged;
             });
+            return;
           }
         }
-      }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
+        // Fallback to server API if Firestore empty or quota exceeded
+        fetch('/api/data/satkers')
+          .then(res => res.json())
+          .then(apiData => {
+            if (!isMounted) return;
+            if (apiData && Array.isArray(apiData.list) && apiData.list.length > 0) {
+              setSatkers(currentLocal => {
+                const merged = mergeSatkersAntiDowngrade(apiData.list, currentLocal);
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                return merged;
+              });
+            }
+          })
+          .catch(e => console.warn('API satkers fallback notice:', e));
+      }).catch(err => {
+        console.warn("Initial Firestore satkers fetch notice:", err);
+        fetch('/api/data/satkers')
+          .then(res => res.json())
+          .then(apiData => {
+            if (!isMounted) return;
+            if (apiData && Array.isArray(apiData.list) && apiData.list.length > 0) {
+              setSatkers(currentLocal => {
+                const merged = mergeSatkersAntiDowngrade(apiData.list, currentLocal);
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                return merged;
+              });
+            }
+          })
+          .catch(e => console.warn('API satkers fallback notice:', e));
+      });
 
       // Separate dedicated document for historical archives
       const fetchHistoricalUploads = getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
@@ -1002,6 +1032,13 @@ export default function App() {
       const compacted = compactSatkersForFirestore(newList);
       setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true })
         .catch(err => console.warn("Error syncing satkers to Firebase:", err));
+
+      // Dual-sync to server-side backup API
+      fetch('/api/data/satkers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ list: compacted }),
+      }).catch(err => console.warn("Error syncing satkers to server API:", err));
     } catch (e) {
       console.warn("Error syncing satkers to Firebase:", e);
     }

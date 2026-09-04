@@ -2,6 +2,8 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   getFirestore, 
   initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   memoryLocalCache,
   doc, 
   getDoc as rawGetDoc, 
@@ -22,13 +24,23 @@ emergencyPruneStorage();
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with memoryLocalCache for fast multi-tab and multi-device real-time sync
+// Initialize Firestore with persistentLocalCache to prevent unnecessary network reads & respect quota limits
 let firestoreDb: any;
 try {
+  let cacheConfig: any;
+  try {
+    cacheConfig = persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    });
+  } catch (err) {
+    console.warn("Persistent cache fallback to memory cache:", err);
+    cacheConfig = memoryLocalCache();
+  }
+
   firestoreDb = initializeFirestore(
     app,
     {
-      localCache: memoryLocalCache(),
+      localCache: cacheConfig,
       experimentalAutoDetectLongPolling: true,
     },
     firebaseConfig.firestoreDatabaseId || undefined

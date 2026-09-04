@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
@@ -39,6 +40,43 @@ async function startServer() {
       timestamp: new Date().toISOString(),
       server: 'ANGKASA KPPN Semarang I Core Server',
     });
+  });
+
+  // Load initial baseline satkers if available
+  let inMemorySatkers: any[] = [];
+  try {
+    const jsonPath = path.join(process.cwd(), 'satkers_generated.json');
+    if (fs.existsSync(jsonPath)) {
+      inMemorySatkers = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not load satkers_generated.json on server start:', e);
+  }
+
+  // High-availability satker data endpoints to safeguard against Firestore rate limits
+  app.get('/api/data/satkers', (_req, res) => {
+    res.json({
+      status: 'ok',
+      count: inMemorySatkers.length,
+      list: inMemorySatkers,
+    });
+  });
+
+  app.post('/api/data/satkers', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list) && list.length > 0) {
+        inMemorySatkers = list;
+        const jsonPath = path.join(process.cwd(), 'satkers_generated.json');
+        fs.writeFile(jsonPath, JSON.stringify(list, null, 2), (err) => {
+          if (err) console.warn('Server disk backup notice:', err);
+        });
+        return res.json({ status: 'ok', saved: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid list payload' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
   });
 
   // Supported and fallback models according to official @google/genai specification

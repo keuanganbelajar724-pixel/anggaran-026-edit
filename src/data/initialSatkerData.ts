@@ -32,7 +32,15 @@ export function hitungTotalIKPA(indikator: SatkerIKPA["indikator"]): number {
   return Number.isFinite(total) ? Number(total.toFixed(2)) : 0;
 }
 
-export const INITIAL_SATKER_DATA: SatkerIKPA[] = [];
+import rawSatkersBaseline from './satkersBaseline.json';
+
+export const INITIAL_SATKER_DATA: SatkerIKPA[] = Array.isArray(rawSatkersBaseline)
+  ? (rawSatkersBaseline as any[]).map(s => ({
+      ...s,
+      hasIKPAData: typeof s.hasIKPAData === 'boolean' ? s.hasIKPAData : true,
+      hasCapaianOutputData: typeof s.hasCapaianOutputData === 'boolean' ? s.hasCapaianOutputData : true,
+    })) as SatkerIKPA[]
+  : [];
 
 export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] {
   if (!Array.isArray(histories) || histories.length === 0) return [];
