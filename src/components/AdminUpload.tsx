@@ -4407,7 +4407,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
                     <textarea
                       rows={2}
-                      value={tempConfig.customTexts?.dashboardSubtitle || 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA, deteksi dini deviasi Halaman III DIPA, dan percepatan penyelesaian laporan Capaian Output SAKTI.'}
+                      value={tempConfig.customTexts?.dashboardSubtitle || 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA dan percepatan penyelesaian laporan Capaian Output SAKTI.'}
                       onChange={(e) => setTempConfig(prev => ({
                         ...prev,
                         customTexts: { ...prev.customTexts, dashboardSubtitle: e.target.value }

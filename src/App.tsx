@@ -166,7 +166,32 @@ export default function App() {
       console.warn('Error saving satker data to localStorage:', e);
     }
   }, [satkers]);
-  const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<NavigationTab>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        if (window.location.hash) {
+          const h = window.location.hash.replace('#', '').trim() as NavigationTab;
+          if (h) return h;
+        }
+        if (window.location.search) {
+          const p = new URLSearchParams(window.location.search);
+          const t = p.get('tab') as NavigationTab;
+          if (t) return t;
+        }
+        const saved = localStorage.getItem('kppn_active_tab') as NavigationTab;
+        if (saved) return saved;
+      }
+    } catch (e) {}
+    return 'dashboard';
+  });
+
+  useEffect(() => {
+    try {
+      if (activeTab && activeTab !== 'admin') {
+        localStorage.setItem('kppn_active_tab', activeTab);
+      }
+    } catch (e) {}
+  }, [activeTab]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [theme, setTheme] = useState<AppTheme>('light');
 
@@ -225,6 +250,10 @@ export default function App() {
         }
       } catch (e) {
         console.warn('Error reading kppn_presensi_print_config', e);
+      }
+
+      if (savedConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
+        savedConfig.customTexts.dashboardSubtitle = savedConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
       }
 
       return {
@@ -318,7 +347,7 @@ export default function App() {
     customTexts: {
       dashboardBadge: 'Sistem Pembina Keuangan & Monitoring IKPA KPPN Semarang I',
       dashboardTitle: 'Monitoring Real-Time IKPA Satker Lingkup KPPN Semarang I',
-      dashboardSubtitle: 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA, deteksi dini deviasi Halaman III DIPA, dan percepatan penyelesaian laporan Capaian Output SAKTI.',
+      dashboardSubtitle: 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA dan percepatan penyelesaian laporan Capaian Output SAKTI.',
 
       capaianOutputBadge: 'Monitoring SAKTI Real-Time • KPPN Semarang I (026)',
       capaianOutputTitle: 'Dashboard Khusus Capaian Output SAKTI',
@@ -473,14 +502,19 @@ export default function App() {
 
   // Real-time Firebase Sync for Satkers, Pejabat, UP/TUP, KKP & Global Settings
   useEffect(() => {
-    // Failsafe timeout for initial syncing splash screen
+    let isMounted = true;
+
+    // Failsafe timeout for initial syncing splash screen (increased from 900ms to 4500ms for slow cold-start connections)
     const syncTimeout = setTimeout(() => {
-      setIsInitialSyncing(false);
-    }, 900);
+      if (isMounted) {
+        setIsInitialSyncing(false);
+      }
+    }, 4500);
 
     try {
       // 1. Initial Fetch from Firestore to ensure fresh data
       const fetchSettings = getDoc(doc(db, 'settings', 'global')).then(snap => {
+        if (!isMounted) return;
         if (snap.exists()) {
           const data = snap.data();
           if (data.adminPin) {
@@ -492,6 +526,9 @@ export default function App() {
               ...data.dashboardConfig,
               slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
             };
+            if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
+              cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
+            }
             setDashboardConfig(prev => ({
               ...prev,
               ...cleanDashboardConfig,
@@ -508,9 +545,10 @@ export default function App() {
       const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
 
       const fetchSatkers = getDoc(doc(db, 'data', 'satkers')).then(snap => {
+        if (!isMounted) return;
         if (snap.exists()) {
           const data = snap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
@@ -520,13 +558,9 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore satkers fetch notice:", err));
 
-      Promise.allSettled([fetchSettings, fetchSatkers, fetchGeminiConfig]).then(() => {
-        setIsInitialSyncing(false);
-        clearTimeout(syncTimeout);
-      });
-
       // Separate dedicated document for historical archives
-      getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
+      const fetchHistoricalUploads = getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
+        if (!isMounted) return;
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list)) {
@@ -537,9 +571,63 @@ export default function App() {
                 historicalUploads: data.list
               };
             });
+
+            // If satkers is currently empty, reconstruct from historical archives
+            setSatkers(curr => {
+              if (curr.length === 0 && data.list.length > 0) {
+                const reconstructed = mergeHistoricalUploadsToSatkers(data.list);
+                if (reconstructed.length > 0) {
+                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
+                  return reconstructed;
+                }
+              }
+              return curr;
+            });
           }
         }
       }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
+
+      const fetchMasterSatkers = getDoc(doc(db, 'data', 'master_satkers')).then(snap => {
+        if (!isMounted) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setMasterSatkers(data.list);
+            safeLocalStorageSet('kppn_master_satkers', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore master satkers fetch notice:", err));
+
+      Promise.allSettled([
+        fetchSettings, 
+        fetchSatkers, 
+        fetchHistoricalUploads, 
+        fetchMasterSatkers, 
+        fetchGeminiConfig
+      ]).then(() => {
+        if (!isMounted) return;
+        clearTimeout(syncTimeout);
+
+        // Smart route: if landing on default 'dashboard' tab and current active satkers only contains Capaian Output
+        // (0 IKPA satker, but > 0 Capaian Output satkers), automatically navigate to 'capaian-output'
+        setSatkers(currentSatkers => {
+          try {
+            const hasExplicitHashOrParam = typeof window !== 'undefined' && (window.location.hash || window.location.search);
+            const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_active_tab') : null;
+
+            if (!hasExplicitHashOrParam && (!savedTab || savedTab === 'dashboard')) {
+              const ikpaCount = currentSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
+              const caputCount = currentSatkers.filter(s => s.hasCapaianOutputData === true).length;
+              if (ikpaCount === 0 && caputCount > 0) {
+                setActiveTab('capaian-output');
+              }
+            }
+          } catch (e) {}
+          return currentSatkers;
+        });
+
+        setIsInitialSyncing(false);
+      });
 
       getDoc(doc(db, 'data', 'pejabat')).then(snap => {
         if (snap.exists()) {
@@ -664,6 +752,9 @@ export default function App() {
               ...data.dashboardConfig,
               slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
             };
+            if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
+              cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
+            }
             setDashboardConfig(prev => ({
               ...prev,
               ...cleanDashboardConfig,
@@ -691,6 +782,18 @@ export default function App() {
                 historicalUploads: data.list
               };
             });
+
+            // If satkers is empty, reconstruct from historical archives
+            setSatkers(curr => {
+              if (curr.length === 0 && data.list.length > 0) {
+                const reconstructed = mergeHistoricalUploadsToSatkers(data.list);
+                if (reconstructed.length > 0) {
+                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
+                  return reconstructed;
+                }
+              }
+              return curr;
+            });
           }
         }
       }, (error) => {
@@ -701,10 +804,20 @@ export default function App() {
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list)) {
+          if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+
+              // If this was a cold first load on 'dashboard' with only Capaian Output present
+              if (currentLocal.length === 0 && (!localStorage.getItem('kppn_active_tab') || localStorage.getItem('kppn_active_tab') === 'dashboard')) {
+                const ikpaCount = merged.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
+                const caputCount = merged.filter(s => s.hasCapaianOutputData === true).length;
+                if (ikpaCount === 0 && caputCount > 0) {
+                  setActiveTab('capaian-output');
+                }
+              }
+
               return merged;
             });
           }
