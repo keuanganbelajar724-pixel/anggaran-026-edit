@@ -115,6 +115,90 @@ async function startServer() {
     }
   });
 
+  // Dedicated historical upload archive endpoints for robust fallback
+  app.get('/api/data/historical_uploads', (_req, res) => {
+    const list = inMemorySettings?.dashboardConfig?.historicalUploads || inMemorySettings?.historicalUploads || [];
+    res.json({
+      status: 'ok',
+      count: Array.isArray(list) ? list.length : 0,
+      list: Array.isArray(list) ? list : [],
+    });
+  });
+
+  app.post('/api/data/historical_uploads', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list)) {
+        inMemorySettings = {
+          ...(inMemorySettings || {}),
+          historicalUploads: list,
+          dashboardConfig: {
+            ...(inMemorySettings?.dashboardConfig || {}),
+            historicalUploads: list,
+          },
+          updatedAt: new Date().toISOString(),
+        };
+        const settingsPath = path.join(process.cwd(), 'settings_generated.json');
+        fs.writeFile(settingsPath, JSON.stringify(inMemorySettings, null, 2), (err) => {
+          if (err) console.warn('Server disk backup historical uploads notice:', err);
+        });
+        return res.json({ status: 'ok', count: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid list payload' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // Proxy image endpoint to safely serve Google Drive / external banner images without Referrer / iframe blocking
+  app.get('/api/proxy-image', async (req, res) => {
+    const rawUrl = req.query.url as string;
+    if (!rawUrl) {
+      return res.status(400).send('URL query parameter required');
+    }
+    try {
+      let targetUrl = rawUrl;
+      const driveMatch = rawUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i) || rawUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/i) || rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/i);
+      if (driveMatch && driveMatch[1]) {
+        targetUrl = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+      }
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        }
+      });
+
+      if (!response.ok) {
+        if (driveMatch && driveMatch[1]) {
+          const fallbackRes = await fetch(`https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1920`, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            }
+          });
+          if (fallbackRes.ok) {
+            const buffer = await fallbackRes.arrayBuffer();
+            const contentType = fallbackRes.headers.get('content-type') || 'image/jpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+            return res.send(Buffer.from(buffer));
+          }
+        }
+        return res.status(response.status).send('Failed to fetch image');
+      }
+
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const buffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.send(Buffer.from(buffer));
+    } catch (err: any) {
+      console.warn('Proxy image error:', err);
+      return res.status(500).send('Error proxying image');
+    }
+  });
+
   // Supported and fallback models according to official @google/genai specification
   const FALLBACK_MODELS = [
     'gemini-3.7-flash',

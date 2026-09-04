@@ -207,21 +207,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           }
         });
       }
+      if (s.hasIKPAData !== false && s.nilaiTotalIKPA > 0 && s.periodeUpdate && !s.periodeUpdate.toLowerCase().includes('capaian')) {
+        const match = ALL_MONTHS_LIST.find(m => s.periodeUpdate.toLowerCase().includes(m.toLowerCase()));
+        if (match) set.add(match);
+      }
     });
 
-    // Jika belum ada di riwayat, cari dari periode IKPA
-    if (set.size === 0) {
-      satkersWithIKPA.forEach(s => {
-        if (s.hasIKPAData === true && s.periodeUpdate && !s.periodeUpdate.toLowerCase().includes('capaian')) {
-          const match = ALL_MONTHS_LIST.find(m => s.periodeUpdate.toLowerCase().includes(m.toLowerCase()));
-          if (match) set.add(match);
-        }
-      });
-    }
+    (dashboardConfig?.historicalUploads || []).forEach(h => {
+      if (!h.category || h.category === 'IKPA') {
+        const match = ALL_MONTHS_LIST.find(m => (h.periode || '').toLowerCase().includes(m.toLowerCase()));
+        if (match) set.add(match);
+      }
+    });
 
     const res = ALL_MONTHS_LIST.filter(m => set.has(m));
-    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'];
-  }, [satkersWithIKPA]);
+    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus'];
+  }, [satkersWithIKPA, dashboardConfig?.historicalUploads]);
 
   const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Juli';
   const latestUploadedMonth = `s.d. ${latestMonthName} 2026`;

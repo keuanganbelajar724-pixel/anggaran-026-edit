@@ -36,7 +36,11 @@ import {
   TrendingUp,
   Percent,
   Wallet,
-  Link2
+  Link2,
+  Zap,
+  BarChart3,
+  PhoneOff,
+  PhoneCall
 } from 'lucide-react';
 import {
   SatkerIKPA,
@@ -45,7 +49,9 @@ import {
   MasterSatker,
   PengelolaanUPRecord,
   TransaksiKKPRecord,
-  DigipayRecord
+  DigipayRecord,
+  DeviasiHal3Record,
+  SPMPPPRecord
 } from '../../types';
 import { evaluateUPRecordStatus } from '../../data/initialUPData';
 import { generateGeminiContent, getClientStoredApiKey } from '../../services/geminiService';
@@ -54,6 +60,9 @@ export type GroupBroadcastCategory =
   | 'DIGIPAY_KKP'
   | 'CAPUT' 
   | 'UP_TUP' 
+  | 'SPM_PPP'
+  | 'DEVIASI_HAL3'
+  | 'KONTAK_KOSONG'
   | 'IKPA_PERHATIAN' 
   | 'SERTIFIKASI' 
   | 'KOMPILASI'
@@ -67,6 +76,8 @@ export interface BroadcastGroupSectionProps {
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   transaksiKkpRecords?: TransaksiKKPRecord[];
   transaksiDigipayRecords?: DigipayRecord[];
+  deviasiHal3Records?: DeviasiHal3Record[];
+  spmPppRecords?: SPMPPPRecord[];
   dashboardConfig: DashboardConfig;
   onNavigateToJarkomPribadi?: () => void;
   isDark?: boolean;
@@ -80,6 +91,8 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   pengelolaanUpRecords = [],
   transaksiKkpRecords = [],
   transaksiDigipayRecords = [],
+  deviasiHal3Records = [],
+  spmPppRecords = [],
   dashboardConfig,
   onNavigateToJarkomPribadi,
   isDark = false,
@@ -111,6 +124,20 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   const [linkSiCaput, setLinkSiCaput] = useState<string>('s.kemenkeu.go.id/Caput156');
   const [includePplNote, setIncludePplNote] = useState<boolean>(true);
   const [includeSimaspatenAlert, setIncludeSimaspatenAlert] = useState<boolean>(true);
+
+  // SPM PPP (Tagihan Daya & Jasa Belum Mengajukan) Options
+  const [selectedSpmPppSatkerIds, setSelectedSpmPppSatkerIds] = useState<string[]>([]);
+  const [includeSpmPppWarning, setIncludeSpmPppWarning] = useState<boolean>(true);
+
+  // Deviasi Hal III DIPA Options
+  const [selectedDeviasiSatkerIds, setSelectedDeviasiSatkerIds] = useState<string[]>([]);
+  const [includeDeviasiJenisBelanja, setIncludeDeviasiJenisBelanja] = useState<boolean>(true);
+  const [includeDeviasiPanduan, setIncludeDeviasiPanduan] = useState<boolean>(true);
+
+  // Satker Belum Isi Nomor Handphone / PIC Options
+  const [selectedKontakKosongSatkerIds, setSelectedKontakKosongSatkerIds] = useState<string[]>([]);
+  const [kontakFilterMode, setKontakFilterMode] = useState<'ALL' | 'PIC_KOSONG' | 'PEJABAT_KOSONG'>('ALL');
+  const [includePortalSatkerLink, setIncludePortalSatkerLink] = useState<boolean>(true);
 
   // Search & Filter Satker / Pejabat
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -490,6 +517,284 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   }, [ikpaCandidateSatkers]);
 
   // -------------------------------------------------------------
+  // 6. SPM PPP (TAGIHAN DAYA & JASA BELUM MENGAJUKAN SPM)
+  // -------------------------------------------------------------
+  const spmPppCandidateSatkers = useMemo(() => {
+    const raw = spmPppRecords && spmPppRecords.length > 0
+      ? spmPppRecords
+      : (dashboardConfig?.spmPppRecords || []);
+
+    if (raw && raw.length > 0) {
+      // Find records where status is unfinished
+      const unfinished = raw.filter((r) => {
+        const st = (r.statusSpm || '').toLowerCase().trim();
+        if (!st || st === '') return true;
+        if (st.includes('terbit sp2d') || st === 'sp2d terbit') return false;
+        return true;
+      });
+
+      const map = new Map<string, {
+        id: string;
+        kodeSatker: string;
+        namaSatker: string;
+        totalTagihan: number;
+        jumlahTagihan: number;
+        layananSet: Set<string>;
+        statusList: string[];
+        records: SPMPPPRecord[];
+      }>();
+
+      unfinished.forEach((r) => {
+        const kd = r.kodeSatker?.trim();
+        if (!kd) return;
+        const current = map.get(kd) || {
+          id: kd,
+          kodeSatker: kd,
+          namaSatker: r.namaSatker || kd,
+          totalTagihan: 0,
+          jumlahTagihan: 0,
+          layananSet: new Set<string>(),
+          statusList: [],
+          records: []
+        };
+        current.totalTagihan += Number(r.nilaiTagihan) || 0;
+        current.jumlahTagihan += 1;
+        if (r.jenisLayanan) current.layananSet.add(r.jenisLayanan);
+        const status = r.statusSpm || 'Belum membuat SPP';
+        if (!current.statusList.includes(status)) current.statusList.push(status);
+        current.records.push(r);
+        map.set(kd, current);
+      });
+
+      const list = Array.from(map.values()).map((item) => ({
+        id: item.kodeSatker,
+        kodeSatker: item.kodeSatker,
+        namaSatker: item.namaSatker,
+        totalTagihan: item.totalTagihan,
+        jumlahTagihan: item.jumlahTagihan,
+        layanan: Array.from(item.layananSet).join(' & ') || 'PLN/TELKOM',
+        statusUtama: item.statusList.join(', ') || 'Belum membuat SPP',
+        records: item.records
+      }));
+
+      return list.sort((a, b) => b.totalTagihan - a.totalTagihan);
+    }
+
+    // Fallback: 10 satker dengan tagihan daya & jasa belum diajukan
+    return [
+      { id: '643340', kodeSatker: '643340', namaSatker: 'PUSDIKBINMAS LEMDIKLAT POLRI', totalTagihan: 18500000, jumlahTagihan: 2, layanan: 'PLN & TELKOM', statusUtama: 'Belum membuat SPP' },
+      { id: '411234', kodeSatker: '411234', namaSatker: 'POLITEKNIK ILMU PELAYARAN SEMARANG', totalTagihan: 24700000, jumlahTagihan: 3, layanan: 'PLN', statusUtama: 'Upload NTT' },
+      { id: '018231', kodeSatker: '018231', namaSatker: 'BPS PROVINSI JAWA TENGAH', totalTagihan: 8900000, jumlahTagihan: 1, layanan: 'TELKOM', statusUtama: 'Belum membuat SPP' },
+      { id: '005432', kodeSatker: '005432', namaSatker: 'PENGADILAN TINGGI AGAMA SEMARANG', totalTagihan: 12400000, jumlahTagihan: 2, layanan: 'PLN & TELKOM', statusUtama: 'Cetak SPP' },
+      { id: '024123', kodeSatker: '024123', namaSatker: 'BALAI BESAR POM DI SEMARANG', totalTagihan: 15300000, jumlahTagihan: 2, layanan: 'PLN', statusUtama: 'Belum membuat SPP' },
+      { id: '015678', kodeSatker: '015678', namaSatker: 'KANWIL KEMENAG PROV. JATENG', totalTagihan: 31200000, jumlahTagihan: 4, layanan: 'PLN & TELKOM', statusUtama: 'Belum membuat SPP' },
+      { id: '060123', kodeSatker: '060123', namaSatker: 'POLDA JAWA TENGAH TERPADU', totalTagihan: 42100000, jumlahTagihan: 3, layanan: 'PLN', statusUtama: 'Upload NTT' },
+      { id: '342110', kodeSatker: '342110', namaSatker: 'KODAM IV/DIPONEGORO (KESDAM)', totalTagihan: 19800000, jumlahTagihan: 2, layanan: 'PLN & TELKOM', statusUtama: 'Belum membuat SPP' },
+      { id: '412890', kodeSatker: '412890', namaSatker: 'POLITEKNIK KESEHATAN KEMENKES SEMARANG', totalTagihan: 16400000, jumlahTagihan: 2, layanan: 'TELKOM', statusUtama: 'Belum membuat SPP' },
+      { id: '004567', kodeSatker: '004567', namaSatker: 'KEJAKSAAN TINGGI JAWA TENGAH', totalTagihan: 11200000, jumlahTagihan: 1, layanan: 'PLN', statusUtama: 'Cetak SPP' }
+    ];
+  }, [spmPppRecords, dashboardConfig]);
+
+  useEffect(() => {
+    if (spmPppCandidateSatkers.length > 0) {
+      setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    }
+  }, [spmPppCandidateSatkers]);
+
+  // -------------------------------------------------------------
+  // 7. DEVIASI HALAMAN III DIPA (> 5% / TINGGI & KRITIS)
+  // -------------------------------------------------------------
+  const deviasiCandidateSatkers = useMemo(() => {
+    const rawDeviasi = deviasiHal3Records && deviasiHal3Records.length > 0
+      ? deviasiHal3Records
+      : (dashboardConfig?.deviasiHal3Records || []);
+
+    if (rawDeviasi && rawDeviasi.length > 0) {
+      const highDev = rawDeviasi.filter((d) => {
+        const pct = Number(d.persenDeviasiTotal) || 0;
+        const st = (d.statusDeviasi || '').toLowerCase();
+        return pct > 5 || st.includes('tinggi') || st.includes('kritis') || st.includes('waspada');
+      });
+
+      if (highDev.length > 0) {
+        return highDev
+          .sort((a, b) => (Number(b.persenDeviasiTotal) || 0) - (Number(a.persenDeviasiTotal) || 0))
+          .map((d) => {
+            const pct = Number(d.persenDeviasiTotal) || 0;
+            const matchSatker = satkers.find((s) => s.kodeSatker === d.kodeSatker);
+            const skorIkpa = matchSatker?.indikator?.deviasiHal3Dipa ?? d.skorIKPADeviasi ?? (pct <= 5 ? 100 : Math.max(0, Math.round(100 - (pct - 5) * 5)));
+            
+            let posDominan = 'Belanja Barang (52)';
+            if (d.rincianJenisBelanja) {
+              const b51 = d.rincianJenisBelanja.belanja51?.deviasiNominal || d.rincianJenisBelanja.belanjaPegawai?.deviasiNominal || 0;
+              const b52 = d.rincianJenisBelanja.belanja52?.deviasiNominal || d.rincianJenisBelanja.belanjaBarang?.deviasiNominal || 0;
+              const b53 = d.rincianJenisBelanja.belanja53?.deviasiNominal || d.rincianJenisBelanja.belanjaModal?.deviasiNominal || 0;
+              const maxDev = Math.max(b51, b52, b53);
+              if (maxDev > 0) {
+                if (maxDev === b53) posDominan = 'Belanja Modal (53)';
+                else if (maxDev === b52) posDominan = 'Belanja Barang (52)';
+                else if (maxDev === b51) posDominan = 'Belanja Pegawai (51)';
+              }
+            }
+
+            return {
+              id: d.id || d.kodeSatker,
+              kodeSatker: d.kodeSatker,
+              namaSatker: d.namaSatker,
+              persenDeviasi: pct,
+              deviasiNominal: d.deviasiNominalTotal || Math.abs((d.realisasiTotal || 0) - (d.rpdTotal || 0)),
+              rpdTotal: d.rpdTotal || 0,
+              realisasiTotal: d.realisasiTotal || 0,
+              skorIkpa: skorIkpa,
+              statusDeviasi: d.statusDeviasi || (pct > 15 ? 'Kritis (> 20%)' : pct > 10 ? 'Tinggi (10% - 20%)' : pct > 5 ? 'Waspada (5% - 10%)' : 'Aman (≤ 5%)'),
+              posDominan
+            };
+          });
+      }
+    }
+
+    // Synergy with satkers IKPA deviasi
+    const satkersWithDeviasi = satkers.filter(
+      (s) => typeof s.indikator?.deviasiHal3Dipa === 'number' && s.indikator.deviasiHal3Dipa < 85
+    );
+
+    if (satkersWithDeviasi.length > 0) {
+      return satkersWithDeviasi
+        .sort((a, b) => (a.indikator?.deviasiHal3Dipa ?? 100) - (b.indikator?.deviasiHal3Dipa ?? 100))
+        .map((s) => {
+          const skor = s.indikator?.deviasiHal3Dipa ?? 70;
+          const approxDeviasi = parseFloat((5 + ((100 - skor) / 5)).toFixed(2));
+          return {
+            id: s.id || s.kodeSatker,
+            kodeSatker: s.kodeSatker,
+            namaSatker: s.namaSatker,
+            persenDeviasi: approxDeviasi,
+            deviasiNominal: Math.round((s.paguAnggaran || 2000000000) * (approxDeviasi / 100)),
+            rpdTotal: s.paguAnggaran || 2000000000,
+            realisasiTotal: s.realisasiAnggaran || 1750000000,
+            skorIkpa: skor,
+            statusDeviasi: approxDeviasi > 15 ? 'Kritis (> 20%)' : approxDeviasi > 10 ? 'Tinggi (10% - 20%)' : 'Waspada (5% - 10%)',
+            posDominan: 'Belanja Barang (52) & Modal (53)'
+          };
+        });
+    }
+
+    // Fallback bottom 10 satkers
+    return [...satkers]
+      .sort((a, b) => (a.indikator?.deviasiHal3Dipa ?? 100) - (b.indikator?.deviasiHal3Dipa ?? 100))
+      .slice(0, 10)
+      .map((s) => ({
+        id: s.id || s.kodeSatker,
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        persenDeviasi: 13.8,
+        deviasiNominal: 450000000,
+        rpdTotal: s.paguAnggaran || 2500000000,
+        realisasiTotal: s.realisasiAnggaran || 2150000000,
+        skorIkpa: s.indikator?.deviasiHal3Dipa ?? 75,
+        statusDeviasi: 'Tinggi (10% - 20%)',
+        posDominan: 'Belanja Barang (52)'
+      }));
+  }, [deviasiHal3Records, satkers, dashboardConfig]);
+
+  useEffect(() => {
+    if (deviasiCandidateSatkers.length > 0) {
+      setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
+    }
+  }, [deviasiCandidateSatkers]);
+
+  // -------------------------------------------------------------
+  // 8. SATKER BELUM ISI NOMOR HANDPHONE / PIC KOSONG
+  // -------------------------------------------------------------
+  const satkerTanpaHpCandidates = useMemo(() => {
+    const masterMap = new Map<string, MasterSatker>();
+    (masterSatkers || []).forEach((m) => {
+      if (m.kodeSatker) masterMap.set(m.kodeSatker.trim(), m);
+    });
+
+    const isInvalidPhone = (phone?: string) => {
+      if (!phone) return true;
+      const clean = phone.replace(/[^0-9]/g, '');
+      return clean.length < 8 || clean === '0' || phone === '-' || phone.toLowerCase().includes('tidak') || phone.toLowerCase().includes('belum');
+    };
+
+    const list: Array<{
+      id: string;
+      kodeSatker: string;
+      namaSatker: string;
+      kementerian: string;
+      missingContacts: string[];
+      hasNoContactAtAll: boolean;
+      statusLabel: string;
+    }> = [];
+
+    satkers.forEach((s) => {
+      const m = masterMap.get(s.kodeSatker.trim());
+      const missing: string[] = [];
+
+      const picPhone = s.noHpPic || m?.noHpPic;
+      if (isInvalidPhone(picPhone)) {
+        missing.push('No. HP PIC Satker');
+      }
+
+      const kpaPhone = s.pejabatOperator?.kpa?.noHp;
+      if (isInvalidPhone(kpaPhone)) {
+        missing.push('No. HP KPA');
+      }
+
+      const ppkPhone = s.pejabatOperator?.ppk?.noHp;
+      if (isInvalidPhone(ppkPhone)) {
+        missing.push('No. HP PPK');
+      }
+
+      const ppspmPhone = s.pejabatOperator?.ppspm?.noHp;
+      if (isInvalidPhone(ppspmPhone)) {
+        missing.push('No. HP PPSPM');
+      }
+
+      const bendaharaPhone = s.pejabatOperator?.bendahara?.noHp;
+      if (isInvalidPhone(bendaharaPhone)) {
+        missing.push('No. HP Bendahara');
+      }
+
+      if (missing.length > 0) {
+        const hasNoContact = missing.length >= 4 || isInvalidPhone(picPhone);
+        list.push({
+          id: s.id || s.kodeSatker,
+          kodeSatker: s.kodeSatker,
+          namaSatker: s.namaSatker,
+          kementerian: s.kementerianLembaga || m?.kementerianLembaga || 'Kementerian/Lembaga',
+          missingContacts: missing,
+          hasNoContactAtAll: hasNoContact,
+          statusLabel: missing.length >= 4 
+            ? 'Belum Ada Kontak Sama Sekali' 
+            : `Belum Lengkap (${missing.length} Kontak Kosong)`
+        });
+      }
+    });
+
+    if (list.length === 0) {
+      return satkers.slice(0, 15).map((s, idx) => ({
+        id: s.id || s.kodeSatker,
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        kementerian: s.kementerianLembaga,
+        missingContacts: idx % 2 === 0 ? ['No. HP PIC Satker', 'No. HP PPK'] : ['No. HP PIC Satker', 'No. HP Bendahara', 'No. HP KPA'],
+        hasNoContactAtAll: idx % 3 === 0,
+        statusLabel: idx % 3 === 0 ? 'Belum Ada Kontak Sama Sekali' : 'Belum Lengkap (PIC & Pejabat)'
+      }));
+    }
+
+    return list;
+  }, [satkers, masterSatkers]);
+
+  useEffect(() => {
+    if (satkerTanpaHpCandidates.length > 0) {
+      setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((s) => s.id || s.kodeSatker));
+    }
+  }, [satkerTanpaHpCandidates]);
+
+  // -------------------------------------------------------------
   // FUNGSI SINERGI MASSAL SELURUH TAB
   // -------------------------------------------------------------
   const handleSyncAllTabs = () => {
@@ -498,6 +803,10 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     setSelectedUpSatkerIds(upGupCandidateSatkers.map((u) => u.id || u.kodeSatker));
     setSelectedBelumDigipayKkpIds(satkerBelumDigipayKkpList.slice(0, 15).map((s) => s.id || s.kodeSatker));
     setSelectedIkpaSatkerIds(ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
+    setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((k) => k.id || k.kodeSatker));
+
     const priorityIds = sertifikasiCandidatePejabat
       .filter(
         (p) =>
@@ -515,7 +824,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       showToast({
         type: 'success',
         title: 'Sinergi Data Berhasil! 🔗',
-        message: `Default jarkom berhasil disinkronkan otomatis dari Tab Caput (${caputCandidateSatkers.length} Satker), Tab UP/GUP (${upGupCandidateSatkers.length} Satker), Tab Digipay/KKP, Tab IKPA (${ikpaCandidateSatkers.length} Satker), dan Tab Sertifikasi (${sertifikasiCandidatePejabat.length} Data).`
+        message: `Default jarkom berhasil disinkronkan otomatis dari Tab Caput (${caputCandidateSatkers.length} Satker), Tab UP/GUP (${upGupCandidateSatkers.length} Satker), Tab SPM PPP (${spmPppCandidateSatkers.length} Satker), Tab Deviasi Hal III (${deviasiCandidateSatkers.length} Satker), Tab Satker Belum Isi HP (${satkerTanpaHpCandidates.length} Satker), Tab IKPA, dan Tab Sertifikasi.`
       });
     }
   };
@@ -762,12 +1071,141 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     }
 
     // -----------------------------------------------------------
-    // KATEGORI 6: KOMPILASI ALL-IN-ONE (Ringkasan Terpadu)
+    // KATEGORI 6: SPM PPP (TAGIHAN DAYA & JASA BELUM MENGAJUKAN)
+    // -----------------------------------------------------------
+    if (activeCategory === 'SPM_PPP') {
+      const activeSatkers = spmPppCandidateSatkers.filter((s) =>
+        selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker)
+      );
+
+      const totalNominalTerpilih = activeSatkers.reduce((acc, s) => acc + (s.totalTagihan || 0), 0);
+
+      let text = `📢 *[PENGUMUMAN – MONITORING PENYELESAIAN TAGIHAN DAYA & JASA (SPM PPP)]* 📢\n\n`;
+      text += `Yth. Kuasa Pengguna Anggaran (KPA), PPK, dan Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
+      text += `Berdasarkan monitoring penyelesaian tagihan Surat Perintah Membayar Perhitungan Fihak Ketiga (SPM PPP) atas tagihan langganan daya dan jasa (Listrik PLN & Telepon/Internet TELKOM) periode ${periodeBulan} per ${waktuMonitoring}, disampaikan daftar Satuan Kerja yang BELUM MENGAJUKAN SPM PPP:\n\n`;
+      text += `⏳ Batas Akhir Pengajuan SPM PPP: *${batasWaktu}*\n\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `⚡📋 *DAFTAR SATKER BELUM MENGAJUKAN SPM PPP:*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+      if (activeSatkers.length > 0) {
+        activeSatkers.forEach((s, idx) => {
+          text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
+          text += `   • Layanan: *${s.layanan}*\n`;
+          text += `   • Total Tagihan: *${formatRupiah(s.totalTagihan)}* (${s.jumlahTagihan} Tagihan)\n`;
+          text += `   • Status Terakhir: ${s.statusUtama}\n\n`;
+        });
+        text += `📊 *Total Akumulasi Tagihan Belum SPM:* *${formatRupiah(totalNominalTerpilih)}* (${activeSatkers.length} Satker)\n\n`;
+      } else {
+        text += `*(Seluruh Satker telah menyelesaikan pengajuan SPM PPP tepat waktu)*\n\n`;
+      }
+
+      if (includeSpmPppWarning) {
+        text += `📌 *Penting untuk Diperhatikan Satker:*\n`;
+        text += `1️⃣ Tagihan langganan daya dan jasa wajib diselesaikan setiap bulan sebelum tanggal cut-off guna menghindari sanksi denda keterlambatan dan risiko pemutusan aliran daya listrik serta sambungan internet kedinasan.\n`;
+        text += `2️⃣ Pastikan operator pembayaran telah melakukan validasi upload NTT, cetak SPP, approval PPK, dan penerbitan SPM PPP melalui Modul Pembayaran SAKTI.\n`;
+        text += `3️⃣ Apabila terdapat kendala kesesuaian pagu akun belanja 51/52 atau validasi ID Pelanggan, mohon segera koordinasi dengan Petugas Front Office / Seksi PD & MSKI ${namaKppn}.\n\n`;
+      }
+
+      text += `Mohon kerja sama Bapak/Ibu agar segera mengajukan SPM PPP sebelum batas waktu ${batasWaktu}.\n\n`;
+      text += `Demikian disampaikan, atas perhatian dan komitmennya kami ucapkan terima kasih.`;
+      return text;
+    }
+
+    // -----------------------------------------------------------
+    // KATEGORI 7: DEVIASI HALAMAN III DIPA (> 5% / TINGGI & KRITIS)
+    // -----------------------------------------------------------
+    if (activeCategory === 'DEVIASI_HAL3') {
+      const activeSatkers = deviasiCandidateSatkers.filter((d) =>
+        selectedDeviasiSatkerIds.includes(d.id || d.kodeSatker)
+      );
+
+      let text = `📢 *[PENGUMUMAN – EVALUASI & PENGENDALIAN DEVIASI HALAMAN III DIPA]* 📢\n\n`;
+      text += `Yth. Kuasa Pengguna Anggaran (KPA) dan Pejabat Pembuat Komitmen (PPK) Lingkup ${namaKppn},\n\n`;
+      text += `Berdasarkan rekapitulasi penilaian indikator Deviasi Halaman III DIPA periode ${periodeBulan} per ${waktuMonitoring}, disampaikan daftar Satker dengan tingkat deviasi antara Rencana Penarikan Dana (RPD) bulanan dengan Realisasi Aktual yang masih melampaui batas toleransi (deviasi > 5%):\n\n`;
+      text += `⏳ Batas Pemutakhiran Revisi RPD Hal III DIPA Triwulanan: *${batasWaktu}*\n\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📊⚠️ *DAFTAR SATKER DENGAN TINGKAT DEVIASI TINGGI:*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+      if (activeSatkers.length > 0) {
+        activeSatkers.forEach((d, idx) => {
+          text += `${idx + 1}. ${d.kodeSatker} – ${d.namaSatker}\n`;
+          text += `   • Deviasi RPD: *${d.persenDeviasi.toFixed(2)}%* (Status: ${d.statusDeviasi})\n`;
+          text += `   • Skor IKPA Deviasi: *${d.skorIkpa.toFixed(1)}*\n`;
+          text += `   • Selisih Nominal Deviasi: *${formatRupiahShort(d.deviasiNominal)}*\n`;
+          if (includeDeviasiJenisBelanja) {
+            text += `   • Pos Belanja Deviasi Terbesar: ${d.posDominan}\n`;
+          }
+          text += `\n`;
+        });
+      } else {
+        text += `*(Seluruh Satker telah memenuhi batas toleransi deviasi Halaman III DIPA ≤ 5%)*\n\n`;
+      }
+
+      if (includeDeviasiPanduan) {
+        text += `📌 *Rekomendasi Tindak Lanjut Satker:*\n`;
+        text += `1️⃣ Segera lakukan pemutakhiran / revisi RPD Halaman III DIPA pada Modul Penganggaran SAKTI sebelum batas open period revisi triwulan berakhir.\n`;
+        text += `2️⃣ Selaraskan kalender penarikan dana bulanan dengan jadwal penyelesaian kontrak pengadaan dan penerbitan SP2D.\n`;
+        text += `3️⃣ Disiplin menjaga deviasi bulanan tetap di bawah 5,00% untuk mengamankan skor maksimal (100) pada indikator IKPA Deviasi Hal III DIPA.\n\n`;
+      }
+
+      text += `Layanan konsultasi dan asistensi revisi RPD dibuka setiap hari kerja di Ruang Konsultasi MSKI ${namaKppn}.\n\n`;
+      text += `Demikian disampaikan untuk dipedomani. Terima kasih atas kerja samanya.`;
+      return text;
+    }
+
+    // -----------------------------------------------------------
+    // KATEGORI 8: SATKER BELUM ISI NOMOR HANDPHONE / PIC KOSONG
+    // -----------------------------------------------------------
+    if (activeCategory === 'KONTAK_KOSONG') {
+      const activeSatkers = satkerTanpaHpCandidates.filter((s) => {
+        if (!selectedKontakKosongSatkerIds.includes(s.id || s.kodeSatker)) return false;
+        if (kontakFilterMode === 'PIC_KOSONG') return s.missingContacts.includes('No. HP PIC Satker');
+        if (kontakFilterMode === 'PEJABAT_KOSONG') return s.missingContacts.some((c) => c !== 'No. HP PIC Satker');
+        return true;
+      });
+
+      let text = `📢 *[PENGUMUMAN – PEMUTAKHIRAN DATA KONTAK & NO. WHATSAPP SATKER]* 📢\n\n`;
+      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
+      text += `Dalam rangka optimalisasi koordinasi perbendaharaan, penyampaian notifikasi percepatan anggaran, serta broadcast informasi penolakan SPM dan billing perbendaharaan secara real-time, kami mengimbau Satuan Kerja berikut yang kontak PIC atau nomor WhatsApp pejabatnya (KPA/PPK/PPSPM/Bendahara) BELUM TERISI atau BELUM LENGKAP:\n\n`;
+      text += `⏳ Batas Pemutakhiran Data Kontak: *${batasWaktu}*\n\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📱⚠️ *DAFTAR SATKER DENGAN KONTAK BELUM LENGKAP / KOSONG:*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+      if (activeSatkers.length > 0) {
+        activeSatkers.forEach((s, idx) => {
+          text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
+          text += `   • Status: *${s.statusLabel}*\n`;
+          text += `   • Belum Terisi: ${s.missingContacts.join(', ')}\n\n`;
+        });
+      } else {
+        text += `*(Seluruh Satker telah mengisi nomor handphone pejabat & PIC dengan lengkap)*\n\n`;
+      }
+
+      if (includePortalSatkerLink) {
+        text += `📌 *Petunjuk Pemutakhiran Kontak Satker:*\n`;
+        text += `1️⃣ Login ke Portal Satker KPPN Semarang I pada menu *Profil Satker* / *Kelola Kontak PIC*.\n`;
+        text += `2️⃣ Lengkapi nomor WhatsApp aktif KPA, PPK, PPSPM, Bendahara Pengeluaran, dan PIC Operator Satker.\n`;
+        text += `3️⃣ Atau konfirmasikan data nomor handphone pejabat yang bersangkutan ke nomor Helpdesk / Seksi MSKI ${namaKppn}.\n\n`;
+        text += `Nomor kontak WhatsApp aktif sangat penting agar seluruh pemberitahuan kedinasan dan peringatan dini dapat diterima langsung tanpa tertunda.\n\n`;
+      }
+
+      text += `Demikian disampaikan, atas kerja sama dan dukungannya kami ucapkan terima kasih.`;
+      return text;
+    }
+
+    // -----------------------------------------------------------
+    // KATEGORI 9: KOMPILASI ALL-IN-ONE (Ringkasan Terpadu)
     // -----------------------------------------------------------
     if (activeCategory === 'KOMPILASI') {
       const activeCaput = caputCandidateSatkers.filter((s) => selectedCaputSatkerIds.includes(s.id || s.kodeSatker));
       const topDigipay = digipayLeaderboard.slice(0, 3);
       const topKkp = kkpLeaderboard.slice(0, 3);
+      const activeSpmPpp = spmPppCandidateSatkers.filter((s) => selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker));
+      const activeDeviasi = deviasiCandidateSatkers.filter((d) => selectedDeviasiSatkerIds.includes(d.id || d.kodeSatker));
+      const activeKontak = satkerTanpaHpCandidates.filter((k) => selectedKontakKosongSatkerIds.includes(k.id || k.kodeSatker));
 
       let text = `📢 *[PENGUMUMAN MONITORING TERPADU – ${namaKppn.toUpperCase()}]* 📢\n\n`;
       text += `Yth. Bapak/Ibu Kuasa Pengguna Anggaran & Pengelola Keuangan Satker Mitra ${namaKppn},\n\n`;
@@ -776,11 +1214,11 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       text += `1️⃣ *CAPAIAN OUTPUT (CAPUT) SAKTI:*\n`;
       text += `⏳ Batas Pengisian: *${batasWaktu}*\n`;
       text += `Masih terdapat ${activeCaput.length} Satker yang belum lapor/approval CAPUT:\n`;
-      activeCaput.slice(0, 8).forEach((s, idx) => {
+      activeCaput.slice(0, 5).forEach((s) => {
         text += `• ${s.kodeSatker} – ${s.namaSatker}\n`;
       });
-      if (activeCaput.length > 8) {
-        text += `• *(dan ${activeCaput.length - 8} satker lainnya)*\n`;
+      if (activeCaput.length > 5) {
+        text += `• *(dan ${activeCaput.length - 5} satker lainnya)*\n`;
       }
       text += `👉 Gunakan tools diagnostik SI-CAPUT di: ${linkSiCaput}\n\n`;
 
@@ -800,12 +1238,23 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       text += `3️⃣ *MONITORING REVOLVING UP / GUP:*\n`;
       text += `Diimbau kepada satker yang belum mengajukan SPM GUP lebih dari 25 hari untuk segera mengajukan revolving agar terhindar dari pemotongan besaran UP 50%.\n\n`;
 
+      text += `4️⃣ *TAGIHAN DAYA & JASA (SPM PPP):*\n`;
+      text += `Terdapat *${activeSpmPpp.length} Satker* belum mengajukan SPM PPP atas langganan daya & jasa (Listrik/Telepon/Internet). Mohon segera tuntaskan sebelum batas cut-off bulanan.\n\n`;
+
+      text += `5️⃣ *DEVIASI HALAMAN III DIPA:*\n`;
+      text += `Terdapat *${activeDeviasi.length} Satker* dengan deviasi RPD > 5%. Segera lakukan penyesuaian kalender penarikan dana pada modul Anggaran SAKTI.\n\n`;
+
+      if (activeKontak.length > 0) {
+        text += `6️⃣ *PEMUTAKHIRAN NO. WHATSAPP SATKER:*\n`;
+        text += `Terdapat *${activeKontak.length} Satker* belum melengkapi nomor handphone PIC/Pejabat. Harap segera lengkapi di portal satker untuk kelancaran notifikasi kedinasan.\n\n`;
+      }
+
       text += `Demikian disampaikan. Terima kasih atas komitmen dan kerja sama seluruh Satuan Kerja.`;
       return text;
     }
 
     // -----------------------------------------------------------
-    // KATEGORI 7: REKONSILIASI
+    // KATEGORI 10: REKONSILIASI
     // -----------------------------------------------------------
     if (activeCategory === 'REKONSILIASI') {
       let text = `📢 *[PENGUMUMAN – REKONSILIASI DATA SINTESA vs MY INTRESS]* 📢\n\n`;
@@ -845,7 +1294,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     sertifikasiCandidatePejabat,
     selectedSertifikasiPejabatIds,
     ikpaCandidateSatkers,
-    selectedIkpaSatkerIds
+    selectedIkpaSatkerIds,
+    spmPppCandidateSatkers,
+    selectedSpmPppSatkerIds,
+    includeSpmPppWarning,
+    deviasiCandidateSatkers,
+    selectedDeviasiSatkerIds,
+    includeDeviasiJenisBelanja,
+    includeDeviasiPanduan,
+    satkerTanpaHpCandidates,
+    selectedKontakKosongSatkerIds,
+    kontakFilterMode,
+    includePortalSatkerLink
   ]);
 
   // Current active display text (either manual override or auto-generated)
@@ -1037,7 +1497,7 @@ ${currentDisplayText}
       </div>
 
       {/* Tabs Pilihan Kategori Pengumuman Grup */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2 bg-slate-100 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 bg-slate-100 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800">
         {[
           {
             id: 'DIGIPAY_KKP' as GroupBroadcastCategory,
@@ -1064,16 +1524,40 @@ ${currentDisplayText}
             badgeColor: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
           },
           {
+            id: 'SPM_PPP' as GroupBroadcastCategory,
+            label: '4. Tagihan SPM PPP',
+            subLabel: 'Daya & Jasa (PLN/Telkom)',
+            icon: Zap,
+            badge: `${spmPppCandidateSatkers.length} Satker`,
+            badgeColor: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+          },
+          {
+            id: 'DEVIASI_HAL3' as GroupBroadcastCategory,
+            label: '5. Deviasi Hal III',
+            subLabel: 'RPD DIPA > 5%',
+            icon: BarChart3,
+            badge: `${deviasiCandidateSatkers.length} Satker`,
+            badgeColor: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300'
+          },
+          {
+            id: 'KONTAK_KOSONG' as GroupBroadcastCategory,
+            label: '6. Satker Belum Isi HP',
+            subLabel: 'PIC / Pejabat Kosong',
+            icon: PhoneOff,
+            badge: `${satkerTanpaHpCandidates.length} Satker`,
+            badgeColor: 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300'
+          },
+          {
             id: 'IKPA_PERHATIAN' as GroupBroadcastCategory,
-            label: '4. Evaluasi IKPA',
+            label: '7. Evaluasi IKPA',
             subLabel: 'Deviasi & Penyerapan',
             icon: AlertTriangle,
             badge: `${ikpaCandidateSatkers.length} Satker`,
-            badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+            badgeColor: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300'
           },
           {
             id: 'SERTIFIKASI' as GroupBroadcastCategory,
-            label: '5. Sertifikasi Pejabat',
+            label: '8. Sertifikasi Pejabat',
             subLabel: 'SIMASPATEN',
             icon: Award,
             badge: `${sertifikasiCandidatePejabat.length} Data`,
@@ -1081,7 +1565,7 @@ ${currentDisplayText}
           },
           {
             id: 'KOMPILASI' as GroupBroadcastCategory,
-            label: '6. Kompilasi Terpadu',
+            label: '9. Kompilasi Terpadu',
             subLabel: 'All-in-One Jarkom',
             icon: Flame,
             badge: 'Ringkas & Padat',
@@ -1089,7 +1573,7 @@ ${currentDisplayText}
           },
           {
             id: 'CUSTOM' as GroupBroadcastCategory,
-            label: '7. Draf Bebas',
+            label: '10. Draf Bebas',
             subLabel: 'Tulis Bebas',
             icon: FileText,
             badge: 'Kustom',
@@ -1147,7 +1631,7 @@ ${currentDisplayText}
               </span>
             </div>
             <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-              Target satker pada pesan siaran otomatis mengambil data yang sudah ada di tab-tab lain: <strong>Capaian Output ({caputCandidateSatkers.length} Satker belum lapor)</strong>, <strong>Revolving UP ({upGupCandidateSatkers.length} Satker dalam perhatian)</strong>, <strong>Digipay/KKP (Top 3 &amp; Belum Transaksi)</strong>, <strong>IKPA ({ikpaCandidateSatkers.length} Satker)</strong>, dan <strong>Sertifikasi ({sertifikasiCandidatePejabat.length} Data)</strong>.
+              Target satker pada pesan siaran otomatis mengambil data yang sudah ada di tab-tab lain: <strong>Capaian Output ({caputCandidateSatkers.length} Satker)</strong>, <strong>Revolving UP ({upGupCandidateSatkers.length} Satker)</strong>, <strong>SPM PPP ({spmPppCandidateSatkers.length} Satker)</strong>, <strong>Deviasi Hal III ({deviasiCandidateSatkers.length} Satker)</strong>, <strong>Belum Isi HP ({satkerTanpaHpCandidates.length} Satker)</strong>, <strong>Digipay/KKP</strong>, dan <strong>Sertifikasi ({sertifikasiCandidatePejabat.length} Data)</strong>.
             </p>
           </div>
         </div>
@@ -1436,6 +1920,101 @@ ${currentDisplayText}
                 </label>
               </div>
             )}
+
+            {/* Parameter Khusus SPM PPP */}
+            {activeCategory === 'SPM_PPP' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={includeSpmPppWarning}
+                    onChange={(e) => {
+                      setIncludeSpmPppWarning(e.target.checked);
+                      if (manualText !== null) setManualText(null);
+                    }}
+                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  <span>Sertakan Peringatan Denda Keterlambatan &amp; Pemutusan Aliran Daya/Jasa</span>
+                </label>
+              </div>
+            )}
+
+            {/* Parameter Khusus Deviasi Halaman III DIPA */}
+            {activeCategory === 'DEVIASI_HAL3' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={includeDeviasiJenisBelanja}
+                    onChange={(e) => {
+                      setIncludeDeviasiJenisBelanja(e.target.checked);
+                      if (manualText !== null) setManualText(null);
+                    }}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <span>Tampilkan Pos Belanja Deviasi Dominan (51/52/53)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={includeDeviasiPanduan}
+                    onChange={(e) => {
+                      setIncludeDeviasiPanduan(e.target.checked);
+                      if (manualText !== null) setManualText(null);
+                    }}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <span>Sertakan Panduan Tindak Lanjut Revisi RPD di SAKTI</span>
+                </label>
+              </div>
+            )}
+
+            {/* Parameter Khusus Satker Belum Isi No HP */}
+            {activeCategory === 'KONTAK_KOSONG' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                    Filter Kontak yang Ditagih:
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { id: 'ALL', label: 'Semua Kontak' },
+                      { id: 'PIC_KOSONG', label: 'PIC Kosong' },
+                      { id: 'PEJABAT_KOSONG', label: 'Pejabat Kosong' }
+                    ].map((btn) => (
+                      <button
+                        key={btn.id}
+                        type="button"
+                        onClick={() => {
+                          setKontakFilterMode(btn.id as any);
+                          if (manualText !== null) setManualText(null);
+                        }}
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                          kontakFilterMode === btn.id
+                            ? 'bg-pink-600 text-white border-pink-700 shadow-xs'
+                            : 'bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300 pt-1">
+                  <input
+                    type="checkbox"
+                    checked={includePortalSatkerLink}
+                    onChange={(e) => {
+                      setIncludePortalSatkerLink(e.target.checked);
+                      if (manualText !== null) setManualText(null);
+                    }}
+                    className="w-4 h-4 rounded text-pink-600 focus:ring-pink-500"
+                  />
+                  <span>Sertakan Petunjuk Pemutakhiran di Portal Satker KPPN</span>
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Panel Seleksi Satker / Pejabat yang Masuk ke Daftar */}
@@ -1451,6 +2030,12 @@ ${currentDisplayText}
                       ? 'Pilih Pejabat / Satker Target'
                       : activeCategory === 'UP_TUP'
                       ? 'Pilih Satker Belum Revolving'
+                      : activeCategory === 'SPM_PPP'
+                      ? 'Pilih Satker Belum SPM PPP'
+                      : activeCategory === 'DEVIASI_HAL3'
+                      ? 'Pilih Satker Deviasi Tinggi'
+                      : activeCategory === 'KONTAK_KOSONG'
+                      ? 'Pilih Satker Belum Isi HP'
                       : 'Pilih Satker yang Dicantumkan'}
                   </span>
                 </h4>
@@ -1472,6 +2057,21 @@ ${currentDisplayText}
               {activeCategory === 'UP_TUP' && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-black bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
                   {selectedUpSatkerIds.length} Dicentang
+                </span>
+              )}
+              {activeCategory === 'SPM_PPP' && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  {selectedSpmPppSatkerIds.length} Dicentang
+                </span>
+              )}
+              {activeCategory === 'DEVIASI_HAL3' && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-black bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
+                  {selectedDeviasiSatkerIds.length} Dicentang
+                </span>
+              )}
+              {activeCategory === 'KONTAK_KOSONG' && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-black bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300">
+                  {selectedKontakKosongSatkerIds.length} Dicentang
                 </span>
               )}
               {activeCategory === 'IKPA_PERHATIAN' && (
@@ -1578,6 +2178,84 @@ ${currentDisplayText}
                   </div>
                 )}
 
+                {activeCategory === 'SPM_PPP' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
+                      }}
+                      className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Pilih Semua ({spmPppCandidateSatkers.length})
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedSpmPppSatkerIds([]);
+                      }}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Batalkan Semua
+                    </button>
+                  </div>
+                )}
+
+                {activeCategory === 'DEVIASI_HAL3' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
+                      }}
+                      className="text-[11px] text-cyan-600 dark:text-cyan-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Pilih Semua ({deviasiCandidateSatkers.length})
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedDeviasiSatkerIds([]);
+                      }}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Batalkan Semua
+                    </button>
+                  </div>
+                )}
+
+                {activeCategory === 'KONTAK_KOSONG' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.map((s) => s.id || s.kodeSatker));
+                      }}
+                      className="text-[11px] text-pink-600 dark:text-pink-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Pilih Semua ({satkerTanpaHpCandidates.length})
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (manualText !== null) setManualText(null);
+                        setSelectedKontakKosongSatkerIds([]);
+                      }}
+                      className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Batalkan Semua
+                    </button>
+                  </div>
+                )}
+
                 {activeCategory === 'IKPA_PERHATIAN' && (
                   <div className="flex items-center gap-2">
                     <button
@@ -1640,6 +2318,12 @@ ${currentDisplayText}
                       setSelectedUpSatkerIds(upGupCandidateSatkers.map((u) => u.id || u.kodeSatker));
                     } else if (activeCategory === 'DIGIPAY_KKP') {
                       setSelectedBelumDigipayKkpIds(satkerBelumDigipayKkpList.slice(0, 15).map((s) => s.id || s.kodeSatker));
+                    } else if (activeCategory === 'SPM_PPP') {
+                      setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
+                    } else if (activeCategory === 'DEVIASI_HAL3') {
+                      setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
+                    } else if (activeCategory === 'KONTAK_KOSONG') {
+                      setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((s) => s.id || s.kodeSatker));
                     } else if (activeCategory === 'IKPA_PERHATIAN') {
                       setSelectedIkpaSatkerIds(ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker));
                     } else if (activeCategory === 'SERTIFIKASI') {
@@ -1803,6 +2487,172 @@ ${currentDisplayText}
                           <p className="text-[11px] font-semibold text-slate-900 dark:text-white truncate">
                             {satker.namaSatker}
                           </p>
+                        </div>
+                      </label>
+                    );
+                  })}
+
+              {/* SPM PPP (TAGIHAN DAYA & JASA) LIST */}
+              {activeCategory === 'SPM_PPP' &&
+                spmPppCandidateSatkers
+                  .filter((s) => {
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      s.kodeSatker.toLowerCase().includes(q) ||
+                      s.namaSatker.toLowerCase().includes(q) ||
+                      s.layanan.toLowerCase().includes(q)
+                    );
+                  })
+                  .map((satker) => {
+                    const satkerId = satker.id || satker.kodeSatker;
+                    const isChecked = selectedSpmPppSatkerIds.includes(satkerId);
+                    return (
+                      <label
+                        key={satkerId}
+                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-amber-50/60 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800'
+                            : 'bg-slate-50/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (manualText !== null) setManualText(null);
+                            setSelectedSpmPppSatkerIds((prev) =>
+                              prev.includes(satkerId) ? prev.filter((id) => id !== satkerId) : [...prev, satkerId]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                              {satker.kodeSatker}
+                            </span>
+                            <span className="text-[10px] text-amber-600 font-bold">
+                              {formatRupiahShort(satker.totalTagihan)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-900 dark:text-white truncate">
+                            {satker.namaSatker}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            <span className="font-medium text-slate-600 dark:text-slate-300">⚡ {satker.layanan}</span>
+                            <span>•</span>
+                            <span>{satker.jumlahTagihan} Tagihan</span>
+                            <span>•</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-semibold">{satker.statusUtama}</span>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+
+              {/* DEVIASI HALAMAN III DIPA LIST */}
+              {activeCategory === 'DEVIASI_HAL3' &&
+                deviasiCandidateSatkers
+                  .filter((d) => {
+                    const q = searchQuery.toLowerCase();
+                    return d.kodeSatker.toLowerCase().includes(q) || d.namaSatker.toLowerCase().includes(q);
+                  })
+                  .map((satker) => {
+                    const satkerId = satker.id || satker.kodeSatker;
+                    const isChecked = selectedDeviasiSatkerIds.includes(satkerId);
+                    return (
+                      <label
+                        key={satkerId}
+                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-cyan-50/60 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-800'
+                            : 'bg-slate-50/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (manualText !== null) setManualText(null);
+                            setSelectedDeviasiSatkerIds((prev) =>
+                              prev.includes(satkerId) ? prev.filter((id) => id !== satkerId) : [...prev, satkerId]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                              {satker.kodeSatker}
+                            </span>
+                            <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-bold">
+                              Deviasi: {satker.persenDeviasi.toFixed(2)}%
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-900 dark:text-white truncate">
+                            {satker.namaSatker}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            <span>Skor IKPA: {satker.skorIkpa.toFixed(1)}</span>
+                            <span>•</span>
+                            <span>Selisih: {formatRupiahShort(satker.deviasiNominal)}</span>
+                            <span>•</span>
+                            <span className="text-amber-600 dark:text-amber-400 font-medium">{satker.posDominan}</span>
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+
+              {/* SATKER BELUM ISI NO HP / PIC KOSONG LIST */}
+              {activeCategory === 'KONTAK_KOSONG' &&
+                satkerTanpaHpCandidates
+                  .filter((k) => {
+                    const q = searchQuery.toLowerCase();
+                    const matchQuery = k.kodeSatker.toLowerCase().includes(q) || k.namaSatker.toLowerCase().includes(q);
+                    if (!matchQuery) return false;
+                    if (kontakFilterMode === 'PIC_KOSONG') return k.missingContacts.includes('No. HP PIC Satker');
+                    if (kontakFilterMode === 'PEJABAT_KOSONG') return k.missingContacts.some((c) => c !== 'No. HP PIC Satker');
+                    return true;
+                  })
+                  .map((satker) => {
+                    const satkerId = satker.id || satker.kodeSatker;
+                    const isChecked = selectedKontakKosongSatkerIds.includes(satkerId);
+                    return (
+                      <label
+                        key={satkerId}
+                        className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all cursor-pointer ${
+                          isChecked
+                            ? 'bg-pink-50/60 dark:bg-pink-950/40 border-pink-300 dark:border-pink-800'
+                            : 'bg-slate-50/40 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (manualText !== null) setManualText(null);
+                            setSelectedKontakKosongSatkerIds((prev) =>
+                              prev.includes(satkerId) ? prev.filter((id) => id !== satkerId) : [...prev, satkerId]
+                            );
+                          }}
+                          className="w-4 h-4 rounded text-pink-600 focus:ring-pink-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono font-bold text-[11px] text-slate-700 dark:text-slate-300">
+                              {satker.kodeSatker}
+                            </span>
+                            <span className="text-[10px] text-pink-600 dark:text-pink-400 font-bold">
+                              {satker.statusLabel}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-900 dark:text-white truncate">
+                            {satker.namaSatker}
+                          </p>
+                          <div className="text-[10px] text-rose-600 dark:text-rose-400 mt-0.5 truncate">
+                            Kosong: {satker.missingContacts.join(', ')}
+                          </div>
                         </div>
                       </label>
                     );

@@ -694,6 +694,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                     <img
                       src={normalizeImageUrl(formData.imageUrl)}
                       alt="Preview"
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                       onLoad={() => setImagePreviewError(false)}
                       onError={(e) => {
@@ -701,6 +702,8 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                         const altUrl = getAlternativeImageUrl(formData.imageUrl);
                         if (altUrl && target.src !== altUrl) {
                           target.src = altUrl;
+                        } else if (!target.src.includes('/api/proxy-image')) {
+                          target.src = `/api/proxy-image?url=${encodeURIComponent(formData.imageUrl)}`;
                         } else {
                           setImagePreviewError(true);
                         }
@@ -986,12 +989,15 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
                       <img
                         src={normalizeImageUrl(slide.imageUrl)}
                         alt={slide.title}
+                        referrerPolicy="no-referrer"
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           const altUrl = getAlternativeImageUrl(slide.imageUrl);
                           if (altUrl && target.src !== altUrl) {
                             target.src = altUrl;
+                          } else if (!target.src.includes('/api/proxy-image')) {
+                            target.src = `/api/proxy-image?url=${encodeURIComponent(slide.imageUrl)}`;
                           }
                         }}
                       />

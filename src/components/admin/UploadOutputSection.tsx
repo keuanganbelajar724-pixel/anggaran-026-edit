@@ -218,6 +218,52 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     setCurrentFileName('');
   };
 
+  const handleArchiveCurrentActiveCaput = () => {
+    const activeSatkers = satkers.filter(s => s.statusCapaianOutput);
+    if (activeSatkers.length === 0) {
+      showToast({
+        type: 'warning',
+        title: 'Tidak Ada Data Capaian Output',
+        message: 'Tidak ditemukan status Capaian Output satker untuk diarsipkan.'
+      });
+      return;
+    }
+
+    const currentPeriod = uploadPeriode || 'Agustus 2026';
+    const newHistoryItem: ExcelUploadHistory = {
+      id: `hist-caput-${Date.now()}`,
+      fileName: `Monitoring_Capaian_Output_SAKTI_${currentPeriod.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`,
+      periode: currentPeriod,
+      uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
+      uploadedBy: 'Seksi MSKI KPPN Semarang I',
+      satkerCount: activeSatkers.length,
+      averageIKPA: 0,
+      notes: `Arsip Hasil Sinkronisasi Status Capaian Output Aktif (${terlaporkanCount} Terlaporkan, ${belumTerlaporkanCount} Belum)`,
+      satkersData: activeSatkers,
+      category: 'CAPAIAN_OUTPUT',
+      isActive: true
+    };
+
+    const updated = [
+      newHistoryItem,
+      ...historicalUploads.map(h => (h.category === 'CAPAIAN_OUTPUT' ? { ...h, isActive: false } : h))
+    ];
+    onSaveHistoricalUploads(updated);
+
+    addLog(
+      'Arsipkan Data Aktif Capaian Output',
+      'UPLOAD',
+      `Berhasil mengarsipkan status Capaian Output (${activeSatkers.length} Satker) periode "${currentPeriod}" ke riwayat arsip.`,
+      'SUCCESS'
+    );
+
+    showToast({
+      type: 'success',
+      title: 'Arsip Caput Berhasil Dibuat',
+      message: `${activeSatkers.length} data status Capaian Output aktif berhasil dicatat sebagai Batch Arsip ${currentPeriod}.`
+    });
+  };
+
   const handleActivateHistorical = (item: ExcelUploadHistory) => {
     requestConfirm(
       'Aktifkan Arsip Capaian Output',
@@ -617,8 +663,20 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <div className="relative w-full sm:w-64">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {(terlaporkanCount > 0 || belumTerlaporkanCount > 0) && (
+              <button
+                type="button"
+                onClick={handleArchiveCurrentActiveCaput}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                title="Simpan status Capaian Output aktif saat ini sebagai 1 berkas Batch Arsip Excel"
+              >
+                <FolderArchive className="w-4 h-4 text-emerald-200" />
+                <span>Arsipkan Data Aktif ({terlaporkanCount + belumTerlaporkanCount} Satker)</span>
+              </button>
+            )}
+
+            <div className="relative w-full sm:w-56">
               <input
                 type="text"
                 value={searchHistory}
@@ -643,9 +701,24 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
         </div>
 
         {caputHistories.length === 0 ? (
-          <div className="text-center py-10 text-slate-400">
-            <FolderArchive className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <div className="text-center py-10 text-slate-400 space-y-3">
+            <FolderArchive className="w-10 h-10 mx-auto opacity-40" />
             <p className="font-bold text-xs">Belum ada riwayat arsip file Capaian Output.</p>
+            {(terlaporkanCount > 0 || belumTerlaporkanCount > 0) && (
+              <div className="pt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 max-w-md mx-auto">
+                  Dashboard saat ini memiliki <strong>{terlaporkanCount + belumTerlaporkanCount} Status Satker Capaian Output aktif</strong>. Anda dapat mengemas data aktif ini menjadi 1 batch berkas arsip dengan menekan tombol di bawah.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleArchiveCurrentActiveCaput}
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <FolderArchive className="w-4 h-4 text-emerald-200" />
+                  <span>Arsipkan Data Satker Aktif ({terlaporkanCount + belumTerlaporkanCount} Satker)</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

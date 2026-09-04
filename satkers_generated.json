@@ -3,7 +3,7 @@
     "periodeUpdate": "s.d. Agustus 2026",
     "noHpPic": "081234560001",
     "issues": [
-      "Nilai IKPA (69.7) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (69.7) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (63.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -110,6 +110,18 @@
         "dispensasiSpm": 0,
         "belanjaKontraktual": 100,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 58.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 59,
+        "penyerapanAnggaran": 63,
+        "revisiDipa": 86,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 58.45,
@@ -235,6 +247,18 @@
         "belanjaKontraktual": 100,
         "pengelolaanUpTup": 99.46,
         "nilaiIKPA": 97.32
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.1,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "paguAnggaran": 21000000000
@@ -325,6 +349,18 @@
         "belanjaKontraktual": 100,
         "nilaiIKPA": 96.77,
         "deviasiHal3Dipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.3,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "kodeSatker": "119436",
@@ -464,6 +500,18 @@
         "penyelesaianTagihan": 0,
         "revisiDipa": 100,
         "belanjaKontraktual": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "kodeSatker": "119440",
@@ -499,7 +547,7 @@
     "passwordSatker": "409546_01504",
     "kementerianLembaga": "BA 015 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
     "issues": [
-      "Nilai IKPA (73.5) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (73.5) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (67.0%)",
       "Deviasi Halaman III DIPA Tinggi",
       "Capaian Output Belum Diselesaikan (0%)"
@@ -589,6 +637,18 @@
         "deviasiHal3Dipa": 100,
         "bulan": "Juli",
         "penyerapanAnggaran": 95.19
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 61,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 63,
+        "penyerapanAnggaran": 67,
+        "revisiDipa": 90,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 61,
@@ -686,6 +746,18 @@
         "bulan": "Juli",
         "penyelesaianTagihan": 0,
         "belanjaKontraktual": 50
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker409552@kemenkeu.go.id",
@@ -819,6 +891,18 @@
         "bulan": "Juli",
         "revisiDipa": 100,
         "deviasiHal3Dipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.1,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -929,6 +1013,18 @@
         "penyelesaianTagihan": 100,
         "penyerapanAnggaran": 90.78,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 015 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -1053,6 +1149,18 @@
         "dispensasiSpm": 0,
         "capaianOutput": 100,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "524931_01504",
@@ -1160,6 +1268,18 @@
         "belanjaKontraktual": 0,
         "revisiDipa": 100,
         "penyelesaianTagihan": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "hasCapaianOutputData": true,
@@ -1279,6 +1399,18 @@
         "penyerapanAnggaran": 84.97,
         "capaianOutput": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 72.4,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -1322,7 +1454,7 @@
     },
     "persenPenyerapan": 62,
     "issues": [
-      "Nilai IKPA (75.55) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (75.55) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (62.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -1427,6 +1559,18 @@
         "capaianOutput": 100,
         "belanjaKontraktual": 0,
         "deviasiHal3Dipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 61.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 70,
+        "penyerapanAnggaran": 62,
+        "revisiDipa": 87,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -1519,6 +1663,18 @@
         "deviasiHal3Dipa": 100,
         "belanjaKontraktual": 100,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "issues": [],
@@ -1652,6 +1808,18 @@
         "pengelolaanUpTup": 100,
         "capaianOutput": 100,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "id": "satker-smg1-417044",
@@ -1780,6 +1948,18 @@
         "nilaiIKPA": 97.52,
         "penyerapanAnggaran": 87.62,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.4,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "hasCapaianOutputData": true
@@ -1889,6 +2069,18 @@
         "penyelesaianTagihan": 0,
         "nilaiIKPA": 98.23,
         "penyerapanAnggaran": 92.92
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 66.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560016",
@@ -2011,6 +2203,18 @@
         "capaianOutput": 100,
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 70.13
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.1,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "id": "satker-smg1-527268",
@@ -2029,7 +2233,7 @@
     "predikat": "Cukup",
     "unitEselon1": "BAES1 01508",
     "issues": [
-      "Nilai IKPA (73.1) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (73.1) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (68.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -2131,6 +2335,18 @@
         "deviasiHal3Dipa": 100,
         "capaianOutput": 100,
         "penyerapanAnggaran": 93.53
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 61.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 61,
+        "penyerapanAnggaran": 68,
+        "revisiDipa": 93,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 68,
@@ -2250,6 +2466,18 @@
         "penyelesaianTagihan": 100,
         "deviasiHal3Dipa": 100,
         "penyerapanAnggaran": 90.45
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker411821@kemenkeu.go.id",
@@ -2354,6 +2582,18 @@
         "pengelolaanUpTup": 100,
         "revisiDipa": 100,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "kodeSatker": "537763",
@@ -2495,6 +2735,18 @@
         "deviasiHal3Dipa": 84.67,
         "revisiDipa": 100,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -2608,6 +2860,18 @@
         "deviasiHal3Dipa": 100,
         "pengelolaanUpTup": 100,
         "penyerapanAnggaran": 97.02
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 70.35,
@@ -2725,6 +2989,18 @@
         "revisiDipa": 100,
         "deviasiHal3Dipa": 85.8,
         "penyerapanAnggaran": 82.96
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.8,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 026 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -2821,6 +3097,18 @@
         "capaianOutput": 100,
         "pengelolaanUpTup": 97.08,
         "deviasiHal3Dipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 177300000000,
@@ -2861,7 +3149,7 @@
     "hasIKPAData": true,
     "namaPic": "Operator Satker 536738",
     "issues": [
-      "Nilai IKPA (75.15) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (75.15) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (63.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -2969,6 +3257,18 @@
         "penyerapanAnggaran": 89.43,
         "bulan": "Juli",
         "pengelolaanUpTup": 96.49
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 61.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 68,
+        "penyerapanAnggaran": 63,
+        "revisiDipa": 90,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560025",
@@ -3075,6 +3375,18 @@
         "nilaiIKPA": 98.12,
         "penyerapanAnggaran": 90.6,
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "periodeUpdate": "s.d. Agustus 2026",
@@ -3208,6 +3520,18 @@
         "belanjaKontraktual": 100,
         "pengelolaanUpTup": 100,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang"
@@ -3301,6 +3625,18 @@
         "penyerapanAnggaran": 95.93,
         "dispensasiSpm": 0,
         "pengelolaanUpTup": 98.25
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -3419,6 +3755,18 @@
         "penyelesaianTagihan": 100,
         "nilaiIKPA": 97.71,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 225150000000,
@@ -3539,6 +3887,18 @@
         "revisiDipa": 100,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.4,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "643152_06001",
@@ -3671,6 +4031,18 @@
         "penyelesaianTagihan": 100,
         "belanjaKontraktual": 100,
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 060 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -3785,6 +4157,18 @@
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 93.99,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.6,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "hasIKPAData": true,
@@ -3903,6 +4287,18 @@
         "dispensasiSpm": 0,
         "belanjaKontraktual": 100,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -4026,6 +4422,18 @@
         "capaianOutput": 99.71,
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 88.38
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -4135,6 +4543,18 @@
         "pengelolaanUpTup": 100,
         "deviasiHal3Dipa": 92.79,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.7,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "issues": [],
@@ -4277,6 +4697,18 @@
         "penyerapanAnggaran": 91.75,
         "nilaiIKPA": 96.63,
         "pengelolaanUpTup": 98.96
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -4375,6 +4807,18 @@
         "bulan": "Juli",
         "pengelolaanUpTup": 100,
         "belanjaKontraktual": 50
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 060 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -4496,6 +4940,18 @@
         "belanjaKontraktual": 98.28,
         "pengelolaanUpTup": 100,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "namaPic": "Operator Satker 643262",
@@ -4606,6 +5062,18 @@
         "dispensasiSpm": 0,
         "bulan": "Juli",
         "penyerapanAnggaran": 91.68
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker643276@kemenkeu.go.id",
@@ -4639,7 +5107,7 @@
     "predikat": "Cukup",
     "statusCapaianOutput": "Sudah Terlaporkan",
     "issues": [
-      "Nilai IKPA (75.65) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (75.65) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (66.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -4747,6 +5215,18 @@
         "capaianOutput": 100,
         "revisiDipa": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 62.4,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 68,
+        "penyerapanAnggaran": 66,
+        "revisiDipa": 85,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -4854,6 +5334,18 @@
         "nilaiIKPA": 99.41,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -4977,6 +5469,18 @@
         "penyerapanAnggaran": 96.13,
         "capaianOutput": 98.74,
         "deviasiHal3Dipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "namaSatker": "POLRES KENDAL",
@@ -5092,6 +5596,18 @@
         "penyelesaianTagihan": 100,
         "deviasiHal3Dipa": 84.34,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "hasIKPAData": true,
@@ -5213,6 +5729,18 @@
         "pengelolaanUpTup": 100,
         "deviasiHal3Dipa": 100,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 71.45,
@@ -5317,6 +5845,18 @@
         "nilaiIKPA": 98.03,
         "bulan": "Juli",
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.65,
+        "capaianOutput": 3,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "kodeSatker": "651025",
@@ -5435,6 +5975,18 @@
         "dispensasiSpm": 0,
         "belanjaKontraktual": 93.33,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "namaPic": "Operator Satker 651032",
@@ -5570,6 +6122,18 @@
         "bulan": "Juli",
         "pengelolaanUpTup": 100,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "hasCapaianOutputData": true,
@@ -5690,6 +6254,18 @@
         "nilaiIKPA": 97.31,
         "pengelolaanUpTup": 99.6,
         "penyerapanAnggaran": 95.38
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 66.9,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 56580000000,
@@ -5801,6 +6377,18 @@
         "capaianOutput": 100,
         "dispensasiSpm": 0,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -5913,6 +6501,18 @@
         "belanjaKontraktual": 80,
         "pengelolaanUpTup": 89.34,
         "nilaiIKPA": 93.97
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 06001",
@@ -6021,6 +6621,18 @@
         "revisiDipa": 100,
         "bulan": "Juli",
         "penyelesaianTagihan": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.75,
+        "capaianOutput": 3,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 85,
@@ -6139,6 +6751,18 @@
         "penyelesaianTagihan": 100,
         "belanjaKontraktual": 100,
         "penyerapanAnggaran": 93.36
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "statusCapaianOutput": "Sudah Terlaporkan",
@@ -6257,6 +6881,18 @@
         "nilaiIKPA": 93.86,
         "deviasiHal3Dipa": 84.83,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "679588_06001",
@@ -6397,6 +7033,18 @@
         "revisiDipa": 100,
         "bulan": "Juli",
         "penyelesaianTagihan": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "namaSatker": "DITRES PPA DAN PPO POLDA JATENG",
@@ -6495,6 +7143,18 @@
         "revisiDipa": 100,
         "nilaiIKPA": 96.3,
         "penyelesaianTagihan": 96.88
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.8,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -6616,6 +7276,18 @@
         "pengelolaanUpTup": 95.34,
         "nilaiIKPA": 92.49,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 060 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -6756,6 +7428,18 @@
         "pengelolaanUpTup": 0,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.8,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 06001",
@@ -6854,6 +7538,18 @@
         "penyerapanAnggaran": 0,
         "nilaiIKPA": 68.37,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -6989,6 +7685,18 @@
         "belanjaKontraktual": 100,
         "capaianOutput": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "426361_10401",
@@ -7003,7 +7711,7 @@
   {
     "namaSatker": "SEKRETARIAT BAWASLU KOTA SEMARANG",
     "issues": [
-      "Nilai IKPA (69.15) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (69.15) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (62.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -7092,6 +7800,18 @@
         "bulan": "Juli",
         "nilaiIKPA": 97.67,
         "penyerapanAnggaran": 92.73
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 58.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 58,
+        "penyerapanAnggaran": 62,
+        "revisiDipa": 85,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560060",
@@ -7207,6 +7927,18 @@
         "belanjaKontraktual": 100,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 164350000000,
@@ -7350,6 +8082,18 @@
         "pengelolaanUpTup": 99.85,
         "penyelesaianTagihan": 0,
         "belanjaKontraktual": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -7460,6 +8204,18 @@
         "pengelolaanUpTup": 98.23,
         "penyerapanAnggaran": 96.42,
         "deviasiHal3Dipa": 71.29
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "686145_11501",
@@ -7573,6 +8329,18 @@
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 96.2,
         "pengelolaanUpTup": 97.17
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "predikat": "Baik",
@@ -7683,6 +8451,18 @@
         "belanjaKontraktual": 100,
         "bulan": "Juli",
         "deviasiHal3Dipa": 61.44
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "namaPic": "Operator Satker 690881",
@@ -7815,6 +8595,18 @@
         "capaianOutput": 100,
         "bulan": "Juli",
         "penyerapanAnggaran": 90.1
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "namaSatker": "KANTOR WILAYAH KEMENTERIAN HUKUM JAWA TENGAH",
@@ -7943,6 +8735,18 @@
         "bulan": "Juli",
         "capaianOutput": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "kodeSatker": "693026",
@@ -8033,6 +8837,18 @@
         "capaianOutput": 100,
         "belanjaKontraktual": 100,
         "nilaiIKPA": 99.2
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "692040_13504",
@@ -8179,6 +8995,18 @@
         "deviasiHal3Dipa": 100,
         "belanjaKontraktual": 0,
         "pengelolaanUpTup": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560069",
@@ -8297,6 +9125,18 @@
         "bulan": "Juli",
         "nilaiIKPA": 99.7,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "692993_13505",
@@ -8391,6 +9231,18 @@
         "revisiDipa": 100,
         "penyerapanAnggaran": 70.6,
         "nilaiIKPA": 92.54
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "periodeUpdate": "s.d. Agustus 2026",
@@ -8511,6 +9363,18 @@
         "penyerapanAnggaran": 98.92,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "paguAnggaran": 261000000000,
@@ -8634,6 +9498,18 @@
         "pengelolaanUpTup": 99.89,
         "penyerapanAnggaran": 97.82,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "693164_13513",
@@ -8745,6 +9621,18 @@
         "deviasiHal3Dipa": 84.51,
         "dispensasiSpm": 0,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.3,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "periodeUpdate": "s.d. Agustus 2026",
@@ -8865,6 +9753,18 @@
         "revisiDipa": 100,
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 96.97
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker694858@kemenkeu.go.id",
@@ -8984,6 +9884,18 @@
         "capaianOutput": 100,
         "deviasiHal3Dipa": 100,
         "penyerapanAnggaran": 97.79
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 69.45,
@@ -9114,6 +10026,18 @@
         "capaianOutput": 100,
         "nilaiIKPA": 90.45,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.9,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "692810_13703",
@@ -9240,6 +10164,18 @@
         "pengelolaanUpTup": 99.67,
         "belanjaKontraktual": 100,
         "deviasiHal3Dipa": 85.83
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.1,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "issues": [],
@@ -9343,6 +10279,18 @@
         "penyerapanAnggaran": 95.36,
         "pengelolaanUpTup": 94.72,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 13703",
@@ -9462,6 +10410,18 @@
         "nilaiIKPA": 99.95,
         "pengelolaanUpTup": 99.79,
         "penyerapanAnggaran": 99.86
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 62.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 63,
+        "penyerapanAnggaran": 70,
+        "revisiDipa": 85,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "paguAnggaran": 5000000000,
@@ -9482,7 +10442,7 @@
     "namaPic": "Operator Satker 692161",
     "namaSatker": "BAPAS KELAS I SEMARANG",
     "issues": [
-      "Nilai IKPA (74.4) Di Bawah Target KPPN (≥87.5)",
+      "Nilai IKPA (74.4) Di Bawah Target KPPN (\u226587.5)",
       "Penyerapan Anggaran Rendah (70.0%)",
       "Deviasi Halaman III DIPA Tinggi"
     ],
@@ -9602,6 +10562,18 @@
         "penyerapanAnggaran": 96.04,
         "penyelesaianTagihan": 100,
         "nilaiIKPA": 97.24
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 10790000000
@@ -9692,6 +10664,18 @@
         "nilaiIKPA": 99.35,
         "capaianOutput": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "namaPic": "Operator Satker 692164",
@@ -9816,6 +10800,18 @@
         "dispensasiSpm": 0,
         "belanjaKontraktual": 100,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 13704",
@@ -9952,6 +10948,18 @@
         "capaianOutput": 100,
         "dispensasiSpm": 0,
         "deviasiHal3Dipa": 94.31
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "hasIKPAData": true,
@@ -10045,6 +11053,18 @@
         "capaianOutput": 100,
         "belanjaKontraktual": 100,
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 137 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -10163,6 +11183,18 @@
         "capaianOutput": 100,
         "dispensasiSpm": 0,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 46640000000,
@@ -10310,6 +11342,18 @@
         "dispensasiSpm": 0,
         "capaianOutput": 100,
         "nilaiIKPA": 98.31
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 3,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "692501_13704"
@@ -10428,6 +11472,18 @@
         "bulan": "Juli",
         "nilaiIKPA": 99.65,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "hasIKPAData": true
@@ -10540,6 +11596,18 @@
         "deviasiHal3Dipa": 100,
         "revisiDipa": 100,
         "nilaiIKPA": 99.56
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "hasIKPAData": true,
@@ -10635,6 +11703,18 @@
         "dispensasiSpm": 0,
         "penyerapanAnggaran": 94.03,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 92,
@@ -10754,6 +11834,18 @@
         "penyelesaianTagihan": 100,
         "bulan": "Juli",
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.7,
+        "capaianOutput": 4,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "issues": [],
@@ -10888,6 +11980,18 @@
         "nilaiIKPA": 99.98,
         "penyerapanAnggaran": 99.92,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "namaSatker": "LEMBAGA LAYANAN PENDIDIKAN TINGGI WILAYAH VI SEMARANG",
@@ -10996,6 +12100,18 @@
         "revisiDipa": 100,
         "bulan": "Juli",
         "nilaiIKPA": 98.8
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.1,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 103550000000,
@@ -11122,6 +12238,18 @@
         "nilaiIKPA": 99.74,
         "belanjaKontraktual": 0,
         "pengelolaanUpTup": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.8,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -11260,6 +12388,18 @@
         "capaianOutput": 100,
         "belanjaKontraktual": 96.8,
         "pengelolaanUpTup": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 72,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 121250000000
@@ -11375,6 +12515,18 @@
         "bulan": "Juli",
         "deviasiHal3Dipa": 100,
         "pengelolaanUpTup": 99.48
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "kementerianLembaga": "BA 139 - W13 - KANWIL DJPb Prov. JAWA TENGAH",
@@ -11474,6 +12626,18 @@
         "penyerapanAnggaran": 99.98,
         "pengelolaanUpTup": 0,
         "deviasiHal3Dipa": 79.95
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "691269_14503",
@@ -11600,6 +12764,18 @@
         "capaianOutput": 94.3,
         "belanjaKontraktual": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ],
     "statusCapaianOutput": "Sudah Terlaporkan",
@@ -11733,6 +12909,18 @@
         "dispensasiSpm": 0,
         "capaianOutput": 100,
         "penyerapanAnggaran": 96.53
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -11832,6 +13020,18 @@
         "bulan": "Juli",
         "penyerapanAnggaran": 21.99,
         "deviasiHal3Dipa": 27.94
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.25,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -11943,6 +13143,18 @@
         "nilaiIKPA": 65.01,
         "bulan": "Juli",
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "nilaiTotalIKPA": 68.95,
@@ -12084,6 +13296,18 @@
         "nilaiIKPA": 85.5,
         "belanjaKontraktual": 0,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "realisasiAnggaran": 159280000000,
@@ -12179,6 +13403,18 @@
         "bulan": "Juli",
         "revisiDipa": 100,
         "penyerapanAnggaran": 33.36
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.85,
+        "capaianOutput": 3,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "statusCapaianOutput": "Sudah Terlaporkan",
@@ -12307,6 +13543,18 @@
         "deviasiHal3Dipa": 72.36,
         "belanjaKontraktual": 100,
         "penyelesaianTagihan": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker694283@kemenkeu.go.id",
@@ -12431,6 +13679,18 @@
         "nilaiIKPA": 91.55,
         "penyelesaianTagihan": 100,
         "penyerapanAnggaran": 70.95
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.5,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "id": "satker-smg1-693749",
@@ -12549,6 +13809,18 @@
         "dispensasiSpm": 0,
         "pengelolaanUpTup": 100,
         "capaianOutput": 30
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560106",
@@ -12667,6 +13939,18 @@
         "belanjaKontraktual": 100,
         "nilaiIKPA": 95.75,
         "deviasiHal3Dipa": 71.65
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 14504",
@@ -12777,6 +14061,18 @@
         "deviasiHal3Dipa": 85.56,
         "penyerapanAnggaran": 91.4,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.45,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "indikator": {
@@ -12906,6 +14202,18 @@
         "belanjaKontraktual": 98,
         "nilaiIKPA": 92.78,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560109",
@@ -13020,6 +14328,18 @@
         "penyelesaianTagihan": 100,
         "pengelolaanUpTup": 100,
         "belanjaKontraktual": 95.2
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.35,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 96,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker693897@kemenkeu.go.id",
@@ -13124,6 +14444,18 @@
         "pengelolaanUpTup": 94.92,
         "revisiDipa": 100,
         "penyerapanAnggaran": 72.8
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.05,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 97,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 91,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "693967_14504",
@@ -13269,6 +14601,18 @@
         "dispensasiSpm": 0,
         "pengelolaanUpTup": 99.78,
         "capaianOutput": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 82,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 92,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 85,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -13366,6 +14710,18 @@
         "penyerapanAnggaran": 23.38,
         "capaianOutput": 90,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 83,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 93,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 86,
+        "dispensasiSpm": 100
       }
     ],
     "noHpPic": "081234560113",
@@ -13492,6 +14848,18 @@
         "bulan": "Juli",
         "revisiDipa": 100,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.8,
+        "capaianOutput": 2,
+        "deviasiHal3Dipa": 91,
+        "penyerapanAnggaran": 84,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 94,
+        "penyelesaianTagihan": 94,
+        "pengelolaanUpTup": 87,
+        "dispensasiSpm": 100
       }
     ],
     "alamatSatker": "Kota Semarang",
@@ -13603,6 +14971,18 @@
         "bulan": "Juli",
         "penyerapanAnggaran": 49.65,
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.75,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 92,
+        "penyerapanAnggaran": 85,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 95,
+        "penyelesaianTagihan": 95,
+        "pengelolaanUpTup": 88,
+        "dispensasiSpm": 100
       }
     ],
     "emailPic": "satker694066@kemenkeu.go.id",
@@ -13734,6 +15114,18 @@
         "revisiDipa": 100,
         "bulan": "Juli",
         "penyerapanAnggaran": 89.1
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.2,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 93,
+        "penyerapanAnggaran": 86,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 96,
+        "penyelesaianTagihan": 96,
+        "pengelolaanUpTup": 89,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 86,
@@ -13842,6 +15234,18 @@
         "revisiDipa": 100,
         "pengelolaanUpTup": 100,
         "belanjaKontraktual": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.15,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 94,
+        "penyerapanAnggaran": 87,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 97,
+        "penyelesaianTagihan": 97,
+        "pengelolaanUpTup": 90,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 87,
@@ -13979,6 +15383,18 @@
         "dispensasiSpm": 0,
         "capaianOutput": 100,
         "penyelesaianTagihan": 98.46
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 95,
+        "penyerapanAnggaran": 88,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 98,
+        "penyelesaianTagihan": 98,
+        "pengelolaanUpTup": 91,
+        "dispensasiSpm": 100
       }
     ]
   },
@@ -14076,6 +15492,18 @@
         "penyelesaianTagihan": 100,
         "capaianOutput": 100,
         "pengelolaanUpTup": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 71.55,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 96,
+        "penyerapanAnggaran": 89,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 99,
+        "penyelesaianTagihan": 99,
+        "pengelolaanUpTup": 92,
+        "dispensasiSpm": 100
       }
     ],
     "passwordSatker": "691400_14601",
@@ -14216,6 +15644,18 @@
         "capaianOutput": 100,
         "pengelolaanUpTup": 86.76,
         "nilaiIKPA": 74.77
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 67.6,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 85,
+        "penyerapanAnggaran": 90,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 85,
+        "penyelesaianTagihan": 88,
+        "pengelolaanUpTup": 93,
+        "dispensasiSpm": 100
       }
     ],
     "hasCapaianOutputData": true
@@ -14336,6 +15776,18 @@
         "revisiDipa": 100,
         "belanjaKontraktual": 96,
         "bulan": "Juli"
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 68.3,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 86,
+        "penyerapanAnggaran": 91,
+        "revisiDipa": 96,
+        "belanjaKontraktual": 86,
+        "penyelesaianTagihan": 89,
+        "pengelolaanUpTup": 94,
+        "dispensasiSpm": 100
       }
     ],
     "unitEselon1": "BAES1 14604"
@@ -14456,6 +15908,18 @@
         "bulan": "Juli",
         "revisiDipa": 100,
         "deviasiHal3Dipa": 61.79
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69,
+        "capaianOutput": 0,
+        "deviasiHal3Dipa": 87,
+        "penyerapanAnggaran": 92,
+        "revisiDipa": 97,
+        "belanjaKontraktual": 87,
+        "penyelesaianTagihan": 90,
+        "pengelolaanUpTup": 95,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 92
@@ -14561,6 +16025,18 @@
         "capaianOutput": 100,
         "penyerapanAnggaran": 40.38,
         "dispensasiSpm": 0
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 69.95,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 88,
+        "penyerapanAnggaran": 93,
+        "revisiDipa": 98,
+        "belanjaKontraktual": 88,
+        "penyelesaianTagihan": 91,
+        "pengelolaanUpTup": 96,
+        "dispensasiSpm": 100
       }
     ],
     "id": "satker-smg1-694461",
@@ -14674,6 +16150,18 @@
         "nilaiIKPA": 96.23,
         "capaianOutput": 100,
         "revisiDipa": 100
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.65,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 89,
+        "penyerapanAnggaran": 94,
+        "revisiDipa": 99,
+        "belanjaKontraktual": 89,
+        "penyelesaianTagihan": 92,
+        "pengelolaanUpTup": 97,
+        "dispensasiSpm": 100
       }
     ],
     "predikat": "Baik",
@@ -14800,6 +16288,18 @@
         "penyelesaianTagihan": 0,
         "revisiDipa": 100,
         "penyerapanAnggaran": 2.53
+      },
+      {
+        "bulan": "Agustus",
+        "nilaiIKPA": 70.85,
+        "capaianOutput": 1,
+        "deviasiHal3Dipa": 90,
+        "penyerapanAnggaran": 95,
+        "revisiDipa": 95,
+        "belanjaKontraktual": 90,
+        "penyelesaianTagihan": 93,
+        "pengelolaanUpTup": 98,
+        "dispensasiSpm": 100
       }
     ],
     "persenPenyerapan": 95,

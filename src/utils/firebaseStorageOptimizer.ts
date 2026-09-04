@@ -252,13 +252,29 @@ export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[
 }
 
 /**
- * Merge Historical Uploads anti-downgrade (Server data is authoritative)
+ * Merge Historical Uploads anti-downgrade (Server data is authoritative, all batches preserved)
  */
-export function mergeHistoricalUploadsAntiDowngrade(serverList: ExcelUploadHistory[], localList: ExcelUploadHistory[]): ExcelUploadHistory[] {
-  if (Array.isArray(serverList)) {
-    return serverList;
-  }
-  return Array.isArray(localList) ? localList : [];
+export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[], listB: ExcelUploadHistory[]): ExcelUploadHistory[] {
+  const map = new Map<string, ExcelUploadHistory>();
+  const add = (item: ExcelUploadHistory) => {
+    if (!item) return;
+    const key = item.id || `${item.category || 'IKPA'}_${item.periode}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+    } else {
+      const existingDataLen = Array.isArray(existing.satkersData) ? existing.satkersData.length : 0;
+      const incomingDataLen = Array.isArray(item.satkersData) ? item.satkersData.length : 0;
+      if (incomingDataLen >= existingDataLen) {
+        map.set(key, { ...existing, ...item });
+      }
+    }
+  };
+
+  if (Array.isArray(listB)) listB.forEach(add);
+  if (Array.isArray(listA)) listA.forEach(add);
+
+  return Array.from(map.values());
 }
 
 /**

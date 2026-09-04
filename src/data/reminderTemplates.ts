@@ -644,5 +644,112 @@ di Tempat
 Berdasarkan data aplikasi SIMASPATEN, disampaikan daftar pejabat perbendaharaan pada Satker Saudara yang memasuki batas akhir masa berlaku sertifikat kompetensi agar segera menindaklanjuti usulan perpanjangan langsung atau penjadwalan penilaian kompetensi.
 
 Kepala Seksi MSKI KPPN Semarang I`
+  },
+  {
+    id: 'temp-grup-spm-ppp-belum-mengajukan',
+    jenis: 'SPM PPP (Daya & Jasa)',
+    judul: '📢 [PENGUMUMAN GRUP] Monitoring Tagihan Langganan Daya & Jasa (SPM PPP PLN/Telkom) Belum Mengajukan',
+    subjekEmail: '[PENGUMUMAN - KPPN SEMARANG I] Percepatan Pengajuan SPM PPP (PLN & TELKOM)',
+    isiWa: `📢 *[PENGUMUMAN – MONITORING TAGIHAN DAYA & JASA (SPM PPP)]* 📢
+
+Yth. Kuasa Pengguna Anggaran (KPA), PPK, dan Bendahara Pengeluaran Lingkup KPPN Semarang I,
+
+Berdasarkan hasil monitoring penerbitan Surat Perintah Membayar Perhitungan Fihak Ketiga (SPM PPP) atas tagihan langganan daya dan jasa (Listrik PLN & Telepon/Internet TELKOM), masih terdapat Satuan Kerja yang BELUM MENGAJUKAN SPM PPP:
+
+⏳ Batas Akhir Pengajuan SPM PPP: *{BATAS_WAKTU}*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚡📋 *DAFTAR SATKER BELUM MENGAJUKAN SPM PPP:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{LIST_SATKER_BELUM_SPM_PPP}
+
+📌 *Penting untuk Diperhatikan:*
+1. Pengajuan SPM PPP wajib diselesaikan tepat waktu sebelum tanggal cut-off guna menghindari sanksi denda keterlambatan dan risiko pemutusan aliran daya listrik serta sambungan internet kedinasan.
+2. Pastikan operator telah menyelesaikan upload NTT, pencetakan SPP, persetujuan PPK, dan pengujian SPM pada Modul Pembayaran SAKTI.
+3. Segera hubungi Seksi Pencairan Dana (PD) / Seksi MSKI KPPN Semarang I apabila memerlukan pendampingan teknis.
+
+Demikian disampaikan untuk segera ditindaklanjuti. Terima kasih atas kerja samanya.`,
+    isiSurat: `PERINGATAN PENYELESAIAN PENGAJUAN SPM PERHITUNGAN PIHAK KETIGA (SPM PPP)
+Nomor: PENG-{NO_SURAT}
+Hal: Batas Akhir Pengajuan SPM Tagihan Langganan Daya dan Jasa (PLN & Telkom)
+
+Yth. Para Kuasa Pengguna Anggaran Satker Mitra KPPN Semarang I
+di Tempat
+
+Menindaklanjuti data tagihan langganan daya dan jasa (PLN dan TELKOM) yang telah terbit dan belum diajukan SPM PPP ke KPPN Semarang I, dimohon Satuan Kerja terkait segera menerbitkan dan mengajukan SPM PPP sebelum batas waktu cut-off.
+
+Kepala Seksi Pencairan Dana KPPN Semarang I`
+  },
+  {
+    id: 'temp-grup-deviasi-hal3-tinggi',
+    jenis: 'Deviasi Hal III DIPA',
+    judul: '📢 [PENGUMUMAN GRUP] Evaluasi & Pengendalian Satker dengan Deviasi Halaman III DIPA Tinggi (> 5%)',
+    subjekEmail: '[EVALUASI IKPA] Pengendalian Deviasi Halaman III DIPA Satker Mitra',
+    isiWa: `📢 *[PENGUMUMAN – EVALUASI & AKSELERASI DEVIASI HALAMAN III DIPA]* 📢
+
+Yth. Kuasa Pengguna Anggaran (KPA) dan PPK Satuan Kerja Lingkup KPPN Semarang I,
+
+Berdasarkan evaluasi indikator Deviasi Halaman III DIPA periode {PERIODE_BULAN}, disampaikan daftar Satuan Kerja dengan deviasi Rencana Penarikan Dana (RPD) terhadap Realisasi Aktual yang masih melampaui batas toleransi (deviasi > 5%):
+
+⏳ Batas Pemutakhiran Revisi RPD Hal III DIPA: *{BATAS_WAKTU}*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊⚠️ *DAFTAR SATKER DENGAN TINGKAT DEVIASI TINGGI:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{DAFTAR_SATKER_DEVIASI_TINGGI}
+
+📌 *Rekomendasi Tindak Lanjut Satker:*
+1. Segera lakukan penyesuaian RPD Halaman III DIPA melalui revisi anggaran pada Modul Penganggaran SAKTI sebelum batas open period revisi triwulan berakhir.
+2. Selaraskan kalender penarikan dana bulanan dengan jadwal penyelesaian kontrak pengadaan dan penerbitan SP2D.
+3. Disiplin menjaga deviasi bulanan tetap di bawah 5,00% untuk mengamankan skor maksimal (100) pada indikator IKPA Deviasi Hal III DIPA.
+
+Demikian disampaikan untuk dipedomani. Terima kasih.`,
+    isiSurat: `PEMBERITAHUAN EVALUASI TINGKAT DEVIASI HALAMAN III DIPA
+Nomor: PENG-{NO_SURAT}
+Hal: Hasil Pemantauan Deviasi RPD Halaman III DIPA dan Imbauan Penyesuaian
+
+Yth. Para Kuasa Pengguna Anggaran Satker Lingkup KPPN Semarang I
+di Tempat
+
+Sehubungan dengan hasil penilaian kinerja pelaksanaan anggaran pada indikator Deviasi Halaman III DIPA, kami menyampaikan daftar satuan kerja dengan tingkat deviasi di atas toleransi 5% agar segera melakukan pemutakhiran jadwal penarikan dana bulanan.
+
+Kepala Seksi Manajemen Satker dan Kepatuhan Internal`
+  },
+  {
+    id: 'temp-grup-satker-belum-isi-hp',
+    jenis: 'Kelengkapan Kontak Satker',
+    judul: '📢 [PENGUMUMAN GRUP] Imbauan Pemutakhiran Nomor Handphone/WhatsApp Pejabat & PIC Satker',
+    subjekEmail: '[PENTING - KPPN SEMARANG I] Pemutakhiran Kontak PIC & Pejabat Perbendaharaan Satker',
+    isiWa: `📢 *[PENGUMUMAN – PEMUTAKHIRAN DATA KONTAK & NO. WHATSAPP SATKER]* 📢
+
+Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Lingkup KPPN Semarang I,
+
+Dalam rangka optimalisasi koordinasi perbendaharaan, penyampaian notifikasi percepatan anggaran, serta broadcast informasi penolakan SPM dan billing perbendaharaan secara real-time, kami mengimbau Satuan Kerja berikut yang kontak PIC atau nomor WhatsApp pejabatnya BELUM TERISI / BELUM LENGKAP:
+
+⏳ Batas Pemutakhiran Data Kontak: *{BATAS_WAKTU}*
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📱⚠️ *DAFTAR SATKER DENGAN KONTAK BELUM LENGKAP:*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{DAFTAR_SATKER_KONTAK_KOSONG}
+
+📌 *Petunjuk Pemutakhiran Kontak:*
+1. Login ke Portal Satker KPPN Semarang I pada menu *Profil Satker* / *Kelola Kontak PIC*.
+2. Lengkapi nomor WhatsApp aktif KPA, PPK, PPSPM, Bendahara Pengeluaran, dan PIC Operator Satker.
+3. Atau konfirmasikan data nomor handphone pejabat yang bersangkutan ke nomor Helpdesk / Seksi MSKI KPPN Semarang I.
+
+Nomor kontak WhatsApp aktif sangat penting agar seluruh pemberitahuan kedinasan dan peringatan dini dapat diterima langsung tanpa tertunda.
+
+Demikian disampaikan, atas kerja sama dan dukungannya kami ucapkan terima kasih.`,
+    isiSurat: `IMBAUAN PEMUTAKHIRAN DATA KONTAK PEJABAT DAN PIC SATUAN KERJA
+Nomor: PENG-{NO_SURAT}
+Hal: Kelengkapan Nomor Handphone / WhatsApp Pejabat Perbendaharaan
+
+Yth. Para Kuasa Pengguna Anggaran Satker Mitra KPPN Semarang I
+di Tempat
+
+Dalam rangka kelancaran koordinasi dan percepatan diseminasi informasi perbendaharaan negara, dimohon seluruh Satuan Kerja melengkapi data kontak WhatsApp aktif bagi pejabat perbendaharaan dan petugas PIC operator.
+
+Kepala KPPN Semarang I`
   }
 ];

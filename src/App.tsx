@@ -672,34 +672,66 @@ export default function App() {
           .catch(e => console.warn('API satkers fallback notice:', e));
       });
 
-      // Separate dedicated document for historical archives
-      const fetchHistoricalUploads = getDoc(doc(db, 'data', 'historical_uploads')).then(snap => {
-        if (!isMounted) return;
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.list)) {
-            setDashboardConfig(prev => {
-              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
-              return {
-                ...prev,
-                historicalUploads: data.list
-              };
-            });
-
-            // If satkers is currently empty, reconstruct from historical archives
-            setSatkers(curr => {
-              if (curr.length === 0 && data.list.length > 0) {
-                const reconstructed = mergeHistoricalUploadsToSatkers(data.list);
-                if (reconstructed.length > 0) {
-                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
-                  return reconstructed;
-                }
-              }
-              return curr;
-            });
+      // Separate dedicated document for historical archives with comprehensive multi-month sync
+      const fetchHistoricalUploads = (async () => {
+        let firestoreList: any[] = [];
+        try {
+          const snap = await getDoc(doc(db, 'data', 'historical_uploads'));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data.list)) {
+              firestoreList = data.list;
+            }
           }
+        } catch (err) {
+          console.warn("Initial Firestore historical uploads fetch notice:", err);
         }
-      }).catch(err => console.warn("Initial Firestore historical uploads fetch notice:", err));
+
+        let apiList: any[] = [];
+        try {
+          const res = await fetch('/api/data/historical_uploads');
+          const apiData = await res.json();
+          if (apiData && Array.isArray(apiData.list)) {
+            apiList = apiData.list;
+          }
+        } catch (e) {
+          console.warn('API historical uploads fetch notice:', e);
+        }
+
+        if (!isMounted) return;
+
+        const combined = mergeHistoricalUploadsAntiDowngrade(firestoreList, apiList);
+        if (combined.length > 0) {
+          setDashboardConfig(prev => {
+            safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(combined));
+            return {
+              ...prev,
+              historicalUploads: combined
+            };
+          });
+
+          // Sync back to Firestore if Firestore had fewer batches
+          if (combined.length > firestoreList.length) {
+            const compact = compactHistoricalUploadsForFirestore(combined);
+            setDoc(doc(db, 'data', 'historical_uploads'), {
+              list: compact,
+              updatedAt: new Date().toISOString()
+            }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
+          }
+
+          // If satkers is currently empty, reconstruct from historical archives
+          setSatkers(curr => {
+            if (curr.length === 0 && combined.length > 0) {
+              const reconstructed = mergeHistoricalUploadsToSatkers(combined);
+              if (reconstructed.length > 0) {
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
+                return reconstructed;
+              }
+            }
+            return curr;
+          });
+        }
+      })();
 
       const fetchMasterSatkers = getDoc(doc(db, 'data', 'master_satkers')).then(snap => {
         if (!isMounted) return;
@@ -1386,6 +1418,12 @@ export default function App() {
       if (Array.isArray(newConfig.historicalUploads)) {
         safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(newConfig.historicalUploads));
         const compactList = compactHistoricalUploadsForFirestore(newConfig.historicalUploads);
+        fetch('/api/data/historical_uploads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ list: compactList }),
+        }).catch(e => console.warn('API historical uploads sync notice:', e));
+
         setDoc(doc(db, 'data', 'historical_uploads'), {
           list: compactList,
           updatedAt: new Date().toISOString()

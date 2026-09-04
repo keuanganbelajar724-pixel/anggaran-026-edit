@@ -138,6 +138,7 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
                         src={normalizeImageUrl(slide.imageUrl)}
                         alt=""
                         aria-hidden="true"
+                        referrerPolicy="no-referrer"
                         className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-30 scale-110 pointer-events-none"
                       />
                     )}
@@ -146,6 +147,7 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
                     <img
                       src={normalizeImageUrl(slide.imageUrl)}
                       alt={slide.title || 'Banner Slide'}
+                      referrerPolicy="no-referrer"
                       className={`relative z-0 w-full h-full ${
                         isContainMode ? 'object-contain' : 'object-cover'
                       } object-center transition-transform duration-1000 ease-out ${
@@ -156,6 +158,9 @@ export const SlideShowBannerCarousel: React.FC<SlideShowBannerCarouselProps> = (
                         const altUrl = getAlternativeImageUrl(slide.imageUrl);
                         if (altUrl && target.src !== altUrl) {
                           target.src = altUrl;
+                        } else if (!target.src.includes('/api/proxy-image')) {
+                          // Fallback to server-side image proxy to bypass any iframe or Referer restrictions
+                          target.src = `/api/proxy-image?url=${encodeURIComponent(slide.imageUrl)}`;
                         } else {
                           target.style.display = 'none';
                         }

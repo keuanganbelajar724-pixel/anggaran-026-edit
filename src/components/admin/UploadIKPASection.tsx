@@ -231,6 +231,56 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
     setCurrentFileName('');
   };
 
+  const handleArchiveCurrentActiveIKPA = () => {
+    const activeSatkers = satkers.filter(s => s.hasIKPAData !== false && s.nilaiTotalIKPA > 0);
+    if (activeSatkers.length === 0) {
+      showToast({
+        type: 'warning',
+        title: 'Tidak Ada Data Satker',
+        message: 'Tidak ditemukan data Satker IKPA aktif untuk diarsipkan.'
+      });
+      return;
+    }
+
+    const currentPeriod = satkers[0]?.periodeUpdate || uploadPeriode || 's.d. Agustus 2026';
+    const avg = Number(
+      (activeSatkers.reduce((acc, s) => acc + (s.nilaiTotalIKPA || 0), 0) / activeSatkers.length).toFixed(2)
+    );
+
+    const newHistoryItem: ExcelUploadHistory = {
+      id: `hist-ikpa-${Date.now()}`,
+      fileName: `Laporan_IKPA_SAKTI_${currentPeriod.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`,
+      periode: currentPeriod,
+      uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
+      uploadedBy: 'Seksi MSKI KPPN Semarang I',
+      satkerCount: activeSatkers.length,
+      averageIKPA: avg,
+      notes: `Arsip Hasil Sinkronisasi Data Aktif Dashboard (${activeSatkers.length} Satker)`,
+      satkersData: activeSatkers,
+      category: 'IKPA',
+      isActive: true
+    };
+
+    const updated = [
+      newHistoryItem,
+      ...historicalUploads.map(h => (!h.category || h.category === 'IKPA' ? { ...h, isActive: false } : h))
+    ];
+    onSaveHistoricalUploads(updated);
+
+    addLog(
+      'Arsipkan Data Aktif IKPA',
+      'UPLOAD',
+      `Berhasil mengarsipkan ${activeSatkers.length} Satker IKPA periode "${currentPeriod}" ke riwayat arsip.`,
+      'SUCCESS'
+    );
+
+    showToast({
+      type: 'success',
+      title: 'Arsip Berhasil Dibuat',
+      message: `${activeSatkers.length} data Satker IKPA aktif berhasil dicatat sebagai Batch Arsip ${currentPeriod}.`
+    });
+  };
+
   const handleActivateHistorical = (item: ExcelUploadHistory) => {
     requestConfirm(
       'Jadikan Periode Acuan Utama',
@@ -716,6 +766,18 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {ikpaSatkerCount > 0 && (
+              <button
+                type="button"
+                onClick={handleArchiveCurrentActiveIKPA}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-black text-xs px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                title="Simpan data Satker IKPA aktif saat ini sebagai 1 berkas Batch Arsip Excel"
+              >
+                <FolderArchive className="w-4 h-4 text-sky-200" />
+                <span>Arsipkan Data Aktif ({ikpaSatkerCount} Satker)</span>
+              </button>
+            )}
+
             {ikpaHistories.length > 1 && (
               <button
                 type="button"
@@ -755,9 +817,24 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
         </div>
 
         {ikpaHistories.length === 0 ? (
-          <div className="text-center py-10 text-slate-400">
-            <FolderArchive className="w-10 h-10 mx-auto mb-2 opacity-40" />
+          <div className="text-center py-10 text-slate-400 space-y-3">
+            <FolderArchive className="w-10 h-10 mx-auto opacity-40" />
             <p className="font-bold text-xs">Belum ada riwayat arsip file IKPA.</p>
+            {ikpaSatkerCount > 0 && (
+              <div className="pt-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 max-w-md mx-auto">
+                  Dashboard saat ini telah memiliki <strong>{ikpaSatkerCount} Data Satker IKPA aktif</strong>. Anda dapat mengemas data aktif ini menjadi 1 batch berkas arsip dengan menekan tombol di bawah.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleArchiveCurrentActiveIKPA}
+                  className="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all active:scale-95 cursor-pointer"
+                >
+                  <FolderArchive className="w-4 h-4 text-sky-200" />
+                  <span>Arsipkan Data Satker Aktif ({ikpaSatkerCount} Satker)</span>
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
