@@ -79,6 +79,42 @@ async function startServer() {
     }
   });
 
+  // Global settings endpoints for cross-browser synchronization
+  let inMemorySettings: any = null;
+  try {
+    const settingsPath = path.join(process.cwd(), 'settings_generated.json');
+    if (fs.existsSync(settingsPath)) {
+      inMemorySettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not load settings_generated.json on server start:', e);
+  }
+
+  app.get('/api/data/settings', (_req, res) => {
+    res.json({
+      status: 'ok',
+      settings: inMemorySettings,
+    });
+  });
+
+  app.post('/api/data/settings', (req, res) => {
+    try {
+      const body = req.body || {};
+      inMemorySettings = {
+        ...(inMemorySettings || {}),
+        ...body,
+        updatedAt: new Date().toISOString(),
+      };
+      const settingsPath = path.join(process.cwd(), 'settings_generated.json');
+      fs.writeFile(settingsPath, JSON.stringify(inMemorySettings, null, 2), (err) => {
+        if (err) console.warn('Server disk backup settings notice:', err);
+      });
+      res.json({ status: 'ok', settings: inMemorySettings });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
   // Supported and fallback models according to official @google/genai specification
   const FALLBACK_MODELS = [
     'gemini-3.7-flash',

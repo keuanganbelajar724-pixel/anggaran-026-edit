@@ -137,6 +137,29 @@ const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
   }
 ];
 
+export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
+  'dashboard': false,
+  'capaian-output': true,
+  'diagnostik-caput': false,
+  'deviasi-hal3': false,
+  'spm-ppp': false,
+  'pengelolaan-up': false,
+  'transaksi-kkp': false,
+  'transaksi-digipay': false,
+  'kelola-satker': false,
+  'redflags': false,
+  'sertifikasi': false,
+  'per5-analisis': false,
+  'pengetahuan': false,
+  'announcements': false,
+  'materi-slide': false,
+  'portal-link': false,
+  'presensi': false,
+  'aduan': false,
+  'reminder': false,
+  'guide': false,
+};
+
 export default function App() {
   const [satkers, setSatkers] = useState<SatkerIKPA[]>(() => {
     const saved = localStorage.getItem('kppn_satker_data');
@@ -178,11 +201,27 @@ export default function App() {
           const t = p.get('tab') as NavigationTab;
           if (t) return t;
         }
+        let menuVis: any = null;
+        try {
+          const localMenu = localStorage.getItem('kppn_menu_visibility');
+          if (localMenu) menuVis = JSON.parse(localMenu);
+        } catch (e) {}
+
         const saved = localStorage.getItem('kppn_active_tab') as NavigationTab;
-        if (saved) return saved;
+        if (saved && saved !== 'admin') {
+          if (menuVis && menuVis[saved] === false) {
+            return 'capaian-output';
+          }
+          if (menuVis && menuVis[saved] === true) {
+            return saved;
+          }
+          if (!menuVis && DEFAULT_MENU_VISIBILITY[saved as keyof MenuVisibilityConfig] !== false) {
+            return saved;
+          }
+        }
       }
     } catch (e) {}
-    return 'dashboard';
+    return 'capaian-output';
   });
 
   useEffect(() => {
@@ -268,7 +307,7 @@ export default function App() {
           ? savedConfig.kegiatanSosialisasi 
           : INITIAL_KEGIATAN_SOSIALISASI,
         menuVisibility: {
-          'deviasi-hal3': true,
+          ...DEFAULT_MENU_VISIBILITY,
           ...savedConfig.menuVisibility,
           ...(savedMenuVisibility || {})
         }
@@ -297,24 +336,7 @@ export default function App() {
       historicalUploads: savedHist,
       presensiPrintConfig: initialPresensiPrint,
       menuVisibility: {
-        'dashboard': true,
-        'capaian-output': true,
-        'deviasi-hal3': true,
-        'pengelolaan-up': true,
-        'transaksi-kkp': true,
-        'transaksi-digipay': true,
-        'kelola-satker': true,
-        'redflags': true,
-        'sertifikasi': true,
-        'per5-analisis': true,
-        'announcements': true,
-        'materi-slide': true,
-        'portal-link': true,
-        'presensi': true,
-        'pengetahuan': true,
-        'aduan': true,
-        'reminder': true,
-        'guide': false,
+        ...DEFAULT_MENU_VISIBILITY,
         ...(savedMenuVisibility || {})
       },
     helpdeskPhone: '081234567890',
@@ -473,8 +495,8 @@ export default function App() {
       const isCurrentDisabled = dashboardConfig.menuVisibility[activeTab as keyof MenuVisibilityConfig] === false;
       if (isCurrentDisabled) {
         const tabPriorityOrder: NavigationTab[] = [
-          'dashboard',
           'capaian-output',
+          'dashboard',
           'deviasi-hal3',
           'pengelolaan-up',
           'transaksi-kkp',
@@ -512,35 +534,68 @@ export default function App() {
     }, 4500);
 
     try {
+      const applyCleanSettings = (data: any) => {
+        if (!data) return;
+        if (data.adminPin) {
+          setAdminPin(data.adminPin);
+          safeLocalStorageSet('kppn_admin_pin', data.adminPin);
+        }
+        if (data.dashboardConfig) {
+          const cleanDashboardConfig = {
+            ...data.dashboardConfig,
+            slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
+          };
+          if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
+            cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
+          }
+          setDashboardConfig(prev => ({
+            ...prev,
+            ...cleanDashboardConfig,
+            historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+          }));
+          safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
+          if (cleanDashboardConfig.menuVisibility) {
+            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+          }
+        }
+      };
+
+      const fetchServerSettings = () => {
+        fetch('/api/data/settings')
+          .then(res => res.json())
+          .then(apiData => {
+            if (!isMounted) return;
+            if (apiData && apiData.settings) {
+              applyCleanSettings(apiData.settings);
+            }
+          })
+          .catch(e => console.warn('API settings fallback notice:', e));
+      };
+
+      // Always fetch server settings immediately for instant cross-browser synchronization
+      fetchServerSettings();
+
+      // Synchronize settings across all browsers on window focus and periodic interval
+      const onWindowFocus = () => {
+        if (isMounted) fetchServerSettings();
+      };
+      window.addEventListener('focus', onWindowFocus);
+      const settingsInterval = setInterval(() => {
+        if (isMounted) fetchServerSettings();
+      }, 15000);
+
       // 1. Initial Fetch from Firestore to ensure fresh data
       const fetchSettings = getDoc(doc(db, 'settings', 'global')).then(snap => {
         if (!isMounted) return;
         if (snap.exists()) {
-          const data = snap.data();
-          if (data.adminPin) {
-            setAdminPin(data.adminPin);
-            safeLocalStorageSet('kppn_admin_pin', data.adminPin);
-          }
-          if (data.dashboardConfig) {
-            const cleanDashboardConfig = {
-              ...data.dashboardConfig,
-              slideShowConfig: sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
-            };
-            if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
-              cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
-            }
-            setDashboardConfig(prev => ({
-              ...prev,
-              ...cleanDashboardConfig,
-              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
-            }));
-            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(cleanDashboardConfig));
-            if (cleanDashboardConfig.menuVisibility) {
-              safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
-            }
-          }
+          applyCleanSettings(snap.data());
+        } else {
+          fetchServerSettings();
         }
-      }).catch(err => console.warn("Initial Firestore settings fetch notice:", err));
+      }).catch(err => {
+        console.warn("Initial Firestore settings fetch notice:", err);
+        fetchServerSettings();
+      });
 
       const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
 
@@ -1007,6 +1062,8 @@ export default function App() {
       });
 
       return () => {
+        window.removeEventListener('focus', onWindowFocus);
+        clearInterval(settingsInterval);
         unsubSettings();
         unsubHistorical();
         unsubSatkers();
@@ -1244,6 +1301,11 @@ export default function App() {
   const handleUpdateAdminPin = (newPin: string) => {
     setAdminPin(newPin);
     safeLocalStorageSet('kppn_admin_pin', newPin);
+    fetch('/api/data/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPin: newPin }),
+    }).catch(e => console.warn('API pin sync notice:', e));
     try {
       setDoc(doc(db, 'settings', 'global'), { adminPin: newPin, updatedAt: new Date().toISOString() }, { merge: true })
         .catch(err => console.warn("Firebase save pin notice:", err));
@@ -1290,6 +1352,16 @@ export default function App() {
         ...newConfig,
         historicalUploads: summaryHistorical
       };
+
+      // Dual-sync to server-side backup API so all browsers and domains stay 100% synchronized
+      fetch('/api/data/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dashboardConfig: cleanConfig,
+          updatedAt: new Date().toISOString()
+        }),
+      }).catch(e => console.warn('API dashboard config sync notice:', e));
 
       setDoc(doc(db, 'settings', 'global'), { 
         dashboardConfig: cleanConfig, 

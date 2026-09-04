@@ -1,0 +1,29 @@
+{
+  "adminPin": "123456",
+  "dashboardConfig": {
+    "menuVisibility": {
+      "dashboard": false,
+      "capaian-output": true,
+      "diagnostik-caput": false,
+      "deviasi-hal3": false,
+      "spm-ppp": false,
+      "pengelolaan-up": false,
+      "transaksi-kkp": false,
+      "transaksi-digipay": false,
+      "kelola-satker": false,
+      "redflags": false,
+      "sertifikasi": false,
+      "per5-analisis": false,
+      "pengetahuan": false,
+      "announcements": false,
+      "materi-slide": false,
+      "portal-link": false,
+      "presensi": false,
+      "aduan": false,
+      "reminder": false,
+      "guide": false
+    },
+    "defaultActiveTab": "capaian-output",
+    "updatedAt": "2026-09-04T06:30:00.000Z"
+  }
+}
