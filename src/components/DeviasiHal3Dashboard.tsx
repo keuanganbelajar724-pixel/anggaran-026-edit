@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   BarChart3,
   TrendingUp,
@@ -48,6 +48,8 @@ import {
 import { DeviasiHal3Record, MasterSatker, SatkerIKPA } from '../types';
 import { PERIODE_LIST } from '../data/initialDeviasiHal3Data';
 import { exportDeviasiHal3ToExcel } from '../utils/deviasiHal3ExcelProcessor';
+import { DeviasiHal3SatkerPublicView } from './DeviasiHal3SatkerPublicView';
+import { AdminLoginModal } from './AdminLoginModal';
 
 interface DeviasiHal3DashboardProps {
   deviasiRecords: DeviasiHal3Record[];
@@ -57,6 +59,8 @@ interface DeviasiHal3DashboardProps {
   isDark?: boolean;
   isAdminAuthenticated?: boolean;
   onSetIsAdminAuthenticated?: (val: boolean) => void;
+  onAuthenticateAdmin?: (pin: string) => boolean;
+  onLogoutAdmin?: () => void;
   onGoToAdmin?: () => void;
 }
 
@@ -77,8 +81,59 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
   isDark = false,
   isAdminAuthenticated = false,
   onSetIsAdminAuthenticated,
+  onAuthenticateAdmin,
+  onLogoutAdmin,
   onGoToAdmin
 }) => {
+  // Portal Role: INTERNAL_KPPN (Admin only) vs SATKER_PUBLIC (Restricted, safe, non-nominal)
+  const [portalRole, setPortalRole] = useState<'INTERNAL_KPPN' | 'SATKER_PUBLIC'>(() => {
+    return isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC';
+  });
+  const [showAdminLoginModal, setShowAdminLoginModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isAdminAuthenticated) {
+      setPortalRole('INTERNAL_KPPN');
+    } else {
+      setPortalRole('SATKER_PUBLIC');
+    }
+  }, [isAdminAuthenticated]);
+
+  const handleAdminLoginSubmit = (pin: string): boolean => {
+    if (onAuthenticateAdmin) {
+      const ok = onAuthenticateAdmin(pin);
+      if (ok) {
+        setShowAdminLoginModal(false);
+        setPortalRole('INTERNAL_KPPN');
+        setIsLocallyUnlocked(true);
+      }
+      return ok;
+    }
+    const storedPin = ((typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026').trim();
+    if (pin.trim() === storedPin || pin.trim() === 'kppn026') {
+      if (onSetIsAdminAuthenticated) onSetIsAdminAuthenticated(true);
+      setIsLocallyUnlocked(true);
+      setPortalRole('INTERNAL_KPPN');
+      setShowAdminLoginModal(false);
+      return true;
+    }
+    return false;
+  };
+
+  const handleAdminLogout = () => {
+    if (onLogoutAdmin) {
+      onLogoutAdmin();
+    }
+    if (onSetIsAdminAuthenticated) {
+      onSetIsAdminAuthenticated(false);
+    }
+    setIsLocallyUnlocked(false);
+    setPortalRole('SATKER_PUBLIC');
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('kppn_admin_session');
+    }
+  };
+
   // State Filter & Search
   const [selectedPeriode, setSelectedPeriode] = useState<string>('ALL'); // 'ALL' | '1' | '2' ... '12'
   const [selectedKl, setSelectedKl] = useState<string>('ALL');
@@ -656,9 +711,103 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
     }
   };
 
+  // Non-authenticated users (Satker Public) only see the restricted Safe Deviasi view
+  if (!isAdminAuthenticated) {
+    return (
+      <>
+        <DeviasiHal3SatkerPublicView
+          deviasiRecords={deviasiRecords}
+          masterSatkers={masterSatkers}
+          satkers={satkers}
+          isDark={isDark}
+          isAdminAuthenticated={false}
+          onOpenAdminAuth={() => setShowAdminLoginModal(true)}
+        />
+        <AdminLoginModal
+          isOpen={showAdminLoginModal}
+          onClose={() => setShowAdminLoginModal(false)}
+          onAuthenticateAdmin={handleAdminLoginSubmit}
+          theme={isDark ? 'dark' : 'light'}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in text-slate-800 dark:text-slate-100">
-      {/* Top Banner & Action Header */}
+      {/* Role Switcher Banner (Khusus Admin KPPN) */}
+      <div className={`p-4 rounded-3xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-gradient-to-r from-indigo-50/90 via-slate-50 to-emerald-50/80 border-indigo-100'
+      }`}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 shrink-0">
+            <Shield className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-indigo-700 dark:text-indigo-300 uppercase tracking-wider">
+                SESI ADMIN KPPN 026 AKTIF
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                Terverifikasi
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Pilih mode portal untuk meninjau data internal lengkap (RPD &amp; Realisasi) atau pratinjau tampilan aman Satker.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="inline-flex p-1 bg-slate-200/80 dark:bg-slate-800 rounded-2xl">
+            <button
+              type="button"
+              onClick={() => setPortalRole('INTERNAL_KPPN')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                portalRole === 'INTERNAL_KPPN'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              🏛️ Internal KPPN (Lengkap)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPortalRole('SATKER_PUBLIC')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                portalRole === 'SATKER_PUBLIC'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              🏢 Pratinjau Tampilan Satker
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAdminLogout}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            title="Kunci kembali portal ke tampilan Satker publik"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Kunci / Keluar</span>
+          </button>
+        </div>
+      </div>
+
+      {portalRole === 'SATKER_PUBLIC' ? (
+        <DeviasiHal3SatkerPublicView
+          deviasiRecords={deviasiRecords}
+          masterSatkers={masterSatkers}
+          satkers={satkers}
+          isDark={isDark}
+          isAdminAuthenticated={true}
+          onSwitchToInternal={() => setPortalRole('INTERNAL_KPPN')}
+        />
+      ) : (
+        <>
+          {/* Top Banner & Action Header */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
@@ -2213,6 +2362,15 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
           </div>
         </div>
       )}
+        </>
+      )}
+
+      <AdminLoginModal
+        isOpen={showAdminLoginModal}
+        onClose={() => setShowAdminLoginModal(false)}
+        onAuthenticateAdmin={handleAdminLoginSubmit}
+        theme={isDark ? 'dark' : 'light'}
+      />
     </div>
   );
 };

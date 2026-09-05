@@ -466,10 +466,11 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                   const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
                   const isBelum = isSatkerBelum(satker);
                   const isSudah = !isBelum;
+                  const rowKey = satker.id || (satker.kodeSatker ? `satker-${satker.kodeSatker}` : `caput-row-${idx}`);
 
                   return (
                     <tr 
-                      key={satker.id} 
+                      key={rowKey} 
                       className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors ${
                         isBelum ? 'bg-rose-50/20' : ''
                       }`}
@@ -536,9 +537,10 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
               const isBelum = isSatkerBelum(satker);
               const isSudah = !isBelum;
+              const cardKey = satker.id || (satker.kodeSatker ? `satker-mobile-${satker.kodeSatker}` : `caput-m-${idx}`);
 
               return (
-                <div key={satker.id} className={`p-4 space-y-3 ${isBelum ? 'bg-rose-50/20' : ''}`}>
+                <div key={cardKey} className={`p-4 space-y-3 ${isBelum ? 'bg-rose-50/20' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <span className="font-mono bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-[10px] px-1.5 py-0.5 rounded font-bold">

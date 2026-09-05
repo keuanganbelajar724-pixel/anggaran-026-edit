@@ -112,6 +112,7 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
     isActive: !!h.isActive,
     satkersData: Array.isArray(h.satkersData)
       ? h.satkersData.map((s: any) => ({
+          id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : undefined),
           kodeSatker: s.kodeSatker || '',
           namaSatker: s.namaSatker || '',
           nilaiTotalIKPA: s.nilaiTotalIKPA ?? 0,
@@ -258,6 +259,29 @@ export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[],
   const map = new Map<string, ExcelUploadHistory>();
   const add = (item: ExcelUploadHistory) => {
     if (!item) return;
+    // Auto-purge any stale synthetic Agustus 2026 dummy batch for IKPA
+    if (item.id === 'hist-ikpa-agustus-2026' || (item.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx' && (!item.category || item.category === 'IKPA'))) {
+      return;
+    }
+    // Normalize any Capaian Output August batch to Juli 2026 so user data aligns strictly up to July
+    if (item.id === 'hist-caput-agustus-2026' || (item.category === 'CAPAIAN_OUTPUT' && (item.periode === 'Agustus 2026' || item.periode === 's.d. Agustus 2026'))) {
+      item = {
+        ...item,
+        id: 'hist-caput-juli-2026',
+        periode: 'Juli 2026',
+        fileName: 'Monitoring_Capaian_Output_SAKTI_Juli_2026.xlsx'
+      };
+    }
+    // Ensure all satkers have id
+    if (Array.isArray(item.satkersData)) {
+      item = {
+        ...item,
+        satkersData: item.satkersData.map((s: any) => ({
+          ...s,
+          id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : undefined)
+        }))
+      };
+    }
     const key = item.id || `${item.category || 'IKPA'}_${item.periode}`;
     const existing = map.get(key);
     if (!existing) {
@@ -274,7 +298,21 @@ export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[],
   if (Array.isArray(listB)) listB.forEach(add);
   if (Array.isArray(listA)) listA.forEach(add);
 
-  return Array.from(map.values());
+  let result = Array.from(map.values());
+
+  // Ensure an active IKPA batch exists; if none is active (e.g. purged batch was active), activate Juli
+  const activeIkpa = result.find(h => (!h.category || h.category === 'IKPA') && h.isActive);
+  if (!activeIkpa) {
+    const juliBatch = result.find(h => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || (h.periode && h.periode.toLowerCase().includes('juli'))));
+    if (juliBatch) {
+      juliBatch.isActive = true;
+    } else {
+      const firstIkpa = result.find(h => !h.category || h.category === 'IKPA');
+      if (firstIkpa) firstIkpa.isActive = true;
+    }
+  }
+
+  return result;
 }
 
 /**

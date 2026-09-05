@@ -146,7 +146,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'realisasi-anggaran': true,
   'capaian-output': true,
   'diagnostik-caput': false,
-  'deviasi-hal3': false,
+  'deviasi-hal3': true,
   'spm-ppp': false,
   'pengelolaan-up': false,
   'transaksi-kkp': false,
@@ -172,13 +172,16 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed
-            .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
-            .map((s: SatkerIKPA) => ({
-              ...s,
-              namaPic: cleanPicName(s.namaPic, s.kodeSatker),
-              noHpPic: cleanContactValue(s.noHpPic)
-            }));
+          const hasAgustus = parsed.some((s: SatkerIKPA) => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
+          if (!hasAgustus) {
+            return parsed
+              .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
+              .map((s: SatkerIKPA) => ({
+                ...s,
+                namaPic: cleanPicName(s.namaPic, s.kodeSatker),
+                noHpPic: cleanContactValue(s.noHpPic)
+              }));
+          }
         }
       } catch (e) {
         console.warn('Error parsing saved satker data:', e);
@@ -278,7 +281,14 @@ export default function App() {
       const local = localStorage.getItem('kppn_historical_uploads');
       if (local !== null) {
         const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) savedHist = parsed;
+        if (Array.isArray(parsed)) {
+          savedHist = parsed.filter(item => item && item.id !== 'hist-ikpa-agustus-2026' && item.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx');
+          // If Juli was deactivated, make sure Juli is active
+          if (savedHist.length > 0 && !savedHist.some(h => (!h.category || h.category === 'IKPA') && h.isActive)) {
+            const juli = savedHist.find(h => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || h.periode?.toLowerCase().includes('juli')));
+            if (juli) juli.isActive = true;
+          }
+        }
       }
     } catch (e) {
       console.error('Error parsing kppn_historical_uploads in App.tsx:', e);
@@ -377,22 +387,65 @@ export default function App() {
     },
     updateDates: {
       dashboard: '07 Agustus 2026 - 09:00 WIB',
+      realisasiAnggaran: '24 Oktober 2024 - 10:28 WIB',
       capaianOutput: 'Periode Juli 2026 (Diperbarui 07 Aug 2026)',
+      diagnostikCaput: 'Periode Juli 2026',
+      deviasiHal3: '07 Agustus 2026 - 09:00 WIB',
       sertifikasi: '07 Agustus 2026 jam 13:45 WIB',
       redflags: '07 Agustus 2026 - 09:00 WIB',
       per5Analisis: '07 Agustus 2026',
       pengelolaanUp: '07 Agustus 2026 - 09:00 WIB',
       transaksiKkp: '07 Agustus 2026 - 09:00 WIB',
-      transaksiDigipay: '07 Agustus 2026 - 09:00 WIB'
+      transaksiDigipay: '07 Agustus 2026 - 09:00 WIB',
+      spmPpp: '07 Agustus 2026 - 09:00 WIB',
+      kelolaSatker: '07 Agustus 2026',
+      materiSlide: '07 Agustus 2026',
+      portalLink: '07 Agustus 2026',
+      presensi: '07 Agustus 2026',
+      pengetahuan: '07 Agustus 2026',
+      announcements: '07 Agustus 2026',
+      aduan: '07 Agustus 2026'
     },
     customTexts: {
       dashboardBadge: 'Sistem Pembina Keuangan & Monitoring IKPA KPPN Semarang I',
       dashboardTitle: 'Monitoring Real-Time IKPA Satker Lingkup KPPN Semarang I',
       dashboardSubtitle: 'Sistem pembina keuangan digital untuk pemantauan 8 indikator IKPA dan percepatan penyelesaian laporan Capaian Output SAKTI.',
 
+      realisasiAnggaranBadge: 'My InTress DJPb • Monitoring Realisasi Anggaran',
+      realisasiAnggaranTitle: 'Dashboard Realisasi Anggaran & Monitoring Target',
+      realisasiAnggaranSubtitle: 'Monitoring kepatuhan target penyerapan anggaran per jenis belanja (Pegawai, Barang, Modal, dan Bansos) sesuai regulasi target triwulanan DJPb untuk mendeteksi dini satker yang belum memenuhi target.',
+
       capaianOutputBadge: 'Monitoring SAKTI Real-Time • KPPN Semarang I (026)',
       capaianOutputTitle: 'Dashboard Khusus Capaian Output SAKTI',
       capaianOutputSubtitle: 'Fokus pengawasan pengiriman & konfirmasi data Capaian Output bulan berjalan. Mencegah penurunan skor IKPA akibat keterlambatan atau data 0%.',
+
+      diagnostikCaputBadge: 'SI-CAPUT • Sistem Informasi Deteksi Anomali Capaian Output',
+      diagnostikCaputTitle: 'Diagnostik & Anomali Capaian Output SAKTI',
+      diagnostikCaputSubtitle: 'Deteksi dini RO anomali TPCRO/PCRO 0%, gap kinerja RO, deviasi tidak wajar, serta generator keterangan tindak lanjut SAKTI.',
+
+      deviasiHal3Badge: 'Indikator Kinerja Pelaksanaan Anggaran (IKPA) • Bobot 10%',
+      deviasiHal3Title: 'Monitoring Deviasi Halaman III DIPA',
+      deviasiHal3Subtitle: 'Pengawasan realisasi terhadap Rencana Penarikan Dana (RPD) bulanan per jenis belanja serta penanganan satker blokir anggaran.',
+
+      spmPppBadge: 'Monitoring Tagihan PFK • KPPN Semarang I',
+      spmPppTitle: 'Monitoring SPM Pihak Ketiga (PLN & Telkom)',
+      spmPppSubtitle: 'Pengawasan percepatan penerbitan SPP dan SPM tagihan langganan daya dan jasa satker untuk mencegah pemutusan layanan dan denda.',
+
+      pengelolaanUpBadge: 'Monitoring Kas & Likuiditas Satker • KPPN Semarang I',
+      pengelolaanUpTitle: 'Dashboard Pengelolaan UP, TUP & GUP',
+      pengelolaanUpSubtitle: 'Pemantauan revolving uang persediaan, kepatuhan batas waktu 30 hari pertanggungjawaban UP, dan akselerasi revolving GUP.',
+
+      transaksiKkpBadge: 'Digitalisasi Pembayaran Non-Tunai • KPPN Semarang I',
+      transaksiKkpTitle: 'Dashboard Transaksi Kartu Kredit Pemerintah (KKP)',
+      transaksiKkpSubtitle: 'Monitoring implementasi dan frekuensi penggunaan KKP dalam pelaksanaan anggaran belanja operasional satker.',
+
+      transaksiDigipayBadge: 'Ekosistem Marketplace Pemerintah • KPPN Semarang I',
+      transaksiDigipayTitle: 'Dashboard Transaksi Digipay Satu (VA & KKP)',
+      transaksiDigipaySubtitle: 'Monitoring keaktifan transaksi satker dan pemberdayaan UMKM lokal melalui platform marketplace Digipay Satu.',
+
+      kelolaSatkerBadge: 'Master Satker & Pejabat • KPPN Semarang I',
+      kelolaSatkerTitle: 'Database & Master Satker Mitra KPPN',
+      kelolaSatkerSubtitle: 'Pusat data referensi Satker lingkup KPPN Semarang I, kontak KPA/PPK/PPSPM/Bendahara, dan kredensial akses portal mandiri.',
 
       redflagsBadge: 'EVALUASI PERHATIAN KHUSUS KPPN SEMARANG I',
       redflagsTitle: 'Satker Berisiko Menurunkan IKPA & Belum Capaian Output',
@@ -408,7 +461,27 @@ export default function App() {
 
       pengumumanBadge: 'Papan Pengumuman & Surat Edaran KPPN Semarang I (026)',
       pengumumanTitle: 'Pusat Informasi & Pengumuman Satker',
-      pengumumanSubtitle: 'Dapatkan petunjuk teknis terbaru, jadwal batas waktu pengiriman Capaian Output, serta Surat Edaran resmi dari Pembina Keuangan KPPN Semarang I.'
+      pengumumanSubtitle: 'Dapatkan petunjuk teknis terbaru, jadwal batas waktu pengiriman Capaian Output, serta Surat Edaran resmi dari Pembina Keuangan KPPN Semarang I.',
+
+      materiSlideBadge: 'Galeri Slide Show & Modul Perbendaharaan KPPN Semarang I',
+      materiSlideTitle: 'Kumpulan Slide Presentation & PowerPoint',
+      materiSlideSubtitle: 'Pusat paparan sosialisasi, bimbingan teknis, dan modul PowerPoint perbendaharaan. Nikmati fitur Slide Show langsung di dashboard tanpa perlu mencari file atau mengunduh.',
+
+      portalLinkBadge: 'Portal Sosialisasi & Bimbingan Teknis KPPN Semarang I',
+      portalLinkTitle: 'Pusat Tautan & Link Sosialisasi Satker',
+      portalLinkSubtitle: 'Akses cepat menuju ruang Zoom Meeting sosialisasi, tautan presensi peserta, modul paparan, kuis evaluasi, serta kanal tanya jawab resmi KPPN Semarang I.',
+
+      presensiBadge: 'Presensi Digital & Rekap Kehadiran Peserta • KPPN Semarang I',
+      presensiTitle: 'Presensi Online Kegiatan Sosialisasi & Bimtek',
+      presensiSubtitle: 'Pengisian daftar hadir digital bagi pejabat/pengelola keuangan Satker yang mengikuti kegiatan sosialisasi, FGD, dan bimbingan teknis perbendaharaan.',
+
+      pengetahuanBadge: 'Pusat Regulasi & Juknis Perbendaharaan',
+      pengetahuanTitle: 'Pusat Pengetahuan, Modul & Juknis SAKTI',
+      pengetahuanSubtitle: 'Kumpulan pedoman teknis aplikasi SAKTI, format blangko surat perbendaharaan, regulasi DJPb, dan SOP layanan KPPN.',
+
+      aduanBadge: 'Helpdesk & Layanan Pengaduan Satker KPPN Semarang I',
+      aduanTitle: 'Kanal Layanan Konsultasi & Pengaduan Satker',
+      aduanSubtitle: 'Sampaikan kendala teknis SAKTI, pengajuan dispensasi, rekonsiliasi laporan, atau pengaduan layanan secara langsung ke tim pembina KPPN Semarang I.'
     }
   };
 });
@@ -613,6 +686,9 @@ export default function App() {
                 : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
               historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
             };
+            if (JSON.stringify(updated) === JSON.stringify(prev)) {
+              return prev;
+            }
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
             return updated;
           });
@@ -743,8 +819,8 @@ export default function App() {
             };
           });
 
-          // Sync back to Firestore if Firestore had fewer batches
-          if (combined.length > firestoreList.length) {
+          // Sync back to Firestore if Firestore had fewer batches or had the unwanted August batch
+          if (combined.length > firestoreList.length || firestoreList.some((h: any) => h.id === 'hist-ikpa-agustus-2026' || h.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx')) {
             const compact = compactHistoricalUploadsForFirestore(combined);
             setDoc(doc(db, 'data', 'historical_uploads'), {
               list: compact,
@@ -752,9 +828,10 @@ export default function App() {
             }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
           }
 
-          // If satkers is currently empty, reconstruct from historical archives
+          // If satkers has old synthetic Agustus or is empty, reconstruct from historical archives
           setSatkers(curr => {
-            if (curr.length === 0 && combined.length > 0) {
+            const hasAgustus = curr.some(s => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
+            if ((curr.length === 0 || hasAgustus) && combined.length > 0) {
               const reconstructed = mergeHistoricalUploadsToSatkers(combined);
               if (reconstructed.length > 0) {
                 safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
@@ -987,18 +1064,24 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
+            const cleanList = data.list.filter((h: any) => h && h.id !== 'hist-ikpa-agustus-2026' && h.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx');
+            if (cleanList.length > 0 && !cleanList.some((h: any) => (!h.category || h.category === 'IKPA') && h.isActive)) {
+              const juli = cleanList.find((h: any) => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || h.periode?.toLowerCase().includes('juli')));
+              if (juli) juli.isActive = true;
+            }
             setDashboardConfig(prev => {
-              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
+              safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(cleanList));
               return {
                 ...prev,
-                historicalUploads: data.list
+                historicalUploads: cleanList
               };
             });
 
-            // If satkers is empty, reconstruct from historical archives
+            // If satkers is empty or has old August, reconstruct from historical archives
             setSatkers(curr => {
-              if (curr.length === 0 && data.list.length > 0) {
-                const reconstructed = mergeHistoricalUploadsToSatkers(data.list);
+              const hasAgustus = curr.some(s => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
+              if ((curr.length === 0 || hasAgustus) && cleanList.length > 0) {
+                const reconstructed = mergeHistoricalUploadsToSatkers(cleanList);
                 if (reconstructed.length > 0) {
                   safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                   return reconstructed;
@@ -2479,6 +2562,9 @@ export default function App() {
                 <RealisasiAnggaranDashboard
                   records={myIntressRecords}
                   config={dashboardConfig.realisasiAnggaranConfig}
+                  dashboardConfig={dashboardConfig}
+                  customTexts={dashboardConfig.customTexts}
+                  updateDate={dashboardConfig.updateDates?.realisasiAnggaran || dashboardConfig.realisasiAnggaranConfig?.waktuUnduh}
                   onUpdateConfig={(newConfig) => {
                     handleUpdateDashboardConfig({
                       ...dashboardConfig,
@@ -2489,7 +2575,9 @@ export default function App() {
                   onUploadExcel={handleUploadMyIntress}
                   onResetDefault={handleResetDefaultMyIntress}
                   theme={theme}
-                  isAdmin={isAdminAuthenticated}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  onLogoutAdmin={handleLogoutAdmin}
                 />
               )}
 
@@ -2547,6 +2635,8 @@ export default function App() {
                   isDark={theme === 'dark'}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onSetIsAdminAuthenticated={setIsAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  onLogoutAdmin={handleLogoutAdmin}
                   onGoToAdmin={() => setActiveTab('admin')}
                 />
               )}

@@ -75,6 +75,11 @@ export interface EvaluatedSatkerRealisasi {
   totalPersen: number;
   totalSisa: number;
 
+  targetNominalTotal: number; // Nominal Rupiah target triwulanan total satker
+  targetPersenLangsung: number; // Target persentase komposit/bobot satker langsung
+  gapPersenLangsung: number; // Selisih totalPersen - targetPersenLangsung (+ surplus, - defisit)
+  surplusNominal: number; // Kelebihan serapan jika sudah melampaui target
+
   paguCluster: 'JUMBO' | 'BESAR' | 'SEDANG' | 'KECIL';
   clusterLabel: string;
   priorityRisk: 'PRIORITAS_1_KRITIS' | 'PRIORITAS_2_MODERAT' | 'PERHATIAN_MODAL' | 'ON_TRACK_JUMBO' | 'AMAN';
@@ -246,6 +251,16 @@ export function evaluateSatkerTriwulan(
     ? (s.persenTotal !== undefined && s.persenTotal !== null ? Number(s.persenTotal) : Math.round((totalReal / totalPagu) * 10000) / 100)
     : 0;
 
+  // Perhitungan Target Langsung (Nominal & Persentase Komposit Wajib)
+  const targetPegawaiRp = pegawai.hasPagu ? Math.round((pegawai.pagu * rule.pegawai) / 100) : 0;
+  const targetBarangRp = barang.hasPagu ? Math.round((barang.pagu * rule.barang) / 100) : 0;
+  const targetModalRp = modal.hasPagu ? Math.round((modal.pagu * rule.modal) / 100) : 0;
+  const targetBansosRp = bansos.hasPagu ? Math.round((bansos.pagu * rule.bansos) / 100) : 0;
+  const targetNominalTotal = targetPegawaiRp + targetBarangRp + targetModalRp + targetBansosRp;
+  const targetPersenLangsung = totalPagu > 0 ? Math.round((targetNominalTotal / totalPagu) * 10000) / 100 : 0;
+  const gapPersenLangsung = Math.round((totalPersen - targetPersenLangsung) * 100) / 100;
+  const surplusNominal = totalReal > targetNominalTotal ? Math.max(0, totalReal - targetNominalTotal) : 0;
+
   // Klasifikasi Klaster Pagu (DJPb Treasury scale)
   let paguCluster: 'JUMBO' | 'BESAR' | 'SEDANG' | 'KECIL' = 'SEDANG';
   let clusterLabel = 'Sedang (2M - 10M)';
@@ -315,6 +330,10 @@ export function evaluateSatkerTriwulan(
     totalRealisasi: totalReal,
     totalPersen,
     totalSisa: Math.max(0, totalPagu - totalReal),
+    targetNominalTotal,
+    targetPersenLangsung,
+    gapPersenLangsung,
+    surplusNominal,
     paguCluster,
     clusterLabel,
     priorityRisk,

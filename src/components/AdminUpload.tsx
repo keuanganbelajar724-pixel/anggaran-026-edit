@@ -26,8 +26,11 @@ import {
   SlideShowConfig,
   DeviasiHal3Record,
   PresensiPrintConfig,
-  SPMPPPRecord
+  SPMPPPRecord,
+  TriwulanKey,
+  TargetTriwulanRule
 } from '../types';
+import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
 import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
@@ -117,6 +120,7 @@ import {
   Sliders,
   Calculator,
   BarChart3,
+  PieChart,
   Filter,
   CheckSquare,
   Square,
@@ -216,34 +220,17 @@ interface AdminUploadProps {
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
   {
-    id: 'hist-august-2026',
-    fileName: 'sample_satker_kppn_semarang1_Agustus_2026.xlsx',
-    periode: 'Agustus 2026',
-    uploadDate: '05 Agu 2026, 11:30 WIB',
-    uploadedBy: 'Seksi MSKI KPPN Semarang I',
-    satkerCount: INITIAL_SATKER_DATA.length,
-    averageIKPA: Number((INITIAL_SATKER_DATA.reduce((acc, s) => acc + s.nilaiTotalIKPA, 0) / INITIAL_SATKER_DATA.length).toFixed(2)),
-    notes: 'Rekonsiliasi SAKTI Periode Agustus 2026 (Data Aktif)',
-    satkersData: INITIAL_SATKER_DATA,
-    category: 'IKPA',
-    isActive: true
-  },
-  {
     id: 'hist-july-2026',
     fileName: 'Rekonsiliasi_IKPA_KPPN_Semarang_Juli_2026.xlsx',
-    periode: 'Juli 2026',
+    periode: 's.d. Juli 2026',
     uploadDate: '01 Jul 2026, 17:00 WIB',
     uploadedBy: 'Seksi MSKI KPPN Semarang I',
     satkerCount: INITIAL_SATKER_DATA.length,
-    averageIKPA: 91.20,
-    notes: 'Rekonsiliasi SAKTI Bulanan Juli 2026 - Laporan Final',
-    satkersData: INITIAL_SATKER_DATA.map(s => ({
-      ...s,
-      nilaiTotalIKPA: Math.min(100, Math.max(70, Number((s.nilaiTotalIKPA - 1.2).toFixed(2)))),
-      periodeUpdate: 'Juli 2026'
-    })),
+    averageIKPA: 93.13,
+    notes: 'Rekonsiliasi SAKTI Bulanan Juli 2026 - Laporan Final (Data Aktif)',
+    satkersData: INITIAL_SATKER_DATA,
     category: 'IKPA',
-    isActive: false
+    isActive: true
   },
   {
     id: 'hist-june-2026',
@@ -605,8 +592,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     }
     return INITIAL_HISTORICAL_UPLOADS;
   });
-  const [uploadPeriode, setUploadPeriode] = useState<string>('Agustus 2026');
-  const [uploadNotes, setUploadNotes] = useState<string>('Rekonsiliasi SAKTI Periode Agustus 2026');
+  const [uploadPeriode, setUploadPeriode] = useState<string>('s.d. Juli 2026');
+  const [uploadNotes, setUploadNotes] = useState<string>('Rekonsiliasi SAKTI Periode Juli 2026');
   const [currentFileName, setCurrentFileName] = useState<string>('');
 
   const [searchHistoryQuery, setSearchHistoryQuery] = useState<string>('');
@@ -3905,6 +3892,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {(() => {
                     const navLabels: Record<string, string> = {
                       'dashboard': 'Dashboard IKPA',
+                      'realisasi-anggaran': 'Realisasi Anggaran',
                       'capaian-output': 'Capaian Output',
                       'diagnostik-caput': 'SI-CAPUT (Diagnostik)',
                       'deviasi-hal3': 'Deviasi Hal III',
@@ -3925,6 +3913,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
                     const order = (tempConfig.tabOrder || [
                       'dashboard',
+                      'realisasi-anggaran',
                       'capaian-output',
                       'diagnostik-caput',
                       'deviasi-hal3',
@@ -4237,23 +4226,417 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </div>
             </div>
 
-            {/* Setting 4: Tanggal / Periode Update Tiap Dashboard */}
+            {/* Setting 4: Pengaturan Target & Parameter Realisasi Anggaran (My InTress) */}
+            <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-5 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-200/60 pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <PieChart className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <label className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                      Pengaturan Target &amp; Parameter Realisasi Anggaran (My InTress)
+                    </label>
+                  </div>
+                  <p className="text-[11px] text-emerald-800/80 mt-1 max-w-3xl">
+                    Konfigurasi status aktif, waktu tarikan data OM SPAN, standar evaluasi triwulan aktif (Tw I - Tw IV), serta penyesuaian target persentase belanja pegawai, barang, modal, dan bansos.
+                  </p>
+                </div>
+
+                {/* Toggle Status Aktif */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-bold text-slate-700">Status Dashboard:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentActive = tempConfig.realisasiAnggaranConfig?.isActive ?? true;
+                      setTempConfig(prev => ({
+                        ...prev,
+                        realisasiAnggaranConfig: {
+                          ...prev.realisasiAnggaranConfig,
+                          isActive: !currentActive
+                        },
+                        menuVisibility: {
+                          ...prev.menuVisibility,
+                          'realisasi-anggaran': !currentActive
+                        }
+                      }));
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs ${
+                      (tempConfig.realisasiAnggaranConfig?.isActive ?? true)
+                        ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-500'
+                        : 'bg-rose-600 text-white border-rose-700 hover:bg-rose-500'
+                    }`}
+                  >
+                    {(tempConfig.realisasiAnggaranConfig?.isActive ?? true) ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Aktif Publik</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Terkunci / Nonaktif</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Grid Baris 1: Waktu Tarikan Data & Label Periode */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-bold text-slate-700">
+                      Waktu Unduh / Tarikan Data OM SPAN (My InTress)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const pad = (n: number) => n.toString().padStart(2, '0');
+                        const formatted = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} WIB`;
+                        setTempConfig(prev => ({
+                          ...prev,
+                          realisasiAnggaranConfig: {
+                            ...prev.realisasiAnggaranConfig,
+                            waktuUnduh: formatted
+                          },
+                          updateDates: {
+                            ...prev.updateDates,
+                            realisasiAnggaran: formatted
+                          }
+                        }));
+                      }}
+                      className="text-[10px] text-emerald-700 font-extrabold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Clock className="w-3 h-3" />
+                      Set Waktu Sekarang
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={tempConfig.realisasiAnggaranConfig?.waktuUnduh || tempConfig.updateDates?.realisasiAnggaran || '07/08/2026 09:00:00 WIB'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTempConfig(prev => ({
+                        ...prev,
+                        realisasiAnggaranConfig: {
+                          ...prev.realisasiAnggaranConfig,
+                          waktuUnduh: val
+                        },
+                        updateDates: {
+                          ...prev.updateDates,
+                          realisasiAnggaran: val
+                        }
+                      }));
+                    }}
+                    placeholder="Contoh: 24/10/2024 10:28:44 WIB"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Waktu ini sinkron otomatis dengan badge tanggal update di header Realisasi Anggaran.</p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Label Keterangan Periode Laporan
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.realisasiAnggaranConfig?.periodeLabel || 'Posisi Data Realisasi s.d. Triwulan Berjalan'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      realisasiAnggaranConfig: {
+                        ...prev.realisasiAnggaranConfig,
+                        periodeLabel: e.target.value
+                      }
+                    }))}
+                    placeholder="Contoh: Posisi Data s.d. 24 Oktober 2024"
+                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Teks pendukung yang menjelaskan batas tanggal pembukuan kas/SP2D.</p>
+                </div>
+              </div>
+
+              {/* Baris 2: Pemilihan Standar Triwulan Aktif */}
+              <div>
+                <label className="block text-[11px] font-black text-slate-800 mb-2 uppercase tracking-wide">
+                  Pilih Triwulan Aktif (Standar Evaluasi Capaian Satker):
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {(['Tw I', 'Tw II', 'Tw III', 'Tw IV'] as TriwulanKey[]).map((tw) => {
+                    const isActive = (tempConfig.realisasiAnggaranConfig?.activeTriwulan || 'Tw III') === tw;
+                    const opt = TRIWULAN_OPTIONS.find(o => o.key === tw);
+                    const targets = tempConfig.realisasiAnggaranConfig?.customTargets?.[tw] || DEFAULT_TARGET_TRIWULAN[tw];
+                    return (
+                      <button
+                        key={tw}
+                        type="button"
+                        onClick={() => {
+                          setTempConfig(prev => ({
+                            ...prev,
+                            realisasiAnggaranConfig: {
+                              ...prev.realisasiAnggaranConfig,
+                              activeTriwulan: tw
+                            }
+                          }));
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400/50'
+                            : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-black ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                            {opt?.label || tw}
+                          </span>
+                          {isActive && <Check className="w-4 h-4 text-emerald-100" />}
+                        </div>
+                        <p className={`text-[10px] mt-0.5 font-medium ${isActive ? 'text-emerald-100' : 'text-slate-500'}`}>
+                          {opt?.bulanDesc}
+                        </p>
+                        <div className={`mt-2 pt-2 border-t text-[10px] font-mono grid grid-cols-2 gap-x-2 gap-y-0.5 ${
+                          isActive ? 'border-emerald-500/50 text-emerald-100' : 'border-slate-100 text-slate-600'
+                        }`}>
+                          <span>51: {targets.pegawai}%</span>
+                          <span>52: {targets.barang}%</span>
+                          <span>53: {targets.modal}%</span>
+                          <span>57: {targets.bansos}%</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Baris 3: Edit Custom Target Persentase Triwulanan (Pegawai, Barang, Modal, Bansos) */}
+              <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                      <Sliders className="w-3.5 h-3.5 text-emerald-600" />
+                      Sesuaikan Target Persentase Belanja Triwulanan (%):
+                    </h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      Target minimal serapan anggaran per jenis belanja (Akun 51 Pegawai, 52 Barang, 53 Modal, 57 Bansos).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempConfig(prev => ({
+                        ...prev,
+                        realisasiAnggaranConfig: {
+                          ...prev.realisasiAnggaranConfig,
+                          customTargets: { ...DEFAULT_TARGET_TRIWULAN }
+                        }
+                      }));
+                    }}
+                    className="px-2.5 py-1 text-[10px] font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset ke Standar DJPb
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {(['Tw I', 'Tw II', 'Tw III', 'Tw IV'] as TriwulanKey[]).map((tw) => {
+                    const currentTgt = tempConfig.realisasiAnggaranConfig?.customTargets?.[tw] || DEFAULT_TARGET_TRIWULAN[tw];
+                    const isSelectedActive = (tempConfig.realisasiAnggaranConfig?.activeTriwulan || 'Tw III') === tw;
+                    return (
+                      <div
+                        key={tw}
+                        className={`p-3 rounded-xl border space-y-2.5 ${
+                          isSelectedActive
+                            ? 'bg-emerald-50/50 border-emerald-300 ring-1 ring-emerald-300'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-slate-900">{tw}</span>
+                          {isSelectedActive && (
+                            <span className="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.5 rounded">
+                              Triwulan Aktif
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] font-semibold text-slate-700">Pegawai (51):</label>
+                            <div className="flex items-center gap-1 w-20">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={currentTgt.pegawai}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                  setTempConfig(prev => {
+                                    const prevCustom = prev.realisasiAnggaranConfig?.customTargets || { ...DEFAULT_TARGET_TRIWULAN };
+                                    return {
+                                      ...prev,
+                                      realisasiAnggaranConfig: {
+                                        ...prev.realisasiAnggaranConfig,
+                                        customTargets: {
+                                          ...prevCustom,
+                                          [tw]: {
+                                            ...(prevCustom[tw] || DEFAULT_TARGET_TRIWULAN[tw]),
+                                            pegawai: val
+                                          }
+                                        }
+                                      }
+                                    };
+                                  });
+                                }}
+                                className="w-full bg-white border border-slate-300 rounded p-1 text-xs text-center font-bold"
+                              />
+                              <span className="text-[11px] text-slate-500 font-bold">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] font-semibold text-slate-700">Barang (52):</label>
+                            <div className="flex items-center gap-1 w-20">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={currentTgt.barang}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                  setTempConfig(prev => {
+                                    const prevCustom = prev.realisasiAnggaranConfig?.customTargets || { ...DEFAULT_TARGET_TRIWULAN };
+                                    return {
+                                      ...prev,
+                                      realisasiAnggaranConfig: {
+                                        ...prev.realisasiAnggaranConfig,
+                                        customTargets: {
+                                          ...prevCustom,
+                                          [tw]: {
+                                            ...(prevCustom[tw] || DEFAULT_TARGET_TRIWULAN[tw]),
+                                            barang: val
+                                          }
+                                        }
+                                      }
+                                    };
+                                  });
+                                }}
+                                className="w-full bg-white border border-slate-300 rounded p-1 text-xs text-center font-bold"
+                              />
+                              <span className="text-[11px] text-slate-500 font-bold">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] font-semibold text-slate-700">Modal (53):</label>
+                            <div className="flex items-center gap-1 w-20">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={currentTgt.modal}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                  setTempConfig(prev => {
+                                    const prevCustom = prev.realisasiAnggaranConfig?.customTargets || { ...DEFAULT_TARGET_TRIWULAN };
+                                    return {
+                                      ...prev,
+                                      realisasiAnggaranConfig: {
+                                        ...prev.realisasiAnggaranConfig,
+                                        customTargets: {
+                                          ...prevCustom,
+                                          [tw]: {
+                                            ...(prevCustom[tw] || DEFAULT_TARGET_TRIWULAN[tw]),
+                                            modal: val
+                                          }
+                                        }
+                                      }
+                                    };
+                                  });
+                                }}
+                                className="w-full bg-white border border-slate-300 rounded p-1 text-xs text-center font-bold"
+                              />
+                              <span className="text-[11px] text-slate-500 font-bold">%</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[11px] font-semibold text-slate-700">Bansos (57):</label>
+                            <div className="flex items-center gap-1 w-20">
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={currentTgt.bansos}
+                                onChange={(e) => {
+                                  const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                                  setTempConfig(prev => {
+                                    const prevCustom = prev.realisasiAnggaranConfig?.customTargets || { ...DEFAULT_TARGET_TRIWULAN };
+                                    return {
+                                      ...prev,
+                                      realisasiAnggaranConfig: {
+                                        ...prev.realisasiAnggaranConfig,
+                                        customTargets: {
+                                          ...prevCustom,
+                                          [tw]: {
+                                            ...(prevCustom[tw] || DEFAULT_TARGET_TRIWULAN[tw]),
+                                            bansos: val
+                                          }
+                                        }
+                                      }
+                                    };
+                                  });
+                                }}
+                                className="w-full bg-white border border-slate-300 rounded p-1 text-xs text-center font-bold"
+                              />
+                              <span className="text-[11px] text-slate-500 font-bold">%</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Baris 4: Catatan Kebijakan Realisasi Anggaran */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Catatan / Instruksi Kebijakan Percepatan Realisasi Anggaran
+                </label>
+                <textarea
+                  rows={2}
+                  value={tempConfig.realisasiAnggaranConfig?.note || 'Monitoring evaluasi kepatuhan target serapan belanja triwulanan sesuai ketentuan Direktur Jenderal Perbendaharaan.'}
+                  onChange={(e) => setTempConfig(prev => ({
+                    ...prev,
+                    realisasiAnggaranConfig: {
+                      ...prev.realisasiAnggaranConfig,
+                      note: e.target.value
+                    }
+                  }))}
+                  placeholder="Instruksi himbauan atau catatan pembinaan untuk Satker..."
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Setting 5: Tanggal / Periode Update Tiap Dashboard */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
               <div>
                 <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <Calendar className="w-4 h-4 text-sky-600" />
-                  Atur Tanggal / Periode Update Data Tiap Dashboard:
+                  Atur Tanggal / Periode Update Data Seluruh Dashboard ({(() => 19)()} Modul):
                 </label>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Keterangan tanggal update ini akan ditampilkan di header masing-masing dashboard agar Satker mengetahui waktu terakhir data diperbarui oleh Admin KPPN.
+                  Keterangan tanggal update ini ditampilkan di badge/header masing-masing dashboard agar Satker mengetahui waktu terakhir data diperbarui oleh Admin KPPN.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {/* 1. Dashboard IKPA Utama */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    1. Tanggal Update Dashboard IKPA Utama
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    1. IKPA Utama (Overview)
                   </label>
                   <input
                     type="text"
@@ -4263,14 +4646,35 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, dashboard: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 2. Dashboard Capaian Output */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    2. Tanggal / Periode Capaian Output SAKTI
+                {/* 2. Realisasi Anggaran (My InTress) */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    2. Realisasi Anggaran (My InTress)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.realisasiAnggaran || tempConfig.realisasiAnggaranConfig?.waktuUnduh || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTempConfig(prev => ({
+                        ...prev,
+                        updateDates: { ...prev.updateDates, realisasiAnggaran: val },
+                        realisasiAnggaranConfig: { ...prev.realisasiAnggaranConfig, waktuUnduh: val }
+                      }));
+                    }}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 3. Capaian Output SAKTI */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    3. Capaian Output SAKTI
                   </label>
                   <input
                     type="text"
@@ -4280,65 +4684,65 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, capaianOutput: e.target.value }
                     }))}
                     placeholder="Contoh: Periode Juli 2026 (Diperbarui 07 Aug 2026)"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 3. Sertifikasi Pejabat */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    3. Tanggal Sertifikasi Pejabat Perbendaharaan
+                {/* 4. SI-CAPUT (Diagnostik Output) */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    4. SI-CAPUT (Diagnostik Output)
                   </label>
                   <input
                     type="text"
-                    value={tempConfig.updateDates?.sertifikasi || '07 Agustus 2026 jam 13:45 WIB'}
+                    value={tempConfig.updateDates?.diagnostikCaput || '07 Agustus 2026 - 09:00 WIB'}
                     onChange={(e) => setTempConfig(prev => ({
                       ...prev,
-                      updateDates: { ...prev.updateDates, sertifikasi: e.target.value }
-                    }))}
-                    placeholder="Contoh: 07 Agustus 2026 jam 13:45 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
-                </div>
-
-                {/* 4. Warning / Red Flags */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    4. Tanggal Update Dashboard Warning & Red Flags
-                  </label>
-                  <input
-                    type="text"
-                    value={tempConfig.updateDates?.redflags || '07 Agustus 2026 - 09:00 WIB'}
-                    onChange={(e) => setTempConfig(prev => ({
-                      ...prev,
-                      updateDates: { ...prev.updateDates, redflags: e.target.value }
+                      updateDates: { ...prev.updateDates, diagnostikCaput: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 5. Analisis PER-5 */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    5. Tanggal Update Dashboard Analisis PER-5/PB/2024
+                {/* 5. Deviasi Hal III DIPA */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    5. Deviasi Halaman III DIPA
                   </label>
                   <input
                     type="text"
-                    value={tempConfig.updateDates?.per5Analisis || '07 Agustus 2026'}
+                    value={tempConfig.updateDates?.deviasiHal3 || '07 Agustus 2026 - 09:00 WIB'}
                     onChange={(e) => setTempConfig(prev => ({
                       ...prev,
-                      updateDates: { ...prev.updateDates, per5Analisis: e.target.value }
+                      updateDates: { ...prev.updateDates, deviasiHal3: e.target.value }
                     }))}
-                    placeholder="Contoh: 07 Agustus 2026"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 6. Dashboard Pengelolaan UP & TUP */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    6. Tanggal Update Dashboard Batas Waktu UP &amp; TUP
+                {/* 6. SPM PPP (PFK PLN & Telkom) */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    6. SPM PPP (PLN &amp; Telkom)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.spmPpp || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, spmPpp: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 7. Pengelolaan UP & TUP */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    7. Batas Waktu UP &amp; TUP
                   </label>
                   <input
                     type="text"
@@ -4348,14 +4752,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, pengelolaanUp: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 7. Dashboard Transaksi KKP */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    7. Tanggal Update Dashboard Transaksi KKP (GUP)
+                {/* 8. Transaksi KKP (GUP) */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    8. Transaksi KKP (GUP)
                   </label>
                   <input
                     type="text"
@@ -4365,14 +4769,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, transaksiKkp: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
 
-                {/* 8. Dashboard Transaksi Digipay */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    8. Tanggal Update Dashboard Transaksi Digipay (VA &amp; KKP)
+                {/* 9. Transaksi Digipay */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    9. Transaksi Digipay Satu
                   </label>
                   <input
                     type="text"
@@ -4382,18 +4786,188 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, transaksiDigipay: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
-                    className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 10. Database Master Satker */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    10. Master Satker &amp; Kontak
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.kelolaSatker || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, kelolaSatker: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 11. Sertifikasi Pejabat */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    11. Sertifikasi Pejabat
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.sertifikasi || '07 Agustus 2026 jam 13:45 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, sertifikasi: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 jam 13:45 WIB"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 12. Warning / Red Flags */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    12. Warning &amp; Red Flags
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.redflags || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, redflags: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 13. Analisis PER-5 */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    13. Analisis PER-5/PB/2024
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.per5Analisis || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, per5Analisis: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 14. Pengumuman & Surat Edaran */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    14. Pengumuman &amp; Surat Edaran
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.announcements || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, announcements: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 15. Galeri Materi Slide */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    15. Galeri Materi Slide
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.materiSlide || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, materiSlide: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 16. Portal Link Sosialisasi */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    16. Portal Link Sosialisasi
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.portalLink || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, portalLink: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 17. Presensi Online */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    17. Presensi Online Peserta
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.presensi || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, presensi: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 18. Juknis & Regulasi */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    18. Juknis SAKTI &amp; Pengetahuan
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.pengetahuan || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, pengetahuan: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 19. Kanal Aduan */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    19. Kanal Layanan &amp; Lapor Aduan
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.aduan || '07 Agustus 2026'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, aduan: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Setting 5: Pengaturan Kata-kata / Judul & Subtitle Tiap Dashboard */}
+            {/* Setting 6: Pengaturan Kata-kata / Judul & Subtitle Tiap Dashboard */}
             <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-5">
               <div>
                 <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-600" />
-                  Atur Custom Judul, Badge &amp; Deskripsi Tiap Dashboard:
+                  Atur Custom Judul, Badge &amp; Deskripsi Seluruh Dashboard (19 Modul):
                 </label>
                 <p className="text-[11px] text-slate-500 mt-1">
                   Ubah teks header, badge status, judul utama, dan kalimat deskripsi penjelas pada seluruh dashboard sesuai dengan kebutuhan KPPN.
@@ -4446,10 +5020,55 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 2. Dashboard Capaian Output */}
+                {/* 2. Realisasi Anggaran (My InTress) */}
+                <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 space-y-3">
+                  <span className="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    2. Dashboard Realisasi Anggaran (My InTress)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.realisasiAnggaranBadge || 'MONITORING REALISASI ANGGARAN TRIWULANAN (MY INTRESS)'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, realisasiAnggaranBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.realisasiAnggaranTitle || 'Realisasi Belanja & Evaluasi Target Triwulanan Satker'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, realisasiAnggaranTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.realisasiAnggaranSubtitle || 'Pemantauan serapan pagu belanja per jenis belanja (51, 52, 53, 57), analisis deviasi terhadap target triwulanan DJPb, serta identifikasi satker berkinerja rendah.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, realisasiAnggaranSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Dashboard Capaian Output */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-sky-100 text-sky-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    2. Dashboard Capaian Output SAKTI
+                    3. Dashboard Capaian Output SAKTI
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4491,20 +5110,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Warning & Red Flags */}
+                {/* 4. SI-CAPUT (Diagnostik Output) */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                  <span className="inline-block bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    3. Dashboard Warning &amp; Red Flags
+                  <span className="inline-block bg-teal-100 text-teal-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    4. SI-CAPUT (Tools Diagnostik Output SAKTI)
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
                       <input
                         type="text"
-                        value={tempConfig.customTexts?.redflagsBadge || 'EVALUASI PERHATIAN KHUSUS KPPN SEMARANG I'}
+                        value={tempConfig.customTexts?.diagnostikCaputBadge || 'SISTEM INFORMASI DIAGNOSTIK CAPAIAN OUTPUT (SI-CAPUT)'}
                         onChange={(e) => setTempConfig(prev => ({
                           ...prev,
-                          customTexts: { ...prev.customTexts, redflagsBadge: e.target.value }
+                          customTexts: { ...prev.customTexts, diagnostikCaputBadge: e.target.value }
                         }))}
                         className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       />
@@ -4513,10 +5132,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
                       <input
                         type="text"
-                        value={tempConfig.customTexts?.redflagsTitle || 'Satker Berisiko Menurunkan IKPA & Belum Capaian Output'}
+                        value={tempConfig.customTexts?.diagnostikCaputTitle || 'Diagnostik Anomali & Kualitas Data Capaian Output'}
                         onChange={(e) => setTempConfig(prev => ({
                           ...prev,
-                          customTexts: { ...prev.customTexts, redflagsTitle: e.target.value }
+                          customTexts: { ...prev.customTexts, diagnostikCaputTitle: e.target.value }
                         }))}
                         className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       />
@@ -4526,30 +5145,30 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
                     <textarea
                       rows={2}
-                      value={tempConfig.customTexts?.redflagsSubtitle || 'Daftar Satker yang membutuhkan pembinaan langsung, intervensi cepat, dan teguran resmi untuk mencegah penurunan kinerja anggaran.'}
+                      value={tempConfig.customTexts?.diagnostikCaputSubtitle || 'Deteksi dini anomali progres capaian output, gap antara fisik dan realisasi anggaran, serta peringatan otomatis untuk perbaikan data sebelum batas rekon.'}
                       onChange={(e) => setTempConfig(prev => ({
                         ...prev,
-                        customTexts: { ...prev.customTexts, redflagsSubtitle: e.target.value }
+                        customTexts: { ...prev.customTexts, diagnostikCaputSubtitle: e.target.value }
                       }))}
                       className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
                     />
                   </div>
                 </div>
 
-                {/* 4. Analisis PER-5 */}
+                {/* 5. Deviasi Halaman III DIPA */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                  <span className="inline-block bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    4. Dashboard Pusat Pengetahuan &amp; Analisis PER-5
+                  <span className="inline-block bg-blue-100 text-blue-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    5. Dashboard Deviasi Halaman III DIPA
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
                       <input
                         type="text"
-                        value={tempConfig.customTexts?.per5Badge || 'Petunjuk Teknis Resmi PER-5/PB/2024'}
+                        value={tempConfig.customTexts?.deviasiHal3Badge || 'MONITORING DEVIASI HALAMAN III DIPA • REVISI RPD'}
                         onChange={(e) => setTempConfig(prev => ({
                           ...prev,
-                          customTexts: { ...prev.customTexts, per5Badge: e.target.value }
+                          customTexts: { ...prev.customTexts, deviasiHal3Badge: e.target.value }
                         }))}
                         className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       />
@@ -4558,10 +5177,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
                       <input
                         type="text"
-                        value={tempConfig.customTexts?.per5Title || 'Pusat Pengetahuan & Engine Analisis IKPA 2024'}
+                        value={tempConfig.customTexts?.deviasiHal3Title || 'Pemantauan Kepatuhan Deviasi Rencana Penarikan Dana (RPD)'}
                         onChange={(e) => setTempConfig(prev => ({
                           ...prev,
-                          customTexts: { ...prev.customTexts, per5Title: e.target.value }
+                          customTexts: { ...prev.customTexts, deviasiHal3Title: e.target.value }
                         }))}
                         className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                       />
@@ -4571,20 +5190,245 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
                     <textarea
                       rows={2}
-                      value={tempConfig.customTexts?.per5Subtitle || 'Panduan lengkap reformasi IKPA berdasarkan PER-5/PB/2024, formula perhitungan otomatis, simulasi dampak, dan rekomendasi langkah konkret.'}
+                      value={tempConfig.customTexts?.deviasiHal3Subtitle || 'Pengawasan deviasi rencana penarikan dana bulanan per jenis belanja untuk meminimalisir nilai deviasi dan menjaga nilai IKPA indikator Hal III DIPA.'}
                       onChange={(e) => setTempConfig(prev => ({
                         ...prev,
-                        customTexts: { ...prev.customTexts, per5Subtitle: e.target.value }
+                        customTexts: { ...prev.customTexts, deviasiHal3Subtitle: e.target.value }
                       }))}
                       className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
                     />
                   </div>
                 </div>
 
-                {/* 5. Sertifikasi Pejabat */}
+                {/* 6. Monitoring SPM PPP */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-cyan-100 text-cyan-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    6. Monitoring SPM PPP (PLN &amp; Telkom)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.spmPppBadge || 'MONITORING PENYELESAIAN SPM PPP • PFK PLN & TELKOM'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, spmPppBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.spmPppTitle || 'Pengawasan Tagihan Langganan Daya & Jasa Rutin'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, spmPppTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.spmPppSubtitle || 'Pemantauan pengajuan SPM PPP PLN dan Telkom tepat waktu guna menghindari pemutusan layanan dan denda keterlambatan pembayaran tagihan rutin Satker.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, spmPppSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 7. Pengelolaan UP & TUP */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-orange-100 text-orange-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    7. Dashboard Batas Waktu UP &amp; TUP
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.pengelolaanUpBadge || 'MONITORING PERTANGGUNGJAWABAN UP & TUP'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, pengelolaanUpBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.pengelolaanUpTitle || 'Batas Waktu Revolving UP & Pertanggungjawaban TUP'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, pengelolaanUpTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.pengelolaanUpSubtitle || 'Peringatan batas waktu 1 bulan revolving GUP serta batas 30 hari pertanggungjawaban TUP untuk mencegah surat teguran atau pemotongan uang persediaan.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, pengelolaanUpSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 8. Transaksi KKP */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-violet-100 text-violet-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    8. Dashboard Transaksi KKP (GUP)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.transaksiKkpBadge || 'MONITORING PENGGUNAAN KARTU KREDIT PEMERINTAH (KKP)'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, transaksiKkpBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.transaksiKkpTitle || 'Realisasi Transaksi & Tagihan KKP Satker'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, transaksiKkpTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.transaksiKkpSubtitle || 'Monitoring transaksi belanja non-tunai melalui KKP domestik/pemerintah, percepatan penerbitan SPP/SPM GUP KKP, dan antisipasi bunga/denda tagihan.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, transaksiKkpSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 9. Transaksi Digipay Satu */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-fuchsia-100 text-fuchsia-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    9. Dashboard Transaksi Digipay Satu
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.transaksiDigipayBadge || 'DIGITAL PAYMENT MARKETPLACE (DIGIPAY SATU)'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, transaksiDigipayBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.transaksiDigipayTitle || 'Aktivitas Belanja Marketplace Digipay (VA & KKP)'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, transaksiDigipayTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.transaksiDigipaySubtitle || 'Pemberdayaan UMKM lokal dan efisiensi pengadaan barang jasa pemerintah lewat ekosistem Digipay Satu melalui CMS Virtual Account dan Kartu Kredit Pemerintah.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, transaksiDigipaySubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 10. Master Satker & Kontak */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-slate-200 text-slate-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    10. Master Data Satker &amp; Kontak Pengelola
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.kelolaSatkerBadge || 'DATABASE MASTER SATKER & PEJABAT PERBENDAHARAAN'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, kelolaSatkerBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.kelolaSatkerTitle || 'Kelola Profil Satker, Kontak WA, & Email Pengelola'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, kelolaSatkerTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.kelolaSatkerSubtitle || 'Basis data terpusat informasi satuan kerja mitra KPPN Semarang I, struktur pejabat perbendaharaan, serta kanal kontak WhatsApp untuk blast broadcast notifikasi resmi.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, kelolaSatkerSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 11. Sertifikasi Pejabat */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    5. Dashboard Sertifikasi Pejabat Perbendaharaan
+                    11. Dashboard Sertifikasi Pejabat Perbendaharaan
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4626,10 +5470,100 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 6. Dashboard Pengumuman */}
+                {/* 12. Warning & Red Flags */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    12. Dashboard Warning &amp; Red Flags
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.redflagsBadge || 'EVALUASI PERHATIAN KHUSUS KPPN SEMARANG I'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, redflagsBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.redflagsTitle || 'Satker Berisiko Menurunkan IKPA & Belum Capaian Output'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, redflagsTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.redflagsSubtitle || 'Daftar Satker yang membutuhkan pembinaan langsung, intervensi cepat, dan teguran resmi untuk mencegah penurunan kinerja anggaran.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, redflagsSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 13. Analisis PER-5 */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    13. Dashboard Pusat Pengetahuan &amp; Analisis PER-5
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.per5Badge || 'Petunjuk Teknis Resmi PER-5/PB/2024'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, per5Badge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.per5Title || 'Pusat Pengetahuan & Engine Analisis IKPA 2024'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, per5Title: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.per5Subtitle || 'Panduan lengkap reformasi IKPA berdasarkan PER-5/PB/2024, formula perhitungan otomatis, simulasi dampak, dan rekomendasi langkah konkret.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, per5Subtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 14. Dashboard Pengumuman */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-purple-100 text-purple-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    6. Dashboard Pengumuman &amp; Surat Edaran
+                    14. Dashboard Pengumuman &amp; Surat Edaran
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4671,10 +5605,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 7. Galeri Materi Slide Presentation */}
+                {/* 15. Galeri Materi Slide Presentation */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-sky-100 text-sky-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    7. Galeri Materi Slide Presentation &amp; PowerPoint
+                    15. Galeri Materi Slide Presentation &amp; PowerPoint
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4716,10 +5650,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 8. Portal Link Sosialisasi */}
+                {/* 16. Portal Link Sosialisasi */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-teal-100 text-teal-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    8. Portal Link Sosialisasi, Zoom &amp; Materi
+                    16. Portal Link Sosialisasi, Zoom &amp; Materi
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4761,10 +5695,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 9. Presensi Online */}
+                {/* 17. Presensi Online */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-teal-100 text-teal-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    9. Presensi Online Peserta Sosialisasi
+                    17. Presensi Online Peserta Sosialisasi
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -4806,10 +5740,55 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 10. Lapor Aduan Satker */}
+                {/* 18. Juknis SAKTI & Pengetahuan */}
+                <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="inline-block bg-blue-100 text-blue-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    18. Pusat Pengetahuan &amp; Juknis SAKTI
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.pengetahuanBadge || 'PUSAT DOKUMEN & PETUNJUK TEKNIS SAKTI'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, pengetahuanBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.pengetahuanTitle || 'Pusat Regulasi, Juknis SAKTI & Modul Perbendaharaan'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, pengetahuanTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.pengetahuanSubtitle || 'Kumpulan arsip petunjuk operasional SAKTI, blangko resmi, panduan teknis pelaporan Capaian Output, serta regulasi pelaksanaan anggaran.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, pengetahuanSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 19. Lapor Aduan Satker */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    10. Kanal Layanan &amp; Lapor Aduan Satker
+                    19. Kanal Layanan &amp; Lapor Aduan Satker
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>

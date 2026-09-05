@@ -1091,6 +1091,41 @@ export interface DashboardCustomTexts {
   pengelolaanUpTitle?: string;
   pengelolaanUpSubtitle?: string;
   pengelolaanUpAnnouncement?: string;
+
+  realisasiAnggaranBadge?: string;
+  realisasiAnggaranTitle?: string;
+  realisasiAnggaranSubtitle?: string;
+  realisasiAnggaranAnnouncement?: string;
+
+  deviasiHal3Badge?: string;
+  deviasiHal3Title?: string;
+  deviasiHal3Subtitle?: string;
+  deviasiHal3Announcement?: string;
+
+  diagnostikCaputBadge?: string;
+  diagnostikCaputTitle?: string;
+  diagnostikCaputSubtitle?: string;
+  diagnostikCaputAnnouncement?: string;
+
+  spmPppBadge?: string;
+  spmPppTitle?: string;
+  spmPppSubtitle?: string;
+  spmPppAnnouncement?: string;
+
+  transaksiKkpBadge?: string;
+  transaksiKkpTitle?: string;
+  transaksiKkpSubtitle?: string;
+  transaksiKkpAnnouncement?: string;
+
+  transaksiDigipayBadge?: string;
+  transaksiDigipayTitle?: string;
+  transaksiDigipaySubtitle?: string;
+  transaksiDigipayAnnouncement?: string;
+
+  kelolaSatkerBadge?: string;
+  kelolaSatkerTitle?: string;
+  kelolaSatkerSubtitle?: string;
+  kelolaSatkerAnnouncement?: string;
 }
 
 export type AduanStatus = 'MENUNGGU' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
@@ -1234,7 +1269,10 @@ export interface DashboardConfig {
   aduanList?: AduanSatkerRecord[];
   updateDates?: {
     dashboard?: string;
+    realisasiAnggaran?: string;
     capaianOutput?: string;
+    diagnostikCaput?: string;
+    deviasiHal3?: string;
     sertifikasi?: string;
     redflags?: string;
     per5Analisis?: string;
@@ -1245,6 +1283,10 @@ export interface DashboardConfig {
     transaksiKkp?: string;
     transaksiDigipay?: string;
     spmPpp?: string;
+    kelolaSatker?: string;
+    pengetahuan?: string;
+    announcements?: string;
+    aduan?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];

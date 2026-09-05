@@ -62,7 +62,7 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [previewSatkers, setPreviewSatkers] = useState<SatkerIKPA[]>([]);
-  const [uploadPeriode, setUploadPeriode] = useState<string>('Agustus 2026');
+  const [uploadPeriode, setUploadPeriode] = useState<string>('s.d. Juli 2026');
   const [uploadNotes, setUploadNotes] = useState<string>('Rekonsiliasi IKPA SAKTI 8 Indikator');
   const [appendMode, setAppendMode] = useState<boolean>(false);
   const [searchHistory, setSearchHistory] = useState<string>('');
@@ -242,7 +242,7 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
       return;
     }
 
-    const currentPeriod = satkers[0]?.periodeUpdate || uploadPeriode || 's.d. Agustus 2026';
+    const currentPeriod = satkers[0]?.periodeUpdate || uploadPeriode || 's.d. Juli 2026';
     const avg = Number(
       (activeSatkers.reduce((acc, s) => acc + (s.nilaiTotalIKPA || 0), 0) / activeSatkers.length).toFixed(2)
     );
@@ -580,7 +580,7 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
           <span className="text-slate-500 dark:text-slate-400 block font-semibold">Periode Aktif IKPA</span>
           <span className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1 block truncate">
-            {historicalUploads.find(h => (!h.category || h.category === 'IKPA') && h.isActive)?.periode || satkers[0]?.periodeUpdate || 'Agustus 2026'}
+            {historicalUploads.find(h => (!h.category || h.category === 'IKPA') && h.isActive)?.periode || satkers[0]?.periodeUpdate || 's.d. Juli 2026'}
           </span>
         </div>
       </div>

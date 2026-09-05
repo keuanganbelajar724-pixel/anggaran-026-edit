@@ -9,7 +9,8 @@ import {
   Flame, 
   CheckCircle2, 
   AlertTriangle,
-  Briefcase
+  Briefcase,
+  Calculator
 } from 'lucide-react';
 import { 
   EvaluatedSatkerRealisasi, 
@@ -23,6 +24,7 @@ interface RealisasiLeaderboardViewProps {
   evaluatedList: EvaluatedSatkerRealisasi[];
   summary: SummaryRealisasiTriwulan;
   onSelectSatker: (satker: EvaluatedSatkerRealisasi) => void;
+  onOpenCalculator?: (satkerId: string) => void;
   isDark?: boolean;
 }
 
@@ -30,6 +32,7 @@ export const RealisasiLeaderboardView: React.FC<RealisasiLeaderboardViewProps> =
   evaluatedList,
   summary,
   onSelectSatker,
+  onOpenCalculator,
   isDark = false
 }) => {
   // Top 5 Highest Realization
@@ -189,9 +192,25 @@ export const RealisasiLeaderboardView: React.FC<RealisasiLeaderboardViewProps> =
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2">
+                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-2.5 pt-2 border-t border-slate-200/50 dark:border-slate-800/80">
                   <span>Pagu Total: {formatRupiahCompact(s.totalPagu)}</span>
-                  <span className="text-rose-600 font-bold">{formatRupiah(s.totalKekuranganNominal)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-rose-600 font-bold">{formatRupiah(s.totalKekuranganNominal)}</span>
+                    {onOpenCalculator && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenCalculator(s.id);
+                        }}
+                        className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 hover:bg-emerald-200 text-emerald-800 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:text-emerald-300 transition-colors flex items-center gap-1"
+                        title="Hitung kebutuhan nominal target satker ini"
+                      >
+                        <Calculator className="w-3 h-3" />
+                        <span>Kalkulator</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

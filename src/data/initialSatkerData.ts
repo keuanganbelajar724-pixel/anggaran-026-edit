@@ -71,6 +71,8 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
   });
 
   const satkerMap = new Map<string, SatkerIKPA>();
+  const latestIkpa = sortedHistories.length > 0 ? sortedHistories[sortedHistories.length - 1] : null;
+  const effectivePeriode = latestIkpa?.periode || 's.d. Juli 2026';
 
   sortedHistories.forEach(hist => {
     const monthName = monthsOrder.find(m => (hist.periode || '').toLowerCase().includes(m.toLowerCase())) || hist.periode;
@@ -143,6 +145,7 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         realisasiAnggaran: Number(s.realisasiAnggaran) || Number(existing?.realisasiAnggaran) || 0,
         persenPenyerapan: Number(s.persenPenyerapan) || Number(existing?.persenPenyerapan) || 0,
         statusCapaianOutput: hasCaput ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') : 'Belum Terlaporkan',
+        periodeUpdate: effectivePeriode,
         indikator: mergedIndikator,
         riwayatBulanan: mergedHistory
       };

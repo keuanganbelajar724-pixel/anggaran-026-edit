@@ -191,7 +191,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   ];
 
   // Calculated Stats (Only include satkers that actually have IKPA data for IKPA dashboard)
-  const satkersWithIKPA = satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  const satkersWithIKPA = React.useMemo(() => {
+    return satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
+  }, [satkers]);
   const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
 
   // Extract all uploaded months from satkers history (hanya bulan data IKPA, bukan Capaian Output)
@@ -221,7 +223,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     });
 
     const res = ALL_MONTHS_LIST.filter(m => set.has(m));
-    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus'];
+    return res.length > 0 ? res : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli'];
   }, [satkersWithIKPA, dashboardConfig?.historicalUploads]);
 
   const latestMonthName = availableUploadedMonths[availableUploadedMonths.length - 1] || 'Juli';
@@ -230,12 +232,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     ? selectedMonthPeriod
     : latestMonthName;
 
+  const availableMonthsKey = availableUploadedMonths.join(',');
   // Auto-sync selected month when available months change
   useEffect(() => {
     if (availableUploadedMonths.length > 0 && (!selectedMonthPeriod || !availableUploadedMonths.includes(selectedMonthPeriod))) {
       setSelectedMonthPeriod(availableUploadedMonths[availableUploadedMonths.length - 1]);
     }
-  }, [availableUploadedMonths, selectedMonthPeriod]);
+  }, [availableMonthsKey, selectedMonthPeriod]);
 
   // Dynamically map satker data strictly based on the selected period month
   const effectiveSatkers = React.useMemo(() => {
