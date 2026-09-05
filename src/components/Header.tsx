@@ -36,7 +36,8 @@ import {
   Clock,
   Radio,
   Smartphone,
-  RefreshCw
+  RefreshCw,
+  PieChart
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -220,6 +221,13 @@ export const Header: React.FC<HeaderProps> = ({
       label: 'Dashboard IKPA',
       icon: <BarChart3 className="w-4 h-4" />,
       badge: <span className="bg-slate-900/60 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{satkerCount}</span>,
+      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
+      id: 'realisasi-anggaran',
+      label: 'Realisasi Anggaran',
+      icon: <PieChart className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">InTress</span>,
       activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
     },
     {

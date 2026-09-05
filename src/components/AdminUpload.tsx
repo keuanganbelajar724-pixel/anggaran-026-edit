@@ -3764,6 +3764,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     onClick={() => {
                       const defaultOrder: NavigationTab[] = [
                         'dashboard',
+                        'realisasi-anggaran',
                         'capaian-output',
                         'diagnostik-caput',
                         'deviasi-hal3',
@@ -3801,6 +3802,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         ...prev,
                         menuVisibility: {
                           'dashboard': true,
+                          'realisasi-anggaran': true,
                           'capaian-output': true,
                           'diagnostik-caput': true,
                           'deviasi-hal3': true,
@@ -3838,6 +3840,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         ...prev,
                         menuVisibility: {
                           'dashboard': true,
+                          'realisasi-anggaran': false,
                           'capaian-output': false,
                           'diagnostik-caput': false,
                           'deviasi-hal3': false,
@@ -3966,6 +3969,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 {(() => {
                   const menuMeta: Record<string, { label: string; desc: string; category: string; badgeColor: string }> = {
                     'dashboard': { label: 'Dashboard Utama IKPA', desc: 'Overview Rekapitulasi & Peringkat IKPA Satker', category: 'Utama', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'realisasi-anggaran': { label: 'Dashboard Realisasi Anggaran (My InTress)', desc: 'Monitoring Kepatuhan Target Triwulanan Belanja Pegawai, Barang, Modal & Bansos', category: 'Anggaran', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'capaian-output': { label: 'Capaian Output SAKTI', desc: 'Laporan % progress upload konfirmasi output', category: 'Prioritas', badgeColor: 'bg-sky-100 text-sky-800' },
                     'diagnostik-caput': { label: 'SI-CAPUT (Tools Diagnostik Output)', desc: 'Tools deteksi anomali TPCRO=0 & PCRO=0, gap kinerja RO & generator keterangan SAKTI', category: 'Prioritas', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'deviasi-hal3': { label: 'Deviasi Halaman III DIPA', desc: 'Monitoring RPD vs Realisasi & Satker Full Blokir (Bobot IKPA 10%)', category: 'Hal III', badgeColor: 'bg-indigo-100 text-indigo-800' },
@@ -3986,6 +3990,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
                   const defaultTabKeys: NavigationTab[] = [
                     'dashboard',
+                    'realisasi-anggaran',
                     'capaian-output',
                     'diagnostik-caput',
                     'deviasi-hal3',

@@ -840,6 +840,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       safeLocalStorageSet(STORAGE_KEY_MY_INTRESS, JSON.stringify(result.records));
 
       await saveMyIntressToFirestore(result.records, result.fileName, result.waktuUnduh || '');
+      window.dispatchEvent(new CustomEvent('kppn_my_intress_updated', {
+        detail: { records: result.records, fileName: result.fileName, waktuUnduh: result.waktuUnduh }
+      }));
 
       addToast({
         title: 'Upload My InTress Berhasil',
@@ -868,6 +871,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setIntressWaktuUnduh('24/10/2024 10:28:44');
 
     await saveMyIntressToFirestore(defaultData, 'Data Realisasi Belanja My InTress (127 Satker)', '24/10/2024 10:28:44');
+    window.dispatchEvent(new CustomEvent('kppn_my_intress_updated', {
+      detail: { records: defaultData, fileName: 'Data Realisasi Belanja My InTress (127 Satker)', waktuUnduh: '24/10/2024 10:28:44' }
+    }));
 
     addToast({
       title: 'Data My InTress Dipulihkan',
@@ -884,6 +890,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
     setIntressFileName('Data My InTress Kosong');
 
     await saveMyIntressToFirestore([], 'Data My InTress Kosong', '');
+    window.dispatchEvent(new CustomEvent('kppn_my_intress_updated', {
+      detail: { records: [], fileName: 'Data My InTress Kosong', waktuUnduh: '' }
+    }));
 
     addToast({
       title: 'Data My InTress Dikosongkan',

@@ -1,10 +1,13 @@
-import { safeLocalStorageSet, safeLocalStorageGet, saveLargeDataset, removeLargeDataset } from './utils/safeStorage';
-import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore } from './utils/firestoreDatasetSync';
+import { safeLocalStorageSet, safeLocalStorageGet, saveLargeDataset, removeLargeDataset, getLargeDataset } from './utils/safeStorage';
+import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressToFirestore } from './utils/firestoreDatasetSync';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
+import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
+import { DEFAULT_TARGET_TRIWULAN_RULES } from './utils/targetTriwulanProcessor';
+import { processMyIntressExcel } from './utils/realisasiBelanjaProcessor';
 import {
   compactSatkersForFirestore,
   compactHistoricalUploadsForFirestore,
@@ -37,6 +40,7 @@ import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initia
 import { loadCloudGeminiConfig } from './services/geminiService';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
+import { RealisasiAnggaranDashboard } from './components/RealisasiAnggaranDashboard';
 import { CapaianOutputDashboard } from './components/CapaianOutputDashboard';
 import { DiagnostikCaputDashboard } from './components/DiagnostikCaputDashboard';
 import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
@@ -139,6 +143,7 @@ const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
 
 export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'dashboard': false,
+  'realisasi-anggaran': true,
   'capaian-output': true,
   'diagnostik-caput': false,
   'deviasi-hal3': false,
@@ -247,6 +252,15 @@ export default function App() {
     }
   }, [theme]);
 
+  // Default Realisasi Anggaran Config
+  const DEFAULT_REALISASI_ANGGARAN_CONFIG: RealisasiAnggaranConfig = {
+    isActive: true,
+    waktuUnduh: '24/10/2024 10:28:44',
+    periodeLabel: 'Data Realisasi Belanja My InTress (127 Satker)',
+    triwulanAktif: 'TW_IV',
+    targetRules: DEFAULT_TARGET_TRIWULAN_RULES
+  };
+
   // Admin Configurable Dashboard State
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>(() => {
     let savedConfig: DashboardConfig | null = null;
@@ -311,7 +325,10 @@ export default function App() {
           ...DEFAULT_MENU_VISIBILITY,
           ...savedConfig.menuVisibility,
           ...(savedMenuVisibility || {})
-        }
+        },
+        realisasiAnggaranConfig: savedConfig.realisasiAnggaranConfig
+          ? { ...DEFAULT_REALISASI_ANGGARAN_CONFIG, ...savedConfig.realisasiAnggaranConfig }
+          : DEFAULT_REALISASI_ANGGARAN_CONFIG
       };
     }
 
@@ -336,6 +353,7 @@ export default function App() {
       aduanList: INITIAL_ADUAN_RECORDS,
       historicalUploads: savedHist,
       presensiPrintConfig: initialPresensiPrint,
+      realisasiAnggaranConfig: DEFAULT_REALISASI_ANGGARAN_CONFIG,
       menuVisibility: {
         ...DEFAULT_MENU_VISIBILITY,
         ...(savedMenuVisibility || {})
@@ -489,6 +507,20 @@ export default function App() {
     return INITIAL_DEFAULT_KEGIATAN;
   });
 
+  // My InTress Realisasi Belanja Records State
+  const [myIntressRecords, setMyIntressRecords] = useState<MyIntressRecord[]>(() => {
+    try {
+      const raw = safeLocalStorageGet('kppn_my_intress_records');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Error reading my intress from localStorage', e);
+    }
+    return INITIAL_MY_INTRESS_DATA || [];
+  });
+
   // Global Admin Authentication State shared across Admin Upload, Satker Details Modal & Reminder Generator
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPin, setAdminPin] = useState<string>(() => {
@@ -513,6 +545,7 @@ export default function App() {
       const isCurrentDisabled = dashboardConfig.menuVisibility[activeTab as keyof MenuVisibilityConfig] === false;
       if (isCurrentDisabled) {
         const tabPriorityOrder: NavigationTab[] = [
+          'realisasi-anggaran',
           'capaian-output',
           'dashboard',
           'deviasi-hal3',
@@ -902,9 +935,11 @@ export default function App() {
         if (result.isEmpty || result.records.length === 0) {
           safeLocalStorageSet('kppn_my_intress_records', '[]');
           removeLargeDataset('kppn_my_intress_records');
+          setMyIntressRecords([]);
         } else {
           safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(result.records));
           saveLargeDataset('kppn_my_intress_records', result.records);
+          setMyIntressRecords(result.records);
         }
       }).catch(err => console.warn("Initial Firestore My InTress fetch notice:", err));
 
@@ -1144,17 +1179,28 @@ export default function App() {
           if (result.isEmpty || result.records.length === 0) {
             safeLocalStorageSet('kppn_my_intress_records', '[]');
             removeLargeDataset('kppn_my_intress_records');
+            setMyIntressRecords([]);
           } else {
             safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(result.records));
             saveLargeDataset('kppn_my_intress_records', result.records);
+            setMyIntressRecords(result.records);
           }
         });
       }, (error) => {
         console.warn("Firebase My InTress listener notice:", error);
       });
 
+      const onMyIntressUpdated = (evt: Event) => {
+        const customEvt = evt as CustomEvent;
+        if (customEvt.detail?.records && Array.isArray(customEvt.detail.records)) {
+          setMyIntressRecords(customEvt.detail.records);
+        }
+      };
+      window.addEventListener('kppn_my_intress_updated', onMyIntressUpdated);
+
       return () => {
         window.removeEventListener('focus', onWindowFocus);
+        window.removeEventListener('kppn_my_intress_updated', onMyIntressUpdated);
         clearInterval(settingsInterval);
         unsubSettings();
         unsubHistorical();
@@ -2188,6 +2234,53 @@ export default function App() {
     }
   };
 
+  const handleUploadMyIntress = async (file: File) => {
+    try {
+      const result = await processMyIntressExcel(file);
+      if (!result.records || result.records.length === 0) {
+        return;
+      }
+      setMyIntressRecords(result.records);
+      safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(result.records));
+      await saveLargeDataset('kppn_my_intress_records', result.records);
+      
+      const waktuUnduh = result.waktuUnduh || new Date().toLocaleString('id-ID');
+      await saveMyIntressToFirestore(result.records, file.name, waktuUnduh);
+
+      const updatedConfig: DashboardConfig = {
+        ...dashboardConfig,
+        realisasiAnggaranConfig: {
+          ...(dashboardConfig.realisasiAnggaranConfig || DEFAULT_REALISASI_ANGGARAN_CONFIG),
+          isActive: true,
+          waktuUnduh,
+          periodeLabel: file.name
+        }
+      };
+      handleUpdateDashboardConfig(updatedConfig);
+    } catch (err: any) {
+      console.error('Error processing My InTress Excel in App.tsx:', err);
+    }
+  };
+
+  const handleResetDefaultMyIntress = async () => {
+    const defaultData = INITIAL_MY_INTRESS_DATA || [];
+    setMyIntressRecords(defaultData);
+    safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(defaultData));
+    await saveLargeDataset('kppn_my_intress_records', defaultData);
+    const waktuUnduh = '24/10/2024 10:28:44';
+    await saveMyIntressToFirestore(defaultData, 'Data Realisasi Belanja My InTress (127 Satker)', waktuUnduh);
+    
+    const updatedConfig: DashboardConfig = {
+      ...dashboardConfig,
+      realisasiAnggaranConfig: {
+        ...(dashboardConfig.realisasiAnggaranConfig || DEFAULT_REALISASI_ANGGARAN_CONFIG),
+        waktuUnduh,
+        periodeLabel: 'Data Realisasi Belanja My InTress (127 Satker)'
+      }
+    };
+    handleUpdateDashboardConfig(updatedConfig);
+  };
+
   const handleAddSatker = (newSatker: SatkerIKPA) => {
     const updatedList = [newSatker, ...satkers];
     setSatkers(updatedList);
@@ -2378,6 +2471,25 @@ export default function App() {
                   theme={theme}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onSetIsAdminAuthenticated={setIsAdminAuthenticated}
+                />
+              )}
+
+              {/* Tab: Dashboard Realisasi Anggaran (My InTress) */}
+              {activeTab === 'realisasi-anggaran' && (
+                <RealisasiAnggaranDashboard
+                  records={myIntressRecords}
+                  config={dashboardConfig.realisasiAnggaranConfig}
+                  onUpdateConfig={(newConfig) => {
+                    handleUpdateDashboardConfig({
+                      ...dashboardConfig,
+                      realisasiAnggaranConfig: newConfig
+                    });
+                  }}
+                  onGoToUpload={() => setActiveTab('admin')}
+                  onUploadExcel={handleUploadMyIntress}
+                  onResetDefault={handleResetDefaultMyIntress}
+                  theme={theme}
+                  isAdmin={isAdminAuthenticated}
                 />
               )}
 

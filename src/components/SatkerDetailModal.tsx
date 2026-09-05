@@ -66,8 +66,6 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
   onGoToAdminTab,
   theme = 'light'
 }) => {
-  if (!satker) return null;
-
   const isDark = theme === 'dark';
   const [activeSubTab, setActiveSubTab] = useState<'chart' | 'overview' | 'comparison'>('chart');
   const [selectedChartMetric, setSelectedChartMetric] = useState<
@@ -89,6 +87,8 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
       setSatkerPasswordError(null);
     }
   }, [satker]);
+
+  if (!satker) return null;
 
   const handleVerifySatkerPassword = (e: React.FormEvent) => {
     e.preventDefault();

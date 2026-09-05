@@ -52,10 +52,9 @@ export const SintesaSatkerDetailModal: React.FC<SintesaSatkerDetailModalProps> =
   const [viewMode, setViewMode] = useState<'hierarchy_cards' | 'full_table'>('hierarchy_cards');
   const [filterAkunType, setFilterAkunType] = useState<string>('ALL');
 
-  if (!satkerInfo) return null;
-
   // Filter records within this Satker
   const filteredRecords = useMemo(() => {
+    if (!satkerInfo || !satkerInfo.records) return [];
     return satkerInfo.records.filter(r => {
       if (filterAkunType !== 'ALL' && r.jenisBelanjaKode !== filterAkunType) {
         return false;
@@ -76,7 +75,9 @@ export const SintesaSatkerDetailModal: React.FC<SintesaSatkerDetailModalProps> =
       }
       return true;
     });
-  }, [satkerInfo.records, modalSearch, filterAkunType]);
+  }, [satkerInfo?.records, modalSearch, filterAkunType]);
+
+  if (!satkerInfo) return null;
 
   const firstRec = satkerInfo.records[0] || {};
   const eselonInfo = `${firstRec.eselonIKode ? `[${firstRec.eselonIKode}] ` : ''}${firstRec.eselonIUraian || 'Unit Eselon I'}`;

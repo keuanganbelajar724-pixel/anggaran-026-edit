@@ -101,7 +101,7 @@
   }
 
   /* Hide unnecessary UI chrome */
-  header, nav, aside, footer, .print\\:hidden, button, input, select, textarea,
+  header, nav, aside, footer, .\print\:hidden, [class*="print:hidden"], button, input, select, textarea,
   #toast-container, .toast-notification, .control-ribbon {
     display: none !important;
     visibility: hidden !important;

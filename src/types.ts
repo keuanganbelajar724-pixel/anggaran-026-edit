@@ -960,6 +960,7 @@ export interface SPMPPPUploadBatch {
 
 export interface MenuVisibilityConfig {
   'dashboard': boolean;
+  'realisasi-anggaran'?: boolean;
   'capaian-output': boolean;
   'diagnostik-caput'?: boolean;
   'deviasi-hal3'?: boolean;
@@ -1270,10 +1271,12 @@ export interface DashboardConfig {
   presensiPrintConfig?: PresensiPrintConfig;
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
+  realisasiAnggaranConfig?: RealisasiAnggaranConfig;
 }
 
 export type NavigationTab = 
   | 'dashboard' 
+  | 'realisasi-anggaran'
   | 'capaian-output' 
   | 'diagnostik-caput'
   | 'deviasi-hal3'
@@ -1294,6 +1297,27 @@ export type NavigationTab =
   | 'admin' 
   | 'reminder' 
   | 'guide';
+
+// -------------------------------------------------------------
+// KONFIGURASI TARGET TRIWULANAN REALISASI ANGGARAN (MY INTRESS)
+// -------------------------------------------------------------
+export type TriwulanKey = 'Tw I' | 'Tw II' | 'Tw III' | 'Tw IV';
+
+export interface TargetTriwulanRule {
+  pegawai: number; // e.g. 20, 50, 75, 95
+  barang: number;  // e.g. 15, 50, 70, 90
+  modal: number;   // e.g. 10, 40, 70, 90
+  bansos: number;  // e.g. 25, 50, 75, 95
+}
+
+export interface RealisasiAnggaranConfig {
+  isActive?: boolean;
+  waktuUnduh?: string; // e.g. "24/10/2024 10:28:44"
+  periodeLabel?: string; // e.g. "Posisi Data s.d. 24 Oktober 2024"
+  activeTriwulan?: TriwulanKey; // e.g. "Tw III"
+  customTargets?: Partial<Record<TriwulanKey, TargetTriwulanRule>>;
+  note?: string;
+}
 
 // -------------------------------------------------------------
 // MODUL ANALITIK TRAFIK & PENGUNJUNG HARIAN (Admin Only)
@@ -1478,6 +1502,8 @@ export interface MyIntressRecord {
   no: number;
   kodeSatker: string;
   namaSatker: string;
+  kementerianLembaga?: string;
+  namaKementerian?: string;
   paguPegawai: number;
   paguBarang: number;
   paguModal: number;

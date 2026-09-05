@@ -36,6 +36,26 @@ export const BuletinPageManagerModal: React.FC<BuletinPageManagerModalProps> = (
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // Categories extraction
+  const categories = useMemo(() => {
+    if (!pageDirectory) return ['all'];
+    const cats = Array.from(new Set(pageDirectory.map(p => p.section)));
+    return ['all', ...cats];
+  }, [pageDirectory]);
+
+  // Filtered pages
+  const filteredPages = useMemo(() => {
+    if (!pageDirectory) return [];
+    return pageDirectory.filter(p => {
+      const matchSearch =
+        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.section.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        p.num.toString().includes(searchQuery);
+      const matchCategory = selectedCategory === 'all' || p.section === selectedCategory;
+      return matchSearch && matchCategory;
+    });
+  }, [pageDirectory, searchQuery, selectedCategory]);
+
   if (!isOpen) return null;
 
   const excluded = buletinConfig.excludedPages || [];
@@ -100,24 +120,6 @@ export const BuletinPageManagerModal: React.FC<BuletinPageManagerModalProps> = (
     const newExcluded = allNums.filter(n => !keepNums.includes(n));
     setExcludedPages(newExcluded);
   };
-
-  // Categories extraction
-  const categories = useMemo(() => {
-    const cats = Array.from(new Set(pageDirectory.map(p => p.section)));
-    return ['all', ...cats];
-  }, [pageDirectory]);
-
-  // Filtered pages
-  const filteredPages = useMemo(() => {
-    return pageDirectory.filter(p => {
-      const matchSearch =
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.section.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.num.toString().includes(searchQuery);
-      const matchCategory = selectedCategory === 'all' || p.section === selectedCategory;
-      return matchSearch && matchCategory;
-    });
-  }, [pageDirectory, searchQuery, selectedCategory]);
 
   const activeCount = pageDirectory.length - excluded.length;
 
