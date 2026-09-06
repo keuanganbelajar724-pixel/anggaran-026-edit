@@ -167,6 +167,8 @@ import {
   Receipt
 } from 'lucide-react';
 
+const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
+
 interface AdminUploadProps {
   satkers?: SatkerIKPA[];
   onApplyNewSatkers: (newSatkers: SatkerIKPA[], appendMode: boolean, targetTab?: NavigationTab) => void;
@@ -9704,6 +9706,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           pengelolaanUpRecords={pengelolaanUpRecords.length > 0 ? pengelolaanUpRecords : (dashboardConfig.pengelolaanUpRecords || [])}
           transaksiKkpRecords={transaksiKkpRecords}
           transaksiDigipayRecords={transaksiDigipayRecords}
+          deviasiHal3Records={deviasiHal3Records}
+          spmPppRecords={spmPppRecords}
           dashboardConfig={tempConfig}
           onUpdateDashboardConfig={(newCfg) => {
             setTempConfig(newCfg);
@@ -9727,9 +9731,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           satkers={satkers}
           masterSatkers={masterSatkers}
           pejabatList={pejabatList}
-          pengelolaanUpRecords={pengelolaanUpRecords.length > 0 ? pengelolaanUpRecords : (dashboardConfig.pengelolaanUpRecords || [])}
+          pengelolaanUpRecords={pengelolaanUpRecords.length > 0 ? pengelolaanUpRecords : (dashboardConfig.pengelolaanUpRecords || EMPTY_UP_FALLBACK)}
           transaksiKkpRecords={transaksiKkpRecords}
           transaksiDigipayRecords={transaksiDigipayRecords}
+          deviasiHal3Records={deviasiHal3Records}
+          spmPppRecords={spmPppRecords}
           dashboardConfig={tempConfig}
           onNavigateToJarkomPribadi={() => setAdminTab('broadcast')}
           isDark={isDark}

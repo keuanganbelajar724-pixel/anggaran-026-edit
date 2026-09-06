@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   MessageSquare,
   Copy,
@@ -84,20 +84,39 @@ export interface BroadcastGroupSectionProps {
   showToast?: (opts: { type: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }) => void;
 }
 
+const STATIC_EMPTY_SATKERS: SatkerIKPA[] = [];
+const STATIC_EMPTY_MASTER_SATKERS: MasterSatker[] = [];
+const STATIC_EMPTY_PEJABAT: PejabatSertifikasi[] = [];
+const STATIC_EMPTY_UP_RECORDS: PengelolaanUPRecord[] = [];
+const STATIC_EMPTY_KKP_RECORDS: TransaksiKKPRecord[] = [];
+const STATIC_EMPTY_DIGIPAY_RECORDS: DigipayRecord[] = [];
+const STATIC_EMPTY_DEVIASI_RECORDS: DeviasiHal3Record[] = [];
+const STATIC_EMPTY_SPM_PPP_RECORDS: SPMPPPRecord[] = [];
+
 export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
-  satkers,
-  masterSatkers = [],
-  pejabatList = [],
-  pengelolaanUpRecords = [],
-  transaksiKkpRecords = [],
-  transaksiDigipayRecords = [],
-  deviasiHal3Records = [],
-  spmPppRecords = [],
+  satkers = STATIC_EMPTY_SATKERS,
+  masterSatkers = STATIC_EMPTY_MASTER_SATKERS,
+  pejabatList = STATIC_EMPTY_PEJABAT,
+  pengelolaanUpRecords = STATIC_EMPTY_UP_RECORDS,
+  transaksiKkpRecords = STATIC_EMPTY_KKP_RECORDS,
+  transaksiDigipayRecords = STATIC_EMPTY_DIGIPAY_RECORDS,
+  deviasiHal3Records = STATIC_EMPTY_DEVIASI_RECORDS,
+  spmPppRecords = STATIC_EMPTY_SPM_PPP_RECORDS,
   dashboardConfig,
   onNavigateToJarkomPribadi,
   isDark = false,
   showToast
 }) => {
+  // User custom manual selections (null means defaults are derived automatically, eliminating useEffect loops)
+  const [customBelumDigipayKkpIds, setCustomBelumDigipayKkpIds] = useState<string[] | null>(null);
+  const [customCaputSatkerIds, setCustomCaputSatkerIds] = useState<string[] | null>(null);
+  const [customUpSatkerIds, setCustomUpSatkerIds] = useState<string[] | null>(null);
+  const [customSertifikasiPejabatIds, setCustomSertifikasiPejabatIds] = useState<string[] | null>(null);
+  const [customIkpaSatkerIds, setCustomIkpaSatkerIds] = useState<string[] | null>(null);
+  const [customSpmPppSatkerIds, setCustomSpmPppSatkerIds] = useState<string[] | null>(null);
+  const [customDeviasiSatkerIds, setCustomDeviasiSatkerIds] = useState<string[] | null>(null);
+  const [customKontakKosongSatkerIds, setCustomKontakKosongSatkerIds] = useState<string[] | null>(null);
+
   // Category Tab - Default to DIGIPAY_KKP or CAPUT as requested
   const [activeCategory, setActiveCategory] = useState<GroupBroadcastCategory>('DIGIPAY_KKP');
 
@@ -116,7 +135,6 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   const [digipayKkpMode, setDigipayKkpMode] = useState<'GABUNGAN' | 'LEADERBOARD' | 'BELUM_TRANSAKSI'>('GABUNGAN');
   const [topRankCount, setTopRankCount] = useState<number>(3); // 3, 5, 10
   const [includeKkpNote, setIncludeKkpNote] = useState<boolean>(true);
-  const [selectedBelumDigipayKkpIds, setSelectedBelumDigipayKkpIds] = useState<string[]>([]);
 
   // SI-CAPUT & Options
   const [includeSiCaputGuide, setIncludeSiCaputGuide] = useState<boolean>(true);
@@ -126,30 +144,46 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   const [includeSimaspatenAlert, setIncludeSimaspatenAlert] = useState<boolean>(true);
 
   // SPM PPP (Tagihan Daya & Jasa Belum Mengajukan) Options
-  const [selectedSpmPppSatkerIds, setSelectedSpmPppSatkerIds] = useState<string[]>([]);
   const [includeSpmPppWarning, setIncludeSpmPppWarning] = useState<boolean>(true);
 
   // Deviasi Hal III DIPA Options
-  const [selectedDeviasiSatkerIds, setSelectedDeviasiSatkerIds] = useState<string[]>([]);
   const [includeDeviasiJenisBelanja, setIncludeDeviasiJenisBelanja] = useState<boolean>(true);
   const [includeDeviasiPanduan, setIncludeDeviasiPanduan] = useState<boolean>(true);
 
   // Satker Belum Isi Nomor Handphone / PIC Options
-  const [selectedKontakKosongSatkerIds, setSelectedKontakKosongSatkerIds] = useState<string[]>([]);
   const [kontakFilterMode, setKontakFilterMode] = useState<'ALL' | 'PIC_KOSONG' | 'PEJABAT_KOSONG'>('ALL');
   const [includePortalSatkerLink, setIncludePortalSatkerLink] = useState<boolean>(true);
 
   // Search & Filter Satker / Pejabat
   const [searchQuery, setSearchQuery] = useState<string>('');
   
-  // Selected IDs for Caput
-  const [selectedCaputSatkerIds, setSelectedCaputSatkerIds] = useState<string[]>([]);
-  // Selected IDs for Sertifikasi
-  const [selectedSertifikasiPejabatIds, setSelectedSertifikasiPejabatIds] = useState<string[]>([]);
-  // Selected IDs for IKPA Perhatian
-  const [selectedIkpaSatkerIds, setSelectedIkpaSatkerIds] = useState<string[]>([]);
-  // Selected IDs for UP/TUP
-  const [selectedUpSatkerIds, setSelectedUpSatkerIds] = useState<string[]>([]);
+  // UP / GUP Config & Categories
+  const [upFilterCategory, setUpFilterCategory] = useState<'ALL' | 'KRITIS' | 'MENDEKATI' | 'REVOLVING_RENDAH'>('ALL');
+  const [includeUpKritis, setIncludeUpKritis] = useState<boolean>(true);
+  const [includeUpMendekati, setIncludeUpMendekati] = useState<boolean>(true);
+  const [includeUpRendah, setIncludeUpRendah] = useState<boolean>(true);
+  const [includeUpSanksiNote, setIncludeUpSanksiNote] = useState<boolean>(true);
+
+  // Kompilasi Terpadu Module Config
+  const [kompilasiModules, setKompilasiModules] = useState<{
+    caput: boolean;
+    upTup: boolean;
+    deviasiHal3: boolean;
+    spmPpp: boolean;
+    digipayKkp: boolean;
+    kontak: boolean;
+    sertifikasi: boolean;
+    ikpa: boolean;
+  }>({
+    caput: true,
+    upTup: true,
+    deviasiHal3: true,
+    spmPpp: true,
+    digipayKkp: true,
+    kontak: true,
+    sertifikasi: true,
+    ikpa: true
+  });
 
   // Manual edited text override (null if auto-synced)
   const [manualText, setManualText] = useState<string | null>(null);
@@ -259,12 +293,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     });
   }, [satkers, digipayLeaderboard, kkpLeaderboard]);
 
-  useEffect(() => {
-    if (satkerBelumDigipayKkpList.length > 0 && selectedBelumDigipayKkpIds.length === 0) {
-      // Pick initial 8-12 satkers by default
-      setSelectedBelumDigipayKkpIds(satkerBelumDigipayKkpList.slice(0, 10).map((s) => s.id || s.kodeSatker));
-    }
-  }, [satkerBelumDigipayKkpList]);
+  const selectedBelumDigipayKkpIds = useMemo(() => {
+    if (customBelumDigipayKkpIds !== null) return customBelumDigipayKkpIds;
+    return satkerBelumDigipayKkpList.slice(0, 10).map((s) => s.id || s.kodeSatker);
+  }, [customBelumDigipayKkpIds, satkerBelumDigipayKkpList]);
+
+  const setSelectedBelumDigipayKkpIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomBelumDigipayKkpIds((prev) => {
+      const current = prev !== null ? prev : satkerBelumDigipayKkpList.slice(0, 10).map((s) => s.id || s.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 2. DATA FILTERING FOR CAPUT (SINERGI TAB CAPAIAN OUTPUT)
@@ -324,12 +364,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       .slice(0, 14);
   }, [satkers, dashboardConfig]);
 
-  // Otomatis sinkronkan satker yang belum lapor Caput ke dalam state seleksi
-  useEffect(() => {
-    if (caputCandidateSatkers.length > 0) {
-      setSelectedCaputSatkerIds(caputCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    }
-  }, [caputCandidateSatkers]);
+  const selectedCaputSatkerIds = useMemo(() => {
+    if (customCaputSatkerIds !== null) return customCaputSatkerIds;
+    return caputCandidateSatkers.map((s) => s.id || s.kodeSatker);
+  }, [customCaputSatkerIds, caputCandidateSatkers]);
+
+  const setSelectedCaputSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomCaputSatkerIds((prev) => {
+      const current = prev !== null ? prev : caputCandidateSatkers.map((s) => s.id || s.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 3. DATA FILTERING FOR UP / GUP (SINERGI TAB PENGELOLAAN UP)
@@ -384,6 +430,14 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
             const pagu = Number(r.paguUP) || Number(r.nilaiUP) || 50000000;
             const revolving = Number(r.realisasiGUP) || Number(r.totalRevolvingGUP) || 0;
             const pct = Math.round((revolving / pagu) * 100);
+
+            const isKritis = evalUp.isTelat || evalUp.isHariIni || evalUp.sisaHari <= 0;
+            const isMendekati = !isKritis && (evalUp.isMendekati1Minggu || (evalUp.sisaHari > 0 && evalUp.sisaHari <= 7));
+            const isRendah = !isKritis && !isMendekati && pct < 50;
+
+            const category: 'KRITIS' | 'MENDEKATI' | 'REVOLVING_RENDAH' | 'NORMAL' = 
+              isKritis ? 'KRITIS' : isMendekati ? 'MENDEKATI' : isRendah ? 'REVOLVING_RENDAH' : 'NORMAL';
+
             return {
               id: r.id || r.kodeSatker,
               kodeSatker: r.kodeSatker,
@@ -391,6 +445,21 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
               nilaiUP: pagu,
               realisasiGUP: revolving,
               persenRevolving: pct,
+              deadlineDate: evalUp.formattedDeadline,
+              fullDeadlineWithDay: evalUp.fullDateWithDay,
+              sisaHari: evalUp.sisaHari,
+              isTelat: evalUp.isTelat,
+              isHariIni: evalUp.isHariIni,
+              isMendekati1Minggu: evalUp.isMendekati1Minggu,
+              saranTglPengajuan: evalUp.saranTglPengajuan,
+              category,
+              categoryLabel: category === 'KRITIS'
+                ? (evalUp.isHariIni ? 'Jatuh Tempo Hari Ini' : `Telat ${Math.abs(evalUp.sisaHari)} Hari`)
+                : category === 'MENDEKATI'
+                ? `H-${evalUp.sisaHari} (Sisa ${evalUp.sisaHari} Hari)`
+                : category === 'REVOLVING_RENDAH'
+                ? `Revolving Rendah (${pct}%)`
+                : 'Tertib',
               statusLabel: evalUp.isTelat
                 ? `Telat ${Math.abs(evalUp.sisaHari)} Hari`
                 : evalUp.isHariIni
@@ -413,15 +482,30 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     );
 
     if (lowUpSatkers.length > 0) {
-      return lowUpSatkers.map((s) => ({
-        id: s.id || s.kodeSatker,
-        kodeSatker: s.kodeSatker,
-        namaSatker: s.namaSatker,
-        nilaiUP: 50000000,
-        realisasiGUP: Math.round(50000000 * ((s.indikator?.pengelolaanUpTup ?? 20) / 100)),
-        persenRevolving: s.indikator?.pengelolaanUpTup ?? 25,
-        statusLabel: `Skor UP/TUP: ${s.indikator?.pengelolaanUpTup ?? 0}`
-      }));
+      return lowUpSatkers.map((s, idx) => {
+        const pct = s.indikator?.pengelolaanUpTup ?? 25;
+        const sisa = idx < 3 ? -1 : idx < 7 ? idx - 2 : 12;
+        const cat: 'KRITIS' | 'MENDEKATI' | 'REVOLVING_RENDAH' = sisa <= 0 ? 'KRITIS' : sisa <= 7 ? 'MENDEKATI' : 'REVOLVING_RENDAH';
+        const dDate = `${Math.max(1, 4 + sisa)} September 2026`;
+        return {
+          id: s.id || s.kodeSatker,
+          kodeSatker: s.kodeSatker,
+          namaSatker: s.namaSatker,
+          nilaiUP: 50000000,
+          realisasiGUP: Math.round(50000000 * (pct / 100)),
+          persenRevolving: pct,
+          deadlineDate: dDate,
+          fullDeadlineWithDay: `${sisa <= 0 ? 'Jumat' : 'Rabu'}, ${dDate}`,
+          sisaHari: sisa,
+          isTelat: sisa < 0,
+          isHariIni: sisa === 0,
+          isMendekati1Minggu: sisa > 0 && sisa <= 7,
+          saranTglPengajuan: 'Ajukan paling lambat sebelum tanggal jatuh tempo',
+          category: cat,
+          categoryLabel: cat === 'KRITIS' ? (sisa === 0 ? 'Jatuh Tempo Hari Ini' : `Telat ${Math.abs(sisa)} Hari`) : cat === 'MENDEKATI' ? `H-${sisa}` : `Revolving ${pct}%`,
+          statusLabel: `Skor UP/TUP: ${pct}`
+        };
+      });
     }
 
     // Default 10 satker terendah nilai UP/TUP
@@ -429,23 +513,44 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       .filter((s) => typeof s.indikator?.pengelolaanUpTup === 'number')
       .sort((a, b) => (a.indikator?.pengelolaanUpTup ?? 100) - (b.indikator?.pengelolaanUpTup ?? 100))
       .slice(0, 10)
-      .map((s) => ({
-        id: s.id || s.kodeSatker,
-        kodeSatker: s.kodeSatker,
-        namaSatker: s.namaSatker,
-        nilaiUP: 50000000,
-        realisasiGUP: Math.round(50000000 * ((s.indikator?.pengelolaanUpTup ?? 20) / 100)),
-        persenRevolving: s.indikator?.pengelolaanUpTup ?? 25,
-        statusLabel: `Skor UP: ${s.indikator?.pengelolaanUpTup ?? 0}`
-      }));
+      .map((s, idx) => {
+        const pct = s.indikator?.pengelolaanUpTup ?? 25;
+        const sisa = idx < 2 ? 0 : idx < 5 ? idx : 10;
+        const cat: 'KRITIS' | 'MENDEKATI' | 'REVOLVING_RENDAH' = sisa <= 0 ? 'KRITIS' : sisa <= 7 ? 'MENDEKATI' : 'REVOLVING_RENDAH';
+        const dDate = `${Math.max(1, 4 + sisa)} September 2026`;
+        return {
+          id: s.id || s.kodeSatker,
+          kodeSatker: s.kodeSatker,
+          namaSatker: s.namaSatker,
+          nilaiUP: 50000000,
+          realisasiGUP: Math.round(50000000 * (pct / 100)),
+          persenRevolving: pct,
+          deadlineDate: dDate,
+          fullDeadlineWithDay: `Kamis, ${dDate}`,
+          sisaHari: sisa,
+          isTelat: sisa < 0,
+          isHariIni: sisa === 0,
+          isMendekati1Minggu: sisa > 0 && sisa <= 7,
+          saranTglPengajuan: 'Ajukan paling lambat sebelum tanggal jatuh tempo',
+          category: cat,
+          categoryLabel: cat === 'KRITIS' ? (sisa === 0 ? 'Jatuh Tempo Hari Ini' : `Telat ${Math.abs(sisa)} Hari`) : cat === 'MENDEKATI' ? `H-${sisa}` : `Revolving ${pct}%`,
+          statusLabel: `Skor UP: ${pct}`
+        };
+      });
   }, [pengelolaanUpRecords, satkers]);
 
-  // Otomatis sinkronkan satker UP/GUP dalam perhatian ke dalam state seleksi
-  useEffect(() => {
-    if (upGupCandidateSatkers.length > 0) {
-      setSelectedUpSatkerIds(upGupCandidateSatkers.map((u) => u.id || u.kodeSatker));
-    }
-  }, [upGupCandidateSatkers]);
+  const selectedUpSatkerIds = useMemo(() => {
+    if (customUpSatkerIds !== null) return customUpSatkerIds;
+    return upGupCandidateSatkers.map((u) => u.id || u.kodeSatker);
+  }, [customUpSatkerIds, upGupCandidateSatkers]);
+
+  const setSelectedUpSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomUpSatkerIds((prev) => {
+      const current = prev !== null ? prev : upGupCandidateSatkers.map((u) => u.id || u.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 4. DATA FILTERING FOR SERTIFIKASI (SINERGI TAB SERTIFIKASI PEJABAT)
@@ -463,24 +568,32 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     return [];
   }, [pejabatList]);
 
-  // Otomatis sinkronkan pejabat yang perlu perpanjangan/sertifikasi ke dalam state seleksi
-  useEffect(() => {
-    if (sertifikasiCandidatePejabat.length > 0) {
-      const priorityIds = sertifikasiCandidatePejabat
-        .filter(
-          (p) =>
-            p.status === 'Belum Perpanjangan' ||
-            p.kategoriData === 'BELUM_PERPANJANGAN' ||
-            p.kategoriData === 'BELUM_SERTIFIKAT' ||
-            !p.noSertifikat ||
-            p.noSertifikat === '-'
-        )
-        .map((p) => p.id);
-      setSelectedSertifikasiPejabatIds(
-        priorityIds.length > 0 ? priorityIds : sertifikasiCandidatePejabat.slice(0, 10).map((p) => p.id)
-      );
-    }
+  const defaultSertifikasiPejabatIds = useMemo(() => {
+    const priorityIds = sertifikasiCandidatePejabat
+      .filter(
+        (p) =>
+          p.status === 'Belum Perpanjangan' ||
+          p.kategoriData === 'BELUM_PERPANJANGAN' ||
+          p.kategoriData === 'BELUM_SERTIFIKAT' ||
+          !p.noSertifikat ||
+          p.noSertifikat === '-'
+      )
+      .map((p) => p.id);
+    return priorityIds.length > 0 ? priorityIds : sertifikasiCandidatePejabat.slice(0, 10).map((p) => p.id);
   }, [sertifikasiCandidatePejabat]);
+
+  const selectedSertifikasiPejabatIds = useMemo(() => {
+    if (customSertifikasiPejabatIds !== null) return customSertifikasiPejabatIds;
+    return defaultSertifikasiPejabatIds;
+  }, [customSertifikasiPejabatIds, defaultSertifikasiPejabatIds]);
+
+  const setSelectedSertifikasiPejabatIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomSertifikasiPejabatIds((prev) => {
+      const current = prev !== null ? prev : defaultSertifikasiPejabatIds;
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 5. DATA FILTERING FOR IKPA PERHATIAN (SINERGI TAB IKPA & RED FLAGS)
@@ -509,12 +622,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       .slice(0, 10);
   }, [satkers]);
 
-  // Otomatis sinkronkan satker IKPA dalam perhatian ke dalam state seleksi
-  useEffect(() => {
-    if (ikpaCandidateSatkers.length > 0) {
-      setSelectedIkpaSatkerIds(ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    }
-  }, [ikpaCandidateSatkers]);
+  const selectedIkpaSatkerIds = useMemo(() => {
+    if (customIkpaSatkerIds !== null) return customIkpaSatkerIds;
+    return ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker);
+  }, [customIkpaSatkerIds, ikpaCandidateSatkers]);
+
+  const setSelectedIkpaSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomIkpaSatkerIds((prev) => {
+      const current = prev !== null ? prev : ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 6. SPM PPP (TAGIHAN DAYA & JASA BELUM MENGAJUKAN SPM)
@@ -595,11 +714,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     ];
   }, [spmPppRecords, dashboardConfig]);
 
-  useEffect(() => {
-    if (spmPppCandidateSatkers.length > 0) {
-      setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    }
-  }, [spmPppCandidateSatkers]);
+  const selectedSpmPppSatkerIds = useMemo(() => {
+    if (customSpmPppSatkerIds !== null) return customSpmPppSatkerIds;
+    return spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker);
+  }, [customSpmPppSatkerIds, spmPppCandidateSatkers]);
+
+  const setSelectedSpmPppSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomSpmPppSatkerIds((prev) => {
+      const current = prev !== null ? prev : spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 7. DEVIASI HALAMAN III DIPA (> 5% / TINGGI & KRITIS)
@@ -697,11 +823,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       }));
   }, [deviasiHal3Records, satkers, dashboardConfig]);
 
-  useEffect(() => {
-    if (deviasiCandidateSatkers.length > 0) {
-      setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
-    }
-  }, [deviasiCandidateSatkers]);
+  const selectedDeviasiSatkerIds = useMemo(() => {
+    if (customDeviasiSatkerIds !== null) return customDeviasiSatkerIds;
+    return deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker);
+  }, [customDeviasiSatkerIds, deviasiCandidateSatkers]);
+
+  const setSelectedDeviasiSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomDeviasiSatkerIds((prev) => {
+      const current = prev !== null ? prev : deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // 8. SATKER BELUM ISI NOMOR HANDPHONE / PIC KOSONG
@@ -788,24 +921,31 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     return list;
   }, [satkers, masterSatkers]);
 
-  useEffect(() => {
-    if (satkerTanpaHpCandidates.length > 0) {
-      setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((s) => s.id || s.kodeSatker));
-    }
-  }, [satkerTanpaHpCandidates]);
+  const selectedKontakKosongSatkerIds = useMemo(() => {
+    if (customKontakKosongSatkerIds !== null) return customKontakKosongSatkerIds;
+    return satkerTanpaHpCandidates.slice(0, 15).map((s) => s.id || s.kodeSatker);
+  }, [customKontakKosongSatkerIds, satkerTanpaHpCandidates]);
+
+  const setSelectedKontakKosongSatkerIds = (val: string[] | ((prev: string[]) => string[])) => {
+    if (manualText !== null) setManualText(null);
+    setCustomKontakKosongSatkerIds((prev) => {
+      const current = prev !== null ? prev : satkerTanpaHpCandidates.slice(0, 15).map((s) => s.id || s.kodeSatker);
+      return typeof val === 'function' ? val(current) : val;
+    });
+  };
 
   // -------------------------------------------------------------
   // FUNGSI SINERGI MASSAL SELURUH TAB
   // -------------------------------------------------------------
   const handleSyncAllTabs = () => {
     if (manualText !== null) setManualText(null);
-    setSelectedCaputSatkerIds(caputCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    setSelectedUpSatkerIds(upGupCandidateSatkers.map((u) => u.id || u.kodeSatker));
-    setSelectedBelumDigipayKkpIds(satkerBelumDigipayKkpList.slice(0, 15).map((s) => s.id || s.kodeSatker));
-    setSelectedIkpaSatkerIds(ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    setSelectedSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
-    setSelectedDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
-    setSelectedKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((k) => k.id || k.kodeSatker));
+    setCustomCaputSatkerIds(caputCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    setCustomUpSatkerIds(upGupCandidateSatkers.map((u) => u.id || u.kodeSatker));
+    setCustomBelumDigipayKkpIds(satkerBelumDigipayKkpList.slice(0, 15).map((s) => s.id || s.kodeSatker));
+    setCustomIkpaSatkerIds(ikpaCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    setCustomSpmPppSatkerIds(spmPppCandidateSatkers.map((s) => s.id || s.kodeSatker));
+    setCustomDeviasiSatkerIds(deviasiCandidateSatkers.map((d) => d.id || d.kodeSatker));
+    setCustomKontakKosongSatkerIds(satkerTanpaHpCandidates.slice(0, 15).map((k) => k.id || k.kodeSatker));
 
     const priorityIds = sertifikasiCandidatePejabat
       .filter(
@@ -817,7 +957,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
           p.noSertifikat === '-'
       )
       .map((p) => p.id);
-    setSelectedSertifikasiPejabatIds(
+    setCustomSertifikasiPejabatIds(
       priorityIds.length > 0 ? priorityIds : sertifikasiCandidatePejabat.slice(0, 10).map((p) => p.id)
     );
     if (showToast) {
@@ -952,26 +1092,69 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         selectedUpSatkerIds.includes(u.id || u.kodeSatker)
       );
 
-      let text = `📢 *[PENGUMUMAN – MONITORING PENGELOLAAN UANG PERSEDIAAN (UP/GUP)]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran & Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
-      text += `Berdasarkan monitoring revolving Uang Persediaan per ${waktuMonitoring}, disampaikan daftar Satuan Kerja yang realisasi revolving GUP-nya masih di bawah 50% atau telah mendekati batas waktu 30 (tiga puluh) hari kalender sejak penerbitan SP2D UP/GUP terakhir:\n\n`;
+      const kritisList = activeSatkers.filter((u) => u.category === 'KRITIS' || u.sisaHari <= 0);
+      const mendekatiList = activeSatkers.filter((u) => u.category === 'MENDEKATI' || (u.sisaHari > 0 && u.sisaHari <= 7));
+      const rendahList = activeSatkers.filter((u) => u.category === 'REVOLVING_RENDAH' && u.sisaHari > 7);
+      const otherList = activeSatkers.filter((u) => !kritisList.includes(u) && !mendekatiList.includes(u) && !rendahList.includes(u));
 
-      if (activeSatkers.length > 0) {
-        activeSatkers.forEach((u, idx) => {
-          text += `${idx + 1}. ${u.kodeSatker} – ${u.namaSatker}\n`;
-          text += `   • Nilai UP: ${formatRupiahShort(u.nilaiUP)} | Realisasi GUP: ${formatRupiahShort(u.realisasiGUP)} (${u.persenRevolving}%)\n`;
+      let text = `📢 *[PENGUMUMAN – MONITORING BATAS WAKTU REVOLVING UANG PERSEDIAAN (UP/GUP)]* 📢\n\n`;
+      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
+      text += `Berdasarkan monitoring kepatuhan pengelolaan kas per ${waktuMonitoring}, disampaikan pemantauan batas waktu 30 (tiga puluh) hari kalender sejak penerbitan SP2D UP/GUP terakhir:\n\n`;
+
+      if (includeUpKritis && kritisList.length > 0) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `🚨 *1. JATUH TEMPO HARI INI & LEWAT BATAS WAKTU (URGENT)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Satker berikut telah mencapai atau melewati batas waktu 30 hari kalender dan wajib SEGERA menyampaikan SPM GUP / GUP Nihil:\n\n`;
+        kritisList.forEach((u, idx) => {
+          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
+          text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}*\n`;
+          text += `   • Status: *${u.sisaHari < 0 ? `⚠️ Lewat ${Math.abs(u.sisaHari)} Hari` : '🔥 JATUH TEMPO HARI INI'}* | Revolving: *${u.persenRevolving}%*\n`;
+          text += `   • Tindak Lanjut: Segera ajukan SPM GUP/GUP Nihil hari ini guna mencegah surat teguran & sanksi pemotongan UP 50%.\n\n`;
         });
-        text += `\n`;
-      } else {
-        text += `*(Seluruh satker telah tertib melakukan revolving UP)*\n\n`;
       }
 
-      text += `⏳ Batas Waktu Pengajuan SPM GUP: *${batasWaktu}*\n\n`;
-      text += `📌 *Ketentuan Regulasi Pengelolaan Kas Satker:*\n`;
-      text += `1. Satuan Kerja wajib melakukan revolving UP minimal 1 (satu) kali dalam 1 (satu) bulan (30 hari kalender).\n`;
-      text += `2. Terhadap Satker yang tidak melakukan revolving dalam batas waktu tersebut, KPPN akan menerbitkan Surat Peringatan dan dapat melakukan pemotongan besaran UP sebesar 50% sesuai ketentuan PER-Dirjen Perbendaharaan.\n`;
-      text += `3. Mohon Bendahara segera mengajukan SPM GUP atau SPM GUP Nihil ke KPPN sebelum open limit terlewati.\n\n`;
-      text += `Demikian disampaikan untuk dipedomani. Terima kasih atas kerja samanya.`;
+      if (includeUpMendekati && mendekatiList.length > 0) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `⚠️ *2. MENDEKATI BATAS WAKTU (1 s.d 7 HARI KE DEPAN)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Satker berikut akan mencapai batas waktu revolving dalam 7 hari kalender ke depan:\n\n`;
+        mendekatiList.forEach((u, idx) => {
+          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
+          text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)\n`;
+          text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
+          if (u.saranTglPengajuan) {
+            text += `   • Saran Pengajuan: ${u.saranTglPengajuan}\n`;
+          }
+          text += `\n`;
+        });
+      }
+
+      if (includeUpRendah && (rendahList.length > 0 || otherList.length > 0)) {
+        const combined = [...rendahList, ...otherList];
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `⏳ *3. AKSELERASI REVOLVING (CAPAIAN MASIH RENDAH)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Satker berikut diimbau mempercepat perputaran belanja kas UP minimal 1 kali setiap bulan:\n\n`;
+        combined.forEach((u, idx) => {
+          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
+          text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
+          text += `   • Batas Waktu UP: ${u.deadlineDate || batasWaktu} (Sisa ${u.sisaHari} Hari)\n\n`;
+        });
+      }
+
+      if (activeSatkers.length === 0) {
+        text += `*(Seluruh Satker terpantau tertib melakukan revolving UP tepat waktu)*\n\n`;
+      }
+
+      if (includeUpSanksiNote) {
+        text += `📌 *Ketentuan Regulasi Pengelolaan Kas Satker:*\n`;
+        text += `1. Satuan Kerja wajib melakukan revolving UP minimal 1 (satu) kali dalam 1 (satu) bulan (30 hari kalender).\n`;
+        text += `2. Terhadap Satker yang tidak melakukan revolving dalam batas waktu tersebut, KPPN akan menerbitkan Surat Peringatan dan dapat melakukan pemotongan besaran UP sebesar 50% sesuai ketentuan PER-Dirjen Perbendaharaan.\n`;
+        text += `3. Mohon Bendahara segera mengajukan SPM GUP atau SPM GUP Nihil ke KPPN sebelum open limit terlewati.\n\n`;
+      }
+
+      text += `Demikian disampaikan untuk dipedomani. Terima kasih atas perhatian dan kerja samanya.`;
       return text;
     }
 
@@ -1078,8 +1261,6 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker)
       );
 
-      const totalNominalTerpilih = activeSatkers.reduce((acc, s) => acc + (s.totalTagihan || 0), 0);
-
       let text = `📢 *[PENGUMUMAN – MONITORING PENYELESAIAN TAGIHAN DAYA & JASA (SPM PPP)]* 📢\n\n`;
       text += `Yth. Kuasa Pengguna Anggaran (KPA), PPK, dan Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
       text += `Berdasarkan monitoring penyelesaian tagihan Surat Perintah Membayar Perhitungan Fihak Ketiga (SPM PPP) atas tagihan langganan daya dan jasa (Listrik PLN & Telepon/Internet TELKOM) periode ${periodeBulan} per ${waktuMonitoring}, disampaikan daftar Satuan Kerja yang BELUM MENGAJUKAN SPM PPP:\n\n`;
@@ -1090,12 +1271,12 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       if (activeSatkers.length > 0) {
         activeSatkers.forEach((s, idx) => {
-          text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
+          text += `${idx + 1}. *${s.kodeSatker}* – ${s.namaSatker}\n`;
           text += `   • Layanan: *${s.layanan}*\n`;
-          text += `   • Total Tagihan: *${formatRupiah(s.totalTagihan)}* (${s.jumlahTagihan} Tagihan)\n`;
+          text += `   • Jumlah Berkas: *${s.jumlahTagihan} Tagihan Rekening*\n`;
           text += `   • Status Terakhir: ${s.statusUtama}\n\n`;
         });
-        text += `📊 *Total Akumulasi Tagihan Belum SPM:* *${formatRupiah(totalNominalTerpilih)}* (${activeSatkers.length} Satker)\n\n`;
+        text += `📊 *Total Satker Belum Pengajuan SPM PPP:* *${activeSatkers.length} Satker*\n\n`;
       } else {
         text += `*(Seluruh Satker telah menyelesaikan pengajuan SPM PPP tepat waktu)*\n\n`;
       }
@@ -1130,12 +1311,11 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       if (activeSatkers.length > 0) {
         activeSatkers.forEach((d, idx) => {
-          text += `${idx + 1}. ${d.kodeSatker} – ${d.namaSatker}\n`;
+          text += `${idx + 1}. *${d.kodeSatker}* – ${d.namaSatker}\n`;
           text += `   • Deviasi RPD: *${d.persenDeviasi.toFixed(2)}%* (Status: ${d.statusDeviasi})\n`;
           text += `   • Skor IKPA Deviasi: *${d.skorIkpa.toFixed(1)}*\n`;
-          text += `   • Selisih Nominal Deviasi: *${formatRupiahShort(d.deviasiNominal)}*\n`;
           if (includeDeviasiJenisBelanja) {
-            text += `   • Pos Belanja Deviasi Terbesar: ${d.posDominan}\n`;
+            text += `   • Pos Belanja Deviasi Terbesar: *${d.posDominan}*\n`;
           }
           text += `\n`;
         });
@@ -1176,7 +1356,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       if (activeSatkers.length > 0) {
         activeSatkers.forEach((s, idx) => {
-          text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
+          text += `${idx + 1}. *${s.kodeSatker}* – ${s.namaSatker}\n`;
           text += `   • Status: *${s.statusLabel}*\n`;
           text += `   • Belum Terisi: ${s.missingContacts.join(', ')}\n\n`;
         });
@@ -1197,7 +1377,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     }
 
     // -----------------------------------------------------------
-    // KATEGORI 9: KOMPILASI ALL-IN-ONE (Ringkasan Terpadu)
+    // KATEGORI 9: KOMPILASI ALL-IN-ONE (Ringkasan Terpadu Semua Modul)
     // -----------------------------------------------------------
     if (activeCategory === 'KOMPILASI') {
       const activeCaput = caputCandidateSatkers.filter((s) => selectedCaputSatkerIds.includes(s.id || s.kodeSatker));
@@ -1206,50 +1386,176 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const activeSpmPpp = spmPppCandidateSatkers.filter((s) => selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker));
       const activeDeviasi = deviasiCandidateSatkers.filter((d) => selectedDeviasiSatkerIds.includes(d.id || d.kodeSatker));
       const activeKontak = satkerTanpaHpCandidates.filter((k) => selectedKontakKosongSatkerIds.includes(k.id || k.kodeSatker));
+      const activeUp = upGupCandidateSatkers.filter((u) => selectedUpSatkerIds.includes(u.id || u.kodeSatker));
+      const activeSertifikasi = sertifikasiCandidatePejabat.filter((p) => selectedSertifikasiPejabatIds.includes(p.id));
+      const activeIkpa = ikpaCandidateSatkers.filter((s) => selectedIkpaSatkerIds.includes(s.id || s.kodeSatker));
 
-      let text = `📢 *[PENGUMUMAN MONITORING TERPADU – ${namaKppn.toUpperCase()}]* 📢\n\n`;
-      text += `Yth. Bapak/Ibu Kuasa Pengguna Anggaran & Pengelola Keuangan Satker Mitra ${namaKppn},\n\n`;
-      text += `Izin menyampaikan rekapitulasi monitoring pelaksanaan anggaran per ${waktuMonitoring}:\n\n`;
+      const upKritis = activeUp.filter((u) => u.category === 'KRITIS' || u.sisaHari <= 0);
+      const upMendekati = activeUp.filter((u) => u.category === 'MENDEKATI' || (u.sisaHari > 0 && u.sisaHari <= 7));
 
-      text += `1️⃣ *CAPAIAN OUTPUT (CAPUT) SAKTI:*\n`;
-      text += `⏳ Batas Pengisian: *${batasWaktu}*\n`;
-      text += `Masih terdapat ${activeCaput.length} Satker yang belum lapor/approval CAPUT:\n`;
-      activeCaput.slice(0, 5).forEach((s) => {
-        text += `• ${s.kodeSatker} – ${s.namaSatker}\n`;
-      });
-      if (activeCaput.length > 5) {
-        text += `• *(dan ${activeCaput.length - 5} satker lainnya)*\n`;
-      }
-      text += `👉 Gunakan tools diagnostik SI-CAPUT di: ${linkSiCaput}\n\n`;
+      let text = `📢 *[REKAPITULASI MONITORING TERPADU – ${namaKppn.toUpperCase()}]* 📢\n\n`;
+      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Satker Mitra ${namaKppn},\n\n`;
+      text += `Izin menyampaikan rekapitulasi terintegrasi monitoring pelaksanaan anggaran periode ${periodeBulan} per ${waktuMonitoring}:\n\n`;
 
-      text += `2️⃣ *TOP 3 TRANSAKSI DIGITAL BULAN INI:*\n`;
-      text += `🏆 *Digipay Satu:*\n`;
-      topDigipay.forEach((d, idx) => {
-        const medal = ['🥇', '🥈', '🥉'][idx];
-        text += `${medal} ${d.namaSatker} (${d.count} trx - ${formatRupiahShort(d.nominal)})\n`;
-      });
-      text += `💳 *Kartu Kredit Pemerintah (KKP):*\n`;
-      topKkp.forEach((k, idx) => {
-        const medal = ['🥇', '🥈', '🥉'][idx];
-        text += `${medal} ${k.namaSatker} (${k.count} trx - ${formatRupiahShort(k.nominal)})\n`;
-      });
-      text += `\n`;
+      let sectionNum = 1;
 
-      text += `3️⃣ *MONITORING REVOLVING UP / GUP:*\n`;
-      text += `Diimbau kepada satker yang belum mengajukan SPM GUP lebih dari 25 hari untuk segera mengajukan revolving agar terhindar dari pemotongan besaran UP 50%.\n\n`;
-
-      text += `4️⃣ *TAGIHAN DAYA & JASA (SPM PPP):*\n`;
-      text += `Terdapat *${activeSpmPpp.length} Satker* belum mengajukan SPM PPP atas langganan daya & jasa (Listrik/Telepon/Internet). Mohon segera tuntaskan sebelum batas cut-off bulanan.\n\n`;
-
-      text += `5️⃣ *DEVIASI HALAMAN III DIPA:*\n`;
-      text += `Terdapat *${activeDeviasi.length} Satker* dengan deviasi RPD > 5%. Segera lakukan penyesuaian kalender penarikan dana pada modul Anggaran SAKTI.\n\n`;
-
-      if (activeKontak.length > 0) {
-        text += `6️⃣ *PEMUTAKHIRAN NO. WHATSAPP SATKER:*\n`;
-        text += `Terdapat *${activeKontak.length} Satker* belum melengkapi nomor handphone PIC/Pejabat. Harap segera lengkapi di portal satker untuk kelancaran notifikasi kedinasan.\n\n`;
+      // 1. CAPUT
+      if (kompilasiModules.caput) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *CAPAIAN OUTPUT (CAPUT) SAKTI*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `⏳ Batas Pengisian: *${batasWaktu}*\n`;
+        if (activeCaput.length > 0) {
+          text += `Daftar Satker belum rekam/approval CAPUT:\n`;
+          activeCaput.slice(0, 6).forEach((s) => {
+            text += `• ${s.kodeSatker} – ${s.namaSatker}\n`;
+          });
+          if (activeCaput.length > 6) {
+            text += `• *(dan ${activeCaput.length - 6} satker lainnya)*\n`;
+          }
+        } else {
+          text += `✅ Seluruh satker telah menyelesaikan pelaporan CAPUT.\n`;
+        }
+        text += `👉 Gunakan tools diagnostik SI-CAPUT di: ${linkSiCaput}\n\n`;
+        sectionNum++;
       }
 
-      text += `Demikian disampaikan. Terima kasih atas komitmen dan kerja sama seluruh Satuan Kerja.`;
+      // 2. UP / GUP (DEADLINE & KATEGORI)
+      if (kompilasiModules.upTup) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *MONITORING BATAS WAKTU REVOLVING UP / GUP (30 HARI)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        if (upKritis.length > 0) {
+          text += `🚨 *Kategori Kritis (Lewat Batas Waktu / Hari Ini):*\n`;
+          upKritis.slice(0, 5).forEach((u) => {
+            text += `• *${u.kodeSatker}* – ${u.namaSatker} | Batas: *${u.deadlineDate || batasWaktu}* (${u.sisaHari < 0 ? `Lewat ${Math.abs(u.sisaHari)} Hari` : 'Hari Ini'}) | Revolving: *${u.persenRevolving}%*\n`;
+          });
+          if (upKritis.length > 5) {
+            text += `• *(dan ${upKritis.length - 5} satker kritis lainnya)*\n`;
+          }
+        }
+        if (upMendekati.length > 0) {
+          text += `⚠️ *Kategori Mendekati Batas Waktu (1 s.d 7 Hari):*\n`;
+          upMendekati.slice(0, 5).forEach((u) => {
+            text += `• *${u.kodeSatker}* – ${u.namaSatker} | Batas: *${u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)\n`;
+          });
+          if (upMendekati.length > 5) {
+            text += `• *(dan ${upMendekati.length - 5} satker lainnya)*\n`;
+          }
+        }
+        if (upKritis.length === 0 && upMendekati.length === 0) {
+          text += `✅ Seluruh satker tertib melakukan revolving UP di bawah 30 hari kalender.\n`;
+        }
+        text += `📌 *Pengingat:* Satker wajib revolving minimal 1x per bulan untuk mencegah pemotongan UP 50%.\n\n`;
+        sectionNum++;
+      }
+
+      // 3. DEVIASI HAL III
+      if (kompilasiModules.deviasiHal3) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *EVALUASI DEVIASI HALAMAN III DIPA (> 5%)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `⏳ Batas Pemutakhiran Revisi RPD Triwulanan: *${batasWaktu}*\n`;
+        if (activeDeviasi.length > 0) {
+          text += `Daftar Satker dengan tingkat deviasi RPD tinggi:\n`;
+          activeDeviasi.slice(0, 5).forEach((d) => {
+            text += `• *${d.kodeSatker}* – ${d.namaSatker} | Deviasi: *${d.persenDeviasi.toFixed(2)}%* (Pos Dominan: ${d.posDominan})\n`;
+          });
+          if (activeDeviasi.length > 5) {
+            text += `• *(dan ${activeDeviasi.length - 5} satker lainnya)*\n`;
+          }
+        } else {
+          text += `✅ Seluruh Satker telah memenuhi batas toleransi deviasi RPD ≤ 5.00%.\n`;
+        }
+        text += `\n`;
+        sectionNum++;
+      }
+
+      // 4. SPM PPP
+      if (kompilasiModules.spmPpp) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *TAGIHAN DAYA & JASA (SPM PPP PLN & TELKOM)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `⏳ Batas Pengajuan SPM PPP: *${batasWaktu}*\n`;
+        if (activeSpmPpp.length > 0) {
+          text += `Daftar Satker belum mengajukan SPM tagihan rutin:\n`;
+          activeSpmPpp.slice(0, 5).forEach((s) => {
+            text += `• *${s.kodeSatker}* – ${s.namaSatker} | Layanan: ${s.layanan} (${s.jumlahTagihan} Berkas)\n`;
+          });
+          if (activeSpmPpp.length > 5) {
+            text += `• *(dan ${activeSpmPpp.length - 5} satker lainnya)*\n`;
+          }
+        } else {
+          text += `✅ Seluruh tagihan langganan daya & jasa telah diajukan SPM PPP tepat waktu.\n`;
+        }
+        text += `\n`;
+        sectionNum++;
+      }
+
+      // 5. DIGIPAY & KKP
+      if (kompilasiModules.digipayKkp) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *AKSELERASI & LEADERBOARD TRANSAKSI DIGITAL*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `🏆 *Top 3 Transaksi Digipay Satu:*\n`;
+        topDigipay.forEach((d, idx) => {
+          const medal = ['🥇', '🥈', '🥉'][idx];
+          text += `${medal} *${d.namaSatker}* (${d.kodeSatker}) – ${d.count} Trx (Belanja: ${formatRupiahShort(d.nominal)})\n`;
+        });
+        text += `💳 *Top 3 Transaksi Kartu Kredit Pemerintah (KKP):*\n`;
+        topKkp.forEach((k, idx) => {
+          const medal = ['🥇', '🥈', '🥉'][idx];
+          text += `${medal} *${k.namaSatker}* (${k.kodeSatker}) – ${k.count} Trx (Belanja: ${formatRupiahShort(k.nominal)})\n`;
+        });
+        text += `🎉 Selamat kepada Satker teraktif dan kami dorong satker lainnya untuk memaksimalkan pembayaran non-tunai.\n\n`;
+        sectionNum++;
+      }
+
+      // 6. KONTAK SATKER
+      if (kompilasiModules.kontak && activeKontak.length > 0) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *PEMUTAKHIRAN NO. WHATSAPP PEJABAT & PIC SATKER*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Terdapat ${activeKontak.length} Satker yang nomor kontak PIC/pejabatnya belum lengkap di sistem:\n`;
+        activeKontak.slice(0, 5).forEach((k) => {
+          text += `• *${k.kodeSatker}* – ${k.namaSatker} (${k.missingContacts.join(', ')})\n`;
+        });
+        if (activeKontak.length > 5) {
+          text += `• *(dan ${activeKontak.length - 5} satker lainnya)*\n`;
+        }
+        text += `Mohon segera perbarui data kontak pada portal satker untuk kelancaran koordinasi kedinasan.\n\n`;
+        sectionNum++;
+      }
+
+      // 7. SERTIFIKASI
+      if (kompilasiModules.sertifikasi && activeSertifikasi.length > 0) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *SERTIFIKASI PEJABAT PERBENDAHARAAN (SIMASPATEN)*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Informasi perpanjangan sertifikat PPK/PPSPM/Bendahara Periode ${periodeTriwulanSertifikasi}.\n`;
+        text += `Terdapat ${activeSertifikasi.length} pejabat yang masuk dalam periode perpanjangan sertifikat. Mohon segera rekam usulan di SIMASPATEN sebelum masa kedaluwarsa.\n\n`;
+        sectionNum++;
+      }
+
+      // 8. IKPA
+      if (kompilasiModules.ikpa && activeIkpa.length > 0) {
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${sectionNum}️⃣ *EVALUASI KINERJA IKPA SATKER*\n`;
+        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `Satker berikut diimbau memacu indikator pelaksanaan anggaran:\n`;
+        activeIkpa.slice(0, 5).forEach((s) => {
+          text += `• *${s.kodeSatker}* – ${s.namaSatker} | Nilai IKPA: *${s.nilaiTotalIKPA.toFixed(2)}* (Deviasi: ${s.indikator?.deviasiHal3Dipa ?? 0}%)\n`;
+        });
+        if (activeIkpa.length > 5) {
+          text += `• *(dan ${activeIkpa.length - 5} satker lainnya)*\n`;
+        }
+        text += `\n`;
+        sectionNum++;
+      }
+
+      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `Konsultasi, asistensi, dan loket pendampingan dibuka setiap hari kerja di Front Office Seksi MSKI ${namaKppn}.\n\n`;
+      text += `Demikian disampaikan, atas sinergi dan kerja sama seluruh Satuan Kerja diucapkan terima kasih.`;
       return text;
     }
 
@@ -1305,7 +1611,13 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     satkerTanpaHpCandidates,
     selectedKontakKosongSatkerIds,
     kontakFilterMode,
-    includePortalSatkerLink
+    includePortalSatkerLink,
+    upFilterCategory,
+    includeUpKritis,
+    includeUpMendekati,
+    includeUpRendah,
+    includeUpSanksiNote,
+    kompilasiModules
   ]);
 
   // Current active display text (either manual override or auto-generated)
@@ -1390,9 +1702,10 @@ ${currentDisplayText}
 
 [Instruksi Khusus]:
 1. ${toneGuidance}
-2. Pertahankan daftar kode dan nama satker/pejabat serta angka nominal/transaksi agar tidak hilang.
-3. Tetap gunakan format WhatsApp (tanda bintang *teks* untuk bold, format list rapi).
-4. Jangan menambahkan tautan fiktif.`;
+2. Pertahankan daftar kode dan nama satker/pejabat, batas waktu (deadline), sisa hari, persentase (%), serta total transaksi agar tidak hilang.
+3. KEBIJAKAN PRIVASI KETAT: DILARANG menambahkan data sensitif nominal rupiah pagu anggaran atau realisasi anggaran. Cukup cantumkan deadline, persentase (%), atau jumlah frekuensi transaksi.
+4. Tetap gunakan format WhatsApp (tanda bintang *teks* untuk bold, format list rapi).
+5. Jangan menambahkan tautan fiktif. Identitas instansi adalah ${namaKppn}.`;
 
       const res = await generateGeminiContent(prompt);
       setAiPreview(res);
@@ -1754,9 +2067,14 @@ ${currentDisplayText}
 
             {/* Nama KPPN */}
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                Nama Kantor KPPN:
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400">
+                  Nama Kantor Perbendaharaan:
+                </label>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                  Kantor Terverifikasi
+                </span>
+              </div>
               <input
                 type="text"
                 value={namaKppn}
@@ -1764,27 +2082,23 @@ ${currentDisplayText}
                   setNamaKppn(e.target.value);
                   if (manualText !== null) setManualText(null);
                 }}
-                placeholder="KPPN Semarang I / KPPN Kolaka"
-                className="w-full px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                placeholder="KPPN Semarang I"
+                className="w-full px-3 py-2 rounded-xl text-xs font-semibold bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"
               />
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                {['KPPN Semarang I', 'KPPN Kolaka', 'KPPN Kendari', 'KPPN Surakarta'].map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => {
-                      setNamaKppn(k);
-                      if (manualText !== null) setManualText(null);
-                    }}
-                    className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
-                      namaKppn === k
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    {k}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNamaKppn('KPPN Semarang I');
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="text-[10px] px-2.5 py-1 rounded-md font-black bg-emerald-600 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1"
+                >
+                  🏢 KPPN Semarang I (Default Utama)
+                </button>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Semua jarkoman grup difokuskan eksklusif untuk mitra kerja KPPN Semarang I.
+                </span>
               </div>
             </div>
 
@@ -1904,20 +2218,217 @@ ${currentDisplayText}
               </div>
             )}
 
-            {activeCategory === 'DIGIPAY_KKP' && (
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={includeKkpNote}
-                    onChange={(e) => {
-                      setIncludeKkpNote(e.target.checked);
-                      if (manualText !== null) setManualText(null);
-                    }}
-                    className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span>Sertakan Catatan Arahan &amp; Loket Pendampingan UMKM KPPN</span>
-                </label>
+            {/* Parameter Khusus UP / TUP */}
+            {activeCategory === 'UP_TUP' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Kategori Yang Disertakan:
+                  </label>
+                  <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded">
+                    Privasi: Bebas Anggaran
+                  </span>
+                </div>
+                <div className="space-y-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeUpKritis}
+                      onChange={(e) => {
+                        setIncludeUpKritis(e.target.checked);
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>🚨 Kategori Kritis (Jatuh Tempo Hari Ini / Telat Lewat 30 Hari)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeUpMendekati}
+                      onChange={(e) => {
+                        setIncludeUpMendekati(e.target.checked);
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>⚠️ Kategori Mendekati (1 s.d 7 Hari Menjelang Batas Waktu)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeUpRendah}
+                      onChange={(e) => {
+                        setIncludeUpRendah(e.target.checked);
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>⏳ Akselerasi Revolving (Revolving Masih Rendah &lt; 50%)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeUpSanksiNote}
+                      onChange={(e) => {
+                        setIncludeUpSanksiNote(e.target.checked);
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>📌 Regulasi Batas Waktu 30 Hari &amp; Sanksi Pemotongan UP 50%</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Parameter Khusus Kompilasi Terpadu All-in-One */}
+            {activeCategory === 'KOMPILASI' && (
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                    Pilih Modul Dalam Kompilasi Jarkoman:
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKompilasiModules({
+                          caput: true,
+                          upTup: true,
+                          deviasiHal3: true,
+                          spmPpp: true,
+                          digipayKkp: true,
+                          kontak: true,
+                          sertifikasi: true,
+                          ikpa: true
+                        });
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="text-[10px] text-emerald-600 hover:underline font-bold cursor-pointer"
+                    >
+                      Pilih Semua
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKompilasiModules({
+                          caput: true,
+                          upTup: true,
+                          deviasiHal3: true,
+                          spmPpp: false,
+                          digipayKkp: true,
+                          kontak: false,
+                          sertifikasi: false,
+                          ikpa: false
+                        });
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="text-[10px] text-slate-600 hover:underline font-bold cursor-pointer"
+                    >
+                      Modul Utama
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.caput}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, caput: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <span>1. Caput SAKTI</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.upTup}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, upTup: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>2. Batas Waktu UP</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.deviasiHal3}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, deviasiHal3: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-cyan-600 focus:ring-cyan-500"
+                    />
+                    <span>3. Deviasi Hal III</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.spmPpp}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, spmPpp: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>4. SPM PPP Daya/Jasa</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.digipayKkp}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, digipayKkp: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>5. Top Digipay &amp; KKP</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.kontak}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, kontak: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500"
+                    />
+                    <span>6. Kontak WhatsApp</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.sertifikasi}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, sertifikasi: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-teal-600 focus:ring-teal-500"
+                    />
+                    <span>7. SIMASPATEN</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={kompilasiModules.ikpa}
+                      onChange={(e) => {
+                        setKompilasiModules((prev) => ({ ...prev, ikpa: e.target.checked }));
+                        if (manualText !== null) setManualText(null);
+                      }}
+                      className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>8. Evaluasi IKPA</span>
+                  </label>
+                </div>
               </div>
             )}
 
@@ -2532,7 +3043,7 @@ ${currentDisplayText}
                               {satker.kodeSatker}
                             </span>
                             <span className="text-[10px] text-amber-600 font-bold">
-                              {formatRupiahShort(satker.totalTagihan)}
+                              {satker.jumlahTagihan} Tagihan
                             </span>
                           </div>
                           <p className="text-[11px] font-semibold text-slate-900 dark:text-white truncate">
@@ -2540,8 +3051,6 @@ ${currentDisplayText}
                           </p>
                           <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                             <span className="font-medium text-slate-600 dark:text-slate-300">⚡ {satker.layanan}</span>
-                            <span>•</span>
-                            <span>{satker.jumlahTagihan} Tagihan</span>
                             <span>•</span>
                             <span className="text-rose-600 dark:text-rose-400 font-semibold">{satker.statusUtama}</span>
                           </div>
@@ -2759,6 +3268,50 @@ ${currentDisplayText}
                       </label>
                     );
                   })}
+
+              {/* KOMPILASI SUMMARY WIDGET */}
+              {activeCategory === 'KOMPILASI' && (
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span className="flex items-center gap-1.5">
+                      <span>📦</span>
+                      <span>Modul Aktif Terintegrasi:</span>
+                    </span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      Semarang I All-in-One
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Capaian Output</span>
+                      <strong className="text-rose-600">{caputCandidateSatkers.length} Satker</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Deadline UP &lt; 30 Hari</span>
+                      <strong className="text-purple-600">{upGupCandidateSatkers.length} Satker</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Deviasi Hal III (&gt; 5%)</span>
+                      <strong className="text-cyan-600">{deviasiCandidateSatkers.length} Satker</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Tagihan SPM PPP</span>
+                      <strong className="text-amber-600">{spmPppCandidateSatkers.length} Satker</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Digipay &amp; KKP</span>
+                      <strong className="text-indigo-600">{digipayLeaderboard.length} Rekor</strong>
+                    </div>
+                    <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-500 block text-[10px]">Evaluasi IKPA</span>
+                      <strong className="text-blue-600">{ikpaCandidateSatkers.length} Satker</strong>
+                    </div>
+                  </div>
+                  <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-[10px] text-emerald-800 dark:text-emerald-300">
+                    🔒 <strong>Proteksi Privasi WA Grup:</strong> Nominal pagu/realisasi rupiah otomatis disembunyikan. Pesan hanya memuat batas waktu (deadline), sisa hari, persentase (%), dan volume transaksi.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

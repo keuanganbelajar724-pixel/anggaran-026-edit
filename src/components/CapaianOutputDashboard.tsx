@@ -167,7 +167,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                   <Activity className="w-4 h-4 text-white group-hover:animate-pulse" />
                 </div>
                 <div className="text-left">
-                  <div className="text-[10px] text-cyan-200 font-bold leading-tight">Tools Kolaka</div>
+                  <div className="text-[10px] text-cyan-200 font-bold leading-tight">Tools Analitik</div>
                   <div className="text-xs font-black tracking-tight">SI-CAPUT (Diagnostik) &rarr;</div>
                 </div>
               </button>

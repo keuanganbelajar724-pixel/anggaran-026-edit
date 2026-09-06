@@ -170,7 +170,7 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-ikpa-${Date.now()}`,
       fileName: fileNameToUse,
-      periode: uploadPeriode.trim() || 'Agustus 2026',
+      periode: uploadPeriode.trim() || 's.d. Juli 2026',
       uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
       uploadedBy: 'Seksi MSKI KPPN Semarang I',
       satkerCount: formattedData.length,

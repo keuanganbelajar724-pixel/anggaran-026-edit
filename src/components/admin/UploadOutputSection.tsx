@@ -59,7 +59,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [previewSatkers, setPreviewSatkers] = useState<SatkerIKPA[]>([]);
-  const [uploadPeriode, setUploadPeriode] = useState<string>('Agustus 2026');
+  const [uploadPeriode, setUploadPeriode] = useState<string>('Juli 2026');
   const [uploadNotes, setUploadNotes] = useState<string>('Laporan % Progress Upload Capaian Output SAKTI');
   const [searchHistory, setSearchHistory] = useState<string>('');
 
@@ -91,7 +91,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
       addLog(
         'Upload Excel Capaian Output',
         'UPLOAD',
-        `File "${file.name}" diunggah. ${result.satkers.length} Satker Capaian Output diproses. Periode: ${result.satkers[0]?.periodeUpdate || 'Agustus 2026'}.`,
+        `File "${file.name}" diunggah. ${result.satkers.length} Satker Capaian Output diproses. Periode: ${result.satkers[0]?.periodeUpdate || 'Juli 2026'}.`,
         'SUCCESS'
       );
 
@@ -157,7 +157,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-caput-${Date.now()}`,
       fileName: fileNameToUse,
-      periode: uploadPeriode.trim() || 'Agustus 2026',
+      periode: uploadPeriode.trim() || 'Juli 2026',
       uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
       uploadedBy: 'Seksi MSKI KPPN Semarang I',
       satkerCount: previewSatkers.length,
@@ -229,7 +229,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
       return;
     }
 
-    const currentPeriod = uploadPeriode || 'Agustus 2026';
+    const currentPeriod = uploadPeriode || 'Juli 2026';
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-caput-${Date.now()}`,
       fileName: `Monitoring_Capaian_Output_SAKTI_${currentPeriod.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`,
@@ -481,7 +481,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
         <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
           <span className="text-slate-500 dark:text-slate-400 block font-semibold">Periode Aktif Caput</span>
           <span className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1 block truncate">
-            {historicalUploads.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive)?.periode || 'Agustus 2026'}
+            {historicalUploads.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive)?.periode || 'Juli 2026'}
           </span>
         </div>
       </div>

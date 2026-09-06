@@ -812,6 +812,11 @@ export default function App() {
         const combined = mergeHistoricalUploadsAntiDowngrade(firestoreList, apiList);
         if (combined.length > 0) {
           setDashboardConfig(prev => {
+            const currentHist = prev.historicalUploads || [];
+            if (currentHist.length === combined.length &&
+                currentHist.every((h, i) => h.id === combined[i]?.id && h.periode === combined[i]?.periode && h.isActive === combined[i]?.isActive)) {
+              return prev;
+            }
             safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(combined));
             return {
               ...prev,
@@ -834,6 +839,11 @@ export default function App() {
             if ((curr.length === 0 || hasAgustus) && combined.length > 0) {
               const reconstructed = mergeHistoricalUploadsToSatkers(combined);
               if (reconstructed.length > 0) {
+                reconstructed.forEach(s => {
+                  if (s.periodeUpdate && s.periodeUpdate.includes('Agustus')) {
+                    s.periodeUpdate = 's.d. Juli 2026';
+                  }
+                });
                 safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                 return reconstructed;
               }
@@ -889,21 +899,19 @@ export default function App() {
 
         // Smart route: if landing on default 'dashboard' tab and current active satkers only contains Capaian Output
         // (0 IKPA satker, but > 0 Capaian Output satkers), automatically navigate to 'capaian-output'
-        setSatkers(currentSatkers => {
-          try {
-            const hasExplicitHashOrParam = typeof window !== 'undefined' && (window.location.hash || window.location.search);
-            const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_active_tab') : null;
+        try {
+          const hasExplicitHashOrParam = typeof window !== 'undefined' && (window.location.hash || window.location.search);
+          const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_active_tab') : null;
 
-            if (!hasExplicitHashOrParam && (!savedTab || savedTab === 'dashboard')) {
-              const ikpaCount = currentSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
-              const caputCount = currentSatkers.filter(s => s.hasCapaianOutputData === true).length;
-              if (ikpaCount === 0 && caputCount > 0) {
-                setActiveTab('capaian-output');
-              }
+          if (!hasExplicitHashOrParam && (!savedTab || savedTab === 'dashboard')) {
+            const currentSatkers = satkers;
+            const ikpaCount = currentSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
+            const caputCount = currentSatkers.filter(s => s.hasCapaianOutputData === true).length;
+            if (ikpaCount === 0 && caputCount > 0) {
+              setActiveTab('capaian-output');
             }
-          } catch (e) {}
-          return currentSatkers;
-        });
+          }
+        } catch (e) {}
 
         setIsInitialSyncing(false);
       });
@@ -1047,6 +1055,9 @@ export default function App() {
                 slideShowConfig: mergedSlideShow,
                 historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
               };
+              if (JSON.stringify(updated) === JSON.stringify(prev)) {
+                return prev;
+              }
               safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
               return updated;
             });
@@ -1070,6 +1081,11 @@ export default function App() {
               if (juli) juli.isActive = true;
             }
             setDashboardConfig(prev => {
+              const currentHist = prev.historicalUploads || [];
+              if (currentHist.length === cleanList.length &&
+                  currentHist.every((h, i) => h.id === cleanList[i]?.id && h.isActive === cleanList[i]?.isActive)) {
+                return prev;
+              }
               safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(cleanList));
               return {
                 ...prev,
@@ -1083,6 +1099,11 @@ export default function App() {
               if ((curr.length === 0 || hasAgustus) && cleanList.length > 0) {
                 const reconstructed = mergeHistoricalUploadsToSatkers(cleanList);
                 if (reconstructed.length > 0) {
+                  reconstructed.forEach(s => {
+                    if (s.periodeUpdate && s.periodeUpdate.includes('Agustus')) {
+                      s.periodeUpdate = 's.d. Juli 2026';
+                    }
+                  });
                   safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                   return reconstructed;
                 }
@@ -1103,16 +1124,6 @@ export default function App() {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
-
-              // If this was a cold first load on 'dashboard' with only Capaian Output present
-              if (currentLocal.length === 0 && (!localStorage.getItem('kppn_active_tab') || localStorage.getItem('kppn_active_tab') === 'dashboard')) {
-                const ikpaCount = merged.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
-                const caputCount = merged.filter(s => s.hasCapaianOutputData === true).length;
-                if (ikpaCount === 0 && caputCount > 0) {
-                  setActiveTab('capaian-output');
-                }
-              }
-
               return merged;
             });
           }
@@ -2609,7 +2620,7 @@ export default function App() {
                 />
               )}
 
-              {/* Tab: SI-CAPUT (Tools Diagnostik Capaian Output KPPN Kolaka Inspiration) */}
+              {/* Tab: SI-CAPUT (Tools Diagnostik Capaian Output KPPN Semarang I) */}
               {activeTab === 'diagnostik-caput' && (
                 <DiagnostikCaputDashboard
                   masterSatkers={masterSatkers}

@@ -34,14 +34,17 @@ export const PopUpAnnouncementModal: React.FC<PopUpAnnouncementModalProps> = ({
   const [dontShowToday, setDontShowToday] = useState(false);
   const isDark = theme === 'dark';
 
+  const configId = config?.id;
+  const isEnabled = Boolean(config?.isEnabled);
+
   useEffect(() => {
-    if (!config || !config.isEnabled) {
+    if (!isEnabled) {
       setIsOpen(false);
       return;
     }
 
     // Check if dismissed in localStorage for this specific announcement id or today
-    const storageKey = `kppn026_popup_dismissed_${config.id || 'default'}`;
+    const storageKey = `kppn026_popup_dismissed_${configId || 'default'}`;
     const dismissedDate = localStorage.getItem(storageKey);
     const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -56,7 +59,7 @@ export const PopUpAnnouncementModal: React.FC<PopUpAnnouncementModalProps> = ({
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [config]);
+  }, [configId, isEnabled]);
 
   const handleClose = () => {
     if (dontShowToday && config) {

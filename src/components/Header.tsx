@@ -247,14 +247,14 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'diagnostik-caput',
       label: 'SI-CAPUT (Diagnostik)',
       icon: <Activity className="w-4 h-4 text-cyan-300" />,
-      badge: <span className="bg-cyan-950 text-cyan-200 border border-cyan-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Kolaka Tool</span>,
+      badge: <span className="bg-cyan-950 text-cyan-200 border border-cyan-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Diagnostik</span>,
       activeColor: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 ring-1 ring-cyan-400/40'
     },
     {
       id: 'deviasi-hal3',
-      label: 'Deviasi Hal III DIPA',
+      label: 'Deviasi Hal III DIPA (Satker)',
       icon: <FileSpreadsheet className="w-4 h-4 text-amber-300" />,
-      badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Hal III</span>,
+      badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Khusus Deviasi</span>,
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
     },
     {

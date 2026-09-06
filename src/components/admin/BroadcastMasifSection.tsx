@@ -78,6 +78,8 @@ interface BroadcastMasifSectionProps {
   pengelolaanUpRecords?: PengelolaanUPRecord[];
   transaksiKkpRecords?: TransaksiKKPRecord[];
   transaksiDigipayRecords?: DigipayRecord[];
+  deviasiHal3Records?: DeviasiHal3Record[];
+  spmPppRecords?: SPMPPPRecord[];
   dashboardConfig: DashboardConfig;
   onUpdateDashboardConfig: (config: DashboardConfig) => void;
   isDark?: boolean;
@@ -99,6 +101,8 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   pengelolaanUpRecords = [],
   transaksiKkpRecords = [],
   transaksiDigipayRecords = [],
+  deviasiHal3Records = [],
+  spmPppRecords = [],
   dashboardConfig,
   onUpdateDashboardConfig,
   isDark = false,
@@ -2895,6 +2899,8 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         pengelolaanUpRecords={pengelolaanUpRecords}
         transaksiKkpRecords={transaksiKkpRecords}
         transaksiDigipayRecords={transaksiDigipayRecords}
+        deviasiHal3Records={deviasiHal3Records}
+        spmPppRecords={spmPppRecords}
         dashboardConfig={dashboardConfig}
         onNavigateToJarkomPribadi={() => setBroadcastSubTab('COMPOSE')}
         isDark={isDark}
