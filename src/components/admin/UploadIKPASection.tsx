@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   FileSpreadsheet,
   Upload,
@@ -20,6 +20,7 @@ import {
 import { SatkerIKPA, ExcelUploadHistory, MasterSatker, IndikatorIKPA } from '../../types';
 import { processExcelFile, downloadExcelTemplate, exportSatkersToExcel } from '../../utils/excelProcessor';
 import { hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from '../../data/initialSatkerData';
+import { deduplicateHistoricalUploads } from '../../utils/firebaseStorageOptimizer';
 import { PeriodDropdownSelector } from './PeriodDropdownSelector';
 
 interface UploadIKPASectionProps {
@@ -67,8 +68,11 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
   const [appendMode, setAppendMode] = useState<boolean>(false);
   const [searchHistory, setSearchHistory] = useState<string>('');
 
-  // Filter history khusus IKPA
-  const ikpaHistories = historicalUploads.filter(h => !h.category || h.category === 'IKPA');
+  // Filter history khusus IKPA (deduplicated)
+  const ikpaHistories = useMemo(() => {
+    const list = historicalUploads.filter(h => !h.category || h.category === 'IKPA');
+    return deduplicateHistoricalUploads(list);
+  }, [historicalUploads]);
   const ikpaSatkerCount = satkers.filter(s => s.hasIKPAData !== false && s.nilaiTotalIKPA > 0).length;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -840,9 +844,9 @@ export const UploadIKPASection: React.FC<UploadIKPASectionProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {ikpaHistories
               .filter(h => !searchHistory || h.fileName.toLowerCase().includes(searchHistory.toLowerCase()) || h.periode.toLowerCase().includes(searchHistory.toLowerCase()))
-              .map((item) => (
+              .map((item, idx) => (
                 <div
-                  key={item.id}
+                  key={`${item.id || 'ikpa'}-${item.periode}-${idx}`}
                   className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
                     item.isActive
                       ? 'bg-sky-50/70 dark:bg-sky-950/40 border-sky-400 ring-2 ring-sky-500/20'

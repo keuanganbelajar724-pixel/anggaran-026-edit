@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SatkerIKPA, AppTheme, DashboardConfig, ExcelUploadHistory } from '../types';
+import { deduplicateHistoricalUploads } from '../utils/firebaseStorageOptimizer';
 import { 
   FileCheck, 
   AlertCircle, 
@@ -51,10 +52,13 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
-  // Available Capaian Output archives
-  const caputArchives = (dashboardConfig?.historicalUploads || []).filter(
-    h => h.category === 'CAPAIAN_OUTPUT'
-  );
+  // Available Capaian Output archives (deduplicated to prevent duplicate tab keys)
+  const caputArchives = useMemo(() => {
+    const list = (dashboardConfig?.historicalUploads || []).filter(
+      h => h.category === 'CAPAIAN_OUTPUT'
+    );
+    return deduplicateHistoricalUploads(list);
+  }, [dashboardConfig?.historicalUploads]);
 
   const activeCaputArchive = caputArchives.find(h => h.isActive) || (caputArchives.length > 0 ? caputArchives[0] : null);
 
@@ -215,9 +219,9 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 >
                   ⚡ Periode Aktif
                 </button>
-                {caputArchives.map(arch => (
+                {caputArchives.map((arch, idx) => (
                   <button
-                    key={arch.id}
+                    key={`${arch.id || 'arch'}-${arch.periode}-${idx}`}
                     type="button"
                     onClick={() => setSelectedHistoricalId(arch.id)}
                     className={`px-3 py-1 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1 ${

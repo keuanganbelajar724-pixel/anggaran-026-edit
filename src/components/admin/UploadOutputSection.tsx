@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   TrendingUp,
   Upload,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { SatkerIKPA, ExcelUploadHistory, MasterSatker } from '../../types';
 import { processExcelFile, downloadCapaianOutputTemplate, exportSatkersToExcel } from '../../utils/excelProcessor';
+import { deduplicateHistoricalUploads } from '../../utils/firebaseStorageOptimizer';
 import { PeriodDropdownSelector } from './PeriodDropdownSelector';
 
 interface UploadOutputSectionProps {
@@ -63,8 +64,11 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   const [uploadNotes, setUploadNotes] = useState<string>('Laporan % Progress Upload Capaian Output SAKTI');
   const [searchHistory, setSearchHistory] = useState<string>('');
 
-  // Filter history khusus Capaian Output
-  const caputHistories = historicalUploads.filter(h => h.category === 'CAPAIAN_OUTPUT');
+  // Filter history khusus Capaian Output (deduplicated)
+  const caputHistories = useMemo(() => {
+    const list = historicalUploads.filter(h => h.category === 'CAPAIAN_OUTPUT');
+    return deduplicateHistoricalUploads(list);
+  }, [historicalUploads]);
   const terlaporkanCount = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan').length;
   const belumTerlaporkanCount = satkers.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan').length;
 
@@ -724,9 +728,9 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {caputHistories
               .filter(h => !searchHistory || h.fileName.toLowerCase().includes(searchHistory.toLowerCase()) || h.periode.toLowerCase().includes(searchHistory.toLowerCase()))
-              .map((item) => (
+              .map((item, idx) => (
                 <div
-                  key={item.id}
+                  key={`${item.id || 'caput'}-${item.periode}-${idx}`}
                   className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
                     item.isActive
                       ? 'bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 ring-2 ring-emerald-500/20'

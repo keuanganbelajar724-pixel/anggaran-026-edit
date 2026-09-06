@@ -31,6 +31,7 @@ import {
   TargetTriwulanRule
 } from '../types';
 import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
+import { deduplicateHistoricalUploads } from '../utils/firebaseStorageOptimizer';
 import { UploadIKPASection } from './admin/UploadIKPASection';
 import { UploadOutputSection } from './admin/UploadOutputSection';
 import { UploadSertifikasiSection } from './admin/UploadSertifikasiSection';
@@ -584,13 +585,16 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     try {
       const savedLocal = localStorage.getItem('kppn_historical_uploads');
       if (savedLocal !== null) {
-        return JSON.parse(savedLocal);
+        const parsed = JSON.parse(savedLocal);
+        if (Array.isArray(parsed)) {
+          return deduplicateHistoricalUploads(parsed);
+        }
       }
     } catch (e) {
       console.error('Failed to parse kppn_historical_uploads from localStorage', e);
     }
     if (dashboardConfig && Array.isArray(dashboardConfig.historicalUploads)) {
-      return dashboardConfig.historicalUploads;
+      return deduplicateHistoricalUploads(dashboardConfig.historicalUploads);
     }
     return INITIAL_HISTORICAL_UPLOADS;
   });
@@ -1126,7 +1130,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   useEffect(() => {
     setTempConfig(dashboardConfig);
     if (dashboardConfig.historicalUploads && Array.isArray(dashboardConfig.historicalUploads)) {
-      setHistoricalUploads(dashboardConfig.historicalUploads);
+      setHistoricalUploads(deduplicateHistoricalUploads(dashboardConfig.historicalUploads));
     }
   }, [dashboardConfig]);
 
@@ -2074,16 +2078,17 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const saveAndApplyHistoricalUploads = (newList: ExcelUploadHistory[]) => {
-    setHistoricalUploads(newList);
+    const cleanList = deduplicateHistoricalUploads(newList);
+    setHistoricalUploads(cleanList);
     try {
-      safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(newList));
+      safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(cleanList));
     } catch (e) {
       console.error('Error saving historical uploads to localStorage:', e);
     }
-    const activeCaput = newList.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
+    const activeCaput = cleanList.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
     const updatedConfig: DashboardConfig = {
       ...tempConfig,
-      historicalUploads: newList,
+      historicalUploads: cleanList,
       updateDates: {
         ...tempConfig.updateDates,
         ...(activeCaput ? { capaianOutput: `Periode ${activeCaput.periode} (Diperbarui ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })})` } : {})
@@ -3305,9 +3310,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       (h.category && h.category.toLowerCase().includes(q))
                     );
                   })
-                  .map((item) => (
+                  .map((item, idx) => (
                     <div
-                      key={item.id}
+                      key={`${item.id || 'hist'}-${item.periode}-${idx}`}
                       className={`p-5 rounded-2xl border transition-all ${
                         item.isActive
                           ? isDark ? 'bg-emerald-950/30 border-emerald-500/50 ring-1 ring-emerald-500/30' : 'bg-emerald-50/60 border-emerald-300 ring-1 ring-emerald-400/50'

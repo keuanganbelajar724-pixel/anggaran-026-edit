@@ -15,6 +15,7 @@ import {
   mergeSatkersAntiDowngrade,
   mergePengelolaanUPAntiDowngrade,
   mergeHistoricalUploadsAntiDowngrade,
+  deduplicateHistoricalUploads,
   compactDigipayForFirestore,
   compactKKPForFirestore,
   mergeDigipayAntiDowngrade,
@@ -279,29 +280,14 @@ export default function App() {
       if (local !== null) {
         const parsed = JSON.parse(local);
         if (Array.isArray(parsed)) {
-          savedHist = parsed
-            .filter(item => item && item.id !== 'hist-ikpa-agustus-2026' && item.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx')
-            .map(item => {
-              if (item.category === 'CAPAIAN_OUTPUT' && (item.id === 'hist-caput-juli-2026' || (item.isActive && (savedConfig?.updateDates?.capaianOutput || '').toLowerCase().includes('agustus')))) {
-                return {
-                  ...item,
-                  id: 'hist-caput-agustus-2026',
-                  periode: 'Agustus 2026',
-                  fileName: item.fileName && !item.fileName.includes('Juli') ? item.fileName : 'Monitoring_Capaian_Output_SAKTI_Agustus_2026.xlsx',
-                  satkersData: Array.isArray(item.satkersData) ? item.satkersData.map((s: any) => ({
-                    ...s,
-                    hasCapaianOutputData: true,
-                    periodeUpdate: 's.d. Agustus 2026'
-                  })) : item.satkersData
-                };
-              }
-              return item;
-            });
+          savedHist = deduplicateHistoricalUploads(parsed);
           // If Juli was deactivated, make sure Juli is active
           if (savedHist.length > 0 && !savedHist.some(h => (!h.category || h.category === 'IKPA') && h.isActive)) {
             const juli = savedHist.find(h => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || h.periode?.toLowerCase().includes('juli')));
             if (juli) juli.isActive = true;
           }
+          // Immediately overwrite localStorage with clean, deduplicated list
+          safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(savedHist));
         }
       }
     } catch (e) {
@@ -341,7 +327,7 @@ export default function App() {
         aduanList: Array.isArray(savedConfig.aduanList)
           ? savedConfig.aduanList 
           : [],
-        historicalUploads: savedHist || (Array.isArray(savedConfig.historicalUploads) ? savedConfig.historicalUploads : []),
+        historicalUploads: savedHist || (Array.isArray(savedConfig.historicalUploads) ? deduplicateHistoricalUploads(savedConfig.historicalUploads) : []),
         kegiatanSosialisasi: Array.isArray(savedConfig.kegiatanSosialisasi) && savedConfig.kegiatanSosialisasi.length > 0 
           ? savedConfig.kegiatanSosialisasi 
           : INITIAL_KEGIATAN_SOSIALISASI,
@@ -1083,7 +1069,7 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
-            const cleanList = data.list.filter((h: any) => h && h.id !== 'hist-ikpa-agustus-2026' && h.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx');
+            const cleanList = deduplicateHistoricalUploads(data.list);
             if (cleanList.length > 0 && !cleanList.some((h: any) => (!h.category || h.category === 'IKPA') && h.isActive)) {
               const juli = cleanList.find((h: any) => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || h.periode?.toLowerCase().includes('juli')));
               if (juli) juli.isActive = true;
@@ -1996,7 +1982,7 @@ export default function App() {
                 ? data.dashboardConfig.announcements
                 : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
               historicalUploads: (Array.isArray(data.dashboardConfig.historicalUploads) && data.dashboardConfig.historicalUploads.length > 0)
-                ? data.dashboardConfig.historicalUploads
+                ? deduplicateHistoricalUploads(data.dashboardConfig.historicalUploads)
                 : (prev.historicalUploads || [])
             };
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
@@ -2023,11 +2009,12 @@ export default function App() {
       if (histSnap.exists()) {
         const data = histSnap.data();
         if (Array.isArray(data.list) && data.list.length > 0) {
+          const cleanList = deduplicateHistoricalUploads(data.list);
           setDashboardConfig(prev => ({
             ...prev,
-            historicalUploads: data.list
+            historicalUploads: cleanList
           }));
-          safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(data.list));
+          safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(cleanList));
         }
       }
 

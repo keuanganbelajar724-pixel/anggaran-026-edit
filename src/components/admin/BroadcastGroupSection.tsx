@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   MessageSquare,
   Copy,
@@ -40,7 +40,27 @@ import {
   Zap,
   BarChart3,
   PhoneOff,
-  PhoneCall
+  PhoneCall,
+  DollarSign,
+  Hash,
+  SlidersHorizontal,
+  Layers,
+  Settings2,
+  Eye,
+  EyeOff,
+  Coins,
+  Volume2,
+  VolumeX,
+  Share2,
+  Smartphone,
+  Monitor,
+  FileSpreadsheet,
+  AlignLeft,
+  AlignJustify,
+  CheckCheck,
+  Radio,
+  FileCode,
+  HelpCircle
 } from 'lucide-react';
 import {
   SatkerIKPA,
@@ -195,6 +215,355 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   const [aiTone, setAiTone] = useState<'tegas' | 'formal' | 'ringkas' | 'apresiatif'>('apresiatif');
   const [isAiGenerating, setIsAiGenerating] = useState<boolean>(false);
   const [aiPreview, setAiPreview] = useState<string>('');
+
+  // =============================================================
+  // KUSTOMISASI DETAIL ELEMEN PESAN (REQUEST USER)
+  // Kontrol granular untuk menampilkan atau menyembunyikan:
+  // 1. Nominal Rupiah (Nilai Belanja / Pagu / Tagihan / Deviasi Rp)
+  // 2. Data Transaksi (Volume / Jumlah Transaksi / Berkas)
+  // 3. Data Persentase (%) & Skor (Caput %, Deviasi %, Revolving %, Skor IKPA)
+  // 4. Kode Satker (6 digit angka)
+  // 5. Batas Waktu / Deadline (Tanggal batas & countdown sisa hari)
+  // 6. Catatan / Panduan & Himbauan Tindak Lanjut Satker
+  // =============================================================
+  const [showNominal, setShowNominal] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_nominal');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showDataTransaksi, setShowDataTransaksi] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_transaksi');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showPersentase, setShowPersentase] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_persentase');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showKodeSatker, setShowKodeSatker] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_kode_satker');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showDeadline, setShowDeadline] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_deadline');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showCatatanHimbauan, setShowCatatanHimbauan] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_catatan');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // --- KUSTOMISASI ELEMEN EKSTRA (FITUR EXPERT JARKOM) ---
+  // 1. Tata Letak Baris Satker (Multi-baris / Berjenjang vs Single-line / Kompak)
+  const [layoutDensity, setLayoutDensity] = useState<'MULTI_LINE' | 'SINGLE_LINE'>(() => {
+    try {
+      return (localStorage.getItem('kppn_jarkom_density') as any) || 'MULTI_LINE';
+    } catch {
+      return 'MULTI_LINE';
+    }
+  });
+
+  // 2. Gaya Penomoran / Bullet Poin (Medali / Alert Dots / Diamond / Angka Polos)
+  const [bulletStyle, setBulletStyle] = useState<'MEDAL_NUM' | 'ALERT_DOTS' | 'DIAMOND' | 'PLAIN_NUM'>(() => {
+    try {
+      return (localStorage.getItem('kppn_jarkom_bullet') as any) || 'MEDAL_NUM';
+    } catch {
+      return 'MEDAL_NUM';
+    }
+  });
+
+  // 3. Batas Jumlah Satker yang Dicantumkan (0 = SEMUA)
+  const [satkerLimit, setSatkerLimit] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_satker_limit');
+      return saved !== null ? Number(saved) : 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  // 4. Pilihan Salam Pembuka (Greeting Header)
+  const [greetingType, setGreetingType] = useState<'FORMAL_KPA' | 'PPK_PPSPM' | 'BENDAHARA' | 'RINGKAS' | 'OFF'>(() => {
+    try {
+      return (localStorage.getItem('kppn_jarkom_greeting') as any) || 'FORMAL_KPA';
+    } catch {
+      return 'FORMAL_KPA';
+    }
+  });
+
+  // 5. Label Identitas Seksi KPPN
+  const [showSeksiPic, setShowSeksiPic] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_seksi');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [seksiName, setSeksiName] = useState<'MSKI' | 'VERA' | 'PD' | 'UMUM'>(() => {
+    try {
+      return (localStorage.getItem('kppn_jarkom_seksi_name') as any) || 'MSKI';
+    } catch {
+      return 'MSKI';
+    }
+  });
+
+  // 6. Gaya Garis Pembatas (Divider Style)
+  const [dividerStyle, setDividerStyle] = useState<'LINE' | 'DOUBLE' | 'DASHED' | 'STARS' | 'NONE'>(() => {
+    try {
+      return (localStorage.getItem('kppn_jarkom_divider') as any) || 'LINE';
+    } catch {
+      return 'LINE';
+    }
+  });
+
+  // 7. Footer Layanan & Slogan WBK Integritas
+  const [showCallCenterFooter, setShowCallCenterFooter] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_footer');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // 8. Hashtags WhatsApp Resmi
+  const [showHashtags, setShowHashtags] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_jarkom_show_hashtags');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  // 9. Nomor Hotline WhatsApp KPPN
+  const [hotlineWa, setHotlineWa] = useState<string>(() => {
+    try {
+      return localStorage.getItem('kppn_jarkom_hotline') || '0811-2678-001';
+    } catch {
+      return '0811-2678-001';
+    }
+  });
+
+  // 10. Sub-tab panel kustomisasi di kolom kiri
+  const [customizationTab, setCustomizationTab] = useState<'ELEMEN' | 'FORMAT' | 'HEADER_FOOTER'>('ELEMEN');
+
+  // 11. Search highlight query in chat preview
+  const [chatSearchQuery, setChatSearchQuery] = useState<string>('');
+
+  // 12. Text-to-Speech audio status
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+
+  // 13. State tersalin teks bersih (plain text tanpa *)
+  const [isCleanCopied, setIsCleanCopied] = useState<boolean>(false);
+
+  // Helper setter wrappers: sync to localStorage and refresh live preview
+  const updateShowNominal = (val: boolean) => {
+    setShowNominal(val);
+    try { localStorage.setItem('kppn_jarkom_show_nominal', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowDataTransaksi = (val: boolean) => {
+    setShowDataTransaksi(val);
+    try { localStorage.setItem('kppn_jarkom_show_transaksi', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowPersentase = (val: boolean) => {
+    setShowPersentase(val);
+    try { localStorage.setItem('kppn_jarkom_show_persentase', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowKodeSatker = (val: boolean) => {
+    setShowKodeSatker(val);
+    try { localStorage.setItem('kppn_jarkom_show_kode_satker', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowDeadline = (val: boolean) => {
+    setShowDeadline(val);
+    try { localStorage.setItem('kppn_jarkom_show_deadline', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowCatatanHimbauan = (val: boolean) => {
+    setShowCatatanHimbauan(val);
+    try { localStorage.setItem('kppn_jarkom_show_catatan', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateLayoutDensity = (val: 'MULTI_LINE' | 'SINGLE_LINE') => {
+    setLayoutDensity(val);
+    try { localStorage.setItem('kppn_jarkom_density', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateBulletStyle = (val: 'MEDAL_NUM' | 'ALERT_DOTS' | 'DIAMOND' | 'PLAIN_NUM') => {
+    setBulletStyle(val);
+    try { localStorage.setItem('kppn_jarkom_bullet', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateSatkerLimit = (val: number) => {
+    setSatkerLimit(val);
+    try { localStorage.setItem('kppn_jarkom_satker_limit', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateGreetingType = (val: 'FORMAL_KPA' | 'PPK_PPSPM' | 'BENDAHARA' | 'RINGKAS' | 'OFF') => {
+    setGreetingType(val);
+    try { localStorage.setItem('kppn_jarkom_greeting', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowSeksiPic = (val: boolean) => {
+    setShowSeksiPic(val);
+    try { localStorage.setItem('kppn_jarkom_show_seksi', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateSeksiName = (val: 'MSKI' | 'VERA' | 'PD' | 'UMUM') => {
+    setSeksiName(val);
+    try { localStorage.setItem('kppn_jarkom_seksi_name', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateDividerStyle = (val: 'LINE' | 'DOUBLE' | 'DASHED' | 'STARS' | 'NONE') => {
+    setDividerStyle(val);
+    try { localStorage.setItem('kppn_jarkom_divider', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowCallCenterFooter = (val: boolean) => {
+    setShowCallCenterFooter(val);
+    try { localStorage.setItem('kppn_jarkom_show_footer', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateShowHashtags = (val: boolean) => {
+    setShowHashtags(val);
+    try { localStorage.setItem('kppn_jarkom_show_hashtags', String(val)); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+  const updateHotlineWa = (val: string) => {
+    setHotlineWa(val);
+    try { localStorage.setItem('kppn_jarkom_hotline', val); } catch {}
+    if (manualText !== null) setManualText(null);
+  };
+
+  // Cleanup TTS on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  // Quick Preset Profiles (5 Profil Situasional Lengkap)
+  const applyElementPreset = (
+    preset:
+      | 'LENGKAP'
+      | 'ALL'
+      | 'PRIVASI_NO_NOMINAL'
+      | 'NO_NOMINAL'
+      | 'RINGKAS_SINGLE_LINE'
+      | 'RINGKAS'
+      | 'MINIMAL'
+      | 'URGENT_DEADLINE'
+      | 'LEADERBOARD_APRESIASI'
+      | 'FOKUS_PERSEN'
+      | 'PERCENT_ONLY'
+  ) => {
+    if (preset === 'LENGKAP' || preset === 'ALL') {
+      updateShowNominal(true);
+      updateShowDataTransaksi(true);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(true);
+      updateShowCatatanHimbauan(true);
+      updateLayoutDensity('MULTI_LINE');
+      updateBulletStyle('MEDAL_NUM');
+      updateGreetingType('FORMAL_KPA');
+      updateShowSeksiPic(true);
+      updateDividerStyle('LINE');
+      updateShowCallCenterFooter(true);
+      updateShowHashtags(true);
+      updateSatkerLimit(0);
+    } else if (preset === 'PRIVASI_NO_NOMINAL' || preset === 'NO_NOMINAL') {
+      updateShowNominal(false); // Sembunyikan nominal Rupiah
+      updateShowDataTransaksi(true);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(true);
+      updateShowCatatanHimbauan(true);
+      updateLayoutDensity('MULTI_LINE');
+      updateShowCallCenterFooter(true);
+      updateShowHashtags(true);
+    } else if (preset === 'RINGKAS_SINGLE_LINE' || preset === 'RINGKAS' || preset === 'MINIMAL') {
+      updateShowNominal(false);
+      updateShowDataTransaksi(false);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(true);
+      updateShowCatatanHimbauan(false);
+      updateLayoutDensity('SINGLE_LINE');
+      updateBulletStyle('ALERT_DOTS');
+      updateGreetingType('RINGKAS');
+      updateDividerStyle('DASHED');
+      updateShowCallCenterFooter(false);
+      updateShowHashtags(false);
+      updateSatkerLimit(10);
+    } else if (preset === 'URGENT_DEADLINE') {
+      updateShowNominal(true);
+      updateShowDataTransaksi(true);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(true);
+      updateShowCatatanHimbauan(true);
+      updateLayoutDensity('SINGLE_LINE');
+      updateBulletStyle('ALERT_DOTS');
+      updateGreetingType('FORMAL_KPA');
+      updateDividerStyle('DOUBLE');
+      updateShowCallCenterFooter(true);
+      updateShowHashtags(true);
+      updateSatkerLimit(15);
+    } else if (preset === 'LEADERBOARD_APRESIASI') {
+      updateShowNominal(true);
+      updateShowDataTransaksi(true);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(false);
+      updateShowCatatanHimbauan(true);
+      updateLayoutDensity('MULTI_LINE');
+      updateBulletStyle('MEDAL_NUM');
+      updateGreetingType('FORMAL_KPA');
+      updateDividerStyle('DOUBLE');
+      updateShowCallCenterFooter(true);
+      updateShowHashtags(true);
+      updateSatkerLimit(10);
+    } else if (preset === 'FOKUS_PERSEN' || preset === 'PERCENT_ONLY') {
+      updateShowNominal(false);
+      updateShowDataTransaksi(true);
+      updateShowPersentase(true);
+      updateShowKodeSatker(true);
+      updateShowDeadline(true);
+      updateShowCatatanHimbauan(false);
+      updateLayoutDensity('MULTI_LINE');
+      updateBulletStyle('DIAMOND');
+    }
+  };
 
   // Helper currency formatting
   const formatRupiah = (val: number): string => {
@@ -973,6 +1342,105 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   // GENERATOR TEMPLATE UTAMA
   // -------------------------------------------------------------
   const generatedBroadcastText = useMemo(() => {
+    // Helper formatters respecting showKodeSatker
+    const formatSatkerTitle = (kode: string, nama: string) => {
+      return showKodeSatker ? `*${kode}* – ${nama}` : `*${nama}*`;
+    };
+    const formatSatkerInline = (kode: string, nama: string) => {
+      return showKodeSatker ? `${kode} – ${nama}` : nama;
+    };
+
+    // Helper for divider lines
+    const getDivider = () => {
+      switch (dividerStyle) {
+        case 'DOUBLE':
+          return `════════════════════════════\n`;
+        case 'DASHED':
+          return `----------------------------\n`;
+        case 'STARS':
+          return `✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨\n`;
+        case 'NONE':
+          return `\n`;
+        case 'SOLID':
+        default:
+          return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      }
+    };
+
+    // Helper for bullet style
+    const formatBullet = (idx: number, isNumbered = false) => {
+      if (bulletStyle === 'MEDALS') {
+        const medals = ['🥇', '🥈', '🥉', '🎖️', '🏅', '⭐', '🔹', '🔹', '🔹', '🔹'];
+        return medals[idx] || '🔹';
+      }
+      if (bulletStyle === 'ALERT') {
+        const alerts = ['🚨', '⚠️', '🔴', '🟠', '🟡', '⏳', '📌', '📌', '📌', '📌'];
+        return alerts[idx] || '⚠️';
+      }
+      if (bulletStyle === 'DIAMOND') {
+        return '💠';
+      }
+      if (bulletStyle === 'DOT') {
+        return '•';
+      }
+      if (bulletStyle === 'NUMBER') {
+        return `${idx + 1}.`;
+      }
+      return isNumbered ? `${idx + 1}.` : '•';
+    };
+
+    // Helper for greetings
+    const getGreetingText = () => {
+      switch (greetingType) {
+        case 'RESMI_KPA':
+          return `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pejabat Perbendaharaan Lingkup ${namaKppn},\n\n`;
+        case 'SEKRETARIS':
+          return `Yth. Para Pimpinan Satuan Kerja, Sekretaris, dan Rekan Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
+        case 'PAGI_SEMANGAT':
+          return `Selamat Pagi & Semangat Pagi rekan-rekan Pengelola Keuangan Hebat Lingkup ${namaKppn},\nSemoga selalu diberikan kesehatan dan kelancaran dalam bertugas.\n\n`;
+        case 'URGENT_ATTENTION':
+          return `🚨 *[PERHATIAN MENDESAK / ACTION REQUIRED]*\nYth. KPA, PPK, PPSPM, dan Bendahara Satuan Kerja Lingkup ${namaKppn},\n\n`;
+        case 'FORMAL_KPPN':
+        default:
+          return `Yth. Bapak/Ibu Kuasa Pengguna Anggaran & Pengelola Keuangan Satker Lingkup ${namaKppn},\n\n`;
+      }
+    };
+
+    // Helper for Seksi Header
+    const getSeksiHeader = () => {
+      if (!showSeksiPic) return '';
+      return `🏛️ *Diterbitkan oleh: ${seksiName} – ${namaKppn}*\n\n`;
+    };
+
+    // Helper for Call Center and Anti-Gratifikasi Footer
+    const getFooterCallCenter = () => {
+      let footer = `\n\n`;
+      if (showCallCenterFooter) {
+        footer += `${getDivider()}`;
+        footer += `📞 *Layanan Bantuan & Konsultasi:* ${hotlineWa} (CS ${namaKppn})\n`;
+        footer += `🛡️ *Zona Integritas WBK/WBBM:* Seluruh layanan KPPN GRATIS, berintegritas, dan Bebas Gratifikasi / Pungli.\n`;
+      }
+      if (showHashtags) {
+        footer += `🏷️ #KPPNSemarangI #DJPbKawalAPBN #IntegritasTanpaBatas #MengawalAPBN\n`;
+      }
+      return footer;
+    };
+
+    // Helper for applying satker limit
+    const applyLimit = <T,>(arr: T[]): { items: T[]; remainingCount: number } => {
+      if (satkerLimit === 'ALL' || !satkerLimit) {
+        return { items: arr, remainingCount: 0 };
+      }
+      const num = parseInt(satkerLimit, 10);
+      if (isNaN(num) || arr.length <= num) {
+        return { items: arr, remainingCount: 0 };
+      }
+      return {
+        items: arr.slice(0, num),
+        remainingCount: arr.length - num
+      };
+    };
+
     // -----------------------------------------------------------
     // KATEGORI 1: DIGIPAY & KKP (Juara 1, 2, 3 & List Belum Transaksi)
     // -----------------------------------------------------------
@@ -987,49 +1455,80 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const medals = ['🥇 Juara 1', '🥈 Juara 2', '🥉 Juara 3', '🎖️ Peringkat 4', '🎖️ Peringkat 5', '🎖️ Peringkat 6', '🎖️ Peringkat 7', '🎖️ Peringkat 8', '🎖️ Peringkat 9', '🎖️ Peringkat 10'];
 
       let text = `📢 *[PENGUMUMAN – AKSELERASI & LEADERBOARD TRANSAKSI DIGITAL]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Dalam rangka penguatan ekosistem pembayaran digital perbendaharaan dan implementasi transaksi non-tunai (cashless payment) periode ${periodeBulan} per ${waktuMonitoring}, disampaikan informasi capaian sebagai berikut:\n\n`;
 
       if (digipayKkpMode === 'GABUNGAN' || digipayKkpMode === 'LEADERBOARD') {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `🏆 *TOP ${topRankCount} SATKER TRANSAKSI DIGIPAY SATU*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         topDigipay.forEach((d, idx) => {
           const medal = medals[idx] || `🎖️ #${idx + 1}`;
-          text += `${medal}: *${d.namaSatker}* (${d.kodeSatker})\n`;
-          text += `   • Total Transaksi: *${d.count} Transaksi*\n`;
-          text += `   • Total Nilai Belanja: *${formatRupiah(d.nominal)}*\n\n`;
+          if (layoutDensity === 'SINGLE_LINE') {
+            const trxStr = showDataTransaksi ? ` • *${d.count} Trx*` : '';
+            const nomStr = showNominal ? ` • *${formatRupiah(d.nominal)}*` : '';
+            text += `${medal} ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}${trxStr}${nomStr}\n`;
+          } else {
+            text += `${medal}: ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}\n`;
+            if (showDataTransaksi) {
+              text += `   • Total Transaksi: *${d.count} Transaksi*\n`;
+            }
+            if (showNominal) {
+              text += `   • Total Nilai Belanja: *${formatRupiah(d.nominal)}*\n`;
+            }
+            text += `\n`;
+          }
         });
+        if (layoutDensity === 'SINGLE_LINE') text += `\n`;
 
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `💳 *TOP ${topRankCount} SATKER TRANSAKSI KARTU KREDIT PEMERINTAH (KKP)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         topKkp.forEach((k, idx) => {
           const medal = medals[idx] || `🎖️ #${idx + 1}`;
-          text += `${medal}: *${k.namaSatker}* (${k.kodeSatker})\n`;
-          text += `   • Total Transaksi: *${k.count} Transaksi*\n`;
-          text += `   • Total Nilai Belanja: *${formatRupiah(k.nominal)}*\n\n`;
+          if (layoutDensity === 'SINGLE_LINE') {
+            const trxStr = showDataTransaksi ? ` • *${k.count} Trx*` : '';
+            const nomStr = showNominal ? ` • *${formatRupiah(k.nominal)}*` : '';
+            text += `${medal} ${formatSatkerTitle(k.kodeSatker, k.namaSatker)}${trxStr}${nomStr}\n`;
+          } else {
+            text += `${medal}: ${formatSatkerTitle(k.kodeSatker, k.namaSatker)}\n`;
+            if (showDataTransaksi) {
+              text += `   • Total Transaksi: *${k.count} Transaksi*\n`;
+            }
+            if (showNominal) {
+              text += `   • Total Nilai Belanja: *${formatRupiah(k.nominal)}*\n`;
+            }
+            text += `\n`;
+          }
         });
+        if (layoutDensity === 'SINGLE_LINE') text += `\n`;
 
-        text += `🎉 *Apresiasi Setinggi-tingginya:* Kami sampaikan selamat kepada Satker peraih transaksi digital teraktif. Pemanfaatan pembayaran non-tunai menjamin transparansi pembukuan serta membebaskan bendahara dari risiko penyimpanan uang kas fisik.\n\n`;
+        if (showCatatanHimbauan) {
+          text += `🎉 *Apresiasi Setinggi-tingginya:* Kami sampaikan selamat kepada Satker peraih transaksi digital teraktif. Pemanfaatan pembayaran non-tunai menjamin transparansi pembukuan serta membebaskan bendahara dari risiko penyimpanan uang kas fisik.\n\n`;
+        }
       }
 
       if (digipayKkpMode === 'GABUNGAN' || digipayKkpMode === 'BELUM_TRANSAKSI') {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `⚠️ *SATKER YANG BELUM / PERLU AKSELERASI TRANSAKSI DIGITAL*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Berdasarkan monitoring, diimbau kepada Satker berikut yang belum melakukan transaksi / belum aktif bertransaksi menggunakan Digipay Satu atau KKP:\n\n`;
 
         if (activeBelumSatkers.length > 0) {
-          activeBelumSatkers.forEach((s, idx) => {
-            text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
+          const { items, remainingCount } = applyLimit(activeBelumSatkers);
+          items.forEach((s, idx) => {
+            text += `${formatBullet(idx, true)} ${formatSatkerInline(s.kodeSatker, s.namaSatker)}\n`;
           });
+          if (remainingCount > 0) {
+            text += `   ... dan *${remainingCount} Satker lainnya* terlampir di Portal Satker\n`;
+          }
           text += `\n`;
         } else {
           text += `*(Seluruh satker mitra telah mengaktifkan transaksi digital)*\n\n`;
         }
 
-        if (includeKkpNote) {
+        if (showCatatanHimbauan && includeKkpNote) {
           text += `📌 *Langkah Percepatan Satker:*\n`;
           text += `1️⃣ Belanjakan kebutuhan operasional kantor dan konsumsi rapat melalui rekanan UMKM lokal di Digipay Satu.\n`;
           text += `2️⃣ Manfaatkan limit Kartu Kredit Pemerintah (KKP) untuk belanja barang operasional dan perjalanan dinas.\n`;
@@ -1038,6 +1537,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       }
 
       text += `Demikian disampaikan, mari bersama kita wujudkan modernisasi perbendaharaan digital yang akuntabel. Terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1049,24 +1549,36 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         selectedCaputSatkerIds.includes(s.id || s.kodeSatker)
       );
 
-      const listSatkerFormatted =
-        activeSatkers.length > 0
-          ? activeSatkers.map((s, idx) => `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}`).join('\n')
-          : '*(Tidak ada satker yang dipilih)*';
+      const { items, remainingCount } = applyLimit(activeSatkers);
 
-      let text = `📢 *[PENGUMUMAN]* 📢\n\n`;
-      text += `Yth. Bapak/Ibu Satuan Kerja Lingkup ${namaKppn},\n\n`;
+      const listSatkerFormatted =
+        items.length > 0
+          ? items
+              .map((s, idx) => {
+                const satkerLabel = formatSatkerInline(s.kodeSatker, s.namaSatker);
+                const persenCaput = showPersentase ? ` (Capaian: *${s.indikator?.capaianOutput ?? 0}%*)` : '';
+                return `${formatBullet(idx, true)} ${satkerLabel}${persenCaput}`;
+              })
+              .join('\n') +
+            (remainingCount > 0 ? `\n   ... dan *${remainingCount} Satker lainnya* terlampir di Portal Satker` : '')
+          : '*(Seluruh Satker telah menyelesaikan pengisian & approval CAPUT)*';
+
+      let text = `📢 *[PENGUMUMAN – MONITORING CAPAIAN OUTPUT (CAPUT) SAKTI]* 📢\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Berdasarkan hasil monitoring MyIntress per ${waktuMonitoring}, masih terdapat beberapa satker yang belum melakukan pengisian dan/atau approval Realisasi Capaian Output (CAPUT) periode ${periodeBulan} pada Modul Komitmen SAKTI.\n\n`;
-      text += `⏳ Batas waktu pengisian: *${batasWaktu}*\n\n`;
+      if (showDeadline) {
+        text += `⏳ Batas waktu pengisian: *${batasWaktu}*\n\n`;
+      }
       text += `Mohon kepada satker berikut agar segera melakukan pengisian dan approval CAPUT:\n\n`;
       text += `${listSatkerFormatted}\n\n`;
 
-      if (includePcroWarning) {
+      if (showCatatanHimbauan && includePcroWarning) {
         text += `📌 *Perhatian:*\n`;
         text += `Mohon agar pengisian TPCRO dan PCRO dilakukan sesuai kondisi realisasi. Jika TPCRO dan PCRO masih 0, maka progress RO tidak terbentuk dan dapat menyebabkan nilai capaian output menjadi 0 sehingga berpengaruh terhadap kinerja satker.\n\n`;
       }
 
-      if (includeSiCaputGuide) {
+      if (showCatatanHimbauan && includeSiCaputGuide) {
         text += `🔎 *${namaKppn} juga menyediakan Tools Diagnostik Capaian Output (SI-CAPUT)*\n`;
         text += `Tools ini dapat membantu satker mengetahui RO yang menyebabkan capaian output belum maksimal, diagnosis permasalahan, rekomendasi perbaikan, serta template keterangan SAKTI.\n\n`;
         text += `Cara menggunakan SI-CAPUT:\n`;
@@ -1079,8 +1591,11 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         text += `7️⃣ Upload file Excel dan klik Jalankan Analisis\n\n`;
       }
 
-      text += `Mohon agar CAPUT ${periodeBulan} segera diselesaikan sebelum batas waktu ${batasWaktu}.\n\n`;
+      if (showDeadline) {
+        text += `Mohon agar CAPUT ${periodeBulan} segera diselesaikan sebelum batas waktu ${batasWaktu}.\n\n`;
+      }
       text += `Demikian disampaikan, atas perhatian dan kerja samanya kami ucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1098,56 +1613,126 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const otherList = activeSatkers.filter((u) => !kritisList.includes(u) && !mendekatiList.includes(u) && !rendahList.includes(u));
 
       let text = `📢 *[PENGUMUMAN – MONITORING BATAS WAKTU REVOLVING UANG PERSEDIAAN (UP/GUP)]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Berdasarkan monitoring kepatuhan pengelolaan kas per ${waktuMonitoring}, disampaikan pemantauan batas waktu 30 (tiga puluh) hari kalender sejak penerbitan SP2D UP/GUP terakhir:\n\n`;
 
       if (includeUpKritis && kritisList.length > 0) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        const { items: limitedKritis, remainingCount: remKritis } = applyLimit(kritisList);
+        text += `${getDivider()}`;
         text += `🚨 *1. JATUH TEMPO HARI INI & LEWAT BATAS WAKTU (URGENT)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Satker berikut telah mencapai atau melewati batas waktu 30 hari kalender dan wajib SEGERA menyampaikan SPM GUP / GUP Nihil:\n\n`;
-        kritisList.forEach((u, idx) => {
-          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
-          text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}*\n`;
-          text += `   • Status: *${u.sisaHari < 0 ? `⚠️ Lewat ${Math.abs(u.sisaHari)} Hari` : '🔥 JATUH TEMPO HARI INI'}* | Revolving: *${u.persenRevolving}%*\n`;
-          text += `   • Tindak Lanjut: Segera ajukan SPM GUP/GUP Nihil hari ini guna mencegah surat teguran & sanksi pemotongan UP 50%.\n\n`;
+        limitedKritis.forEach((u, idx) => {
+          const bullet = formatBullet(idx, true);
+          const statusText = u.sisaHari < 0 ? `⚠️ Lewat ${Math.abs(u.sisaHari)} Hari` : '🔥 JATUH TEMPO HARI INI';
+          const revText = showPersentase ? ` • Rev: *${u.persenRevolving}%*` : '';
+          const nomText = showNominal && (u as any).nominalUp ? ` • Pagu: *${formatRupiah((u as any).nominalUp)}*` : '';
+          const dlineText = showDeadline ? ` • Batas: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}*` : '';
+
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}${dlineText} • *${statusText}*${revText}${nomText}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}\n`;
+            if (showDeadline) {
+              text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}*\n`;
+            }
+            text += `   • Status: *${statusText}*${revText}\n`;
+            if (showNominal && (u as any).nominalUp) {
+              text += `   • Pagu UP: *${formatRupiah((u as any).nominalUp)}*\n`;
+            }
+            if (showCatatanHimbauan) {
+              text += `   • Tindak Lanjut: Segera ajukan SPM GUP/GUP Nihil hari ini guna mencegah sanksi pemotongan UP 50%.\n`;
+            }
+            text += `\n`;
+          }
         });
+        if (remKritis > 0) {
+          text += `   ... dan *${remKritis} Satker kritis lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       }
 
       if (includeUpMendekati && mendekatiList.length > 0) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        const { items: limitedMendekati, remainingCount: remMendekati } = applyLimit(mendekatiList);
+        text += `${getDivider()}`;
         text += `⚠️ *2. MENDEKATI BATAS WAKTU (1 s.d 7 HARI KE DEPAN)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Satker berikut akan mencapai batas waktu revolving dalam 7 hari kalender ke depan:\n\n`;
-        mendekatiList.forEach((u, idx) => {
-          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
-          text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)\n`;
-          text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
-          if (u.saranTglPengajuan) {
-            text += `   • Saran Pengajuan: ${u.saranTglPengajuan}\n`;
+        limitedMendekati.forEach((u, idx) => {
+          const bullet = formatBullet(idx, true);
+          const revText = showPersentase ? ` • Rev: *${u.persenRevolving}%*` : '';
+          const nomText = showNominal && (u as any).nominalUp ? ` • Pagu: *${formatRupiah((u as any).nominalUp)}*` : '';
+          const dlineText = showDeadline ? ` • Batas: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)` : '';
+
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}${dlineText}${revText}${nomText}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}\n`;
+            if (showDeadline) {
+              text += `   • Batas Waktu UP: *${u.fullDeadlineWithDay || u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)\n`;
+            }
+            if (showPersentase) {
+              text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
+            }
+            if (showNominal && (u as any).nominalUp) {
+              text += `   • Pagu UP: *${formatRupiah((u as any).nominalUp)}*\n`;
+            }
+            if (u.saranTglPengajuan && showCatatanHimbauan) {
+              text += `   • Saran Pengajuan: ${u.saranTglPengajuan}\n`;
+            }
+            text += `\n`;
           }
-          text += `\n`;
         });
+        if (remMendekati > 0) {
+          text += `   ... dan *${remMendekati} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       }
 
       if (includeUpRendah && (rendahList.length > 0 || otherList.length > 0)) {
         const combined = [...rendahList, ...otherList];
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        const { items: limitedCombined, remainingCount: remCombined } = applyLimit(combined);
+        text += `${getDivider()}`;
         text += `⏳ *3. AKSELERASI REVOLVING (CAPAIAN MASIH RENDAH)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Satker berikut diimbau mempercepat perputaran belanja kas UP minimal 1 kali setiap bulan:\n\n`;
-        combined.forEach((u, idx) => {
-          text += `${idx + 1}. *${u.kodeSatker}* – ${u.namaSatker}\n`;
-          text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
-          text += `   • Batas Waktu UP: ${u.deadlineDate || batasWaktu} (Sisa ${u.sisaHari} Hari)\n\n`;
+        limitedCombined.forEach((u, idx) => {
+          const bullet = formatBullet(idx, true);
+          const revText = showPersentase ? ` • Rev: *${u.persenRevolving}%*` : '';
+          const nomText = showNominal && (u as any).nominalUp ? ` • Pagu: *${formatRupiah((u as any).nominalUp)}*` : '';
+          const dlineText = showDeadline ? ` • Sisa: *${u.sisaHari} Hari* (${u.deadlineDate || batasWaktu})` : '';
+
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}${dlineText}${revText}${nomText}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}\n`;
+            if (showPersentase) {
+              text += `   • Capaian Revolving: *${u.persenRevolving}%*\n`;
+            }
+            if (showDeadline) {
+              text += `   • Batas Waktu UP: ${u.deadlineDate || batasWaktu} (Sisa ${u.sisaHari} Hari)\n`;
+            }
+            if (showNominal && (u as any).nominalUp) {
+              text += `   • Pagu UP: *${formatRupiah((u as any).nominalUp)}*\n`;
+            }
+            text += `\n`;
+          }
         });
+        if (remCombined > 0) {
+          text += `   ... dan *${remCombined} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       }
 
       if (activeSatkers.length === 0) {
         text += `*(Seluruh Satker terpantau tertib melakukan revolving UP tepat waktu)*\n\n`;
       }
 
-      if (includeUpSanksiNote) {
+      if (showCatatanHimbauan && includeUpSanksiNote) {
         text += `📌 *Ketentuan Regulasi Pengelolaan Kas Satker:*\n`;
         text += `1. Satuan Kerja wajib melakukan revolving UP minimal 1 (satu) kali dalam 1 (satu) bulan (30 hari kalender).\n`;
         text += `2. Terhadap Satker yang tidak melakukan revolving dalam batas waktu tersebut, KPPN akan menerbitkan Surat Peringatan dan dapat melakukan pemotongan besaran UP sebesar 50% sesuai ketentuan PER-Dirjen Perbendaharaan.\n`;
@@ -1155,6 +1740,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       }
 
       text += `Demikian disampaikan untuk dipedomani. Terima kasih atas perhatian dan kerja samanya.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1165,28 +1751,54 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const activeSatkers = ikpaCandidateSatkers.filter((s) =>
         selectedIkpaSatkerIds.includes(s.id || s.kodeSatker)
       );
+      const { items, remainingCount } = applyLimit(activeSatkers);
 
       let text = `📢 *[PENGUMUMAN – EVALUASI TERPADU KINERJA IKPA SATKER]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) dan Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Berdasarkan rekapitulasi penilaian kinerja Indikator Kinerja Pelaksanaan Anggaran (IKPA) periode ${periodeBulan} per ${waktuMonitoring}, diimbau kepada Satker berikut untuk melakukan akselerasi dan perbaikan indikator pelaksanaan anggaran:\n\n`;
 
-      if (activeSatkers.length > 0) {
-        activeSatkers.forEach((s, idx) => {
-          text += `${idx + 1}. ${s.kodeSatker} – ${s.namaSatker}\n`;
-          text += `   • Nilai IKPA: *${s.nilaiTotalIKPA.toFixed(2)}* (${s.predikat})\n`;
-          text += `   • Capaian Output: ${s.indikator?.capaianOutput ?? 0}% | Deviasi Hal III: ${s.indikator?.deviasiHal3Dipa ?? 0}%\n`;
-          text += `   • Penyerapan: ${s.persenPenyerapan.toFixed(1)}%\n\n`;
+      if (items.length > 0) {
+        items.forEach((s, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            const ikpaScore = showPersentase ? ` • Nilai: *${s.nilaiTotalIKPA.toFixed(2)}* (${s.predikat})` : ` • *${s.predikat}*`;
+            const devText = showPersentase ? ` • Dev: ${s.indikator?.deviasiHal3Dipa ?? 0}%` : '';
+            const caputText = showPersentase ? ` • Caput: ${s.indikator?.capaianOutput ?? 0}%` : '';
+            text += `${bullet} ${formatSatkerInline(s.kodeSatker, s.namaSatker)}${ikpaScore}${devText}${caputText}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerInline(s.kodeSatker, s.namaSatker)}\n`;
+            if (showPersentase) {
+              text += `   • Nilai IKPA: *${s.nilaiTotalIKPA.toFixed(2)}* (${s.predikat})\n`;
+              text += `   • Capaian Output: ${s.indikator?.capaianOutput ?? 0}% | Deviasi Hal III: ${s.indikator?.deviasiHal3Dipa ?? 0}%\n`;
+              text += `   • Penyerapan: ${s.persenPenyerapan.toFixed(1)}%\n`;
+            } else {
+              text += `   • Predikat IKPA: *${s.predikat}*\n`;
+            }
+            if (showNominal && s.paguAnggaran > 0) {
+              text += `   • Pagu: *${formatRupiah(s.paguAnggaran)}* | Realisasi: *${formatRupiah(s.realisasiAnggaran)}*\n`;
+            }
+            text += `\n`;
+          }
         });
+        if (remainingCount > 0) {
+          text += `   ... dan *${remainingCount} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       } else {
         text += `*(Tidak ada satker yang dipilih)*\n\n`;
       }
 
-      text += `📌 *Rekomendasi Tindak Lanjut:*\n`;
-      text += `1. Segera selesaikan perekaman dan approval Capaian Output SAKTI sebelum batas open period berakhir (*${batasWaktu}*).\n`;
-      text += `2. Selaraskan Rencana Penarikan Dana (RPD) Hal III DIPA dengan realisasi aktual agar deviasi terjaga di bawah 5%.\n`;
-      text += `3. Percepat penyerapan belanja kontraktual dan penyelesaian tagihan LS maksimal 17 hari kerja.\n\n`;
+      if (showCatatanHimbauan) {
+        text += `📌 *Rekomendasi Tindak Lanjut:*\n`;
+        text += `1. Segera selesaikan perekaman dan approval Capaian Output SAKTI${showDeadline ? ` sebelum batas open period berakhir (*${batasWaktu}*)` : ''}.\n`;
+        text += `2. Selaraskan Rencana Penarikan Dana (RPD) Hal III DIPA dengan realisasi aktual agar deviasi terjaga di bawah 5%.\n`;
+        text += `3. Percepat penyerapan belanja kontraktual dan penyelesaian tagihan LS maksimal 17 hari kerja.\n\n`;
+      }
       text += `Konsultasi dan pendampingan dapat dilakukan secara langsung di Front Office Seksi MSKI ${namaKppn}.\n\n`;
       text += `Terima kasih atas dedikasi dan kerja sama Bapak/Ibu sekalian.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1210,46 +1822,64 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       );
 
       let text = `📢 *[PENGUMUMAN – PERPANJANGAN SERTIFIKAT KOMPETENSI PPK, PPSPM, DAN BENDAHARA ${periodeTriwulanSertifikasi.toUpperCase()}]* 📢\n\n`;
-      text += `Yth. Bapak/Ibu Satuan Kerja Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Izin menyampaikan informasi terkait Perpanjangan Masa Berlaku Sertifikat Kompetensi PPK, PPSPM, dan Bendahara Periode ${periodeTriwulanSertifikasi}.\n\n`;
       text += `Berdasarkan hasil identifikasi data SIMASPATEN, terdapat sertifikat kompetensi pada satker lingkup ${namaKppn} yang masuk dalam periode perpanjangan, dengan status sebagai berikut:\n\n`;
 
       if (sudahLangsung.length > 0) {
+        text += `${getDivider()}`;
         text += `✅ *Sudah dilakukan perpanjangan – Perpanjangan Langsung:*\n`;
-        sudahLangsung.forEach((p) => {
-          text += `${p.kdSatker} – ${p.nmSatker}\n`;
-          text += `👤 ${p.nama} (${p.nmJabatan || 'Pejabat Perbendaharaan'})\n`;
-          text += `➡️ Status: Perpanjangan Langsung Berhasil\n\n`;
+        text += `${getDivider()}`;
+        sudahLangsung.forEach((p, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerInline(p.kdSatker, p.nmSatker)} • ${p.nama} (${p.nmJabatan || 'Pejabat'})\n`;
+          } else {
+            text += `${bullet} ${formatSatkerInline(p.kdSatker, p.nmSatker)}\n`;
+            text += `   👤 ${p.nama} (${p.nmJabatan || 'Pejabat Perbendaharaan'})\n`;
+            text += `   ➡️ Status: Perpanjangan Langsung Berhasil\n\n`;
+          }
         });
+        if (layoutDensity === 'SINGLE_LINE') text += `\n`;
       }
 
       if (belumPerpanjang.length > 0) {
+        text += `${getDivider()}`;
         text += `⏳ *Masuk Periode Perpanjangan / Belum Selesai Perpanjangan:*\n`;
-        belumPerpanjang.forEach((p) => {
-          text += `${p.kdSatker} – ${p.nmSatker}\n`;
-          text += `👤 ${p.nama} (${p.nmJabatan || 'Pejabat Perbendaharaan'})\n`;
-          text += `➡️ Status: ${p.statusUsulan || p.status || 'Perlu Rekam Usulan'}\n`;
-          if (p.noSertifikat && p.noSertifikat !== 'Belum Ada') {
-            text += `📜 No. Sertifikat: ${p.noSertifikat}\n`;
+        text += `${getDivider()}`;
+        belumPerpanjang.forEach((p, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerInline(p.kdSatker, p.nmSatker)} • ${p.nama} • Status: *${p.statusUsulan || p.status || 'Perlu Rekam Usulan'}*\n`;
+          } else {
+            text += `${bullet} ${formatSatkerInline(p.kdSatker, p.nmSatker)}\n`;
+            text += `   👤 ${p.nama} (${p.nmJabatan || 'Pejabat Perbendaharaan'})\n`;
+            text += `   ➡️ Status: ${p.statusUsulan || p.status || 'Perlu Rekam Usulan'}\n`;
+            if (p.noSertifikat && p.noSertifikat !== 'Belum Ada') {
+              text += `   📜 No. Sertifikat: ${p.noSertifikat}\n`;
+            }
+            text += `\n`;
           }
-          text += `\n`;
         });
+        if (layoutDensity === 'SINGLE_LINE') text += `\n`;
       }
 
       if (activePejabat.length === 0) {
         text += `*(Belum ada pejabat yang dicentang pada daftar sasaran)*\n\n`;
       }
 
-      if (includePplNote) {
+      if (showCatatanHimbauan && includePplNote) {
         text += `📌 *Perhatian:*\n`;
         text += `Untuk PPK/PPSPM, perpanjangan langsung dapat dilakukan apabila yang bersangkutan masih menduduki jabatan dan telah mengikuti paling sedikit 1 kali PPL yang relevan dengan kompetensi jabatan.\n\n`;
       }
 
-      if (includeSimaspatenAlert) {
+      if (showCatatanHimbauan && includeSimaspatenAlert) {
         text += `Mohon agar satker yang sertifikatnya akan kedaluwarsa pada ${periodeTriwulanSertifikasi} dapat segera melakukan pengecekan dan menindaklanjuti proses perpanjangannya melalui SIMASPATEN, sehingga tidak sampai melewati masa berlaku sertifikat.\n\n`;
       }
 
       text += `Demikian disampaikan, atas perhatian dan kerja samanya diucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1260,36 +1890,60 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const activeSatkers = spmPppCandidateSatkers.filter((s) =>
         selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker)
       );
+      const { items, remainingCount } = applyLimit(activeSatkers);
 
       let text = `📢 *[PENGUMUMAN – MONITORING PENYELESAIAN TAGIHAN DAYA & JASA (SPM PPP)]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA), PPK, dan Bendahara Pengeluaran Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Berdasarkan monitoring penyelesaian tagihan Surat Perintah Membayar Perhitungan Fihak Ketiga (SPM PPP) atas tagihan langganan daya dan jasa (Listrik PLN & Telepon/Internet TELKOM) periode ${periodeBulan} per ${waktuMonitoring}, disampaikan daftar Satuan Kerja yang BELUM MENGAJUKAN SPM PPP:\n\n`;
-      text += `⏳ Batas Akhir Pengajuan SPM PPP: *${batasWaktu}*\n\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      if (showDeadline) {
+        text += `⏳ Batas Akhir Pengajuan SPM PPP: *${batasWaktu}*\n\n`;
+      }
+      text += `${getDivider()}`;
       text += `⚡📋 *DAFTAR SATKER BELUM MENGAJUKAN SPM PPP:*\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `${getDivider()}`;
 
-      if (activeSatkers.length > 0) {
-        activeSatkers.forEach((s, idx) => {
-          text += `${idx + 1}. *${s.kodeSatker}* – ${s.namaSatker}\n`;
-          text += `   • Layanan: *${s.layanan}*\n`;
-          text += `   • Jumlah Berkas: *${s.jumlahTagihan} Tagihan Rekening*\n`;
-          text += `   • Status Terakhir: ${s.statusUtama}\n\n`;
+      if (items.length > 0) {
+        items.forEach((s, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            const berkasText = showDataTransaksi ? ` • *${s.jumlahTagihan} Tagihan*` : '';
+            const nomText = showNominal && (s as any).nominalTagihan ? ` • *${formatRupiah((s as any).nominalTagihan)}*` : '';
+            text += `${bullet} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)} • Layanan: *${s.layanan}*${berkasText}${nomText}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)}\n`;
+            text += `   • Layanan: *${s.layanan}*\n`;
+            if (showDataTransaksi) {
+              text += `   • Jumlah Berkas: *${s.jumlahTagihan} Tagihan Rekening*\n`;
+            }
+            if (showNominal && (s as any).nominalTagihan) {
+              text += `   • Estimasi Tagihan: *${formatRupiah((s as any).nominalTagihan)}*\n`;
+            }
+            text += `   • Status Terakhir: ${s.statusUtama}\n\n`;
+          }
         });
+        if (remainingCount > 0) {
+          text += `   ... dan *${remainingCount} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
         text += `📊 *Total Satker Belum Pengajuan SPM PPP:* *${activeSatkers.length} Satker*\n\n`;
       } else {
         text += `*(Seluruh Satker telah menyelesaikan pengajuan SPM PPP tepat waktu)*\n\n`;
       }
 
-      if (includeSpmPppWarning) {
+      if (showCatatanHimbauan && includeSpmPppWarning) {
         text += `📌 *Penting untuk Diperhatikan Satker:*\n`;
         text += `1️⃣ Tagihan langganan daya dan jasa wajib diselesaikan setiap bulan sebelum tanggal cut-off guna menghindari sanksi denda keterlambatan dan risiko pemutusan aliran daya listrik serta sambungan internet kedinasan.\n`;
         text += `2️⃣ Pastikan operator pembayaran telah melakukan validasi upload NTT, cetak SPP, approval PPK, dan penerbitan SPM PPP melalui Modul Pembayaran SAKTI.\n`;
         text += `3️⃣ Apabila terdapat kendala kesesuaian pagu akun belanja 51/52 atau validasi ID Pelanggan, mohon segera koordinasi dengan Petugas Front Office / Seksi PD & MSKI ${namaKppn}.\n\n`;
       }
 
-      text += `Mohon kerja sama Bapak/Ibu agar segera mengajukan SPM PPP sebelum batas waktu ${batasWaktu}.\n\n`;
+      if (showDeadline) {
+        text += `Mohon kerja sama Bapak/Ibu agar segera mengajukan SPM PPP sebelum batas waktu ${batasWaktu}.\n\n`;
+      }
       text += `Demikian disampaikan, atas perhatian dan komitmennya kami ucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1300,30 +1954,53 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const activeSatkers = deviasiCandidateSatkers.filter((d) =>
         selectedDeviasiSatkerIds.includes(d.id || d.kodeSatker)
       );
+      const { items, remainingCount } = applyLimit(activeSatkers);
 
       let text = `📢 *[PENGUMUMAN – EVALUASI & PENGENDALIAN DEVIASI HALAMAN III DIPA]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) dan Pejabat Pembuat Komitmen (PPK) Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Berdasarkan rekapitulasi penilaian indikator Deviasi Halaman III DIPA periode ${periodeBulan} per ${waktuMonitoring}, disampaikan daftar Satker dengan tingkat deviasi antara Rencana Penarikan Dana (RPD) bulanan dengan Realisasi Aktual yang masih melampaui batas toleransi (deviasi > 5%):\n\n`;
-      text += `⏳ Batas Pemutakhiran Revisi RPD Hal III DIPA Triwulanan: *${batasWaktu}*\n\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      if (showDeadline) {
+        text += `⏳ Batas Pemutakhiran Revisi RPD Hal III DIPA Triwulanan: *${batasWaktu}*\n\n`;
+      }
+      text += `${getDivider()}`;
       text += `📊⚠️ *DAFTAR SATKER DENGAN TINGKAT DEVIASI TINGGI:*\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `${getDivider()}`;
 
-      if (activeSatkers.length > 0) {
-        activeSatkers.forEach((d, idx) => {
-          text += `${idx + 1}. *${d.kodeSatker}* – ${d.namaSatker}\n`;
-          text += `   • Deviasi RPD: *${d.persenDeviasi.toFixed(2)}%* (Status: ${d.statusDeviasi})\n`;
-          text += `   • Skor IKPA Deviasi: *${d.skorIkpa.toFixed(1)}*\n`;
-          if (includeDeviasiJenisBelanja) {
-            text += `   • Pos Belanja Deviasi Terbesar: *${d.posDominan}*\n`;
+      if (items.length > 0) {
+        items.forEach((d, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            const devText = showPersentase ? ` • Dev: *${d.persenDeviasi.toFixed(2)}%* (${d.statusDeviasi})` : ` • (${d.statusDeviasi})`;
+            const selisihText = showNominal && d.deviasiNominal > 0 ? ` • Selisih: *${formatRupiah(d.deviasiNominal)}*` : '';
+            text += `${bullet} ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}${devText}${selisihText} • Pos: ${d.posDominan}\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}\n`;
+            if (showPersentase) {
+              text += `   • Deviasi RPD: *${d.persenDeviasi.toFixed(2)}%* (Status: ${d.statusDeviasi})\n`;
+              text += `   • Skor IKPA Deviasi: *${d.skorIkpa.toFixed(1)}*\n`;
+            } else {
+              text += `   • Status Deviasi: *${d.statusDeviasi}*\n`;
+            }
+            if (showNominal && d.deviasiNominal > 0) {
+              text += `   • Selisih Deviasi: *${formatRupiah(d.deviasiNominal)}*\n`;
+            }
+            if (includeDeviasiJenisBelanja) {
+              text += `   • Pos Belanja Deviasi Terbesar: *${d.posDominan}*\n`;
+            }
+            text += `\n`;
           }
-          text += `\n`;
         });
+        if (remainingCount > 0) {
+          text += `   ... dan *${remainingCount} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       } else {
         text += `*(Seluruh Satker telah memenuhi batas toleransi deviasi Halaman III DIPA ≤ 5%)*\n\n`;
       }
 
-      if (includeDeviasiPanduan) {
+      if (showCatatanHimbauan && includeDeviasiPanduan) {
         text += `📌 *Rekomendasi Tindak Lanjut Satker:*\n`;
         text += `1️⃣ Segera lakukan pemutakhiran / revisi RPD Halaman III DIPA pada Modul Penganggaran SAKTI sebelum batas open period revisi triwulan berakhir.\n`;
         text += `2️⃣ Selaraskan kalender penarikan dana bulanan dengan jadwal penyelesaian kontrak pengadaan dan penerbitan SP2D.\n`;
@@ -1332,6 +2009,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       text += `Layanan konsultasi dan asistensi revisi RPD dibuka setiap hari kerja di Ruang Konsultasi MSKI ${namaKppn}.\n\n`;
       text += `Demikian disampaikan untuk dipedomani. Terima kasih atas kerja samanya.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1345,26 +2023,40 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         if (kontakFilterMode === 'PEJABAT_KOSONG') return s.missingContacts.some((c) => c !== 'No. HP PIC Satker');
         return true;
       });
+      const { items, remainingCount } = applyLimit(activeSatkers);
 
       let text = `📢 *[PENGUMUMAN – PEMUTAKHIRAN DATA KONTAK & NO. WHATSAPP SATKER]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Dalam rangka optimalisasi koordinasi perbendaharaan, penyampaian notifikasi percepatan anggaran, serta broadcast informasi penolakan SPM dan billing perbendaharaan secara real-time, kami mengimbau Satuan Kerja berikut yang kontak PIC atau nomor WhatsApp pejabatnya (KPA/PPK/PPSPM/Bendahara) BELUM TERISI atau BELUM LENGKAP:\n\n`;
-      text += `⏳ Batas Pemutakhiran Data Kontak: *${batasWaktu}*\n\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      if (showDeadline) {
+        text += `⏳ Batas Pemutakhiran Data Kontak: *${batasWaktu}*\n\n`;
+      }
+      text += `${getDivider()}`;
       text += `📱⚠️ *DAFTAR SATKER DENGAN KONTAK BELUM LENGKAP / KOSONG:*\n`;
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `${getDivider()}`;
 
-      if (activeSatkers.length > 0) {
-        activeSatkers.forEach((s, idx) => {
-          text += `${idx + 1}. *${s.kodeSatker}* – ${s.namaSatker}\n`;
-          text += `   • Status: *${s.statusLabel}*\n`;
-          text += `   • Belum Terisi: ${s.missingContacts.join(', ')}\n\n`;
+      if (items.length > 0) {
+        items.forEach((s, idx) => {
+          const bullet = formatBullet(idx, true);
+          if (layoutDensity === 'SINGLE_LINE') {
+            text += `${bullet} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)} • Belum Ada: *${s.missingContacts.join(', ')}*\n`;
+          } else {
+            text += `${bullet} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)}\n`;
+            text += `   • Status: *${s.statusLabel}*\n`;
+            text += `   • Belum Terisi: ${s.missingContacts.join(', ')}\n\n`;
+          }
         });
+        if (remainingCount > 0) {
+          text += `   ... dan *${remainingCount} Satker lainnya*\n\n`;
+        } else if (layoutDensity === 'SINGLE_LINE') {
+          text += `\n`;
+        }
       } else {
         text += `*(Seluruh Satker telah mengisi nomor handphone pejabat & PIC dengan lengkap)*\n\n`;
       }
 
-      if (includePortalSatkerLink) {
+      if (showCatatanHimbauan && includePortalSatkerLink) {
         text += `📌 *Petunjuk Pemutakhiran Kontak Satker:*\n`;
         text += `1️⃣ Login ke Portal Satker KPPN Semarang I pada menu *Profil Satker* / *Kelola Kontak PIC*.\n`;
         text += `2️⃣ Lengkapi nomor WhatsApp aktif KPA, PPK, PPSPM, Bendahara Pengeluaran, dan PIC Operator Satker.\n`;
@@ -1373,6 +2065,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       }
 
       text += `Demikian disampaikan, atas kerja sama dan dukungannya kami ucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1394,75 +2087,93 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       const upMendekati = activeUp.filter((u) => u.category === 'MENDEKATI' || (u.sisaHari > 0 && u.sisaHari <= 7));
 
       let text = `📢 *[REKAPITULASI MONITORING TERPADU – ${namaKppn.toUpperCase()}]* 📢\n\n`;
-      text += `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pengelola Keuangan Satker Mitra ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Izin menyampaikan rekapitulasi terintegrasi monitoring pelaksanaan anggaran periode ${periodeBulan} per ${waktuMonitoring}:\n\n`;
 
       let sectionNum = 1;
 
       // 1. CAPUT
       if (kompilasiModules.caput) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *CAPAIAN OUTPUT (CAPUT) SAKTI*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        text += `⏳ Batas Pengisian: *${batasWaktu}*\n`;
+        text += `${getDivider()}`;
+        if (showDeadline) {
+          text += `⏳ Batas Pengisian: *${batasWaktu}*\n`;
+        }
         if (activeCaput.length > 0) {
           text += `Daftar Satker belum rekam/approval CAPUT:\n`;
-          activeCaput.slice(0, 6).forEach((s) => {
-            text += `• ${s.kodeSatker} – ${s.namaSatker}\n`;
+          const limitCount = satkerLimit === 'ALL' ? 6 : Math.min(6, parseInt(satkerLimit, 10) || 6);
+          activeCaput.slice(0, limitCount).forEach((s, idx) => {
+            const persenText = showPersentase ? ` (Capaian: *${s.indikator?.capaianOutput ?? 0}%*)` : '';
+            text += `${formatBullet(idx, true)} ${formatSatkerInline(s.kodeSatker, s.namaSatker)}${persenText}\n`;
           });
-          if (activeCaput.length > 6) {
-            text += `• *(dan ${activeCaput.length - 6} satker lainnya)*\n`;
+          if (activeCaput.length > limitCount) {
+            text += `   • *(dan ${activeCaput.length - limitCount} satker lainnya)*\n`;
           }
         } else {
           text += `✅ Seluruh satker telah menyelesaikan pelaporan CAPUT.\n`;
         }
-        text += `👉 Gunakan tools diagnostik SI-CAPUT di: ${linkSiCaput}\n\n`;
+        if (showCatatanHimbauan) {
+          text += `👉 Gunakan tools diagnostik SI-CAPUT di: ${linkSiCaput}\n`;
+        }
+        text += `\n`;
         sectionNum++;
       }
 
       // 2. UP / GUP (DEADLINE & KATEGORI)
       if (kompilasiModules.upTup) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *MONITORING BATAS WAKTU REVOLVING UP / GUP (30 HARI)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         if (upKritis.length > 0) {
           text += `🚨 *Kategori Kritis (Lewat Batas Waktu / Hari Ini):*\n`;
-          upKritis.slice(0, 5).forEach((u) => {
-            text += `• *${u.kodeSatker}* – ${u.namaSatker} | Batas: *${u.deadlineDate || batasWaktu}* (${u.sisaHari < 0 ? `Lewat ${Math.abs(u.sisaHari)} Hari` : 'Hari Ini'}) | Revolving: *${u.persenRevolving}%*\n`;
+          upKritis.slice(0, 5).forEach((u, idx) => {
+            const dlineText = showDeadline ? ` | Batas: *${u.deadlineDate || batasWaktu}* (${u.sisaHari < 0 ? `Lewat ${Math.abs(u.sisaHari)} Hari` : 'Hari Ini'})` : '';
+            const revText = showPersentase ? ` | Revolving: *${u.persenRevolving}%*` : '';
+            text += `${formatBullet(idx, true)} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}${dlineText}${revText}\n`;
           });
           if (upKritis.length > 5) {
-            text += `• *(dan ${upKritis.length - 5} satker kritis lainnya)*\n`;
+            text += `   • *(dan ${upKritis.length - 5} satker kritis lainnya)*\n`;
           }
         }
         if (upMendekati.length > 0) {
           text += `⚠️ *Kategori Mendekati Batas Waktu (1 s.d 7 Hari):*\n`;
-          upMendekati.slice(0, 5).forEach((u) => {
-            text += `• *${u.kodeSatker}* – ${u.namaSatker} | Batas: *${u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)\n`;
+          upMendekati.slice(0, 5).forEach((u, idx) => {
+            const dlineText = showDeadline ? ` | Batas: *${u.deadlineDate || batasWaktu}* (*Sisa ${u.sisaHari} Hari*)` : '';
+            const revText = showPersentase ? ` | Revolving: *${u.persenRevolving}%*` : '';
+            text += `${formatBullet(idx, true)} ${formatSatkerTitle(u.kodeSatker, u.namaSatker)}${dlineText}${revText}\n`;
           });
           if (upMendekati.length > 5) {
-            text += `• *(dan ${upMendekati.length - 5} satker lainnya)*\n`;
+            text += `   • *(dan ${upMendekati.length - 5} satker lainnya)*\n`;
           }
         }
         if (upKritis.length === 0 && upMendekati.length === 0) {
           text += `✅ Seluruh satker tertib melakukan revolving UP di bawah 30 hari kalender.\n`;
         }
-        text += `📌 *Pengingat:* Satker wajib revolving minimal 1x per bulan untuk mencegah pemotongan UP 50%.\n\n`;
+        if (showCatatanHimbauan) {
+          text += `📌 *Pengingat:* Satker wajib revolving minimal 1x per bulan untuk mencegah pemotongan UP 50%.\n`;
+        }
+        text += `\n`;
         sectionNum++;
       }
 
       // 3. DEVIASI HAL III
       if (kompilasiModules.deviasiHal3) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *EVALUASI DEVIASI HALAMAN III DIPA (> 5%)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        text += `⏳ Batas Pemutakhiran Revisi RPD Triwulanan: *${batasWaktu}*\n`;
+        text += `${getDivider()}`;
+        if (showDeadline) {
+          text += `⏳ Batas Pemutakhiran Revisi RPD Triwulanan: *${batasWaktu}*\n`;
+        }
         if (activeDeviasi.length > 0) {
           text += `Daftar Satker dengan tingkat deviasi RPD tinggi:\n`;
-          activeDeviasi.slice(0, 5).forEach((d) => {
-            text += `• *${d.kodeSatker}* – ${d.namaSatker} | Deviasi: *${d.persenDeviasi.toFixed(2)}%* (Pos Dominan: ${d.posDominan})\n`;
+          activeDeviasi.slice(0, 5).forEach((d, idx) => {
+            const devText = showPersentase ? ` | Deviasi: *${d.persenDeviasi.toFixed(2)}%*` : '';
+            text += `${formatBullet(idx, true)} ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}${devText} (Pos Dominan: ${d.posDominan})\n`;
           });
           if (activeDeviasi.length > 5) {
-            text += `• *(dan ${activeDeviasi.length - 5} satker lainnya)*\n`;
+            text += `   • *(dan ${activeDeviasi.length - 5} satker lainnya)*\n`;
           }
         } else {
           text += `✅ Seluruh Satker telah memenuhi batas toleransi deviasi RPD ≤ 5.00%.\n`;
@@ -1473,17 +2184,20 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       // 4. SPM PPP
       if (kompilasiModules.spmPpp) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *TAGIHAN DAYA & JASA (SPM PPP PLN & TELKOM)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        text += `⏳ Batas Pengajuan SPM PPP: *${batasWaktu}*\n`;
+        text += `${getDivider()}`;
+        if (showDeadline) {
+          text += `⏳ Batas Pengajuan SPM PPP: *${batasWaktu}*\n`;
+        }
         if (activeSpmPpp.length > 0) {
           text += `Daftar Satker belum mengajukan SPM tagihan rutin:\n`;
-          activeSpmPpp.slice(0, 5).forEach((s) => {
-            text += `• *${s.kodeSatker}* – ${s.namaSatker} | Layanan: ${s.layanan} (${s.jumlahTagihan} Berkas)\n`;
+          activeSpmPpp.slice(0, 5).forEach((s, idx) => {
+            const berkasText = showDataTransaksi ? ` (${s.jumlahTagihan} Berkas)` : '';
+            text += `${formatBullet(idx, true)} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)} | Layanan: ${s.layanan}${berkasText}\n`;
           });
           if (activeSpmPpp.length > 5) {
-            text += `• *(dan ${activeSpmPpp.length - 5} satker lainnya)*\n`;
+            text += `   • *(dan ${activeSpmPpp.length - 5} satker lainnya)*\n`;
           }
         } else {
           text += `✅ Seluruh tagihan langganan daya & jasa telah diajukan SPM PPP tepat waktu.\n`;
@@ -1494,44 +2208,54 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       // 5. DIGIPAY & KKP
       if (kompilasiModules.digipayKkp) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *AKSELERASI & LEADERBOARD TRANSAKSI DIGITAL*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `🏆 *Top 3 Transaksi Digipay Satu:*\n`;
         topDigipay.forEach((d, idx) => {
           const medal = ['🥇', '🥈', '🥉'][idx];
-          text += `${medal} *${d.namaSatker}* (${d.kodeSatker}) – ${d.count} Trx (Belanja: ${formatRupiahShort(d.nominal)})\n`;
+          const trxCount = showDataTransaksi ? ` – *${d.count} Trx*` : '';
+          const nomText = showNominal ? ` (Belanja: *${formatRupiah(d.nominal)}*)` : '';
+          text += `${medal} ${formatSatkerTitle(d.kodeSatker, d.namaSatker)}${trxCount}${nomText}\n`;
         });
         text += `💳 *Top 3 Transaksi Kartu Kredit Pemerintah (KKP):*\n`;
         topKkp.forEach((k, idx) => {
           const medal = ['🥇', '🥈', '🥉'][idx];
-          text += `${medal} *${k.namaSatker}* (${k.kodeSatker}) – ${k.count} Trx (Belanja: ${formatRupiahShort(k.nominal)})\n`;
+          const trxCount = showDataTransaksi ? ` – *${k.count} Trx*` : '';
+          const nomText = showNominal ? ` (Belanja: *${formatRupiah(k.nominal)}*)` : '';
+          text += `${medal} ${formatSatkerTitle(k.kodeSatker, k.namaSatker)}${trxCount}${nomText}\n`;
         });
-        text += `🎉 Selamat kepada Satker teraktif dan kami dorong satker lainnya untuk memaksimalkan pembayaran non-tunai.\n\n`;
+        if (showCatatanHimbauan) {
+          text += `🎉 Selamat kepada Satker teraktif dan kami dorong satker lainnya untuk memaksimalkan pembayaran non-tunai.\n`;
+        }
+        text += `\n`;
         sectionNum++;
       }
 
       // 6. KONTAK SATKER
       if (kompilasiModules.kontak && activeKontak.length > 0) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *PEMUTAKHIRAN NO. WHATSAPP PEJABAT & PIC SATKER*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Terdapat ${activeKontak.length} Satker yang nomor kontak PIC/pejabatnya belum lengkap di sistem:\n`;
-        activeKontak.slice(0, 5).forEach((k) => {
-          text += `• *${k.kodeSatker}* – ${k.namaSatker} (${k.missingContacts.join(', ')})\n`;
+        activeKontak.slice(0, 5).forEach((k, idx) => {
+          text += `${formatBullet(idx, true)} ${formatSatkerTitle(k.kodeSatker, k.namaSatker)} (${k.missingContacts.join(', ')})\n`;
         });
         if (activeKontak.length > 5) {
-          text += `• *(dan ${activeKontak.length - 5} satker lainnya)*\n`;
+          text += `   • *(dan ${activeKontak.length - 5} satker lainnya)*\n`;
         }
-        text += `Mohon segera perbarui data kontak pada portal satker untuk kelancaran koordinasi kedinasan.\n\n`;
+        if (showCatatanHimbauan) {
+          text += `Mohon segera perbarui data kontak pada portal satker untuk kelancaran koordinasi kedinasan.\n`;
+        }
+        text += `\n`;
         sectionNum++;
       }
 
       // 7. SERTIFIKASI
       if (kompilasiModules.sertifikasi && activeSertifikasi.length > 0) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *SERTIFIKASI PEJABAT PERBENDAHARAAN (SIMASPATEN)*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Informasi perpanjangan sertifikat PPK/PPSPM/Bendahara Periode ${periodeTriwulanSertifikasi}.\n`;
         text += `Terdapat ${activeSertifikasi.length} pejabat yang masuk dalam periode perpanjangan sertifikat. Mohon segera rekam usulan di SIMASPATEN sebelum masa kedaluwarsa.\n\n`;
         sectionNum++;
@@ -1539,23 +2263,25 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
       // 8. IKPA
       if (kompilasiModules.ikpa && activeIkpa.length > 0) {
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `${sectionNum}️⃣ *EVALUASI KINERJA IKPA SATKER*\n`;
-        text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        text += `${getDivider()}`;
         text += `Satker berikut diimbau memacu indikator pelaksanaan anggaran:\n`;
-        activeIkpa.slice(0, 5).forEach((s) => {
-          text += `• *${s.kodeSatker}* – ${s.namaSatker} | Nilai IKPA: *${s.nilaiTotalIKPA.toFixed(2)}* (Deviasi: ${s.indikator?.deviasiHal3Dipa ?? 0}%)\n`;
+        activeIkpa.slice(0, 5).forEach((s, idx) => {
+          const ikpaText = showPersentase ? ` | Nilai IKPA: *${s.nilaiTotalIKPA.toFixed(2)}* (Deviasi: ${s.indikator?.deviasiHal3Dipa ?? 0}%)` : '';
+          text += `${formatBullet(idx, true)} ${formatSatkerTitle(s.kodeSatker, s.namaSatker)}${ikpaText}\n`;
         });
         if (activeIkpa.length > 5) {
-          text += `• *(dan ${activeIkpa.length - 5} satker lainnya)*\n`;
+          text += `   • *(dan ${activeIkpa.length - 5} satker lainnya)*\n`;
         }
         text += `\n`;
         sectionNum++;
       }
 
-      text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `${getDivider()}`;
       text += `Konsultasi, asistensi, dan loket pendampingan dibuka setiap hari kerja di Front Office Seksi MSKI ${namaKppn}.\n\n`;
       text += `Demikian disampaikan, atas sinergi dan kerja sama seluruh Satuan Kerja diucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
@@ -1564,16 +2290,25 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     // -----------------------------------------------------------
     if (activeCategory === 'REKONSILIASI') {
       let text = `📢 *[PENGUMUMAN – REKONSILIASI DATA SINTESA vs MY INTRESS]* 📢\n\n`;
-      text += `Yth. Bapak/Ibu Petugas Rekonsiliasi & Bendahara Satuan Kerja Lingkup ${namaKppn},\n\n`;
+      text += getSeksiHeader();
+      text += getGreetingText();
       text += `Diberitahukan bahwa dalam rangka penyusunan Laporan Keuangan yang akuntabel, terdapat beberapa Satker yang teridentifikasi memiliki selisih angka realisasi belanja / pagu antara sistem SINTESA dan MY INTRESS per ${waktuMonitoring}.\n\n`;
       text += `Mohon kepada Satker terkait untuk segera melakukan cross-check pada pos akun belanja dan membuka konfirmasi melalui petugas Front Office KPPN.\n\n`;
-      text += `⏳ Batas konfirmasi data: *${batasWaktu}*\n\n`;
+      if (showDeadline) {
+        text += `⏳ Batas konfirmasi data: *${batasWaktu}*\n\n`;
+      }
       text += `Demikian disampaikan, atas perhatiannya diucapkan terima kasih.`;
+      text += getFooterCallCenter();
       return text;
     }
 
     // CUSTOM
-    return `📢 *[PENGUMUMAN KHUSUS SATKER]* 📢\n\nYth. Bapak/Ibu Satuan Kerja Lingkup ${namaKppn},\n\n(Tuliskan pesan pengumuman grup WhatsApp Anda di sini...)\n\nDemikian disampaikan, terima kasih.`;
+    let customText = `📢 *[PENGUMUMAN KHUSUS SATKER]* 📢\n\n`;
+    customText += getSeksiHeader();
+    customText += getGreetingText();
+    customText += `(Tuliskan pesan pengumuman grup WhatsApp Anda di sini...)\n\nDemikian disampaikan, terima kasih.`;
+    customText += getFooterCallCenter();
+    return customText;
   }, [
     activeCategory,
     namaKppn,
@@ -1617,7 +2352,23 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     includeUpMendekati,
     includeUpRendah,
     includeUpSanksiNote,
-    kompilasiModules
+    kompilasiModules,
+    showNominal,
+    showDataTransaksi,
+    showPersentase,
+    showKodeSatker,
+    showDeadline,
+    showCatatanHimbauan,
+    layoutDensity,
+    bulletStyle,
+    satkerLimit,
+    greetingType,
+    showSeksiPic,
+    seksiName,
+    dividerStyle,
+    showCallCenterFooter,
+    showHashtags,
+    hotlineWa
   ]);
 
   // Current active display text (either manual override or auto-generated)
@@ -1645,6 +2396,200 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
   const handleOpenWhatsAppWeb = () => {
     const encoded = encodeURIComponent(currentDisplayText);
     window.open(`https://web.whatsapp.com/send?text=${encoded}`, '_blank');
+  };
+
+  // Open WhatsApp App / Desktop Protocol
+  const handleOpenWhatsAppDesktop = () => {
+    const encoded = encodeURIComponent(currentDisplayText);
+    window.location.href = `whatsapp://send?text=${encoded}`;
+  };
+
+  // Open Telegram Share
+  const handleOpenTelegram = () => {
+    const encoded = encodeURIComponent(currentDisplayText);
+    window.open(`https://t.me/share/url?text=${encoded}`, '_blank');
+  };
+
+  // Copy Clean Plain Text (Strip markdown * and _ for official emails / nota dinas)
+  const handleCopyCleanText = async () => {
+    try {
+      const clean = currentDisplayText
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/_([^_]+)_/g, '$1')
+        .replace(/~([^~]+)~/g, '$1')
+        .replace(/`([^`]+)`/g, '$1');
+      await navigator.clipboard.writeText(clean);
+      setIsCleanCopied(true);
+      setTimeout(() => setIsCleanCopied(false), 2500);
+      if (showToast) {
+        showToast({
+          type: 'success',
+          title: 'Teks Bersih Disalin! ✉️',
+          message: 'Format WhatsApp (* dan _) telah dihapus, siap di-paste ke Email Resmi / Nota Dinas.'
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Audio Narration: Text-to-Speech (TTS)
+  const handleSpeakToggle = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      if (showToast) {
+        showToast({
+          type: 'error',
+          title: 'Fitur Tidak Didukung',
+          message: 'Browser Anda tidak mendukung Text-to-Speech (TTS).'
+        });
+      }
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    // Clean text from decorative symbols and markdown for smooth reading
+    const cleanSpeechText = currentDisplayText
+      .replace(/[*_~`]/g, '')
+      .replace(/[━═─-]{3,}/g, '')
+      .replace(/📢|🏆|🥇|🥈|🥉|🎖️|⚠️|🚨|📌|🔎|💡|👉|✅|🔥|💳|📱|👥|🏢|🏛️|📞|🌐|🛡️/g, '')
+      .trim();
+
+    if (!cleanSpeechText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
+    utterance.lang = 'id-ID';
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+    setIsSpeaking(true);
+
+    if (showToast) {
+      showToast({
+        type: 'info',
+        title: 'Memutar Narasi Audio 🔊',
+        message: 'Mendengarkan siaran pengumuman dengan narasi suara bahasa Indonesia.'
+      });
+    }
+  };
+
+  // Export Target Satkers List to CSV
+  const handleExportTargetSatkersCsv = () => {
+    let rows: Array<{ kodeSatker: string; namaSatker: string; status: string }> = [];
+
+    if (activeCategory === 'DIGIPAY_KKP') {
+      const activeBelum = satkerBelumDigipayKkpList.filter((s) =>
+        selectedBelumDigipayKkpIds.includes(s.id || s.kodeSatker)
+      );
+      rows = activeBelum.map((s) => ({
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        status: 'Belum Ada Transaksi Digipay/KKP'
+      }));
+    } else if (activeCategory === 'CAPUT') {
+      const activeCaput = caputCandidateSatkers.filter((s) =>
+        selectedCaputSatkerIds.includes(s.id || s.kodeSatker)
+      );
+      rows = activeCaput.map((s) => ({
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        status: `Belum Approval Caput (Capaian: ${s.indikator?.capaianOutput ?? 0}%)`
+      }));
+    } else if (activeCategory === 'UP_TUP') {
+      const activeUp = upGupCandidateSatkers.filter((u) =>
+        selectedUpSatkerIds.includes(u.id || u.kodeSatker)
+      );
+      rows = activeUp.map((u) => ({
+        kodeSatker: u.kodeSatker,
+        namaSatker: u.namaSatker,
+        status: `Revolving ${u.persenRevolving}% (Sisa ${u.sisaHari} Hari - Batas: ${u.deadlineDate || '-'})`
+      }));
+    } else if (activeCategory === 'SPM_PPP') {
+      const activeSpm = spmPppCandidateSatkers.filter((s) =>
+        selectedSpmPppSatkerIds.includes(s.id || s.kodeSatker)
+      );
+      rows = activeSpm.map((s) => ({
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        status: `Belum SPM PPP (${s.layanan} - ${s.jumlahTagihan} Berkas)`
+      }));
+    } else if (activeCategory === 'DEVIASI_HAL3') {
+      const activeDeviasi = deviasiCandidateSatkers.filter((d) =>
+        selectedDeviasiSatkerIds.includes(d.id || d.kodeSatker)
+      );
+      rows = activeDeviasi.map((d) => ({
+        kodeSatker: d.kodeSatker,
+        namaSatker: d.namaSatker,
+        status: `Deviasi ${d.persenDeviasi.toFixed(2)}% (${d.statusDeviasi})`
+      }));
+    } else if (activeCategory === 'KONTAK_KOSONG') {
+      const activeKontak = satkerTanpaHpCandidates.filter((k) =>
+        selectedKontakKosongSatkerIds.includes(k.id || k.kodeSatker)
+      );
+      rows = activeKontak.map((k) => ({
+        kodeSatker: k.kodeSatker,
+        namaSatker: k.namaSatker,
+        status: `Kontak Belum Lengkap: ${k.missingContacts.join(', ')}`
+      }));
+    } else if (activeCategory === 'IKPA_PERHATIAN') {
+      const activeIkpa = ikpaCandidateSatkers.filter((s) =>
+        selectedIkpaSatkerIds.includes(s.id || s.kodeSatker)
+      );
+      rows = activeIkpa.map((s) => ({
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        status: `IKPA: ${s.nilaiTotalIKPA.toFixed(2)} (${s.predikat})`
+      }));
+    } else {
+      // General fallback
+      rows = satkers.map((s) => ({
+        kodeSatker: s.kodeSatker,
+        namaSatker: s.namaSatker,
+        status: 'Terdaftar di Monitoring'
+      }));
+    }
+
+    if (rows.length === 0) {
+      if (showToast) {
+        showToast({
+          type: 'info',
+          title: 'Tidak Ada Satker Target',
+          message: 'Daftar satker target saat ini kosong untuk diekspor.'
+        });
+      }
+      return;
+    }
+
+    let csvContent = 'No,Kode Satker,Nama Satker,Status Target Pengumuman\n';
+    rows.forEach((r, idx) => {
+      const cleanNama = `"${r.namaSatker.replace(/"/g, '""')}"`;
+      const cleanStatus = `"${r.status.replace(/"/g, '""')}"`;
+      csvContent += `${idx + 1},${r.kodeSatker},${cleanNama},${cleanStatus}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Target_Satker_Pengumuman_${activeCategory}_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+
+    if (showToast) {
+      showToast({
+        type: 'success',
+        title: 'File CSV Diunduh 📊',
+        message: `Berhasil mengunduh ${rows.length} daftar satker sasaran pengumuman grup.`
+      });
+    }
   };
 
   // Download as TXT file
@@ -2528,6 +3473,295 @@ ${currentDisplayText}
             )}
           </div>
 
+          {/* Panel Kustomisasi Elemen Data Pesan (Nominal, Transaksi, Persentase, dll) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700 pb-3">
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-indigo-500" />
+                  <span>Kustomisasi Elemen Data Pesan</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Atur visibilitas data nominal, transaksi, persentase, kode satker, dan catatan sesuai kebutuhan siaran
+                </p>
+              </div>
+
+              {/* Reset/Preset quick pill */}
+              <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Preset:</span>
+                <button
+                  type="button"
+                  onClick={() => applyElementPreset('ALL')}
+                  className="px-2 py-1 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-slate-600 transition-all cursor-pointer"
+                  title="Tampilkan semua elemen data"
+                >
+                  Lengkap
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyElementPreset('NO_NOMINAL')}
+                  className="px-2 py-1 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-all cursor-pointer"
+                  title="Sembunyikan nominal uang untuk privasi grup WA"
+                >
+                  🛡️ Privasi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyElementPreset('PERCENT_ONLY')}
+                  className="px-2 py-1 rounded-md text-[10px] font-bold bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition-all cursor-pointer"
+                  title="Fokus data persentase dan volume"
+                >
+                  📊 Data %
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyElementPreset('MINIMAL')}
+                  className="px-2 py-1 rounded-md text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 hover:bg-rose-100 transition-all cursor-pointer"
+                  title="Hanya nama satker dan deadline"
+                >
+                  ⚡ Ringkas
+                </button>
+              </div>
+            </div>
+
+            {/* Grid 6 Toggles */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {/* 1. Nominal Uang (Rp) */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showNominal
+                    ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showNominal}
+                  onChange={(e) => {
+                    setShowNominal(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Nominal Uang (Rp)</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showNominal
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/80 dark:text-emerald-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showNominal ? 'Tampil' : 'Sembunyi'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Total belanja KKP/Digipay, selisih deviasi, pagu UP &amp; tagihan SPM PPP
+                  </p>
+                </div>
+              </label>
+
+              {/* 2. Data Transaksi */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showDataTransaksi
+                    ? 'bg-blue-50/70 dark:bg-blue-950/30 border-blue-300 dark:border-blue-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showDataTransaksi}
+                  onChange={(e) => {
+                    setShowDataTransaksi(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span>Data Transaksi &amp; Volume</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showDataTransaksi
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/80 dark:text-blue-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showDataTransaksi ? 'Tampil' : 'Sembunyi'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Jumlah transaksi Digipay/KKP &amp; volume berkas tagihan rekening
+                  </p>
+                </div>
+              </label>
+
+              {/* 3. Data Persentase (%) */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showPersentase
+                    ? 'bg-purple-50/70 dark:bg-purple-950/30 border-purple-300 dark:border-purple-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showPersentase}
+                  onChange={(e) => {
+                    setShowPersentase(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-purple-600 focus:ring-purple-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Percent className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                      <span>Data Persentase (%)</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showPersentase
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/80 dark:text-purple-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showPersentase ? 'Tampil' : 'Sembunyi'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Persentase Caput, % revolving UP, deviasi Hal III DIPA, &amp; nilai IKPA
+                  </p>
+                </div>
+              </label>
+
+              {/* 4. Kode Satker 6-Digit */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showKodeSatker
+                    ? 'bg-teal-50/70 dark:bg-teal-950/30 border-teal-300 dark:border-teal-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showKodeSatker}
+                  onChange={(e) => {
+                    setShowKodeSatker(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-teal-600 focus:ring-teal-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                      <span>Kode Satker (6-Digit)</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showKodeSatker
+                          ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/80 dark:text-teal-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showKodeSatker ? 'Kode + Nama' : 'Hanya Nama'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Tampilkan kode satker 6-digit di depan nama satuan kerja
+                  </p>
+                </div>
+              </label>
+
+              {/* 5. Batas Waktu / Deadline */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showDeadline
+                    ? 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showDeadline}
+                  onChange={(e) => {
+                    setShowDeadline(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>Batas Waktu / Deadline</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showDeadline
+                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/80 dark:text-amber-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showDeadline ? 'Tampil' : 'Sembunyi'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Tanggal batas waktu cut-off, sisa hari, dan countdown jatuh tempo
+                  </p>
+                </div>
+              </label>
+
+              {/* 6. Catatan Panduan & Himbauan */}
+              <label
+                className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                  showCatatanHimbauan
+                    ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-800'
+                    : 'bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-65'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={showCatatanHimbauan}
+                  onChange={(e) => {
+                    setShowCatatanHimbauan(e.target.checked);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className="w-4 h-4 mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                      <Info className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Catatan &amp; Himbauan</span>
+                    </span>
+                    <span
+                      className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                        showCatatanHimbauan
+                          ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/80 dark:text-indigo-200'
+                          : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+                      }`}
+                    >
+                      {showCatatanHimbauan ? 'Tampil' : 'Sembunyi'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight">
+                    Langkah percepatan, link diagnostik SI-CAPUT, ketentuan regulasi &amp; sanksi
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           {/* Panel Seleksi Satker / Pejabat yang Masuk ke Daftar */}
           <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
@@ -3376,6 +4610,117 @@ ${currentDisplayText}
                     <RotateCcw className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Quick Live Element Filter Toolbar */}
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Filter Elemen:</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNominal(!showNominal);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showNominal
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle tampilan nominal rupiah"
+                >
+                  <DollarSign className="w-3 h-3" />
+                  <span>Nominal Rp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDataTransaksi(!showDataTransaksi);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showDataTransaksi
+                      ? 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle tampilan volume & data transaksi"
+                >
+                  <Hash className="w-3 h-3" />
+                  <span>Transaksi</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPersentase(!showPersentase);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showPersentase
+                      ? 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle tampilan persentase"
+                >
+                  <Percent className="w-3 h-3" />
+                  <span>Persentase (%)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowKodeSatker(!showKodeSatker);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showKodeSatker
+                      ? 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle kode satker 6 digit"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Kd Satker</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeadline(!showDeadline);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showDeadline
+                      ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle batas waktu / deadline"
+                >
+                  <Calendar className="w-3 h-3" />
+                  <span>Deadline</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCatatanHimbauan(!showCatatanHimbauan);
+                    if (manualText !== null) setManualText(null);
+                  }}
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                    showCatatanHimbauan
+                      ? 'bg-indigo-50 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800'
+                      : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 line-through opacity-70'
+                  }`}
+                  title="Toggle catatan edukasi & himbauan"
+                >
+                  <Info className="w-3 h-3" />
+                  <span>Catatan</span>
+                </button>
               </div>
             </div>
 

@@ -254,16 +254,25 @@ export function mergePengelolaanUPAntiDowngrade(serverList: PengelolaanUPRecord[
 }
 
 /**
- * Merge Historical Uploads anti-downgrade (Server data is authoritative, all batches preserved)
+ * Deduplicates and normalizes historical uploads list.
+ * Guarantees every entry in the returned array has a strictly unique `id` and merges duplicates.
  */
-export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[], listB: ExcelUploadHistory[]): ExcelUploadHistory[] {
+export function deduplicateHistoricalUploads(list: ExcelUploadHistory[]): ExcelUploadHistory[] {
+  if (!Array.isArray(list)) return [];
   const map = new Map<string, ExcelUploadHistory>();
-  const add = (item: ExcelUploadHistory) => {
-    if (!item) return;
+
+  for (const rawItem of list) {
+    if (!rawItem) continue;
+    let item: ExcelUploadHistory = { ...rawItem };
+
     // Auto-purge any stale synthetic Agustus 2026 dummy batch for IKPA
-    if (item.id === 'hist-ikpa-agustus-2026' || (item.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx' && (!item.category || item.category === 'IKPA'))) {
-      return;
+    if (
+      item.id === 'hist-ikpa-agustus-2026' ||
+      (item.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx' && (!item.category || item.category === 'IKPA'))
+    ) {
+      continue;
     }
+
     // Auto-heal any Capaian Output batch that was previously converted to hist-caput-juli-2026 by the old bug
     if (item.id === 'hist-caput-juli-2026' && (item.category === 'CAPAIAN_OUTPUT' || !item.category)) {
       item = {
@@ -279,6 +288,7 @@ export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[],
         })) : item.satkersData
       };
     }
+
     // Ensure all satkers have id
     if (Array.isArray(item.satkersData)) {
       item = {
@@ -289,23 +299,97 @@ export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[],
         }))
       };
     }
-    const key = item.id || `${item.category || 'IKPA'}_${item.periode}`;
+
+    if (!item.id) {
+      item = {
+        ...item,
+        id: `hist-${(item.category || 'ikpa').toLowerCase()}-${(item.periode || 'unknown').toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+      };
+    }
+
+    const key = item.id;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, item);
     } else {
+      // Merge: preserve active status if either is active, pick richer satkersData
       const existingDataLen = Array.isArray(existing.satkersData) ? existing.satkersData.length : 0;
       const incomingDataLen = Array.isArray(item.satkersData) ? item.satkersData.length : 0;
-      if (incomingDataLen >= existingDataLen) {
-        map.set(key, { ...existing, ...item });
-      }
+      const keepData = incomingDataLen >= existingDataLen ? item.satkersData : existing.satkersData;
+      const isActive = existing.isActive || item.isActive;
+      map.set(key, {
+        ...existing,
+        ...item,
+        isActive,
+        satkersData: keepData,
+        satkerCount: Math.max(existing.satkerCount || 0, item.satkerCount || 0, (keepData || []).length)
+      });
     }
-  };
+  }
 
-  if (Array.isArray(listB)) listB.forEach(add);
-  if (Array.isArray(listA)) listA.forEach(add);
+  // Also collapse duplicates having the same category and same period (e.g. redundant Caput Agustus batches)
+  const result: ExcelUploadHistory[] = [];
+  const catPeriodeMap = new Map<string, ExcelUploadHistory>();
 
-  let result = Array.from(map.values());
+  for (const item of map.values()) {
+    const cat = item.category || 'IKPA';
+    const per = (item.periode || '').trim().toLowerCase();
+    const catPerKey = `${cat}_${per}`;
+
+    if (catPeriodeMap.has(catPerKey)) {
+      const prev = catPeriodeMap.get(catPerKey)!;
+      // Merge them into one to prevent duplicate archive tabs/cards
+      const prevDataLen = Array.isArray(prev.satkersData) ? prev.satkersData.length : 0;
+      const itemDataLen = Array.isArray(item.satkersData) ? item.satkersData.length : 0;
+      const bestData = itemDataLen >= prevDataLen ? item.satkersData : prev.satkersData;
+      const merged: ExcelUploadHistory = {
+        ...prev,
+        ...item,
+        id: prev.id || item.id,
+        isActive: prev.isActive || item.isActive,
+        satkersData: bestData,
+        satkerCount: Math.max(prev.satkerCount || 0, item.satkerCount || 0, (bestData || []).length)
+      };
+      catPeriodeMap.set(catPerKey, merged);
+      const idx = result.findIndex(r => r.id === prev.id);
+      if (idx !== -1) {
+        result[idx] = merged;
+      } else {
+        result.push(merged);
+      }
+    } else {
+      catPeriodeMap.set(catPerKey, item);
+      result.push(item);
+    }
+  }
+
+  // Guarantee strictly unique IDs across all items
+  const finalResult: ExcelUploadHistory[] = [];
+  const seenIds = new Set<string>();
+  for (const item of result) {
+    if (seenIds.has(item.id)) {
+      const disambiguatedId = `${item.id}-${finalResult.length + 1}`;
+      seenIds.add(disambiguatedId);
+      finalResult.push({ ...item, id: disambiguatedId });
+    } else {
+      seenIds.add(item.id);
+      finalResult.push(item);
+    }
+  }
+
+  return finalResult;
+}
+
+/**
+ * Merge Historical Uploads anti-downgrade (Server data is authoritative, all batches preserved)
+ */
+export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[], listB: ExcelUploadHistory[]): ExcelUploadHistory[] {
+  const combined = [
+    ...(Array.isArray(listB) ? listB : []),
+    ...(Array.isArray(listA) ? listA : [])
+  ];
+
+  const result = deduplicateHistoricalUploads(combined);
 
   // Ensure an active IKPA batch exists; if none is active (e.g. purged batch was active), activate Juli
   const activeIkpa = result.find(h => (!h.category || h.category === 'IKPA') && h.isActive);
