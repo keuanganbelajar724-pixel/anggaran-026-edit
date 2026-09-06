@@ -59,7 +59,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currentFileName, setCurrentFileName] = useState<string>('');
   const [previewSatkers, setPreviewSatkers] = useState<SatkerIKPA[]>([]);
-  const [uploadPeriode, setUploadPeriode] = useState<string>('Juli 2026');
+  const [uploadPeriode, setUploadPeriode] = useState<string>('Agustus 2026');
   const [uploadNotes, setUploadNotes] = useState<string>('Laporan % Progress Upload Capaian Output SAKTI');
   const [searchHistory, setSearchHistory] = useState<string>('');
 
@@ -157,7 +157,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-caput-${Date.now()}`,
       fileName: fileNameToUse,
-      periode: uploadPeriode.trim() || 'Juli 2026',
+      periode: uploadPeriode.trim() || 'Agustus 2026',
       uploadDate: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' WIB',
       uploadedBy: 'Seksi MSKI KPPN Semarang I',
       satkerCount: previewSatkers.length,

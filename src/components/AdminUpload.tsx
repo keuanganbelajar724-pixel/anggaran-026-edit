@@ -2080,9 +2080,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     } catch (e) {
       console.error('Error saving historical uploads to localStorage:', e);
     }
+    const activeCaput = newList.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
     const updatedConfig: DashboardConfig = {
       ...tempConfig,
-      historicalUploads: newList
+      historicalUploads: newList,
+      updateDates: {
+        ...tempConfig.updateDates,
+        ...(activeCaput ? { capaianOutput: `Periode ${activeCaput.periode} (Diperbarui ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })})` } : {})
+      }
     };
     setTempConfig(updatedConfig);
     onUpdateDashboardConfig(updatedConfig);
@@ -2165,6 +2170,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
             return {
               ...existing,
+              hasCapaianOutputData: true,
               statusCapaianOutput: match.statusCapaianOutput,
               indikator: updatedIndikator,
               nilaiTotalIKPA: newTotalIKPA,
@@ -2183,6 +2189,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         const brandNew = previewSatkers.filter(p => !existingKodes.has(p.kodeSatker)).map(p => ({
           ...p,
           hasIKPAData: false,
+          hasCapaianOutputData: true,
           nilaiTotalIKPA: 0,
           paguAnggaran: 0,
           realisasiAnggaran: 0
@@ -2195,6 +2202,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         satkersToApply = previewSatkers.map(p => ({
           ...p,
           hasIKPAData: false,
+          hasCapaianOutputData: true,
           nilaiTotalIKPA: 0,
           paguAnggaran: 0,
           realisasiAnggaran: 0

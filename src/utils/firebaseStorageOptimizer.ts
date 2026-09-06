@@ -131,7 +131,8 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
             capaianOutput: 0
           },
           hasIKPAData: s.hasIKPAData !== false,
-          hasCapaianOutputData: !!s.hasCapaianOutputData
+          hasCapaianOutputData: !!s.hasCapaianOutputData,
+          periodeUpdate: s.periodeUpdate || h.periode || 's.d. Agustus 2026'
         }))
       : []
   }));
@@ -263,13 +264,19 @@ export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[],
     if (item.id === 'hist-ikpa-agustus-2026' || (item.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx' && (!item.category || item.category === 'IKPA'))) {
       return;
     }
-    // Normalize any Capaian Output August batch to Juli 2026 so user data aligns strictly up to July
-    if (item.id === 'hist-caput-agustus-2026' || (item.category === 'CAPAIAN_OUTPUT' && (item.periode === 'Agustus 2026' || item.periode === 's.d. Agustus 2026'))) {
+    // Auto-heal any Capaian Output batch that was previously converted to hist-caput-juli-2026 by the old bug
+    if (item.id === 'hist-caput-juli-2026' && (item.category === 'CAPAIAN_OUTPUT' || !item.category)) {
       item = {
         ...item,
-        id: 'hist-caput-juli-2026',
-        periode: 'Juli 2026',
-        fileName: 'Monitoring_Capaian_Output_SAKTI_Juli_2026.xlsx'
+        id: 'hist-caput-agustus-2026',
+        category: 'CAPAIAN_OUTPUT',
+        periode: 'Agustus 2026',
+        fileName: item.fileName && !item.fileName.includes('Juli') ? item.fileName : 'Monitoring_Capaian_Output_SAKTI_Agustus_2026.xlsx',
+        satkersData: Array.isArray(item.satkersData) ? item.satkersData.map((s: any) => ({
+          ...s,
+          hasCapaianOutputData: true,
+          periodeUpdate: 's.d. Agustus 2026'
+        })) : item.satkersData
       };
     }
     // Ensure all satkers have id

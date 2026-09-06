@@ -172,16 +172,13 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasAgustus = parsed.some((s: SatkerIKPA) => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
-          if (!hasAgustus) {
-            return parsed
-              .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
-              .map((s: SatkerIKPA) => ({
-                ...s,
-                namaPic: cleanPicName(s.namaPic, s.kodeSatker),
-                noHpPic: cleanContactValue(s.noHpPic)
-              }));
-          }
+          return parsed
+            .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
+            .map((s: SatkerIKPA) => ({
+              ...s,
+              namaPic: cleanPicName(s.namaPic, s.kodeSatker),
+              noHpPic: cleanContactValue(s.noHpPic)
+            }));
         }
       } catch (e) {
         console.warn('Error parsing saved satker data:', e);
@@ -282,7 +279,24 @@ export default function App() {
       if (local !== null) {
         const parsed = JSON.parse(local);
         if (Array.isArray(parsed)) {
-          savedHist = parsed.filter(item => item && item.id !== 'hist-ikpa-agustus-2026' && item.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx');
+          savedHist = parsed
+            .filter(item => item && item.id !== 'hist-ikpa-agustus-2026' && item.fileName !== 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx')
+            .map(item => {
+              if (item.category === 'CAPAIAN_OUTPUT' && (item.id === 'hist-caput-juli-2026' || (item.isActive && (savedConfig?.updateDates?.capaianOutput || '').toLowerCase().includes('agustus')))) {
+                return {
+                  ...item,
+                  id: 'hist-caput-agustus-2026',
+                  periode: 'Agustus 2026',
+                  fileName: item.fileName && !item.fileName.includes('Juli') ? item.fileName : 'Monitoring_Capaian_Output_SAKTI_Agustus_2026.xlsx',
+                  satkersData: Array.isArray(item.satkersData) ? item.satkersData.map((s: any) => ({
+                    ...s,
+                    hasCapaianOutputData: true,
+                    periodeUpdate: 's.d. Agustus 2026'
+                  })) : item.satkersData
+                };
+              }
+              return item;
+            });
           // If Juli was deactivated, make sure Juli is active
           if (savedHist.length > 0 && !savedHist.some(h => (!h.category || h.category === 'IKPA') && h.isActive)) {
             const juli = savedHist.find(h => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || h.periode?.toLowerCase().includes('juli')));
@@ -833,17 +847,11 @@ export default function App() {
             }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
           }
 
-          // If satkers has old synthetic Agustus or is empty, reconstruct from historical archives
+          // If satkers is empty, reconstruct from historical archives
           setSatkers(curr => {
-            const hasAgustus = curr.some(s => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
-            if ((curr.length === 0 || hasAgustus) && combined.length > 0) {
+            if (curr.length === 0 && combined.length > 0) {
               const reconstructed = mergeHistoricalUploadsToSatkers(combined);
               if (reconstructed.length > 0) {
-                reconstructed.forEach(s => {
-                  if (s.periodeUpdate && s.periodeUpdate.includes('Agustus')) {
-                    s.periodeUpdate = 's.d. Juli 2026';
-                  }
-                });
                 safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                 return reconstructed;
               }
@@ -1093,17 +1101,11 @@ export default function App() {
               };
             });
 
-            // If satkers is empty or has old August, reconstruct from historical archives
+            // If satkers is empty, reconstruct from historical archives
             setSatkers(curr => {
-              const hasAgustus = curr.some(s => s.periodeUpdate === 's.d. Agustus 2026' || s.periodeUpdate === 'Agustus 2026');
-              if ((curr.length === 0 || hasAgustus) && cleanList.length > 0) {
+              if (curr.length === 0 && cleanList.length > 0) {
                 const reconstructed = mergeHistoricalUploadsToSatkers(cleanList);
                 if (reconstructed.length > 0) {
-                  reconstructed.forEach(s => {
-                    if (s.periodeUpdate && s.periodeUpdate.includes('Agustus')) {
-                      s.periodeUpdate = 's.d. Juli 2026';
-                    }
-                  });
                   safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                   return reconstructed;
                 }

@@ -56,6 +56,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     h => h.category === 'CAPAIAN_OUTPUT'
   );
 
+  const activeCaputArchive = caputArchives.find(h => h.isActive) || (caputArchives.length > 0 ? caputArchives[0] : null);
+
   // Active or selected archive
   const selectedArchive = selectedHistoricalId === 'ACTIVE' 
     ? null 
@@ -142,7 +144,9 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 <Calendar className="w-3.5 h-3.5 text-sky-400" />
                 <span>
                   Periode Laporan: <strong className="text-white">
-                    {selectedArchive ? selectedArchive.periode : (dashboardConfig?.updateDates?.capaianOutput || 'Periode Juli 2026')}
+                    {selectedArchive 
+                      ? selectedArchive.periode 
+                      : (dashboardConfig?.updateDates?.capaianOutput || (activeCaputArchive ? `Periode ${activeCaputArchive.periode}` : 'Periode Agustus 2026'))}
                   </strong>
                 </span>
               </div>
