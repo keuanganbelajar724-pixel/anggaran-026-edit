@@ -240,17 +240,23 @@ export function evaluateUPRecordStatus(
     ? (record.batasWaktuTUPKolomH || (record.jenisDana === 'TUP' ? (record as any).batasWaktuTUP || record.batasRevolving : ''))
     : (record.batasRevolvingKolomN || (record.jenisDana !== 'TUP' ? record.batasRevolving : ''));
 
-  // Check 0% / Nihil status from Kolom M / Sisa UP / Keterangan (Kolom P)
-  const isNihil = record.isNihil === true ||
+  // Check if Nihil:
+  // ONLY if explicitly marked as NIHIL, or Satker Bina Marga (693750), or settled via GU Nihil
+  // Note: 0% revolving / 0.00% is Belum Revolving, NEVER Nihil!
+  const isNihil = 
     record.kodeSatker === '693750' ||
     (record.namaSatker && record.namaSatker.toUpperCase().includes('BINA MARGA')) ||
-    record.persentaseRevolving === 0 ||
-    record.persenRevolving === 0 ||
-    record.presentaseDariUP === 0 ||
-    (record.sisaUP === 0 && (record.totalGUNihil !== undefined && record.totalGUNihil < 0)) ||
-    (record.keterangan && record.keterangan.toUpperCase().includes('NIHIL')) ||
-    (record.keteranganExcel && record.keteranganExcel.toUpperCase().includes('NIHIL')) ||
-    (record.batasTeguran && record.batasTeguran.toUpperCase().includes('NIHIL'));
+    (record.keterangan && record.keterangan.toUpperCase().includes('NIHIL') && !record.keterangan.toUpperCase().includes('BUKAN NIHIL')) ||
+    (record.keteranganExcel && record.keteranganExcel.toUpperCase().includes('NIHIL') && !record.keteranganExcel.toUpperCase().includes('BUKAN NIHIL')) ||
+    (record.batasTeguran && record.batasTeguran.toUpperCase().includes('NIHIL')) ||
+    (record.statusRevolving && record.statusRevolving.toUpperCase().includes('NIHIL')) ||
+    (record.sisaUP === 0 && record.totalGUNihil !== undefined && record.totalGUNihil > 0) ||
+    (record.isNihil === true && (
+      record.kodeSatker === '693750' ||
+      (record.namaSatker && record.namaSatker.toUpperCase().includes('BINA MARGA')) ||
+      (record.keterangan && record.keterangan.toUpperCase().includes('NIHIL')) ||
+      (record.keteranganExcel && record.keteranganExcel.toUpperCase().includes('NIHIL'))
+    ));
 
   const evalRes = evaluateDeadlineDate(rawDeadline, referenceDate);
   const sisaHari = evalRes.sisaHari;
@@ -291,6 +297,11 @@ export function evaluateUPRecordStatus(
     badgeColorClass = 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border-amber-300 dark:border-amber-700 font-bold';
     textColorClass = 'text-amber-900 dark:text-amber-200 font-bold';
     rowBorderClass = 'bg-amber-50/70 dark:bg-amber-950/30 border-l-4 border-l-amber-400';
+  } else {
+    badgeLabel = sisaHari < 900 ? `H-${sisaHari} Hari` : 'Aman';
+    badgeColorClass = 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700 font-medium';
+    textColorClass = type === 'TUP' ? 'text-sky-700 dark:text-sky-300' : 'text-slate-700 dark:text-slate-300';
+    rowBorderClass = '';
   }
 
   return {

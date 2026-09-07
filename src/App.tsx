@@ -1606,7 +1606,7 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return compactPengelolaanUPForFirestore(parsed);
       } catch (e) {
         console.warn('Error parsing saved UP data:', e);
       }

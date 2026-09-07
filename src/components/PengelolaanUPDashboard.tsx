@@ -50,11 +50,28 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 }) => {
   const isDark = theme === 'dark';
 
-  // Extract reference date from dashboard update dates
+  const [referenceDateMode, setReferenceDateMode] = useState<'TODAY' | 'UPDATE_DATE' | 'CUSTOM'>('TODAY');
+  const [customDate, setCustomDate] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+
+  // Extract reference date: Default to TODAY (current date) so countdowns (H-X) and
+  // "Kurun 1 Minggu" (<= 7 hari) reflect real-time monitoring accurately!
   const referenceDate = useMemo(() => {
-    const rawDateStr = dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard;
-    return parseDashboardReferenceDate(rawDateStr);
-  }, [dashboardConfig]);
+    if (referenceDateMode === 'CUSTOM' && customDate) {
+      const parts = customDate.split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+    }
+    if (referenceDateMode === 'UPDATE_DATE') {
+      const rawDateStr = dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard;
+      return parseDashboardReferenceDate(rawDateStr);
+    }
+    // Default: TODAY (Real-time current date)
+    return new Date();
+  }, [referenceDateMode, customDate, dashboardConfig]);
 
   const activeRecords = useMemo(() => {
     const raw = (records && records.length > 0) ? records : (upRecords || []);
@@ -69,7 +86,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
   }, [records, upRecords]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'TELAT' | 'HARI_INI' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
+  const [activeFilter, setActiveFilter] = useState<'ALL' | '1_MINGGU' | 'TELAT' | 'HARI_INI' | 'NIHIL' | 'UP_ONLY' | 'TUP_ONLY'>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(25);
 
@@ -187,6 +204,8 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
         matchFilter = (hasUP && up.isTelat) || (hasTUP && tup.isTelat) || false;
       } else if (activeFilter === 'HARI_INI') {
         matchFilter = (hasUP && up.isHariIni) || (hasTUP && tup.isHariIni) || false;
+      } else if (activeFilter === 'NIHIL') {
+        matchFilter = (hasUP && up.isNihil) || (hasTUP && tup.isNihil) || false;
       } else if (activeFilter === 'UP_ONLY') {
         matchFilter = hasUP || false;
       } else if (activeFilter === 'TUP_ONLY') {
@@ -216,7 +235,11 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/80 text-purple-200 text-xs font-bold">
                 <Clock className="w-3.5 h-3.5 text-purple-400" />
-                <span>Update Dashboard: <strong>{dashboardConfig?.updateDates?.pengelolaanUp || '31 Agustus 2026 - 08:40 WIB'}</strong></span>
+                <span>Update Data: <strong>{dashboardConfig?.updateDates?.pengelolaanUp || '31 Agustus 2026 - 08:40 WIB'}</strong></span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs font-bold">
+                <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Acuan Real-time: <strong>{referenceDate.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong></span>
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -336,6 +359,61 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
       {/* Main Table Card */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+        {/* Acuan Waktu Monitoring Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span>Acuan Waktu Monitoring:</span>
+            </span>
+            <span className="font-black text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950/80 px-2.5 py-1 rounded-lg border border-purple-200 dark:border-purple-800 flex items-center gap-1.5 shadow-xs">
+              <span>{referenceDate.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+              {referenceDateMode === 'TODAY' && (
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500 text-white font-black uppercase">Realtime</span>
+              )}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setReferenceDateMode('TODAY')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                referenceDateMode === 'TODAY'
+                  ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-400 font-black'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+              }`}
+            >
+              📅 Hari Ini (Real-time)
+            </button>
+            <button
+              onClick={() => setReferenceDateMode('UPDATE_DATE')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                referenceDateMode === 'UPDATE_DATE'
+                  ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-400 font-black'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-750'
+              }`}
+            >
+              Tgl Data ({parseDashboardReferenceDate(dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => {
+                  setCustomDate(e.target.value);
+                  setReferenceDateMode('CUSTOM');
+                }}
+                className={`px-2.5 py-1 text-xs rounded-xl border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold cursor-pointer ${
+                  referenceDateMode === 'CUSTOM'
+                    ? 'border-purple-500 ring-2 ring-purple-400'
+                    : 'border-slate-300 dark:border-slate-700'
+                }`}
+                title="Pilih tanggal acuan monitoring kustom"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Toolbar & Filter Badges */}
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
           <div className="relative w-full md:w-80">
@@ -416,6 +494,23 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               </button>
             )}
 
+            {stats.countNihil > 0 && (
+              <button
+                onClick={() => {
+                  setActiveFilter('NIHIL');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeFilter === 'NIHIL'
+                    ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400 font-black'
+                    : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Nihil ({stats.countNihil})</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setActiveFilter('UP_ONLY');
@@ -463,7 +558,7 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
               ⏱️ Amber: Kurun 1 Minggu (&le; 7 Hari)
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium border border-emerald-200">
-              ✓ Nihil (0.00% / Sisa UP 0 - Tidak Telat)
+              ✓ Nihil (Khusus GU Nihil / Dinas PU Bina Marga)
             </span>
           </div>
 

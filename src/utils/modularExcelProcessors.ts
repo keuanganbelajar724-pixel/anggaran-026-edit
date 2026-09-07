@@ -739,14 +739,17 @@ export async function validatePengelolaanUPExcelFile(
           const batasTeguran = colBatasTeguran !== -1 ? (parseExcelDateString(row[colBatasTeguran]) || cleanText(row[colBatasTeguran]) || '-') : '-';
           const rawKeterangan = colKeterangan !== -1 ? cleanText(row[colKeterangan]) : (row[15] !== undefined ? cleanText(row[15]) : '');
 
-          // Check if Nihil (0.00% in Kolom M, Sisa UP 0, Nihil in Kolom P Keterangan, or Bina Marga 693750)
-          const isNihil = rawPersenCell === '0.00%' || rawPersenCell === '0%' || persenRevolving === 0 || 
-            (sisaUP === 0 && totalGUNihil < 0) ||
-            rawKeterangan.toUpperCase().includes('NIHIL') ||
-            String(row[15] || '').toUpperCase().includes('NIHIL') ||
-            String(row[14] || '').toUpperCase().includes('NIHIL') ||
+          // Check if Nihil:
+          // ONLY if explicitly stated as NIHIL in Keterangan/Status, or Total GU Nihil > 0 and Sisa UP 0, or Satker Bina Marga 693750
+          // CRITICAL: 0.00% or 0% revolving is NOT Nihil! It represents a satker that has not yet revolved (Belum Revolving).
+          const isNihil = 
             kodeSatker === '693750' ||
-            rawNama.toUpperCase().includes('BINA MARGA');
+            rawNama.toUpperCase().includes('BINA MARGA') ||
+            (rawKeterangan.toUpperCase().includes('NIHIL') && !rawKeterangan.toUpperCase().includes('BUKAN NIHIL')) ||
+            (String(row[15] || '').toUpperCase().includes('NIHIL') && !String(row[15] || '').toUpperCase().includes('BUKAN NIHIL')) ||
+            (String(row[14] || '').toUpperCase().includes('NIHIL') && !String(row[14] || '').toUpperCase().includes('BUKAN NIHIL')) ||
+            (String(row[13] || '').toUpperCase().includes('NIHIL') && !String(row[13] || '').toUpperCase().includes('BUKAN NIHIL')) ||
+            (totalGUNihil > 0 && sisaUP === 0);
 
           // PARSE KOLOM N (BATAS REVOLVING)
           const rawBatas = colBatasRevolving !== -1 && row[colBatasRevolving] !== undefined && row[colBatasRevolving] !== '' 
