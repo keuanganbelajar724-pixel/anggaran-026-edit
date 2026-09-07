@@ -710,19 +710,7 @@ export default function App() {
           .catch(e => console.warn('API settings fallback notice:', e));
       };
 
-      // Always fetch server settings immediately for instant cross-browser synchronization
-      fetchServerSettings();
-
-      // Synchronize settings across all browsers on window focus and periodic interval
-      const onWindowFocus = () => {
-        if (isMounted) fetchServerSettings();
-      };
-      window.addEventListener('focus', onWindowFocus);
-      const settingsInterval = setInterval(() => {
-        if (isMounted) fetchServerSettings();
-      }, 15000);
-
-      // 1. Initial Fetch from Firestore to ensure fresh data
+      // 1. Initial Fetch from Firestore to ensure fresh, real-time data across all deployments & browsers
       const fetchSettings = getDoc(doc(db, 'settings', 'global')).then(snap => {
         if (!isMounted) return;
         if (snap.exists()) {
@@ -734,6 +722,18 @@ export default function App() {
         console.warn("Initial Firestore settings fetch notice:", err);
         fetchServerSettings();
       });
+
+      // Synchronize settings across all browsers on window focus directly from live Firestore
+      const onWindowFocus = () => {
+        if (!isMounted) return;
+        getDoc(doc(db, 'settings', 'global')).then(snap => {
+          if (!isMounted) return;
+          if (snap.exists()) {
+            applyCleanSettings(snap.data());
+          }
+        }).catch(() => {});
+      };
+      window.addEventListener('focus', onWindowFocus);
 
       const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
 
@@ -1283,7 +1283,6 @@ export default function App() {
       return () => {
         window.removeEventListener('focus', onWindowFocus);
         window.removeEventListener('kppn_my_intress_updated', onMyIntressUpdated);
-        clearInterval(settingsInterval);
         unsubSettings();
         unsubHistorical();
         unsubSatkers();
@@ -2033,8 +2032,9 @@ export default function App() {
       if (upSnap.exists()) {
         const data = upSnap.data();
         if (Array.isArray(data.list)) {
-          setPengelolaanUPList(data.list);
-          safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(data.list));
+          const compacted = compactPengelolaanUPForFirestore(data.list);
+          setPengelolaanUPList(compacted);
+          safeLocalStorageSet('kppn_pengelolaan_up', JSON.stringify(compacted));
         }
       }
 
@@ -2043,7 +2043,7 @@ export default function App() {
       if (kkpSnap.exists()) {
         const data = kkpSnap.data();
         if (Array.isArray(data.list)) {
-          setTransaksiKKPList(data.list);
+          setTransaksiKkpList(data.list);
           safeLocalStorageSet('kppn_transaksi_kkp', JSON.stringify(data.list));
         }
       }

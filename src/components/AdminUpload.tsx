@@ -133,6 +133,7 @@ import {
   Send,
   Users,
   Phone,
+  Cloud,
   PhoneCall,
   MessageSquare,
   AlertTriangle,
@@ -3784,11 +3785,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'aduan',
                         'presensi'
                       ];
-                      setTempConfig(prev => ({
-                        ...prev,
+                      const newCfg = {
+                        ...tempConfig,
                         tabOrder: defaultOrder
-                      }));
-                      addToast('Urutan menu berhasil dikembalikan ke standar KPPN!', 'info');
+                      };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                      addToast('Urutan menu berhasil dikembalikan ke standar KPPN & tersinkron ke Cloud!', 'info');
                     }}
                     className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -3800,33 +3803,36 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setTempConfig(prev => ({
-                        ...prev,
-                        menuVisibility: {
-                          'dashboard': true,
-                          'realisasi-anggaran': true,
-                          'capaian-output': true,
-                          'diagnostik-caput': true,
-                          'deviasi-hal3': true,
-                          'spm-ppp': true,
-                          'pengelolaan-up': true,
-                          'transaksi-kkp': true,
-                          'transaksi-digipay': true,
-                          'kelola-satker': true,
-                          'redflags': true,
-                          'sertifikasi': true,
-                          'per5-analisis': true,
-                          'pengetahuan': true,
-                          'announcements': true,
-                          'materi-slide': true,
-                          'portal-link': true,
-                          'presensi': true,
-                          'aduan': true,
-                          'reminder': true,
-                          'guide': false
-                        }
-                      }));
-                      addToast('Semua menu berhasil diaktifkan & dibuka!', 'success');
+                      const allOpenMenu = {
+                        'dashboard': true,
+                        'realisasi-anggaran': true,
+                        'capaian-output': true,
+                        'diagnostik-caput': true,
+                        'deviasi-hal3': true,
+                        'spm-ppp': true,
+                        'pengelolaan-up': true,
+                        'transaksi-kkp': true,
+                        'transaksi-digipay': true,
+                        'kelola-satker': true,
+                        'redflags': true,
+                        'sertifikasi': true,
+                        'per5-analisis': true,
+                        'pengetahuan': true,
+                        'announcements': true,
+                        'materi-slide': true,
+                        'portal-link': true,
+                        'presensi': true,
+                        'aduan': true,
+                        'reminder': true,
+                        'guide': false
+                      };
+                      const newCfg = {
+                        ...tempConfig,
+                        menuVisibility: allOpenMenu
+                      };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                      addToast('Semua menu berhasil diaktifkan & otomatis tersinkron ke Cloud!', 'success');
                     }}
                     className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   >
@@ -3838,38 +3844,54 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setTempConfig(prev => ({
-                        ...prev,
-                        menuVisibility: {
-                          'dashboard': true,
-                          'realisasi-anggaran': false,
-                          'capaian-output': false,
-                          'diagnostik-caput': false,
-                          'deviasi-hal3': false,
-                          'spm-ppp': false,
-                          'pengelolaan-up': false,
-                          'transaksi-kkp': false,
-                          'transaksi-digipay': false,
-                          'kelola-satker': false,
-                          'redflags': false,
-                          'sertifikasi': false,
-                          'per5-analisis': false,
-                          'pengetahuan': false,
-                          'announcements': false,
-                          'materi-slide': false,
-                          'portal-link': false,
-                          'presensi': false,
-                          'aduan': false,
-                          'reminder': false,
-                          'guide': false
-                        }
-                      }));
-                      addToast('Semua menu (kecuali Dashboard) telah dikunci.', 'info');
+                      const allLockedMenu = {
+                        'dashboard': true,
+                        'realisasi-anggaran': false,
+                        'capaian-output': false,
+                        'diagnostik-caput': false,
+                        'deviasi-hal3': false,
+                        'spm-ppp': false,
+                        'pengelolaan-up': false,
+                        'transaksi-kkp': false,
+                        'transaksi-digipay': false,
+                        'kelola-satker': false,
+                        'redflags': false,
+                        'sertifikasi': false,
+                        'per5-analisis': false,
+                        'pengetahuan': false,
+                        'announcements': false,
+                        'materi-slide': false,
+                        'portal-link': false,
+                        'presensi': false,
+                        'aduan': false,
+                        'reminder': false,
+                        'guide': false
+                      };
+                      const newCfg = {
+                        ...tempConfig,
+                        menuVisibility: allLockedMenu
+                      };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                      addToast('Semua menu (kecuali Dashboard) telah dikunci & tersinkron ke Cloud.', 'info');
                     }}
                     className="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
                   >
                     <Lock className="w-3.5 h-3.5 text-rose-600" />
                     <span>Kunci Semua</span>
+                  </button>
+
+                  {/* Immediate Manual Cloud Sync Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateDashboardConfig(tempConfig);
+                      addToast('⚡ Pengaturan menu navigasi langsung tersinkronkan ke Cloud Firestore & live deployment!', 'success');
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Cloud className="w-3.5 h-3.5 text-white" />
+                    <span>Sinkronkan ke Cloud</span>
                   </button>
                 </div>
               </div>
@@ -4036,7 +4058,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       const [item] = list.splice(index, 1);
                       list.push(item);
                     }
-                    setTempConfig(prev => ({ ...prev, tabOrder: list }));
+                    const newCfg = { ...tempConfig, tabOrder: list };
+                    setTempConfig(newCfg);
+                    onUpdateDashboardConfig(newCfg);
                   };
 
                   return currentKeys.map((menuKey, index) => {
@@ -4143,36 +4167,38 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              setTempConfig(prev => {
-                                const currVis = prev.menuVisibility || {
-                                  'dashboard': true,
-                                  'capaian-output': true,
-                                  'diagnostik-caput': true,
-                                  'deviasi-hal3': true,
-                                  'pengelolaan-up': true,
-                                  'transaksi-kkp': true,
-                                  'transaksi-digipay': true,
-                                  'kelola-satker': true,
-                                  'redflags': true,
-                                  'sertifikasi': true,
-                                  'per5-analisis': true,
-                                  'pengetahuan': true,
-                                  'announcements': true,
-                                  'materi-slide': true,
-                                  'portal-link': true,
-                                  'presensi': true,
-                                  'aduan': true,
-                                  'reminder': true,
-                                  'guide': false
-                                };
-                                return {
-                                  ...prev,
-                                  menuVisibility: {
-                                    ...currVis,
-                                    [menuKey]: !isVisible
-                                  }
-                                };
-                              });
+                              const currVis = tempConfig.menuVisibility || {
+                                'dashboard': true,
+                                'capaian-output': true,
+                                'diagnostik-caput': true,
+                                'deviasi-hal3': true,
+                                'pengelolaan-up': true,
+                                'transaksi-kkp': true,
+                                'transaksi-digipay': true,
+                                'kelola-satker': true,
+                                'redflags': true,
+                                'sertifikasi': true,
+                                'per5-analisis': true,
+                                'pengetahuan': true,
+                                'announcements': true,
+                                'materi-slide': true,
+                                'portal-link': true,
+                                'presensi': true,
+                                'aduan': true,
+                                'reminder': true,
+                                'guide': false
+                              };
+                              const updatedVis = {
+                                ...currVis,
+                                [menuKey]: !isVisible
+                              };
+                              const newCfg = {
+                                ...tempConfig,
+                                menuVisibility: updatedVis
+                              };
+                              setTempConfig(newCfg);
+                              onUpdateDashboardConfig(newCfg);
+                              addToast(`Menu "${meta.label}" ${!isVisible ? 'diaktifkan' : 'dikunci'} & otomatis tersinkron ke Cloud!`, !isVisible ? 'success' : 'info');
                             }}
                             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs ml-1.5 ${
                               isVisible
@@ -4263,17 +4289,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     type="button"
                     onClick={() => {
                       const currentActive = tempConfig.realisasiAnggaranConfig?.isActive ?? true;
-                      setTempConfig(prev => ({
-                        ...prev,
+                      const newCfg = {
+                        ...tempConfig,
                         realisasiAnggaranConfig: {
-                          ...prev.realisasiAnggaranConfig,
+                          ...tempConfig.realisasiAnggaranConfig,
                           isActive: !currentActive
                         },
                         menuVisibility: {
-                          ...prev.menuVisibility,
+                          ...tempConfig.menuVisibility,
                           'realisasi-anggaran': !currentActive
                         }
-                      }));
+                      };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                      addToast(`Dashboard Realisasi Anggaran ${!currentActive ? 'diaktifkan' : 'dinonaktifkan'} & tersinkron ke Cloud!`, !currentActive ? 'success' : 'info');
                     }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-1.5 shadow-2xs ${
                       (tempConfig.realisasiAnggaranConfig?.isActive ?? true)
