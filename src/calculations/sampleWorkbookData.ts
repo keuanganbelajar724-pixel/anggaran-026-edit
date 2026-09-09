@@ -32,12 +32,12 @@ export const WORKBOOK_EXPECTED_RESULTS = {
   penyerapan: { raw: 99.93, capped: 99.93, weighted: 19.99, weight: 20 },
   belanjaKontraktual: { raw: 99.04, capped: 99.04, weighted: 9.90, weight: 10 },
   penyelesaianTagihan: { raw: 96.15, capped: 96.15, weighted: 9.62, weight: 10 },
-  pengelolaanUPTUP: { raw: 99.31, capped: 99.31, weighted: 9.93, weight: 10 },
+  pengelolaanUPTUP: { raw: 94.21, capped: 94.21, weighted: 9.42, weight: 10 },
   capaianOutput: { raw: 100.00, capped: 100.00, weighted: 25.00, weight: 25 },
   dispensasiSPM: { reduction: 0.75, ratio: 3.64 },
-  totalWeighted: 95.15,
+  totalWeighted: 94.64,
   weightConversion: 1.00,
-  finalScore: 94.40
+  finalScore: 93.89
 };
 
 export function getWorkbookSampleProject(): SimulationProject {

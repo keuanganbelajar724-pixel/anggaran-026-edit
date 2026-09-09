@@ -263,11 +263,11 @@ export function createEmptyProject(
     calculationMode: 'excel_compatible',
     metadata: {
       tahunAnggaran: 2026,
-      kodeKementerian: '015',
-      namaKementerian: 'KEMENTERIAN KEUANGAN',
-      kodeSatker: '411792',
-      namaSatker: 'KPPN SEMARANG I',
-      kodeKPPN: '032',
+      kodeKementerian: '',
+      namaKementerian: '',
+      kodeSatker: '',
+      namaSatker: 'Simulasi Mandiri',
+      kodeKPPN: '',
       periodeCutoff: 12
     },
     weights: { ...DEFAULT_WEIGHTS },
@@ -292,7 +292,7 @@ export function createEmptyProject(
       jumlahDispensasiSPM: 0
     },
     capaianOutput: [],
-    capaianOutputKetepatan: emptyKetepatan
+    capaianOutputKetepatan: []
   };
 
   proj.output = calculateIKPA(proj);

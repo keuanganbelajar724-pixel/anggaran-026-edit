@@ -31,9 +31,8 @@ import {
   Download
 } from 'lucide-react';
 import { SatkerIKPA, AppTheme, DashboardConfig, PerhitunganIkpaExcelReference } from '../types';
-import { UpTupPer5Calculator } from './per5/UpTupPer5Calculator';
 import { PerhitunganIkpaExcelUploadSection } from './per5/PerhitunganIkpaExcelUploadSection';
-import { IndikatorPerTabSimulator } from './per5/IndikatorPerTabSimulator';
+import { IndikatorPerTabSimulator, MasterSimulatorTab } from './per5/IndikatorPerTabSimulator';
 import { DEFAULT_PERHITUNGAN_IKPA_REFERENCE, downloadPerhitunganIkpaExcel } from '../utils/perhitunganIkpaExcelHelper';
 import { safeLocalStorageSet } from '../utils/safeStorage';
 import { db, doc, setDoc } from '../lib/firebase';
@@ -187,8 +186,9 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
 }) => {
   const isDark = theme === 'dark';
   
-  // Selected tab inside PER-5/PB/2024 Hub
-  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'simulasi-per-indikator' | 'kalkulator-up-tup' | 'upload-acuan-excel' | 'pengetahuan' | 'reformulasi' | 'strategi'>('kalkulator');
+  // Selected tab inside PER-5/PB/2024 Hub (Kalkulator UP/TUP kini bersatu di dalam simulasi-per-indikator)
+  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'simulasi-per-indikator' | 'upload-acuan-excel' | 'pengetahuan' | 'reformulasi' | 'strategi'>('kalkulator');
+  const [simulatorTargetTab, setSimulatorTargetTab] = useState<MasterSimulatorTab>('dashboard');
 
   // Active Excel Reference State (Formula & Dasar Perhitungan)
   const [activeExcelReference, setActiveExcelReference] = useState<PerhitunganIkpaExcelReference>(() => {
@@ -661,7 +661,10 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             </button>
 
             <button
-              onClick={() => setActiveSubTab('simulasi-per-indikator')}
+              onClick={() => {
+                setSimulatorTargetTab('dashboard');
+                setActiveSubTab('simulasi-per-indikator');
+              }}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
                 activeSubTab === 'simulasi-per-indikator'
                   ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/30 font-black'
@@ -670,19 +673,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             >
               <Sliders className="w-4 h-4 text-amber-900" />
               <span>Simulasi Per Indikator</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/40 text-amber-950 font-black">8 Tab</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('kalkulator-up-tup')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubTab === 'kalkulator-up-tup'
-                  ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30 font-black'
-                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
-              }`}
-            >
-              <Coins className="w-4 h-4" />
-              <span>Kalkulator UP &amp; TUP</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/40 text-amber-950 font-black">8 Tab (UP/TUP Terpadu)</span>
             </button>
 
             <button
@@ -745,15 +736,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             }`}
           >
             <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            <span>🎛️ Simulasi Per Indikator (8 Tab Terpisah)</span>
-          </button>
-          <button
-            onClick={() => setActiveSubTab('kalkulator-up-tup')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'kalkulator-up-tup' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-black' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            💳 Kalkulator Khusus UP &amp; TUP (Slide 30-34)
+            <span>🎛️ Simulasi Per Indikator (8 Tab Terpadu Termasuk UP/TUP)</span>
           </button>
           <button
             onClick={() => setActiveSubTab('upload-acuan-excel')}
@@ -1094,12 +1077,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setActiveSubTab('kalkulator-up-tup')}
+                          onClick={() => {
+                            setSimulatorTargetTab('up-tup');
+                            setActiveSubTab('simulasi-per-indikator');
+                          }}
                           className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
-                          title="Buka kalkulator tabel riil UP & TUP"
+                          title="Buka simulasi & rincian tabel riil UP & TUP"
                         >
                           <Coins className="w-2.5 h-2.5" />
-                          <span>Tab Khusus UP/TUP ↗</span>
+                          <span>Simulasi UP/TUP ↗</span>
                         </button>
                         <span className="font-mono font-bold text-purple-500 dark:text-purple-400">{(Number.isFinite(customIndikator.pengelolaanUpTup) ? customIndikator.pengelolaanUpTup : 0).toFixed(1)}</span>
                       </div>
@@ -1324,11 +1310,14 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => setActiveSubTab('kalkulator-up-tup')}
+                            onClick={() => {
+                              setSimulatorTargetTab('up-tup');
+                              setActiveSubTab('simulasi-per-indikator');
+                            }}
                             className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
                           >
                             <Coins className="w-2.5 h-2.5" />
-                            <span>Buka Tab Khusus UP/TUP ↗</span>
+                            <span>Buka Simulasi UP/TUP ↗</span>
                           </button>
                           <span className="font-mono text-purple-500 font-black">{(Number.isFinite(transactionalScores.pengelolaanUpTup) ? transactionalScores.pengelolaanUpTup : 0).toFixed(1)} pt</span>
                         </div>
@@ -1569,24 +1558,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
           }}
           activeExcelReference={activeExcelReference}
           theme={theme}
-        />
-      )}
-
-      {/* SUB-TAB KHUSUS: KALKULATOR & SIMULATOR PENGELOLAAN UP DAN TUP (PER-5/PB/2024) */}
-      {activeSubTab === 'kalkulator-up-tup' && (
-        <UpTupPer5Calculator
-          satkers={satkers}
-          selectedSatkerId={selectedSatkerId}
-          onSelectSatker={(id) => setSelectedSatkerId(id)}
-          onApplyScoreToMainSimulator={(score) => {
-            setCustomIndikator(prev => ({
-              ...prev,
-              pengelolaanUpTup: score
-            }));
-            setActiveSubTab('kalkulator');
-            setSimulatorMode('slider');
-          }}
-          isDark={isDark}
+          initialTab={simulatorTargetTab}
         />
       )}
 

@@ -1,28 +1,120 @@
 import { UPTUPKKPInput } from '../models/ikpa';
-import { round2, average } from './rounding';
+import { round2, excelAverage } from './rounding';
 
-export const KKP_MONTHLY_TARGETS: Record<string, number> = {
-  '01': 0.01,
-  '02': 0.01,
-  '03': 0.01,
-  '04': 0.05,
-  '05': 0.05,
-  '06': 0.05,
-  '07': 0.09,
-  '08': 0.09,
-  '09': 0.09,
-  '10': 0.125,
-  '11': 0.125,
-  '12': 0.125
+export const KKP_TARGET_PERCENT: Record<number, number> = {
+  1: 0.01,
+  2: 0.01,
+  3: 0.01,
+  4: 0.05,
+  5: 0.05,
+  6: 0.05,
+  7: 0.09,
+  8: 0.09,
+  9: 0.09,
+  10: 0.125,
+  11: 0.125,
+  12: 0.125
 };
 
+export interface ProcessedKKPMonthRow {
+  periode: string; // "01" .. "12"
+  kodeSatker: string;
+  namaSatker: string;
+  kodeKPPN: string;
+  upKKPPerBulan: number; // Kolom E
+  upKKP1Tahun: number; // Kolom F: E * 12
+  targetPersen: number; // 1%, 5%, 9%, 12.5%
+  targetPenggunaanKKP: number; // Kolom G: F * targetPersen
+  penggunaanKKP: number; // Kolom H (Input realisasi)
+  nilaiBulanan: number; // Kolom I: IF(H=0, 0, IF(H>=G, 110, 100))
+  nilaiUPKKP: number; // Kolom J: formula period kumulatif (J5..J16)
+  isAchieved: boolean;
+}
+
 export interface UPTUPKKPResult {
-  rawValue: number;
-  processedMonths: any[];
+  rawValue: number; // Nilai final UP KKP (J16) - Boleh melebihi 100 (misal 105.00 atau 110.00)
+  processedMonths: ProcessedKKPMonthRow[];
   totalPenggunaan: number;
 }
 
-export function calculateUPTUPKKP(inputs: UPTUPKKPInput[]): UPTUPKKPResult {
+/**
+ * Formula Excel Nilai Bulanan KKP (Kolom I):
+ * =IF(H=0, 0, IF(H>=G, 110, 100))
+ * Catatan: Nilai bisa 110 (Reward capai target). Jangan dipotong 100 di sini.
+ */
+export function calculateKKPMonthlyScore(penggunaan: number, target: number): number {
+  if (penggunaan === 0) {
+    return 0;
+  }
+  if (penggunaan >= target) {
+    return 110;
+  }
+  return 100;
+}
+
+/**
+ * Formula Excel Nilai UP KKP per Periode (Kolom J5:J16):
+ * J5 = ROUND(I5, 2)
+ * J6 = ROUND(I6, 2)
+ * J7 = ROUND(I7, 2)
+ * J8..J10 = ROUND(AVERAGE($I$7, I_n), 2)
+ * J11..J13 = ROUND(AVERAGE($I$7, $I$10, I_n), 2)
+ * J14..J16 = ROUND(AVERAGE($I$7, $I$10, $I$13, I_n), 2)
+ */
+export function calculateKKPPeriodScore(
+  period: number,
+  monthlyScores: number[]
+): number {
+  const i7 = monthlyScores[2] ?? 0;
+  const i10 = monthlyScores[5] ?? 0;
+  const i13 = monthlyScores[8] ?? 0;
+
+  switch (period) {
+    case 1:
+      return round2(monthlyScores[0] ?? 0);
+    case 2:
+      return round2(monthlyScores[1] ?? 0);
+    case 3:
+      return round2(monthlyScores[2] ?? 0);
+    case 4:
+    case 5:
+    case 6:
+      return round2(
+        excelAverage([
+          i7,
+          monthlyScores[period - 1] ?? 0
+        ])
+      );
+    case 7:
+    case 8:
+    case 9:
+      return round2(
+        excelAverage([
+          i7,
+          i10,
+          monthlyScores[period - 1] ?? 0
+        ])
+      );
+    case 10:
+    case 11:
+    case 12:
+      return round2(
+        excelAverage([
+          i7,
+          i10,
+          i13,
+          monthlyScores[period - 1] ?? 0
+        ])
+      );
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Mesin Perhitungan Pengelolaan UP KKP 12 Bulan (PER-5/PB/2024 & Excel Workbook Compatible)
+ */
+export function calculateUPKKP(inputs: UPTUPKKPInput[]): UPTUPKKPResult {
   if (!inputs || inputs.length === 0) {
     return {
       rawValue: 0,
@@ -31,72 +123,70 @@ export function calculateUPTUPKKP(inputs: UPTUPKKPInput[]): UPTUPKKPResult {
     };
   }
 
+  // Ensure 12 periods array
+  const periodMap = new Map<string, UPTUPKKPInput>();
+  inputs.forEach(item => {
+    const key = String(item.periode).padStart(2, '0');
+    periodMap.set(key, item);
+  });
+
+  const baseInput = inputs[0];
+  const defaultUpBulan = baseInput?.upKKPPerBulan || 0;
+
+  const monthlyScores: number[] = [];
+  const processedTemp: Omit<ProcessedKKPMonthRow, 'nilaiUPKKP'>[] = [];
   let totalPenggunaan = 0;
-  const processed = inputs.map(item => {
-    const upSetahun = item.upKKPPerBulan * 12;
-    const targetPct = KKP_MONTHLY_TARGETS[item.periode] ?? 0.125;
-    const nominalTarget = upSetahun * targetPct;
 
-    totalPenggunaan += item.penggunaanKKP;
+  for (let m = 1; m <= 12; m++) {
+    const periodKey = String(m).padStart(2, '0');
+    const rowInput = periodMap.get(periodKey);
 
-    // Monthly score I:
-    let scoreI = 0;
-    if (item.penggunaanKKP === 0) {
-      scoreI = 0;
-    } else if (item.penggunaanKKP >= nominalTarget) {
-      scoreI = 110;
-    } else {
-      scoreI = 100;
-    }
+    const upKKPPerBulan = rowInput ? Number(rowInput.upKKPPerBulan ?? defaultUpBulan) : defaultUpBulan;
+    const upKKP1Tahun = upKKPPerBulan * 12; // F = E * 12
+    const targetPersen = KKP_TARGET_PERCENT[m] || 0.125;
+    const targetPenggunaanKKP = upKKP1Tahun * targetPersen; // G = F * target %
+    const penggunaanKKP = rowInput ? Number(rowInput.penggunaanKKP ?? 0) : 0;
 
+    totalPenggunaan += penggunaanKKP;
+
+    const nilaiBulanan = calculateKKPMonthlyScore(penggunaanKKP, targetPenggunaanKKP);
+    monthlyScores.push(nilaiBulanan);
+
+    processedTemp.push({
+      periode: periodKey,
+      kodeSatker: rowInput?.kodeSatker || baseInput?.kodeSatker || '',
+      namaSatker: rowInput?.namaSatker || baseInput?.namaSatker || '',
+      kodeKPPN: rowInput?.kodeKPPN || baseInput?.kodeKPPN || '',
+      upKKPPerBulan,
+      upKKP1Tahun,
+      targetPersen,
+      targetPenggunaanKKP,
+      penggunaanKKP,
+      nilaiBulanan,
+      isAchieved: penggunaanKKP > 0 && penggunaanKKP >= targetPenggunaanKKP
+    });
+  }
+
+  // Calculate cumulative scores (J5..J16)
+  const processedMonths: ProcessedKKPMonthRow[] = processedTemp.map((row, idx) => {
+    const periodNumber = idx + 1;
+    const nilaiUPKKP = calculateKKPPeriodScore(periodNumber, monthlyScores);
     return {
-      ...item,
-      upSetahun,
-      targetPct,
-      nominalTarget,
-      scoreI,
-      scoreJ: 0
+      ...row,
+      nilaiUPKKP
     };
   });
 
-  // Calculate J column exact pattern:
-  // J01 = I01
-  // J02 = I02
-  // J03 = I03
-  // J04 = AVERAGE(I03, I04)
-  // J05 = AVERAGE(I03, I05)
-  // J06 = AVERAGE(I03, I06)
-  // J07 = AVERAGE(I03, I06, I07)
-  // J08 = AVERAGE(I03, I06, I08)
-  // J09 = AVERAGE(I03, I06, I09)
-  // J10 = AVERAGE(I03, I06, I09, I10)
-  // J11 = AVERAGE(I03, I06, I09, I11)
-  // J12 = AVERAGE(I03, I06, I09, I12)
-  const iList = processed.map(x => x.scoreI);
-  const i3 = iList[2] ?? iList[iList.length - 1] ?? 0;
-  const i6 = iList[5] ?? iList[iList.length - 1] ?? 0;
-  const i9 = iList[8] ?? iList[iList.length - 1] ?? 0;
-
-  for (let idx = 0; idx < processed.length; idx++) {
-    let jVal: number;
-    if (idx < 3) {
-      jVal = round2(iList[idx]);
-    } else if (idx < 6) {
-      jVal = round2(average([i3, iList[idx]]));
-    } else if (idx < 9) {
-      jVal = round2(average([i3, i6, iList[idx]]));
-    } else {
-      jVal = round2(average([i3, i6, i9, iList[idx]]));
-    }
-    processed[idx].scoreJ = jVal;
-  }
-
-  const lastMonth = processed[processed.length - 1];
-  const rawValue = lastMonth ? lastMonth.scoreJ : 0;
+  // Nilai final KKP = J16 (Periode 12)
+  const lastMonth = processedMonths[11];
+  const rawValue = lastMonth ? lastMonth.nilaiUPKKP : 0;
 
   return {
     rawValue,
-    processedMonths: processed,
+    processedMonths,
     totalPenggunaan
   };
 }
+
+// Alias for compatibility
+export const calculateUPTUPKKP = calculateUPKKP;

@@ -91,6 +91,13 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
 }) => {
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<MasterSimulatorTab>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [projects, setProjects] = useState<SimulationProject[]>([]);
   const [activeProject, setActiveProject] = useState<SimulationProject>(() => {
     return createEmptyProject('Simulasi Mandiri (Mulai dari 0)');
@@ -135,7 +142,21 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         const cleanProjects = storedProjects.filter(p => p.id !== 'proj_sample_workbook_2026');
 
         if (cleanProjects.length > 0) {
-          const sanitizedProjects = cleanProjects.map(p => sanitizeProjectDates(p));
+          const sanitizedProjects = cleanProjects.map(p => {
+            const sanitized = sanitizeProjectDates(p);
+            // If project has no ROs, ensure capaianOutput is clean at 0
+            if (!sanitized.capaianOutput || sanitized.capaianOutput.length === 0) {
+              sanitized.capaianOutputKetepatan = [];
+            }
+            // Clear hardcoded KPPN SEMARANG I and 411792 if present on generic simulation
+            if (sanitized.metadata.namaSatker === 'KPPN SEMARANG I' || sanitized.metadata.kodeSatker === '411792') {
+              sanitized.metadata.namaSatker = 'Simulasi Mandiri';
+              sanitized.metadata.kodeSatker = '';
+              sanitized.metadata.kodeKPPN = '';
+            }
+            sanitized.output = calculateIKPA(sanitized);
+            return sanitized;
+          });
           setProjects(sanitizedProjects);
           const activeId = getActiveProjectId();
           const current = sanitizedProjects.find(p => p.id === activeId) || sanitizedProjects[0];
@@ -159,28 +180,6 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     }
     loadData();
   }, []);
-
-  // Sync selectedSatkerId if changed from parent
-  useEffect(() => {
-    if (selectedSatkerId && satkers.length > 0) {
-      const matched = satkers.find(s => s.kodeSatker === selectedSatkerId);
-      if (matched && activeProject) {
-        setActiveProject(prev => {
-          const updated: SimulationProject = {
-            ...prev,
-            metadata: {
-              ...prev.metadata,
-              kodeSatker: matched.kodeSatker,
-              namaSatker: matched.namaSatker,
-              kodeKPPN: matched.kodeKppn || prev.metadata.kodeKPPN
-            }
-          };
-          updated.output = calculateIKPA(updated);
-          return updated;
-        });
-      }
-    }
-  }, [selectedSatkerId, satkers]);
 
   // Handle Project update
   const handleUpdateProject = (updated: SimulationProject) => {
@@ -448,13 +447,23 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-              <span>Satker: <strong className="text-slate-700 dark:text-slate-200">{activeProject.metadata.namaSatker}</strong></span>
+              <span>Skenario: <strong className="text-slate-700 dark:text-slate-200">{activeProject.metadata.namaSatker || 'Simulasi Mandiri'}</strong></span>
+              {activeProject.metadata.kodeSatker && (
+                <>
+                  <span>•</span>
+                  <span>Kode Satker: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.kodeSatker}</strong></span>
+                </>
+              )}
+              {activeProject.metadata.kodeKPPN && (
+                <>
+                  <span>•</span>
+                  <span>KPPN: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.kodeKPPN}</strong></span>
+                </>
+              )}
               <span>•</span>
-              <span>Kode: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.kodeSatker}</strong></span>
+              <span>TA: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.tahunAnggaran || 2026}</strong></span>
               <span>•</span>
-              <span>KPPN: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.kodeKPPN}</strong></span>
-              <span>•</span>
-              <span>TA: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.tahunAnggaran}</strong></span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Terbuka untuk Seluruh Satker</span>
             </div>
           </div>
 

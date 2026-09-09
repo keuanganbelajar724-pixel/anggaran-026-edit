@@ -31,6 +31,27 @@ export function average(nums: number[]): number {
   return sum / valid.length;
 }
 
+/**
+ * Excel-compatible AVERAGE function:
+ * - Strictly ignores non-numeric values (e.g. text "-", null, undefined, boolean)
+ * - Returns 0 if no valid numeric values are provided
+ */
+export function excelAverageRaw(values: Array<number | string | null | undefined>): number {
+  const numericValues = values.filter(
+    value => typeof value === 'number' && Number.isFinite(value) && !isNaN(value)
+  ) as number[];
+
+  if (numericValues.length === 0) {
+    return 0;
+  }
+
+  return numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length;
+}
+
+export function excelAverage(values: Array<number | string | null | undefined>): number {
+  return round2(excelAverageRaw(values));
+}
+
 export function formatScore(value: number | undefined | null, decimals: number = 2): string {
   if (value === undefined || value === null || isNaN(value) || !isFinite(value)) return '0,00';
   return round2(value).toFixed(decimals).replace('.', ',');

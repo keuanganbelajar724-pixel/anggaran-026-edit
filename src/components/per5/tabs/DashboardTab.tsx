@@ -135,11 +135,18 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
 
             <div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                {project.metadata.namaSatker || 'KPPN SEMARANG I'}
+                {project.metadata.namaSatker || 'Simulasi Mandiri'}
               </h2>
-              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                Kode Satker: <span className="font-mono font-semibold">{project.metadata.kodeSatker}</span> | KPPN: <span className="font-mono font-semibold">{project.metadata.kodeKPPN}</span>
-              </p>
+              {project.metadata.kodeSatker ? (
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Kode Satker: <span className="font-mono font-semibold">{project.metadata.kodeSatker}</span>
+                  {project.metadata.kodeKPPN && <> | KPPN: <span className="font-mono font-semibold">{project.metadata.kodeKPPN}</span></>}
+                </p>
+              ) : (
+                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Simulator Mandiri IKPA — Terbuka & Fleksibel untuk Seluruh Satker
+                </p>
+              )}
             </div>
           </div>
 
@@ -205,13 +212,45 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Kalkulasi Alur IKPA & Pengurang Dispensasi SPM */}
+        <div className={`flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl border ${
+          isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-emerald-50/50 border-emerald-100'
+        }`}>
+          <div className="flex items-center gap-2.5 text-xs font-mono">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Calculator className="h-4 w-4" />
+            </div>
+            <div>
+              <span className="font-bold text-slate-800 dark:text-slate-200 mr-2">Rumus Perhitungan Nilai Akhir:</span>
+              <span className="text-slate-600 dark:text-slate-400">
+                (Total Tertimbang ÷ Konversi Bobot) − Pengurang Dispensasi SPM
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-mono font-bold">
+            <span className="text-slate-600 dark:text-slate-400">
+              ({output.totalWeighted.toFixed(2)} ÷ {output.weightConversion.toFixed(2)})
+            </span>
+            <span className="text-rose-600 dark:text-rose-400">
+              − {output.dispensasiReduction.toFixed(2)}
+            </span>
+            <span className="text-slate-400">=</span>
+            <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+              {output.finalScore.toFixed(2)}
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-sans">
+              {output.predikat}
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* 2. 7 Indicators Summary Cards */}
+      {/* 2. 8 Indicators & Dispensasi Summary Cards */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-            Ringkasan 7 Indikator Kinerja Pelaksanaan Anggaran
+            Ringkasan 8 Komponen Indikator IKPA & Pengurang Dispensasi SPM
           </h3>
           <span className="text-xs text-slate-500">
             Klik indikator untuk membuka rincian simulasi
@@ -311,6 +350,107 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
               </div>
             );
           })}
+
+          {/* 8. Card Khusus: Pengurang Dispensasi SPM */}
+          <div
+            className={`group relative flex flex-col justify-between rounded-2xl border p-4 shadow-xs transition-all hover:shadow-md ${
+              isDark ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-rose-300'
+            }`}
+          >
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="font-mono text-[11px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
+                    Faktor Pengurang (Minus)
+                  </span>
+                  <h4 className="font-bold text-sm text-slate-850 dark:text-slate-100 group-hover:text-rose-600 transition-colors mt-1">
+                    Dispensasi SPM
+                  </h4>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenInspector(
+                      'Faktor Pengurang: Dispensasi SPM',
+                      'N35',
+                      '=IF(Rasio=0, 0, IF(Rasio<=0.099, 0.25, IF(Rasio<=0.99, 0.50, IF(Rasio<=4.99, 0.75, 1.00))))',
+                      `-${output.dispensasiReduction.toFixed(2)}`,
+                      [
+                        {
+                          step: 'Jumlah SPM Triwulan IV',
+                          formulaHuman: `${project.dispensasiSPM?.jumlahSPMTriwulanIV || 0} SPM`,
+                          value: project.dispensasiSPM?.jumlahSPMTriwulanIV || 0
+                        },
+                        {
+                          step: 'Jumlah SPM Dispensasi',
+                          formulaHuman: `${project.dispensasiSPM?.jumlahDispensasiSPM || 0} SPM`,
+                          value: project.dispensasiSPM?.jumlahDispensasiSPM || 0
+                        },
+                        {
+                          step: 'Rasio Dispensasi SPM (Permil)',
+                          formulaHuman: `(${project.dispensasiSPM?.jumlahDispensasiSPM || 0} ÷ ${project.dispensasiSPM?.jumlahSPMTriwulanIV || 1}) × 1000 = ${output.dispensasiRatio.toFixed(2)}‰`,
+                          value: `${output.dispensasiRatio.toFixed(2)}‰`
+                        },
+                        {
+                          step: 'Pengurang Nilai Akhir IKPA',
+                          formulaHuman: `Penalti pengurang = -${output.dispensasiReduction.toFixed(2)} poin`,
+                          value: `-${output.dispensasiReduction.toFixed(2)}`
+                        }
+                      ]
+                    );
+                  }}
+                  title="Formula Inspector Dispensasi SPM"
+                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <p className={`text-[11px] mt-1 line-clamp-2 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Rasio SPM dispensasi terhadap total SPM TW IV. Mengurangi Nilai Akhir IKPA secara langsung.
+              </p>
+
+              <div className="mt-4 flex items-baseline justify-between border-t pt-3 border-slate-100 dark:border-slate-800">
+                <div>
+                  <span className="text-[10px] uppercase text-slate-400 block font-medium">Rasio Permil</span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-2xl font-black font-mono text-slate-900 dark:text-slate-100">
+                      {output.dispensasiRatio.toFixed(2)}‰
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ({project.dispensasiSPM?.jumlahDispensasiSPM || 0}/{project.dispensasiSPM?.jumlahSPMTriwulanIV || 0})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] uppercase text-slate-400 block font-medium">Pengurang</span>
+                  <span className="text-base font-bold font-mono text-rose-600 dark:text-rose-400">
+                    -{output.dispensasiReduction.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar (Penalti) */}
+              <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-rose-500 transition-all"
+                  style={{ width: `${Math.min(100, (output.dispensasiReduction / 5.0) * 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => onNavigateTab('dispensasi-spm')}
+              className={`mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl py-1.5 text-xs font-semibold transition-colors ${
+                isDark
+                  ? 'bg-slate-800 text-slate-200 hover:bg-rose-950 hover:text-rose-300'
+                  : 'bg-slate-100 text-slate-700 hover:bg-rose-50 hover:text-rose-700'
+              }`}
+            >
+              Buka Detail Simulasi <ArrowRight className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </div>
 

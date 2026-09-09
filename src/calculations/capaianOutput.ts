@@ -57,7 +57,7 @@ export function calculateCapaianOutput(
     };
   }
 
-  if ((!roInputs || roInputs.length === 0) && (!ketepatanInputs || ketepatanInputs.length === 0)) {
+  if (!roInputs || roInputs.length === 0) {
     return {
       rawValue: 0,
       cappedValue: 0,
@@ -66,7 +66,7 @@ export function calculateCapaianOutput(
       isActive,
       details: [{
         step: 'Data Capaian Output Kosong',
-        formulaHuman: 'Belum ada data Rincian Output yang diinputkan (Nilai = 0)',
+        formulaHuman: 'Belum ada data Rincian Output (RO) yang diinputkan (Nilai = 0)',
         value: 0
       }]
     };
