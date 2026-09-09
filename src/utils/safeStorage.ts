@@ -118,24 +118,14 @@ export async function removeLargeDataset(key: string): Promise<void> {
 
 /**
  * Emergency Pruning to free up LocalStorage headroom
+ * Note: Never touch or delete Firebase/Firestore internal keys (firestore_, firebase:),
+ * as doing so breaks Firestore's persistentMultipleTabManager WebStorage coordination.
  */
 export function emergencyPruneStorage(): void {
   if (typeof window === 'undefined') return;
 
   try {
-    // 1. Remove all legacy firestore client coordination lock keys
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && (k.startsWith('firestore_') || k.startsWith('firebase:'))) {
-        keysToRemove.push(k);
-      }
-    }
-    keysToRemove.forEach(k => {
-      try { localStorage.removeItem(k); } catch { /* Ignore */ }
-    });
-
-    // 2. Prune traffic analytics state
+    // 1. Prune traffic analytics state
     const trafficKey = 'kppn_traffic_analytics_real_v2';
     const trafficRaw = localStorage.getItem(trafficKey);
     if (trafficRaw) {

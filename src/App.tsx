@@ -2883,6 +2883,10 @@ export default function App() {
                   }}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  onLogoutAdmin={handleLogoutAdmin}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
                 />
               )}
 

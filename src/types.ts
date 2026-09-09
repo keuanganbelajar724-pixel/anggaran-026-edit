@@ -1314,6 +1314,7 @@ export interface DashboardConfig {
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
+  perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
 }
 
 export type NavigationTab = 
@@ -1902,6 +1903,46 @@ export interface BuletinConfig {
   };
   canvaTemplateUrl?: string;
   updatedAt?: string;
+}
+
+// -------------------------------------------------------------
+// MODUL ACUAN & EXCEL DASAR PERHITUNGAN IKPA (PER-5 / 2025)
+// -------------------------------------------------------------
+export interface ExcelSheetData {
+  sheetName: string;
+  columns: string[];
+  rows: Record<string, any>[];
+  totalRows: number;
+}
+
+export interface PerhitunganIkpaExcelReference {
+  id: string;
+  fileName: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  tahunAnggaran: string;
+  dasarHukum: string;
+  catatanAdmin?: string;
+  sheets: ExcelSheetData[];
+  base64File?: string;
+  totalSheets?: number;
+  totalDataRows?: number;
+  extractedRules?: {
+    revisiDipaBobot?: number;
+    deviasiHal3Bobot?: number;
+    penyerapanAnggaranBobot?: number;
+    belanjaKontraktualBobot?: number;
+    penyelesaianTagihanBobot?: number;
+    pengelolaanUpTupBobot?: number;
+    capaianOutputBobot?: number;
+    dispensasiSpmPengurangMax?: number;
+    targetPenyerapanTw1?: number;
+    targetPenyerapanTw2?: number;
+    targetPenyerapanTw3?: number;
+    targetPenyerapanTw4?: number;
+    ambangBatasDeviasi?: number;
+  };
 }
 
 

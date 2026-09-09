@@ -16,11 +16,8 @@ import {
   SetOptions
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { emergencyPruneStorage, safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
+import { safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
 import { trackFirestoreRead, trackFirestoreWrite } from '../utils/firestoreQuotaTracker';
-
-// Clean up any stale storage blocks
-emergencyPruneStorage();
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

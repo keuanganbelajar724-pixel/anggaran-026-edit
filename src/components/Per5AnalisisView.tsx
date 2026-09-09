@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   FileText, 
   Calculator, 
@@ -22,9 +22,21 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Calendar
+  Calendar,
+  Coins,
+  CreditCard,
+  FileSpreadsheet,
+  Lock,
+  UploadCloud,
+  Download
 } from 'lucide-react';
-import { SatkerIKPA, AppTheme, DashboardConfig } from '../types';
+import { SatkerIKPA, AppTheme, DashboardConfig, PerhitunganIkpaExcelReference } from '../types';
+import { UpTupPer5Calculator } from './per5/UpTupPer5Calculator';
+import { PerhitunganIkpaExcelUploadSection } from './per5/PerhitunganIkpaExcelUploadSection';
+import { IndikatorPerTabSimulator } from './per5/IndikatorPerTabSimulator';
+import { DEFAULT_PERHITUNGAN_IKPA_REFERENCE, downloadPerhitunganIkpaExcel } from '../utils/perhitunganIkpaExcelHelper';
+import { safeLocalStorageSet } from '../utils/safeStorage';
+import { db, doc, setDoc } from '../lib/firebase';
 
 interface Per5AnalisisViewProps {
   satkers: SatkerIKPA[];
@@ -32,6 +44,10 @@ interface Per5AnalisisViewProps {
   onOpenReminderWithAnalysis?: (satker: SatkerIKPA, analysisText: string) => void;
   theme: AppTheme;
   dashboardConfig?: DashboardConfig;
+  isAdminAuthenticated?: boolean;
+  onAuthenticateAdmin?: () => void;
+  onLogoutAdmin?: () => void;
+  onUpdateDashboardConfig?: (config: DashboardConfig) => void;
 }
 
 export const PER5_INDIKATOR_INFO = [
@@ -163,69 +179,127 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
   onSelectSatker,
   onOpenReminderWithAnalysis,
   theme,
-  dashboardConfig
+  dashboardConfig,
+  isAdminAuthenticated = false,
+  onAuthenticateAdmin,
+  onLogoutAdmin,
+  onUpdateDashboardConfig
 }) => {
   const isDark = theme === 'dark';
   
   // Selected tab inside PER-5/PB/2024 Hub
-  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'pengetahuan' | 'reformulasi' | 'strategi'>('kalkulator');
+  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'simulasi-per-indikator' | 'kalkulator-up-tup' | 'upload-acuan-excel' | 'pengetahuan' | 'reformulasi' | 'strategi'>('kalkulator');
+
+  // Active Excel Reference State (Formula & Dasar Perhitungan)
+  const [activeExcelReference, setActiveExcelReference] = useState<PerhitunganIkpaExcelReference>(() => {
+    if (dashboardConfig?.perhitunganIkpaReference) {
+      return dashboardConfig.perhitunganIkpaReference;
+    }
+    const saved = localStorage.getItem('kppn_perhitungan_ikpa_excel_ref');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.fileName) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved excel reference:', e);
+      }
+    }
+    return DEFAULT_PERHITUNGAN_IKPA_REFERENCE;
+  });
+
+  useEffect(() => {
+    if (dashboardConfig?.perhitunganIkpaReference) {
+      setActiveExcelReference(dashboardConfig.perhitunganIkpaReference);
+    }
+  }, [dashboardConfig?.perhitunganIkpaReference]);
+
+  const handleSaveExcelReference = (newRef: PerhitunganIkpaExcelReference) => {
+    setActiveExcelReference(newRef);
+    try {
+      safeLocalStorageSet('kppn_perhitungan_ikpa_excel_ref', JSON.stringify(newRef));
+    } catch (e) {
+      console.warn('Error saving excel reference to localStorage:', e);
+    }
+
+    if (onUpdateDashboardConfig && dashboardConfig) {
+      onUpdateDashboardConfig({
+        ...dashboardConfig,
+        perhitunganIkpaReference: newRef,
+        updateDates: {
+          ...dashboardConfig.updateDates,
+          per5Analisis: newRef.uploadedAt || new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+        }
+      });
+    }
+
+    try {
+      setDoc(doc(db, 'data', 'perhitungan_ikpa_reference'), {
+        reference: newRef,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => {
+        console.warn('Error saving reference to Firestore:', err);
+      });
+    } catch (e) {
+      console.warn('Error saving reference to Firestore:', e);
+    }
+  };
 
   // Simulator mode: 'slider' or 'transaksional'
   const [simulatorMode, setSimulatorMode] = useState<'slider' | 'transaksional'>('slider');
 
-  // Transactional Raw Inputs for Mode 2
+  // Transactional Raw Inputs for Mode 2 (Default 0 semua)
   const [rawInputs, setRawInputs] = useState({
     // Indikator 1: Revisi DIPA
-    revisiSem1: 0, // 0-1 = 110, 2 = 100, >=3 = 50
-    revisiSem2: 1, // 0-1 = 110, 2 = 100, >=3 = 50
+    revisiSem1: 0,
+    revisiSem2: 0,
     
     // Indikator 2: Deviasi Hal III DIPA
-    deviasiRataRataPct: 3.5, // % Rata-rata deviasi bulanan (<= 5% = 100)
+    deviasiRataRataPct: 0,
     
     // Indikator 3: Penyerapan Anggaran
-    penyerapanPegawaiPct: 95,
-    penyerapanBarangPct: 88,
-    penyerapanModalPct: 82,
-    penyerapanBansosPct: 100,
+    penyerapanPegawaiPct: 0,
+    penyerapanBarangPct: 0,
+    penyerapanModalPct: 0,
+    penyerapanBansosPct: 0,
     
     // Indikator 4: Belanja Kontraktual
-    praDipaPct: 80, // % pra dipa
-    akselerasi53Pct: 90, // % akselerasi 50-200jt
-    distribusiTw2Pct: 85, // % distribusi s.d TW II
+    praDipaPct: 0,
+    akselerasi53Pct: 0,
+    distribusiTw2Pct: 0,
     
     // Indikator 5: Penyelesaian Tagihan
-    spmLsTepatWaktu: 48,
-    spmLsTotal: 50,
+    spmLsTepatWaktu: 0,
+    spmLsTotal: 0,
     
     // Indikator 6: Pengelolaan UP & TUP
-    ketepatanGupPct: 95,
-    gupDisebulankanPct: 90,
-    setoranTupTepatWaktu: true,
-    penggunaanKkpMencapaiTarget: true, // Bonus 110 jika true
+    ketepatanGupPct: 0,
+    gupDisebulankanPct: 0,
+    setoranTupTepatWaktu: false,
+    penggunaanKkpMencapaiTarget: false,
     
     // Indikator 7: Dispensasi SPM
     dispensasiSpmCount: 0,
-    totalSpmTw4Count: 150,
+    totalSpmTw4Count: 0,
     
     // Indikator 8: Capaian Output
-    ketepatanWaktuOutputHk5: true, // Tepat = 100, Terlambat = 0
-    rataRataCapaianRoPct: 92
+    ketepatanWaktuOutputHk5: false,
+    rataRataCapaianRoPct: 0
   });
 
   // Selected Satker for analysis
   const [selectedSatkerId, setSelectedSatkerId] = useState<string>(satkers[0]?.id || '');
   const [searchSatkerQuery, setSearchSatkerQuery] = useState<string>('');
   
-  // Custom Slider Values for What-If Analysis
+  // Custom Slider Values for What-If Analysis (Default 0 semua)
   const [customIndikator, setCustomIndikator] = useState({
-    revisiDipa: 100,
-    deviasiHal3Dipa: 85,
-    penyerapanAnggaran: 90,
-    belanjaKontraktual: 88,
-    penyelesaianTagihan: 95,
-    pengelolaanUpTup: 90,
-    dispensasiSpm: 100, // 100 = 0 permil pengurang
-    capaianOutput: 88
+    revisiDipa: 0,
+    deviasiHal3Dipa: 0,
+    penyerapanAnggaran: 0,
+    belanjaKontraktual: 0,
+    penyelesaianTagihan: 0,
+    pengelolaanUpTup: 0,
+    dispensasiSpm: 0,
+    capaianOutput: 0
   });
 
   // Calculate scores from raw transactional inputs
@@ -236,62 +310,72 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
       if (count === 2) return 100;
       return 50;
     };
-    const revisiSem1Score = getSkorRevisiSem(rawInputs.revisiSem1);
-    const revisiSem2Score = getSkorRevisiSem(rawInputs.revisiSem2);
-    const scoreRevisiDipa = Math.min(100, (revisiSem1Score * 0.5) + (revisiSem2Score * 0.5));
+    const hasRevisiData = rawInputs.revisiSem1 > 0 || rawInputs.revisiSem2 > 0;
+    const scoreRevisiDipa = hasRevisiData 
+      ? Math.min(100, (getSkorRevisiSem(rawInputs.revisiSem1) * 0.5) + (getSkorRevisiSem(rawInputs.revisiSem2) * 0.5))
+      : 0;
 
     // 2. Deviasi Hal III DIPA
-    let scoreDeviasi = 100;
-    if (rawInputs.deviasiRataRataPct > 5.0) {
-      scoreDeviasi = Math.max(0, 100 - ((rawInputs.deviasiRataRataPct - 5.0) * 5));
+    let scoreDeviasi = 0;
+    if (rawInputs.deviasiRataRataPct > 0) {
+      if (rawInputs.deviasiRataRataPct <= 5.0) {
+        scoreDeviasi = 100;
+      } else {
+        scoreDeviasi = Math.max(0, 100 - ((rawInputs.deviasiRataRataPct - 5.0) * 5));
+      }
     }
 
     // 3. Penyerapan Anggaran (Rata-rata 4 jenis belanja)
-    const scorePenyerapan = Math.min(100, (
+    const hasPenyerapanData = rawInputs.penyerapanPegawaiPct > 0 || rawInputs.penyerapanBarangPct > 0 || rawInputs.penyerapanModalPct > 0 || rawInputs.penyerapanBansosPct > 0;
+    const scorePenyerapan = hasPenyerapanData ? Math.min(100, (
       rawInputs.penyerapanPegawaiPct * 0.25 +
       rawInputs.penyerapanBarangPct * 0.35 +
       rawInputs.penyerapanModalPct * 0.30 +
       rawInputs.penyerapanBansosPct * 0.10
-    ));
+    )) : 0;
 
     // 4. Belanja Kontraktual
+    const hasKontraktualData = rawInputs.praDipaPct > 0 || rawInputs.akselerasi53Pct > 0 || rawInputs.distribusiTw2Pct > 0;
     const scorePraDipa = Math.min(100, rawInputs.praDipaPct * 1.1);
     const scoreAkselerasi53 = Math.min(100, rawInputs.akselerasi53Pct);
     const scoreDistribusi = rawInputs.distribusiTw2Pct >= 75 ? 100 : Math.min(100, (rawInputs.distribusiTw2Pct / 75) * 100);
-    const scoreKontraktual = (scorePraDipa * 0.4) + (scoreAkselerasi53 * 0.4) + (scoreDistribusi * 0.2);
+    const scoreKontraktual = hasKontraktualData ? (scorePraDipa * 0.4) + (scoreAkselerasi53 * 0.4) + (scoreDistribusi * 0.2) : 0;
 
     // 5. Penyelesaian Tagihan
     const scoreTagihan = rawInputs.spmLsTotal > 0 
       ? Math.min(100, (rawInputs.spmLsTepatWaktu / rawInputs.spmLsTotal) * 100) 
-      : 100;
+      : 0;
 
     // 6. Pengelolaan UP/TUP
-    const scoreUpTunai = (rawInputs.ketepatanGupPct * 0.5) + (rawInputs.gupDisebulankanPct * 0.25) + (rawInputs.setoranTupTepatWaktu ? 100 * 0.25 : 50 * 0.25);
-    const scoreKkp = rawInputs.penggunaanKkpMencapaiTarget ? 110 : 90;
-    const scoreUpTup = (scoreUpTunai * 0.9) + (scoreKkp * 0.1);
+    const hasUpData = rawInputs.ketepatanGupPct > 0 || rawInputs.gupDisebulankanPct > 0 || rawInputs.setoranTupTepatWaktu || rawInputs.penggunaanKkpMencapaiTarget;
+    const scoreUpTunai = (rawInputs.ketepatanGupPct * 0.5) + (rawInputs.gupDisebulankanPct * 0.25) + (rawInputs.setoranTupTepatWaktu ? 100 * 0.25 : 0);
+    const scoreKkp = rawInputs.penggunaanKkpMencapaiTarget ? 110 : 0;
+    const scoreUpTup = hasUpData ? (scoreUpTunai * 0.9) + (scoreKkp * 0.1) : 0;
 
     // 7. Dispensasi SPM (Pengurang)
-    const totalSpm = rawInputs.totalSpmTw4Count > 0 ? rawInputs.totalSpmTw4Count : 1;
-    const permilDispensasi = (rawInputs.dispensasiSpmCount / totalSpm) * 1000;
-    let scoreDispensasi = 100;
+    let scoreDispensasi = 0;
     let pengurangDispensasiVal = 0;
-    if (permilDispensasi === 0) {
-      scoreDispensasi = 100;
-      pengurangDispensasiVal = 0;
-    } else if (permilDispensasi < 1.0) {
-      scoreDispensasi = 90;
-      pengurangDispensasiVal = 0.25;
-    } else if (permilDispensasi < 5.0) {
-      scoreDispensasi = 70;
-      pengurangDispensasiVal = 0.75;
-    } else {
-      scoreDispensasi = 50;
-      pengurangDispensasiVal = 1.00;
+    if (rawInputs.totalSpmTw4Count > 0) {
+      const permilDispensasi = (rawInputs.dispensasiSpmCount / rawInputs.totalSpmTw4Count) * 1000;
+      if (permilDispensasi === 0) {
+        scoreDispensasi = 100;
+        pengurangDispensasiVal = 0;
+      } else if (permilDispensasi < 1.0) {
+        scoreDispensasi = 90;
+        pengurangDispensasiVal = 0.25;
+      } else if (permilDispensasi < 5.0) {
+        scoreDispensasi = 70;
+        pengurangDispensasiVal = 0.75;
+      } else {
+        scoreDispensasi = 50;
+        pengurangDispensasiVal = 1.00;
+      }
     }
 
     // 8. Capaian Output
+    const hasOutputData = rawInputs.ketepatanWaktuOutputHk5 || rawInputs.rataRataCapaianRoPct > 0;
     const scoreWaktuOutput = rawInputs.ketepatanWaktuOutputHk5 ? 100 : 0;
-    const scoreCapaianOutput = (scoreWaktuOutput * 0.3) + (rawInputs.rataRataCapaianRoPct * 0.7);
+    const scoreCapaianOutput = hasOutputData ? (scoreWaktuOutput * 0.3) + (rawInputs.rataRataCapaianRoPct * 0.7) : 0;
 
     return {
       revisiDipa: scoreRevisiDipa,
@@ -305,6 +389,58 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
       capaianOutput: scoreCapaianOutput
     };
   }, [rawInputs]);
+
+  // Reset to 0 function for all sliders and transactional inputs
+  const handleResetSlidersToZero = () => {
+    setCustomIndikator({
+      revisiDipa: 0,
+      deviasiHal3Dipa: 0,
+      penyerapanAnggaran: 0,
+      belanjaKontraktual: 0,
+      penyelesaianTagihan: 0,
+      pengelolaanUpTup: 0,
+      dispensasiSpm: 0,
+      capaianOutput: 0
+    });
+    setRawInputs({
+      revisiSem1: 0,
+      revisiSem2: 0,
+      deviasiRataRataPct: 0,
+      penyerapanPegawaiPct: 0,
+      penyerapanBarangPct: 0,
+      penyerapanModalPct: 0,
+      penyerapanBansosPct: 0,
+      praDipaPct: 0,
+      akselerasi53Pct: 0,
+      distribusiTw2Pct: 0,
+      spmLsTepatWaktu: 0,
+      spmLsTotal: 0,
+      ketepatanGupPct: 0,
+      gupDisebulankanPct: 0,
+      setoranTupTepatWaktu: false,
+      penggunaanKkpMencapaiTarget: false,
+      dispensasiSpmCount: 0,
+      totalSpmTw4Count: 0,
+      ketepatanWaktuOutputHk5: false,
+      rataRataCapaianRoPct: 0
+    });
+  };
+
+  // Sync customIndikator from selected Satker only on explicit action
+  const handleLoadSelectedSatkerData = () => {
+    if (activeSatker) {
+      setCustomIndikator({
+        revisiDipa: activeSatker.indikator.revisiDipa,
+        deviasiHal3Dipa: activeSatker.indikator.deviasiHal3Dipa,
+        penyerapanAnggaran: activeSatker.indikator.penyerapanAnggaran,
+        belanjaKontraktual: activeSatker.indikator.belanjaKontraktual,
+        penyelesaianTagihan: activeSatker.indikator.penyelesaianTagihan,
+        pengelolaanUpTup: activeSatker.indikator.pengelolaanUpTup,
+        dispensasiSpm: activeSatker.indikator.dispensasiSpm,
+        capaianOutput: activeSatker.indikator.capaianOutput
+      });
+    }
+  };
 
   // Apply transactional calculated scores to customIndikator
   const handleApplyTransactionalToSliders = () => {
@@ -324,25 +460,10 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
   const [copiedAnalysis, setCopiedAnalysis] = useState<boolean>(false);
   const [expandedInfoIndex, setExpandedInfoIndex] = useState<number | null>(null);
 
-  // Sync customIndikator when satker selection changes
+  // Active Satker for reference
   const activeSatker = useMemo(() => {
     return satkers.find(s => s.id === selectedSatkerId) || satkers[0];
   }, [satkers, selectedSatkerId]);
-
-  React.useEffect(() => {
-    if (activeSatker) {
-      setCustomIndikator({
-        revisiDipa: activeSatker.indikator.revisiDipa,
-        deviasiHal3Dipa: activeSatker.indikator.deviasiHal3Dipa,
-        penyerapanAnggaran: activeSatker.indikator.penyerapanAnggaran,
-        belanjaKontraktual: activeSatker.indikator.belanjaKontraktual,
-        penyelesaianTagihan: activeSatker.indikator.penyelesaianTagihan,
-        pengelolaanUpTup: activeSatker.indikator.pengelolaanUpTup,
-        dispensasiSpm: activeSatker.indikator.dispensasiSpm,
-        capaianOutput: activeSatker.indikator.capaianOutput
-      });
-    }
-  }, [activeSatker]);
 
   // Calculate PER-5/PB/2024 Score Live based on official weights
   // Bobot: Revisi DIPA 10%, Deviasi Hal III 15%, Penyerapan 20%, Belanja Kontraktual 10%, Penyelesaian Tagihan 10%, Pengelolaan UP/TUP 10%, Capaian Output 25%.
@@ -359,15 +480,24 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
       capaianOutput
     } = customIndikator;
 
-    // Standard formula with PER-5/PB/2024 weights
+    // Dynamic weights from active Excel reference (defaults to PER-5/PB/2024 standard)
+    const wRev = (activeExcelReference?.extractedRules?.revisiDipaBobot ?? 10) / 100;
+    const wDev = (activeExcelReference?.extractedRules?.deviasiHal3Bobot ?? 15) / 100;
+    const wPen = (activeExcelReference?.extractedRules?.penyerapanAnggaranBobot ?? 20) / 100;
+    const wKon = (activeExcelReference?.extractedRules?.belanjaKontraktualBobot ?? 10) / 100;
+    const wTag = (activeExcelReference?.extractedRules?.penyelesaianTagihanBobot ?? 10) / 100;
+    const wUp = (activeExcelReference?.extractedRules?.pengelolaanUpTupBobot ?? 10) / 100;
+    const wOut = (activeExcelReference?.extractedRules?.capaianOutputBobot ?? 25) / 100;
+
+    // Standard formula with active reference weights
     const subtotal = 
-      (revisiDipa * 0.10) +
-      (deviasiHal3Dipa * 0.15) +
-      (penyerapanAnggaran * 0.20) +
-      (belanjaKontraktual * 0.10) +
-      (penyelesaianTagihan * 0.10) +
-      (pengelolaanUpTup * 0.10) +
-      (capaianOutput * 0.25);
+      (revisiDipa * wRev) +
+      (deviasiHal3Dipa * wDev) +
+      (penyerapanAnggaran * wPen) +
+      (belanjaKontraktual * wKon) +
+      (penyelesaianTagihan * wTag) +
+      (pengelolaanUpTup * wUp) +
+      (capaianOutput * wOut);
 
     // Factor pengurang dispensasi SPM (jika dispensasiSpm < 100, asumsikan ada pengurang)
     let pengurangDispensasi = 0;
@@ -400,13 +530,13 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
 
     // List lowest indicators needing attention
     const indicatorScores = [
-      { id: 'revisiDipa', name: 'Revisi DIPA', score: revisiDipa, bobot: 0.10, weightName: '10%' },
-      { id: 'deviasiHal3Dipa', name: 'Deviasi Hal III DIPA', score: deviasiHal3Dipa, bobot: 0.15, weightName: '15%' },
-      { id: 'penyerapanAnggaran', name: 'Penyerapan Anggaran', score: penyerapanAnggaran, bobot: 0.20, weightName: '20%' },
-      { id: 'belanjaKontraktual', name: 'Belanja Kontraktual', score: belanjaKontraktual, bobot: 0.10, weightName: '10%' },
-      { id: 'penyelesaianTagihan', name: 'Penyelesaian Tagihan', score: penyelesaianTagihan, bobot: 0.10, weightName: '10%' },
-      { id: 'pengelolaanUpTup', name: 'Pengelolaan UP/TUP', score: pengelolaanUpTup, bobot: 0.10, weightName: '10%' },
-      { id: 'capaianOutput', name: 'Capaian Output', score: capaianOutput, bobot: 0.25, weightName: '25%' },
+      { id: 'revisiDipa', name: 'Revisi DIPA', score: revisiDipa, bobot: wRev, weightName: `${(wRev * 100).toFixed(0)}%` },
+      { id: 'deviasiHal3Dipa', name: 'Deviasi Hal III DIPA', score: deviasiHal3Dipa, bobot: wDev, weightName: `${(wDev * 100).toFixed(0)}%` },
+      { id: 'penyerapanAnggaran', name: 'Penyerapan Anggaran', score: penyerapanAnggaran, bobot: wPen, weightName: `${(wPen * 100).toFixed(0)}%` },
+      { id: 'belanjaKontraktual', name: 'Belanja Kontraktual', score: belanjaKontraktual, bobot: wKon, weightName: `${(wKon * 100).toFixed(0)}%` },
+      { id: 'penyelesaianTagihan', name: 'Penyelesaian Tagihan', score: penyelesaianTagihan, bobot: wTag, weightName: `${(wTag * 100).toFixed(0)}%` },
+      { id: 'pengelolaanUpTup', name: 'Pengelolaan UP/TUP', score: pengelolaanUpTup, bobot: wUp, weightName: `${(wUp * 100).toFixed(0)}%` },
+      { id: 'capaianOutput', name: 'Capaian Output', score: capaianOutput, bobot: wOut, weightName: `${(wOut * 100).toFixed(0)}%` },
     ];
 
     const sortedByScore = [...indicatorScores].sort((a, b) => a.score - b.score);
@@ -422,7 +552,7 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
       indicatorScores,
       criticalIndicators
     };
-  }, [customIndikator]);
+  }, [customIndikator, activeExcelReference]);
 
   // Filter satkers by search
   const filteredSatkerList = useMemo(() => {
@@ -531,6 +661,48 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             </button>
 
             <button
+              onClick={() => setActiveSubTab('simulasi-per-indikator')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'simulasi-per-indikator'
+                  ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/30 font-black'
+                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+              }`}
+            >
+              <Sliders className="w-4 h-4 text-amber-900" />
+              <span>Simulasi Per Indikator</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/40 text-amber-950 font-black">8 Tab</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('kalkulator-up-tup')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'kalkulator-up-tup'
+                  ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/30 font-black'
+                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+              }`}
+            >
+              <Coins className="w-4 h-4" />
+              <span>Kalkulator UP &amp; TUP</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('upload-acuan-excel')}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                activeSubTab === 'upload-acuan-excel'
+                  ? 'bg-teal-400 text-slate-950 shadow-lg shadow-teal-400/30 font-black'
+                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+              <span>Acuan &amp; Upload Excel</span>
+              {isAdminAuthenticated ? (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black">Admin</span>
+              ) : (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/40 text-slate-200">Lihat/Unduh</span>
+              )}
+            </button>
+
+            <button
               onClick={() => setActiveSubTab('pengetahuan')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
                 activeSubTab === 'pengetahuan'
@@ -561,10 +733,43 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
           <button
             onClick={() => setActiveSubTab('kalkulator')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'kalkulator' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'text-slate-300 hover:text-white'
+              activeSubTab === 'kalkulator' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black' : 'text-slate-300 hover:text-white'
             }`}
           >
             🧮 Engine Analisis &amp; Simulator
+          </button>
+          <button
+            onClick={() => setActiveSubTab('simulasi-per-indikator')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+              activeSubTab === 'simulasi-per-indikator' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-black' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <span>🎛️ Simulasi Per Indikator (8 Tab Terpisah)</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('kalkulator-up-tup')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
+              activeSubTab === 'kalkulator-up-tup' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-black' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            💳 Kalkulator Khusus UP &amp; TUP (Slide 30-34)
+          </button>
+          <button
+            onClick={() => setActiveSubTab('upload-acuan-excel')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+              activeSubTab === 'upload-acuan-excel' 
+                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 font-black' 
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>📊 Contoh Acuan &amp; Upload Excel (Dasar Perhitungan)</span>
+            {isAdminAuthenticated ? (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 font-mono">Upload Admin</span>
+            ) : (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Khusus Admin</span>
+            )}
           </button>
           <button
             onClick={() => setActiveSubTab('pengetahuan')}
@@ -595,7 +800,48 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
 
       {/* SUB-TAB 1: ENGINE ANALISIS & SIMULATOR WHAT-IF */}
       {activeSubTab === 'kalkulator' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="space-y-6">
+          {/* Reference File Callout Banner */}
+          <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+            isDark ? 'bg-slate-900/90 border-slate-800 text-slate-300' : 'bg-teal-50/80 border-teal-200 text-slate-800'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="font-bold flex items-center gap-2">
+                  <span>Dasar Acuan Formula Aktif:</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-black">{activeExcelReference.fileName}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">{activeExcelReference.sheets.length} Sheets</span>
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Formula bobot: Revisi ({activeExcelReference.extractedRules?.revisiDipaBobot || 10}%), Deviasi ({activeExcelReference.extractedRules?.deviasiHal3Bobot || 15}%), Penyerapan ({activeExcelReference.extractedRules?.penyerapanAnggaranBobot || 20}%), Kontraktual ({activeExcelReference.extractedRules?.belanjaKontraktualBobot || 10}%), Tagihan ({activeExcelReference.extractedRules?.penyelesaianTagihanBobot || 10}%), UP/TUP ({activeExcelReference.extractedRules?.pengelolaanUpTupBobot || 10}%), Caput ({activeExcelReference.extractedRules?.capaianOutputBobot || 25}%).
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button
+                onClick={() => setActiveSubTab('upload-acuan-excel')}
+                className="px-3 py-1.5 rounded-lg font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Buka Spreadsheet</span>
+              </button>
+              {isAdminAuthenticated && (
+                <button
+                  onClick={() => setActiveSubTab('upload-acuan-excel')}
+                  className="px-3 py-1.5 rounded-lg font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>Upload Excel Baru</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Left Column: Satker Picker & Indicator Sliders */}
           <div className="lg:col-span-7 space-y-6">
@@ -677,30 +923,51 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   </div>
                 </div>
 
-                {/* Mode Selector Toggle */}
-                <div className={`flex items-center p-1 rounded-xl border shrink-0 ${
-                  isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-300'
-                }`}>
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Quick Action Buttons */}
                   <button
-                    onClick={() => setSimulatorMode('slider')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      simulatorMode === 'slider'
-                        ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
-                        : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
-                    }`}
+                    onClick={handleResetSlidersToZero}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-bold transition-all shadow-xs"
+                    title="Kosongkan nilai simulasi menjadi 0 semua"
                   >
-                    🎚️ Gesper Skor
+                    <RotateCcw className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    <span>Reset ke 0</span>
                   </button>
+
                   <button
-                    onClick={() => setSimulatorMode('transaksional')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      simulatorMode === 'transaksional'
-                        ? 'bg-amber-400 text-slate-950 shadow-md font-black'
-                        : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
-                    }`}
+                    onClick={handleLoadSelectedSatkerData}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold transition-all shadow-xs"
+                    title="Salin nilai dari Satker yang dipilih saat ini"
                   >
-                    🧮 Parameter Riil Satker
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Muat Data Satker</span>
                   </button>
+
+                  {/* Mode Selector Toggle */}
+                  <div className={`flex items-center p-1 rounded-xl border shrink-0 ${
+                    isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-300'
+                  }`}>
+                    <button
+                      onClick={() => setSimulatorMode('slider')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        simulatorMode === 'slider'
+                          ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                          : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
+                      }`}
+                    >
+                      🎚️ Gesper Skor
+                    </button>
+                    <button
+                      onClick={() => setSimulatorMode('transaksional')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        simulatorMode === 'transaksional'
+                          ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                          : isDark ? 'text-slate-300 hover:text-white' : 'text-slate-700 hover:text-slate-900'
+                      }`}
+                    >
+                      🧮 Parameter Riil Satker
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -824,7 +1091,18 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                   }`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className={`font-bold ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>6. Pengelolaan UP &amp; TUP (10%)</span>
-                      <span className="font-mono font-bold text-purple-500 dark:text-purple-400">{(Number.isFinite(customIndikator.pengelolaanUpTup) ? customIndikator.pengelolaanUpTup : 0).toFixed(1)}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubTab('kalkulator-up-tup')}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Buka kalkulator tabel riil UP & TUP"
+                        >
+                          <Coins className="w-2.5 h-2.5" />
+                          <span>Tab Khusus UP/TUP ↗</span>
+                        </button>
+                        <span className="font-mono font-bold text-purple-500 dark:text-purple-400">{(Number.isFinite(customIndikator.pengelolaanUpTup) ? customIndikator.pengelolaanUpTup : 0).toFixed(1)}</span>
+                      </div>
                     </div>
                     <input
                       type="range"
@@ -1043,7 +1321,17 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
                     }`}>
                       <div className="flex justify-between items-center font-bold">
                         <span>6. Pengelolaan UP/TUP &amp; KKP</span>
-                        <span className="font-mono text-purple-500 font-black">{(Number.isFinite(transactionalScores.pengelolaanUpTup) ? transactionalScores.pengelolaanUpTup : 0).toFixed(1)} pt</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubTab('kalkulator-up-tup')}
+                            className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/60 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <Coins className="w-2.5 h-2.5" />
+                            <span>Buka Tab Khusus UP/TUP ↗</span>
+                          </button>
+                          <span className="font-mono text-purple-500 font-black">{(Number.isFinite(transactionalScores.pengelolaanUpTup) ? transactionalScores.pengelolaanUpTup : 0).toFixed(1)} pt</span>
+                        </div>
                       </div>
                       <div className="space-y-2">
                         <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -1258,6 +1546,59 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
           </div>
 
         </div>
+        </div>
+      )}
+
+      {/* SUB-TAB KHUSUS: SIMULASI PER INDIKATOR (8 TAB MANDIRI) */}
+      {activeSubTab === 'simulasi-per-indikator' && (
+        <IndikatorPerTabSimulator
+          satkers={satkers}
+          selectedSatkerId={selectedSatkerId}
+          onSelectSatker={(id) => {
+            setSelectedSatkerId(id);
+            const matched = satkers.find(s => s.kodeSatker === id);
+            if (matched && onSelectSatker) onSelectSatker(matched);
+          }}
+          onApplyScoreToMainSimulator={(indicatorKey, score) => {
+            setCustomIndikator(prev => ({
+              ...prev,
+              [indicatorKey]: score
+            }));
+            setActiveSubTab('kalkulator');
+            setSimulatorMode('slider');
+          }}
+          activeExcelReference={activeExcelReference}
+          theme={theme}
+        />
+      )}
+
+      {/* SUB-TAB KHUSUS: KALKULATOR & SIMULATOR PENGELOLAAN UP DAN TUP (PER-5/PB/2024) */}
+      {activeSubTab === 'kalkulator-up-tup' && (
+        <UpTupPer5Calculator
+          satkers={satkers}
+          selectedSatkerId={selectedSatkerId}
+          onSelectSatker={(id) => setSelectedSatkerId(id)}
+          onApplyScoreToMainSimulator={(score) => {
+            setCustomIndikator(prev => ({
+              ...prev,
+              pengelolaanUpTup: score
+            }));
+            setActiveSubTab('kalkulator');
+            setSimulatorMode('slider');
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {/* SUB-TAB KHUSUS: CONTOH ACUAN & UPLOAD EXCEL DASAR PERHITUNGAN */}
+      {activeSubTab === 'upload-acuan-excel' && (
+        <PerhitunganIkpaExcelUploadSection
+          referenceData={activeExcelReference}
+          isAdminAuthenticated={isAdminAuthenticated}
+          onAuthenticateAdmin={onAuthenticateAdmin}
+          onSaveReference={handleSaveExcelReference}
+          theme={theme}
+        />
       )}
 
       {/* SUB-TAB 2: PANDUAN 8 INDIKATOR PER-5/PB/2024 */}
