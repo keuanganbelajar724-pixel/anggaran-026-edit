@@ -114,7 +114,10 @@ export function calculateKKPPeriodScore(
 /**
  * Mesin Perhitungan Pengelolaan UP KKP 12 Bulan (PER-5/PB/2024 & Excel Workbook Compatible)
  */
-export function calculateUPKKP(inputs: UPTUPKKPInput[]): UPTUPKKPResult {
+export function calculateUPKKP(
+  inputs: UPTUPKKPInput[],
+  cutoffMonth: number = 12
+): UPTUPKKPResult {
   if (!inputs || inputs.length === 0) {
     return {
       rawValue: 0,
@@ -177,9 +180,10 @@ export function calculateUPKKP(inputs: UPTUPKKPInput[]): UPTUPKKPResult {
     };
   });
 
-  // Nilai final KKP = J16 (Periode 12)
-  const lastMonth = processedMonths[11];
-  const rawValue = lastMonth ? lastMonth.nilaiUPKKP : 0;
+  // Nilai final KKP = periode cutoffMonth (default J16 / Periode 12)
+  const targetIdx = Math.min(processedMonths.length - 1, Math.max(0, (cutoffMonth || 12) - 1));
+  const targetMonth = processedMonths[targetIdx] || processedMonths[processedMonths.length - 1];
+  const rawValue = targetMonth ? targetMonth.nilaiUPKKP : 0;
 
   return {
     rawValue,

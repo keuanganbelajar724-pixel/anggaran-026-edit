@@ -28,30 +28,37 @@ import { normalizeDateToIso } from '../utils/ikpaDateUtils';
 
 export const WORKBOOK_EXPECTED_RESULTS = {
   revisiDIPA: { raw: 80.00, capped: 80.00, weighted: 8.00, weight: 10 },
-  deviasiHalIII: { raw: 84.73, capped: 84.73, weighted: 12.71, weight: 15 },
+  deviasiHalIII: { raw: 87.51, capped: 87.51, weighted: 13.13, weight: 15 },
   penyerapan: { raw: 99.93, capped: 99.93, weighted: 19.99, weight: 20 },
   belanjaKontraktual: { raw: 99.04, capped: 99.04, weighted: 9.90, weight: 10 },
   penyelesaianTagihan: { raw: 96.15, capped: 96.15, weighted: 9.62, weight: 10 },
   pengelolaanUPTUP: { raw: 94.21, capped: 94.21, weighted: 9.42, weight: 10 },
   capaianOutput: { raw: 100.00, capped: 100.00, weighted: 25.00, weight: 25 },
   dispensasiSPM: { reduction: 0.75, ratio: 3.64 },
-  totalWeighted: 94.64,
+  totalWeighted: 95.06,
   weightConversion: 1.00,
-  finalScore: 93.89
+  finalScore: 94.31
 };
 
 export function getWorkbookSampleProject(): SimulationProject {
-  const revisiDIPA: RevisiDIPAInput[] = DEFAULT_EXCEL_REVISI_ROWS.map((r: any) => ({
-    no: r.id,
-    periode: r.periode,
-    revisiKe: r.revisiKe,
-    tanggalRevisi: normalizeDateToIso(r.tanggalRevisi),
-    kodeJenisRevisi: r.kodeJenisRevisi,
-    paguDipaSebelum: r.paguSebelum,
-    paguDipaMenjadi: r.paguMenjadi,
-    jenisRevisi14: r.is14Jenis ? 'ya' : 'tidak',
-    keterangan: r.keterangan
-  }));
+  const revisiDIPA: RevisiDIPAInput[] = DEFAULT_EXCEL_REVISI_ROWS.map((r: any) => {
+    const hasRevision = Boolean(r.kodeJenisRevisi && String(r.kodeJenisRevisi).trim());
+    const jenis14: "ya" | "tidak" | "-" = r.empatBelasJenis || (r.is14Jenis ? 'ya' : (hasRevision ? 'tidak' : '-'));
+    return {
+      no: r.id,
+      periode: r.periode,
+      revisiKe: hasRevision ? r.revisiKe : null,
+      tanggalRevisi: hasRevision ? normalizeDateToIso(r.tanggalRevisi) : null,
+      kodeJenisRevisi: r.kodeJenisRevisi || '',
+      paguDipaSebelum: hasRevision ? r.paguSebelum : null,
+      paguDipaMenjadi: hasRevision ? r.paguMenjadi : null,
+      paguSebelum: hasRevision ? r.paguSebelum : null,
+      paguMenjadi: hasRevision ? r.paguMenjadi : null,
+      jenisRevisi14: jenis14,
+      empatBelasJenis: jenis14,
+      keterangan: r.id <= 6 ? 'Semester I' : 'Semester II'
+    };
+  });
 
   const deviasiHalIII: DeviasiHalIIIInput[] = DEFAULT_EXCEL_DEV_HAL3_ROWS.map((d: any) => ({
     periode: d.periode,

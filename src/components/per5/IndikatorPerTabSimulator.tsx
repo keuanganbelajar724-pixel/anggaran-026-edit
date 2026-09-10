@@ -48,6 +48,7 @@ import {
 } from '../../storage/indexedDb';
 
 import { FormulaInspectorModal } from './formulaInspectorModal';
+import { InterfaceTab } from './tabs/InterfaceTab';
 import { DashboardTab } from './tabs/DashboardTab';
 import { RevisiDipaTab } from './tabs/RevisiDipaTab';
 import { DeviasiHal3Tab } from './tabs/DeviasiHal3Tab';
@@ -60,6 +61,7 @@ import { DispensasiTab } from './tabs/DispensasiTab';
 import { SkenarioTab } from './tabs/SkenarioTab';
 
 export type MasterSimulatorTab =
+  | 'interface'
   | 'dashboard'
   | 'revisi-dipa'
   | 'deviasi-hal3'
@@ -87,14 +89,16 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   onSelectSatker,
   onApplyScoreToMainSimulator,
   theme,
-  initialTab = 'dashboard'
+  initialTab = 'interface'
 }) => {
   const isDark = theme === 'dark';
-  const [activeTab, setActiveTab] = useState<MasterSimulatorTab>(initialTab);
+  const [activeTab, setActiveTab] = useState<MasterSimulatorTab>(
+    initialTab === 'dashboard' ? 'interface' : initialTab
+  );
 
   useEffect(() => {
     if (initialTab) {
-      setActiveTab(initialTab);
+      setActiveTab(initialTab === 'dashboard' ? 'interface' : initialTab);
     }
   }, [initialTab]);
 
@@ -380,7 +384,7 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   };
 
   const tabsConfig: { id: MasterSimulatorTab; label: string; icon: any; badge?: string }[] = [
-    { id: 'dashboard', label: 'Ringkasan & Golden Test', icon: ShieldCheck },
+    { id: 'interface', label: 'Interface (Ringkasan)', icon: ShieldCheck, badge: 'Utama' },
     { id: 'revisi-dipa', label: '1. Revisi DIPA', icon: FileText, badge: '10%' },
     { id: 'deviasi-hal3', label: '2. Deviasi Hal III', icon: Calendar, badge: '15%' },
     { id: 'penyerapan', label: '3. Penyerapan', icon: TrendingUp, badge: '20%' },
@@ -632,11 +636,13 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
 
       {/* 3. TAB VIEW CONTENT */}
       <div>
-        {activeTab === 'dashboard' && (
-          <DashboardTab
+        {(activeTab === 'interface' || activeTab === 'dashboard') && (
+          <InterfaceTab
             project={activeProject}
-            onNavigateTab={(t) => setActiveTab(t)}
+            onNavigateTab={(t) => setActiveTab(t === 'dashboard' ? 'interface' : t)}
             onOpenInspector={handleOpenInspector}
+            onUpdateProject={handleUpdateProject}
+            onResetProjectToClean={handleResetToZero}
             isDark={isDark}
           />
         )}

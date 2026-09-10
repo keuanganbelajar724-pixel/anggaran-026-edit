@@ -56,19 +56,81 @@ export interface IKPAResult {
   predikat: string;
 }
 
+export interface RevisionDipaRow {
+  no: number;
+  periode: string;
+  revisiKe: number | null;
+  tanggalRevisi: string | null;
+  kodeJenisRevisi: string;
+  paguSebelum: number | null;
+  paguMenjadi: number | null;
+  empatBelasJenis: "ya" | "tidak" | "-";
+  diperhitungkan: "diperhitungkan" | "tidak diperhitungkan";
+  jumlahDiperhitungkan: number;
+  keterangan: string;
+  nilaiIndikator: number;
+  nilaiIKPA: number;
+}
+
 export interface RevisiDIPAInput {
   no: number;
   periode: string; // e.g. "01", "02"
-  revisiKe?: number;
-  tanggalRevisi?: string;
+  revisiKe?: number | null;
+  tanggalRevisi?: string | null;
   kodeJenisRevisi?: string;
-  paguDipaSebelum?: number;
-  paguDipaMenjadi?: number;
+  paguDipaSebelum?: number | null;
+  paguDipaMenjadi?: number | null;
   jenisRevisi14: "ya" | "tidak" | "-";
   keterangan?: string;
+  // Aliases for exact RevisionDipaRow compatibility
+  paguSebelum?: number | null;
+  paguMenjadi?: number | null;
+  empatBelasJenis?: "ya" | "tidak" | "-";
+  diperhitungkan?: "diperhitungkan" | "tidak diperhitungkan";
+  jumlahDiperhitungkan?: number;
+  nilaiIndikator?: number;
+  nilaiIKPA?: number;
 }
 
-export interface DeviasiHalIIIInput {
+export interface DeviasiHal3Row {
+  periode: string; // "01" .. "12"
+
+  rencana51: number;
+  rencana52: number;
+  rencana53: number;
+  rencana57: number;
+
+  penyerapan51: number;
+  penyerapan52: number;
+  penyerapan53: number;
+  penyerapan57: number;
+
+  deviasi51: number;
+  deviasi52: number;
+  deviasi53: number;
+  deviasi57: number;
+
+  persenDeviasi51: number;
+  persenDeviasi52: number;
+  persenDeviasi53: number;
+  persenDeviasi57: number;
+
+  proporsi51: number;
+  proporsi52: number;
+  proporsi53: number;
+  proporsi57: number;
+
+  deviasiTertimbang51: number;
+  deviasiTertimbang52: number;
+  deviasiTertimbang53: number;
+  deviasiTertimbang57: number;
+
+  deviasiSeluruhJenisBelanja: number;
+  rataRataDeviasiKumulatif: number;
+  nilaiIKPA: number;
+}
+
+export interface DeviasiHalIIIInput extends Partial<DeviasiHal3Row> {
   periode: string; // "01" .. "12"
   rencana51: number;
   rencana52: number;
@@ -84,7 +146,59 @@ export interface DeviasiHalIIIInput {
   proporsiPagu57?: number;
 }
 
-export interface PenyerapanInput {
+export interface PenyerapanPeriod {
+  periode: string;
+
+  pagu51: number;
+  pagu52: number;
+  pagu53: number;
+  pagu57: number;
+
+  blokir51: number;
+  blokir52: number;
+  blokir53: number;
+  blokir57: number;
+
+  realisasi51: number;
+  realisasi52: number;
+  realisasi53: number;
+  realisasi57: number;
+
+  paguNetto51: number;
+  paguNetto52: number;
+  paguNetto53: number;
+  paguNetto57: number;
+
+  target51: number;
+  target52: number;
+  target53: number;
+  target57: number;
+
+  targetNominal51: number;
+  targetNominal52: number;
+  targetNominal53: number;
+  targetNominal57: number;
+
+  achievement51: number;
+  achievement52: number;
+  achievement53: number;
+  achievement57: number;
+
+  proportion51: number;
+  proportion52: number;
+  proportion53: number;
+  proportion57: number;
+
+  nkpa51: number;
+  nkpa52: number;
+  nkpa53: number;
+  nkpa57: number;
+
+  nilaiPeriode: number;
+  nilaiIndikator: number;
+}
+
+export interface PenyerapanInput extends Partial<PenyerapanPeriod> {
   periode: string; // "01" .. "12"
   pagu51: number;
   pagu52: number;
@@ -124,20 +238,39 @@ export interface BelanjaKontraktualInput {
   nilaiAkselerasi53?: number;
 }
 
-export interface PenyelesaianTagihanInput {
+export interface PenyelesaianTagihanRow {
   no: number;
+  identitasTagihan: string;
+  keterangan: string;
+  jenisTagihan: string;
+  nomorSPP: string;
+  tanggalSPP: string | null;
+  tanggalTagihan: string | null;
+  tanggalDokumenPendukung: string | null;
+  tanggalPenyampaian: string | null;
+  tanggalMulai: string | null;
+  tanggalKonversi: string | null;
+  selisihHari: number | null;
+  hariLibur: number;
+  jumlahHariEfektif: number | null;
+  status: "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP";
+  keteranganHasil: string;
+  // Compatibility & Legacy fields
   satker?: string;
-  nomorSP2D: string;
-  tanggalSP2D: string;
-  nomorSPM: string;
-  tanggalSPM: string;
-  nilaiSP2D: number;
-  tanggalBAST?: string;
-  tanggalBAPP?: string;
-  tanggalMulaiPerhitungan: string;
-  tanggalKonversiADK: string;
-  jumlahHariLibur: number;
+  nomorSPM?: string;
+  tanggalSPM?: string | null;
+  nomorSP2D?: string;
+  tanggalSP2D?: string | null;
+  nilaiSP2D?: number;
+  tanggalBAST?: string | null;
+  tanggalBAPP?: string | null;
+  tanggalMulaiPerhitungan?: string | null;
+  tanggalKonversiADK?: string | null;
+  jumlahHariLibur?: number;
+  jumlahHariFinal?: number | null;
 }
+
+export type PenyelesaianTagihanInput = PenyelesaianTagihanRow;
 
 export interface UPTUPTunaiInput {
   no: number;
@@ -168,10 +301,14 @@ export interface UPTUPKKPInput {
   penggunaanKKP: number;
 }
 
-export interface DispensasiSPMInput {
+export interface DispensasiSPM {
   jumlahSPMTriwulanIV: number;
   jumlahDispensasiSPM: number;
+  rasio?: number;
+  pengurangNilai?: number;
 }
+
+export type DispensasiSPMInput = DispensasiSPM;
 
 export interface CapaianOutputInput {
   no: number;

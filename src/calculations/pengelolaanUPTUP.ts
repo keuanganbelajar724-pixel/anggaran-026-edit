@@ -41,7 +41,8 @@ export function calculatePengelolaanUPTUP(
   tunaiInputs: UPTUPTunaiInput[],
   kkpInputs: UPTUPKKPInput[],
   weight: number = 10,
-  isActive: boolean = true
+  isActive: boolean = true,
+  cutoffMonth: number = 12
 ): IndicatorResult {
   const details: CalculationDetail[] = [];
 
@@ -61,7 +62,7 @@ export function calculatePengelolaanUPTUP(
   }
 
   const tunaiResult: UPTUPTunaiResult = calculateUPTUPTunai(tunaiInputs);
-  const kkpResult: UPTUPKKPResult = calculateUPKKP(kkpInputs);
+  const kkpResult: UPTUPKKPResult = calculateUPKKP(kkpInputs, cutoffMonth);
 
   const valTunai = tunaiResult.rawValue; // Q28 (raw unrounded)
   const valKKP = kkpResult.rawValue; // J16

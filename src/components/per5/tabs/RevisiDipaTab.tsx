@@ -1,17 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FileText,
-  Sliders,
   CheckCircle2,
   AlertTriangle,
-  Plus,
-  Trash2,
+  RotateCcw,
+  Download,
+  Upload,
+  Copy,
+  Check,
   Calculator,
   Info,
-  Layers
+  Layers,
+  HelpCircle,
+  ExternalLink,
+  Save,
+  CheckCheck,
+  XCircle,
+  Clock,
+  ShieldCheck,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { SimulationProject, RevisiDIPAInput } from '../../../models/ikpa';
-import { DAFTAR_14_JENIS_REVISI_DIPA } from '../../../utils/excelReferenceDataHelper';
+import { SimulationProject, RevisiDIPAInput, RevisionDipaRow } from '../../../models/ikpa';
+import {
+  VALID_REVISION_CODES,
+  VALID_REVISION_CODE_MAP,
+  parseRevisionCodes,
+  checkRevisionCodes,
+  calculateRevisionEligibility,
+  calculateSemesterIKPA,
+  calculateFinalRevisionScore,
+  calculateRevisiDIPA,
+  runRevisiDipaGoldenTest,
+  GoldenTestVerificationResult,
+  REVISI_DIPA_GOLDEN_INPUTS
+} from '../../../calculations/revisiDipa';
+import { formatRupiah } from '../../../utils/excelReferenceDataHelper';
+import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
 
 interface RevisiDipaTabProps {
   project: SimulationProject;
@@ -26,207 +51,895 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
   onOpenInspector,
   isDark = false
 }) => {
-  const result = project.output?.indicators.revisiDIPA;
-  const rows = project.revisiDIPA;
+  // Ambil data baris revisiDIPA dari project (atau inisialisasi jika kosong)
+  const rawInputs: RevisiDIPAInput[] = useMemo(() => {
+    if (project.revisiDIPA && project.revisiDIPA.length >= 12) {
+      return project.revisiDIPA;
+    }
+    // Jika belum ada atau kurang dari 12 baris, lengkapi 12 periode
+    return Array.from({ length: 12 }, (_, i) => {
+      const existing = project.revisiDIPA?.[i];
+      const no = i + 1;
+      const periode = String(no).padStart(2, '0');
+      const keterangan = i < 6 ? 'Semester I' : 'Semester II';
+      return {
+        no,
+        periode,
+        revisiKe: existing?.revisiKe ?? null,
+        tanggalRevisi: existing?.tanggalRevisi ?? null,
+        kodeJenisRevisi: existing?.kodeJenisRevisi ?? '',
+        paguDipaSebelum: existing?.paguDipaSebelum ?? existing?.paguSebelum ?? null,
+        paguDipaMenjadi: existing?.paguDipaMenjadi ?? existing?.paguMenjadi ?? null,
+        paguSebelum: existing?.paguSebelum ?? existing?.paguDipaSebelum ?? null,
+        paguMenjadi: existing?.paguMenjadi ?? existing?.paguDipaMenjadi ?? null,
+        jenisRevisi14: (existing?.empatBelasJenis ?? existing?.jenisRevisi14 ?? '-') as "ya" | "tidak" | "-",
+        empatBelasJenis: (existing?.empatBelasJenis ?? existing?.jenisRevisi14 ?? '-') as "ya" | "tidak" | "-",
+        keterangan
+      };
+    });
+  }, [project.revisiDIPA]);
 
-  const handleUpdateRow = (index: number, field: keyof RevisiDIPAInput, value: any) => {
-    const newRows = [...rows];
-    newRows[index] = { ...newRows[index], [field]: value };
-    onUpdateProject({ ...project, revisiDIPA: newRows });
+  // Hitung tabel 12 periode deterministik sesuai formula Excel
+  const calculatedRows: RevisionDipaRow[] = useMemo(() => {
+    return calculateSemesterIKPA(rawInputs);
+  }, [rawInputs]);
+
+  // Hitung hasil indikator lengkap
+  const indicatorResult = useMemo(() => {
+    return calculateRevisiDIPA(calculatedRows, 10, true);
+  }, [calculatedRows]);
+
+  const sem1Count = calculatedRows[5]?.jumlahDiperhitungkan ?? 0;
+  const sem2Count = calculatedRows[11]?.jumlahDiperhitungkan ?? 0;
+  const l9Value = calculatedRows[5]?.nilaiIndikator ?? 110;
+  const l15Value = calculatedRows[11]?.nilaiIndikator ?? 50;
+  const m15Value = calculatedRows[11]?.nilaiIKPA ?? 80;
+  const finalScore = calculateFinalRevisionScore(calculatedRows);
+
+  // State draft input untuk nilai rupiah agar nyaman diketik tanpa re-format mendadak
+  const [draftPaguSebelum, setDraftPaguSebelum] = useState<Record<number, string>>({});
+  const [draftPaguMenjadi, setDraftPaguMenjadi] = useState<Record<number, string>>({});
+
+  // State toast dan feedback UI
+  const [copied, setCopied] = useState(false);
+  const [savedFeedback, setSavedFeedback] = useState(false);
+  const [goldenTestResult, setGoldenTestResult] = useState<GoldenTestVerificationResult | null>(null);
+  const [show14ReferenceModal, setShow14ReferenceModal] = useState(false);
+  const [showAuditPanel, setShowAuditPanel] = useState(true);
+
+  // Update baris spesifik
+  const handleUpdateRow = (
+    index: number,
+    updates: Partial<RevisiDIPAInput & RevisionDipaRow>
+  ) => {
+    const updated = calculatedRows.map((r, i) => {
+      if (i !== index) return r;
+      const merged = { ...r, ...updates };
+      // Pastikan sinkronisasi nama properti
+      if (updates.paguSebelum !== undefined) {
+        merged.paguDipaSebelum = updates.paguSebelum;
+      }
+      if (updates.paguMenjadi !== undefined) {
+        merged.paguDipaMenjadi = updates.paguMenjadi;
+      }
+      if (updates.empatBelasJenis !== undefined) {
+        merged.jenisRevisi14 = updates.empatBelasJenis;
+      }
+      return merged;
+    });
+
+    onUpdateProject({
+      ...project,
+      revisiDIPA: updated as any
+    });
   };
 
-  const handleAddRow = () => {
-    const nextNo = rows.length + 1;
-    const newRow: RevisiDIPAInput = {
-      no: nextNo,
-      periode: String(Math.min(12, nextNo)).padStart(2, '0'),
-      revisiKe: nextNo,
-      tanggalRevisi: '',
-      kodeJenisRevisi: '201',
-      paguDipaSebelum: 0,
-      paguDipaMenjadi: 0,
-      jenisRevisi14: 'tidak',
-      keterangan: nextNo <= 6 ? 'Semester I' : 'Semester II'
+  // Reset baris tertentu ke kondisi tidak ada revisi ("-")
+  const handleClearRow = (index: number) => {
+    handleUpdateRow(index, {
+      revisiKe: null,
+      tanggalRevisi: null,
+      kodeJenisRevisi: '',
+      paguSebelum: null,
+      paguMenjadi: null,
+      empatBelasJenis: '-'
+    });
+  };
+
+  // Reset seluruh tabel ke Data Standar Workbook Excel (Golden Data)
+  const handleResetToGolden = () => {
+    if (window.confirm('Reset seluruh data Revisi DIPA ke data standar Excel resmi (Kalkulator Perhitungan IKPA 2026)?')) {
+      const resetRows = calculateSemesterIKPA(REVISI_DIPA_GOLDEN_INPUTS as any);
+      onUpdateProject({
+        ...project,
+        revisiDIPA: resetRows as any
+      });
+      setGoldenTestResult(null);
+    }
+  };
+
+  // Export data tabel ke file JSON lokal
+  const handleExportJSON = () => {
+    const dataStr = JSON.stringify(calculatedRows, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const satkerLabel = project.metadata?.namaSatker || project.name || 'satker';
+    a.download = `revisi_dipa_${satkerLabel}_2026.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import data tabel dari file JSON lokal
+  const handleImportJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const newRows = calculateSemesterIKPA(parsed);
+          onUpdateProject({
+            ...project,
+            revisiDIPA: newRows as any
+          });
+          alert('Berhasil mengimpor data Revisi DIPA dari file JSON!');
+        } else {
+          alert('Format JSON tidak valid atau bukan berupa array baris revisi.');
+        }
+      } catch (err) {
+        alert('Gagal membaca file JSON: format file rusak atau tidak valid.');
+      }
     };
-    onUpdateProject({ ...project, revisiDIPA: [...rows, newRow] });
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
-  const handleDeleteRow = (index: number) => {
-    const newRows = rows.filter((_, i) => i !== index);
-    onUpdateProject({ ...project, revisiDIPA: newRows });
+  // Salin seluruh tabel ke Clipboard format TSV (dapat langsung di-paste ke Microsoft Excel)
+  const handleCopyTableToExcel = () => {
+    const headers = [
+      'No',
+      'Periode',
+      'Revisi Ke',
+      'Tanggal Revisi',
+      'Kode Jenis Revisi',
+      'Pagu DIPA Sebelum',
+      'Pagu DIPA Menjadi',
+      '14 Jenis Revisi?',
+      'Apakah diperhitungkan dalam Indikator Revisi DIPA',
+      'Jumlah Revisi yang diperhitungkan',
+      'Keterangan',
+      'Nilai Indikator',
+      'Nilai IKPA'
+    ];
+
+    const rowsTsv = calculatedRows.map(r => [
+      r.no,
+      r.periode,
+      r.revisiKe ?? '',
+      r.tanggalRevisi ?? '',
+      r.kodeJenisRevisi ?? '',
+      r.paguSebelum ?? '',
+      r.paguMenjadi ?? '',
+      r.empatBelasJenis,
+      r.diperhitungkan,
+      r.jumlahDiperhitungkan,
+      r.keterangan,
+      r.nilaiIndikator,
+      r.nilaiIKPA
+    ].join('\t'));
+
+    const fullTsv = [headers.join('\t'), ...rowsTsv].join('\n');
+    navigator.clipboard.writeText(fullTsv);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  // Jalankan Golden Test dan tampilkan modal hasil verifikasi
+  const handleRunGoldenTest = () => {
+    const res = runRevisiDipaGoldenTest();
+    setGoldenTestResult(res);
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Top Banner Card */}
-      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border p-5 ${
-        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-      }`}>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-600">
-              Bobot 10% | Sel M15
-            </span>
-            <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
-              Simulasi Indikator Revisi DIPA
-            </h3>
-          </div>
-          <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Maks. 1 kali revisi yang diperhitungkan per semester. 14 jenis revisi (kode 201-214) tidak mengurangi nilai.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <span className="text-[11px] text-slate-400 uppercase block font-medium">Nilai Akhir (M15)</span>
-            <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-              {result ? result.cappedValue.toFixed(2) : '0.00'}
-            </div>
-          </div>
-          <button
-            onClick={() => onOpenInspector(
-              'Indikator Revisi DIPA',
-              'M15',
-              '=MIN(100, M15)',
-              result ? result.cappedValue.toFixed(2) : '0.00',
-              result?.details || []
-            )}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-          >
-            <Calculator className="h-3.5 w-3.5 text-emerald-600" />
-            Formula Inspector
-          </button>
-        </div>
-      </div>
-
-      {/* 14 Types of Revisi Reference Callout */}
-      <div className={`rounded-xl border p-4 text-xs ${
-        isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'
-      }`}>
-        <div className="flex items-center gap-2 font-semibold text-slate-850 dark:text-slate-200 mb-2">
-          <Info className="h-4 w-4 text-blue-500" />
-          Daftar 14 Jenis Revisi yang Tidak Diperhitungkan (Pengecualian / Tidak Mengurangi Nilai):
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 font-mono text-[11px]">
-          {DAFTAR_14_JENIS_REVISI_DIPA.map(j => (
-            <div key={j.kode} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-400">
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">[{j.kode}]</span>
-              <span className="font-sans text-[11px]">{j.uraian}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Table of Revisions */}
-      <div className={`rounded-2xl border overflow-hidden shadow-xs ${
+    <div className="space-y-6 animate-fade-in font-sans text-slate-800 dark:text-slate-100">
+      {/* 1. Header Summary Card: REVISI DIPA */}
+      <div className={`rounded-2xl border p-5 shadow-xs transition-colors ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}>
-        <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-slate-800">
-          <h4 className="font-semibold text-sm">Daftar Riwayat & Usulan Revisi DIPA</h4>
-          <button
-            onClick={handleAddRow}
-            className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-xs"
-          >
-            <Plus className="h-3.5 w-3.5" /> Tambah Baris Revisi
-          </button>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="rounded-md bg-emerald-500/10 dark:bg-emerald-500/20 px-2.5 py-0.5 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                Bobot 10% • Sel M15 / G6
+              </span>
+              <span className="rounded-md bg-blue-500/10 dark:bg-blue-500/20 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                Excel Compatible Mode
+              </span>
+            </div>
+            <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              REVISI DIPA
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+              Modul perhitungan indikator Revisi DIPA sesuai workbook resmi <em>Kalkulator Perhitungan IKPA 2026</em>.
+              Revisi dihitung jika memenuhi dua syarat: bertanda 14 jenis (<code className="font-mono font-bold">H=&quot;ya&quot;</code>) dan <strong>Pagu Tetap</strong> (<code className="font-mono font-bold">F===G</code>).
+            </p>
+          </div>
+
+          {/* 3 Metrik Ringkasan Utama */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Metrik 1: Nilai IKPA Final */}
+            <div className={`p-3 rounded-xl border min-w-[130px] ${
+              isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                Nilai IKPA (G6)
+              </div>
+              <div className="text-2xl font-mono font-black text-emerald-600 dark:text-emerald-400">
+                {finalScore.toFixed(2)}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                M15: {m15Value.toFixed(2)} {m15Value > 100 ? '(Capped 100)' : ''}
+              </div>
+            </div>
+
+            {/* Metrik 2: Semester I Count */}
+            <div className={`p-3 rounded-xl border min-w-[130px] ${
+              isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                Revisi Sem. I (J9)
+              </div>
+              <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100">
+                {sem1Count} <span className="text-xs font-normal text-slate-400">revisi</span>
+              </div>
+              <div className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                Nilai L9: {l9Value}
+              </div>
+            </div>
+
+            {/* Metrik 3: Semester II Count */}
+            <div className={`p-3 rounded-xl border min-w-[130px] ${
+              isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">
+                Revisi Sem. II (J15)
+              </div>
+              <div className="text-2xl font-mono font-bold text-slate-800 dark:text-slate-100">
+                {sem2Count} <span className="text-xs font-normal text-slate-400">revisi</span>
+              </div>
+              <div className="text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                Nilai L15: {l15Value}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Toolbar */}
+        <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => onOpenInspector(
+                'Indikator Revisi DIPA (G6)',
+                'G6',
+                '=IF(\'Revisi DIPA\'!M15>100; 100; \'Revisi DIPA\'!M15)',
+                finalScore.toFixed(2),
+                indicatorResult.details
+              )}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+            >
+              <Calculator className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              Formula Inspector
+            </button>
+
+            <button
+              onClick={() => setShow14ReferenceModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/60 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer transition-colors"
+            >
+              <Info className="h-3.5 w-3.5" />
+              Daftar 14 Jenis Revisi
+            </button>
+
+            <button
+              onClick={handleRunGoldenTest}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 cursor-pointer transition-colors"
+            >
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              Uji Golden Test (M4–M15)
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleCopyTableToExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors shadow-2xs"
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Tersalin ke Clipboard!' : 'Salin Tabel (Excel TSV)'}
+            </button>
+
+            <button
+              onClick={handleExportJSON}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+              title="Unduh data tabel dalam format JSON"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export JSON
+            </button>
+
+            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+              <Upload className="h-3.5 w-3.5" />
+              Import JSON
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleImportJSON}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={handleResetToGolden}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium cursor-pointer transition-colors"
+              title="Kembalikan nilai ke contoh data standar workbook Excel"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset Standar Excel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal / Hasil Golden Test Banner */}
+      {goldenTestResult && (
+        <div className={`p-4 rounded-2xl border ${
+          goldenTestResult.passed
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+            : 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 font-bold text-sm">
+              {goldenTestResult.passed ? (
+                <CheckCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+              )}
+              Hasil Verifikasi Golden Test Workbook: {goldenTestResult.passed ? 'SEMUA LULUS (PASS)' : 'ADA KETIDAKSESUAIAN (FAIL)'}
+            </div>
+            <button
+              onClick={() => setGoldenTestResult(null)}
+              className="text-xs opacity-60 hover:opacity-100 cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+          <p className="text-xs mb-3">
+            Target M15 = 80.00 • Final Revisi DIPA (G6) = {goldenTestResult.finalScore.toFixed(2)} (Expected: {goldenTestResult.expectedFinalScore.toFixed(2)})
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-1.5 font-mono text-[11px]">
+            {goldenTestResult.rowResults.map(r => (
+              <div
+                key={r.cellM}
+                className={`p-1.5 rounded-lg border text-center ${
+                  r.passed
+                    ? 'bg-white/80 dark:bg-slate-800/80 border-emerald-300 dark:border-emerald-700'
+                    : 'bg-rose-100 dark:bg-rose-950 border-rose-400 text-rose-700'
+                }`}
+              >
+                <div className="font-bold text-slate-500 text-[10px]">{r.cellM}</div>
+                <div className="font-bold">{r.actualM}</div>
+                <div className="text-[9px] text-slate-400">Exp: {r.expectedM}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 2. TABEL 12 PERIODE DENGAN STRUKTUR HARUS PERSIS SESUAI EXCEL */}
+      <div className={`rounded-2xl border shadow-xs overflow-hidden ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+      }`}>
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              Tabel 12 Periode Revisi DIPA (Kolom A s.d. M)
+            </span>
+          </div>
+          <div className="text-xs text-slate-400 font-mono">
+            Kolom Input: [C, D, E, F, G, H] • Kolom Otomatis: [A, B, I, J, K, L, M]
+          </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className={`border-b font-semibold ${
-              isDark ? 'bg-slate-800/60 text-slate-300 border-slate-800' : 'bg-slate-50 text-slate-700 border-slate-200'
+          <table className="w-full text-left text-xs border-collapse">
+            {/* Table Header Columns A s.d. M */}
+            <thead className={`border-b font-semibold text-[11px] ${
+              isDark ? 'bg-slate-800/80 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200'
             }`}>
               <tr>
-                <th className="px-3 py-2.5">No</th>
-                <th className="px-3 py-2.5">Bulan/Periode</th>
-                <th className="px-3 py-2.5">Revisi Ke</th>
-                <th className="px-3 py-2.5">Kode Revisi</th>
-                <th className="px-3 py-2.5">Termasuk 14 Jenis?</th>
-                <th className="px-3 py-2.5">Semester</th>
-                <th className="px-3 py-2.5">Pagu DIPA Sebelum</th>
-                <th className="px-3 py-2.5">Pagu DIPA Menjadi</th>
-                <th className="px-3 py-2.5 text-center">Aksi</th>
+                <th className="px-2.5 py-3 text-center border-r border-slate-200 dark:border-slate-800 w-10">
+                  A<br/><span className="text-[10px] font-normal text-slate-500">No.</span>
+                </th>
+                <th className="px-2.5 py-3 text-center border-r border-slate-200 dark:border-slate-800 w-16">
+                  B<br/><span className="text-[10px] font-normal text-slate-500">Periode</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 w-20">
+                  C<br/><span className="text-[10px] font-normal text-slate-500">Revisi Ke</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 min-w-[125px]">
+                  D<br/><span className="text-[10px] font-normal text-slate-500">Tanggal Revisi</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 min-w-[150px]">
+                  E<br/><span className="text-[10px] font-normal text-slate-500">Kode Jenis Revisi</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 min-w-[140px] text-right">
+                  F<br/><span className="text-[10px] font-normal text-slate-500">Pagu DIPA Sebelum</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 min-w-[140px] text-right">
+                  G<br/><span className="text-[10px] font-normal text-slate-500">Pagu DIPA Menjadi</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 text-center w-24">
+                  H<br/><span className="text-[10px] font-normal text-slate-500">14 Jenis Revisi?</span>
+                </th>
+                <th className="px-3 py-3 border-r border-slate-200 dark:border-slate-800 min-w-[145px] text-center">
+                  I<br/><span className="text-[10px] font-normal text-slate-500">Apakah Diperhitungkan?</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 text-center w-20">
+                  J<br/><span className="text-[10px] font-normal text-slate-500">Jml Revisi</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 text-center w-24">
+                  K<br/><span className="text-[10px] font-normal text-slate-500">Keterangan</span>
+                </th>
+                <th className="px-2.5 py-3 border-r border-slate-200 dark:border-slate-800 text-center w-20">
+                  L<br/><span className="text-[10px] font-normal text-slate-500">Nilai Indikator</span>
+                </th>
+                <th className="px-2.5 py-3 text-center w-20">
+                  M<br/><span className="text-[10px] font-normal text-slate-500">Nilai IKPA</span>
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {rows.map((r, idx) => (
-                <tr key={idx} className={isDark ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/70'}>
-                  <td className="px-3 py-2 font-mono font-medium">{r.no}</td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={r.periode}
-                      onChange={e => handleUpdateRow(idx, 'periode', e.target.value)}
-                      className="w-14 rounded-md border px-2 py-1 font-mono text-xs dark:bg-slate-800 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={r.revisiKe ?? idx + 1}
-                      onChange={e => handleUpdateRow(idx, 'revisiKe', Number(e.target.value))}
-                      className="w-16 rounded-md border px-2 py-1 font-mono text-xs dark:bg-slate-800 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="text"
-                      value={r.kodeJenisRevisi || ''}
-                      onChange={e => handleUpdateRow(idx, 'kodeJenisRevisi', e.target.value)}
-                      placeholder="e.g. 212, 315"
-                      className="w-28 rounded-md border px-2 py-1 font-mono text-xs dark:bg-slate-800 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={r.jenisRevisi14}
-                      onChange={e => handleUpdateRow(idx, 'jenisRevisi14', e.target.value)}
-                      className="rounded-md border px-2 py-1 text-xs dark:bg-slate-800 dark:border-slate-700 font-medium"
-                    >
-                      <option value="ya">Ya (Dikecualikan)</option>
-                      <option value="tidak">Tidak (Diperhitungkan)</option>
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <select
-                      value={r.keterangan || (Number(r.periode) <= 6 ? 'Semester I' : 'Semester II')}
-                      onChange={e => handleUpdateRow(idx, 'keterangan', e.target.value)}
-                      className="rounded-md border px-2 py-1 text-xs dark:bg-slate-800 dark:border-slate-700"
-                    >
-                      <option value="Semester I">Semester I</option>
-                      <option value="Semester II">Semester II</option>
-                    </select>
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={r.paguDipaSebelum || 0}
-                      onChange={e => handleUpdateRow(idx, 'paguDipaSebelum', Number(e.target.value))}
-                      className="w-32 rounded-md border px-2 py-1 font-mono text-xs text-right dark:bg-slate-800 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-3 py-2">
-                    <input
-                      type="number"
-                      value={r.paguDipaMenjadi || 0}
-                      onChange={e => handleUpdateRow(idx, 'paguDipaMenjadi', Number(e.target.value))}
-                      className="w-32 rounded-md border px-2 py-1 font-mono text-xs text-right dark:bg-slate-800 dark:border-slate-700"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <button
-                      onClick={() => handleDeleteRow(idx)}
-                      className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+
+            {/* Table Body */}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
+              {calculatedRows.map((r, idx) => {
+                const codeCheck = checkRevisionCodes(r.kodeJenisRevisi);
+                const isSem1Header = idx === 0;
+                const isSem2Header = idx === 6;
+                const isPaguMatch = r.paguSebelum !== null && r.paguMenjadi !== null && r.paguSebelum === r.paguMenjadi && r.paguSebelum > 0;
+                const isCounted = r.diperhitungkan === 'diperhitungkan';
+
+                return (
+                  <React.Fragment key={idx}>
+                    {/* Section Header Semester I */}
+                    {isSem1Header && (
+                      <tr className="bg-emerald-500/10 dark:bg-emerald-950/40 border-y border-emerald-500/20">
+                        <td colSpan={13} className="px-3 py-1.5 font-sans font-bold text-xs text-emerald-800 dark:text-emerald-300">
+                          SEMESTER I (Periode 01 – 06) • Basis Kumulatif J4:J9 • Nilai IKPA M4:M9 = L
+                        </td>
+                      </tr>
+                    )}
+
+                    {/* Section Header Semester II */}
+                    {isSem2Header && (
+                      <tr className="bg-blue-500/10 dark:bg-blue-950/40 border-y border-blue-500/20">
+                        <td colSpan={13} className="px-3 py-1.5 font-sans font-bold text-xs text-blue-800 dark:text-blue-300">
+                          SEMESTER II (Periode 07 – 12) • Basis Kumulatif J10:J15 (Dimulai Ulang dari Periode 07) • Nilai IKPA M = AVERAGE($L$9, L)
+                        </td>
+                      </tr>
+                    )}
+
+                    <tr className={`transition-colors font-mono ${
+                      isCounted
+                        ? (isDark ? 'bg-emerald-950/20 hover:bg-emerald-950/30' : 'bg-emerald-50/40 hover:bg-emerald-50/70')
+                        : (isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80')
+                    }`}>
+                      {/* A. No (Otomatis) */}
+                      <td className="px-2.5 py-2 text-center border-r border-slate-200 dark:border-slate-800 font-bold text-slate-500">
+                        {r.no}
+                      </td>
+
+                      {/* B. Periode (Otomatis "01"-"12") */}
+                      <td className="px-2.5 py-2 text-center border-r border-slate-200 dark:border-slate-800 font-bold text-slate-800 dark:text-slate-100">
+                        {r.periode}
+                      </td>
+
+                      {/* C. Revisi Ke (Input) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
+                        <input
+                          type="number"
+                          value={r.revisiKe !== null && r.revisiKe !== undefined ? r.revisiKe : ''}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? null : Number(e.target.value);
+                            handleUpdateRow(idx, { revisiKe: val });
+                          }}
+                          placeholder="-"
+                          className="w-full text-center px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                        />
+                      </td>
+
+                      {/* D. Tanggal Revisi (Input Date Picker) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
+                        <input
+                          type="date"
+                          value={normalizeDateToIso(r.tanggalRevisi)}
+                          onChange={(e) => {
+                            handleUpdateRow(idx, { tanggalRevisi: e.target.value || null });
+                          }}
+                          className="w-full px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-[11px]"
+                        />
+                      </td>
+
+                      {/* E. Kode Jenis Revisi (Input dengan Bantuan Otomatis 14 Jenis) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
+                        <input
+                          type="text"
+                          value={r.kodeJenisRevisi || ''}
+                          onChange={(e) => {
+                            handleUpdateRow(idx, { kodeJenisRevisi: e.target.value });
+                          }}
+                          placeholder="contoh: 212 atau 102, 221"
+                          className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                        />
+                        {/* Assistive UI Badge untuk Kode E */}
+                        {r.kodeJenisRevisi && r.kodeJenisRevisi.trim() !== '' && (
+                          <div className="mt-1 font-sans text-[10px]">
+                            {codeCheck.hasAny14 ? (
+                              <div className="flex items-center justify-between gap-1 text-emerald-700 dark:text-emerald-400">
+                                <span className="inline-flex items-center gap-0.5 truncate" title={codeCheck.descriptions.map(d => `${d.kode}: ${d.uraian}`).join(', ')}>
+                                  ✓ 14 Jenis: {codeCheck.matchedCodes.join(', ')}
+                                </span>
+                                {r.empatBelasJenis !== 'ya' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateRow(idx, { empatBelasJenis: 'ya' })}
+                                    className="underline text-[9px] cursor-pointer hover:text-emerald-900"
+                                    title="Pilih 'ya' pada Kolom H"
+                                  >
+                                    Set H=&apos;ya&apos;
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-between gap-1 text-amber-700 dark:text-amber-400">
+                                <span className="truncate">⚠ Bukan 14 jenis</span>
+                                {r.empatBelasJenis !== 'tidak' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateRow(idx, { empatBelasJenis: 'tidak' })}
+                                    className="underline text-[9px] cursor-pointer hover:text-amber-900"
+                                    title="Pilih 'tidak' pada Kolom H"
+                                  >
+                                    Set H=&apos;tidak&apos;
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* F. Pagu DIPA Sebelum (Input Rupiah) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-right">
+                        <input
+                          type="text"
+                          value={draftPaguSebelum[idx] !== undefined ? draftPaguSebelum[idx] : (r.paguSebelum !== null ? formatRupiah(r.paguSebelum) : '')}
+                          onFocus={() => {
+                            setDraftPaguSebelum(prev => ({ ...prev, [idx]: r.paguSebelum !== null ? String(r.paguSebelum) : '' }));
+                          }}
+                          onChange={(e) => {
+                            setDraftPaguSebelum(prev => ({ ...prev, [idx]: e.target.value }));
+                          }}
+                          onBlur={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const num = raw === '' ? null : Number(raw);
+                            setDraftPaguSebelum(prev => {
+                              const next = { ...prev };
+                              delete next[idx];
+                              return next;
+                            });
+                            handleUpdateRow(idx, { paguSebelum: num });
+                          }}
+                          placeholder="Rp 0"
+                          className="w-full text-right px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                        />
+                      </td>
+
+                      {/* G. Pagu DIPA Menjadi (Input Rupiah) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-right">
+                        <input
+                          type="text"
+                          value={draftPaguMenjadi[idx] !== undefined ? draftPaguMenjadi[idx] : (r.paguMenjadi !== null ? formatRupiah(r.paguMenjadi) : '')}
+                          onFocus={() => {
+                            setDraftPaguMenjadi(prev => ({ ...prev, [idx]: r.paguMenjadi !== null ? String(r.paguMenjadi) : '' }));
+                          }}
+                          onChange={(e) => {
+                            setDraftPaguMenjadi(prev => ({ ...prev, [idx]: e.target.value }));
+                          }}
+                          onBlur={(e) => {
+                            const raw = e.target.value.replace(/[^0-9]/g, '');
+                            const num = raw === '' ? null : Number(raw);
+                            setDraftPaguMenjadi(prev => {
+                              const next = { ...prev };
+                              delete next[idx];
+                              return next;
+                            });
+                            handleUpdateRow(idx, { paguMenjadi: num });
+                          }}
+                          placeholder="Rp 0"
+                          className="w-full text-right px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                        />
+                        {/* Equality Status (F === G) */}
+                        {r.paguSebelum !== null && r.paguMenjadi !== null && r.paguSebelum > 0 && (
+                          <div className="mt-0.5 text-[9px] font-sans text-right">
+                            {r.paguSebelum === r.paguMenjadi ? (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-medium">F===G (Tetap)</span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400 font-medium">F!==G (Berubah)</span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* H. 14 Jenis Revisi? (Pilihan "ya", "tidak", "-") */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-center">
+                        <select
+                          value={r.empatBelasJenis}
+                          onChange={(e) => {
+                            const val = e.target.value as "ya" | "tidak" | "-";
+                            handleUpdateRow(idx, { empatBelasJenis: val });
+                          }}
+                          className={`w-full text-center px-2 py-1 rounded border text-xs font-sans font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
+                            r.empatBelasJenis === 'ya'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                              : r.empatBelasJenis === 'tidak'
+                              ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                              : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                          }`}
+                        >
+                          <option value="-">-</option>
+                          <option value="ya">ya</option>
+                          <option value="tidak">tidak</option>
+                        </select>
+                      </td>
+
+                      {/* I. Apakah Diperhitungkan dalam Indikator Revisi DIPA (Otomatis Persis Excel) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-center font-sans">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                          isCounted
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+                        }`}>
+                          {isCounted ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              diperhitungkan
+                            </>
+                          ) : (
+                            'tidak diperhitungkan'
+                          )}
+                        </span>
+                      </td>
+
+                      {/* J. Jumlah Revisi yang Diperhitungkan (Otomatis Kumulatif Excel) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-center font-bold text-slate-800 dark:text-slate-100">
+                        {r.jumlahDiperhitungkan}
+                      </td>
+
+                      {/* K. Keterangan (Semester I / Semester II) */}
+                      <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-center font-sans text-[11px] text-slate-600 dark:text-slate-400">
+                        {r.keterangan}
+                      </td>
+
+                      {/* L. Nilai Indikator (Otomatis 110, 100, 50 - Tanpa Cap) */}
+                      <td className={`px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-center font-bold text-xs ${
+                        r.nilaiIndikator === 110
+                          ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/5'
+                          : r.nilaiIndikator === 100
+                          ? 'text-blue-600 dark:text-blue-400'
+                          : 'text-amber-600 dark:text-amber-400'
+                      }`}>
+                        {r.nilaiIndikator}
+                      </td>
+
+                      {/* M. Nilai IKPA (Otomatis Sem I = L, Sem II = AVERAGE($L$9, L)) */}
+                      <td className={`px-2.5 py-2 text-center font-black text-xs ${
+                        r.nilaiIKPA >= 100
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-800 dark:text-slate-100'
+                      }`}>
+                        {r.nilaiIKPA}
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* 3. Panel "Audit Perhitungan" */}
+      <div className={`rounded-2xl border shadow-xs transition-all overflow-hidden ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+      }`}>
+        <div
+          onClick={() => setShowAuditPanel(!showAuditPanel)}
+          className="px-5 py-4 flex items-center justify-between cursor-pointer border-b border-slate-100 dark:border-slate-800 select-none"
+        >
+          <div className="flex items-center gap-2.5">
+            <Calculator className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+              Audit Perhitungan Indikator Revisi DIPA
+            </h3>
+            <span className="text-xs text-slate-400">
+              (Rincian formula & verifikasi logika per periode)
+            </span>
+          </div>
+          <button className="text-slate-400 hover:text-slate-600 p-1">
+            {showAuditPanel ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {showAuditPanel && (
+          <div className="p-5 space-y-4 text-xs leading-relaxed">
+            {/* 5 Kartu Rangkuman Audit */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 font-mono">
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="font-sans text-[10px] uppercase font-semibold text-slate-400">1. Syarat Diperhitungkan</div>
+                <div className="font-bold text-slate-800 dark:text-slate-200 mt-1">H=&quot;ya&quot; AND F===G</div>
+                <div className="font-sans text-[11px] text-slate-500 mt-0.5">14 jenis & pagu tetap</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="font-sans text-[10px] uppercase font-semibold text-slate-400">2. Revisi Sem. I (J9)</div>
+                <div className="font-bold text-slate-800 dark:text-slate-200 mt-1">{sem1Count} kali</div>
+                <div className="font-sans text-[11px] text-slate-500 mt-0.5">Nilai L9: {l9Value}</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="font-sans text-[10px] uppercase font-semibold text-slate-400">3. Revisi Sem. II (J15)</div>
+                <div className="font-bold text-slate-800 dark:text-slate-200 mt-1">{sem2Count} kali</div>
+                <div className="font-sans text-[11px] text-slate-500 mt-0.5">Nilai L15: {l15Value} (reset dari 07)</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="font-sans text-[10px] uppercase font-semibold text-slate-400">4. Nilai M15 (Tabel)</div>
+                <div className="font-bold text-slate-800 dark:text-slate-200 mt-1">{m15Value.toFixed(2)}</div>
+                <div className="font-sans text-[11px] text-slate-500 mt-0.5">AVERAGE(L9, L15)</div>
+              </div>
+
+              <div className={`p-3 rounded-xl border ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="font-sans text-[10px] uppercase font-semibold text-slate-400">5. Final Dashboard (G6)</div>
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-1 text-base">{finalScore.toFixed(2)}</div>
+                <div className="font-sans text-[11px] text-slate-500 mt-0.5">MIN(100, M15)</div>
+              </div>
+            </div>
+
+            {/* Audit Logika Tabel Detail Baris per Baris */}
+            <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
+              <table className="w-full text-left font-sans text-xs">
+                <thead className={isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-700'}>
+                  <tr>
+                    <th className="px-3 py-2">Periode</th>
+                    <th className="px-3 py-2">Pagu Sebelum (F)</th>
+                    <th className="px-3 py-2">Pagu Menjadi (G)</th>
+                    <th className="px-3 py-2">14 Jenis (H)</th>
+                    <th className="px-3 py-2">Status Diperhitungkan (I)</th>
+                    <th className="px-3 py-2">Penjelasan / Alasan Audit</th>
+                    <th className="px-3 py-2 text-center">Kumulatif (J)</th>
+                    <th className="px-3 py-2 text-center">Nilai L</th>
+                    <th className="px-3 py-2 text-center">Nilai M</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
+                  {calculatedRows.map((r, i) => {
+                    const isCounted = r.diperhitungkan === 'diperhitungkan';
+                    let reason = '';
+                    if (r.empatBelasJenis === '-') {
+                      reason = 'Tidak ada revisi pada periode ini (H="-")';
+                    } else if (r.empatBelasJenis === 'tidak') {
+                      reason = 'Kode revisi ditandai tidak termasuk 14 jenis (H="tidak")';
+                    } else if (r.paguSebelum !== r.paguMenjadi) {
+                      reason = `Pagu DIPA berubah (F!==G: Rp ${formatRupiah(r.paguSebelum || 0)} vs Rp ${formatRupiah(r.paguMenjadi || 0)})`;
+                    } else {
+                      reason = `Memenuhi syarat: 14 jenis (H="ya") dan Pagu Tetap (F===G = Rp ${formatRupiah(r.paguSebelum || 0)})`;
+                    }
+
+                    return (
+                      <tr key={i} className={isCounted ? 'bg-emerald-500/5' : ''}>
+                        <td className="px-3 py-1.5 font-bold">Periode {r.periode}</td>
+                        <td className="px-3 py-1.5">{r.paguSebelum !== null ? formatRupiah(r.paguSebelum) : '-'}</td>
+                        <td className="px-3 py-1.5">{r.paguMenjadi !== null ? formatRupiah(r.paguMenjadi) : '-'}</td>
+                        <td className="px-3 py-1.5 font-bold">{r.empatBelasJenis}</td>
+                        <td className="px-3 py-1.5 font-sans">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            isCounted ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'text-slate-400'
+                          }`}>
+                            {r.diperhitungkan}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1.5 font-sans text-slate-600 dark:text-slate-400 text-[11px]">
+                          {reason}
+                        </td>
+                        <td className="px-3 py-1.5 text-center font-bold">{r.jumlahDiperhitungkan}</td>
+                        <td className="px-3 py-1.5 text-center font-bold text-emerald-600 dark:text-emerald-400">{r.nilaiIndikator}</td>
+                        <td className="px-3 py-1.5 text-center font-bold">{r.nilaiIKPA}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Modal Daftar 14 Jenis Revisi Master Reference */}
+      {show14ReferenceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className={`w-full max-w-2xl rounded-2xl border shadow-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto ${
+            isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-base font-bold">Daftar 14 Jenis Revisi yang Diakui (Master IKPA 2026)</h3>
+              </div>
+              <button
+                onClick={() => setShow14ReferenceModal(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Berdasarkan petunjuk teknis IKPA 2026, jenis revisi berikut diklasifikasikan sebagai 14 jenis revisi.
+              Jika usulan revisi Anda masuk ke salah satu dari kode berikut dan <strong>tidak mengubah pagu DIPA (pagu tetap)</strong>, maka dapat ditandai <code className="font-mono font-bold text-emerald-600">H=&quot;ya&quot;</code> agar tidak mengurangi nilai indikator Revisi DIPA.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
+              {VALID_REVISION_CODES.map(kode => (
+                <div
+                  key={kode}
+                  className={`p-2.5 rounded-xl border flex items-start gap-2.5 ${
+                    isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <span className="px-2 py-0.5 rounded bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400">
+                    {kode}
+                  </span>
+                  <span className="font-sans text-[11px] leading-snug">
+                    {VALID_REVISION_CODE_MAP[kode]}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                onClick={() => setShow14ReferenceModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-bold cursor-pointer transition-colors"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

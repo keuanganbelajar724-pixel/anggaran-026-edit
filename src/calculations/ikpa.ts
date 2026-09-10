@@ -20,7 +20,11 @@ export function getPredikatIKPA(score: number): string {
   return 'KURANG';
 }
 
-export function calculateIKPA(project: SimulationProject): IKPAResult {
+export function calculateIKPA(
+  project: SimulationProject,
+  options?: { overrideCutoff?: number }
+): IKPAResult {
+  const cutoff = options?.overrideCutoff ?? (project.metadata?.periodeCutoff || 12);
   const weights = project.weights;
   const active = project.activeIndicators || {
     revisiDIPA: true,
@@ -50,19 +54,21 @@ export function calculateIKPA(project: SimulationProject): IKPAResult {
     active.revisiDIPA
   );
 
-  // 2. Deviasi Halaman III DIPA (H6)
+  // 2. Deviasi Halaman III DIPA (H6) - evaluasi s.d. cutoff bulan
   const deviasiHalIII = calculateDeviasiHalIII(
     project.deviasiHalIII,
     appliedWeights.deviasiHalIII,
     active.deviasiHalIII,
-    project.calculationMode
+    project.calculationMode,
+    cutoff
   );
 
-  // 3. Penyerapan Anggaran (I6)
+  // 3. Penyerapan Anggaran (I6) - evaluasi s.d. cutoff bulan
   const penyerapan = calculatePenyerapan(
     project.penyerapan,
     appliedWeights.penyerapan,
-    active.penyerapan
+    active.penyerapan,
+    cutoff
   );
 
   // 4. Belanja Kontraktual (J6)
@@ -79,20 +85,22 @@ export function calculateIKPA(project: SimulationProject): IKPAResult {
     active.penyelesaianTagihan
   );
 
-  // 6. Pengelolaan UP/TUP Tunai & KKP (L6)
+  // 6. Pengelolaan UP/TUP Tunai & KKP (L6) - evaluasi s.d. cutoff bulan
   const pengelolaanUPTUP = calculatePengelolaanUPTUP(
     project.upTUPTunai,
     project.upTUPKKP,
     appliedWeights.pengelolaanUPTUP,
-    active.pengelolaanUPTUP
+    active.pengelolaanUPTUP,
+    cutoff
   );
 
-  // 7. Capaian Output (M6)
+  // 7. Capaian Output (M6) - evaluasi s.d. cutoff bulan
   const capaianOutput = calculateCapaianOutput(
     project.capaianOutput,
     project.capaianOutputKetepatan,
     appliedWeights.capaianOutput,
-    active.capaianOutput
+    active.capaianOutput,
+    cutoff
   );
 
   // 8. Dispensasi SPM (Pengurang)

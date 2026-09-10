@@ -879,27 +879,75 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                           </select>
                         </td>
 
-                        {/* G: Tanggal (Serial Excel vs Kalender) */}
+                        {/* G: Tanggal (DD/MM/YYYY vs Serial vs Kalender) */}
                         <td
                           onClick={() => setActiveCell({
                             coord: `G${excelRowNumber}`,
                             rowIdx: idx,
                             colKey: 'G',
-                            formula: dateFormatMode === 'serial' ? String(toExcelSerial(r.tanggal)) : normalizeDateToIso(r.tanggal),
+                            formula: formatDisplayDate(r.tanggal, dateFormatMode),
                             isFormula: false
                           })}
                           className={`px-2.5 py-1.5 border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
                             activeCell.coord === `G${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
-                          {dateFormatMode === 'serial' ? (
-                            <div className="flex items-center gap-1">
-                              <span className="font-bold">{toExcelSerial(r.tanggal)}</span>
+                          {dateFormatMode === 'dmy' ? (
+                            <div className="flex items-center justify-between gap-1 group">
+                              <input
+                                type="text"
+                                value={dateInputDrafts[idx] !== undefined ? dateInputDrafts[idx] : formatDisplayDate(r.tanggal, 'dmy')}
+                                onFocus={() => {
+                                  setDateInputDrafts(prev => ({ ...prev, [idx]: formatDisplayDate(r.tanggal, 'dmy') }));
+                                }}
+                                onChange={e => {
+                                  const val = e.target.value;
+                                  setDateInputDrafts(prev => ({ ...prev, [idx]: val }));
+                                }}
+                                onBlur={e => {
+                                  const val = e.target.value.trim();
+                                  setDateInputDrafts(prev => {
+                                    const next = { ...prev };
+                                    delete next[idx];
+                                    return next;
+                                  });
+                                  if (val && val !== '-') {
+                                    const parsedIso = normalizeDateToIso(val);
+                                    if (parsedIso) {
+                                      handleUpdateTunaiRow(idx, 'tanggal', parsedIso);
+                                    }
+                                  }
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') {
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                placeholder="DD/MM/YYYY"
+                                className="w-20 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-mono tracking-tight font-medium text-slate-800 dark:text-slate-100"
+                              />
+                              <input
+                                type="date"
+                                value={normalizeDateToIso(r.tanggal)}
+                                onChange={e => {
+                                  if (e.target.value) {
+                                    handleUpdateTunaiRow(idx, 'tanggal', e.target.value);
+                                  }
+                                }}
+                                className="w-4 h-4 opacity-30 group-hover:opacity-100 transition-opacity cursor-pointer p-0 border-none bg-transparent"
+                                title="Pilih tanggal dari kalender"
+                              />
+                            </div>
+                          ) : dateFormatMode === 'serial' ? (
+                            <div className="flex items-center justify-between gap-1 group">
+                              <span className="font-mono font-medium text-[11px] text-slate-800 dark:text-slate-100">
+                                {toExcelSerial(r.tanggal) || '-'}
+                              </span>
                               <input
                                 type="date"
                                 value={normalizeDateToIso(r.tanggal)}
                                 onChange={e => handleUpdateTunaiRow(idx, 'tanggal', e.target.value)}
-                                className="w-4 h-4 opacity-40 hover:opacity-100 cursor-pointer p-0 border-none"
+                                className="w-4 h-4 opacity-30 group-hover:opacity-100 transition-opacity cursor-pointer p-0 border-none bg-transparent"
                                 title="Pilih tanggal di kalender"
                               />
                             </div>
