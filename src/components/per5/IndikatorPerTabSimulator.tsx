@@ -191,6 +191,16 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     );
   }, [satkers, authSearchQuery]);
 
+  // Pastikan authSelectedKode selalu sinkron dengan satker yang tampil di filter
+  useEffect(() => {
+    if (filteredAuthSatkers.length > 0) {
+      const isCurrentInFiltered = filteredAuthSatkers.some(s => s.kodeSatker === authSelectedKode);
+      if (!isCurrentInFiltered) {
+        setAuthSelectedKode(filteredAuthSatkers[0].kodeSatker);
+      }
+    }
+  }, [filteredAuthSatkers, authSelectedKode]);
+
   const [projects, setProjects] = useState<SimulationProject[]>([]);
   const [activeProject, setActiveProject] = useState<SimulationProject>(() => {
     return createEmptyProject('Simulasi Mandiri (Mulai dari 0)');
@@ -727,7 +737,18 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
                   type="text"
                   placeholder="Cari nama Satker / 6-digit kode satker..."
                   value={authSearchQuery}
-                  onChange={e => setAuthSearchQuery(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setAuthSearchQuery(val);
+                    setAuthError(null);
+                    if (val.trim()) {
+                      const trimmed = val.trim().toLowerCase();
+                      const exact = satkers.find(s => s.kodeSatker === trimmed);
+                      if (exact) {
+                        setAuthSelectedKode(exact.kodeSatker);
+                      }
+                    }
+                  }}
                   className={`w-full text-xs rounded-xl pl-10 pr-4 py-2.5 border transition-all ${
                     isDark
                       ? 'bg-slate-950/80 border-slate-800 text-white placeholder-slate-500 focus:border-amber-500'
