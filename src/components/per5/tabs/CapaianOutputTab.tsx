@@ -4,6 +4,7 @@ import {
   Clock,
   Calculator,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Copy,
@@ -26,7 +27,11 @@ import {
   XCircle,
   Calendar
 } from 'lucide-react';
-import { SimulationProject, CapaianOutputInput, CapaianOutputKetepatanInput } from '../../../models/ikpa';
+import { SimulationProject, CapaianOutputInput, CapaianOutputKetepatanInput, IndicatorResult } from '../../../models/ikpa';
+import { validateCapaianOutput } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   calculateCapaianOutputDetailed,
   calculateSingleRO,
@@ -95,6 +100,29 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
   const report = useMemo(() => {
     return calculateCapaianOutputDetailed(roRows, ketepatanRows, appliedWeight);
   }, [roRows, ketepatanRows, appliedWeight]);
+
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+
+  // Validasi otomatis input Capaian Output
+  const validationIssues = useMemo(() => {
+    return validateCapaianOutput(roRows, ketepatanRows);
+  }, [roRows, ketepatanRows]);
+
+  // Objek hasil indikator standar
+  const indicatorResult: IndicatorResult = useMemo(() => {
+    return project.output?.indicators.capaianOutput || {
+      weight: appliedWeight,
+      rawValue: report.ad8NilaiFinal,
+      cappedValue: report.ad8NilaiFinal,
+      weightedValue: report.nilaiTerbobot,
+      isActive: true,
+      details: [
+        { step: 'Ketepatan Laporan (30%)', formulaHuman: `30% * ${report.ab6AvgKetepatan.toFixed(2)}`, value: report.ad6KontribusiKetepatan.toFixed(2) },
+        { step: 'Capaian RO (70%)', formulaHuman: `70% * ${report.ab7AvgCapaianRO.toFixed(2)}`, value: report.ad7KontribusiCapaianRO.toFixed(2) },
+        { step: 'Nilai Akhir (AD8)', formulaHuman: 'AD6 + AD7', value: report.ad8NilaiFinal.toFixed(2) }
+      ]
+    };
+  }, [project.output, appliedWeight, report]);
 
   // Handler update baris RO
   const handleUpdateRO = (index: number, field: keyof CapaianOutputInput, val: any) => {
@@ -214,6 +242,17 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
       capaianOutput: defaultRO,
       capaianOutputKetepatan: defaultKetepatan
     });
+  };
+
+  // Kosongkan seluruh rincian output dan ketepatan ke 0
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Capaian Output? Seluruh rincian output (RO) dan data ketepatan pelaporan akan dihapus.')) {
+      onUpdateProject({
+        ...project,
+        capaianOutput: [],
+        capaianOutputKetepatan: []
+      });
+    }
   };
 
   // Jalankan Golden Test
@@ -347,6 +386,16 @@ Status Ketepatan: ${report.tepatWaktuCount}/${report.totalKetepatanCount} Bulan 
 
           {/* Quick Action Hub */}
           <div className="lg:col-span-3 flex flex-col gap-2 border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-slate-800 pt-4 lg:pt-0 lg:pl-6">
+            <IndikatorCalculateButton
+              indicatorKey="capaianOutput"
+              indicatorName="Capaian Output"
+              weight={appliedWeight}
+              indicatorResult={indicatorResult}
+              validationIssues={validationIssues}
+              satkerName={project.metadata?.namaSatker || project.name}
+              isDark={isDark}
+            />
+
             <button
               onClick={() => onOpenInspector(
                 'Indikator Capaian Output (Sheet Capaian Output)',
@@ -380,15 +429,40 @@ Status Ketepatan: ${report.tepatWaktuCount}/${report.totalKetepatanCount} Bulan 
 
               <button
                 onClick={handleResetToDefault}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-rose-600 dark:text-rose-400"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset Excel
+              </button>
+
+              <button
+                onClick={handleClearForm}
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-2 py-1.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40"
+                title="Kosongkan seluruh data RO dan ketepatan"
+              >
+                <Eraser className="h-3.5 w-3.5 text-rose-500" />
+                Kosongkan Formulir
               </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Capaian Output"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="capaian-output"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. MODE SWITCHER & SUB-TABS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">

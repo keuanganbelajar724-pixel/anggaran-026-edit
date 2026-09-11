@@ -4,6 +4,7 @@ import {
   Sliders,
   Calculator,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Copy,
@@ -29,6 +30,10 @@ import {
   PenyerapanInput,
   PenyerapanPeriod
 } from '../../../models/ikpa';
+import { validatePenyerapan } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   round2,
   TARGETS,
@@ -76,6 +81,7 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
   const [showGoldenTestModal, setShowGoldenTestModal] = useState(false);
   const [auditSelectedPeriode, setAuditSelectedPeriode] = useState<string>('01');
   const [auditSelectedBelanja, setAuditSelectedBelanja] = useState<'51' | '52' | '53' | '57'>('51');
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
 
   // Draft input untuk string nominal rupiah agar pengetikan tidak terganggu re-render angka
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({});
@@ -106,6 +112,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
       realisasi57: r.realisasi57 ?? 0
     }));
   }, [project.penyerapan]);
+
+  // Validasi otomatis data input Penyerapan Anggaran
+  const validationIssues = useMemo(() => {
+    return validatePenyerapan(rawInputs);
+  }, [rawInputs]);
 
   // 2. Terapkan simulasi What-If jika slider digeser
   const effectiveInputs: PenyerapanInput[] = useMemo(() => {
@@ -191,6 +202,37 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
       onUpdateProject({
         ...project,
         penyerapan: defaultRows
+      });
+      setWhatIfBoostPct(0);
+      setDraftInputs({});
+    }
+  };
+
+  // Kosongkan seluruh nilai pagu & realisasi ke 0
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Penyerapan Anggaran? Seluruh pagu, blokir, dan realisasi belanja (Bulan 01 s.d. 12) akan di-nol-kan.')) {
+      const emptyRows: PenyerapanInput[] = Array.from({ length: 12 }, (_, i) => ({
+        periode: String(i + 1).padStart(2, '0'),
+        pagu51: 0,
+        pagu52: 0,
+        pagu53: 0,
+        pagu57: 0,
+        blokir51: 0,
+        blokir52: 0,
+        blokir53: 0,
+        blokir57: 0,
+        target51: undefined,
+        target52: undefined,
+        target53: undefined,
+        target57: undefined,
+        realisasi51: 0,
+        realisasi52: 0,
+        realisasi53: 0,
+        realisasi57: 0
+      }));
+      onUpdateProject({
+        ...project,
+        penyerapan: emptyRows
       });
       setWhatIfBoostPct(0);
       setDraftInputs({});
@@ -358,6 +400,16 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
           </div>
 
           <div className="flex flex-col gap-2">
+            <IndikatorCalculateButton
+              indicatorKey="penyerapanAnggaran"
+              indicatorName="Penyerapan Anggaran"
+              weight={20}
+              indicatorResult={result}
+              validationIssues={validationIssues}
+              satkerName={project.metadata?.namaSatker || project.name}
+              isDark={isDark}
+            />
+
             <button
               onClick={() => onOpenInspector(
                 'Indikator Penyerapan Anggaran',
@@ -381,6 +433,22 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Penyerapan Anggaran"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="penyerapan"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. WARNING JIKA BLOKIR > PAGU */}
       {warnings.length > 0 && (
@@ -584,10 +652,19 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
 
           <button
             onClick={handleResetToWorkbook}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 shadow-xs transition-colors"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-xs transition-colors"
           >
-            <RotateCcw className="h-3.5 w-3.5 text-rose-500" />
+            <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
             Reset Default
+          </button>
+
+          <button
+            onClick={handleClearForm}
+            className="flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 shadow-xs transition-colors"
+            title="Kosongkan seluruh nilai pagu & realisasi ke 0"
+          >
+            <Eraser className="h-3.5 w-3.5 text-rose-500" />
+            Kosongkan Formulir
           </button>
         </div>
       </div>

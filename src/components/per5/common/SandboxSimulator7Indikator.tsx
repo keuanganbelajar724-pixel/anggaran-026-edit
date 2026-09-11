@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Sliders,
   Sparkles,
@@ -32,15 +32,31 @@ export const SandboxSimulator7Indikator: React.FC<SandboxSimulator7IndikatorProp
   const actualOutput = project.output;
 
   const [simScores, setSimScores] = useState({
-    revisiDIPA: actualOutput?.indicators.revisiDIPA.cappedValue ?? 100,
-    deviasiHalIII: actualOutput?.indicators.deviasiHalIII.cappedValue ?? 100,
-    penyerapan: actualOutput?.indicators.penyerapan.cappedValue ?? 100,
-    belanjaKontraktual: actualOutput?.indicators.belanjaKontraktual.cappedValue ?? 100,
-    penyelesaianTagihan: actualOutput?.indicators.penyelesaianTagihan.cappedValue ?? 100,
-    pengelolaanUPTUP: actualOutput?.indicators.pengelolaanUPTUP.cappedValue ?? 100,
-    capaianOutput: actualOutput?.indicators.capaianOutput.cappedValue ?? 100,
+    revisiDIPA: actualOutput?.indicators.revisiDIPA.cappedValue ?? 0,
+    deviasiHalIII: actualOutput?.indicators.deviasiHalIII.cappedValue ?? 0,
+    penyerapan: actualOutput?.indicators.penyerapan.cappedValue ?? 0,
+    belanjaKontraktual: actualOutput?.indicators.belanjaKontraktual.cappedValue ?? 0,
+    penyelesaianTagihan: actualOutput?.indicators.penyelesaianTagihan.cappedValue ?? 0,
+    pengelolaanUPTUP: actualOutput?.indicators.pengelolaanUPTUP.cappedValue ?? 0,
+    capaianOutput: actualOutput?.indicators.capaianOutput.cappedValue ?? 0,
     dispensasiSPM: actualOutput?.dispensasiReduction ?? 0
   });
+
+  // Sinkronisasi nilai simScores saat project berganti atau di-recalculate
+  useEffect(() => {
+    if (actualOutput?.indicators) {
+      setSimScores({
+        revisiDIPA: actualOutput.indicators.revisiDIPA?.cappedValue ?? 0,
+        deviasiHalIII: actualOutput.indicators.deviasiHalIII?.cappedValue ?? 0,
+        penyerapan: actualOutput.indicators.penyerapan?.cappedValue ?? 0,
+        belanjaKontraktual: actualOutput.indicators.belanjaKontraktual?.cappedValue ?? 0,
+        penyelesaianTagihan: actualOutput.indicators.penyelesaianTagihan?.cappedValue ?? 0,
+        pengelolaanUPTUP: actualOutput.indicators.pengelolaanUPTUP?.cappedValue ?? 0,
+        capaianOutput: actualOutput.indicators.capaianOutput?.cappedValue ?? 0,
+        dispensasiSPM: actualOutput.dispensasiReduction ?? 0
+      });
+    }
+  }, [project.id, actualOutput?.finalScore, actualOutput?.totalWeighted]);
 
   const weights = project.weights || {
     revisiDIPA: 10,
@@ -224,9 +240,10 @@ export const SandboxSimulator7Indikator: React.FC<SandboxSimulator7IndikatorProp
                 onClick={handlePresetZero}
                 type="button"
                 className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-all shadow-xs"
+                title="Geser semua slider simulasi ke 0 (Hanya untuk simulasi What-If, tidak mengubah data proyek riil)"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                Mulai dari 0
+                Set Slider ke 0
               </button>
             </div>
 

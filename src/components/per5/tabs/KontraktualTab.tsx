@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Info,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Save,
@@ -26,6 +27,10 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { SimulationProject, BelanjaKontraktualInput } from '../../../models/ikpa';
+import { validateKontraktual } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   round2,
   excelAverage,
@@ -72,6 +77,7 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [showGoldenTestModal, setShowGoldenTestModal] = useState(false);
   const [goldenTestResult, setGoldenTestResult] = useState<BelanjaKontraktualGoldenTestSummary | null>(null);
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
 
   // Raw contract items
   const rawContracts: BelanjaKontraktualInput[] = useMemo(() => {
@@ -105,6 +111,11 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
   }, [rawContracts]);
 
   const { processedRows, summary, indicatorResult } = calculation;
+
+  // Validasi otomatis data Belanja Kontraktual
+  const validationIssues = useMemo(() => {
+    return validateKontraktual(rawContracts);
+  }, [rawContracts]);
 
   // Filtered rows for search/filtering
   const displayedRows = useMemo(() => {
@@ -225,6 +236,13 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       nilaiAkselerasi53: k.nilaiAkselerasi53
     }));
     onUpdateProject({ ...project, belanjaKontraktual: defaultData });
+  };
+
+  // Kosongkan seluruh data kontrak ke 0
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Belanja Kontraktual? Seluruh baris data kontrak akan dihapus.')) {
+      onUpdateProject({ ...project, belanjaKontraktual: [] });
+    }
   };
 
   // Save to LocalStorage
@@ -376,6 +394,16 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
+              <IndikatorCalculateButton
+                indicatorKey="belanjaKontraktual"
+                indicatorName="Belanja Kontraktual"
+                weight={10}
+                indicatorResult={indicatorResult}
+                validationIssues={validationIssues}
+                satkerName={project.metadata?.namaSatker || project.name}
+                isDark={isDark}
+              />
+
               <button
                 id="btn-formula-inspector-kontraktual"
                 onClick={() => onOpenInspector(
@@ -403,6 +431,22 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Belanja Kontraktual"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="kontraktual"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. Three Component Breakdown Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -607,6 +651,15 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
             className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset Excel
+          </button>
+
+          <button
+            id="btn-clear-kontrak"
+            onClick={handleClearForm}
+            title="Kosongkan seluruh baris data kontrak"
+            className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-2.5 py-1.5 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300"
+          >
+            <Eraser className="h-3.5 w-3.5 text-rose-500" /> Kosongkan Formulir
           </button>
 
           <button

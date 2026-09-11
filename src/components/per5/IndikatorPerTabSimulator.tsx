@@ -19,7 +19,10 @@ import {
   Plus,
   Trash2,
   RotateCcw,
+  Eraser,
+  Cloud,
   ShieldCheck,
+  ShieldAlert,
   Zap,
   Building,
   ArrowUpDown,
@@ -29,13 +32,22 @@ import {
   Printer,
   Copy,
   Edit2,
-  Save
+  Save,
+  Lock,
+  Unlock,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Search,
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 import { SatkerIKPA, AppTheme, PerhitunganIkpaExcelReference } from '../../types';
-import { SimulationProject } from '../../models/ikpa';
+import { SimulationProject, DeviasiHal3Row, PenyerapanInput } from '../../models/ikpa';
 import { calculateIKPA } from '../../calculations/ikpa';
 import { getWorkbookSampleProject } from '../../calculations/sampleWorkbookData';
 import { sanitizeProjectDates } from '../../utils/ikpaDateUtils';
+import { verifySatkerPassword, resolveKodeBA } from '../../utils/satkerSecurity';
 import {
   getAllProjects,
   getProjectById,
@@ -48,6 +60,8 @@ import {
 } from '../../storage/indexedDb';
 
 import { FormulaInspectorModal } from './formulaInspectorModal';
+import { KosongkanFormulirModal } from './common/KosongkanFormulirModal';
+import { CloudSatkerSyncModal } from './common/CloudSatkerSyncModal';
 import { InterfaceTab } from './tabs/InterfaceTab';
 import { DashboardTab } from './tabs/DashboardTab';
 import { RevisiDipaTab } from './tabs/RevisiDipaTab';
@@ -81,6 +95,8 @@ interface IndikatorPerTabSimulatorProps {
   activeExcelReference?: PerhitunganIkpaExcelReference;
   theme: AppTheme;
   initialTab?: MasterSimulatorTab;
+  isAdminAuthenticated?: boolean;
+  onOpenAdminAuth?: () => void;
 }
 
 export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> = ({
@@ -88,8 +104,11 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   selectedSatkerId,
   onSelectSatker,
   onApplyScoreToMainSimulator,
+  activeExcelReference,
   theme,
-  initialTab = 'interface'
+  initialTab = 'interface',
+  isAdminAuthenticated = false,
+  onOpenAdminAuth
 }) => {
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<MasterSimulatorTab>(
@@ -101,6 +120,76 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
       setActiveTab(initialTab === 'dashboard' ? 'interface' : initialTab);
     }
   }, [initialTab]);
+
+  // Satker Authentication State (Security Gatekeeper)
+  // KEAMANAN AKSES: Status login Satker hanya disimpan di memori (React state).
+  // Saat browser di-refresh (F5), reload, atau ditutup, status login otomatis HANGUS / LOGOUT
+  // sehingga pengguna wajib memasukkan password kembali demi menjaga keamanan data satker.
+  const [unlockedSatkerKode, setUnlockedSatkerKode] = useState<string>('');
+
+  // Pastikan sesi penyimpanan browser lama dibersihkan saat halaman dimuat
+  useEffect(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('kppn_unlocked_simulasi_satker');
+    }
+  }, []);
+
+  // Keep unlockedSatkerKode aligned if Admin switches selectedSatkerId
+  useEffect(() => {
+    if (isAdminAuthenticated && selectedSatkerId) {
+      setUnlockedSatkerKode(selectedSatkerId);
+    }
+  }, [isAdminAuthenticated, selectedSatkerId]);
+
+  // Determine if simulation is unlocked
+  const isUnlocked = useMemo(() => {
+    if (isAdminAuthenticated) return true;
+    if (!unlockedSatkerKode) return false;
+    return satkers.some(s => s.kodeSatker === unlockedSatkerKode);
+  }, [isAdminAuthenticated, unlockedSatkerKode, satkers]);
+
+  // Authenticated Satker object
+  const authenticatedSatker = useMemo(() => {
+    if (isAdminAuthenticated) {
+      return satkers.find(s => s.kodeSatker === (selectedSatkerId || unlockedSatkerKode)) || satkers[0];
+    }
+    return satkers.find(s => s.kodeSatker === unlockedSatkerKode);
+  }, [isAdminAuthenticated, selectedSatkerId, unlockedSatkerKode, satkers]);
+
+  // Gatekeeper Form States
+  const [authSelectedKode, setAuthSelectedKode] = useState<string>(() => {
+    if (selectedSatkerId) return selectedSatkerId;
+    return satkers[0]?.kodeSatker || '';
+  });
+  const [authPasswordInput, setAuthPasswordInput] = useState<string>('');
+  const [showAuthPassword, setShowAuthPassword] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSearchQuery, setAuthSearchQuery] = useState<string>('');
+
+  // Sync authSelectedKode if selectedSatkerId or satkers change
+  useEffect(() => {
+    if (selectedSatkerId && satkers.some(s => s.kodeSatker === selectedSatkerId)) {
+      setAuthSelectedKode(selectedSatkerId);
+    } else if (!authSelectedKode && satkers.length > 0) {
+      setAuthSelectedKode(satkers[0].kodeSatker);
+    }
+  }, [selectedSatkerId, satkers]);
+
+  // Selected satker in gatekeeper card
+  const currentAuthTargetSatker = useMemo(() => {
+    return satkers.find(s => s.kodeSatker === authSelectedKode) || satkers[0];
+  }, [satkers, authSelectedKode]);
+
+  // Filtered Satkers for gatekeeper selector
+  const filteredAuthSatkers = useMemo(() => {
+    if (!authSearchQuery.trim()) return satkers;
+    const q = authSearchQuery.toLowerCase();
+    return satkers.filter(s =>
+      (s.kodeSatker || '').toLowerCase().includes(q) ||
+      (s.namaSatker || '').toLowerCase().includes(q) ||
+      (s.kementerianLembaga || '').toLowerCase().includes(q)
+    );
+  }, [satkers, authSearchQuery]);
 
   const [projects, setProjects] = useState<SimulationProject[]>([]);
   const [activeProject, setActiveProject] = useState<SimulationProject>(() => {
@@ -114,6 +203,10 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal States
+  const [isKosongkanModalOpen, setIsKosongkanModalOpen] = useState(false);
+  const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState(false);
 
   // Formula Inspector state
   const [inspectorState, setInspectorState] = useState<{
@@ -161,17 +254,53 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             sanitized.output = calculateIKPA(sanitized);
             return sanitized;
           });
-          setProjects(sanitizedProjects);
+
+          // Deduplicate projects: prevent identical baseline projects appearing multiple times
+          const deduplicatedList: SimulationProject[] = [];
+          const seenNames = new Set<string>();
+          let hasBaseline = false;
+
+          for (const proj of sanitizedProjects) {
+            const trimmedName = (proj.name || 'Simulasi Mandiri').trim();
+            const isDefaultName = trimmedName === 'Simulasi Mandiri (Mulai dari 0)' || trimmedName === 'Simulasi Mandiri';
+
+            if (isDefaultName) {
+              if (seenNames.has(trimmedName)) {
+                // Orphan duplicate found, delete from storage
+                deleteProject(proj.id).catch(() => {});
+                continue;
+              }
+              seenNames.add(trimmedName);
+            }
+
+            if (proj.isBaseline) {
+              if (hasBaseline) {
+                proj.isBaseline = false;
+              } else {
+                hasBaseline = true;
+              }
+            }
+
+            deduplicatedList.push(proj);
+          }
+
+          if (deduplicatedList.length === 0) {
+            const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)', true);
+            await saveProject(cleanZero);
+            deduplicatedList.push(cleanZero);
+          }
+
+          setProjects(deduplicatedList);
           const activeId = getActiveProjectId();
-          const current = sanitizedProjects.find(p => p.id === activeId) || sanitizedProjects[0];
+          const current = deduplicatedList.find(p => p.id === activeId) || deduplicatedList[0];
           current.output = calculateIKPA(current);
           setActiveProject(current);
-          const baseline = sanitizedProjects.find(p => p.isBaseline) || sanitizedProjects[0];
+          const baseline = deduplicatedList.find(p => p.isBaseline) || deduplicatedList[0];
           baseline.output = calculateIKPA(baseline);
           setBaselineProject(baseline);
         } else {
           // Initialize with zero project (all inputs at 0)
-          const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)');
+          const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)', true);
           await saveProject(cleanZero);
           setProjects([cleanZero]);
           setActiveProject(cleanZero);
@@ -255,16 +384,119 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
 
   // Reset all simulation data to 0 (clean slate)
   const handleResetToZero = async () => {
-    const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)');
+    const currentName = activeProject?.name || 'Simulasi Mandiri (Mulai dari 0)';
+    const isBaseline = activeProject?.isBaseline ?? false;
+    const cleanZero = createEmptyProject(currentName, isBaseline);
+    if (activeProject?.id) {
+      cleanZero.id = activeProject.id;
+    }
+    cleanZero.output = calculateIKPA(cleanZero);
     await saveProject(cleanZero);
     setProjects(prev => {
-      const filtered = prev.filter(p => p.id !== cleanZero.id && p.id !== 'proj_sample_workbook_2026');
-      return [cleanZero, ...filtered];
+      const exists = prev.some(p => p.id === cleanZero.id);
+      if (exists) {
+        return prev.map(p => p.id === cleanZero.id ? cleanZero : p);
+      }
+      return prev.map(p => p.id === activeProject?.id ? cleanZero : p);
     });
     setActiveProject(cleanZero);
-    setBaselineProject(cleanZero);
+    if (cleanZero.isBaseline) {
+      setBaselineProject(cleanZero);
+    }
     setActiveProjectId(cleanZero.id);
-    showNotification('Simulasi berhasil di-reset: seluruh data & indikator kembali ke 0.', 'success');
+    showNotification('Simulasi berhasil di-reset: seluruh formulir kembali bersih ke nilai 0.', 'success');
+  };
+
+  // Get active tab title
+  const getActiveTabTitle = (): string => {
+    switch (activeTab) {
+      case 'interface': return 'Ringkasan & Interface';
+      case 'dashboard': return 'Dashboard Monitoring';
+      case 'revisi-dipa': return 'Revisi DIPA';
+      case 'deviasi-hal3': return 'Deviasi Halaman III DIPA';
+      case 'penyerapan': return 'Penyerapan Anggaran';
+      case 'kontraktual': return 'Belanja Kontraktual';
+      case 'tagihan': return 'Penyelesaian Tagihan';
+      case 'up-tup': return 'Pengelolaan UP dan TUP';
+      case 'capaian-output': return 'Capaian Output';
+      case 'dispensasi-spm': return 'Dispensasi SPM';
+      case 'skenario': return 'Skenario Rekomendasi';
+      default: return 'Indikator';
+    }
+  };
+
+  // Clear specific active tab
+  const handleClearActiveTab = () => {
+    switch (activeTab) {
+      case 'revisi-dipa':
+        handleUpdateProject({ ...activeProject, revisiDIPA: [] });
+        showNotification('Formulir Revisi DIPA berhasil dikosongkan.', 'success');
+        break;
+      case 'deviasi-hal3': {
+        const emptyDeviasi: DeviasiHal3Row[] = Array.from({ length: 12 }, (_, i) => ({
+          periode: String(i + 1).padStart(2, '0'),
+          rencana51: 0, rencana52: 0, rencana53: 0, rencana57: 0,
+          penyerapan51: 0, penyerapan52: 0, penyerapan53: 0, penyerapan57: 0,
+          deviasi51: 0, deviasi52: 0, deviasi53: 0, deviasi57: 0,
+          persenDeviasi51: 0, persenDeviasi52: 0, persenDeviasi53: 0, persenDeviasi57: 0,
+          proporsi51: 0.25, proporsi52: 0.25, proporsi53: 0.25, proporsi57: 0.25,
+          deviasiTertimbang51: 0, deviasiTertimbang52: 0, deviasiTertimbang53: 0, deviasiTertimbang57: 0,
+          deviasiSeluruhJenisBelanja: 0, rataRataDeviasiKumulatif: 0, nilaiIKPA: 0
+        }));
+        handleUpdateProject({ ...activeProject, deviasiHalIII: emptyDeviasi });
+        showNotification('Formulir Deviasi Halaman III DIPA berhasil dikosongkan.', 'success');
+        break;
+      }
+      case 'penyerapan': {
+        const emptyPenyerapan: PenyerapanInput[] = Array.from({ length: 12 }, (_, i) => ({
+          periode: String(i + 1).padStart(2, '0'),
+          pagu51: 0, pagu52: 0, pagu53: 0, pagu57: 0,
+          blokir51: 0, blokir52: 0, blokir53: 0, blokir57: 0,
+          target51: undefined, target52: undefined, target53: undefined, target57: undefined,
+          realisasi51: 0, realisasi52: 0, realisasi53: 0, realisasi57: 0
+        }));
+        handleUpdateProject({ ...activeProject, penyerapan: emptyPenyerapan });
+        showNotification('Formulir Penyerapan Anggaran berhasil dikosongkan.', 'success');
+        break;
+      }
+      case 'kontraktual':
+        handleUpdateProject({ ...activeProject, belanjaKontraktual: [] });
+        showNotification('Formulir Belanja Kontraktual berhasil dikosongkan.', 'success');
+        break;
+      case 'tagihan':
+        handleUpdateProject({ ...activeProject, penyelesaianTagihan: [] });
+        showNotification('Formulir Penyelesaian Tagihan berhasil dikosongkan.', 'success');
+        break;
+      case 'up-tup':
+        handleUpdateProject({
+          ...activeProject,
+          upTUPTunai: [],
+          upTUPKKP: Array.from({ length: 12 }, (_, i) => ({
+            periode: String(i + 1).padStart(2, '0'),
+            kodeSatker: '',
+            namaSatker: '',
+            kodeKPPN: '',
+            upKKPPerBulan: 0,
+            penggunaanKKP: 0
+          }))
+        });
+        showNotification('Formulir Pengelolaan UP & TUP berhasil dikosongkan.', 'success');
+        break;
+      case 'capaian-output':
+        handleUpdateProject({ ...activeProject, capaianOutput: [], capaianOutputKetepatan: [] });
+        showNotification('Formulir Capaian Output berhasil dikosongkan.', 'success');
+        break;
+      case 'dispensasi-spm':
+        handleUpdateProject({
+          ...activeProject,
+          dispensasiSPM: { jumlahSPMTriwulanIV: 0, jumlahDispensasiSPM: 0 }
+        });
+        showNotification('Formulir Dispensasi SPM berhasil dikosongkan.', 'success');
+        break;
+      default:
+        handleResetToZero();
+        break;
+    }
   };
 
   // Reset to sample workbook
@@ -383,6 +615,67 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     });
   };
 
+  // Handle Verify Satker Password
+  const handleVerifySatker = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!currentAuthTargetSatker) {
+      setAuthError('Silakan pilih Satker terlebih dahulu.');
+      return;
+    }
+
+    const isValid = verifySatkerPassword(currentAuthTargetSatker, authPasswordInput, isAdminAuthenticated);
+    if (isValid) {
+      setUnlockedSatkerKode(currentAuthTargetSatker.kodeSatker);
+      // PENTING: Jangan simpan di sessionStorage agar setiap kali refresh, sesi otomatis log out
+      setAuthError(null);
+      setAuthPasswordInput('');
+
+      // Auto update active project metadata to the unlocked Satker
+      handleUpdateProject({
+        ...activeProject,
+        metadata: {
+          ...activeProject.metadata,
+          namaSatker: currentAuthTargetSatker.namaSatker,
+          kodeSatker: currentAuthTargetSatker.kodeSatker,
+          kodeKPPN: currentAuthTargetSatker.kodeKppn || '026'
+        }
+      });
+
+      if (onSelectSatker) {
+        onSelectSatker(currentAuthTargetSatker.kodeSatker);
+      }
+      showNotification(`Akses Simulasi Satker ${currentAuthTargetSatker.namaSatker} (${currentAuthTargetSatker.kodeSatker}) berhasil dibuka!`, 'success');
+    } else {
+      setAuthError('Password Satker tidak sesuai. Silakan masukkan password resmi Satker Anda atau hubungi Admin KPPN.');
+    }
+  };
+
+  // Lock session / Log Out Satker
+  const handleLockSatker = () => {
+    setUnlockedSatkerKode('');
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('kppn_unlocked_simulasi_satker');
+    }
+    setAuthPasswordInput('');
+    setAuthError(null);
+    showNotification('Sesi Satker telah berhasil di-logout dan dikunci kembali. Silakan login ulang untuk membuka akses.', 'info');
+  };
+
+  // Sync actual Satker identity to project
+  const handleSyncSatkerToProject = () => {
+    if (!authenticatedSatker) return;
+    handleUpdateProject({
+      ...activeProject,
+      metadata: {
+        ...activeProject.metadata,
+        namaSatker: authenticatedSatker.namaSatker,
+        kodeSatker: authenticatedSatker.kodeSatker,
+        kodeKPPN: authenticatedSatker.kodeKppn || '026'
+      }
+    });
+    showNotification(`Identitas Satker ${authenticatedSatker.namaSatker} (${authenticatedSatker.kodeSatker}) disinkronkan ke skenario aktif.`, 'success');
+  };
+
   const tabsConfig: { id: MasterSimulatorTab; label: string; icon: any; badge?: string }[] = [
     { id: 'interface', label: 'Interface (Ringkasan)', icon: ShieldCheck, badge: 'Utama' },
     { id: 'revisi-dipa', label: '1. Revisi DIPA', icon: FileText, badge: '10%' },
@@ -395,6 +688,230 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     { id: 'dispensasi-spm', label: 'Dispensasi SPM', icon: AlertTriangle, badge: 'Minus' },
     { id: 'skenario', label: 'Perbandingan Skenario', icon: Layers }
   ];
+
+  // =========================================================================
+  // GATEKEEPER CARD: TAMPILKAN JIKA AKSES BELUM DIBUKA DENGAN PASSWORD SATKER
+  // =========================================================================
+  if (!isUnlocked) {
+    return (
+      <div className={`space-y-6 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
+        {/* Gatekeeper Card Container */}
+        <div className={`rounded-3xl border p-6 sm:p-10 shadow-xl transition-all max-w-3xl mx-auto ${
+          isDark ? 'bg-slate-900/95 border-amber-500/30 shadow-amber-500/5' : 'bg-white border-amber-300 shadow-amber-500/10'
+        }`}>
+          <div className="text-center max-w-xl mx-auto space-y-3">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-500/30">
+              <ShieldAlert className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>Akses Dilindungi Password Satker</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+              Ruang Simulasi 8 Modul Indikator IKPA
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              Untuk melindungi kerahasiaan strategi proyeksi anggaran dan data indikator Satker mitra KPPN Semarang I, silakan pilih Satker Anda dan masukkan password resmi sebelum mengakses formulir simulasi.
+            </p>
+          </div>
+
+          {/* Form Otentikasi Satker */}
+          <form onSubmit={handleVerifySatker} className="mt-8 max-w-xl mx-auto space-y-5">
+            {/* 1. Pilih Satker */}
+            <div className="space-y-1.5 text-left">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                1. Pilih Satker Anda:
+              </label>
+
+              {/* Filter Search */}
+              <div className="relative mb-2">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari nama Satker / 6-digit kode satker..."
+                  value={authSearchQuery}
+                  onChange={e => setAuthSearchQuery(e.target.value)}
+                  className={`w-full text-xs rounded-xl pl-10 pr-4 py-2.5 border transition-all ${
+                    isDark
+                      ? 'bg-slate-950/80 border-slate-800 text-white placeholder-slate-500 focus:border-amber-500'
+                      : 'bg-slate-50 border-slate-300 text-slate-900 placeholder-slate-400 focus:border-amber-500'
+                  }`}
+                />
+              </div>
+
+              {/* Satker Dropdown */}
+              <select
+                value={authSelectedKode}
+                onChange={e => {
+                  setAuthSelectedKode(e.target.value);
+                  setAuthError(null);
+                }}
+                className={`w-full text-xs font-semibold rounded-xl px-3.5 py-3 border transition-all ${
+                  isDark
+                    ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-500'
+                    : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500'
+                }`}
+              >
+                {filteredAuthSatkers.length === 0 ? (
+                  <option value="">Tidak ada Satker yang cocok dengan pencarian</option>
+                ) : (
+                  filteredAuthSatkers.map(s => {
+                    const klClean = (s.kementerianLembaga && s.kementerianLembaga.trim() !== '-' && s.kementerianLembaga.trim() !== '- ')
+                      ? ` - ${s.kementerianLembaga}`
+                      : '';
+                    return (
+                      <option key={s.id || s.kodeSatker} value={s.kodeSatker}>
+                        [{s.kodeSatker}] {s.namaSatker}{klClean}
+                      </option>
+                    );
+                  })
+                )}
+              </select>
+            </div>
+
+            {/* Satker Summary Card Preview */}
+            {currentAuthTargetSatker && (
+              <div className={`p-4 rounded-2xl border text-left flex items-start justify-between gap-4 ${
+                isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-200'
+              }`}>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Building className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="text-xs font-black text-slate-900 dark:text-white">
+                      {currentAuthTargetSatker.namaSatker}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 space-x-2">
+                    <span>Kode Satker: <strong className="font-mono text-slate-700 dark:text-slate-200">{currentAuthTargetSatker.kodeSatker}</strong></span>
+                    <span>•</span>
+                    <span>KPPN Mitra: <strong className="font-mono text-slate-700 dark:text-slate-200">{currentAuthTargetSatker.kodeKppn || '026'} Semarang I</strong></span>
+                  </div>
+                </div>
+                <span className="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 text-amber-800 dark:text-amber-300 border border-amber-500/20">
+                  Satker Terdaftar
+                </span>
+              </div>
+            )}
+
+            {/* 2. Password Satker Input */}
+            <div className="space-y-1.5 text-left">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                2. Password / PIN Satker:
+              </label>
+              <div className="relative">
+                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type={showAuthPassword ? 'text' : 'password'}
+                  placeholder="Masukkan password satker..."
+                  value={authPasswordInput}
+                  onChange={e => {
+                    setAuthPasswordInput(e.target.value);
+                    if (authError) setAuthError(null);
+                  }}
+                  className={`w-full text-xs font-mono rounded-xl pl-10 pr-10 py-3.5 border transition-all ${
+                    isDark
+                      ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-500'
+                      : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-amber-500'
+                  }`}
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAuthPassword(!showAuthPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  {showAuthPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Banner */}
+            {authError && (
+              <div className="p-3.5 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 rounded-xl text-xs flex items-start gap-2.5 text-left">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                <span className="leading-relaxed font-medium">{authError}</span>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm py-3.5 rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Unlock className="w-4 h-4" />
+              <span>Buka Akses Simulasi 8 Modul Satker</span>
+            </button>
+
+            {/* Info Box Privasi & Keamanan Akses Satker */}
+            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-left">
+              <div className="flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                  <strong className="text-slate-800 dark:text-slate-200">Keamanan Ruang Simulasi Satker:</strong>
+                  <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+                    Akses formulir simulasi dilindungi untuk menjaga kerahasiaan strategi dan proyeksi anggaran masing-masing unit kerja Satker mitra. Masukkan password resmi Satker Anda. Jika membutuhkan bantuan akses atau verifikasi, silakan koordinasikan dengan Petugas Admin KPPN Semarang I.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Login Option */}
+            {onOpenAdminAuth && (
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={onOpenAdminAuth}
+                  className="text-xs font-semibold text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 underline transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Petugas Admin KPPN? Masuk dengan PIN Administrator untuk akses penuh</span>
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
+
+        {/* 8 Modul Preview Cards */}
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
+              8 Modul Indikator Terpadu yang Akan Terbuka:
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {tabsConfig.filter(t => t.id !== 'skenario' && t.id !== 'interface').map((t) => {
+              const IconComp = t.icon;
+              return (
+                <div
+                  key={t.id}
+                  className={`p-3.5 rounded-2xl border flex flex-col justify-between transition-all ${
+                    isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600">
+                      <IconComp className="w-4 h-4" />
+                    </div>
+                    {t.badge && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {t.badge}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-tight">
+                      {t.label}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      PER-5/PB/2024
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-6 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -467,7 +984,26 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
               <span>•</span>
               <span>TA: <strong className="font-mono text-slate-700 dark:text-slate-200">{activeProject.metadata.tahunAnggaran || 2026}</strong></span>
               <span>•</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-medium">Terbuka untuk Seluruh Satker</span>
+              {isAdminAuthenticated ? (
+                <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 font-bold bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 rounded-md">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Mode Admin KPPN
+                </span>
+              ) : authenticatedSatker ? (
+                <div className="inline-flex items-center gap-2 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-bold px-3 py-1 rounded-xl border border-emerald-500/30">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Satker Aktif: <strong>{authenticatedSatker.kodeSatker}</strong></span>
+                  <button
+                    onClick={handleLockSatker}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-600 hover:text-white px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-800 transition-all cursor-pointer"
+                    title="Log Out dari sesi Satker ini dan kunci kembali simulasi"
+                  >
+                    <LogOut className="w-3 h-3" />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              ) : (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">Terbuka untuk Seluruh Satker</span>
+              )}
             </div>
           </div>
 
@@ -488,17 +1024,29 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             </button>
 
             {/* Skenario Dropdown */}
-            <select
-              value={activeProject.id}
-              onChange={e => handleSelectProject(e.target.value)}
-              className="rounded-xl border px-3 py-2 text-xs font-semibold dark:bg-slate-800 dark:border-slate-700 font-sans shadow-xs"
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.isBaseline ? '(Baseline)' : ''}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={activeProject.id}
+                onChange={e => handleSelectProject(e.target.value)}
+                className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-800 dark:text-slate-200 font-sans shadow-xs focus:ring-2 focus:ring-emerald-500"
+              >
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} {p.isBaseline ? '(Baseline)' : ''}
+                  </option>
+                ))}
+              </select>
+
+              {projects.length > 1 && (
+                <button
+                  onClick={() => handleDeleteProject(activeProject.id)}
+                  className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
+                  title="Hapus Skenario Ini"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
             {/* Project Management Buttons */}
             <button
@@ -518,20 +1066,52 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             </button>
 
             <button
-              onClick={handleResetToZero}
-              className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors shadow-xs"
-              title="Kosongkan seluruh data simulasi menjadi 0 (Mulai dari 0)"
+              onClick={() => setIsKosongkanModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors shadow-xs cursor-pointer"
+              title="Kosongkan formulir simulasi (Pilihan per tab atau semua tab)"
             >
-              <RotateCcw className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" /> Reset ke 0
+              <Eraser className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+              <span>Kosongkan Formulir</span>
+            </button>
+
+            <button
+              onClick={() => setIsCloudSyncModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 dark:border-sky-900/50 bg-sky-50 dark:bg-sky-950/40 px-3 py-2 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors shadow-xs cursor-pointer"
+              title="Simpan atau Buka Skenario Satker dari Cloud Database (Password Satker)"
+            >
+              <Cloud className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+              <span>Cloud Satker</span>
             </button>
 
             <button
               onClick={handleLoadSampleWorkbook}
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-xs"
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-xs cursor-pointer"
               title="Muat Data Contoh Workbook Excel 2026 (Sebagai Referensi)"
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" /> Muat Contoh Workbook
             </button>
+
+            {authenticatedSatker && (
+              <button
+                onClick={handleSyncSatkerToProject}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors shadow-xs cursor-pointer"
+                title={`Sinkronkan data & identitas Satker ${authenticatedSatker.namaSatker} ke skenario ini`}
+              >
+                <Building className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Pakai Satker {authenticatedSatker.kodeSatker}</span>
+              </button>
+            )}
+
+            {!isAdminAuthenticated && (
+              <button
+                onClick={handleLockSatker}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                title="Keluar / Log Out dari sesi Satker dan kunci kembali ruang simulasi"
+              >
+                <LogOut className="h-3.5 w-3.5 text-white" />
+                <span>Log Out Satker {authenticatedSatker ? `(${authenticatedSatker.kodeSatker})` : ''}</span>
+              </button>
+            )}
 
             {/* Export & Import Tools */}
             <button
@@ -572,16 +1152,6 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             >
               <Printer className="h-4 w-4" />
             </button>
-
-            {projects.length > 1 && (
-              <button
-                onClick={() => handleDeleteProject(activeProject.id)}
-                className="p-2 rounded-xl border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400"
-                title="Hapus Skenario Aktif"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
           </div>
         </div>
 
@@ -738,6 +1308,33 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         excelFormula={inspectorState.formula}
         scoreFormatted={inspectorState.score}
         details={inspectorState.details}
+        isDark={isDark}
+      />
+
+      {/* 5. KOSONGKAN FORMULIR MODAL */}
+      <KosongkanFormulirModal
+        isOpen={isKosongkanModalOpen}
+        onClose={() => setIsKosongkanModalOpen(false)}
+        activeTab={activeTab}
+        tabTitle={getActiveTabTitle()}
+        onClearActiveTab={handleClearActiveTab}
+        onClearAllTabs={handleResetToZero}
+        onLoadSampleWorkbook={handleLoadSampleWorkbook}
+        isDark={isDark}
+      />
+
+      {/* 6. CLOUD SATKER SYNC MODAL (FIRESTORE) */}
+      <CloudSatkerSyncModal
+        isOpen={isCloudSyncModalOpen}
+        onClose={() => setIsCloudSyncModalOpen(false)}
+        activeProject={activeProject}
+        onLoadProject={(loaded) => {
+          handleUpdateProject(loaded);
+          showNotification(`Skenario "${loaded.name}" berhasil dimuat dari Cloud Satker.`, 'success');
+        }}
+        satkers={satkers}
+        selectedSatkerId={selectedSatkerId}
+        onSelectSatker={onSelectSatker}
         isDark={isDark}
       />
     </div>

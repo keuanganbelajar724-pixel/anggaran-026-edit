@@ -4,6 +4,7 @@ import {
   Sliders,
   Calculator,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Copy,
@@ -19,7 +20,11 @@ import {
   Save,
   Sparkles
 } from 'lucide-react';
-import { SimulationProject, DispensasiSPM } from '../../../models/ikpa';
+import { SimulationProject, DispensasiSPM, IndicatorResult } from '../../../models/ikpa';
+import { validateDispensasi } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   calculateDispensationRatio,
   calculateDispensationPenalty,
@@ -69,6 +74,30 @@ export const DispensasiTab: React.FC<DispensasiTabProps> = ({
 
   const { jumlahSPMTriwulanIV, jumlahDispensasiSPM, rasio, pengurangNilai, validation, details } = calculation;
 
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+
+  // Validasi otomatis data Dispensasi SPM
+  const validationIssues = useMemo(() => {
+    return validateDispensasi(currentDispensasi);
+  }, [currentDispensasi]);
+
+  // Objek hasil indikator standar
+  const indicatorResult: IndicatorResult = useMemo(() => {
+    return {
+      weight: 0,
+      rawValue: pengurangNilai,
+      cappedValue: pengurangNilai,
+      weightedValue: pengurangNilai,
+      isActive: true,
+      details: [
+        { step: 'Jumlah SPM Triwulan IV (A2)', formulaHuman: 'Total SPM Triwulan IV', value: String(jumlahSPMTriwulanIV) },
+        { step: 'Jumlah Dispensasi SPM (B2)', formulaHuman: 'SPM Dispensasi TW IV', value: String(jumlahDispensasiSPM) },
+        { step: 'Rasio Dispensasi (C2)', formulaHuman: '=B2/A2*1000', value: `${rasio.toFixed(2)}‰` },
+        { step: 'Pengurang Nilai IKPA (D2)', formulaHuman: details?.thresholdApplied || 'Kategori Pengurang Nilai', value: `-${pengurangNilai.toFixed(2)} Poin` }
+      ]
+    };
+  }, [jumlahSPMTriwulanIV, jumlahDispensasiSPM, rasio, pengurangNilai, details]);
+
   // Nilai IKPA sebelum dan sesudah dispensasi
   const ikpaBeforeDisp = useMemo(() => {
     if (!project.output) return 0;
@@ -116,6 +145,19 @@ export const DispensasiTab: React.FC<DispensasiTabProps> = ({
         jumlahDispensasiSPM: DEFAULT_EXCEL_DISPENSASI.jumlahDispensasiSpm
       }
     });
+  };
+
+  // Kosongkan seluruh nilai SPM ke 0
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Dispensasi SPM? Jumlah SPM TW IV dan SPM Dispensasi akan di-nol-kan.')) {
+      onUpdateProject({
+        ...project,
+        dispensasiSPM: {
+          jumlahSPMTriwulanIV: 0,
+          jumlahDispensasiSPM: 0
+        }
+      });
+    }
   };
 
   // Save to LocalStorage
@@ -285,6 +327,16 @@ FORMULA EXCEL ACUAN:
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
+              <IndikatorCalculateButton
+                indicatorKey="dispensasiSPM"
+                indicatorName="Dispensasi SPM"
+                weight={0}
+                indicatorResult={indicatorResult}
+                validationIssues={validationIssues}
+                satkerName={project.metadata?.namaSatker || project.name}
+                isDark={isDark}
+              />
+
               <button
                 id="btn-formula-inspector-dispensasi"
                 onClick={() => onOpenInspector(
@@ -318,6 +370,22 @@ FORMULA EXCEL ACUAN:
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Dispensasi SPM"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="dispensasi-spm"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. Warnings Banner (Jika A2=0 dan B2>0, atau B2>A2) */}
       {validation.warnings.length > 0 && (
@@ -401,6 +469,15 @@ FORMULA EXCEL ACUAN:
             className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset Excel
+          </button>
+
+          <button
+            id="btn-clear-dispensasi"
+            onClick={handleClearForm}
+            title="Kosongkan nilai SPM ke 0"
+            className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-2.5 py-1.5 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300"
+          >
+            <Eraser className="h-3.5 w-3.5 text-rose-500" /> Kosongkan Formulir
           </button>
 
           <button

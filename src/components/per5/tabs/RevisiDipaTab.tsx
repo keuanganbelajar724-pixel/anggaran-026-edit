@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Copy,
@@ -37,6 +38,10 @@ import {
 } from '../../../calculations/revisiDipa';
 import { formatRupiah } from '../../../utils/excelReferenceDataHelper';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
+import { validateRevisiDIPA } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 
 interface RevisiDipaTabProps {
   project: SimulationProject;
@@ -106,6 +111,12 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
   const [goldenTestResult, setGoldenTestResult] = useState<GoldenTestVerificationResult | null>(null);
   const [show14ReferenceModal, setShow14ReferenceModal] = useState(false);
   const [showAuditPanel, setShowAuditPanel] = useState(true);
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+
+  // Validasi otomatis input data Revisi DIPA
+  const validationIssues = useMemo(() => {
+    return validateRevisiDIPA(rawInputs);
+  }, [rawInputs]);
 
   // Update baris spesifik
   const handleUpdateRow = (
@@ -153,6 +164,17 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
       onUpdateProject({
         ...project,
         revisiDIPA: resetRows as any
+      });
+      setGoldenTestResult(null);
+    }
+  };
+
+  // Kosongkan seluruh tabel formulir Revisi DIPA
+  const handleClearTable = () => {
+    if (window.confirm('Kosongkan formulir Revisi DIPA? Seluruh baris riwayat revisi akan dihapus.')) {
+      onUpdateProject({
+        ...project,
+        revisiDIPA: []
       });
       setGoldenTestResult(null);
     }
@@ -320,6 +342,16 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
         {/* Action Toolbar */}
         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-2">
+            <IndikatorCalculateButton
+              indicatorKey="revisiDIPA"
+              indicatorName="Revisi DIPA"
+              weight={10}
+              indicatorResult={indicatorResult}
+              validationIssues={validationIssues}
+              satkerName={project.metadata?.namaSatker || project.name}
+              isDark={isDark}
+            />
+
             <button
               onClick={() => onOpenInspector(
                 'Indikator Revisi DIPA (G6)',
@@ -382,15 +414,40 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
 
             <button
               onClick={handleResetToGolden}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 font-medium cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium cursor-pointer transition-colors"
               title="Kembalikan nilai ke contoh data standar workbook Excel"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               Reset Standar Excel
             </button>
+
+            <button
+              onClick={handleClearTable}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-medium cursor-pointer transition-colors"
+              title="Kosongkan seluruh baris formulir Revisi DIPA"
+            >
+              <Eraser className="h-3.5 w-3.5" />
+              Kosongkan Formulir
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Revisi DIPA"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="revisi-dipa"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* Modal / Hasil Golden Test Banner */}
       {goldenTestResult && (

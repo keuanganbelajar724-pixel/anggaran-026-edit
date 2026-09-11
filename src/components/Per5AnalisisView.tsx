@@ -36,6 +36,7 @@ import { IndikatorPerTabSimulator, MasterSimulatorTab } from './per5/IndikatorPe
 import { DEFAULT_PERHITUNGAN_IKPA_REFERENCE, downloadPerhitunganIkpaExcel } from '../utils/perhitunganIkpaExcelHelper';
 import { safeLocalStorageSet } from '../utils/safeStorage';
 import { db, doc, setDoc } from '../lib/firebase';
+import { AdminLoginModal } from './AdminLoginModal';
 
 interface Per5AnalisisViewProps {
   satkers: SatkerIKPA[];
@@ -44,7 +45,7 @@ interface Per5AnalisisViewProps {
   theme: AppTheme;
   dashboardConfig?: DashboardConfig;
   isAdminAuthenticated?: boolean;
-  onAuthenticateAdmin?: () => void;
+  onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
   onUpdateDashboardConfig?: (config: DashboardConfig) => void;
 }
@@ -186,9 +187,19 @@ export const Per5AnalisisView: React.FC<Per5AnalisisViewProps> = ({
 }) => {
   const isDark = theme === 'dark';
   
-  // Selected tab inside PER-5/PB/2024 Hub (Kalkulator UP/TUP kini bersatu di dalam simulasi-per-indikator)
-  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'simulasi-per-indikator' | 'upload-acuan-excel' | 'pengetahuan' | 'reformulasi' | 'strategi'>('kalkulator');
+  // Selected tab inside PER-5/PB/2024 Hub (Default to simulasi-per-indikator for clean Satker view)
+  const [activeSubTab, setActiveSubTab] = useState<'kalkulator' | 'simulasi-per-indikator' | 'upload-acuan-excel' | 'pengetahuan' | 'reformulasi' | 'strategi'>('simulasi-per-indikator');
   const [simulatorTargetTab, setSimulatorTargetTab] = useState<MasterSimulatorTab>('dashboard');
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState<boolean>(false);
+
+  // If user is Satker (not admin), strictly clamp to the 2 allowed Satker tabs:
+  // 1. 'simulasi-per-indikator' (8 Modul Terpadu)
+  // 2. 'pengetahuan' (8 Indikator & Rumus)
+  useEffect(() => {
+    if (!isAdminAuthenticated && activeSubTab !== 'simulasi-per-indikator' && activeSubTab !== 'pengetahuan') {
+      setActiveSubTab('simulasi-per-indikator');
+    }
+  }, [isAdminAuthenticated, activeSubTab]);
 
   // Active Excel Reference State (Formula & Dasar Perhitungan)
   const [activeExcelReference, setActiveExcelReference] = useState<PerhitunganIkpaExcelReference>(() => {
@@ -647,19 +658,8 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             </p>
           </div>
 
-          <div className="flex flex-wrap sm:flex-nowrap gap-3 shrink-0">
-            <button
-              onClick={() => setActiveSubTab('kalkulator')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubTab === 'kalkulator'
-                  ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30 font-black'
-                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
-              }`}
-            >
-              <Calculator className="w-4 h-4" />
-              <span>Engine Analisis</span>
-            </button>
-
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* 1. SIMULASI PER INDIKATOR (Always visible to Satker & Admin) */}
             <button
               onClick={() => {
                 setSimulatorTargetTab('dashboard');
@@ -673,31 +673,15 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             >
               <Sliders className="w-4 h-4 text-amber-900" />
               <span>Simulasi Per Indikator</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/40 text-amber-950 font-black">8 Tab (UP/TUP Terpadu)</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/40 text-amber-950 font-black">8 Modul</span>
             </button>
 
-            <button
-              onClick={() => setActiveSubTab('upload-acuan-excel')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubTab === 'upload-acuan-excel'
-                  ? 'bg-teal-400 text-slate-950 shadow-lg shadow-teal-400/30 font-black'
-                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
-              <span>Acuan &amp; Upload Excel</span>
-              {isAdminAuthenticated ? (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-400 text-slate-950 font-black">Admin</span>
-              ) : (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-black/40 text-slate-200">Lihat/Unduh</span>
-              )}
-            </button>
-
+            {/* 2. 8 INDIKATOR & RUMUS (Always visible to Satker & Admin) */}
             <button
               onClick={() => setActiveSubTab('pengetahuan')}
               className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
                 activeSubTab === 'pengetahuan'
-                  ? 'bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/30 font-black'
+                  ? 'bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-400/30 font-black'
                   : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
               }`}
             >
@@ -705,30 +689,93 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
               <span>8 Indikator &amp; Rumus</span>
             </button>
 
-            <button
-              onClick={() => setActiveSubTab('reformulasi')}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
-                activeSubTab === 'reformulasi'
-                  ? 'bg-sky-400 text-slate-950 shadow-lg shadow-sky-400/30 font-black'
-                  : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
-              }`}
-            >
-              <BarChart2 className="w-4 h-4" />
-              <span>Komparasi 2022 vs 2024</span>
-            </button>
+            {/* ADMIN ONLY TABS (Visible when authenticated as admin) */}
+            {isAdminAuthenticated ? (
+              <>
+                <button
+                  onClick={() => setActiveSubTab('kalkulator')}
+                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                    activeSubTab === 'kalkulator'
+                      ? 'bg-emerald-500 text-slate-950 shadow-lg shadow-emerald-500/30 font-black'
+                      : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+                  }`}
+                >
+                  <Calculator className="w-4 h-4" />
+                  <span>Engine Analisis</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Admin</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('upload-acuan-excel')}
+                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                    activeSubTab === 'upload-acuan-excel'
+                      ? 'bg-teal-400 text-slate-950 shadow-lg shadow-teal-400/30 font-black'
+                      : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-300" />
+                  <span>Acuan &amp; Upload Excel</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Admin</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('reformulasi')}
+                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                    activeSubTab === 'reformulasi'
+                      ? 'bg-sky-400 text-slate-950 shadow-lg shadow-sky-400/30 font-black'
+                      : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+                  }`}
+                >
+                  <BarChart2 className="w-4 h-4" />
+                  <span>Komparasi</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Admin</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveSubTab('strategi')}
+                  className={`px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer ${
+                    activeSubTab === 'strategi'
+                      ? 'bg-purple-400 text-slate-950 shadow-lg shadow-purple-400/30 font-black'
+                      : 'bg-white/15 text-slate-100 hover:bg-white/25 border border-white/20'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Strategi</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black">Admin</span>
+                </button>
+
+                <div className="flex items-center gap-1.5 pl-1">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Mode Admin
+                  </span>
+                  {onLogoutAdmin && (
+                    <button
+                      onClick={onLogoutAdmin}
+                      className="px-2 py-1.5 rounded-xl text-[11px] font-medium bg-rose-500/20 text-rose-300 hover:bg-rose-500/40 border border-rose-500/40 transition-colors cursor-pointer"
+                      title="Keluar dari Mode Admin"
+                    >
+                      Keluar
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              /* SATKER MODE: Button to login if user is KPPN Admin */
+              <button
+                onClick={() => setIsAdminLoginModalOpen(true)}
+                className="px-3.5 py-2.5 rounded-xl font-medium text-xs flex items-center gap-1.5 bg-slate-900/60 hover:bg-slate-900/90 text-slate-300 hover:text-white border border-slate-700/70 transition-all cursor-pointer"
+                title="Khusus Pembina KPPN: Buka Menu Admin Lengkap"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400" />
+                <span>Fitur Admin</span>
+              </button>
+            )}
           </div>
         </div>
 
         {/* Sub Navigation Bar */}
         <div className="mt-6 pt-4 border-t border-slate-700/60 flex items-center gap-2 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => setActiveSubTab('kalkulator')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'kalkulator' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            🧮 Engine Analisis &amp; Simulator
-          </button>
+          {/* 1. Simulasi Per Indikator */}
           <button
             onClick={() => setActiveSubTab('simulasi-per-indikator')}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
@@ -736,48 +783,67 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
             }`}
           >
             <Sliders className="w-3.5 h-3.5 text-amber-400" />
-            <span>🎛️ Simulasi Per Indikator (8 Tab Terpadu Termasuk UP/TUP)</span>
+            <span>🎛️ Simulasi Per Indikator (8 Modul Terpadu)</span>
           </button>
-          <button
-            onClick={() => setActiveSubTab('upload-acuan-excel')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
-              activeSubTab === 'upload-acuan-excel' 
-                ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 font-black' 
-                : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            <span>📊 Contoh Acuan &amp; Upload Excel (Dasar Perhitungan)</span>
-            {isAdminAuthenticated ? (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 font-mono">Upload Admin</span>
-            ) : (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Khusus Admin</span>
-            )}
-          </button>
+
+          {/* 2. 8 Indikator & Rumus */}
           <button
             onClick={() => setActiveSubTab('pengetahuan')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'pengetahuan' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' : 'text-slate-300 hover:text-white'
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+              activeSubTab === 'pengetahuan' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black' : 'text-slate-300 hover:text-white'
             }`}
           >
-            📚 Panduan 8 Indikator PER-5/PB/2024
+            <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+            <span>📖 8 Indikator &amp; Rumus PER-5/PB/2024</span>
           </button>
-          <button
-            onClick={() => setActiveSubTab('reformulasi')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'reformulasi' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            🔄 Reformulasi &amp; Komparasi Regulasi
-          </button>
-          <button
-            onClick={() => setActiveSubTab('strategi')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors ${
-              activeSubTab === 'strategi' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-300 hover:text-white'
-            }`}
-          >
-            💡 Strategi Optimalisasi Official DJPb
-          </button>
+
+          {/* Admin-only subnav tabs */}
+          {isAdminAuthenticated && (
+            <>
+              <button
+                onClick={() => setActiveSubTab('kalkulator')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  activeSubTab === 'kalkulator' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>🧮 Engine Analisis &amp; Simulator</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/30 text-amber-200">Admin</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSubTab('upload-acuan-excel')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  activeSubTab === 'upload-acuan-excel' 
+                    ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40 font-black' 
+                    : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>📊 Acuan &amp; Upload Excel</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/30 text-amber-200">Admin</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSubTab('reformulasi')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  activeSubTab === 'reformulasi' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>🔄 Reformulasi &amp; Komparasi</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/30 text-amber-200">Admin</span>
+              </button>
+
+              <button
+                onClick={() => setActiveSubTab('strategi')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1.5 ${
+                  activeSubTab === 'strategi' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-300 hover:text-white'
+                }`}
+              >
+                <span>💡 Strategi Official DJPb</span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/30 text-amber-200">Admin</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1559,6 +1625,8 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
           activeExcelReference={activeExcelReference}
           theme={theme}
           initialTab={simulatorTargetTab}
+          isAdminAuthenticated={isAdminAuthenticated}
+          onOpenAdminAuth={() => setIsAdminLoginModalOpen(true)}
         />
       )}
 
@@ -1845,6 +1913,22 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
 
           </div>
         </div>
+      )}
+
+      {/* Admin Login Modal for KPPN Administrator */}
+      {isAdminLoginModalOpen && onAuthenticateAdmin && (
+        <AdminLoginModal
+          isOpen={isAdminLoginModalOpen}
+          onClose={() => setIsAdminLoginModalOpen(false)}
+          onAuthenticateAdmin={(pin) => {
+            const success = onAuthenticateAdmin(pin);
+            if (success) {
+              setIsAdminLoginModalOpen(false);
+            }
+            return !!success;
+          }}
+          theme={theme}
+        />
       )}
 
     </div>

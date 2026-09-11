@@ -50,6 +50,7 @@ import { ThemeSettingsSection } from './admin/ThemeSettingsSection';
 import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisSection';
 import { BuletinWartaSection } from './admin/BuletinWartaSection';
 import { FirebaseQuotaMonitorSection } from './admin/FirebaseQuotaMonitorSection';
+import { AdvancedWhatIfAnalyticsSection } from './admin/AdvancedWhatIfAnalyticsSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { 
   processExcelFile, 
@@ -2850,12 +2851,17 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           onClick={() => setAdminTab('analysis')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'analysis'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/40 ring-2 ring-indigo-400/30'
+              : 'text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60'
           }`}
         >
-          <Calculator className="w-4 h-4 text-indigo-600" />
-          <span>5. Analisis &amp; Simulator IKPA</span>
+          <Calculator className={`w-4 h-4 ${adminTab === 'analysis' ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
+          <span>5. Simulator &amp; Analisis Canggih</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs ${
+            adminTab === 'analysis' ? 'bg-amber-400 text-slate-950' : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200'
+          }`}>
+            ✨ Goal-Seek &amp; Radar
+          </span>
         </button>
 
         <button
@@ -10403,261 +10409,12 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       )}
       {adminTab === 'analysis' && (
-        <div className="space-y-6">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-6`}>
-            
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3 py-1 rounded-full text-xs font-bold mb-1">
-                  <Calculator className="w-3.5 h-3.5" />
-                  FITUR ANALISIS CANGGIH &amp; SIMULATOR IKPA
-                </div>
-                <h3 className="text-xl font-black tracking-tight">
-                  Simulator Proyeksi Score IKPA ("What-If" Analysis) &amp; Anomali
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
-                  Simulasikan dampak kenaikan/penurunan indikator terhadap nilai total IKPA satker dan dapatkan rekomendasi tindak lanjut PER-5/PB/2024.
-                </p>
-              </div>
-            </div>
-
-            {/* Simulator Interactive Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-4 bg-slate-50 dark:bg-slate-950/80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <h4 className="text-sm font-extrabold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                  <Sliders className="w-4 h-4" />
-                  Atur Parameter Indikator Simulasi
-                </h4>
-
-                <div className="space-y-3 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Pilih Satker Target Simulasi:
-                    </label>
-                    <select
-                      value={simSatkerId}
-                      onChange={(e) => {
-                        const target = satkers.find(s => s.id === e.target.value);
-                        if (target) {
-                          setSimSatkerId(target.id);
-                          setSimCapaian(target.indikator.capaianOutput);
-                          setSimDeviasi(target.indikator.deviasiHal3Dipa);
-                          setSimPenyerapan(target.indikator.penyerapanAnggaran);
-                          setSimRevisi(target.indikator.revisiDipa);
-                        }
-                      }}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-bold"
-                    >
-                      {satkers.map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.kodeSatker} - {s.namaSatker} (IKPA: {s.nilaiTotalIKPA})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Sliders */}
-                  <div className="space-y-4 pt-2">
-                    <div>
-                      <div className="flex justify-between font-bold mb-1">
-                        <span>1. Capaian Output SAKTI (Bobot 25%)</span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold">{simCapaian}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={simCapaian}
-                        onChange={(e) => setSimCapaian(Number(e.target.value))}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between font-bold mb-1">
-                        <span>2. Deviasi Hal III DIPA (Bobot 15%)</span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold">{simDeviasi}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={simDeviasi}
-                        onChange={(e) => setSimDeviasi(Number(e.target.value))}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between font-bold mb-1">
-                        <span>3. Penyerapan Anggaran (Bobot 20%)</span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold">{simPenyerapan}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={simPenyerapan}
-                        onChange={(e) => setSimPenyerapan(Number(e.target.value))}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between font-bold mb-1">
-                        <span>4. Revisi DIPA (Bobot 10%)</span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-mono font-extrabold">{simRevisi}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={simRevisi}
-                        onChange={(e) => setSimRevisi(Number(e.target.value))}
-                        className="w-full accent-indigo-600 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Simulation Outcome Result Card */}
-              {(() => {
-                const targetSatker = satkers.find(s => s.id === simSatkerId) || satkers[0];
-                if (!targetSatker) return null;
-
-                const simulatedIndikator = {
-                  ...targetSatker.indikator,
-                  capaianOutput: simCapaian,
-                  deviasiHal3Dipa: simDeviasi,
-                  penyerapanAnggaran: simPenyerapan,
-                  revisiDipa: simRevisi
-                };
-
-                const simulatedScore = hitungTotalIKPA(simulatedIndikator);
-                const simulatedPredikat = getPredikatIKPA(simulatedScore);
-                const delta = Number((simulatedScore - targetSatker.nilaiTotalIKPA).toFixed(2));
-
-                return (
-                  <div className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-6 rounded-2xl shadow-xl flex flex-col justify-between space-y-4">
-                    <div>
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-2.5 py-1 rounded-full">
-                        HASIL PROYEKSI SIMULASI
-                      </span>
-                      <h4 className="text-lg font-black mt-2 leading-tight">
-                        {targetSatker.namaSatker}
-                      </h4>
-                      <p className="text-xs text-indigo-200/80 mt-0.5 font-mono">
-                        Kode: {targetSatker.kodeSatker}
-                      </p>
-
-                      <div className="mt-6 space-y-4">
-                        <div className="flex items-center justify-between border-b border-indigo-700/50 pb-3">
-                          <span className="text-xs text-indigo-200 font-semibold">IKPA Saat Ini (Baseline):</span>
-                          <span className="text-lg font-black font-mono">{targetSatker.nilaiTotalIKPA}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between border-b border-indigo-700/50 pb-3">
-                          <span className="text-xs text-emerald-300 font-bold">Proyeksi IKPA Baru:</span>
-                          <span className="text-2xl font-black text-emerald-400 font-mono">{simulatedScore}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between border-b border-indigo-700/50 pb-3">
-                          <span className="text-xs text-indigo-200 font-semibold">Dampak Delta Point:</span>
-                          <span className={`text-base font-black font-mono px-2 py-0.5 rounded ${
-                            delta > 0 ? 'bg-emerald-500/20 text-emerald-300' :
-                            delta < 0 ? 'bg-rose-500/20 text-rose-300' : 'bg-slate-700 text-slate-300'
-                          }`}>
-                            {delta > 0 ? `+${delta}` : delta} Poin
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-indigo-200 font-semibold">Predikat Proyeksi:</span>
-                          <span className="text-xs font-black uppercase bg-indigo-500 text-white px-3 py-1 rounded-full">
-                            {simulatedPredikat}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-indigo-950/80 p-3 rounded-xl border border-indigo-800 text-[11px] text-indigo-200">
-                      💡 <strong>Rekomendasi Petugas MSKI:</strong> {
-                        simCapaian === 0
-                          ? 'Percepat konfirmasi Capaian Output SAKTI sebelum tanggal 5 untuk mencegah pengurangan 25 poin!'
-                          : delta > 0
-                          ? 'Skenario ini akan mendongkrak predikat IKPA Satker ke tingkat yang lebih tinggi!'
-                          : 'Perhatikan penurunan indikator agar nilai total IKPA tidak turun di bawah batas minimal 87.5.'
-                      }
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Outlier Radar Table */}
-            <div className="space-y-3 pt-4">
-              <h4 className="text-sm font-extrabold flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                <AlertCircle className="w-4 h-4" />
-                Radar Anomali &amp; Satker Membutuhkan Intervensi Segera (PER-5/PB/2024)
-              </h4>
-
-              <div className="overflow-x-auto rounded-2xl border border-rose-200 dark:border-rose-950/60">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-rose-50 dark:bg-rose-950/40 text-rose-900 dark:text-rose-300 font-extrabold uppercase border-b border-rose-200 dark:border-rose-900/60">
-                    <tr>
-                      <th className="py-3 px-4">Satker Bermasalah</th>
-                      <th className="py-3 px-4">Anomali Terdeteksi</th>
-                      <th className="py-3 px-4">Nilai IKPA</th>
-                      <th className="py-3 px-4">Rekomendasi Tindak Lanjut MSKI KPPN</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-rose-100 dark:divide-rose-900/40">
-                    {satkers
-                      .filter(s => s.statusCapaianOutput === 'Belum Terlaporkan' || s.nilaiTotalIKPA < 87.5 || s.indikator.deviasiHal3Dipa < 70)
-                      .map(s => (
-                        <tr key={s.id} className="hover:bg-rose-50/50 dark:hover:bg-rose-950/20">
-                          <td className="py-3 px-4">
-                            <div className="font-extrabold text-slate-900 dark:text-slate-100">{s.namaSatker}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">Kode: {s.kodeSatker}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex flex-wrap gap-1">
-                              {s.statusCapaianOutput === 'Belum Terlaporkan' && (
-                                <span className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  Capaian Output 0%
-                                </span>
-                              )}
-                              {s.indikator.deviasiHal3Dipa < 70 && (
-                                <span className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  Deviasi Hal III Tinggi ({s.indikator.deviasiHal3Dipa}%)
-                                </span>
-                              )}
-                              {s.nilaiTotalIKPA < 87.5 && (
-                                <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-200 px-2 py-0.5 rounded font-bold text-[10px]">
-                                  Predikat Cukup/Kurang
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-black font-mono text-sm text-slate-900 dark:text-slate-100">
-                            {s.nilaiTotalIKPA}
-                          </td>
-                          <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
-                            {s.statusCapaianOutput === 'Belum Terlaporkan'
-                              ? `Kirimkan Surat Teguran & WA Pendampingan ke PIC (${s.namaPic} - ${s.noHpPic}) untuk konfirmasi SAKTI.`
-                              : `Lakukan konsultasi penyesuaian Halaman III DIPA pada periode revisi berikutnya.`
-                            }
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        </div>
+        <AdvancedWhatIfAnalyticsSection
+          satkers={satkers}
+          pejabatList={pejabatList}
+          theme={theme}
+          onUpdateSatker={onUpdateSatker}
+        />
       )}
 
       {adminTab === 'upload' && (

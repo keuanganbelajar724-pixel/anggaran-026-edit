@@ -233,6 +233,22 @@ export function calculateSemesterIKPA(
   return preparedRows;
 }
 
+export function hasActualRevisiDIPAData(inputs?: (RevisiDIPAInput | RevisionDipaRow)[]): boolean {
+  if (!inputs || inputs.length === 0) return false;
+  return inputs.some(r => {
+    if (!r) return false;
+    const revKe = Number(r.revisiKe);
+    if (!isNaN(revKe) && revKe > 0) return true;
+    if (typeof r.tanggalRevisi === 'string' && r.tanggalRevisi.trim() !== '') return true;
+    const pSeb = Number(r.paguDipaSebelum ?? (r as any).paguSebelum);
+    if (!isNaN(pSeb) && pSeb > 0) return true;
+    const pMen = Number(r.paguDipaMenjadi ?? (r as any).paguMenjadi);
+    if (!isNaN(pMen) && pMen > 0) return true;
+    if (r.kodeJenisRevisi && String(r.kodeJenisRevisi).trim() !== '') return true;
+    return false;
+  });
+}
+
 /**
  * Logika Final yang Masuk ke Interface (Dashboard):
  * Formula Excel: =IF('Revisi DIPA'!M15>100, 100, 'Revisi DIPA'!M15)
@@ -241,10 +257,10 @@ export function calculateSemesterIKPA(
  * Kolom L dan M tabel tetap mempertahankan nilai asli (misal 110 atau 105).
  */
 export function calculateFinalRevisionScore(rows: RevisionDipaRow[]): number {
-  if (!rows || rows.length === 0) return 100;
+  if (!rows || rows.length === 0 || !hasActualRevisiDIPAData(rows)) return 0;
   // Ambil M15 (periode 12, index 11)
   const lastRow = rows.length >= 12 ? rows[11] : rows[rows.length - 1];
-  const m15 = lastRow ? lastRow.nilaiIKPA : 100;
+  const m15 = lastRow ? lastRow.nilaiIKPA : 0;
   return Math.min(100, m15);
 }
 
@@ -271,6 +287,33 @@ export function calculateRevisiDIPA(
         formulaHuman: 'Bobot = 0% atau indikator dinonaktifkan',
         value: 0
       }]
+    };
+  }
+
+  // Jika belum ada data revisi DIPA yang diisi, kembalikan nilai 0 (bukan default 100/110)
+  if (!hasActualRevisiDIPAData(inputs)) {
+    return {
+      rawValue: 0,
+      cappedValue: 0,
+      weight: isActive ? weight : 0,
+      weightedValue: 0,
+      isActive,
+      details: [{
+        step: 'Data Revisi DIPA Kosong',
+        formulaHuman: 'Belum ada data revisi DIPA yang diinputkan (Nilai = 0)',
+        formulaTechnical: '0',
+        value: 0,
+        note: 'Nilai awal simulasi 0 sebelum data revisi DIPA diisi'
+      }],
+      metadata: {
+        rows: [],
+        sem1Count: 0,
+        sem2Count: 0,
+        sem1Indicator: 0,
+        sem2Indicator: 0,
+        m15: 0,
+        finalScore: 0
+      }
     };
   }
 

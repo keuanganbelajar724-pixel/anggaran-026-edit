@@ -184,6 +184,22 @@ export const DEFAULT_WORKBOOK_PROPORTIONS = {
   57: 0
 };
 
+export function hasActualDeviasiHal3Data(inputs?: (DeviasiHalIIIInput | DeviasiHal3Row)[]): boolean {
+  if (!inputs || inputs.length === 0) return false;
+  return inputs.some(r => {
+    if (!r) return false;
+    const r51 = Number(r.rencana51) || 0;
+    const r52 = Number(r.rencana52) || 0;
+    const r53 = Number(r.rencana53) || 0;
+    const r57 = Number(r.rencana57) || 0;
+    const y51 = Number(r.penyerapan51 ?? (r as any).realisasi51) || 0;
+    const y52 = Number(r.penyerapan52 ?? (r as any).realisasi52) || 0;
+    const y53 = Number(r.penyerapan53 ?? (r as any).realisasi53) || 0;
+    const y57 = Number(r.penyerapan57 ?? (r as any).realisasi57) || 0;
+    return (r51 + r52 + r53 + r57 + y51 + y52 + y53 + y57) > 0;
+  });
+}
+
 /**
  * Menghitung keseluruhan baris 12 periode Deviasi Halaman III DIPA.
  * Menghasilkan DeviasiHal3Row[] lengkap (A s.d. AB) dan IndicatorResult.
@@ -204,6 +220,73 @@ export function calculateDeviasiHal3(
     const num = i + 1;
     return num < 10 ? `0${num}` : `${num}`;
   });
+
+  // Jika belum ada data RPD Halaman III / realisasi yang diisi, kembalikan 0 (bukan default 100)
+  if (!hasActualDeviasiHal3Data(inputs)) {
+    const zeroRows: DeviasiHal3Row[] = periods.map(periode => ({
+      periode,
+      rencana51: 0,
+      rencana52: 0,
+      rencana53: 0,
+      rencana57: 0,
+      penyerapan51: 0,
+      penyerapan52: 0,
+      penyerapan53: 0,
+      penyerapan57: 0,
+      deviasi51: 0,
+      deviasi52: 0,
+      deviasi53: 0,
+      deviasi57: 0,
+      persenDeviasi51: 0,
+      persenDeviasi52: 0,
+      persenDeviasi53: 0,
+      persenDeviasi57: 0,
+      proporsi51: 0,
+      proporsi52: 0,
+      proporsi53: 0,
+      proporsi57: 0,
+      deviasiTertimbang51: 0,
+      deviasiTertimbang52: 0,
+      deviasiTertimbang53: 0,
+      deviasiTertimbang57: 0,
+      deviasiSeluruhJenisBelanja: 0,
+      rataRataDeviasiKumulatif: 0,
+      nilaiIKPA: 0
+    }));
+
+    return {
+      rows: zeroRows,
+      result: {
+        rawValue: 0,
+        cappedValue: 0,
+        weight: isActive ? weight : 0,
+        weightedValue: 0,
+        isActive,
+        details: [{
+          step: 'Data RPD Halaman III Kosong',
+          formulaHuman: 'Belum ada data RPD Halaman III dan realisasi yang diinputkan (Nilai = 0)',
+          formulaTechnical: '0',
+          value: 0,
+          note: 'Nilai awal simulasi 0 sebelum RPD dan realisasi diisi'
+        }],
+        metadata: {
+          rows: zeroRows,
+          months: zeroRows.map(r => ({
+            periode: r.periode,
+            rencana: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            penyerapan: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            proporsi: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            devPct: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            devTertimbang: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            totalDeviasiBulan: 0,
+            rataRataKumulatif: 0,
+            nilaiIkpaBulan: 0
+          })),
+          finalCumulativeDeviation: 0
+        }
+      }
+    };
+  }
 
   const inputMap = new Map<string, DeviasiHalIIIInput | DeviasiHal3Row>();
   (inputs || []).forEach(inp => {

@@ -4,6 +4,7 @@ import {
   Sliders,
   Calculator,
   RotateCcw,
+  Eraser,
   Download,
   Upload,
   Copy,
@@ -28,6 +29,10 @@ import {
   DeviasiHalIIIInput,
   DeviasiHal3Row
 } from '../../../models/ikpa';
+import { validateDeviasiHal3 } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   round2,
   calculateDeviasiHal3,
@@ -73,6 +78,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   const [showGoldenTestModal, setShowGoldenTestModal] = useState(false);
   const [auditSelectedPeriode, setAuditSelectedPeriode] = useState<string>('01');
   const [auditSelectedBelanja, setAuditSelectedBelanja] = useState<'51' | '52' | '53' | '57'>('51');
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
 
   // Draft input untuk string nominal rupiah agar pengetikan tidak terganggu re-render angka
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({});
@@ -107,6 +113,11 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
   const rows: DeviasiHal3Row[] = calculation.rows;
   const result = calculation.result;
+
+  // Validasi otomatis input data Deviasi Halaman III DIPA
+  const validationIssues = useMemo(() => {
+    return validateDeviasiHal3(rawInputs);
+  }, [rawInputs]);
 
   // Nilai ringkasan
   const finalScore = result.cappedValue;
@@ -215,6 +226,48 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       ...project,
       deviasiHalIII: defaultData
     });
+  };
+
+  // Kosongkan seluruh data rencana & realisasi ke 0
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Deviasi Halaman III DIPA? Seluruh rencana dan penyerapan (Bulan 01 s.d. 12) akan di-nol-kan.')) {
+      const emptyData: DeviasiHal3Row[] = Array.from({ length: 12 }, (_, i) => ({
+        periode: String(i + 1).padStart(2, '0'),
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        deviasi51: 0,
+        deviasi52: 0,
+        deviasi53: 0,
+        deviasi57: 0,
+        persenDeviasi51: 0,
+        persenDeviasi52: 0,
+        persenDeviasi53: 0,
+        persenDeviasi57: 0,
+        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57],
+        deviasiTertimbang51: 0,
+        deviasiTertimbang52: 0,
+        deviasiTertimbang53: 0,
+        deviasiTertimbang57: 0,
+        deviasiSeluruhJenisBelanja: 0,
+        rataRataDeviasiKumulatif: 0,
+        nilaiIKPA: 0
+      }));
+
+      setDraftInputs({});
+      onUpdateProject({
+        ...project,
+        deviasiHalIII: emptyData
+      });
+    }
   };
 
   // Simpan ke project & berikan feedback
@@ -473,6 +526,16 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         {/* Tombol Aksi Header */}
         <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
+            <IndikatorCalculateButton
+              indicatorKey="deviasiHalIII"
+              indicatorName="Deviasi Halaman III DIPA"
+              weight={15}
+              indicatorResult={result}
+              validationIssues={validationIssues}
+              satkerName={project.metadata?.namaSatker || project.name}
+              isDark={isDark}
+            />
+
             <button
               onClick={() =>
                 onOpenInspector(
@@ -526,6 +589,22 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Deviasi Halaman III DIPA"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="deviasi-hal3"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. Audit Perhitungan Panel (Collapsible) */}
       {showAuditPanel && (
@@ -743,6 +822,15 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset Data Workbook
+          </button>
+
+          <button
+            onClick={handleClearForm}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
+            title="Kosongkan seluruh nilai rencana & realisasi ke 0"
+          >
+            <Eraser className="h-3.5 w-3.5 text-rose-500" />
+            Kosongkan Formulir
           </button>
         </div>
       </div>

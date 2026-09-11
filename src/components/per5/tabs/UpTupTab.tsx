@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  Eraser,
   FileSpreadsheet,
   Layers,
   ShieldCheck,
@@ -20,7 +21,7 @@ import {
   Calendar,
   Info
 } from 'lucide-react';
-import { SimulationProject, UPTUPTunaiInput, UPTUPKKPInput } from '../../../models/ikpa';
+import { SimulationProject, UPTUPTunaiInput, UPTUPKKPInput, IndicatorResult } from '../../../models/ikpa';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
 import { calculateUPTUPTunai, ProcessedUPTunaiRow, getCalendarDaysDiff } from '../../../calculations/upTupTunai';
 import { calculateUPKKP, ProcessedKKPMonthRow, KKP_TARGET_PERCENT } from '../../../calculations/upTupKKP';
@@ -32,6 +33,10 @@ import {
 } from '../../../calculations/pengelolaanUPTUP';
 import { round2, formatRupiah, formatScore } from '../../../calculations/rounding';
 import { DEFAULT_EXCEL_UP_TUNAI_ROWS, DEFAULT_EXCEL_UP_KKP_ROWS } from '../../../utils/excelReferenceDefaultData';
+import { validateUpTup } from '../../../utils/indikatorValidation';
+import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
+import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
+import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 
 interface UpTupTabProps {
   project: SimulationProject;
@@ -149,6 +154,29 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const rawCombined = calculateUPTUPCombinedRaw(valTunai, valKKP); // N7
   const finalCombined = calculateUPTUPCombinedFinal(valTunai, valKKP); // N8
 
+  const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+
+  // Validasi otomatis data UP dan TUP Tunai & KKP
+  const validationIssues = useMemo(() => {
+    return validateUpTup(tunaiRows, kkpRows);
+  }, [tunaiRows, kkpRows]);
+
+  // Objek hasil indikator standar untuk kalkulasi & modal breakdown
+  const indicatorResult: IndicatorResult = useMemo(() => {
+    return project.output?.indicators.pengelolaanUPTUP || {
+      weight: 10,
+      rawValue: rawCombined,
+      cappedValue: finalCombined,
+      weightedValue: round2((finalCombined * 10) / 100),
+      isActive: true,
+      details: [
+        { step: 'Komponen UP & TUP Tunai (Q28)', formulaHuman: '90% * Nilai Tunai', value: formatScore(valTunai) },
+        { step: 'Komponen UP KKP (J16)', formulaHuman: '10% * Nilai KKP', value: formatScore(valKKP) },
+        { step: 'Nilai Akhir Indikator (N8)', formulaHuman: 'ROUND(IF(N7>100, 100, (90%*Tunai)+(10%*KKP)), 2)', value: formatScore(finalCombined) }
+      ]
+    };
+  }, [project.output, rawCombined, finalCombined, valTunai, valKKP]);
+
   // What-If Simulator state
   const [simKkpPeriod, setSimKkpPeriod] = useState<number>(12);
   const [simKkpUsage, setSimKkpUsage] = useState<number>(300000000);
@@ -241,6 +269,26 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       formula: '300000000',
       isFormula: false
     });
+  };
+
+  // Kosongkan seluruh data transaksi UP Tunai dan KKP
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Pengelolaan UP dan TUP? Seluruh baris transaksi UP Tunai dan data penggunaan KKP akan dihapus/di-nol-kan.')) {
+      const emptyKKP: UPTUPKKPInput[] = Array.from({ length: 12 }, (_, i) => ({
+        periode: String(i + 1).padStart(2, '0'),
+        kodeSatker: '',
+        namaSatker: '',
+        kodeKPPN: '',
+        upKKPPerBulan: 0,
+        penggunaanKKP: 0
+      }));
+
+      onUpdateProject({
+        ...project,
+        upTUPTunai: [],
+        upTUPKKP: emptyKKP
+      });
+    }
   };
 
   // Handlers for KKP data updates
@@ -386,6 +434,16 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            <IndikatorCalculateButton
+              indicatorKey="pengelolaanUPTUP"
+              indicatorName="Pengelolaan UP dan TUP"
+              weight={10}
+              indicatorResult={indicatorResult}
+              validationIssues={validationIssues}
+              satkerName={project.metadata?.namaSatker || project.name}
+              isDark={isDark}
+            />
+
             <button
               onClick={() => onOpenInspector(
                 'Indikator Pengelolaan UP dan TUP',
@@ -490,6 +548,22 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Banner Validasi Data Input */}
+      <IndikatorValidationBanner
+        indicatorName="Pengelolaan UP dan TUP"
+        issues={validationIssues}
+        isConfirmed={isValidationConfirmed}
+        onToggleConfirm={() => setIsValidationConfirmed(!isValidationConfirmed)}
+        isDark={isDark}
+      />
+
+      {/* Petunjuk Pengisian & Cara Menggunakan */}
+      <PetunjukPengisianCard
+        indicatorId="up-tup"
+        isDark={isDark}
+        defaultExpanded={true}
+      />
 
       {/* 2. Sub-Navigation Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
@@ -602,6 +676,15 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
             >
               <RefreshCw className="w-3 h-3 text-slate-400" />
               <span>Reset 22 Baris Acuan</span>
+            </button>
+
+            <button
+              onClick={handleClearForm}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 flex items-center gap-1 cursor-pointer"
+              title="Kosongkan seluruh data transaksi UP Tunai dan target KKP"
+            >
+              <Eraser className="w-3.5 h-3.5 text-rose-500" />
+              <span>Kosongkan Formulir</span>
             </button>
           </div>
         )}
