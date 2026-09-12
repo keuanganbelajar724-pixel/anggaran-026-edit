@@ -23,7 +23,8 @@ import {
   Trash2,
   Sparkles,
   Calendar,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 import { SimulationProject, PenyelesaianTagihanRow } from '../../../models/ikpa';
 import { validateTagihan } from '../../../utils/indikatorValidation';
@@ -82,9 +83,9 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   // Selected Row for Audit Detail Modal
   const [selectedAuditRow, setSelectedAuditRow] = useState<ProcessedTagihanRow | null>(null);
 
-  // Raw rows from project
+  // Raw rows from project (default 0 baris agar Satker dapat menambah mandiri tanpa beban mengisi banyak)
   const rawRows: PenyelesaianTagihanRow[] = useMemo(() => {
-    if (project.penyelesaianTagihan && project.penyelesaianTagihan.length > 0) {
+    if (project.penyelesaianTagihan !== undefined && Array.isArray(project.penyelesaianTagihan)) {
       return project.penyelesaianTagihan.map((r: any, idx: number) => ({
         no: r.no || idx + 1,
         identitasTagihan: r.identitasTagihan || r.satker || r.nomorSP2D || `Tagihan #${r.no || idx + 1}`,
@@ -116,36 +117,7 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       }));
     }
 
-    // Default 26 rows from Excel reference
-    return DEFAULT_EXCEL_TAGIHAN_ROWS.map((r: any, idx: number) => ({
-      no: r.id || idx + 1,
-      identitasTagihan: r.noSp2d || `Tagihan #${r.id}`,
-      keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
-      jenisTagihan: 'SPM-LS Kontraktual',
-      nomorSPP: r.noSpm || `SPP-${r.id}`,
-      tanggalSPP: normalizeDateToIso(r.tanggalSpm),
-      tanggalTagihan: normalizeDateToIso(r.tanggalBast),
-      tanggalDokumenPendukung: normalizeDateToIso(r.tanggalBast),
-      tanggalPenyampaian: normalizeDateToIso(r.tanggalKonversiAdk),
-      tanggalMulai: normalizeDateToIso(r.tanggalMulaiPerhitungan),
-      tanggalKonversi: normalizeDateToIso(r.tanggalKonversiAdk),
-      selisihHari: r.selisihHari,
-      hariLibur: r.jumlahHariLibur ?? 0,
-      jumlahHariEfektif: r.jumlahHariFinal,
-      status: (r.status || 'TEPAT') as "TEPAT" | "TERLAMBAT",
-      keteranganHasil: r.status === 'TEPAT' ? 'Tepat Waktu (<= 17 hari)' : 'Terlambat (> 17 hari)',
-      satker: r.satker,
-      nomorSPM: r.noSpm,
-      tanggalSPM: normalizeDateToIso(r.tanggalSpm),
-      nomorSP2D: r.noSp2d,
-      tanggalSP2D: normalizeDateToIso(r.tanggalSp2d),
-      nilaiSP2D: r.nilaiSp2d,
-      tanggalBAST: normalizeDateToIso(r.tanggalBast),
-      tanggalBAPP: normalizeDateToIso(r.tanggalBapp),
-      tanggalMulaiPerhitungan: normalizeDateToIso(r.tanggalMulaiPerhitungan),
-      tanggalKonversiADK: normalizeDateToIso(r.tanggalKonversiAdk),
-      jumlahHariLibur: r.jumlahHariLibur
-    }));
+    return [];
   }, [project.penyelesaianTagihan]);
 
   // Perhitungan deterministik
@@ -1041,6 +1013,41 @@ KETENTUAN FORMULA:
                     </tr>
                   );
                 })}
+
+                {displayedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={17} className="py-12 px-4 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                            Belum Ada Baris Tagihan SPM-LS
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Settingan awal bersih (0 baris). Satker dapat menambahkan baris tagihan satu per satu secara mandiri tanpa harus merasa berkewajiban mengisi puluhan baris data.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                          <button
+                            onClick={handleAddRow}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            + Tambah Baris Tagihan
+                          </button>
+                          <button
+                            onClick={handleResetToExcelDefault}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                          >
+                            Muat 26 Contoh Data Excel
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
 
               {/* ==================================================

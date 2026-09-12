@@ -81,28 +81,10 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
 
   // Raw contract items
   const rawContracts: BelanjaKontraktualInput[] = useMemo(() => {
-    if (project.belanjaKontraktual && project.belanjaKontraktual.length > 0) {
+    if (project.belanjaKontraktual !== undefined && Array.isArray(project.belanjaKontraktual)) {
       return project.belanjaKontraktual;
     }
-    // Inisialisasi dari DEFAULT_EXCEL_KONTRAKTUAL_ROWS jika kosong
-    return DEFAULT_EXCEL_KONTRAKTUAL_ROWS.map((k: any, i: number) => ({
-      no: k.id || i + 1,
-      kodeSatker: k.kodeSatker || '000000',
-      namaSatker: k.namaSatker || 'SATKER CONTOH',
-      kodeKPPN: k.kodeKPPN || '000',
-      nomorKontrak: k.noKontrak || `KTR-${String(i + 1).padStart(3, '0')}`,
-      jenisBelanja: (k.jenisBelanja === '53' ? '53' : (k.jenisBelanja === '52' ? '52' : (k.jenisBelanja === '51' ? '51' : '57'))),
-      nilaiKontrak: k.nilaiKontrak ?? 0,
-      tanggalKontrak: normalizeDateToIso(k.tanggalKontrak) || '2024-01-01',
-      tanggalMasuk: normalizeDateToIso(k.tanggalMasuk) || '2024-01-05',
-      tanggalPenyelesaian: normalizeDateToIso(k.tanggalPenyelesaian) || '2024-02-10',
-      quarterKontrak: k.quarterKontrak,
-      semesterKontrak: k.semesterKontrak,
-      isEarlyContract: k.nilaiKontrakDini >= 110,
-      nilaiDistribusiAkselerasi: k.nilaiDistribusiAkselerasi ?? 100,
-      nilaiKontrakDini: k.nilaiKontrakDini ?? (k.nilaiKontrakDini >= 110 ? 110 : 100),
-      nilaiAkselerasi53: k.nilaiAkselerasi53
-    }));
+    return [];
   }, [project.belanjaKontraktual]);
 
   // Hitung hasil kalkulasi deterministik
@@ -186,10 +168,6 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
 
   // Delete contract
   const handleDeleteRow = (index: number) => {
-    if (rawContracts.length <= 1) {
-      alert('Minimal terdapat 1 data kontrak dalam tabel.');
-      return;
-    }
     const filtered = rawContracts.filter((_, i) => i !== index).map((item, idx) => ({
       ...item,
       no: idx + 1
@@ -960,6 +938,41 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                     </tr>
                   );
                 })}
+
+                {displayedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={17} className="py-12 px-4 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                          <FileCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                            Belum Ada Data Belanja Kontraktual
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-sans">
+                            Settingan awal bersih (0 baris). Satker dapat menambahkan data kontrak secara mandiri tanpa kewajiban mengisi template kontrak.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2 font-sans">
+                          <button
+                            onClick={handleAddRow}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            + Tambah Kontrak Pertama
+                          </button>
+                          <button
+                            onClick={handleResetToExcelDefault}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                          >
+                            Muat Template Excel (21 Kontrak)
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
 
               {/* ==================================================
@@ -1049,8 +1062,42 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {displayedRows.map((r) => {
+          {displayedRows.length === 0 ? (
+            <div className={`p-12 text-center rounded-2xl border ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}>
+              <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <FileCheck className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                    Belum Ada Data Belanja Kontraktual
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-sans">
+                    Settingan awal bersih (0 baris). Satker dapat menambahkan data kontrak secara mandiri tanpa kewajiban mengisi template kontrak.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-2 font-sans">
+                  <button
+                    onClick={handleAddRow}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    + Tambah Kontrak Pertama
+                  </button>
+                  <button
+                    onClick={handleResetToExcelDefault}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                  >
+                    Muat Template Excel (21 Kontrak)
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {displayedRows.map((r) => {
               const originalIndex = rawContracts.findIndex(raw => (raw.no || 0) === r.no);
               const targetIdx = originalIndex >= 0 ? originalIndex : r.no - 1;
 
@@ -1206,6 +1253,7 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
               );
             })}
           </div>
+          )}
         </div>
       )}
 

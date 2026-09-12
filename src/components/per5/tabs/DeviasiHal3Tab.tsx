@@ -22,7 +22,9 @@ import {
   ChevronUp,
   FileSpreadsheet,
   Zap,
-  Sparkles
+  Sparkles,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import {
   SimulationProject,
@@ -83,30 +85,15 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   // Draft input untuk string nominal rupiah agar pengetikan tidak terganggu re-render angka
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({});
 
-  // 1. Ambil baris data dari project atau fallback ke workbook default
+  // 1. Ambil baris data dari project (default kosong agar Satker dapat menambah mandiri)
   const rawInputs: (DeviasiHalIIIInput | DeviasiHal3Row)[] = useMemo(() => {
-    if (project.deviasiHalIII && project.deviasiHalIII.length >= 12) {
+    if (project.deviasiHalIII !== undefined && Array.isArray(project.deviasiHalIII)) {
       return project.deviasiHalIII;
     }
-    // Jika kosong, inisialisasi dari DEFAULT_EXCEL_DEV_HAL3_ROWS
-    return DEFAULT_EXCEL_DEV_HAL3_ROWS.map((r: any) => ({
-      periode: r.periode,
-      rencana51: r.rencana51 ?? 0,
-      rencana52: r.rencana52 ?? 0,
-      rencana53: r.rencana53 ?? 0,
-      rencana57: r.rencana57 ?? 0,
-      penyerapan51: r.realisasi51 ?? r.penyerapan51 ?? 0,
-      penyerapan52: r.realisasi52 ?? r.penyerapan52 ?? 0,
-      penyerapan53: r.realisasi53 ?? r.penyerapan53 ?? 0,
-      penyerapan57: r.realisasi57 ?? r.penyerapan57 ?? 0,
-      proporsi51: r.proporsi51 ?? DEFAULT_WORKBOOK_PROPORTIONS[51],
-      proporsi52: r.proporsi52 ?? DEFAULT_WORKBOOK_PROPORTIONS[52],
-      proporsi53: r.proporsi53 ?? DEFAULT_WORKBOOK_PROPORTIONS[53],
-      proporsi57: r.proporsi57 ?? DEFAULT_WORKBOOK_PROPORTIONS[57]
-    }));
+    return [];
   }, [project.deviasiHalIII]);
 
-  // 2. Hitung 12 baris lengkap secara deterministik dengan calculation engine
+  // 2. Hitung baris secara deterministik dengan calculation engine
   const calculation = useMemo(() => {
     return calculateDeviasiHal3(rawInputs, 15, true);
   }, [rawInputs]);
@@ -131,12 +118,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     field: keyof DeviasiHalIIIInput,
     numValue: number
   ) => {
-    const updated = [...rows];
+    if (index < 0 || index >= rawInputs.length) return;
+    const updated = [...rawInputs];
     const targetRow = { ...updated[index], [field]: Math.max(0, numValue) };
     updated[index] = targetRow;
 
     // Perlakuan Khusus Periode 06 jika mengubah rencana C10 atau D10
-    if (index === 5 && (field === 'rencana52' || field === 'rencana53')) {
+    if (targetRow.periode === '06' && (field === 'rencana52' || field === 'rencana53')) {
       if (field === 'rencana52') {
         // G10 = C10 - 2.000.000.000
         targetRow.penyerapan52 = Math.max(0, targetRow.rencana52 - 2000000000);
@@ -147,18 +135,21 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       }
     }
 
-    // Perlakuan Periode 12: Jika baris 11 (November) diubah, otomatis sinkronkan ke baris 12 (Desember)
-    if (index === 10) {
-      const dec = { ...updated[11] };
-      dec.rencana51 = targetRow.rencana51;
-      dec.rencana52 = targetRow.rencana52;
-      dec.rencana53 = targetRow.rencana53;
-      dec.rencana57 = targetRow.rencana57;
-      dec.penyerapan51 = targetRow.penyerapan51;
-      dec.penyerapan52 = targetRow.penyerapan52;
-      dec.penyerapan53 = targetRow.penyerapan53;
-      dec.penyerapan57 = targetRow.penyerapan57;
-      updated[11] = dec;
+    // Perlakuan Periode 12: Jika baris Periode 11 (November) diubah dan Periode 12 ada, sinkronkan
+    if (targetRow.periode === '11') {
+      const decIdx = updated.findIndex(r => r.periode === '12');
+      if (decIdx >= 0) {
+        const dec = { ...updated[decIdx] };
+        dec.rencana51 = targetRow.rencana51;
+        dec.rencana52 = targetRow.rencana52;
+        dec.rencana53 = targetRow.rencana53;
+        dec.rencana57 = targetRow.rencana57;
+        dec.penyerapan51 = targetRow.penyerapan51;
+        dec.penyerapan52 = targetRow.penyerapan52;
+        dec.penyerapan53 = targetRow.penyerapan53;
+        dec.penyerapan57 = targetRow.penyerapan57;
+        updated[decIdx] = dec;
+      }
     }
 
     onUpdateProject({
@@ -188,7 +179,144 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     });
   };
 
-  // Reset data ke default workbook referensi
+  // Tambah baris 1 bulan berikutnya (misal jika 0 baris -> tambah Bulan 01, jika 1 baris -> Bulan 02, dst)
+  const existingPeriodNums = rawInputs
+    .map(r => parseInt(r.periode, 10))
+    .filter(n => !isNaN(n));
+  const nextMonthNum = existingPeriodNums.length > 0 ? Math.max(...existingPeriodNums) + 1 : 1;
+  const nextMonthLabel = nextMonthNum <= 12 ? `Bulan ${String(nextMonthNum).padStart(2, '0')}` : 'Maksimal 12 Bulan';
+
+  const handleAddMonthRow = () => {
+    if (nextMonthNum > 12) {
+      alert('Tabel sudah mencapai batas maksimum 12 periode (Desember).');
+      return;
+    }
+    const nextPeriode = String(nextMonthNum).padStart(2, '0');
+    const newRow: DeviasiHalIIIInput = {
+      periode: nextPeriode,
+      rencana51: 0,
+      rencana52: 0,
+      rencana53: 0,
+      rencana57: 0,
+      penyerapan51: 0,
+      penyerapan52: 0,
+      penyerapan53: 0,
+      penyerapan57: 0,
+      proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+      proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+      proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+      proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+    };
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: [...rawInputs, newRow]
+    });
+  };
+
+  // Tambah Triwulan I (Bulan 01 s.d. 03) sekaligus
+  const handleAddQuarter1 = () => {
+    const months = ['01', '02', '03'];
+    const existingPeriods = new Set(rawInputs.map(r => r.periode));
+    const toAdd: DeviasiHalIIIInput[] = [];
+    months.forEach(m => {
+      if (!existingPeriods.has(m)) {
+        toAdd.push({
+          periode: m,
+          rencana51: 0,
+          rencana52: 0,
+          rencana53: 0,
+          rencana57: 0,
+          penyerapan51: 0,
+          penyerapan52: 0,
+          penyerapan53: 0,
+          penyerapan57: 0,
+          proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+          proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+          proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+          proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+        });
+      }
+    });
+    const combined = [...rawInputs, ...toAdd].sort((a, b) => parseInt(a.periode, 10) - parseInt(b.periode, 10));
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: combined
+    });
+  };
+
+  // Tambah 12 Bulan lengkap (01 s.d. 12)
+  const handleAddAll12Months = () => {
+    const all12: DeviasiHalIIIInput[] = Array.from({ length: 12 }, (_, i) => {
+      const p = String(i + 1).padStart(2, '0');
+      const existing = rawInputs.find(r => r.periode === p);
+      if (existing) return existing;
+      return {
+        periode: p,
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+      };
+    });
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: all12
+    });
+  };
+
+  // Mulai hanya 1 Bulan dulu (Bulan 01 - Januari)
+  const handleStartMonth1Only = () => {
+    const month1: DeviasiHalIIIInput[] = [
+      {
+        periode: '01',
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+      }
+    ];
+    setDraftInputs({});
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: month1
+    });
+  };
+
+  // Mulai bersih / kosong dulu (0 baris)
+  const handleStartEmpty = () => {
+    setDraftInputs({});
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: []
+    });
+  };
+
+  // Hapus baris tertentu
+  const handleDeleteRow = (index: number) => {
+    const updated = rawInputs.filter((_, i) => i !== index);
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  // Reset data ke default workbook referensi (12 periode)
   const handleResetDefault = () => {
     const defaultData: DeviasiHal3Row[] = DEFAULT_EXCEL_DEV_HAL3_ROWS.map((r: any) => ({
       periode: r.periode,
@@ -228,44 +356,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     });
   };
 
-  // Kosongkan seluruh data rencana & realisasi ke 0
+  // Kosongkan seluruh data rencana & realisasi ke 0 baris (bersih)
   const handleClearForm = () => {
-    if (window.confirm('Kosongkan formulir Deviasi Halaman III DIPA? Seluruh rencana dan penyerapan (Bulan 01 s.d. 12) akan di-nol-kan.')) {
-      const emptyData: DeviasiHal3Row[] = Array.from({ length: 12 }, (_, i) => ({
-        periode: String(i + 1).padStart(2, '0'),
-        rencana51: 0,
-        rencana52: 0,
-        rencana53: 0,
-        rencana57: 0,
-        penyerapan51: 0,
-        penyerapan52: 0,
-        penyerapan53: 0,
-        penyerapan57: 0,
-        deviasi51: 0,
-        deviasi52: 0,
-        deviasi53: 0,
-        deviasi57: 0,
-        persenDeviasi51: 0,
-        persenDeviasi52: 0,
-        persenDeviasi53: 0,
-        persenDeviasi57: 0,
-        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
-        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
-        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
-        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57],
-        deviasiTertimbang51: 0,
-        deviasiTertimbang52: 0,
-        deviasiTertimbang53: 0,
-        deviasiTertimbang57: 0,
-        deviasiSeluruhJenisBelanja: 0,
-        rataRataDeviasiKumulatif: 0,
-        nilaiIKPA: 0
-      }));
-
+    if (window.confirm('Kosongkan formulir Deviasi Halaman III DIPA? Formulir akan disetel menjadi 0 baris sehingga Anda dapat menambah baris secara mandiri.')) {
       setDraftInputs({});
       onUpdateProject({
         ...project,
-        deviasiHalIII: emptyData
+        deviasiHalIII: []
       });
     }
   };
@@ -801,6 +898,41 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
             {copied ? 'Tersalin ke Clipboard!' : 'Salin Tabel (TSV)'}
           </button>
 
+          {/* Action Row Management Buttons */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={handleAddMonthRow}
+              disabled={nextMonthNum > 12}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                nextMonthNum > 12
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 dark:bg-slate-800 dark:border-slate-700'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+              title="Tambah baris periode bulan berikutnya secara mandiri"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              + Tambah {nextMonthLabel}
+            </button>
+
+            <button
+              onClick={handleAddQuarter1}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/40 transition-colors cursor-pointer"
+              title="Tambah baris Triwulan I (Bulan 01 s.d. 03)"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              + Triwulan I (3 Bulan)
+            </button>
+
+            <button
+              onClick={handleAddAll12Months}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              title="Tambah seluruh 12 periode bulan (Januari s.d. Desember)"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              + 12 Bulan Lengkap
+            </button>
+          </div>
+
           <button
             onClick={handleExportJSON}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
@@ -821,22 +953,151 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
             title="Kembalikan nilai ke data standar workbook referensi"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Reset Data Workbook
+            Muat Data Standar (12 Bulan)
           </button>
 
           <button
             onClick={handleClearForm}
             className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors"
-            title="Kosongkan seluruh nilai rencana & realisasi ke 0"
+            title="Kosongkan seluruh baris menjadi 0 baris"
           >
             <Eraser className="h-3.5 w-3.5 text-rose-500" />
-            Kosongkan Formulir
+            Kosongkan Formulir (0 Baris)
           </button>
         </div>
       </div>
 
+      {/* 3.5. PRESET RENTANG PERIODE SIMULASI */}
+      <div className={`rounded-2xl border p-4 shadow-xs ${
+        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-gradient-to-r from-emerald-50/80 via-sky-50/50 to-white border-emerald-200/80'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-emerald-600" />
+              <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                Preset Rentang Periode Simulasi (Pilih Cara Mulai)
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white font-mono">
+                {rows.length} Bulan Aktif
+              </span>
+            </div>
+            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+              Bisa mulai dari <strong>Bulan 1 saja</strong>, mulai <strong>kosong (0 baris)</strong>, atau langsung 12 bulan. Tambah baris bulan selanjutnya kapan saja.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleStartMonth1Only}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-sm transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+              title="Mulai simulasi dari Bulan 01 (Januari) saja"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              🌟 Mulai Bulan 1 Dulu
+            </button>
+
+            <button
+              onClick={handleStartEmpty}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              title="Kosongkan tabel menjadi 0 baris untuk input bertahap"
+            >
+              <Eraser className="h-3.5 w-3.5 text-slate-500" />
+              🧹 Mulai Kosong Dulu
+            </button>
+
+            <button
+              onClick={handleAddQuarter1}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              title="Isi periode Triwulan I (Bulan 01 s.d. 03)"
+            >
+              Triwulan I (01-03)
+            </button>
+
+            <button
+              onClick={handleAddAll12Months}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              title="Isi seluruh 12 periode bulan"
+            >
+              12 Bulan Penuh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Banner Notifikasi jika saat ini 12 bulan tapi belum ada input riil */}
+      {rows.length === 12 && rows.every(r => r.rencana51 === 0 && r.penyerapan51 === 0) && (
+        <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/40 dark:border-emerald-800 p-4 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div>
+              <span className="font-extrabold text-emerald-950 dark:text-emerald-200 text-sm">
+                Tabel Terbuka 12 Bulan (Kosong)
+              </span>
+              <p className="text-emerald-800 dark:text-emerald-300 text-xs mt-0.5">
+                Ingin mulai dari <strong>Bulan 1 saja</strong> agar lebih fokus dan mudah menghitung?
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleStartMonth1Only}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-xs cursor-pointer"
+            >
+              🌟 Ubah ke Bulan 1 Saja
+            </button>
+            <button
+              onClick={handleStartEmpty}
+              className="px-3 py-1.5 rounded-xl border border-emerald-400 bg-white dark:bg-slate-800 text-emerald-800 dark:text-emerald-200 font-bold text-xs cursor-pointer hover:bg-emerald-100/50"
+            >
+              Mulai Kosong (0 Baris)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 4. Tampilan Mode Excel (Kolom A s.d. AB) */}
       {viewMode === 'excel' && (
+        rows.length === 0 ? (
+          <div className={`p-10 text-center rounded-2xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <FileSpreadsheet className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-bold text-base text-slate-800 dark:text-slate-200">
+                  Tabel Masih Kosong (0 Baris)
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
+                  Silakan pilih untuk mulai dari <strong>Bulan 1 dulu</strong> atau menambah baris sesuai periode yang ingin diuji coba.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                <button
+                  onClick={handleStartMonth1Only}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-sm cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  🌟 Mulai Bulan 1 Dulu
+                </button>
+                <button
+                  onClick={handleAddQuarter1}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 hover:bg-sky-100 font-bold text-xs cursor-pointer"
+                >
+                  + Triwulan I (01 s.d. 03)
+                </button>
+                <button
+                  onClick={handleAddAll12Months}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 font-semibold text-xs cursor-pointer"
+                >
+                  + 12 Bulan Lengkap
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
         <div
           className={`rounded-2xl border overflow-hidden shadow-xs ${
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
@@ -870,84 +1131,89 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                   isDark ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200'
                 }`}
               >
-                {/* Tingkat 1: Grup Kolom */}
-                <tr className="text-[11px] text-center border-b border-slate-200 dark:border-slate-700">
-                  <th className="px-3 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-slate-200/60 dark:bg-slate-800">
+                {/* Tingkat 1: Grup Kolom dengan Warna Jelas & Kontras Tinggi */}
+                <tr className="text-[11px] text-center border-b border-slate-700">
+                  <th className="px-3 py-2 border-r-2 border-slate-600 bg-slate-900 text-slate-100 font-extrabold sticky left-0 z-30 shadow-xs">
                     A
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 font-bold">
-                    B:E — RENCANA HALAMAN III DIPA
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-emerald-900 bg-emerald-700 text-white font-black shadow-xs tracking-wider">
+                    B:E — RENCANA HALAMAN III DIPA (INPUT)
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-teal-50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 font-bold">
-                    F:I — PENYERAPAN (REALISASI)
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-sky-900 bg-sky-700 text-white font-black shadow-xs tracking-wider">
+                    F:I — REALISASI PENYERAPAN (INPUT)
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-700 dark:text-slate-300">
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-slate-800 bg-slate-700 text-white font-bold shadow-xs">
                     J:M — DEVIASI NOMINAL (ABS)
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-blue-50 dark:bg-blue-950/30 text-blue-800 dark:text-blue-300 font-bold">
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-indigo-900 bg-indigo-700 text-white font-bold shadow-xs">
                     N:Q — % DEVIASI (CAP 100)
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-purple-50 dark:bg-purple-950/30 text-purple-800 dark:text-purple-300 font-bold">
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-purple-900 bg-purple-700 text-white font-bold shadow-xs">
                     R:U — % PROPORSI PAGU
                   </th>
-                  <th colSpan={4} className="px-2 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 font-bold">
+                  <th colSpan={4} className="px-2 py-2 border-r-2 border-amber-900 bg-amber-700 text-white font-bold shadow-xs">
                     V:Y — % DEVIASI TERTIMBANG
                   </th>
-                  <th className="px-3 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-orange-50 dark:bg-orange-950/30 text-orange-800 dark:text-orange-300 font-bold">
-                    Z
+                  <th className="px-3 py-2 border-r-2 border-orange-900 bg-orange-700 text-white font-black shadow-xs">
+                    Z: TOTAL
                   </th>
-                  <th className="px-3 py-1.5 border-r border-slate-200 dark:border-slate-700 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300 font-bold">
-                    AA
+                  <th className="px-3 py-2 border-r-2 border-teal-900 bg-teal-700 text-white font-black shadow-xs">
+                    AA: RATA KUM
                   </th>
-                  <th className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200 font-bold">
-                    AB
+                  <th className="px-3 py-2 bg-emerald-800 text-white font-black shadow-xs">
+                    AB: NILAI IKPA
+                  </th>
+                  <th rowSpan={2} className="px-2 py-2 border-l border-slate-700 bg-slate-800 text-slate-300 font-bold w-12 text-center">
+                    Aksi
                   </th>
                 </tr>
 
                 {/* Tingkat 2: Nama Sub-Kolom */}
                 <tr className="text-[10px] text-center font-mono">
-                  <th className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-700">Periode</th>
+                  <th className="px-2.5 py-2 border-r-2 border-slate-600 bg-slate-800 text-slate-200 font-bold sticky left-0 z-30">
+                    Periode
+                  </th>
                   
                   {/* B:E Rencana */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">B: 51</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">C: 52</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">D: 53</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[90px]">E: 57</th>
+                  <th className="px-2 py-2 text-right border-r border-emerald-800 bg-emerald-800/90 text-emerald-100 min-w-[115px]">B: 51 Pegawai</th>
+                  <th className="px-2 py-2 text-right border-r border-emerald-800 bg-emerald-800/90 text-emerald-100 min-w-[115px]">C: 52 Barang</th>
+                  <th className="px-2 py-2 text-right border-r border-emerald-800 bg-emerald-800/90 text-emerald-100 min-w-[115px]">D: 53 Modal</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-emerald-950 bg-emerald-800/90 text-emerald-100 min-w-[95px]">E: 57 Bansos</th>
 
                   {/* F:I Penyerapan */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">F: 51</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">G: 52</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[110px]">H: 53</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[90px]">I: 57</th>
+                  <th className="px-2 py-2 text-right border-r border-sky-800 bg-sky-800/90 text-sky-100 min-w-[115px]">F: 51 Pegawai</th>
+                  <th className="px-2 py-2 text-right border-r border-sky-800 bg-sky-800/90 text-sky-100 min-w-[115px]">G: 52 Barang</th>
+                  <th className="px-2 py-2 text-right border-r border-sky-800 bg-sky-800/90 text-sky-100 min-w-[115px]">H: 53 Modal</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-sky-950 bg-sky-800/90 text-sky-100 min-w-[95px]">I: 57 Bansos</th>
 
                   {/* J:M Deviasi Nominal */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[100px]">J: 51</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[100px]">K: 52</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[100px]">L: 53</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[80px]">M: 57</th>
+                  <th className="px-2 py-2 text-right border-r border-slate-700 bg-slate-800 text-slate-300 min-w-[100px]">J: 51</th>
+                  <th className="px-2 py-2 text-right border-r border-slate-700 bg-slate-800 text-slate-300 min-w-[100px]">K: 52</th>
+                  <th className="px-2 py-2 text-right border-r border-slate-700 bg-slate-800 text-slate-300 min-w-[100px]">L: 53</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-slate-900 bg-slate-800 text-slate-300 min-w-[80px]">M: 57</th>
 
                   {/* N:Q % Deviasi */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">N: %51</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">O: %52</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">P: %53</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">Q: %57</th>
+                  <th className="px-2 py-2 text-right border-r border-indigo-800 bg-indigo-800/90 text-indigo-100 min-w-[65px]">N: %51</th>
+                  <th className="px-2 py-2 text-right border-r border-indigo-800 bg-indigo-800/90 text-indigo-100 min-w-[65px]">O: %52</th>
+                  <th className="px-2 py-2 text-right border-r border-indigo-800 bg-indigo-800/90 text-indigo-100 min-w-[65px]">P: %53</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-indigo-950 bg-indigo-800/90 text-indigo-100 min-w-[65px]">Q: %57</th>
 
                   {/* R:U % Proporsi Pagu */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">R: 51%</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">S: 52%</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">T: 53%</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">U: 57%</th>
+                  <th className="px-2 py-2 text-right border-r border-purple-800 bg-purple-800/90 text-purple-100 min-w-[65px]">R: 51%</th>
+                  <th className="px-2 py-2 text-right border-r border-purple-800 bg-purple-800/90 text-purple-100 min-w-[65px]">S: 52%</th>
+                  <th className="px-2 py-2 text-right border-r border-purple-800 bg-purple-800/90 text-purple-100 min-w-[65px]">T: 53%</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-purple-950 bg-purple-800/90 text-purple-100 min-w-[65px]">U: 57%</th>
 
                   {/* V:Y % Deviasi Tertimbang */}
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">V: 51</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">W: 52</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">X: 53</th>
-                  <th className="px-2 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[65px]">Y: 57</th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">V: 51</th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">W: 52</th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">X: 53</th>
+                  <th className="px-2 py-2 text-right border-r-2 border-amber-950 bg-amber-800/90 text-amber-100 min-w-[65px]">Y: 57</th>
 
                   {/* Z, AA, AB */}
-                  <th className="px-2.5 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[80px]">Z: Seluruh</th>
-                  <th className="px-2.5 py-2 text-right border-r border-slate-200 dark:border-slate-700 min-w-[85px]">AA: Rata Kum</th>
-                  <th className="px-3 py-2 text-right min-w-[90px] font-bold text-emerald-600 dark:text-emerald-400">AB: Nilai IKPA</th>
+                  <th className="px-2.5 py-2 text-right border-r-2 border-orange-950 bg-orange-800/90 text-orange-100 min-w-[80px]">Z: Total</th>
+                  <th className="px-2.5 py-2 text-right border-r-2 border-teal-950 bg-teal-800/90 text-teal-100 min-w-[85px]">AA: Rata Kum</th>
+                  <th className="px-3 py-2 text-right min-w-[95px] font-black bg-emerald-900 text-emerald-100">AB: Nilai IKPA</th>
                 </tr>
               </thead>
 
@@ -955,7 +1221,6 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                 {rows.map((r, idx) => {
                   const excelRowNumber = idx + 5; // row 5 sampai 16
                   const isMaret = r.periode === '03';
-                  const isJuni = r.periode === '06';
                   const isDesember = r.periode === '12';
 
                   return (
@@ -970,17 +1235,17 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       }`}
                     >
                       {/* Kolom A: Periode */}
-                      <td className="px-2.5 py-2 font-sans font-bold border-r border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/60 whitespace-nowrap">
-                        <div className="flex items-center gap-1">
-                          <span className="text-slate-400 text-[9px]">{excelRowNumber}</span>
-                          <span className="text-slate-800 dark:text-slate-200">{r.periode}</span>
+                      <td className="px-2.5 py-2 font-sans font-bold border-r-2 border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 sticky left-0 z-10 whitespace-nowrap shadow-xs">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-400 text-[9px] font-mono">{excelRowNumber}</span>
+                          <span className="text-slate-900 dark:text-white font-extrabold">Bulan {r.periode}</span>
                           {isMaret && (
-                            <span className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-500/20 text-amber-600 font-semibold" title="Maret V7=0 & W7=0 S-119/PB.2/2024">
+                            <span className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold" title="Maret V7=0 & W7=0 S-119/PB.2/2024">
                               Maret
                             </span>
                           )}
                           {isDesember && (
-                            <span className="text-[9px] px-1 py-0.2 rounded-sm bg-blue-500/20 text-blue-600 font-semibold" title="Desember = November (AA16=AA15)">
+                            <span className="text-[9px] px-1 py-0.2 rounded-sm bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold" title="Desember = November (AA16=AA15)">
                               Des
                             </span>
                           )}
@@ -988,196 +1253,252 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </td>
 
                       {/* B: Rencana 51 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/50 dark:bg-emerald-950/25">
                         <input
                           type="text"
                           value={draftInputs[`r51_${idx}`] !== undefined ? draftInputs[`r51_${idx}`] : formatRupiah(r.rencana51)}
                           onChange={e => handleInputChange(`r51_${idx}`, idx, 'rencana51', e.target.value)}
                           onBlur={() => handleInputBlur(`r51_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-[11px] focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-emerald-400 dark:border-emerald-600 bg-white dark:bg-slate-900 text-xs font-black text-slate-900 dark:text-emerald-50 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 shadow-xs"
                         />
                       </td>
 
                       {/* C: Rencana 52 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/50 dark:bg-emerald-950/25">
                         <input
                           type="text"
                           value={draftInputs[`r52_${idx}`] !== undefined ? draftInputs[`r52_${idx}`] : formatRupiah(r.rencana52)}
                           onChange={e => handleInputChange(`r52_${idx}`, idx, 'rencana52', e.target.value)}
                           onBlur={() => handleInputBlur(`r52_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-[11px] focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-emerald-400 dark:border-emerald-600 bg-white dark:bg-slate-900 text-xs font-black text-slate-900 dark:text-emerald-50 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 shadow-xs"
                         />
                       </td>
 
                       {/* D: Rencana 53 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/50 dark:bg-emerald-950/25">
                         <input
                           type="text"
                           value={draftInputs[`r53_${idx}`] !== undefined ? draftInputs[`r53_${idx}`] : formatRupiah(r.rencana53)}
                           onChange={e => handleInputChange(`r53_${idx}`, idx, 'rencana53', e.target.value)}
                           onBlur={() => handleInputBlur(`r53_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-[11px] focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-emerald-400 dark:border-emerald-600 bg-white dark:bg-slate-900 text-xs font-black text-slate-900 dark:text-emerald-50 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 shadow-xs"
                         />
                       </td>
 
                       {/* E: Rencana 57 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                      <td className="px-1.5 py-1 text-right border-r-2 border-emerald-600 dark:border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/25">
                         <input
                           type="text"
                           value={draftInputs[`r57_${idx}`] !== undefined ? draftInputs[`r57_${idx}`] : (r.rencana57 > 0 ? formatRupiah(r.rencana57) : '')}
                           placeholder="-"
                           onChange={e => handleInputChange(`r57_${idx}`, idx, 'rencana57', e.target.value)}
                           onBlur={() => handleInputBlur(`r57_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-[11px] focus:outline-emerald-500 placeholder-slate-400"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-emerald-400 dark:border-emerald-600 bg-white dark:bg-slate-900 text-xs font-black text-slate-900 dark:text-emerald-50 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 placeholder-slate-400 shadow-xs"
                         />
                       </td>
 
                       {/* F: Penyerapan 51 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/20 dark:bg-emerald-950/10">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-sky-50/50 dark:bg-sky-950/25">
                         <input
                           type="text"
                           value={draftInputs[`y51_${idx}`] !== undefined ? draftInputs[`y51_${idx}`] : formatRupiah(r.penyerapan51)}
                           onChange={e => handleInputChange(`y51_${idx}`, idx, 'penyerapan51', e.target.value)}
                           onBlur={() => handleInputBlur(`y51_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-sky-400 dark:border-sky-600 bg-white dark:bg-slate-900 text-xs font-black text-sky-950 dark:text-sky-50 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 shadow-xs"
                         />
                       </td>
 
                       {/* G: Penyerapan 52 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/20 dark:bg-emerald-950/10">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-sky-50/50 dark:bg-sky-950/25">
                         <input
                           type="text"
                           value={draftInputs[`y52_${idx}`] !== undefined ? draftInputs[`y52_${idx}`] : formatRupiah(r.penyerapan52)}
                           onChange={e => handleInputChange(`y52_${idx}`, idx, 'penyerapan52', e.target.value)}
                           onBlur={() => handleInputBlur(`y52_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-sky-400 dark:border-sky-600 bg-white dark:bg-slate-900 text-xs font-black text-sky-950 dark:text-sky-50 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 shadow-xs"
                         />
                       </td>
 
                       {/* H: Penyerapan 53 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/20 dark:bg-emerald-950/10">
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-sky-50/50 dark:bg-sky-950/25">
                         <input
                           type="text"
                           value={draftInputs[`y53_${idx}`] !== undefined ? draftInputs[`y53_${idx}`] : formatRupiah(r.penyerapan53)}
                           onChange={e => handleInputChange(`y53_${idx}`, idx, 'penyerapan53', e.target.value)}
                           onBlur={() => handleInputBlur(`y53_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 focus:outline-emerald-500"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-sky-400 dark:border-sky-600 bg-white dark:bg-slate-900 text-xs font-black text-sky-950 dark:text-sky-50 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 shadow-xs"
                         />
                       </td>
 
                       {/* I: Penyerapan 57 */}
-                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-emerald-50/20 dark:bg-emerald-950/10">
+                      <td className="px-1.5 py-1 text-right border-r-2 border-sky-600 dark:border-sky-600 bg-sky-50/50 dark:bg-sky-950/25">
                         <input
                           type="text"
                           value={draftInputs[`y57_${idx}`] !== undefined ? draftInputs[`y57_${idx}`] : (r.penyerapan57 > 0 ? formatRupiah(r.penyerapan57) : '')}
                           placeholder="-"
                           onChange={e => handleInputChange(`y57_${idx}`, idx, 'penyerapan57', e.target.value)}
                           onBlur={() => handleInputBlur(`y57_${idx}`)}
-                          className="w-full text-right px-1.5 py-0.5 rounded-sm border border-emerald-300 dark:border-emerald-700 dark:bg-slate-800 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 focus:outline-emerald-500 placeholder-slate-400"
+                          className="w-full text-right px-2 py-1 rounded-md border-2 border-sky-400 dark:border-sky-600 bg-white dark:bg-slate-900 text-xs font-black text-sky-950 dark:text-sky-50 focus:border-sky-600 focus:ring-2 focus:ring-sky-200 placeholder-slate-400 shadow-xs"
                         />
                       </td>
 
                       {/* J: Deviasi 51 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 font-bold">
                         {formatRupiah(r.deviasi51)}
                       </td>
 
                       {/* K: Deviasi 52 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 font-bold">
                         {formatRupiah(r.deviasi52)}
                       </td>
 
                       {/* L: Deviasi 53 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 font-bold">
                         {formatRupiah(r.deviasi53)}
                       </td>
 
                       {/* M: Deviasi 57 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                      <td className="px-2.5 py-1.5 text-right border-r-2 border-slate-400 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/40 text-slate-800 dark:text-slate-200 font-bold">
                         {r.deviasi57 > 0 ? formatRupiah(r.deviasi57) : '-'}
                       </td>
 
                       {/* N: % Deviasi 51 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 font-black">
                         {r.persenDeviasi51.toFixed(2)}%
                       </td>
 
                       {/* O: % Deviasi 52 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 font-black">
                         {r.persenDeviasi52.toFixed(2)}%
                       </td>
 
                       {/* P: % Deviasi 53 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 font-black">
                         {r.persenDeviasi53.toFixed(2)}%
                       </td>
 
                       {/* Q: % Deviasi 57 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-blue-600 dark:text-blue-400">
+                      <td className="px-2.5 py-1.5 text-right border-r-2 border-indigo-400 dark:border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 font-black">
                         {r.persenDeviasi57 > 0 ? `${r.persenDeviasi57.toFixed(2)}%` : '0,00%'}
                       </td>
 
                       {/* R: % Proporsi 51 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
                         {r.proporsi51.toFixed(2)}%
                       </td>
 
                       {/* S: % Proporsi 52 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
                         {r.proporsi52.toFixed(2)}%
                       </td>
 
                       {/* T: % Proporsi 53 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
                         {r.proporsi53.toFixed(2)}%
                       </td>
 
                       {/* U: % Proporsi 57 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400">
+                      <td className="px-2.5 py-1.5 text-right border-r-2 border-purple-400 dark:border-purple-600 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
                         {r.proporsi57 > 0 ? `${r.proporsi57.toFixed(2)}%` : '-'}
                       </td>
 
                       {/* V: % Deviasi Tertimbang 51 */}
-                      <td className={`px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-600 font-bold' : 'text-amber-700 dark:text-amber-400'}`}>
+                      <td className={`px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-800 dark:text-amber-300 font-black bg-amber-200/60 dark:bg-amber-950/50' : 'bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold'}`}>
                         {r.deviasiTertimbang51.toFixed(2)}%
                       </td>
 
                       {/* W: % Deviasi Tertimbang 52 */}
-                      <td className={`px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-600 font-bold' : 'text-amber-700 dark:text-amber-400'}`}>
+                      <td className={`px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-800 dark:text-amber-300 font-black bg-amber-200/60 dark:bg-amber-950/50' : 'bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold'}`}>
                         {r.deviasiTertimbang52.toFixed(2)}%
                       </td>
 
                       {/* X: % Deviasi Tertimbang 53 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-amber-700 dark:text-amber-400">
+                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold">
                         {r.deviasiTertimbang53.toFixed(2)}%
                       </td>
 
                       {/* Y: % Deviasi Tertimbang 57 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 text-amber-700 dark:text-amber-400">
+                      <td className="px-2.5 py-1.5 text-right border-r-2 border-amber-400 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold">
                         {r.deviasiTertimbang57 > 0 ? `${r.deviasiTertimbang57.toFixed(2)}%` : '0,00%'}
                       </td>
 
                       {/* Z: % Deviasi Seluruh Jenis Belanja */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 font-bold text-orange-600 dark:text-orange-400 bg-orange-50/30 dark:bg-orange-950/20">
+                      <td className="px-3 py-1.5 text-right border-r-2 border-orange-500 font-black text-orange-950 dark:text-orange-100 bg-orange-100/80 dark:bg-orange-950/40">
                         {r.deviasiSeluruhJenisBelanja.toFixed(2)}%
                       </td>
 
                       {/* AA: % Rata-Rata Deviasi Kumulatif */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-950/20">
+                      <td className="px-3 py-1.5 text-right border-r-2 border-teal-500 font-black text-teal-950 dark:text-teal-100 bg-teal-100/80 dark:bg-teal-950/40">
                         {r.rataRataDeviasiKumulatif.toFixed(2)}%
                       </td>
 
                       {/* AB: Nilai IKPA */}
-                      <td className="px-3 py-1.5 text-right font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/30">
-                        {r.nilaiIKPA.toFixed(2)}
+                      <td className="px-3 py-1.5 text-right bg-emerald-100/50 dark:bg-emerald-950/40">
+                        <span className="inline-block px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-xs">
+                          {r.nilaiIKPA.toFixed(2)}
+                        </span>
+                      </td>
+
+                      {/* Aksi: Hapus Baris */}
+                      <td className="px-2 py-1.5 text-center border-l border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40">
+                        <button
+                          onClick={() => handleDeleteRow(idx)}
+                          title={`Hapus baris Periode ${r.periode}`}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
+
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={29} className="py-12 px-4 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                          <Calendar className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                            Belum Ada Baris Periode Bulan
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            Settingan awal bersih (0 baris). Satker dapat menambahkan baris bulan secara mandiri sesuai progres yang ingin disimulasikan tanpa merasa berkewajiban mengisi sampai Desember.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                          <button
+                            onClick={handleAddMonthRow}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            + Tambah {nextMonthLabel}
+                          </button>
+                          <button
+                            onClick={handleAddQuarter1}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            + Tambah Triwulan I (3 Bulan)
+                          </button>
+                          <button
+                            onClick={handleResetDefault}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                          >
+                            Muat 12 Bulan Excel
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
+        )
       )}
 
       {/* 5. Mode Input Sederhana & What-If Simulation */}
@@ -1327,7 +1648,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
                     <div className="space-y-2 text-xs">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold uppercase block mb-1">
                           Rencana (RPD)
                         </label>
                         <input
@@ -1335,12 +1656,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`r51_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`r51_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.rencana51)}
                           onChange={e => handleInputChange(`r51_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'rencana51', e.target.value)}
                           onBlur={() => handleInputBlur(`r51_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 font-mono font-medium text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/40 dark:bg-slate-900 font-mono font-bold text-xs text-slate-900 dark:text-emerald-100 focus:outline-emerald-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-sky-800 dark:text-sky-300 font-bold uppercase block mb-1">
                           Penyerapan (Realisasi)
                         </label>
                         <input
@@ -1348,7 +1669,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`y51_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`y51_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.penyerapan51)}
                           onChange={e => handleInputChange(`y51_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'penyerapan51', e.target.value)}
                           onBlur={() => handleInputBlur(`y51_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 dark:bg-slate-900 font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-sky-400 dark:border-sky-600 bg-sky-50/40 dark:bg-slate-900 font-mono font-bold text-sky-950 dark:text-sky-100 text-xs focus:outline-sky-500"
                         />
                       </div>
                     </div>
@@ -1384,7 +1705,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
                     <div className="space-y-2 text-xs">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold uppercase block mb-1">
                           Rencana (RPD)
                         </label>
                         <input
@@ -1392,12 +1713,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`r52_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`r52_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.rencana52)}
                           onChange={e => handleInputChange(`r52_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'rencana52', e.target.value)}
                           onBlur={() => handleInputBlur(`r52_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 font-mono font-medium text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/40 dark:bg-slate-900 font-mono font-bold text-xs text-slate-900 dark:text-emerald-100 focus:outline-emerald-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-sky-800 dark:text-sky-300 font-bold uppercase block mb-1">
                           Penyerapan (Realisasi)
                         </label>
                         <input
@@ -1405,7 +1726,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`y52_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`y52_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.penyerapan52)}
                           onChange={e => handleInputChange(`y52_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'penyerapan52', e.target.value)}
                           onBlur={() => handleInputBlur(`y52_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 dark:bg-slate-900 font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-sky-400 dark:border-sky-600 bg-sky-50/40 dark:bg-slate-900 font-mono font-bold text-sky-950 dark:text-sky-100 text-xs focus:outline-sky-500"
                         />
                       </div>
                     </div>
@@ -1441,7 +1762,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
                     <div className="space-y-2 text-xs">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold uppercase block mb-1">
                           Rencana (RPD)
                         </label>
                         <input
@@ -1449,12 +1770,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`r53_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`r53_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.rencana53)}
                           onChange={e => handleInputChange(`r53_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'rencana53', e.target.value)}
                           onBlur={() => handleInputBlur(`r53_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 font-mono font-medium text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/40 dark:bg-slate-900 font-mono font-bold text-xs text-slate-900 dark:text-emerald-100 focus:outline-emerald-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-sky-800 dark:text-sky-300 font-bold uppercase block mb-1">
                           Penyerapan (Realisasi)
                         </label>
                         <input
@@ -1462,7 +1783,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           value={draftInputs[`y53_${selectedSimpleMonthIdx}`] !== undefined ? draftInputs[`y53_${selectedSimpleMonthIdx}`] : formatRupiah(activeRow.penyerapan53)}
                           onChange={e => handleInputChange(`y53_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'penyerapan53', e.target.value)}
                           onBlur={() => handleInputBlur(`y53_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 dark:bg-slate-900 font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-sky-400 dark:border-sky-600 bg-sky-50/40 dark:bg-slate-900 font-mono font-bold text-sky-950 dark:text-sky-100 text-xs focus:outline-sky-500"
                         />
                       </div>
                     </div>
@@ -1498,7 +1819,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
                     <div className="space-y-2 text-xs">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-emerald-800 dark:text-emerald-300 font-bold uppercase block mb-1">
                           Rencana (RPD)
                         </label>
                         <input
@@ -1507,12 +1828,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                           placeholder="Rp 0"
                           onChange={e => handleInputChange(`r57_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'rencana57', e.target.value)}
                           onBlur={() => handleInputBlur(`r57_${selectedSimpleMonthIdx}`)}
-                          className="w-full text-right px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 font-mono font-medium text-xs focus:outline-emerald-500"
+                          className="w-full text-right px-2.5 py-1.5 rounded-lg border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50/40 dark:bg-slate-900 font-mono font-bold text-xs text-slate-900 dark:text-emerald-100 focus:outline-emerald-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-slate-500 font-semibold uppercase block mb-1">
+                        <label className="text-[10px] text-sky-800 dark:text-sky-300 font-bold uppercase block mb-1">
                           Penyerapan (Realisasi)
                         </label>
                         <input

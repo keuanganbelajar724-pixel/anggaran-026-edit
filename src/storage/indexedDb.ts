@@ -201,57 +201,8 @@ export function createEmptyProject(
 ): SimulationProject {
   const now = new Date().toISOString();
 
-  // 12 bulan rencana & deviasi kosong (0)
-  const emptyDeviasiHalIII: DeviasiHalIIIInput[] = Array.from({ length: 12 }, (_, i) => ({
-    periode: String(i + 1).padStart(2, '0'),
-    rencana51: 0,
-    rencana52: 0,
-    rencana53: 0,
-    rencana57: 0,
-    penyerapan51: 0,
-    penyerapan52: 0,
-    penyerapan53: 0,
-    penyerapan57: 0,
-    proporsiPagu51: 0,
-    proporsiPagu52: 0,
-    proporsiPagu53: 0,
-    proporsiPagu57: 0
-  }));
-
-  // 12 periode penyerapan kosong (0)
-  const emptyPenyerapan: PenyerapanInput[] = Array.from({ length: 12 }, (_, i) => ({
-    periode: String(i + 1).padStart(2, '0'),
-    pagu51: 0,
-    pagu52: 0,
-    pagu53: 0,
-    pagu57: 0,
-    blokir51: 0,
-    blokir52: 0,
-    blokir53: 0,
-    blokir57: 0,
-    realisasi51: 0,
-    realisasi52: 0,
-    realisasi53: 0,
-    realisasi57: 0
-  }));
-
-  // 12 bulan target & penggunaan KKP kosong (0)
-  const emptyUpKKP: UPTUPKKPInput[] = Array.from({ length: 12 }, (_, i) => ({
-    periode: String(i + 1).padStart(2, '0'),
-    upKKPPerBulan: 0,
-    penggunaanKKP: 0
-  }));
-
-  // 12 bulan ketepatan pelaporan output
-  const emptyKetepatan: CapaianOutputKetepatanInput[] = Array.from({ length: 12 }, (_, i) => ({
-    no: i + 1,
-    satker: '',
-    namaSatker: '',
-    bulan: String(i + 1).padStart(2, '0'),
-    ketepatan: 'Tepat Waktu',
-    tanggalPelaporan: ''
-  }));
-
+  // Pengaturan awal: 0 baris (kosong) agar Satker dapat menambah baris mandiri
+  // sesuai kebutuhan riil tanpa dibebani kewajiban mengisi 12 bulan/banyak baris
   const proj: SimulationProject = {
     id: 'proj_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
     name,
@@ -281,12 +232,12 @@ export function createEmptyProject(
       capaianOutput: true
     },
     revisiDIPA: [],
-    deviasiHalIII: emptyDeviasiHalIII,
-    penyerapan: emptyPenyerapan,
+    deviasiHalIII: [],
+    penyerapan: [],
     belanjaKontraktual: [],
     penyelesaianTagihan: [],
     upTUPTunai: [],
-    upTUPKKP: emptyUpKKP,
+    upTUPKKP: [],
     dispensasiSPM: {
       jumlahSPMTriwulanIV: 0,
       jumlahDispensasiSPM: 0

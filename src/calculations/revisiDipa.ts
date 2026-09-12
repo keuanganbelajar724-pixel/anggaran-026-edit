@@ -159,12 +159,15 @@ export function calculateRevisionIndicator(count: number): number {
 export function calculateSemesterIKPA(
   inputs: (RevisionDipaRow | RevisiDIPAInput)[]
 ): RevisionDipaRow[] {
-  // Pastikan ada 12 periode ("01" sampai "12")
-  const preparedRows: RevisionDipaRow[] = Array.from({ length: 12 }, (_, i) => {
-    const existing = inputs[i];
-    const no = i + 1;
-    const periode = String(no).padStart(2, '0');
-    const keterangan = i < 6 ? 'Semester I' : 'Semester II';
+  if (!inputs || inputs.length === 0) {
+    return [];
+  }
+
+  const preparedRows: RevisionDipaRow[] = inputs.map((existing, i) => {
+    const no = existing?.no ?? (i + 1);
+    const periode = existing?.periode ?? String(no).padStart(2, '0');
+    const isSem1 = no <= 6;
+    const keterangan = isSem1 ? 'Semester I' : 'Semester II';
 
     const revisiKe = existing?.revisiKe !== undefined ? existing.revisiKe : null;
     const tanggalRevisi = existing?.tanggalRevisi || null;
@@ -200,34 +203,43 @@ export function calculateSemesterIKPA(
   });
 
   // Step 1: Hitung status diperhitungkan (Kolom I) untuk setiap baris
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < preparedRows.length; i++) {
     preparedRows[i].diperhitungkan = calculateRevisionEligibility(preparedRows[i]);
   }
 
-  // Step 2: Semester I (Periode 01..06, baris index 0..5)
-  for (let i = 0; i < 6; i++) {
-    const count = calculateCumulativeCount(preparedRows, 0, i);
-    preparedRows[i].jumlahDiperhitungkan = count;
-    preparedRows[i].keterangan = 'Semester I';
+  // Kelompokkan indeks baris per Semester I (no <= 6) dan Semester II (no > 6)
+  const sem1Indices: number[] = [];
+  const sem2Indices: number[] = [];
+  preparedRows.forEach((row, idx) => {
+    if (row.no <= 6) {
+      sem1Indices.push(idx);
+    } else {
+      sem2Indices.push(idx);
+    }
+  });
+
+  // Step 2: Semester I
+  for (let idx of sem1Indices) {
+    const count = calculateCumulativeCount(preparedRows, sem1Indices[0], idx);
+    preparedRows[idx].jumlahDiperhitungkan = count;
+    preparedRows[idx].keterangan = 'Semester I';
     const indicator = calculateRevisionIndicator(count);
-    preparedRows[i].nilaiIndikator = indicator;
-    // Excel: M4..M9 = L4..L9
-    preparedRows[i].nilaiIKPA = indicator;
+    preparedRows[idx].nilaiIndikator = indicator;
+    preparedRows[idx].nilaiIKPA = indicator;
   }
 
-  // Nilai Semester I terakhir (L9 / baris index 5)
-  const l9Value = preparedRows[5].nilaiIndikator;
+  // Nilai Semester I terakhir
+  const lastSem1Idx = sem1Indices.length > 0 ? sem1Indices[sem1Indices.length - 1] : -1;
+  const l9Value = lastSem1Idx >= 0 ? preparedRows[lastSem1Idx].nilaiIndikator : 110;
 
-  // Step 3: Semester II (Periode 07..12, baris index 6..11)
-  // PENTING: J10 TIDAK menghitung dari I4:I10. Kumulatif Semester II dimulai dari periode 07 (index 6)!
-  for (let i = 6; i < 12; i++) {
-    const count = calculateCumulativeCount(preparedRows, 6, i);
-    preparedRows[i].jumlahDiperhitungkan = count;
-    preparedRows[i].keterangan = 'Semester II';
+  // Step 3: Semester II (Kumulatif Semester II dimulai dari awal Semester II)
+  for (let idx of sem2Indices) {
+    const count = calculateCumulativeCount(preparedRows, sem2Indices[0], idx);
+    preparedRows[idx].jumlahDiperhitungkan = count;
+    preparedRows[idx].keterangan = 'Semester II';
     const indicator = calculateRevisionIndicator(count);
-    preparedRows[i].nilaiIndikator = indicator;
-    // Excel: M10: =AVERAGE($L$9, L10) ... M15: =AVERAGE($L$9, L15)
-    preparedRows[i].nilaiIKPA = (l9Value + indicator) / 2;
+    preparedRows[idx].nilaiIndikator = indicator;
+    preparedRows[idx].nilaiIKPA = (l9Value + indicator) / 2;
   }
 
   return preparedRows;

@@ -384,6 +384,10 @@ export function getSatkerDefaultPassword(satker: SatkerIKPA): string {
   if (satker.passwordSatker && satker.passwordSatker.trim() !== '') {
     return satker.passwordSatker.trim();
   }
+  const cleanKode = (satker.kodeSatker || '').trim();
+  if (cleanKode === '527272') {
+    return '527272_01508';
+  }
   const ba = satker.kodeBa || extractKodeBA(satker.kementerianLembaga);
   return `${satker.kodeSatker}_${ba}`;
 }

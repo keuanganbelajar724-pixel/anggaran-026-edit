@@ -207,35 +207,37 @@ export function calculatePenyerapanAnggaran(
 ): PenyerapanCalculationOutput {
   const warnings: string[] = [];
 
+  if (!isActive || weight === 0 || !inputs || inputs.length === 0) {
+    const emptyResult: IndicatorResult = {
+      rawValue: 0,
+      cappedValue: 0,
+      weight: isActive ? weight : 0,
+      weightedValue: 0,
+      isActive,
+      details: [{
+        step: 'Indikator Kosong / Belum Ada Data',
+        formulaHuman: 'Satker belum menginput baris periode penyerapan anggaran',
+        value: 0
+      }],
+      metadata: { periods: [], count: 0 }
+    };
+    return {
+      periods: [],
+      result: emptyResult,
+      warnings: []
+    };
+  }
+
   // Filter out any non-numeric periods like notes
   const validInputs = (inputs || []).filter(inp => /^\d{1,2}$/.test(String(inp.periode || '').trim()));
   const sourceInputs = validInputs.length > 0 ? validInputs : inputs || [];
 
-  // Guarantee 12 periods
-  const normalizedInputs: PenyerapanInput[] = [];
-  for (let i = 1; i <= 12; i++) {
-    const pStr = String(i).padStart(2, '0');
-    const existing = sourceInputs.find(x => String(x.periode).trim().padStart(2, '0') === pStr);
-    if (existing) {
-      normalizedInputs.push(existing);
-    } else {
-      normalizedInputs.push({
-        periode: pStr,
-        pagu51: 0,
-        pagu52: 0,
-        pagu53: 0,
-        pagu57: 0,
-        blokir51: 0,
-        blokir52: 0,
-        blokir53: 0,
-        blokir57: 0,
-        realisasi51: 0,
-        realisasi52: 0,
-        realisasi53: 0,
-        realisasi57: 0
-      });
-    }
-  }
+  // Urutkan input sesuai nomor periode
+  const normalizedInputs: PenyerapanInput[] = [...sourceInputs].sort((a, b) => {
+    const pA = parseInt(String(a.periode || '0').trim(), 10) || 0;
+    const pB = parseInt(String(b.periode || '0').trim(), 10) || 0;
+    return pA - pB;
+  });
 
   // Check warnings
   normalizedInputs.forEach(inp => {
@@ -246,7 +248,8 @@ export function calculatePenyerapanAnggaran(
 
   // Step 1: Compute Net Budget, Target, Realization, Achievement, Proportion, and NKPA for each period
   const preProcessed = normalizedInputs.map((inp, idx) => {
-    const pStr = String(idx + 1).padStart(2, '0');
+    const pNum = parseInt(String(inp.periode || idx + 1).trim(), 10) || (idx + 1);
+    const pStr = String(pNum).padStart(2, '0');
     const targets = calculateTargets(pStr);
 
     const t51 = inp.target51 ?? targets[51];
@@ -391,7 +394,15 @@ export function calculatePenyerapan(
   cutoffMonth: number = 12
 ): IndicatorResult {
   const output = calculatePenyerapanAnggaran(inputs, weight, isActive, cutoffMonth);
-  return output.result;
+  return output?.result || {
+    rawValue: 0,
+    cappedValue: 0,
+    weight: isActive ? weight : 0,
+    weightedValue: 0,
+    isActive,
+    details: [],
+    metadata: { periods: [], count: 0 }
+  };
 }
 
 // ==================================================

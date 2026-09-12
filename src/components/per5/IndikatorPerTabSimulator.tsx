@@ -443,30 +443,13 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         showNotification('Formulir Revisi DIPA berhasil dikosongkan.', 'success');
         break;
       case 'deviasi-hal3': {
-        const emptyDeviasi: DeviasiHal3Row[] = Array.from({ length: 12 }, (_, i) => ({
-          periode: String(i + 1).padStart(2, '0'),
-          rencana51: 0, rencana52: 0, rencana53: 0, rencana57: 0,
-          penyerapan51: 0, penyerapan52: 0, penyerapan53: 0, penyerapan57: 0,
-          deviasi51: 0, deviasi52: 0, deviasi53: 0, deviasi57: 0,
-          persenDeviasi51: 0, persenDeviasi52: 0, persenDeviasi53: 0, persenDeviasi57: 0,
-          proporsi51: 0.25, proporsi52: 0.25, proporsi53: 0.25, proporsi57: 0.25,
-          deviasiTertimbang51: 0, deviasiTertimbang52: 0, deviasiTertimbang53: 0, deviasiTertimbang57: 0,
-          deviasiSeluruhJenisBelanja: 0, rataRataDeviasiKumulatif: 0, nilaiIKPA: 0
-        }));
-        handleUpdateProject({ ...activeProject, deviasiHalIII: emptyDeviasi });
+        handleUpdateProject({ ...activeProject, deviasiHalIII: [] });
         showNotification('Formulir Deviasi Halaman III DIPA berhasil dikosongkan.', 'success');
         break;
       }
       case 'penyerapan': {
-        const emptyPenyerapan: PenyerapanInput[] = Array.from({ length: 12 }, (_, i) => ({
-          periode: String(i + 1).padStart(2, '0'),
-          pagu51: 0, pagu52: 0, pagu53: 0, pagu57: 0,
-          blokir51: 0, blokir52: 0, blokir53: 0, blokir57: 0,
-          target51: undefined, target52: undefined, target53: undefined, target57: undefined,
-          realisasi51: 0, realisasi52: 0, realisasi53: 0, realisasi57: 0
-        }));
-        handleUpdateProject({ ...activeProject, penyerapan: emptyPenyerapan });
-        showNotification('Formulir Penyerapan Anggaran berhasil dikosongkan.', 'success');
+        handleUpdateProject({ ...activeProject, penyerapan: [] });
+        showNotification('Formulir Penyerapan Anggaran berhasil dikosongkan (0 baris).', 'success');
         break;
       }
       case 'kontraktual':
@@ -590,19 +573,19 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     const output = activeProject.output;
     const lines = [
       'Indikator IKPA,Bobot (%),Nilai Kinerja (Raw),Nilai Akhir (Capped),Nilai Tertimbang',
-      `Revisi DIPA,${output.indicators.revisiDIPA.weight},${output.indicators.revisiDIPA.rawValue},${output.indicators.revisiDIPA.cappedValue},${output.indicators.revisiDIPA.weightedValue}`,
-      `Deviasi Halaman III DIPA,${output.indicators.deviasiHalIII.weight},${output.indicators.deviasiHalIII.rawValue},${output.indicators.deviasiHalIII.cappedValue},${output.indicators.deviasiHalIII.weightedValue}`,
-      `Penyerapan Anggaran,${output.indicators.penyerapan.weight},${output.indicators.penyerapan.rawValue},${output.indicators.penyerapan.cappedValue},${output.indicators.penyerapan.weightedValue}`,
-      `Belanja Kontraktual,${output.indicators.belanjaKontraktual.weight},${output.indicators.belanjaKontraktual.rawValue},${output.indicators.belanjaKontraktual.cappedValue},${output.indicators.belanjaKontraktual.weightedValue}`,
-      `Penyelesaian Tagihan,${output.indicators.penyelesaianTagihan.weight},${output.indicators.penyelesaianTagihan.rawValue},${output.indicators.penyelesaianTagihan.cappedValue},${output.indicators.penyelesaianTagihan.weightedValue}`,
-      `Pengelolaan UP dan TUP,${output.indicators.pengelolaanUPTUP.weight},${output.indicators.pengelolaanUPTUP.rawValue},${output.indicators.pengelolaanUPTUP.cappedValue},${output.indicators.pengelolaanUPTUP.weightedValue}`,
-      `Capaian Output,${output.indicators.capaianOutput.weight},${output.indicators.capaianOutput.rawValue},${output.indicators.capaianOutput.cappedValue},${output.indicators.capaianOutput.weightedValue}`,
+      `Revisi DIPA,${output.indicators?.revisiDIPA?.weight ?? 0},${output.indicators?.revisiDIPA?.rawValue ?? 0},${output.indicators?.revisiDIPA?.cappedValue ?? 0},${output.indicators?.revisiDIPA?.weightedValue ?? 0}`,
+      `Deviasi Halaman III DIPA,${output.indicators?.deviasiHalIII?.weight ?? 0},${output.indicators?.deviasiHalIII?.rawValue ?? 0},${output.indicators?.deviasiHalIII?.cappedValue ?? 0},${output.indicators?.deviasiHalIII?.weightedValue ?? 0}`,
+      `Penyerapan Anggaran,${output.indicators?.penyerapan?.weight ?? 0},${output.indicators?.penyerapan?.rawValue ?? 0},${output.indicators?.penyerapan?.cappedValue ?? 0},${output.indicators?.penyerapan?.weightedValue ?? 0}`,
+      `Belanja Kontraktual,${output.indicators?.belanjaKontraktual?.weight ?? 0},${output.indicators?.belanjaKontraktual?.rawValue ?? 0},${output.indicators?.belanjaKontraktual?.cappedValue ?? 0},${output.indicators?.belanjaKontraktual?.weightedValue ?? 0}`,
+      `Penyelesaian Tagihan,${output.indicators?.penyelesaianTagihan?.weight ?? 0},${output.indicators?.penyelesaianTagihan?.rawValue ?? 0},${output.indicators?.penyelesaianTagihan?.cappedValue ?? 0},${output.indicators?.penyelesaianTagihan?.weightedValue ?? 0}`,
+      `Pengelolaan UP dan TUP,${output.indicators?.pengelolaanUPTUP?.weight ?? 0},${output.indicators?.pengelolaanUPTUP?.rawValue ?? 0},${output.indicators?.pengelolaanUPTUP?.cappedValue ?? 0},${output.indicators?.pengelolaanUPTUP?.weightedValue ?? 0}`,
+      `Capaian Output,${output.indicators?.capaianOutput?.weight ?? 0},${output.indicators?.capaianOutput?.rawValue ?? 0},${output.indicators?.capaianOutput?.cappedValue ?? 0},${output.indicators?.capaianOutput?.weightedValue ?? 0}`,
       '',
-      `Pengurang Dispensasi SPM TW IV,-,-,-,-${output.dispensasiReduction}`,
-      `Total Tertimbang,-,-,-,${output.totalWeighted}`,
-      `Konversi Bobot,-,-,-,${(output.weightConversion * 100).toFixed(0)}%`,
-      `NILAI AKHIR IKPA,-,-,-,${output.finalScore}`,
-      `PREDIKAT KINERJA,-,-,-,${output.predikat}`
+      `Pengurang Dispensasi SPM TW IV,-,-,-,-${output.dispensasiReduction ?? 0}`,
+      `Total Tertimbang,-,-,-,${output.totalWeighted ?? 0}`,
+      `Konversi Bobot,-,-,-,${((output.weightConversion ?? 1) * 100).toFixed(0)}%`,
+      `NILAI AKHIR IKPA,-,-,-,${output.finalScore ?? 0}`,
+      `PREDIKAT KINERJA,-,-,-,${output.predikat ?? '-'}`
     ];
 
     const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(lines.join('\n'));

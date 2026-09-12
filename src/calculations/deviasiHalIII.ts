@@ -215,24 +215,27 @@ export function calculateDeviasiHal3(
 } {
   const details: CalculationDetail[] = [];
 
-  // Standarisasi 12 baris periode ("01" .. "12")
-  const periods = Array.from({ length: 12 }, (_, i) => {
-    const num = i + 1;
-    return num < 10 ? `0${num}` : `${num}`;
-  });
+  // Dapatkan periode yang diinputkan oleh Satker
+  const rawInputPeriods = (inputs || [])
+    .map(inp => (inp?.periode || '').trim())
+    .filter(p => p.length > 0)
+    .map(p => (p.length === 1 ? `0${p}` : p));
 
-  // Jika belum ada data RPD Halaman III / realisasi yang diisi, kembalikan 0 (bukan default 100)
-  if (!hasActualDeviasiHal3Data(inputs)) {
-    const zeroRows: DeviasiHal3Row[] = periods.map(periode => ({
-      periode,
-      rencana51: 0,
-      rencana52: 0,
-      rencana53: 0,
-      rencana57: 0,
-      penyerapan51: 0,
-      penyerapan52: 0,
-      penyerapan53: 0,
-      penyerapan57: 0,
+  // Ambil periode unik yang diinputkan secara berurutan
+  const uniquePeriods = Array.from(new Set(rawInputPeriods)).sort();
+
+  // Jika belum ada data baris yang diinputkan (0 baris) ATAU belum ada data riil rencana & penyerapan (seluruh nominal 0)
+  if (!inputs || inputs.length === 0 || uniquePeriods.length === 0 || !hasActualDeviasiHal3Data(inputs)) {
+    const emptyRows: DeviasiHal3Row[] = (inputs || []).map(inp => ({
+      periode: inp?.periode || '01',
+      rencana51: Number(inp?.rencana51) || 0,
+      rencana52: Number(inp?.rencana52) || 0,
+      rencana53: Number(inp?.rencana53) || 0,
+      rencana57: Number(inp?.rencana57) || 0,
+      penyerapan51: Number(inp?.penyerapan51 ?? (inp as any)?.realisasi51) || 0,
+      penyerapan52: Number(inp?.penyerapan52 ?? (inp as any)?.realisasi52) || 0,
+      penyerapan53: Number(inp?.penyerapan53 ?? (inp as any)?.realisasi53) || 0,
+      penyerapan57: Number(inp?.penyerapan57 ?? (inp as any)?.realisasi57) || 0,
       deviasi51: 0,
       deviasi52: 0,
       deviasi53: 0,
@@ -241,10 +244,10 @@ export function calculateDeviasiHal3(
       persenDeviasi52: 0,
       persenDeviasi53: 0,
       persenDeviasi57: 0,
-      proporsi51: 0,
-      proporsi52: 0,
-      proporsi53: 0,
-      proporsi57: 0,
+      proporsi51: inp?.proporsi51 ?? DEFAULT_WORKBOOK_PROPORTIONS[51],
+      proporsi52: inp?.proporsi52 ?? DEFAULT_WORKBOOK_PROPORTIONS[52],
+      proporsi53: inp?.proporsi53 ?? DEFAULT_WORKBOOK_PROPORTIONS[53],
+      proporsi57: inp?.proporsi57 ?? DEFAULT_WORKBOOK_PROPORTIONS[57],
       deviasiTertimbang51: 0,
       deviasiTertimbang52: 0,
       deviasiTertimbang53: 0,
@@ -255,7 +258,7 @@ export function calculateDeviasiHal3(
     }));
 
     return {
-      rows: zeroRows,
+      rows: emptyRows,
       result: {
         rawValue: 0,
         cappedValue: 0,
@@ -263,19 +266,19 @@ export function calculateDeviasiHal3(
         weightedValue: 0,
         isActive,
         details: [{
-          step: 'Data RPD Halaman III Kosong',
-          formulaHuman: 'Belum ada data RPD Halaman III dan realisasi yang diinputkan (Nilai = 0)',
+          step: 'Data RPD Halaman III Kosong / Belum Diisi',
+          formulaHuman: 'Belum ada data rencana (RPD) atau realisasi penyerapan yang diinputkan (Nilai = 0)',
           formulaTechnical: '0',
           value: 0,
-          note: 'Nilai awal simulasi 0 sebelum RPD dan realisasi diisi'
+          note: 'Satker dapat mengisi rencana penarikan dana dan penyerapan untuk memulai perhitungan'
         }],
         metadata: {
-          rows: zeroRows,
-          months: zeroRows.map(r => ({
+          rows: emptyRows,
+          months: emptyRows.map(r => ({
             periode: r.periode,
             rencana: { 51: 0, 52: 0, 53: 0, 57: 0 },
             penyerapan: { 51: 0, 52: 0, 53: 0, 57: 0 },
-            proporsi: { 51: 0, 52: 0, 53: 0, 57: 0 },
+            proporsi: { 51: r.proporsi51, 52: r.proporsi52, 53: r.proporsi53, 57: r.proporsi57 },
             devPct: { 51: 0, 52: 0, 53: 0, 57: 0 },
             devTertimbang: { 51: 0, 52: 0, 53: 0, 57: 0 },
             totalDeviasiBulan: 0,
@@ -287,6 +290,8 @@ export function calculateDeviasiHal3(
       }
     };
   }
+
+  const periods = uniquePeriods;
 
   const inputMap = new Map<string, DeviasiHalIIIInput | DeviasiHal3Row>();
   (inputs || []).forEach(inp => {

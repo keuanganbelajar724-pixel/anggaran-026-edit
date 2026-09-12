@@ -20,7 +20,9 @@ import {
   Clock,
   ShieldCheck,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { SimulationProject, RevisiDIPAInput, RevisionDipaRow } from '../../../models/ikpa';
 import {
@@ -56,35 +58,15 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
   onOpenInspector,
   isDark = false
 }) => {
-  // Ambil data baris revisiDIPA dari project (atau inisialisasi jika kosong)
+  // Ambil data baris revisiDIPA dari project (0 baris default jika kosong)
   const rawInputs: RevisiDIPAInput[] = useMemo(() => {
-    if (project.revisiDIPA && project.revisiDIPA.length >= 12) {
+    if (project.revisiDIPA !== undefined && Array.isArray(project.revisiDIPA)) {
       return project.revisiDIPA;
     }
-    // Jika belum ada atau kurang dari 12 baris, lengkapi 12 periode
-    return Array.from({ length: 12 }, (_, i) => {
-      const existing = project.revisiDIPA?.[i];
-      const no = i + 1;
-      const periode = String(no).padStart(2, '0');
-      const keterangan = i < 6 ? 'Semester I' : 'Semester II';
-      return {
-        no,
-        periode,
-        revisiKe: existing?.revisiKe ?? null,
-        tanggalRevisi: existing?.tanggalRevisi ?? null,
-        kodeJenisRevisi: existing?.kodeJenisRevisi ?? '',
-        paguDipaSebelum: existing?.paguDipaSebelum ?? existing?.paguSebelum ?? null,
-        paguDipaMenjadi: existing?.paguDipaMenjadi ?? existing?.paguMenjadi ?? null,
-        paguSebelum: existing?.paguSebelum ?? existing?.paguDipaSebelum ?? null,
-        paguMenjadi: existing?.paguMenjadi ?? existing?.paguDipaMenjadi ?? null,
-        jenisRevisi14: (existing?.empatBelasJenis ?? existing?.jenisRevisi14 ?? '-') as "ya" | "tidak" | "-",
-        empatBelasJenis: (existing?.empatBelasJenis ?? existing?.jenisRevisi14 ?? '-') as "ya" | "tidak" | "-",
-        keterangan
-      };
-    });
+    return [];
   }, [project.revisiDIPA]);
 
-  // Hitung tabel 12 periode deterministik sesuai formula Excel
+  // Hitung tabel periode deterministik sesuai formula Excel
   const calculatedRows: RevisionDipaRow[] = useMemo(() => {
     return calculateSemesterIKPA(rawInputs);
   }, [rawInputs]);
@@ -94,11 +76,13 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
     return calculateRevisiDIPA(calculatedRows, 10, true);
   }, [calculatedRows]);
 
-  const sem1Count = calculatedRows[5]?.jumlahDiperhitungkan ?? 0;
-  const sem2Count = calculatedRows[11]?.jumlahDiperhitungkan ?? 0;
-  const l9Value = calculatedRows[5]?.nilaiIndikator ?? 110;
-  const l15Value = calculatedRows[11]?.nilaiIndikator ?? 50;
-  const m15Value = calculatedRows[11]?.nilaiIKPA ?? 80;
+  const sem1Count = calculatedRows.filter(r => r.no <= 6 && r.diperhitungkan === 'diperhitungkan').length;
+  const sem2Count = calculatedRows.filter(r => r.no > 6 && r.diperhitungkan === 'diperhitungkan').length;
+  const lastSem1 = [...calculatedRows].filter(r => r.no <= 6).pop();
+  const lastSem2 = [...calculatedRows].filter(r => r.no > 6).pop();
+  const l9Value = lastSem1 ? lastSem1.nilaiIndikator : 110;
+  const l15Value = lastSem2 ? lastSem2.nilaiIndikator : 50;
+  const m15Value = calculatedRows.length > 0 ? calculatedRows[calculatedRows.length - 1].nilaiIKPA : 0;
   const finalScore = calculateFinalRevisionScore(calculatedRows);
 
   // State draft input untuk nilai rupiah agar nyaman diketik tanpa re-format mendadak
@@ -118,12 +102,107 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
     return validateRevisiDIPA(rawInputs);
   }, [rawInputs]);
 
+  // Tambah 1 baris revisi berikutnya
+  const handleAddRow = () => {
+    const nextNo = rawInputs.length + 1;
+    const periode = String(nextNo).padStart(2, '0');
+    const isSem1 = nextNo <= 6;
+    const newRow: RevisiDIPAInput = {
+      no: nextNo,
+      periode,
+      revisiKe: null,
+      tanggalRevisi: null,
+      kodeJenisRevisi: '',
+      paguDipaSebelum: null,
+      paguDipaMenjadi: null,
+      paguSebelum: null,
+      paguMenjadi: null,
+      jenisRevisi14: '-',
+      empatBelasJenis: '-',
+      keterangan: isSem1 ? 'Semester I' : 'Semester II'
+    };
+    onUpdateProject({
+      ...project,
+      revisiDIPA: [...rawInputs, newRow]
+    });
+  };
+
+  // Tambah Semester I (6 baris)
+  const handleAddSemester1 = () => {
+    const sem1Rows: RevisiDIPAInput[] = Array.from({ length: 6 }, (_, i) => {
+      const no = i + 1;
+      const existing = rawInputs.find(r => r.no === no);
+      if (existing) return existing;
+      return {
+        no,
+        periode: String(no).padStart(2, '0'),
+        revisiKe: null,
+        tanggalRevisi: null,
+        kodeJenisRevisi: '',
+        paguDipaSebelum: null,
+        paguDipaMenjadi: null,
+        paguSebelum: null,
+        paguMenjadi: null,
+        jenisRevisi14: '-',
+        empatBelasJenis: '-',
+        keterangan: 'Semester I'
+      };
+    });
+    const rest = rawInputs.filter(r => r.no > 6);
+    onUpdateProject({
+      ...project,
+      revisiDIPA: [...sem1Rows, ...rest].sort((a, b) => a.no - b.no)
+    });
+  };
+
+  // Tambah 12 Baris Lengkap (Sem I & Sem II)
+  const handleAdd12Rows = () => {
+    const all12: RevisiDIPAInput[] = Array.from({ length: 12 }, (_, i) => {
+      const no = i + 1;
+      const existing = rawInputs.find(r => r.no === no);
+      if (existing) return existing;
+      return {
+        no,
+        periode: String(no).padStart(2, '0'),
+        revisiKe: null,
+        tanggalRevisi: null,
+        kodeJenisRevisi: '',
+        paguDipaSebelum: null,
+        paguDipaMenjadi: null,
+        paguSebelum: null,
+        paguMenjadi: null,
+        jenisRevisi14: '-',
+        empatBelasJenis: '-',
+        keterangan: i < 6 ? 'Semester I' : 'Semester II'
+      };
+    });
+    onUpdateProject({
+      ...project,
+      revisiDIPA: all12
+    });
+  };
+
+  // Hapus baris
+  const handleDeleteRow = (index: number) => {
+    const updated = rawInputs.filter((_, i) => i !== index).map((r, i) => ({
+      ...r,
+      no: i + 1,
+      periode: String(i + 1).padStart(2, '0'),
+      keterangan: i < 6 ? 'Semester I' : 'Semester II'
+    }));
+    onUpdateProject({
+      ...project,
+      revisiDIPA: updated
+    });
+  };
+
   // Update baris spesifik
   const handleUpdateRow = (
     index: number,
     updates: Partial<RevisiDIPAInput & RevisionDipaRow>
   ) => {
-    const updated = calculatedRows.map((r, i) => {
+    if (index < 0 || index >= rawInputs.length) return;
+    const updated = rawInputs.map((r, i) => {
       if (i !== index) return r;
       const merged = { ...r, ...updates };
       // Pastikan sinkronisasi nama properti
@@ -494,19 +573,52 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
         </div>
       )}
 
-      {/* 2. TABEL 12 PERIODE DENGAN STRUKTUR HARUS PERSIS SESUAI EXCEL */}
+      {/* 2. TABEL PERIODE DENGAN STRUKTUR HARUS PERSIS SESUAI EXCEL */}
       <div className={`rounded-2xl border shadow-xs overflow-hidden ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}>
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
-              Tabel 12 Periode Revisi DIPA (Kolom A s.d. M)
+              Tabel Periode Revisi DIPA (Kolom A s.d. M)
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+              {calculatedRows.length} Baris
             </span>
           </div>
-          <div className="text-xs text-slate-400 font-mono">
-            Kolom Input: [C, D, E, F, G, H] • Kolom Otomatis: [A, B, I, J, K, L, M]
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleAddRow}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+              title="Tambah 1 baris revisi berikutnya"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              + Tambah Baris (No. {rawInputs.length + 1})
+            </button>
+            <button
+              onClick={handleAddSemester1}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer"
+              title="Tambah Semester I (Periode 01 s.d. 06)"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              + Semester I (6 Baris)
+            </button>
+            <button
+              onClick={handleAdd12Rows}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium text-xs transition-colors cursor-pointer"
+              title="Lengkapi sampai 12 periode (Semester I & II)"
+            >
+              + 12 Baris Lengkap
+            </button>
+            <button
+              onClick={handleClearTable}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 font-medium text-xs transition-colors cursor-pointer"
+              title="Kosongkan seluruh baris formulir"
+            >
+              <Eraser className="w-3.5 h-3.5" />
+              Kosongkan
+            </button>
           </div>
         </div>
 
@@ -556,6 +668,9 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                 <th className="px-2.5 py-3 text-center w-20">
                   M<br/><span className="text-[10px] font-normal text-slate-500">Nilai IKPA</span>
                 </th>
+                <th className="px-2.5 py-3 text-center border-l border-slate-200 dark:border-slate-800 w-12">
+                  Aksi
+                </th>
               </tr>
             </thead>
 
@@ -563,8 +678,8 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
               {calculatedRows.map((r, idx) => {
                 const codeCheck = checkRevisionCodes(r.kodeJenisRevisi);
-                const isSem1Header = idx === 0;
-                const isSem2Header = idx === 6;
+                const isSem1Header = idx === 0 && r.no <= 6;
+                const isSem2Header = r.no > 6 && (idx === 0 || calculatedRows[idx - 1]?.no <= 6);
                 const isPaguMatch = r.paguSebelum !== null && r.paguMenjadi !== null && r.paguSebelum === r.paguMenjadi && r.paguSebelum > 0;
                 const isCounted = r.diperhitungkan === 'diperhitungkan';
 
@@ -573,7 +688,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                     {/* Section Header Semester I */}
                     {isSem1Header && (
                       <tr className="bg-emerald-500/10 dark:bg-emerald-950/40 border-y border-emerald-500/20">
-                        <td colSpan={13} className="px-3 py-1.5 font-sans font-bold text-xs text-emerald-800 dark:text-emerald-300">
+                        <td colSpan={14} className="px-3 py-1.5 font-sans font-bold text-xs text-emerald-800 dark:text-emerald-300">
                           SEMESTER I (Periode 01 – 06) • Basis Kumulatif J4:J9 • Nilai IKPA M4:M9 = L
                         </td>
                       </tr>
@@ -582,7 +697,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                     {/* Section Header Semester II */}
                     {isSem2Header && (
                       <tr className="bg-blue-500/10 dark:bg-blue-950/40 border-y border-blue-500/20">
-                        <td colSpan={13} className="px-3 py-1.5 font-sans font-bold text-xs text-blue-800 dark:text-blue-300">
+                        <td colSpan={14} className="px-3 py-1.5 font-sans font-bold text-xs text-blue-800 dark:text-blue-300">
                           SEMESTER II (Periode 07 – 12) • Basis Kumulatif J10:J15 (Dimulai Ulang dari Periode 07) • Nilai IKPA M = AVERAGE($L$9, L)
                         </td>
                       </tr>
@@ -809,10 +924,63 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                       }`}>
                         {r.nilaiIKPA}
                       </td>
+
+                      {/* Aksi: Hapus Baris */}
+                      <td className="px-2.5 py-2 text-center border-l border-slate-200 dark:border-slate-800">
+                        <button
+                          onClick={() => handleDeleteRow(idx)}
+                          title={`Hapus baris No. ${r.no} (${r.periode})`}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   </React.Fragment>
                 );
               })}
+
+              {calculatedRows.length === 0 && (
+                <tr>
+                  <td colSpan={14} className="py-12 px-4 text-center">
+                    <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                        <Layers className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                          Belum Ada Baris Riwayat Revisi DIPA
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-sans">
+                          Settingan awal bersih (0 baris). Satker dapat menambahkan baris revisi secara bertahap saat revisi terjadi tanpa kewajiban mengisi 12 periode langsung.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2 mt-2 font-sans">
+                        <button
+                          onClick={handleAddRow}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          + Tambah Baris Pertama
+                        </button>
+                        <button
+                          onClick={handleAddSemester1}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          + Tambah Semester I (6 Baris)
+                        </button>
+                        <button
+                          onClick={handleResetToGolden}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                        >
+                          Muat Standar Excel (12 Baris)
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -9,17 +9,23 @@ export const resolveKodeBA = (satker: {
   kodeSatker?: string;
   namaSatker?: string;
 }): string => {
+  const kode = (satker.kodeSatker || '').trim();
+
+  // Khusus Satker 527272 (KPPN Semarang I - BA 015 DJPb Eselon I 08)
+  if (kode === '527272') {
+    return '01508';
+  }
+
   if (satker.kodeBa && satker.kodeBa.trim().length > 0 && satker.kodeBa.trim() !== '-' && satker.kodeBa.trim() !== '000') {
     return satker.kodeBa.trim().padStart(3, '0');
   }
 
-  const kode = (satker.kodeSatker || '').trim();
   const kl = (satker.kementerianLembaga || '').toLowerCase();
   const nama = (satker.namaSatker || '').toLowerCase();
   const combined = `${kl} ${nama} ${kode}`.toLowerCase();
 
-  // Khusus Satker KPPN Semarang I / Kemenkeu
-  if (kode === '527272' || combined.includes('kppn') || combined.includes('djpb') || combined.includes('perbendaharaan') || combined.includes('keuangan') || combined.includes('pajak') || combined.includes('djp') || combined.includes('bea') || combined.includes('kpknl') || combined.includes('bdk')) {
+  // Khusus Satker Kemenkeu / DJPb
+  if (combined.includes('kppn') || combined.includes('djpb') || combined.includes('perbendaharaan') || combined.includes('keuangan') || combined.includes('pajak') || combined.includes('djp') || combined.includes('bea') || combined.includes('kpknl') || combined.includes('bdk')) {
     return '015';
   }
 
@@ -64,13 +70,23 @@ export const resolveKodeBA = (satker: {
 
 /**
  * Format Password Default Satker:
- * Jika ada Kode BA: [KodeSatker]_[KodeBA] (contoh: 890594_023)
- * Jika tidak ada Kode BA: [KodeSatker] (contoh: 890594)
+ * - Khusus KPPN Semarang I (527272): 527272_01508 (BA 015 DJPb Eselon I 08)
+ * - Jika ada Kode BA: [KodeSatker]_[KodeBA] (contoh: 890594_023)
+ * - Jika tidak ada Kode BA: [KodeSatker] (contoh: 890594)
  */
 export const getSatkerDefaultPassword = (
-  satker: { kodeSatker: string; kodeBa?: string; kementerianLembaga?: string; namaSatker?: string }
+  satker: { kodeSatker: string; kodeBa?: string; kementerianLembaga?: string; namaSatker?: string; passwordSatker?: string }
 ): string => {
   const cleanKode = (satker.kodeSatker || '').trim().padStart(6, '0');
+  if (satker.passwordSatker && satker.passwordSatker.trim() !== '') {
+    return satker.passwordSatker.trim();
+  }
+
+  // Khusus Satker 527272 (KPPN Semarang I / DJPb Eselon I 08)
+  if (cleanKode === '527272') {
+    return '527272_01508';
+  }
+
   const ba = resolveKodeBA(satker);
   if (ba && ba.length > 0) {
     return `${cleanKode}_${ba}`;
@@ -91,31 +107,36 @@ export const verifySatkerPassword = (
 
   const cleanInput = inputPassword.trim();
   const cleanKode = (satker.kodeSatker || '').trim();
-  const defaultPw = getSatkerDefaultPassword(satker);
-  const ba = resolveKodeBA(satker);
-  const kppn = satker.kodeKppn || '026';
 
-  // 1. Password kustom yang telah diatur oleh admin / satker
+  // 1. Master bypass PIN KPPN (uses centralized admin password or default 'kppn026')
+  const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+  if (cleanInput === currentAdminPin || cleanInput.toLowerCase() === currentAdminPin.toLowerCase() || cleanInput.toLowerCase() === 'kppn026') {
+    return true;
+  }
+
+  // 2. Password kustom yang telah diatur oleh admin / satker
   if (satker.passwordSatker && cleanInput.toLowerCase() === satker.passwordSatker.trim().toLowerCase()) {
     return true;
   }
 
-  // 2. Format default resmi: getSatkerDefaultPassword(satker) (contoh: 527272_015)
+  // 3. Khusus KPPN Semarang I (527272): password resmi adalah 527272_01508 (DJPb: BA 015 Unit Eselon I 08)
+  // TIDAK diizinkan login dengan 527272_015 atau hanya kode satker
+  if (cleanKode === '527272') {
+    const norm = cleanInput.replace(/\./g, '').toLowerCase();
+    return norm === '527272_01508';
+  }
+
+  const defaultPw = getSatkerDefaultPassword(satker);
+  const ba = resolveKodeBA(satker);
+  const kppn = satker.kodeKppn || '026';
+
+  // 4. Format default resmi: getSatkerDefaultPassword(satker)
   if (cleanInput.toLowerCase() === defaultPw.toLowerCase()) {
     return true;
   }
 
-  // 3. Khusus KPPN Semarang I / DJPb (BA 015 Unit Eselon I 08: 01508)
-  if (
-    cleanInput.toLowerCase() === `${cleanKode}_01508` ||
-    cleanInput.toLowerCase() === `${cleanKode}_015.08` ||
-    cleanInput.toLowerCase() === `${cleanKode}_015`
-  ) {
-    return true;
-  }
-
-  // 4. Format [KodeSatker]_[KodeBA] atau [KodeSatker]_[KodeBA][UnitEselon]
-  // Contoh: 527272_01508, 651046_02504, 651046_025
+  // 5. Format [KodeSatker]_[KodeBA] atau [KodeSatker]_[KodeBA][UnitEselon]
+  // Contoh: 651046_02504, 651046_025
   const normalizedInput = cleanInput.replace(/\./g, '').toLowerCase();
   if (ba && ba.length >= 2) {
     if (
@@ -128,11 +149,6 @@ export const verifySatkerPassword = (
     }
   }
 
-  // 5. Format KodeSatker saja (e.g. "527272")
-  if (cleanInput === cleanKode || cleanInput === cleanKode.padStart(6, '0')) {
-    return true;
-  }
-
   // 6. Format KPPN026#[KodeSatker] atau KPPN#[KodeSatker]
   if (
     cleanInput.toLowerCase() === `kppn026#${cleanKode.toLowerCase()}` ||
@@ -142,19 +158,8 @@ export const verifySatkerPassword = (
     return true;
   }
 
-  // 7. Format fallback dengan '015' (Kemenkeu) atau '018'
-  if (cleanInput === `${cleanKode}_015` || cleanInput === `${cleanKode}_018`) {
-    return true;
-  }
-
-  // 8. Format lengkap: [KodeSatker]_[KodeBA]_[KodeKPPN]
+  // 7. Format lengkap: [KodeSatker]_[KodeBA]_[KodeKPPN]
   if (ba && (cleanInput === `${cleanKode}_${ba}_${kppn}` || cleanInput === `${cleanKode}${ba}${kppn}`)) {
-    return true;
-  }
-
-  // 9. Master bypass PIN KPPN (uses centralized admin password or default 'kppn026')
-  const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
-  if (cleanInput === currentAdminPin || cleanInput.toLowerCase() === currentAdminPin.toLowerCase() || cleanInput.toLowerCase() === 'kppn026') {
     return true;
   }
 

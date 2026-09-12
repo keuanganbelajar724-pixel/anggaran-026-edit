@@ -20,9 +20,18 @@ import {
   TrendingUp,
   Trash2,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  FileText,
+  Building,
+  Clock,
+  Coins,
+  Target,
+  AlertTriangle,
+  Table,
+  Check,
+  ChevronRight
 } from 'lucide-react';
-import { SimulationProject, IndicatorResult } from '../../../models/ikpa';
+import { SimulationProject, IndicatorResult, DEFAULT_WEIGHTS } from '../../../models/ikpa';
 import { hasActualRevisiDIPAData } from '../../../calculations/revisiDipa';
 import { hasActualDeviasiHal3Data } from '../../../calculations/deviasiHalIII';
 import { GoldenTestCard } from '../goldenTestCard';
@@ -44,6 +53,7 @@ export interface IndicatorMeta {
   key: keyof SimulationProject['output']['indicators'];
   no: number;
   title: string;
+  shortTitle: string;
   aspek: 'Kualitas Perencanaan' | 'Kualitas Pelaksanaan' | 'Kualitas Hasil';
   tabId: string;
   excelColumn: string;
@@ -56,6 +66,18 @@ export interface IndicatorMeta {
   badgeBg: string;
   progressColor: string;
   borderAccent: string;
+  // Bespoke Box (Kotak) Styling
+  cardContainer: string;
+  numberPill: string;
+  cellBadge: string;
+  statPodBg: string;
+  scoreText: string;
+  weightedText: string;
+  btnCalculate: string;
+  iconBg: string;
+  trackBg: string;
+  lightRowBg: string;
+  icon: any;
 }
 
 export const INDICATORS_CONFIG: IndicatorMeta[] = [
@@ -63,6 +85,7 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     key: 'revisiDIPA',
     no: 1,
     title: 'Revisi DIPA',
+    shortTitle: 'Revisi DIPA',
     aspek: 'Kualitas Perencanaan',
     tabId: 'revisi-dipa',
     excelColumn: 'G6',
@@ -71,15 +94,27 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceCell: 'M15',
     excelFormula: "=IF('Revisi DIPA'!M15 > 100, 100, 'Revisi DIPA'!M15)",
     description: 'Maks. 1x revisi pagu tetap per semester (14 jenis pengecualian revisi)',
-    themeColor: 'text-indigo-600 dark:text-indigo-400',
-    badgeBg: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300',
-    progressColor: 'bg-indigo-500',
-    borderAccent: 'border-l-4 border-l-indigo-500'
+    themeColor: 'text-indigo-700 dark:text-indigo-300',
+    badgeBg: 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300',
+    progressColor: 'bg-indigo-600 dark:bg-indigo-500',
+    borderAccent: 'border-l-4 border-l-indigo-500',
+    cardContainer: 'border-indigo-200/90 dark:border-indigo-800/60 bg-gradient-to-b from-indigo-50/50 via-white to-white dark:from-indigo-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-indigo-600 text-white',
+    cellBadge: 'bg-indigo-100/80 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200 border-indigo-200 dark:border-indigo-700',
+    statPodBg: 'bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50',
+    scoreText: 'text-indigo-950 dark:text-white',
+    weightedText: 'text-indigo-600 dark:text-indigo-400',
+    btnCalculate: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs shadow-indigo-600/20',
+    iconBg: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300',
+    trackBg: 'bg-indigo-100 dark:bg-indigo-950',
+    lightRowBg: 'hover:bg-indigo-50/40 dark:hover:bg-indigo-950/20',
+    icon: FileText
   },
   {
     key: 'deviasiHalIII',
     no: 2,
     title: 'Deviasi Halaman III DIPA',
+    shortTitle: 'Deviasi Hal III',
     aspek: 'Kualitas Perencanaan',
     tabId: 'deviasi-hal3',
     excelColumn: 'H6',
@@ -87,16 +122,28 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Deviasi Hal III DIPA',
     sourceCell: 'AB16',
     excelFormula: "='Deviasi Hal III DIPA'!AB16",
-    description: 'Kesesuaian realisasi anggaran terhadap RPD bulanan per jenis belanja (toleransi ≤5%)',
-    themeColor: 'text-sky-600 dark:text-sky-400',
-    badgeBg: 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300',
-    progressColor: 'bg-sky-500',
-    borderAccent: 'border-l-4 border-l-sky-500'
+    description: 'Kesesuaian realisasi anggaran thd RPD bulanan per jenis belanja (toleransi ≤5%)',
+    themeColor: 'text-sky-700 dark:text-sky-300',
+    badgeBg: 'bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300',
+    progressColor: 'bg-sky-600 dark:bg-sky-500',
+    borderAccent: 'border-l-4 border-l-sky-500',
+    cardContainer: 'border-sky-200/90 dark:border-sky-800/60 bg-gradient-to-b from-sky-50/50 via-white to-white dark:from-sky-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-sky-600 text-white',
+    cellBadge: 'bg-sky-100/80 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200 border-sky-200 dark:border-sky-700',
+    statPodBg: 'bg-sky-50/70 dark:bg-sky-950/40 border border-sky-100 dark:border-sky-900/50',
+    scoreText: 'text-sky-950 dark:text-white',
+    weightedText: 'text-sky-600 dark:text-sky-400',
+    btnCalculate: 'bg-sky-600 hover:bg-sky-700 text-white shadow-xs shadow-sky-600/20',
+    iconBg: 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-300',
+    trackBg: 'bg-sky-100 dark:bg-sky-950',
+    lightRowBg: 'hover:bg-sky-50/40 dark:hover:bg-sky-950/20',
+    icon: Calendar
   },
   {
     key: 'penyerapan',
     no: 3,
     title: 'Penyerapan Anggaran',
+    shortTitle: 'Penyerapan',
     aspek: 'Kualitas Pelaksanaan',
     tabId: 'penyerapan',
     excelColumn: 'I6',
@@ -104,16 +151,28 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Penyerapan Anggaran',
     sourceCell: 'Q71',
     excelFormula: "='Penyerapan Anggaran'!Q71",
-    description: 'Tingkat penyerapan anggaran terhadap target triwulanan masing-masing jenis belanja',
-    themeColor: 'text-emerald-600 dark:text-emerald-400',
-    badgeBg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300',
-    progressColor: 'bg-emerald-500',
-    borderAccent: 'border-l-4 border-l-emerald-500'
+    description: 'Tingkat penyerapan anggaran thd target triwulanan masing-masing jenis belanja',
+    themeColor: 'text-emerald-700 dark:text-emerald-300',
+    badgeBg: 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300',
+    progressColor: 'bg-emerald-600 dark:bg-emerald-500',
+    borderAccent: 'border-l-4 border-l-emerald-500',
+    cardContainer: 'border-emerald-200/90 dark:border-emerald-800/60 bg-gradient-to-b from-emerald-50/50 via-white to-white dark:from-emerald-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-emerald-600 text-white',
+    cellBadge: 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 border-emerald-200 dark:border-emerald-700',
+    statPodBg: 'bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/50',
+    scoreText: 'text-emerald-950 dark:text-white',
+    weightedText: 'text-emerald-600 dark:text-emerald-400',
+    btnCalculate: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shadow-emerald-600/20',
+    iconBg: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300',
+    trackBg: 'bg-emerald-100 dark:bg-emerald-950',
+    lightRowBg: 'hover:bg-emerald-50/40 dark:hover:bg-emerald-950/20',
+    icon: TrendingUp
   },
   {
     key: 'belanjaKontraktual',
     no: 4,
     title: 'Belanja Kontraktual',
+    shortTitle: 'Kontraktual',
     aspek: 'Kualitas Pelaksanaan',
     tabId: 'kontraktual',
     excelColumn: 'J6',
@@ -121,16 +180,28 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Belanja Kontraktual',
     sourceCell: 'N30',
     excelFormula: "='Belanja Kontraktual'!N30",
-    description: 'Ketepatan pendaftaran kontrak ≤5 HK, akselerasi belanja modal 53, dan kontrak dini',
-    themeColor: 'text-amber-600 dark:text-amber-400',
-    badgeBg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300',
-    progressColor: 'bg-amber-500',
-    borderAccent: 'border-l-4 border-l-amber-500'
+    description: 'Ketepatan pendaftaran kontrak ≤5 HK, akselerasi belanja modal 53, & kontrak dini',
+    themeColor: 'text-amber-800 dark:text-amber-300',
+    badgeBg: 'bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300',
+    progressColor: 'bg-amber-600 dark:bg-amber-500',
+    borderAccent: 'border-l-4 border-l-amber-500',
+    cardContainer: 'border-amber-200/90 dark:border-amber-800/60 bg-gradient-to-b from-amber-50/50 via-white to-white dark:from-amber-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-amber-600 text-white',
+    cellBadge: 'bg-amber-100/80 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 border-amber-200 dark:border-amber-700',
+    statPodBg: 'bg-amber-50/70 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/50',
+    scoreText: 'text-amber-950 dark:text-white',
+    weightedText: 'text-amber-700 dark:text-amber-400',
+    btnCalculate: 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs shadow-amber-600/20',
+    iconBg: 'bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300',
+    trackBg: 'bg-amber-100 dark:bg-amber-950',
+    lightRowBg: 'hover:bg-amber-50/40 dark:hover:bg-amber-950/20',
+    icon: Building
   },
   {
     key: 'penyelesaianTagihan',
     no: 5,
     title: 'Penyelesaian Tagihan',
+    shortTitle: 'Tagihan LS',
     aspek: 'Kualitas Pelaksanaan',
     tabId: 'tagihan',
     excelColumn: 'K6',
@@ -138,16 +209,28 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Penyelesaian Tagihan',
     sourceCell: 'R6',
     excelFormula: "='Penyelesaian Tagihan'!R6",
-    description: 'Ketepatan penerbitan SPM-LS Kontraktual non belanja pegawai (≤17 hari kerja BAST)',
-    themeColor: 'text-violet-600 dark:text-violet-400',
-    badgeBg: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300',
-    progressColor: 'bg-violet-500',
-    borderAccent: 'border-l-4 border-l-violet-500'
+    description: 'Ketepatan penerbitan SPM-LS Kontraktual non belanja pegawai (≤17 HK BAST)',
+    themeColor: 'text-violet-700 dark:text-violet-300',
+    badgeBg: 'bg-violet-50 dark:bg-violet-950/50 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300',
+    progressColor: 'bg-violet-600 dark:bg-violet-500',
+    borderAccent: 'border-l-4 border-l-violet-500',
+    cardContainer: 'border-violet-200/90 dark:border-violet-800/60 bg-gradient-to-b from-violet-50/50 via-white to-white dark:from-violet-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-violet-600 text-white',
+    cellBadge: 'bg-violet-100/80 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200 border-violet-200 dark:border-violet-700',
+    statPodBg: 'bg-violet-50/70 dark:bg-violet-950/40 border border-violet-100 dark:border-violet-900/50',
+    scoreText: 'text-violet-950 dark:text-white',
+    weightedText: 'text-violet-600 dark:text-violet-400',
+    btnCalculate: 'bg-violet-600 hover:bg-violet-700 text-white shadow-xs shadow-violet-600/20',
+    iconBg: 'bg-violet-100 text-violet-600 dark:bg-violet-900/50 dark:text-violet-300',
+    trackBg: 'bg-violet-100 dark:bg-violet-950',
+    lightRowBg: 'hover:bg-violet-50/40 dark:hover:bg-violet-950/20',
+    icon: Clock
   },
   {
     key: 'pengelolaanUPTUP',
     no: 6,
     title: 'Pengelolaan UP dan TUP',
+    shortTitle: 'UP & TUP KKP',
     aspek: 'Kualitas Pelaksanaan',
     tabId: 'up-tup',
     excelColumn: 'L6',
@@ -155,16 +238,28 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Pengelolaan UP TUP KKP',
     sourceCell: 'N8',
     excelFormula: "='Pengelolaan UP TUP KKP'!N8",
-    description: 'Ketepatan revolving GUP disebulankan, setoran sisa TUP, dan penggunaan KKP',
-    themeColor: 'text-teal-600 dark:text-teal-400',
-    badgeBg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300',
-    progressColor: 'bg-teal-500',
-    borderAccent: 'border-l-4 border-l-teal-500'
+    description: 'Ketepatan revolving GUP disebulankan, setoran sisa TUP, & persentase KKP',
+    themeColor: 'text-teal-700 dark:text-teal-300',
+    badgeBg: 'bg-teal-50 dark:bg-teal-950/50 border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-300',
+    progressColor: 'bg-teal-600 dark:bg-teal-500',
+    borderAccent: 'border-l-4 border-l-teal-500',
+    cardContainer: 'border-teal-200/90 dark:border-teal-800/60 bg-gradient-to-b from-teal-50/50 via-white to-white dark:from-teal-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-teal-600 text-white',
+    cellBadge: 'bg-teal-100/80 text-teal-800 dark:bg-teal-900/60 dark:text-teal-200 border-teal-200 dark:border-teal-700',
+    statPodBg: 'bg-teal-50/70 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900/50',
+    scoreText: 'text-teal-950 dark:text-white',
+    weightedText: 'text-teal-600 dark:text-teal-400',
+    btnCalculate: 'bg-teal-600 hover:bg-teal-700 text-white shadow-xs shadow-teal-600/20',
+    iconBg: 'bg-teal-100 text-teal-600 dark:bg-teal-900/50 dark:text-teal-300',
+    trackBg: 'bg-teal-100 dark:bg-teal-950',
+    lightRowBg: 'hover:bg-teal-50/40 dark:hover:bg-teal-950/20',
+    icon: Coins
   },
   {
     key: 'capaianOutput',
     no: 7,
     title: 'Capaian Output',
+    shortTitle: 'Capaian Output',
     aspek: 'Kualitas Hasil',
     tabId: 'capaian-output',
     excelColumn: 'M6',
@@ -172,13 +267,54 @@ export const INDICATORS_CONFIG: IndicatorMeta[] = [
     sourceSheet: 'Capaian Output',
     sourceCell: 'AD8',
     excelFormula: "='Capaian Output'!AD8",
-    description: 'Capaian rincian output (70%) dan ketepatan pelaporan bulanan tepat waktu (30%)',
-    themeColor: 'text-purple-600 dark:text-purple-400',
-    badgeBg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
-    progressColor: 'bg-purple-500',
-    borderAccent: 'border-l-4 border-l-purple-500'
+    description: 'Capaian rincian output (70%) & ketepatan pelaporan bulanan tepat waktu (30%)',
+    themeColor: 'text-purple-700 dark:text-purple-300',
+    badgeBg: 'bg-purple-50 dark:bg-purple-950/50 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300',
+    progressColor: 'bg-purple-600 dark:bg-purple-500',
+    borderAccent: 'border-l-4 border-l-purple-500',
+    cardContainer: 'border-purple-200/90 dark:border-purple-800/60 bg-gradient-to-b from-purple-50/50 via-white to-white dark:from-purple-950/25 dark:via-slate-900 dark:to-slate-900',
+    numberPill: 'bg-purple-600 text-white',
+    cellBadge: 'bg-purple-100/80 text-purple-800 dark:bg-purple-900/60 dark:text-purple-200 border-purple-200 dark:border-purple-700',
+    statPodBg: 'bg-purple-50/70 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-900/50',
+    scoreText: 'text-purple-950 dark:text-white',
+    weightedText: 'text-purple-600 dark:text-purple-400',
+    btnCalculate: 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs shadow-purple-600/20',
+    iconBg: 'bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300',
+    trackBg: 'bg-purple-100 dark:bg-purple-950',
+    lightRowBg: 'hover:bg-purple-50/40 dark:hover:bg-purple-950/20',
+    icon: Target
   }
 ];
+
+export const DISPENSASI_CONFIG = {
+  key: 'dispensasi-spm' as const,
+  no: 8,
+  title: 'Dispensasi SPM TW IV',
+  shortTitle: 'Dispensasi SPM',
+  aspek: 'Faktor Pengurang' as const,
+  tabId: 'dispensasi-spm',
+  excelColumn: 'P6',
+  excelCell: 'P6',
+  sourceSheet: 'Dispensasi SPM',
+  sourceCell: 'D2',
+  excelFormula: "='Dispensasi SPM'!D2",
+  description: 'Pengurang nilai akibat keterlambatan / dispensasi SPM di Triwulan IV (-0.50 s.d -5.00 pt)',
+  themeColor: 'text-rose-700 dark:text-rose-300',
+  badgeBg: 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300',
+  progressColor: 'bg-rose-600 dark:bg-rose-500',
+  borderAccent: 'border-l-4 border-l-rose-500',
+  cardContainer: 'border-rose-200/90 dark:border-rose-800/60 bg-gradient-to-b from-rose-50/50 via-white to-white dark:from-rose-950/25 dark:via-slate-900 dark:to-slate-900',
+  numberPill: 'bg-rose-600 text-white',
+  cellBadge: 'bg-rose-100/80 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200 border-rose-200 dark:border-rose-700',
+  statPodBg: 'bg-rose-50/70 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/50',
+  scoreText: 'text-rose-950 dark:text-white',
+  weightedText: 'text-rose-600 dark:text-rose-400',
+  btnCalculate: 'bg-rose-600 hover:bg-rose-700 text-white shadow-xs shadow-rose-600/20',
+  iconBg: 'bg-rose-100 text-rose-600 dark:bg-rose-900/50 dark:text-rose-300',
+  trackBg: 'bg-rose-100 dark:bg-rose-950',
+  lightRowBg: 'hover:bg-rose-50/40 dark:hover:bg-rose-950/20',
+  icon: AlertTriangle
+};
 
 export function getIndicatorDataStatus(key: string, project: SimulationProject): {
   status: 'Sudah dihitung' | 'Belum diisi' | 'Belum lengkap';
@@ -380,6 +516,7 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
   isDark = false
 }) => {
   const [viewMode, setViewMode] = useState<InterfaceViewMode>('dashboard');
+  const [displayStyle, setDisplayStyle] = useState<'cards' | 'table' | 'both'>('cards');
   const [showSandbox, setShowSandbox] = useState<boolean>(true);
   const [showPetunjuk, setShowPetunjuk] = useState<boolean>(false);
   const output = project.output;
@@ -436,27 +573,27 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
       case 'SANGAT BAIK':
       case 'Sangat Baik':
         return {
-          bg: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:text-emerald-300',
+          bg: 'bg-emerald-500/15 text-emerald-800 border-emerald-500/30 dark:text-emerald-200 dark:bg-emerald-950/40',
           pill: 'bg-emerald-600 text-white',
           desc: 'Nilai IKPA ≥ 95.00'
         };
       case 'BAIK':
       case 'Baik':
         return {
-          bg: 'bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300',
+          bg: 'bg-blue-500/15 text-blue-800 border-blue-500/30 dark:text-blue-200 dark:bg-blue-950/40',
           pill: 'bg-blue-600 text-white',
           desc: '89.00 ≤ Nilai IKPA < 95.00'
         };
       case 'CUKUP':
       case 'Cukup':
         return {
-          bg: 'bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300',
+          bg: 'bg-amber-500/15 text-amber-800 border-amber-500/30 dark:text-amber-200 dark:bg-amber-950/40',
           pill: 'bg-amber-600 text-white',
           desc: '70.00 ≤ Nilai IKPA < 89.00'
         };
       default:
         return {
-          bg: 'bg-rose-500/15 text-rose-700 border-rose-500/30 dark:text-rose-300',
+          bg: 'bg-rose-500/15 text-rose-800 border-rose-500/30 dark:text-rose-200 dark:bg-rose-950/40',
           pill: 'bg-rose-600 text-white',
           desc: 'Nilai IKPA < 70.00'
         };
@@ -477,10 +614,10 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
       <div className={`relative overflow-hidden rounded-3xl border p-6 sm:p-7 shadow-xs transition-all ${
         isDark 
           ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 border-slate-800' 
-          : 'bg-gradient-to-br from-white via-emerald-50/20 to-teal-50/40 border-slate-200 shadow-sm'
+          : 'bg-gradient-to-br from-white via-emerald-50/25 to-teal-50/40 border-slate-200 shadow-sm'
       }`}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3">
+          <div className="space-y-3 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-0.5 text-xs font-mono font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                 <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -499,45 +636,48 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                 {project.metadata.namaSatker || 'Simulasi Mandiri'}
               </h2>
               <p className={`text-xs mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                Halaman utama agregasi seluruh modul IKPA 2026. Menghubungkan otomatis hasil nilai akhir 7 indikator dan pengurang dispensasi SPM tanpa perhitungan ulang formula modul.
+                Halaman agregasi resmi seluruh modul IKPA 2026. Menghubungkan otomatis hasil nilai akhir 7 indikator dan pengurang dispensasi SPM tanpa perhitungan ulang formula modul.
               </p>
             </div>
 
             {/* Completeness Chip */}
             <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
               <span className="font-semibold text-slate-500 dark:text-slate-400">Status Data:</span>
-              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-3 w-3" /> {countHitung} Terhitung
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2.5 py-0.5 font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                <CheckCircle2 className="h-3.5 w-3.5" /> {countHitung} Terhitung
               </span>
               {countSebagian > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 font-semibold text-amber-700 dark:text-amber-300">
-                  <AlertCircle className="h-3 w-3" /> {countSebagian} Belum Lengkap
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2.5 py-0.5 font-bold text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                  <AlertCircle className="h-3.5 w-3.5" /> {countSebagian} Belum Lengkap
                 </span>
               )}
               {countKosong > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-800 px-2 py-0.5 font-semibold text-slate-600 dark:text-slate-400">
-                  <CircleDot className="h-3 w-3" /> {countKosong} Belum Diisi
+                <span className="inline-flex items-center gap-1 rounded-md bg-slate-200 dark:bg-slate-800 px-2.5 py-0.5 font-semibold text-slate-600 dark:text-slate-400">
+                  <CircleDot className="h-3.5 w-3.5" /> {countKosong} Belum Diisi
                 </span>
               )}
             </div>
           </div>
 
-          {/* Big Nilai Akhir Score Box */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6 bg-slate-50 dark:bg-slate-800/60 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
-            <div className="text-right">
-              <div className="flex items-center justify-end gap-1.5">
-                <span className={`text-[11px] font-mono font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-300`}>
-                  Sel Q6
-                </span>
-                <span className={`text-xs font-semibold uppercase tracking-wider block ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Nilai Akhir IKPA
-                </span>
-              </div>
-              <div className="flex items-baseline justify-end gap-1 mt-1">
-                <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {output.finalScore.toFixed(2)}
-                </span>
-                <span className="text-sm font-semibold text-slate-400">/ 100</span>
+          {/* Enhanced Scoreboard with Themed Metric Pods */}
+          <div className="flex flex-wrap items-stretch gap-3 sm:gap-4 shrink-0">
+            {/* Main Score Pod (Q6) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-teal-500/10 dark:from-emerald-950/40 dark:via-slate-900 dark:to-teal-950/30 border-2 border-emerald-500/30 text-right min-w-[190px] flex flex-col justify-between shadow-xs">
+              <div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
+                    Sel Q6
+                  </span>
+                  <span className={`text-xs font-bold uppercase tracking-wider block ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                    Nilai Akhir IKPA
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-end gap-1.5 mt-2">
+                  <span className="text-4xl sm:text-5xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+                    {output.finalScore.toFixed(2)}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-400">/ 100</span>
+                </div>
               </div>
               <button
                 onClick={() => onOpenInspector(
@@ -553,38 +693,72 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                     { step: 'Nilai Akhir Final (Q6)', formulaHuman: 'ROUND(N6/O6, 2) - P6', value: output.finalScore.toFixed(2), excelCell: 'Q6' }
                   ]
                 )}
-                className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline"
+                className="mt-3 inline-flex items-center justify-end gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 hover:underline cursor-pointer"
               >
-                <Calculator className="h-3 w-3" /> Formula Inspector (Q6)
+                <Calculator className="h-3.5 w-3.5" /> Formula Inspector (Q6)
               </button>
             </div>
 
-            <div className="h-14 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+            {/* 4 Pods for N6, O6, P6, Predikat */}
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 text-xs min-w-[240px]">
+              {/* N6 Total Tertimbang */}
+              <div className="p-3 rounded-xl border border-sky-200 dark:border-sky-800/60 bg-sky-50/70 dark:bg-sky-950/30 flex flex-col justify-between">
+                <span className="text-[11px] font-semibold text-sky-800 dark:text-sky-300 uppercase tracking-wider block">
+                  Total Tertimbang (N6)
+                </span>
+                <div className="mt-1">
+                  <span className="font-mono font-black text-xl text-sky-900 dark:text-sky-100">
+                    {output.totalWeighted.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-sky-600 dark:text-sky-400 block mt-0.5">
+                    Σ 7 Indikator
+                  </span>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <span className={`block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Total Tertimbang (N6):</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm">
-                  {output.totalWeighted.toFixed(2)}
+              {/* O6 Konversi Bobot */}
+              <div className="p-3 rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/70 dark:bg-indigo-950/30 flex flex-col justify-between">
+                <span className="text-[11px] font-semibold text-indigo-800 dark:text-indigo-300 uppercase tracking-wider block">
+                  Konversi Bobot (O6)
                 </span>
+                <div className="mt-1">
+                  <span className="font-mono font-black text-xl text-indigo-900 dark:text-indigo-100">
+                    {(output.weightConversion * 100).toFixed(0)}%
+                  </span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 block mt-0.5">
+                    Total bobot aktif
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className={`block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Konversi Bobot (O6):</span>
-                <span className="font-mono font-bold text-slate-800 dark:text-slate-200 text-sm">
-                  {(output.weightConversion * 100).toFixed(0)}%
+
+              {/* P6 Dispensasi SPM */}
+              <div className="p-3 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50/70 dark:bg-rose-950/30 flex flex-col justify-between">
+                <span className="text-[11px] font-semibold text-rose-800 dark:text-rose-300 uppercase tracking-wider block">
+                  Dispensasi SPM (P6)
                 </span>
+                <div className="mt-1">
+                  <span className="font-mono font-black text-xl text-rose-700 dark:text-rose-300">
+                    -{output.dispensasiReduction.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-rose-600 dark:text-rose-400 block mt-0.5">
+                    Pengurang TW IV
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className={`block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Dispensasi SPM (P6):</span>
-                <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-sm">
-                  -{output.dispensasiReduction.toFixed(2)}
+
+              {/* Predikat Kinerja */}
+              <div className={`p-3 rounded-xl border flex flex-col justify-between ${predikatStyle.bg}`}>
+                <span className="text-[11px] font-semibold uppercase tracking-wider block">
+                  Predikat Kinerja
                 </span>
-              </div>
-              <div>
-                <span className={`block text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Predikat Kinerja:</span>
-                <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
-                  {output.predikat}
-                </span>
+                <div className="mt-1">
+                  <span className="font-sans font-black text-lg block leading-tight">
+                    {output.predikat}
+                  </span>
+                  <span className="text-[10px] opacity-80 block mt-0.5">
+                    {predikatStyle.desc}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -721,15 +895,12 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
       )}
 
       {/* 3. VIEW TOGGLE BAR: Mode Dashboard vs Mode Excel Interface */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-            Tampilan Ringkasan:
-          </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="inline-flex rounded-xl border p-1 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setViewMode('dashboard')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'dashboard'
                   ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
@@ -740,117 +911,134 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
             </button>
             <button
               onClick={() => setViewMode('excel')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                 viewMode === 'excel'
                   ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Mode Tampilan Excel "Interface"</span>
+              <span>Mode Format Excel Resmi (G6:Q16)</span>
             </button>
           </div>
+
+          {/* Sub-selector for Dashboard: Cards vs Table vs Both */}
+          {viewMode === 'dashboard' && (
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-2">Tata Letak:</span>
+              <button
+                type="button"
+                onClick={() => setDisplayStyle('cards')}
+                className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                  displayStyle === 'cards'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+                title="Tampilkan 8 Kotak Simulasi Berwarna"
+              >
+                <LayoutGrid className="h-3.5 w-3.5 text-emerald-600" />
+                <span>8 Kotak Uji Coba</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayStyle('table')}
+                className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                  displayStyle === 'table'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+                title="Tampilkan Tabel Agregasi Lengkap"
+              >
+                <Table className="h-3.5 w-3.5 text-blue-600" />
+                <span>Tabel Ringkasan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayStyle('both')}
+                className={`px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                  displayStyle === 'both'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-xs font-bold'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+                title="Tampilkan Kotak dan Tabel Sekaligus"
+              >
+                <Layers className="h-3.5 w-3.5 text-purple-600" />
+                <span>Keduanya</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          Semua nilai terhubung otomatis ke modul masing-masing
+        <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+          <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>7 Indikator &amp; 1 Pengurang Terintegrasi Otomatis</span>
         </div>
       </div>
 
-      {/* 4. VIEW MODE A: DASHBOARD VIEW (TABLE ON DESKTOP, CARDS ON MOBILE) */}
+      {/* 4. VIEW MODE A: DASHBOARD VIEW */}
       {viewMode === 'dashboard' && (
         <div className="space-y-6">
-          {/* Desktop Summary Table with Colored Indikator Accents */}
-          <div className={`hidden md:block rounded-2xl border overflow-hidden shadow-xs ${
-            isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                  Tabel Agregasi 7 Indikator IKPA & Pengurang Dispensasi
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Nilai final diambil langsung dari modul terkait (tanpa perhitungan ulang di interface) • Evaluasi s.d. Bulan {currentCutoff}
-                </p>
+          {/* A.1 GRID 8 KOTAK INDIKATOR SIMULASI BERWARNA (TERBAIK UNTUK UJI COBA & HITUNG) */}
+          {(displayStyle === 'cards' || displayStyle === 'both') && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <LayoutGrid className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                      8 Kotak Simulasi &amp; Uji Coba IKPA 2026
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Pewarnaan tematik per indikator untuk mempermudah perhitungan, simulasi nilai, dan verifikasi rumus workbook.
+                    </p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                  Total 100% Bobot
+                </span>
               </div>
-              <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600">
-                Formula Workbook Kompatibel
-              </span>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-semibold">
-                    <th className="py-3 px-4 w-12 text-center">No</th>
-                    <th className="py-3 px-4">Indikator IKPA</th>
-                    <th className="py-3 px-3 text-center">Sel Excel</th>
-                    <th className="py-3 px-3 text-center">Sheet Asal</th>
-                    <th className="py-3 px-3 text-right">Bobot (%)</th>
-                    <th className="py-3 px-4 text-right">Nilai Indikator</th>
-                    <th className="py-3 px-4 text-right">Nilai Tertimbang</th>
-                    <th className="py-3 px-4 text-center">Status Data</th>
-                    <th className="py-3 px-4 text-center w-36">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
-                  {INDICATORS_CONFIG.map((cfg) => {
-                    const ind = output.indicators[cfg.key];
-                    const dataStatus = getIndicatorDataStatus(cfg.key, project);
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {INDICATORS_CONFIG.map((cfg) => {
+                  const ind = output.indicators[cfg.key] || {
+                    rawValue: 0,
+                    cappedValue: 0,
+                    weight: project.weights?.[cfg.key] ?? DEFAULT_WEIGHTS[cfg.key] ?? 0,
+                    weightedValue: 0,
+                    isActive: true,
+                    details: []
+                  };
+                  const dataStatus = getIndicatorDataStatus(cfg.key, project);
+                  const IconComp = cfg.icon;
 
-                    return (
-                      <tr
-                        key={cfg.key}
-                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${cfg.borderAccent}`}
-                      >
-                        <td className="py-3.5 px-4 text-center font-mono font-medium text-slate-400">
-                          {cfg.no}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold ${cfg.themeColor}`}>
-                              {cfg.title}
+                  return (
+                    <div
+                      key={cfg.key}
+                      className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:shadow-md ${cfg.cardContainer}`}
+                    >
+                      {/* Top Badges Header */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            {/* Number Pill */}
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${cfg.numberPill}`}>
+                              {cfg.no}
                             </span>
-                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${cfg.badgeBg}`}>
+                            {/* Excel Cell Pill */}
+                            <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-bold border ${cfg.cellBadge}`} title={`Sel di sheet Interface: ${cfg.excelCell}`}>
+                              Sel {cfg.excelCell}
+                            </span>
+                            {/* Weight Pill */}
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${cfg.badgeBg}`}>
                               Bobot {ind.weight}%
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                            {cfg.description}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                          {cfg.excelCell}
-                        </td>
-                        <td className="py-3.5 px-3 text-center font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                          {cfg.sourceSheet}!{cfg.sourceCell}
-                        </td>
-                        <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
-                          {ind.weight}%
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="font-mono font-black text-sm text-slate-900 dark:text-slate-100">
-                            {ind.cappedValue.toFixed(2)}
-                          </div>
-                          {/* Mini Progress Bar */}
-                          <div className="w-16 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mt-1 ml-auto">
-                            <div
-                              className={`h-full ${cfg.progressColor}`}
-                              style={{ width: `${Math.min(100, Math.max(0, ind.cappedValue))}%` }}
-                            />
-                          </div>
-                          {ind.rawValue > 100 && (
-                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                              (Raw: {ind.rawValue.toFixed(0)})
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
-                          {ind.weightedValue.toFixed(2)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
+
+                          {/* Status Pill */}
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${dataStatus.badgeClass}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${dataStatus.badgeClass}`}
                             title={dataStatus.summary}
                           >
                             {dataStatus.icon === 'check' && <CheckCircle2 className="h-3 w-3" />}
@@ -858,230 +1046,458 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                             {dataStatus.icon === 'empty' && <CircleDot className="h-3 w-3" />}
                             <span>{dataStatus.status}</span>
                           </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <button
-                              onClick={() => onNavigateTab(cfg.tabId)}
-                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                              title={`Buka Simulasi ${cfg.title}`}
-                            >
-                              <span>Buka</span>
-                              <ExternalLink className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => onOpenInspector(
-                                `Indikator: ${cfg.title} (${cfg.excelCell})`,
-                                cfg.excelCell,
-                                cfg.excelFormula,
-                                ind.cappedValue.toFixed(2),
-                                ind.details
+                        </div>
+
+                        {/* Title & Sheet Source with Icon */}
+                        <div className="flex items-start gap-2 pt-0.5">
+                          <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${cfg.iconBg}`}>
+                            <IconComp className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className={`font-bold text-sm tracking-tight leading-snug ${cfg.themeColor}`}>
+                              {cfg.title}
+                            </h4>
+                            <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                              Sumber: {cfg.sourceSheet}!{cfg.sourceCell}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Description */}
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                          {cfg.description}
+                        </p>
+                      </div>
+
+                      {/* Stat Pod: Score & Weighted Score */}
+                      <div className="space-y-3">
+                        <div className={`p-3 rounded-xl border ${cfg.statPodBg} space-y-2`}>
+                          <div className="flex items-baseline justify-between">
+                            <div>
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                Nilai Indikator
+                              </span>
+                              <div className="flex items-baseline gap-1 mt-0.5">
+                                <span className={`text-2xl font-black font-mono tracking-tight ${cfg.scoreText}`}>
+                                  {ind.cappedValue.toFixed(2)}
+                                </span>
+                                <span className="text-[11px] font-medium text-slate-400">/ 100</span>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                Tertimbang
+                              </span>
+                              <div className={`text-base font-black font-mono mt-0.5 ${cfg.weightedText}`}>
+                                {ind.weightedValue.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Themed Progress Bar */}
+                          <div>
+                            <div className={`w-full h-2 rounded-full overflow-hidden ${cfg.trackBg}`}>
+                              <div
+                                className={`h-full transition-all duration-300 ${cfg.progressColor}`}
+                                style={{ width: `${Math.min(100, Math.max(0, ind.cappedValue))}%` }}
+                              />
+                            </div>
+                            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mt-1">
+                              <span>0</span>
+                              {ind.rawValue > 100 && (
+                                <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                  Raw: {ind.rawValue.toFixed(1)} (Cap 100)
+                                </span>
                               )}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                              title="Formula Inspector"
-                            >
-                              <Calculator className="h-3.5 w-3.5" />
-                            </button>
+                              <span>Target: 100</span>
+                            </div>
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {/* Row Khusus: Pengurang Dispensasi SPM (P6) */}
-                  <tr className="bg-rose-50/40 dark:bg-rose-950/20 hover:bg-rose-50/70 transition-colors border-t border-rose-200 dark:border-rose-900/50 border-l-4 border-l-rose-500">
-                    <td className="py-3.5 px-4 text-center font-mono font-medium text-rose-500">
-                      -
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-rose-700 dark:text-rose-300">
-                        Pengurang Dispensasi SPM TW IV
-                      </div>
-                      <div className="text-[11px] text-rose-500/80">
-                        Faktor pengurang nilai akhir IKPA dari rasio SPM dispensasi TW IV
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-3 text-center font-mono font-bold text-rose-600 dark:text-rose-400">
-                      P6
-                    </td>
-                    <td className="py-3.5 px-3 text-center font-mono text-[11px] text-rose-500">
-                      Dispensasi SPM!D2
-                    </td>
-                    <td className="py-3.5 px-3 text-right font-mono text-slate-400">
-                      -
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-slate-400">
-                      -
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-black text-rose-600 dark:text-rose-400">
-                      -{output.dispensasiReduction.toFixed(2)}
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300">
-                        {output.dispensasiReduction > 0 ? `Penalti -${output.dispensasiReduction.toFixed(2)}` : 'Nihil (0.00)'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => onNavigateTab('dispensasi-spm')}
-                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 transition-colors cursor-pointer"
-                        >
-                          <span>Buka</span>
-                          <ExternalLink className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-
-                  {/* Row Total & Nilai Akhir */}
-                  <tr className="bg-slate-100/80 dark:bg-slate-800/80 font-bold border-t-2 border-slate-300 dark:border-slate-700">
-                    <td colSpan={4} className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">
-                      Total Tertimbang (N6 = SUM(G8:M8)) / Konversi Bobot (O6 = {(output.weightConversion * 100).toFixed(0)}%)
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono">100%</td>
-                    <td className="py-3 px-4 text-right font-mono text-slate-500">-</td>
-                    <td className="py-3 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 text-sm">
-                      {output.totalWeighted.toFixed(2)}
-                    </td>
-                    <td colSpan={2} className="py-3 px-4 text-right">
-                      <span className="text-xs font-normal text-slate-500 mr-2">Nilai Akhir (Q6):</span>
-                      <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
-                        {output.finalScore.toFixed(2)}
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Mobile / Responsive Cards for 7 Indicators + Dispensasi */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-            {INDICATORS_CONFIG.map((cfg) => {
-              const ind = output.indicators[cfg.key];
-              const dataStatus = getIndicatorDataStatus(cfg.key, project);
-
-              return (
-                <div
-                  key={cfg.key}
-                  className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3 ${cfg.borderAccent} ${
-                    isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                            {cfg.excelCell}
-                          </span>
-                          <span className="text-[10px] text-slate-400">• Bobot {ind.weight}%</span>
                         </div>
-                        <h4 className={`font-bold text-sm ${cfg.themeColor}`}>
-                          {cfg.title}
-                        </h4>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => onNavigateTab(cfg.tabId)}
+                            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs ${cfg.btnCalculate}`}
+                            title={`Buka lembar kerja perhitungan ${cfg.title}`}
+                          >
+                            <span>Hitung / Simulasi</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenInspector(
+                              `Indikator ${cfg.no}: ${cfg.title} (${cfg.excelCell})`,
+                              cfg.excelCell,
+                              cfg.excelFormula,
+                              ind.cappedValue.toFixed(2),
+                              ind.details
+                            )}
+                            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 transition-all cursor-pointer shadow-xs"
+                            title="Buka Formula Inspector Excel"
+                          >
+                            <Calculator className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${dataStatus.badgeClass}`}>
-                        {dataStatus.status}
-                      </span>
                     </div>
+                  );
+                })}
 
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
-                      {cfg.description}
-                    </p>
-
-                    <div className="flex items-baseline justify-between border-t border-slate-100 dark:border-slate-800 pt-2 text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block">Nilai Indikator:</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-black text-lg text-slate-900 dark:text-slate-100">
-                            {ind.cappedValue.toFixed(2)}
-                          </span>
-                          <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full ${cfg.progressColor}`}
-                              style={{ width: `${Math.min(100, Math.max(0, ind.cappedValue))}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block">Tertimbang:</span>
-                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-base">
-                          {ind.weightedValue.toFixed(2)}
+                {/* 8th Kotak: PENGURANG DISPENSASI SPM TW IV (SEL P6) */}
+                <div
+                  className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:shadow-md ${DISPENSASI_CONFIG.cardContainer}`}
+                >
+                  {/* Top Header */}
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${DISPENSASI_CONFIG.numberPill}`}>
+                          {DISPENSASI_CONFIG.no}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md font-mono text-xs font-bold border ${DISPENSASI_CONFIG.cellBadge}`}>
+                          Sel {DISPENSASI_CONFIG.excelCell}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold border bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300">
+                          Pengurang Akhir
                         </span>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <button
-                      onClick={() => onNavigateTab(cfg.tabId)}
-                      className="flex-1 py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-center transition-colors"
-                    >
-                      Buka Simulasi ↗
-                    </button>
-                    <button
-                      onClick={() => onOpenInspector(
-                        `Indikator: ${cfg.title}`,
-                        cfg.excelCell,
-                        cfg.excelFormula,
-                        ind.cappedValue.toFixed(2),
-                        ind.details
-                      )}
-                      className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-blue-600"
-                    >
-                      <Calculator className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Dispensasi Card on Mobile */}
-            <div className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3 ${
-              isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-rose-50/40 border-rose-200'
-            }`}>
-              <div className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400">
-                        Sel P6
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-500/15 text-rose-700 border-rose-500/30 dark:text-rose-300">
+                        {output.dispensasiReduction > 0 ? (
+                          <>
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>Ada Penalti</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Nihil (Aman)</span>
+                          </>
+                        )}
                       </span>
-                      <span className="text-[10px] text-rose-500">• Pengurang Nilai</span>
                     </div>
-                    <h4 className="font-bold text-sm text-rose-800 dark:text-rose-300">
-                      Dispensasi SPM TW IV
-                    </h4>
-                  </div>
-                </div>
 
-                <div className="flex items-baseline justify-between border-t border-rose-100 dark:border-rose-900/40 pt-2 text-xs">
-                  <div>
-                    <span className="text-[10px] text-rose-500 block">Rasio Dispensasi:</span>
-                    <span className="font-mono font-black text-lg text-slate-900 dark:text-slate-100">
-                      {output.dispensasiRatio.toFixed(2)}‰
-                    </span>
+                    <div className="flex items-start gap-2 pt-0.5">
+                      <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${DISPENSASI_CONFIG.iconBg}`}>
+                        <AlertTriangle className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className={`font-bold text-sm tracking-tight leading-snug ${DISPENSASI_CONFIG.themeColor}`}>
+                          {DISPENSASI_CONFIG.title}
+                        </h4>
+                        <p className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                          Sumber: {DISPENSASI_CONFIG.sourceSheet}!{DISPENSASI_CONFIG.sourceCell}
+                        </p>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                      {DISPENSASI_CONFIG.description}
+                    </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-rose-500 block">Pengurang Nilai:</span>
-                    <span className="font-mono font-bold text-rose-600 dark:text-rose-400 text-base">
-                      -{output.dispensasiReduction.toFixed(2)}
-                    </span>
+
+                  {/* Stat Pod */}
+                  <div className="space-y-3">
+                    <div className={`p-3 rounded-xl border ${DISPENSASI_CONFIG.statPodBg} space-y-2`}>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
+                            Rasio Dispensasi
+                          </span>
+                          <div className="flex items-baseline gap-1 mt-0.5">
+                            <span className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-slate-100">
+                              {output.dispensasiRatio.toFixed(2)}
+                            </span>
+                            <span className="text-[11px] font-medium text-slate-500">‰</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 block">
+                            Pengurang Skor (P6)
+                          </span>
+                          <div className={`text-base font-black font-mono mt-0.5 ${DISPENSASI_CONFIG.scoreText}`}>
+                            -{output.dispensasiReduction.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Warning bar */}
+                      <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-700 dark:text-rose-300 font-medium">
+                        {output.dispensasiReduction > 0
+                          ? `Penalti langsung memotong ${output.dispensasiReduction.toFixed(2)} poin nilai akhir IKPA.`
+                          : 'Tidak ada pengajuan SPM dispensasi pada Triwulan IV (Nihil penalti).'}
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => onNavigateTab('dispensasi-spm')}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs ${DISPENSASI_CONFIG.btnCalculate}`}
+                        title="Buka simulasi Dispensasi SPM"
+                      >
+                        <span>Hitung Dispensasi</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onOpenInspector(
+                          'Pengurang Dispensasi SPM (P6)',
+                          'Interface!P6',
+                          "='Dispensasi SPM'!D2",
+                          (-output.dispensasiReduction).toFixed(2),
+                          [
+                            { step: 'Rasio SPM Dispensasi TW IV', formulaHuman: 'SPM Dispensasi / Total SPM TW IV', value: `${output.dispensasiRatio.toFixed(2)}‰` },
+                            { step: 'Faktor Pengurang Nilai Akhir (P6)', formulaHuman: 'Dihitung berdasarkan matriks penalti Per-5', value: -output.dispensasiReduction, excelCell: 'P6' }
+                          ]
+                        )}
+                        className="p-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-white/80 dark:bg-slate-800 text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-all cursor-pointer shadow-xs"
+                        title="Buka Formula Inspector Dispensasi"
+                      >
+                        <Calculator className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => onNavigateTab('dispensasi-spm')}
-                className="w-full py-1.5 px-3 rounded-xl bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 text-xs font-semibold text-center transition-colors"
-              >
-                Buka Simulasi Dispensasi ↗
-              </button>
             </div>
-          </div>
+          )}
+
+          {/* A.2 TABEL LENGKAP DENGAN AKSEN WARNA INDIKATOR */}
+          {(displayStyle === 'table' || displayStyle === 'both') && (
+            <div className={`rounded-2xl border overflow-hidden shadow-xs ${
+              isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+            }`}>
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Table className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                      Tabel Agregasi 7 Indikator IKPA &amp; Pengurang Dispensasi
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Nilai final diambil langsung dari modul terkait (tanpa perhitungan ulang di interface) • Evaluasi s.d. Bulan {currentCutoff}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-semibold px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                  Formula Workbook Kompatibel
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/75 dark:bg-slate-800/40 text-slate-500 dark:text-slate-400 font-semibold">
+                      <th className="py-3 px-4 w-12 text-center">No</th>
+                      <th className="py-3 px-4">Indikator IKPA</th>
+                      <th className="py-3 px-3 text-center">Sel Excel</th>
+                      <th className="py-3 px-3 text-center">Sheet Asal</th>
+                      <th className="py-3 px-3 text-right">Bobot (%)</th>
+                      <th className="py-3 px-4 text-right">Nilai Indikator</th>
+                      <th className="py-3 px-4 text-right">Nilai Tertimbang</th>
+                      <th className="py-3 px-4 text-center">Status Data</th>
+                      <th className="py-3 px-4 text-center w-36">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-sans">
+                    {INDICATORS_CONFIG.map((cfg) => {
+                      const ind = output.indicators[cfg.key] || {
+                        rawValue: 0,
+                        cappedValue: 0,
+                        weight: project.weights?.[cfg.key] ?? DEFAULT_WEIGHTS[cfg.key] ?? 0,
+                        weightedValue: 0,
+                        isActive: true,
+                        details: []
+                      };
+                      const dataStatus = getIndicatorDataStatus(cfg.key, project);
+                      const IconComp = cfg.icon;
+
+                      return (
+                        <tr
+                          key={cfg.key}
+                          className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${cfg.lightRowBg}`}
+                        >
+                          <td className="py-3.5 px-4 text-center">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${cfg.numberPill}`}>
+                              {cfg.no}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${cfg.iconBg}`}>
+                                <IconComp className="h-3.5 w-3.5" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-bold ${cfg.themeColor}`}>
+                                    {cfg.title}
+                                  </span>
+                                  <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${cfg.badgeBg}`}>
+                                    Bobot {ind.weight}%
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
+                                  {cfg.description}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-3 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded font-mono font-bold text-xs border ${cfg.cellBadge}`}>
+                              {cfg.excelCell}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-3 text-center font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                            {cfg.sourceSheet}!{cfg.sourceCell}
+                          </td>
+                          <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                            {ind.weight}%
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className={`font-mono font-black text-sm ${cfg.scoreText}`}>
+                              {ind.cappedValue.toFixed(2)}
+                            </div>
+                            {/* Mini Progress Bar */}
+                            <div className={`w-16 h-1 rounded-full overflow-hidden mt-1 ml-auto ${cfg.trackBg}`}>
+                              <div
+                                className={`h-full ${cfg.progressColor}`}
+                                style={{ width: `${Math.min(100, Math.max(0, ind.cappedValue))}%` }}
+                              />
+                            </div>
+                            {ind.rawValue > 100 && (
+                              <div className="text-[10px] text-amber-600 font-mono mt-0.5">
+                                (Raw: {ind.rawValue.toFixed(0)})
+                              </div>
+                            )}
+                          </td>
+                          <td className={`py-3.5 px-4 text-right font-mono font-black ${cfg.weightedText}`}>
+                            {ind.weightedValue.toFixed(2)}
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${dataStatus.badgeClass}`}
+                              title={dataStatus.summary}
+                            >
+                              {dataStatus.icon === 'check' && <CheckCircle2 className="h-3 w-3" />}
+                              {dataStatus.icon === 'partial' && <AlertCircle className="h-3 w-3" />}
+                              {dataStatus.icon === 'empty' && <CircleDot className="h-3 w-3" />}
+                              <span>{dataStatus.status}</span>
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => onNavigateTab(cfg.tabId)}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${cfg.btnCalculate}`}
+                                title={`Buka Simulasi ${cfg.title}`}
+                              >
+                                <span>Buka</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => onOpenInspector(
+                                  `Indikator: ${cfg.title} (${cfg.excelCell})`,
+                                  cfg.excelCell,
+                                  cfg.excelFormula,
+                                  ind.cappedValue.toFixed(2),
+                                  ind.details
+                                )}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                                title="Formula Inspector"
+                              >
+                                <Calculator className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* Row Khusus: Pengurang Dispensasi SPM (P6) */}
+                    <tr className="bg-rose-50/50 dark:bg-rose-950/25 hover:bg-rose-50/70 transition-colors border-t border-rose-200 dark:border-rose-900/50 border-l-4 border-l-rose-500">
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-rose-600 text-white">
+                          -
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg shrink-0 bg-rose-500/15 text-rose-600">
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-rose-800 dark:text-rose-200">
+                              Pengurang Dispensasi SPM TW IV
+                            </div>
+                            <div className="text-[11px] text-rose-600/80">
+                              Faktor pengurang nilai akhir IKPA dari rasio SPM dispensasi TW IV
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <span className="inline-block px-2 py-0.5 rounded font-mono font-bold text-xs bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-900/60 dark:text-rose-200">
+                          P6
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 text-center font-mono text-[11px] text-rose-600 dark:text-rose-400">
+                        Dispensasi SPM!D2
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono text-slate-400">
+                        -
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-400">
+                        -
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-black text-rose-600 dark:text-rose-400">
+                        -{output.dispensasiReduction.toFixed(2)}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium border bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-300">
+                          {output.dispensasiReduction > 0 ? `Penalti -${output.dispensasiReduction.toFixed(2)}` : 'Nihil (0.00)'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => onNavigateTab('dispensasi-spm')}
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-rose-100 hover:bg-rose-200 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 transition-colors cursor-pointer"
+                          >
+                            <span>Buka</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Row Total & Nilai Akhir */}
+                    <tr className="bg-slate-100/90 dark:bg-slate-800/90 font-bold border-t-2 border-slate-300 dark:border-slate-700">
+                      <td colSpan={4} className="py-3 px-4 font-bold text-slate-900 dark:text-slate-100">
+                        Total Tertimbang (N6 = SUM(G8:M8)) / Konversi Bobot (O6 = {(output.weightConversion * 100).toFixed(0)}%)
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono">100%</td>
+                      <td className="py-3 px-4 text-right font-mono text-slate-500">-</td>
+                      <td className="py-3 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400 text-sm">
+                        {output.totalWeighted.toFixed(2)}
+                      </td>
+                      <td colSpan={2} className="py-3 px-4 text-right">
+                        <span className="text-xs font-normal text-slate-500 mr-2">Nilai Akhir (Q6):</span>
+                        <span className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400">
+                          {output.finalScore.toFixed(2)}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1126,7 +1542,14 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {INDICATORS_CONFIG.map((cfg, idx) => {
-                    const ind = output.indicators[cfg.key];
+                    const ind = output.indicators[cfg.key] || {
+                      rawValue: 0,
+                      cappedValue: 0,
+                      weight: project.weights?.[cfg.key] ?? DEFAULT_WEIGHTS[cfg.key] ?? 0,
+                      weightedValue: 0,
+                      isActive: true,
+                      details: []
+                    };
                     const dataStatus = getIndicatorDataStatus(cfg.key, project);
                     const rowNumber = 6 + idx;
 
@@ -1306,50 +1729,86 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={`p-3 rounded-xl border ${isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-            <span className="font-bold text-xs block text-slate-800 dark:text-slate-200">
-              Capaian Output (25%)
-            </span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold block mt-1">
+          <div className={`p-3.5 rounded-xl border transition-all ${
+            isDark
+              ? 'bg-teal-950/25 border-teal-800/60'
+              : 'bg-teal-50/70 border-teal-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-teal-900 dark:text-teal-200">
+                Capaian Output (25%)
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold bg-teal-500/15 text-teal-700 dark:text-teal-300">
+                Sel M6
+              </span>
+            </div>
+            <span className="text-xs text-teal-700 dark:text-teal-300 font-mono font-bold block mt-1">
               +1.0 pt = +0.25 IKPA
             </span>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-teal-800/80 dark:text-teal-300/80 mt-1 leading-relaxed">
               Bobot terbesar. Disiplin pelaporan tepat waktu s.d tanggal 15 setiap bulan.
             </p>
           </div>
 
-          <div className={`p-3 rounded-xl border ${isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-            <span className="font-bold text-xs block text-slate-800 dark:text-slate-200">
-              Penyerapan Anggaran (20%)
-            </span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold block mt-1">
+          <div className={`p-3.5 rounded-xl border transition-all ${
+            isDark
+              ? 'bg-emerald-950/25 border-emerald-800/60'
+              : 'bg-emerald-50/70 border-emerald-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-emerald-900 dark:text-emerald-200">
+                Penyerapan Anggaran (20%)
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                Sel J6
+              </span>
+            </div>
+            <span className="text-xs text-emerald-700 dark:text-emerald-300 font-mono font-bold block mt-1">
               +1.0 pt = +0.20 IKPA
             </span>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-1 leading-relaxed">
               Target triwulanan: Q1: 20%, Q2: 50%, Q3: 75%, Q4: 95%.
             </p>
           </div>
 
-          <div className={`p-3 rounded-xl border ${isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-            <span className="font-bold text-xs block text-slate-800 dark:text-slate-200">
-              Deviasi Hal III DIPA (15%)
-            </span>
-            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold block mt-1">
+          <div className={`p-3.5 rounded-xl border transition-all ${
+            isDark
+              ? 'bg-sky-950/25 border-sky-800/60'
+              : 'bg-sky-50/70 border-sky-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-sky-900 dark:text-sky-200">
+                Deviasi Hal III DIPA (15%)
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                Sel H6
+              </span>
+            </div>
+            <span className="text-xs text-sky-700 dark:text-sky-300 font-mono font-bold block mt-1">
               +1.0 pt = +0.15 IKPA
             </span>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-sky-800/80 dark:text-sky-300/80 mt-1 leading-relaxed">
               Jaga deviasi bulanan RPD terhadap realisasi ≤ 5.0%.
             </p>
           </div>
 
-          <div className={`p-3 rounded-xl border ${isDark ? 'bg-slate-800/40 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-            <span className="font-bold text-xs block text-slate-800 dark:text-slate-200">
-              Dispensasi SPM (Penalti)
-            </span>
-            <span className="text-xs text-rose-600 dark:text-rose-400 font-mono font-bold block mt-1">
+          <div className={`p-3.5 rounded-xl border transition-all ${
+            isDark
+              ? 'bg-rose-950/25 border-rose-800/60'
+              : 'bg-rose-50/70 border-rose-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-xs text-rose-900 dark:text-rose-200">
+                Dispensasi SPM (Penalti)
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                Sel P6
+              </span>
+            </div>
+            <span className="text-xs text-rose-700 dark:text-rose-300 font-mono font-bold block mt-1">
               1 SPM = -0.50 s.d -5.00 pt
             </span>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-rose-800/80 dark:text-rose-300/80 mt-1 leading-relaxed">
               Hindari keterlambatan pengajuan SPM di Triwulan IV.
             </p>
           </div>

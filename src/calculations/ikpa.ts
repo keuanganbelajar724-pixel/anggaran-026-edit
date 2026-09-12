@@ -1,7 +1,8 @@
 import {
   SimulationProject,
   IKPAResult,
-  IndicatorResult
+  IndicatorResult,
+  DEFAULT_WEIGHTS
 } from '../models/ikpa';
 import { round2, safeDiv } from './rounding';
 import { calculateRevisiDIPA } from './revisiDipa';
@@ -25,7 +26,7 @@ export function calculateIKPA(
   options?: { overrideCutoff?: number }
 ): IKPAResult {
   const cutoff = options?.overrideCutoff ?? (project.metadata?.periodeCutoff || 12);
-  const weights = project.weights;
+  const weights = { ...DEFAULT_WEIGHTS, ...(project.weights || {}) };
   const active = project.activeIndicators || {
     revisiDIPA: true,
     deviasiHalIII: true,
@@ -109,15 +110,33 @@ export function calculateIKPA(
     jumlahDispensasiSPM: 0
   });
 
+  // Helper to ensure each indicator is defined and type-safe
+  const ensureIndicator = (ind?: IndicatorResult, weight: number = 0, isActive: boolean = true): IndicatorResult => ind || {
+    rawValue: 0,
+    cappedValue: 0,
+    weight: isActive ? weight : 0,
+    weightedValue: 0,
+    isActive,
+    details: []
+  };
+
+  const safeRevisiDIPA = ensureIndicator(revisiDIPA, appliedWeights.revisiDIPA, active.revisiDIPA);
+  const safeDeviasiHalIII = ensureIndicator(deviasiHalIII, appliedWeights.deviasiHalIII, active.deviasiHalIII);
+  const safePenyerapan = ensureIndicator(penyerapan, appliedWeights.penyerapan, active.penyerapan);
+  const safeBelanjaKontraktual = ensureIndicator(belanjaKontraktual, appliedWeights.belanjaKontraktual, active.belanjaKontraktual);
+  const safePenyelesaianTagihan = ensureIndicator(penyelesaianTagihan, appliedWeights.penyelesaianTagihan, active.penyelesaianTagihan);
+  const safePengelolaanUPTUP = ensureIndicator(pengelolaanUPTUP, appliedWeights.pengelolaanUPTUP, active.pengelolaanUPTUP);
+  const safeCapaianOutput = ensureIndicator(capaianOutput, appliedWeights.capaianOutput, active.capaianOutput);
+
   // Nilai Total: SUM(G8:M8)
   const totalWeighted = round2(
-    revisiDIPA.weightedValue +
-    deviasiHalIII.weightedValue +
-    penyerapan.weightedValue +
-    belanjaKontraktual.weightedValue +
-    penyelesaianTagihan.weightedValue +
-    pengelolaanUPTUP.weightedValue +
-    capaianOutput.weightedValue
+    (safeRevisiDIPA.weightedValue || 0) +
+    (safeDeviasiHalIII.weightedValue || 0) +
+    (safePenyerapan.weightedValue || 0) +
+    (safeBelanjaKontraktual.weightedValue || 0) +
+    (safePenyelesaianTagihan.weightedValue || 0) +
+    (safePengelolaanUPTUP.weightedValue || 0) +
+    (safeCapaianOutput.weightedValue || 0)
   );
 
   // Konversi Bobot: SUM(G7:M7)/100
@@ -142,13 +161,13 @@ export function calculateIKPA(
 
   return {
     indicators: {
-      revisiDIPA,
-      deviasiHalIII,
-      penyerapan,
-      belanjaKontraktual,
-      penyelesaianTagihan,
-      pengelolaanUPTUP,
-      capaianOutput
+      revisiDIPA: safeRevisiDIPA,
+      deviasiHalIII: safeDeviasiHalIII,
+      penyerapan: safePenyerapan,
+      belanjaKontraktual: safeBelanjaKontraktual,
+      penyelesaianTagihan: safePenyelesaianTagihan,
+      pengelolaanUPTUP: safePengelolaanUPTUP,
+      capaianOutput: safeCapaianOutput
     },
     total: totalWeighted,
     totalWeighted,

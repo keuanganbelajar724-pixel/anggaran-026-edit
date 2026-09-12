@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SatkerIKPA, AppTheme } from '../types';
 import { ensureMonthlyHistory, analyzeSatkerPeriodicTrend, getSatkerDefaultPassword, extractKodeBA } from '../utils/analysisEngine';
+import { verifySatkerPassword } from '../utils/satkerSecurity';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -92,24 +93,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
 
   const handleVerifySatkerPassword = (e: React.FormEvent) => {
     e.preventDefault();
-    const defaultPassword = getSatkerDefaultPassword(satker);
-    const ba = satker.kodeBa || extractKodeBA(satker.kementerianLembaga);
-    const kppn = satker.kodeKppn || '026';
-    const underscorePassword = `${satker.kodeSatker}_${ba}_${kppn}`;
-
-    const cleanInput = satkerPasswordInput.trim();
-
-    const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
-
-    if (
-      cleanInput === defaultPassword ||
-      cleanInput === underscorePassword ||
-      cleanInput === satker.passwordSatker ||
-      cleanInput === satker.kodeSatker ||
-      cleanInput === `${satker.kodeSatker}${ba}${kppn}` ||
-      cleanInput === currentAdminPin ||
-      cleanInput === 'kppn026'
-    ) {
+    if (verifySatkerPassword(satker, satkerPasswordInput)) {
       setIsSatkerUnlocked(true);
       setSatkerPasswordError(null);
     } else {
