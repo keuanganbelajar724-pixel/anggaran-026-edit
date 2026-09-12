@@ -151,9 +151,9 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   // Authenticated Satker object
   const authenticatedSatker = useMemo(() => {
     if (isAdminAuthenticated) {
-      return satkers.find(s => s.kodeSatker === (selectedSatkerId || unlockedSatkerKode)) || satkers[0];
+      return satkers.find(s => s.kodeSatker === (selectedSatkerId || unlockedSatkerKode) || s.id === (selectedSatkerId || unlockedSatkerKode)) || satkers[0];
     }
-    return satkers.find(s => s.kodeSatker === unlockedSatkerKode);
+    return satkers.find(s => s.kodeSatker === unlockedSatkerKode || s.id === unlockedSatkerKode);
   }, [isAdminAuthenticated, selectedSatkerId, unlockedSatkerKode, satkers]);
 
   // Gatekeeper Form States
@@ -209,6 +209,78 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     return createEmptyProject('Kondisi Awal (Mulai dari 0)');
   });
 
+  // Sinkronisasi otomatis identitas Satker aktif ke metadata skenario & baris formulir yang belum terisi
+  useEffect(() => {
+    if (!authenticatedSatker) return;
+
+    const satkerKode = authenticatedSatker.kodeSatker;
+    const satkerNama = authenticatedSatker.namaSatker;
+    const kppnKode = authenticatedSatker.kodeKppn || '026';
+
+    const currentMeta = activeProject.metadata;
+    const needsMetaUpdate =
+      !currentMeta?.kodeSatker ||
+      currentMeta.kodeSatker !== satkerKode ||
+      !currentMeta?.namaSatker ||
+      currentMeta.namaSatker === 'Simulasi Mandiri' ||
+      !currentMeta?.kodeKPPN ||
+      currentMeta.kodeKPPN !== kppnKode;
+
+    const needsTunaiRowsUpdate = (activeProject.upTUPTunai || []).some(
+      r => !r.kodeSatker || !r.namaSatker || !r.kodeKPPN || r.kodeKPPN !== kppnKode
+    );
+
+    const needsKkpRowsUpdate = (activeProject.upTUPKKP || []).some(
+      r => !r.kodeSatker || !r.namaSatker || !r.kodeKPPN || r.kodeKPPN !== kppnKode
+    );
+
+    const needsKontraktualUpdate = (activeProject.belanjaKontraktual || []).some(
+      r => !r.kodeSatker || r.kodeSatker === '000000' || !r.namaSatker || r.namaSatker === 'SATKER CONTOH' || !r.kodeKPPN || r.kodeKPPN !== kppnKode
+    );
+
+    if (needsMetaUpdate || needsTunaiRowsUpdate || needsKkpRowsUpdate || needsKontraktualUpdate) {
+      setActiveProject(prev => {
+        const updated: SimulationProject = {
+          ...prev,
+          metadata: {
+            ...prev.metadata,
+            kodeSatker: satkerKode,
+            namaSatker: satkerNama,
+            kodeKPPN: kppnKode
+          },
+          upTUPTunai: (prev.upTUPTunai || []).map(r => {
+            const isAccidentalDummy = r.totalGUP === 50000000 && r.totalOutstandingUP === 300000000;
+            return {
+              ...r,
+              kodeSatker: r.kodeSatker || satkerKode,
+              namaSatker: r.namaSatker || satkerNama,
+              kodeKPPN: r.kodeKPPN || kppnKode,
+              totalGUP: isAccidentalDummy ? 0 : r.totalGUP,
+              totalOutstandingUP: isAccidentalDummy ? 0 : r.totalOutstandingUP,
+              selisihHariKalender: isAccidentalDummy ? 0 : r.selisihHariKalender,
+              status: isAccidentalDummy ? '-' : r.status
+            };
+          }),
+          upTUPKKP: (prev.upTUPKKP || []).map(r => ({
+            ...r,
+            kodeSatker: r.kodeSatker || satkerKode,
+            namaSatker: r.namaSatker || satkerNama,
+            kodeKPPN: r.kodeKPPN || kppnKode
+          })),
+          belanjaKontraktual: (prev.belanjaKontraktual || []).map(r => ({
+            ...r,
+            kodeSatker: (!r.kodeSatker || r.kodeSatker === '000000') ? satkerKode : r.kodeSatker,
+            namaSatker: (!r.namaSatker || r.namaSatker === 'SATKER CONTOH') ? satkerNama : r.namaSatker,
+            kodeKPPN: (!r.kodeKPPN || r.kodeKPPN === '000') ? kppnKode : r.kodeKPPN
+          }))
+        };
+        updated.output = calculateIKPA(updated);
+        saveProject(updated).catch(() => {});
+        return updated;
+      });
+    }
+  }, [authenticatedSatker, activeProject.id]);
+
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -255,11 +327,9 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             if (!sanitized.capaianOutput || sanitized.capaianOutput.length === 0) {
               sanitized.capaianOutputKetepatan = [];
             }
-            // Clear hardcoded KPPN SEMARANG I and 411792 if present on generic simulation
-            if (sanitized.metadata.namaSatker === 'KPPN SEMARANG I' || sanitized.metadata.kodeSatker === '411792') {
-              sanitized.metadata.namaSatker = 'Simulasi Mandiri';
-              sanitized.metadata.kodeSatker = '';
-              sanitized.metadata.kodeKPPN = '';
+            // Pastikan kodeKPPN selalu 026 (KPPN Semarang I)
+            if (!sanitized.metadata.kodeKPPN) {
+              sanitized.metadata.kodeKPPN = '026';
             }
             sanitized.output = calculateIKPA(sanitized);
             return sanitized;
@@ -289,6 +359,22 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
               } else {
                 hasBaseline = true;
               }
+            }
+
+            // Bersihkan baris template yang sebelumnya terisi nilai dummy 50jt/300jt
+            if (proj.upTUPTunai && proj.upTUPTunai.length > 0) {
+              proj.upTUPTunai = proj.upTUPTunai.map(r => {
+                if (r.totalGUP === 50000000 && r.totalOutstandingUP === 300000000) {
+                  return {
+                    ...r,
+                    totalGUP: 0,
+                    totalOutstandingUP: 0,
+                    selisihHariKalender: 0,
+                    status: '-' as const
+                  };
+                }
+                return r;
+              });
             }
 
             deduplicatedList.push(proj);
@@ -356,7 +442,11 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   // Create new project
   const handleCreateNewProject = async () => {
     const name = `Simulasi ${projects.length + 1}`;
-    const newProj = createEmptyProject(name, false);
+    const newProj = createEmptyProject(name, false, {
+      kodeSatker: authenticatedSatker?.kodeSatker || activeProject?.metadata?.kodeSatker || '',
+      namaSatker: authenticatedSatker?.namaSatker || (activeProject?.metadata?.namaSatker !== 'Simulasi Mandiri' ? activeProject?.metadata?.namaSatker : '') || 'Simulasi Mandiri',
+      kodeKPPN: authenticatedSatker?.kodeKppn || activeProject?.metadata?.kodeKPPN || '026'
+    });
     await saveProject(newProj);
     setProjects(prev => [...prev, newProj]);
     setActiveProject(newProj);
@@ -396,7 +486,11 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   const handleResetToZero = async () => {
     const currentName = activeProject?.name || 'Simulasi Mandiri (Mulai dari 0)';
     const isBaseline = activeProject?.isBaseline ?? false;
-    const cleanZero = createEmptyProject(currentName, isBaseline);
+    const cleanZero = createEmptyProject(currentName, isBaseline, {
+      kodeSatker: authenticatedSatker?.kodeSatker || activeProject?.metadata?.kodeSatker || '',
+      namaSatker: authenticatedSatker?.namaSatker || (activeProject?.metadata?.namaSatker !== 'Simulasi Mandiri' ? activeProject?.metadata?.namaSatker : '') || 'Simulasi Mandiri',
+      kodeKPPN: authenticatedSatker?.kodeKppn || activeProject?.metadata?.kodeKPPN || '026'
+    });
     if (activeProject?.id) {
       cleanZero.id = activeProject.id;
     }
@@ -466,9 +560,9 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
           upTUPTunai: [],
           upTUPKKP: Array.from({ length: 12 }, (_, i) => ({
             periode: String(i + 1).padStart(2, '0'),
-            kodeSatker: '',
-            namaSatker: '',
-            kodeKPPN: '',
+            kodeSatker: authenticatedSatker?.kodeSatker || activeProject.metadata?.kodeSatker || '',
+            namaSatker: authenticatedSatker?.namaSatker || (activeProject.metadata?.namaSatker !== 'Simulasi Mandiri' ? activeProject.metadata?.namaSatker : '') || '',
+            kodeKPPN: authenticatedSatker?.kodeKppn || activeProject.metadata?.kodeKPPN || '026',
             upKKPPerBulan: 0,
             penggunaanKKP: 0
           }))
@@ -623,16 +717,40 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
       setAuthError(null);
       setAuthPasswordInput('');
 
-      // Auto update active project metadata to the unlocked Satker
-      handleUpdateProject({
+      const satkerKode = currentAuthTargetSatker.kodeSatker;
+      const satkerNama = currentAuthTargetSatker.namaSatker;
+      const kppnKode = currentAuthTargetSatker.kodeKppn || '026';
+
+      // Auto update active project metadata and all form rows to the unlocked Satker
+      const updatedProj: SimulationProject = {
         ...activeProject,
         metadata: {
           ...activeProject.metadata,
-          namaSatker: currentAuthTargetSatker.namaSatker,
-          kodeSatker: currentAuthTargetSatker.kodeSatker,
-          kodeKPPN: currentAuthTargetSatker.kodeKppn || '026'
-        }
-      });
+          namaSatker: satkerNama,
+          kodeSatker: satkerKode,
+          kodeKPPN: kppnKode
+        },
+        upTUPTunai: (activeProject.upTUPTunai || []).map(r => ({
+          ...r,
+          kodeSatker: r.kodeSatker || satkerKode,
+          namaSatker: r.namaSatker || satkerNama,
+          kodeKPPN: r.kodeKPPN || kppnKode
+        })),
+        upTUPKKP: (activeProject.upTUPKKP || []).map(r => ({
+          ...r,
+          kodeSatker: r.kodeSatker || satkerKode,
+          namaSatker: r.namaSatker || satkerNama,
+          kodeKPPN: r.kodeKPPN || kppnKode
+        })),
+        belanjaKontraktual: (activeProject.belanjaKontraktual || []).map(r => ({
+          ...r,
+          kodeSatker: (!r.kodeSatker || r.kodeSatker === '000000') ? satkerKode : r.kodeSatker,
+          namaSatker: (!r.namaSatker || r.namaSatker === 'SATKER CONTOH') ? satkerNama : r.namaSatker,
+          kodeKPPN: (!r.kodeKPPN || r.kodeKPPN === '000') ? kppnKode : r.kodeKPPN
+        }))
+      };
+      updatedProj.output = calculateIKPA(updatedProj);
+      handleUpdateProject(updatedProj);
 
       if (onSelectSatker) {
         onSelectSatker(currentAuthTargetSatker.kodeSatker);

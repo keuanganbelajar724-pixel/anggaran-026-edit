@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Coins,
   CreditCard,
@@ -116,6 +116,42 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const tunaiRows = project.upTUPTunai || [];
   const kkpRows = project.upTUPKKP || [];
 
+  // Auto-sync Kode Satker, Nama Satker, dan Kode KPPN (026) dari metadata login Satker jika kolom masih kosong
+  useEffect(() => {
+    const metaKodeSatker = project.metadata?.kodeSatker;
+    const metaNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : '';
+    const metaKodeKPPN = project.metadata?.kodeKPPN || '026';
+
+    if (!tunaiRows || tunaiRows.length === 0) return;
+
+    let hasChange = false;
+    const updatedRows = tunaiRows.map(r => {
+      const newKode = r.kodeSatker || metaKodeSatker || '';
+      const newNama = r.namaSatker || metaNamaSatker || '';
+      const newKppn = r.kodeKPPN || metaKodeKPPN || '026';
+
+      if (r.kodeSatker !== newKode || r.namaSatker !== newNama || r.kodeKPPN !== newKppn) {
+        hasChange = true;
+        return {
+          ...r,
+          kodeSatker: newKode,
+          namaSatker: newNama,
+          kodeKPPN: newKppn
+        };
+      }
+      return r;
+    });
+
+    if (hasChange) {
+      onUpdateProject({
+        ...project,
+        upTUPTunai: updatedRows
+      });
+    }
+  }, [project.metadata?.kodeSatker, project.metadata?.namaSatker, project.metadata?.kodeKPPN, tunaiRows.length]);
+
   // Active section inside the UP TUP module
   const [activeSection, setActiveSection] = useState<'tunai' | 'kkp' | 'simulator' | 'diagnosis'>('tunai');
 
@@ -204,37 +240,48 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const handleAddTunaiRow = () => {
     const lastRow = tunaiRows[tunaiRows.length - 1];
     const nextNo = (lastRow?.no || tunaiRows.length) + 1;
+    const effKodeSatker = project.metadata?.kodeSatker || lastRow?.kodeSatker || '';
+    const effNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : (lastRow?.namaSatker || '');
+    const effKodeKPPN = project.metadata?.kodeKPPN || lastRow?.kodeKPPN || '026';
+
     const newRow: UPTUPTunaiInput = {
       no: nextNo,
-      kodeSatker: lastRow?.kodeSatker || '',
-      namaSatker: lastRow?.namaSatker || '',
-      kodeKPPN: lastRow?.kodeKPPN || '',
+      kodeSatker: effKodeSatker,
+      namaSatker: effNamaSatker,
+      kodeKPPN: effKodeKPPN,
       sumberDana: 'RM',
       jenis: 'GUP',
       tanggal: new Date().toISOString().split('T')[0],
-      selisihHariKalender: 25,
-      totalGUP: 50000000,
-      totalOutstandingUP: 300000000,
+      selisihHariKalender: 0,
+      totalGUP: 0,
+      totalOutstandingUP: 0,
       totalHariSebulan: 30,
-      totalTUP: lastRow?.totalTUP || 0,
+      totalTUP: 0,
       totalSetoranTUP: 0,
-      status: 'TEPAT WAKTU'
+      status: '-'
     };
     onUpdateProject({ ...project, upTUPTunai: [...tunaiRows, newRow] });
   };
 
   const handleDeleteTunaiRow = (index: number) => {
-    if (tunaiRows.length <= 1) return;
     const updated = tunaiRows.filter((_, i) => i !== index).map((r, i) => ({ ...r, no: i + 1 }));
     onUpdateProject({ ...project, upTUPTunai: updated });
   };
 
   const handleResetToWorkbookTemplate = () => {
+    const defaultKodeSatker = project.metadata?.kodeSatker || '';
+    const defaultNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : '';
+    const defaultKodeKPPN = project.metadata?.kodeKPPN || '026';
+
     const templateTunai: UPTUPTunaiInput[] = DEFAULT_EXCEL_UP_TUNAI_ROWS.map((u: any) => ({
       no: u.id,
-      kodeSatker: u.kodeSatker || '',
-      namaSatker: u.namaSatker || '',
-      kodeKPPN: u.kodeKPPN || '',
+      kodeSatker: defaultKodeSatker || u.kodeSatker || '',
+      namaSatker: defaultNamaSatker || u.namaSatker || '',
+      kodeKPPN: defaultKodeKPPN || u.kodeKPPN || '026',
       sumberDana: u.sumberDana || 'RM',
       jenis: u.jenis,
       tanggal: u.tanggal,
@@ -249,9 +296,9 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
 
     const templateKKP: UPTUPKKPInput[] = DEFAULT_EXCEL_UP_KKP_ROWS.map((kp: any) => ({
       periode: kp.periode,
-      kodeSatker: kp.kodeSatker || '',
-      namaSatker: kp.namaSatker || '',
-      kodeKPPN: kp.kodeKPPN || '',
+      kodeSatker: defaultKodeSatker || kp.kodeSatker || '',
+      namaSatker: defaultNamaSatker || kp.namaSatker || '',
+      kodeKPPN: defaultKodeKPPN || kp.kodeKPPN || '026',
       upKKPPerBulan: kp.upKkpPerBulan,
       penggunaanKKP: kp.penggunaanKkp
     }));
@@ -274,11 +321,17 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   // Kosongkan seluruh data transaksi UP Tunai dan KKP
   const handleClearForm = () => {
     if (window.confirm('Kosongkan formulir Pengelolaan UP dan TUP? Seluruh baris transaksi UP Tunai dan data penggunaan KKP akan dihapus/di-nol-kan.')) {
+      const defaultKodeSatker = project.metadata?.kodeSatker || '';
+      const defaultNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+        ? project.metadata.namaSatker
+        : '';
+      const defaultKodeKPPN = project.metadata?.kodeKPPN || '026';
+
       const emptyKKP: UPTUPKKPInput[] = Array.from({ length: 12 }, (_, i) => ({
         periode: String(i + 1).padStart(2, '0'),
-        kodeSatker: '',
-        namaSatker: '',
-        kodeKPPN: '',
+        kodeSatker: defaultKodeSatker,
+        namaSatker: defaultNamaSatker,
+        kodeKPPN: defaultKodeKPPN,
         upKKPPerBulan: 0,
         penggunaanKKP: 0
       }));
@@ -876,49 +929,50 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
 
                         {/* B: Kode Satker (Kolom Putih) */}
                         <td
-                          onClick={() => setActiveCell({ coord: `B${excelRowNumber}`, rowIdx: idx, colKey: 'B', formula: r.kodeSatker || '', isFormula: false })}
+                          onClick={() => setActiveCell({ coord: `B${excelRowNumber}`, rowIdx: idx, colKey: 'B', formula: r.kodeSatker || project.metadata?.kodeSatker || '', isFormula: false })}
                           className={`px-2.5 py-1.5 border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
                             activeCell.coord === `B${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
                           <input
                             type="text"
-                            value={r.kodeSatker}
+                            value={r.kodeSatker || project.metadata?.kodeSatker || ''}
                             onChange={e => handleUpdateTunaiRow(idx, 'kodeSatker', e.target.value)}
-                            className="w-16 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px]"
-                            placeholder="-"
+                            className="w-16 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-mono font-medium text-slate-800 dark:text-slate-100"
+                            placeholder={project.metadata?.kodeSatker || "-"}
                           />
                         </td>
 
                         {/* C: Nama Satker (Kolom Putih) */}
                         <td
-                          onClick={() => setActiveCell({ coord: `C${excelRowNumber}`, rowIdx: idx, colKey: 'C', formula: r.namaSatker || '', isFormula: false })}
+                          onClick={() => setActiveCell({ coord: `C${excelRowNumber}`, rowIdx: idx, colKey: 'C', formula: r.namaSatker || (project.metadata?.namaSatker !== 'Simulasi Mandiri' ? project.metadata?.namaSatker : '') || '', isFormula: false })}
                           className={`px-2.5 py-1.5 border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
                             activeCell.coord === `C${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
                           <input
                             type="text"
-                            value={r.namaSatker}
+                            value={r.namaSatker || (project.metadata?.namaSatker !== 'Simulasi Mandiri' ? project.metadata?.namaSatker : '') || ''}
                             onChange={e => handleUpdateTunaiRow(idx, 'namaSatker', e.target.value)}
-                            className="w-24 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px]"
-                            placeholder="-"
+                            className="w-36 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-medium text-slate-800 dark:text-slate-100 truncate"
+                            placeholder={project.metadata?.namaSatker || "-"}
+                            title={r.namaSatker || project.metadata?.namaSatker || ''}
                           />
                         </td>
 
                         {/* D: Kode KPPN (Kolom Putih) */}
                         <td
-                          onClick={() => setActiveCell({ coord: `D${excelRowNumber}`, rowIdx: idx, colKey: 'D', formula: r.kodeKPPN || '', isFormula: false })}
+                          onClick={() => setActiveCell({ coord: `D${excelRowNumber}`, rowIdx: idx, colKey: 'D', formula: r.kodeKPPN || project.metadata?.kodeKPPN || '026', isFormula: false })}
                           className={`px-2.5 py-1.5 border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
                             activeCell.coord === `D${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
                           <input
                             type="text"
-                            value={r.kodeKPPN}
+                            value={r.kodeKPPN || project.metadata?.kodeKPPN || '026'}
                             onChange={e => handleUpdateTunaiRow(idx, 'kodeKPPN', e.target.value)}
-                            className="w-14 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px]"
-                            placeholder="-"
+                            className="w-14 bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-mono font-medium text-slate-800 dark:text-slate-100"
+                            placeholder="026"
                           />
                         </td>
 

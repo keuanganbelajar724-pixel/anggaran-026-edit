@@ -87,6 +87,42 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
     return [];
   }, [project.belanjaKontraktual]);
 
+  // Auto-sync Kode Satker, Nama Satker, dan Kode KPPN (026) dari metadata login Satker jika kolom masih kosong atau default dummy
+  useEffect(() => {
+    const metaKodeSatker = project.metadata?.kodeSatker;
+    const metaNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : '';
+    const metaKodeKPPN = project.metadata?.kodeKPPN || '026';
+
+    if (!rawContracts || rawContracts.length === 0) return;
+
+    let hasChange = false;
+    const updatedContracts = rawContracts.map(r => {
+      const newKode = (!r.kodeSatker || r.kodeSatker === '000000') ? (metaKodeSatker || r.kodeSatker) : r.kodeSatker;
+      const newNama = (!r.namaSatker || r.namaSatker === 'SATKER CONTOH') ? (metaNamaSatker || r.namaSatker) : r.namaSatker;
+      const newKppn = (!r.kodeKPPN || r.kodeKPPN === '000') ? (metaKodeKPPN || '026') : r.kodeKPPN;
+
+      if (r.kodeSatker !== newKode || r.namaSatker !== newNama || r.kodeKPPN !== newKppn) {
+        hasChange = true;
+        return {
+          ...r,
+          kodeSatker: newKode,
+          namaSatker: newNama,
+          kodeKPPN: newKppn
+        };
+      }
+      return r;
+    });
+
+    if (hasChange) {
+      onUpdateProject({
+        ...project,
+        belanjaKontraktual: updatedContracts
+      });
+    }
+  }, [project.metadata?.kodeSatker, project.metadata?.namaSatker, project.metadata?.kodeKPPN, rawContracts.length]);
+
   // Hitung hasil kalkulasi deterministik
   const calculation = useMemo(() => {
     return calculateBelanjaKontraktualSummary(rawContracts, 10, true);
@@ -135,21 +171,27 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
   // Add new contract
   const handleAddRow = () => {
     const nextNo = rawContracts.length + 1;
+    const effKodeSatker = project.metadata?.kodeSatker || (rawContracts[0]?.kodeSatker !== '000000' ? rawContracts[0]?.kodeSatker : '') || '';
+    const effNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : ((rawContracts[0]?.namaSatker !== 'SATKER CONTOH' ? rawContracts[0]?.namaSatker : '') || '');
+    const effKodeKPPN = project.metadata?.kodeKPPN || (rawContracts[0]?.kodeKPPN !== '000' ? rawContracts[0]?.kodeKPPN : '') || '026';
+
     const newRow: BelanjaKontraktualInput = {
       no: nextNo,
-      kodeSatker: rawContracts[0]?.kodeSatker || '000000',
-      namaSatker: rawContracts[0]?.namaSatker || 'SATKER CONTOH',
-      kodeKPPN: rawContracts[0]?.kodeKPPN || '000',
+      kodeSatker: effKodeSatker,
+      namaSatker: effNamaSatker,
+      kodeKPPN: effKodeKPPN,
       nomorKontrak: `${String(nextNo).padStart(3, '0')}/SPK/PPK/2026`,
       jenisBelanja: '53',
-      nilaiKontrak: 150000000,
-      tanggalKontrak: '2026-02-01',
-      tanggalMasuk: '2026-02-04',
-      tanggalPenyelesaian: '2026-03-31',
-      isEarlyContract: true,
-      nilaiDistribusiAkselerasi: 100,
-      nilaiKontrakDini: 110,
-      nilaiAkselerasi53: 100
+      nilaiKontrak: 0,
+      tanggalKontrak: '',
+      tanggalMasuk: '',
+      tanggalPenyelesaian: '',
+      isEarlyContract: false,
+      nilaiDistribusiAkselerasi: 0,
+      nilaiKontrakDini: 0,
+      nilaiAkselerasi53: 0
     };
     onUpdateProject({ ...project, belanjaKontraktual: [...rawContracts, newRow] });
   };
@@ -760,9 +802,10 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700">
                         <input
                           type="text"
-                          value={r.kodeSatker}
+                          value={r.kodeSatker || project.metadata?.kodeSatker || ''}
+                          placeholder={project.metadata?.kodeSatker || '-'}
                           onChange={(e) => handleUpdateRow(targetIdx, 'kodeSatker', e.target.value)}
-                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
+                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-mono"
                         />
                       </td>
 
@@ -770,7 +813,8 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700">
                         <input
                           type="text"
-                          value={r.namaSatker}
+                          value={r.namaSatker || (project.metadata?.namaSatker !== 'Simulasi Mandiri' ? project.metadata?.namaSatker : '') || ''}
+                          placeholder={project.metadata?.namaSatker || '-'}
                           onChange={(e) => handleUpdateRow(targetIdx, 'namaSatker', e.target.value)}
                           className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-sans"
                         />
@@ -780,9 +824,10 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700">
                         <input
                           type="text"
-                          value={r.kodeKPPN}
+                          value={r.kodeKPPN || project.metadata?.kodeKPPN || '026'}
+                          placeholder="026"
                           onChange={(e) => handleUpdateRow(targetIdx, 'kodeKPPN', e.target.value)}
-                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
+                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-mono"
                         />
                       </td>
 

@@ -197,7 +197,8 @@ export function setActiveProjectId(id: string): void {
 
 export function createEmptyProject(
   name: string = 'Simulasi Mandiri (Mulai dari 0)',
-  isBaseline: boolean = true
+  isBaseline: boolean = true,
+  initialMetadata?: Partial<SimulationProject['metadata']>
 ): SimulationProject {
   const now = new Date().toISOString();
 
@@ -216,10 +217,11 @@ export function createEmptyProject(
       tahunAnggaran: 2026,
       kodeKementerian: '',
       namaKementerian: '',
-      kodeSatker: '',
-      namaSatker: 'Simulasi Mandiri',
-      kodeKPPN: '',
-      periodeCutoff: 12
+      kodeSatker: initialMetadata?.kodeSatker || '',
+      namaSatker: initialMetadata?.namaSatker || 'Simulasi Mandiri',
+      kodeKPPN: initialMetadata?.kodeKPPN || '026',
+      periodeCutoff: 12,
+      ...initialMetadata
     },
     weights: { ...DEFAULT_WEIGHTS },
     activeIndicators: {

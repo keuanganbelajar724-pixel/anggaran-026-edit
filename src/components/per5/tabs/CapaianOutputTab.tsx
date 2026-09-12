@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Target,
   Clock,
@@ -96,6 +96,42 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
   const ketepatanRows = project.capaianOutputKetepatan || [];
   const appliedWeight = project.weights?.capaianOutput ?? 25;
 
+  // Auto-sync Satker identity and KPPN 026 to RO rows if missing
+  useEffect(() => {
+    const metaKodeSatker = project.metadata?.kodeSatker;
+    const metaNamaSatker = (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri')
+      ? project.metadata.namaSatker
+      : '';
+    const metaKodeKPPN = project.metadata?.kodeKPPN || '026';
+
+    if (!roRows || roRows.length === 0) return;
+
+    let hasChange = false;
+    const updatedROs = roRows.map(r => {
+      const newSatker = (!r.satker || r.satker === '6350') ? (metaKodeSatker || r.satker) : r.satker;
+      const newNama = !r.namaSatker ? (metaNamaSatker || r.namaSatker) : r.namaSatker;
+      const newKppn = (!r.kppn || r.kppn === '12') ? (metaKodeKPPN || '026') : r.kppn;
+
+      if (r.satker !== newSatker || r.namaSatker !== newNama || r.kppn !== newKppn) {
+        hasChange = true;
+        return {
+          ...r,
+          satker: newSatker,
+          namaSatker: newNama,
+          kppn: newKppn
+        };
+      }
+      return r;
+    });
+
+    if (hasChange) {
+      onUpdateProject({
+        ...project,
+        capaianOutput: updatedROs
+      });
+    }
+  }, [project.metadata?.kodeSatker, project.metadata?.namaSatker, project.metadata?.kodeKPPN, roRows.length]);
+
   // Hasil kalkulasi komprehensif
   const report = useMemo(() => {
     return calculateCapaianOutputDetailed(roRows, ketepatanRows, appliedWeight);
@@ -169,21 +205,21 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
     const nextNo = roRows.length > 0 ? Math.max(...roRows.map(r => r.no || 0)) + 1 : 1;
     const item: CapaianOutputInput = {
       no: nextNo,
-      satker: project.metadata?.kodeSatker || '6350',
-      namaSatker: project.metadata?.namaSatker || '',
-      kppn: project.metadata?.kodeKPPN || '12',
+      satker: project.metadata?.kodeSatker || '',
+      namaSatker: (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri') ? project.metadata.namaSatker : '',
+      kppn: project.metadata?.kodeKPPN || '026',
       bulan: Number(newRO.bulan) || 12,
       program: newRO.program || 'JA',
       kegiatan: newRO.kegiatan || '6350',
       kro: newRO.kro || 'ABI',
       ro: newRO.ro || `RO.${nextNo}`,
       uraianRO: newRO.uraianRO || 'Layanan Internal',
-      target: Number(newRO.target) || 1,
+      target: Number(newRO.target) || 0,
       satuan: newRO.satuan || 'Dokumen',
       realisasiRO: Number(newRO.realisasiRO) || 0,
-      persenProgress: Number(newRO.persenProgress) ?? 100,
+      persenProgress: Number(newRO.persenProgress) || 0,
       statusKonfirmasi: newRO.statusKonfirmasi || 'terkonfirmasi',
-      targetPCRO: Number(newRO.targetPCRO) || 100
+      targetPCRO: Number(newRO.targetPCRO) || 0
     };
     onUpdateProject({ ...project, capaianOutput: [...roRows, item] });
     setShowAddModal(false);
@@ -191,12 +227,12 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
       bulan: 12,
       ro: '',
       uraianRO: '',
-      target: 1,
+      target: 0,
       satuan: 'Layanan',
-      realisasiRO: 1,
-      persenProgress: 100,
+      realisasiRO: 0,
+      persenProgress: 0,
       statusKonfirmasi: 'terkonfirmasi',
-      targetPCRO: 100
+      targetPCRO: 0
     });
   };
 

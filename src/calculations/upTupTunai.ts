@@ -209,7 +209,9 @@ export function calculateUPTUPTunai(inputs: UPTUPTunaiInput[]): UPTUPTunaiResult
     let nilaiPersentaseGupDisebulankan: number | null = null;
 
     if (jenis === 'GUP') {
-      if (selisihHari > 0) {
+      if (persen === 0 || totalOutstandingUP === 0) {
+        persenGupDisebulankan = 0;
+      } else if (selisihHari > 0) {
         persenGupDisebulankan = calculateGUPDisebulankan(persen, totalHariSebulan, selisihHari);
       } else {
         persenGupDisebulankan = 100;
@@ -256,18 +258,28 @@ export function calculateUPTUPTunai(inputs: UPTUPTunaiInput[]): UPTUPTunaiResult
   // Q27 = ROUND(AVERAGE(Q5:Q26), 2)
   // R27 = ROUND(AVERAGE(R5:R26), 2)
   // S27 = ROUND(AVERAGE(S5:S26), 2)
+  const hasFinancialActivity = inputs.some(
+    r => (Number(r.totalGUP) > 0) ||
+         (Number(r.totalOutstandingUP) > 0) ||
+         (Number(r.totalTUP) > 0) ||
+         (Number(r.totalSetoranTUP) > 0) ||
+         (r.status === 'TEPAT WAKTU' || r.status === 'TERLAMBAT')
+  );
+
   const nilaiKetepatanWaktu = round2(excelAverage(qValues));
   const nilaiGupDisebulankan = round2(excelAverage(rValues));
-  const nilaiSetoranTup = round2(excelAverage(sValues));
+  const nilaiSetoranTup = hasFinancialActivity ? round2(excelAverage(sValues)) : 0;
 
   // Q28 = (50%*Q27) + (25%*R27) + (25%*S27)
   // Tidak dibulatkan di Q28 (simpan raw result unrounded sesuai Excel)
-  const rawValue = (0.50 * nilaiKetepatanWaktu) + (0.25 * nilaiGupDisebulankan) + (0.25 * nilaiSetoranTup);
+  const rawValue = hasFinancialActivity
+    ? (0.50 * nilaiKetepatanWaktu) + (0.25 * nilaiGupDisebulankan) + (0.25 * nilaiSetoranTup)
+    : 0;
 
   return {
     rawValue,
-    nilaiKetepatanWaktu,
-    nilaiGupDisebulankan,
+    nilaiKetepatanWaktu: hasFinancialActivity ? nilaiKetepatanWaktu : 0,
+    nilaiGupDisebulankan: hasFinancialActivity ? nilaiGupDisebulankan : 0,
     nilaiSetoranTup,
     processedRows
   };

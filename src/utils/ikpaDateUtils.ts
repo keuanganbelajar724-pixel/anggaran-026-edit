@@ -130,9 +130,16 @@ export function sanitizeProjectDates<T extends {
       tanggalMulaiPerhitungan: t.tanggalMulaiPerhitungan ? normalizeDateToIso(t.tanggalMulaiPerhitungan) : '',
       tanggalKonversiADK: t.tanggalKonversiADK ? normalizeDateToIso(t.tanggalKonversiADK) : ''
     })),
-    upTUPTunai: (project.upTUPTunai || []).map(u => ({
-      ...u,
-      tanggal: u.tanggal ? normalizeDateToIso(u.tanggal) : ''
-    }))
+    upTUPTunai: (project.upTUPTunai || []).map(u => {
+      const isAccidentalDummy = u.totalGUP === 50000000 && u.totalOutstandingUP === 300000000;
+      return {
+        ...u,
+        tanggal: u.tanggal ? normalizeDateToIso(u.tanggal) : '',
+        totalGUP: isAccidentalDummy ? 0 : u.totalGUP,
+        totalOutstandingUP: isAccidentalDummy ? 0 : u.totalOutstandingUP,
+        selisihHariKalender: isAccidentalDummy ? 0 : u.selisihHariKalender,
+        status: isAccidentalDummy ? '-' : u.status
+      };
+    })
   };
 }

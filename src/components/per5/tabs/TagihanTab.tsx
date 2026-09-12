@@ -179,21 +179,21 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     const newRow: PenyelesaianTagihanRow = {
       no: nextNo,
       identitasTagihan: `Tagihan #${nextNo}`,
-      keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
+      keterangan: '',
       jenisTagihan: 'SPM-LS Kontraktual',
-      nomorSPP: `SPP-${String(nextNo).padStart(3, '0')}/PPK/2026`,
-      tanggalSPP: '2026-04-05',
-      tanggalTagihan: '2026-04-01',
-      tanggalDokumenPendukung: '2026-04-01',
-      tanggalPenyampaian: '2026-04-15',
-      tanggalMulai: '2026-04-01',
-      tanggalKonversi: '2026-04-15',
-      selisihHari: 14,
-      hariLibur: 2,
-      jumlahHariEfektif: 12,
-      status: 'TEPAT',
-      keteranganHasil: 'Tepat Waktu (12 hari <= 17)',
-      nilaiSP2D: 100000000
+      nomorSPP: '',
+      tanggalSPP: '',
+      tanggalTagihan: '',
+      tanggalDokumenPendukung: '',
+      tanggalPenyampaian: '',
+      tanggalMulai: '',
+      tanggalKonversi: '',
+      selisihHari: 0,
+      hariLibur: 0,
+      jumlahHariEfektif: 0,
+      status: 'BELUM LENGKAP',
+      keteranganHasil: '',
+      nilaiSP2D: 0
     };
     onUpdateProject({ ...project, penyelesaianTagihan: [...rawRows, newRow] });
   };
