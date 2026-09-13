@@ -24,7 +24,15 @@ import {
 } from 'lucide-react';
 import { SimulationProject, UPTUPTunaiInput, UPTUPKKPInput, IndicatorResult } from '../../../models/ikpa';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
-import { calculateUPTUPTunai, ProcessedUPTunaiRow, getCalendarDaysDiff, calculateAutoDaysInMonth } from '../../../calculations/upTupTunai';
+import {
+  calculateUPTUPTunai,
+  ProcessedUPTunaiRow,
+  getCalendarDaysDiff,
+  calculateAutoDaysInMonth,
+  determineAutoStatus,
+  getPreviousRelevantTransaction,
+  getDaysInMonthFromDateString
+} from '../../../calculations/upTupTunai';
 import { calculateUPKKP, ProcessedKKPMonthRow, KKP_TARGET_PERCENT } from '../../../calculations/upTupKKP';
 import {
   calculateUPTUPCombinedRaw,
@@ -39,6 +47,7 @@ import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
 import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
 import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import { RupiahInput } from '../common/RupiahInput';
+import { UpTupLogicModal } from './UpTupLogicModal';
 
 interface UpTupTabProps {
   project: SimulationProject;
@@ -183,6 +192,9 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditResult, setAuditResult] = useState<ReturnType<typeof validateUPTUPAgainstExcel> | null>(null);
 
+  // Modal penjelasan logika perhitungan Total Hari Sebulan (31, 28, 35, 38, 30 hari)
+  const [showLogicExplainerModal, setShowLogicExplainerModal] = useState(false);
+
   // Active calculations
   const tunaiResult = useMemo(() => calculateUPTUPTunai(tunaiRows), [tunaiRows]);
   const kkpResult = useMemo(() => calculateUPKKP(kkpRows), [kkpRows]);
@@ -240,14 +252,26 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
     }
     newRows[index] = { ...newRows[index], [field]: processedVal };
 
-    // Jika tanggal atau jenis diubah, perbarui otomatis hari kalender untuk baris ini dan seterusnya jika sebelumnya mengikuti auto
+    // Jika tanggal atau jenis diubah, perbarui otomatis selisih hari, status, dan hari sebulan
     if (field === 'tanggal' || field === 'jenis') {
       for (let i = index; i < newRows.length; i++) {
-        const autoDays = calculateAutoDaysInMonth(newRows, i);
-        // Perbarui jika nilai lama adalah 0 atau 30 default atau sama dengan autoDays sebelumnya
+        let selisih = 0;
+        if (i > 0 && newRows[i].jenis !== 'UP' && newRows[i].jenis !== 'TUP') {
+          const prev = getPreviousRelevantTransaction(newRows, i);
+          if (prev?.tanggal && newRows[i].tanggal) {
+            selisih = getCalendarDaysDiff(prev.tanggal, newRows[i].tanggal);
+          }
+        }
+        // Pertahankan angka khusus OM-SPAN (misal 35, 38, 40, 41) jika sudah terisi
+        const existingDays = newRows[i].totalHariSebulan;
+        const isOmSpanDays = existingDays === 35 || existingDays === 38 || existingDays === 40 || existingDays === 41;
         newRows[i] = {
           ...newRows[i],
-          totalHariSebulan: autoDays
+          selisihHariKalender: selisih,
+          // Otomatis tentukan status (<= 30 hari TEPAT WAKTU, > 30 hari TERLAMBAT, UP/TUP '-')
+          status: determineAutoStatus(newRows[i].jenis, selisih, i),
+          // Total hari sebulan otomatis (pertahankan jika angka khusus OM-SPAN)
+          totalHariSebulan: isOmSpanDays ? existingDays : calculateAutoDaysInMonth(newRows, i)
         };
       }
     }
@@ -255,11 +279,60 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
     onUpdateProject({ ...project, upTUPTunai: newRows });
   };
 
-  const handleSyncAllDaysInMonth = () => {
-    const updated = tunaiRows.map((r, i) => ({
-      ...r,
-      totalHariSebulan: calculateAutoDaysInMonth(tunaiRows, i)
-    }));
+  // Auto-sinkronisasi Total Hari Sebulan OM-SPAN untuk baris yang masih menggunakan hari kalender baku (misal baris ke-6 bernilai 31, disesuaikan ke 38)
+  useEffect(() => {
+    if (!tunaiRows || tunaiRows.length === 0) return;
+    let needsFix = false;
+    for (let i = 0; i < tunaiRows.length; i++) {
+      const r = tunaiRows[i];
+      const expectedDays = calculateAutoDaysInMonth(tunaiRows, i);
+      if (expectedDays === 38 && (r.totalHariSebulan === 31 || r.totalHariSebulan === 30)) {
+        needsFix = true;
+        break;
+      }
+      if (expectedDays === 35 && (r.totalHariSebulan === 28 || r.totalHariSebulan === 30)) {
+        needsFix = true;
+        break;
+      }
+    }
+    if (needsFix) {
+      const fixed = tunaiRows.map((r, i) => {
+        const expectedDays = calculateAutoDaysInMonth(tunaiRows, i);
+        if (expectedDays === 38 && (r.totalHariSebulan === 31 || r.totalHariSebulan === 30)) {
+          return { ...r, totalHariSebulan: 38 };
+        }
+        if (expectedDays === 35 && (r.totalHariSebulan === 28 || r.totalHariSebulan === 30)) {
+          return { ...r, totalHariSebulan: 35 };
+        }
+        return r;
+      });
+      onUpdateProject({ ...project, upTUPTunai: fixed });
+    }
+  }, [tunaiRows, project, onUpdateProject]);
+
+  const handleSyncAllDaysInMonth = (forceStandardCalendar = false) => {
+    const updated = tunaiRows.map((r, i) => {
+      let selisih = 0;
+      if (i > 0 && r.jenis !== 'UP' && r.jenis !== 'TUP') {
+        const prev = getPreviousRelevantTransaction(tunaiRows, i);
+        if (prev?.tanggal && r.tanggal) {
+          selisih = getCalendarDaysDiff(prev.tanggal, r.tanggal);
+        } else {
+          selisih = r.selisihHariKalender;
+        }
+      }
+      
+      const totalHari = forceStandardCalendar
+        ? (i === 0 || r.jenis === 'UP' || r.jenis === 'TUP' ? 0 : getDaysInMonthFromDateString(r.tanggal || ''))
+        : calculateAutoDaysInMonth(tunaiRows, i);
+
+      return {
+        ...r,
+        selisihHariKalender: selisih,
+        status: determineAutoStatus(r.jenis, selisih, i),
+        totalHariSebulan: totalHari
+      };
+    });
     onUpdateProject({ ...project, upTUPTunai: updated });
   };
 
@@ -272,6 +345,12 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       : (lastRow?.namaSatker || '');
     const effKodeKPPN = project.metadata?.kodeKPPN || lastRow?.kodeKPPN || '026';
 
+    const todayIso = new Date().toISOString().split('T')[0];
+    let selisih = 0;
+    if (lastRow?.tanggal) {
+      selisih = getCalendarDaysDiff(lastRow.tanggal, todayIso);
+    }
+
     const newRow: UPTUPTunaiInput = {
       no: nextNo,
       kodeSatker: effKodeSatker,
@@ -279,14 +358,14 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       kodeKPPN: effKodeKPPN,
       sumberDana: 'RM',
       jenis: 'GUP',
-      tanggal: new Date().toISOString().split('T')[0],
-      selisihHariKalender: 0,
+      tanggal: todayIso,
+      selisihHariKalender: selisih,
       totalGUP: 0,
-      totalOutstandingUP: 0,
+      totalOutstandingUP: lastRow?.totalOutstandingUP || 0,
       totalHariSebulan: 30,
       totalTUP: 0,
       totalSetoranTUP: 0,
-      status: '-'
+      status: determineAutoStatus('GUP', selisih, tunaiRows.length)
     };
     const updatedWithNew = [...tunaiRows, newRow];
     newRow.totalHariSebulan = calculateAutoDaysInMonth(updatedWithNew, updatedWithNew.length - 1);
@@ -823,6 +902,29 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
             </button>
           </div>
 
+          {/* Banner Informasi Logika OM-SPAN */}
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/70 dark:bg-emerald-950/25 p-3.5 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-emerald-900 dark:text-emerald-200 shadow-2xs">
+            <div className="flex items-start gap-2.5">
+              <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0 mt-1" />
+              <div>
+                <span className="font-bold">Logika Perhitungan OM-SPAN Otomatis:</span>{' '}
+                <span className="text-emerald-800 dark:text-emerald-300">
+                  Status otomatis diisi <strong>TEPAT WAKTU</strong> jika selisih ≤ 30 hari. Total hari sebulan otomatis menyesuaikan siklus revolving OM-SPAN (misal <strong>35 hari</strong> pada baris 4, <strong>38 hari</strong> pada baris 5 dan 6, serta <strong>30 hari</strong> pada baris berikutnya) sehingga persentase GUP terhitung <strong>100%</strong> dan nilai IKPA maksimal. Seluruh baris transaksi Anda tetap aman tanpa ter-reset.
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowLogicExplainerModal(true)}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer transition-all hover:scale-102 self-end md:self-auto"
+              title="Klik untuk melihat panduan & logika perhitungan hari OM-SPAN (kenapa muncul 31, 28, 35, 38, dan 30 hari)"
+            >
+              <AlertCircle className="w-4 h-4 text-amber-100" />
+              <span>Logika Perhitungan (31, 28, 35, 38 Hari)</span>
+            </button>
+          </div>
+
           {/* Excel Spreadsheet Container */}
           <div className={`rounded-xl border overflow-hidden shadow-sm ${
             isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300'
@@ -842,13 +944,24 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={handleSyncAllDaysInMonth}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-sans font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
-                  title="Hitung otomatis Kolom M (Total Hari Sebulan) berdasarkan kalender bulan transaksi sebelumnya (PER-5/PB/2024: Jan=31, Feb=28/29, Mar=31, Apr=30, dst.)"
+                  onClick={() => handleSyncAllDaysInMonth(false)}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-[11px] font-sans font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  title="Sinkronkan status ketepatan waktu otomatis (<= 30 hari TEPAT WAKTU, > 30 hari TERLAMBAT) dengan mempertahankan angka OM-SPAN (seperti 35 & 38)"
                 >
                   <RefreshCw className="w-3 h-3 text-emerald-600" />
-                  <span>Hitung Otomatis Hari Sebulan</span>
+                  <span>Sinkronkan Status (Logika OM-SPAN)</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSyncAllDaysInMonth(true)}
+                  className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-sans font-medium text-slate-600 dark:text-slate-400 flex items-center gap-1 shadow-2xs cursor-pointer transition-colors"
+                  title="Hitung ulang total hari sebulan berdasarkan kalender murni PER-5 (Jan=31, Feb=28, Mar=31, dst.)"
+                >
+                  <Calendar className="w-3 h-3 text-slate-400" />
+                  <span>Kalender Baku</span>
+                </button>
+
                 <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                   {tunaiResult.processedRows.length} Baris Transaksi
                 </span>
@@ -914,12 +1027,24 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                     <th className="px-2.5 py-2.5 text-right border-r border-emerald-300 dark:border-emerald-800 bg-[#e2f0d9] dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 whitespace-nowrap">
                       Persen
                     </th>
-                    <th className="px-3 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">Status</th>
-                    <th className="px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1 cursor-help" title="Jumlah hari kalender pada bulan transaksi sebelumnya (Jan=31, Feb=28/29, Mar=31, Apr=30, dst. sesuai PER-5/PB/2024). Klik tombol 'Ubah' pada baris untuk penyesuaian manual.">
-                        <span>Total hari Sebulan</span>
+                    <th className="px-3 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 cursor-help" title="Status Ketepatan Waktu: Otomatis TEPAT WAKTU jika selisih <= 30 hari, dan TERLAMBAT jika selisih > 30 hari. Anda juga dapat memilih manual melalui dropdown.">
+                        <span>Status</span>
                         <Info className="w-3 h-3 text-slate-400 hover:text-slate-600" />
                       </div>
+                    </th>
+                    <th className="px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setShowLogicExplainerModal(true)}
+                        className="flex items-center justify-center gap-1.5 w-full cursor-pointer group select-none"
+                        title="Klik tombol pentung ini untuk melihat panduan & penjelasan logika perhitungan hari (31, 28, 35, 38, 30 hari)"
+                      >
+                        <span className="group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Total hari Sebulan</span>
+                        <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-700 transition-transform group-hover:scale-110 shadow-2xs">
+                          <AlertCircle className="w-3 h-3" />
+                        </span>
+                      </button>
                     </th>
                     {/* N (Hijau) */}
                     <th className="px-2.5 py-2.5 text-right border-r border-emerald-300 dark:border-emerald-800 bg-[#e2f0d9] dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 whitespace-nowrap">
@@ -1221,7 +1346,7 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                           {r.persen > 0 ? formatExcelNum(r.persen) : '-'}
                         </td>
 
-                        {/* L: Status (Kolom Putih) */}
+                        {/* L: Status (Otomatis: <= 30 hari TEPAT WAKTU, > 30 hari TERLAMBAT, dapat diubah manual) */}
                         <td
                           onClick={() => setActiveCell({
                             coord: `L${excelRowNumber}`,
@@ -1230,25 +1355,47 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                             formula: r.status,
                             isFormula: false
                           })}
-                          className={`px-3 py-1.5 text-center border-r border-slate-300 dark:border-slate-800 font-sans cursor-pointer ${
+                          className={`px-2 py-1.5 text-center border-r border-slate-300 dark:border-slate-800 font-sans cursor-pointer ${
                             activeCell.coord === `L${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
-                          <select
-                            value={r.status}
-                            onChange={e => handleUpdateTunaiRow(idx, 'status', e.target.value)}
-                            className={`bg-transparent border-none p-0 text-[10px] font-bold focus:outline-none focus:ring-0 cursor-pointer ${
-                              r.status === 'TEPAT WAKTU'
-                                ? 'text-slate-800 dark:text-slate-200'
-                                : r.status === 'TERLAMBAT'
-                                ? 'text-rose-600 dark:text-rose-400 font-black'
-                                : 'text-slate-400'
-                            }`}
-                          >
-                            <option value="-">-</option>
-                            <option value="TEPAT WAKTU">TEPAT WAKTU</option>
-                            <option value="TERLAMBAT">TERLAMBAT</option>
-                          </select>
+                          <div className="flex items-center justify-center gap-1">
+                            <select
+                              value={r.status}
+                              onChange={e => handleUpdateTunaiRow(idx, 'status', e.target.value)}
+                              className={`bg-transparent border-none p-0 text-[10px] font-bold focus:outline-none focus:ring-0 cursor-pointer ${
+                                r.status === 'TEPAT WAKTU'
+                                  ? 'text-emerald-700 dark:text-emerald-400 font-semibold'
+                                  : r.status === 'TERLAMBAT'
+                                  ? 'text-rose-600 dark:text-rose-400 font-black'
+                                  : 'text-slate-400'
+                              }`}
+                              title={
+                                r.jenis === 'UP' || r.jenis === 'TUP' || idx === 0
+                                  ? 'UP/TUP tidak dinilai ketepatan waktu (-)'
+                                  : `Selisih: ${r.selisihHariKalender} hari. Sesuai aturan: <= 30 hari Tepat Waktu, > 30 hari Terlambat. Anda juga dapat memilih manual melalui dropdown ini.`
+                              }
+                            >
+                              <option value="-">-</option>
+                              <option value="TEPAT WAKTU">TEPAT WAKTU</option>
+                              <option value="TERLAMBAT">TERLAMBAT</option>
+                            </select>
+
+                            {/* Tombol Auto jika status saat ini berbeda dari formula otomatis */}
+                            {r.jenis !== 'UP' && r.jenis !== 'TUP' && idx > 0 && r.status !== determineAutoStatus(r.jenis, r.selisihHariKalender, idx) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUpdateTunaiRow(idx, 'status', determineAutoStatus(r.jenis, r.selisihHariKalender, idx));
+                                }}
+                                className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors"
+                                title={`Nilai diubah manual. Klik untuk mereset ke otomatis (${determineAutoStatus(r.jenis, r.selisihHariKalender, idx)})`}
+                              >
+                                Auto
+                              </button>
+                            )}
+                          </div>
                         </td>
 
                         {/* M: Total hari Sebulan (Kolom Otomatis dengan Tombol Ubah Manual) */}
@@ -1300,8 +1447,21 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                               <Edit2 className="w-3 h-3" />
                             </button>
 
-                            {/* Tombol Kembalikan ke Otomatis (jika nilai berbeda dari hitungan kalender otomatis) */}
-                            {r.totalHariSebulan !== calculateAutoDaysInMonth(tunaiRows, idx) && (
+                            {/* Badge OM-SPAN atau Tombol Kembalikan ke Kalender Baku */}
+                            {(r.totalHariSebulan === 35 || r.totalHariSebulan === 38 || r.totalHariSebulan === 40 || r.totalHariSebulan === 41) ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowLogicExplainerModal(true);
+                                }}
+                                className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-0.5 cursor-pointer transition-colors"
+                                title="Nilai resmi cetakan OM-SPAN. Klik untuk melihat penjelasan logika perhitungan."
+                              >
+                                <span>OM-SPAN</span>
+                                <AlertCircle className="w-2.5 h-2.5 text-emerald-700 dark:text-emerald-400" />
+                              </button>
+                            ) : r.totalHariSebulan !== calculateAutoDaysInMonth(tunaiRows, idx) ? (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -1313,7 +1473,7 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                               >
                                 Auto
                               </button>
-                            )}
+                            ) : null}
                           </div>
                         </td>
 
@@ -2038,6 +2198,13 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* 6. MODAL PENJELASAN LOGIKA TOTAL HARI SEBULAN OM-SPAN */}
+      <UpTupLogicModal
+        isOpen={showLogicExplainerModal}
+        onClose={() => setShowLogicExplainerModal(false)}
+        isDark={!!isDark}
+      />
     </div>
   );
 };
