@@ -4,13 +4,17 @@
  */
 export function round2(value: number): number {
   if (isNaN(value) || !isFinite(value)) return 0;
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  return (sign * Math.round((abs + 1e-9) * 100)) / 100;
 }
 
 export function roundDecimals(value: number, decimals: number = 2): number {
   if (isNaN(value) || !isFinite(value)) return 0;
   const factor = Math.pow(10, decimals);
-  return Math.round((value + Number.EPSILON) * factor) / factor;
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  return (sign * Math.round((abs + 1e-9) * factor)) / factor;
 }
 
 /**

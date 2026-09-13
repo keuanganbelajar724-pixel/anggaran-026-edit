@@ -56,12 +56,16 @@ export function calculateIKPA(
   );
 
   // 2. Deviasi Halaman III DIPA (H6) - evaluasi s.d. cutoff bulan
+  const thresholdDeviasiHal3 = Number(
+    project.ambangBatasDeviasiHal3 ?? project.metadata?.ambangBatasDeviasiHal3 ?? 5.0
+  );
   const deviasiHalIII = calculateDeviasiHalIII(
     project.deviasiHalIII,
     appliedWeights.deviasiHalIII,
     active.deviasiHalIII,
     project.calculationMode,
-    cutoff
+    cutoff,
+    thresholdDeviasiHal3
   );
 
   // 3. Penyerapan Anggaran (I6) - evaluasi s.d. cutoff bulan

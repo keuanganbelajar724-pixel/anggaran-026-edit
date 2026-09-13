@@ -147,6 +147,9 @@ export interface DeviasiHal3Row {
   deviasiSeluruhJenisBelanja: number;
   rataRataDeviasiKumulatif: number;
   nilaiIKPA: number;
+  overrideNilaiIKPA?: number | null;
+  isDispensasiNilaiIKPA?: boolean;
+  autoNilaiIKPA?: number;
 }
 
 export interface DeviasiHalIIIInput extends Partial<DeviasiHal3Row> {
@@ -373,6 +376,7 @@ export interface ProjectMetadata {
   namaSatker: string;
   kodeKPPN: string;
   periodeCutoff: number; // 1 .. 12
+  ambangBatasDeviasiHal3?: number; // Ambang batas maksimal (normalnya 5.0%)
 }
 
 export interface SimulationProject {
@@ -383,6 +387,7 @@ export interface SimulationProject {
   updatedAt: string;
   isBaseline?: boolean;
   parentId?: string; // If branched from another scenario
+  ambangBatasDeviasiHal3?: number; // Ambang batas maksimal (normalnya 5.0%)
 
   calculationVersion: string; // "IKPA-2026-EXCEL-COMPATIBLE-v1"
   calculationMode: "excel_compatible" | "validation";

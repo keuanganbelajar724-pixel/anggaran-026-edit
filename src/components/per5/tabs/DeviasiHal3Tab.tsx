@@ -238,6 +238,39 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     }
   };
 
+  // Handler update proporsi pagu per baris (Kolom R, S, T, U)
+  const handleUpdateProporsi = (
+    index: number,
+    field: 'proporsi51' | 'proporsi52' | 'proporsi53' | 'proporsi57',
+    numValue: number
+  ) => {
+    if (index < 0 || index >= rawInputs.length) return;
+    const updated = [...rawInputs];
+    const targetRow = { ...updated[index], [field]: Math.max(0, round2(numValue)) };
+    updated[index] = targetRow;
+
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  const handleProporsiInputChange = (
+    key: string,
+    index: number,
+    field: 'proporsi51' | 'proporsi52' | 'proporsi53' | 'proporsi57',
+    rawText: string
+  ) => {
+    setDraftInputs(prev => ({ ...prev, [key]: rawText }));
+    const clean = rawText.replace(',', '.').trim();
+    if (clean !== '') {
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        handleUpdateProporsi(index, field, num);
+      }
+    }
+  };
+
   // Preset dispensasi cepat untuk Februari dan Maret (0.00% untuk 51, 52, 53)
   const handleApplyDispensasiFebMar = () => {
     const updated = [...rawInputs];
@@ -1840,23 +1873,63 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </td>
 
                       {/* R: % Proporsi 51 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
-                        {r.proporsi51.toFixed(2)}%
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <input
+                            type="text"
+                            value={draftInputs[`p51_${idx}`] !== undefined ? draftInputs[`p51_${idx}`] : r.proporsi51.toFixed(2)}
+                            onChange={e => handleProporsiInputChange(`p51_${idx}`, idx, 'proporsi51', e.target.value)}
+                            onBlur={() => handleInputBlur(`p51_${idx}`)}
+                            className="w-13 text-right px-1 py-0.5 rounded text-xs font-mono font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                            title={`Proporsi Pagu Belanja 51 Periode ${r.periode} (${r.proporsi51.toFixed(2)}%). Dapat disesuaikan bila terjadi perubahan pagu DIPA.`}
+                          />
+                          <span className="text-[10px] text-purple-400 font-bold">%</span>
+                        </div>
                       </td>
 
                       {/* S: % Proporsi 52 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
-                        {r.proporsi52.toFixed(2)}%
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <input
+                            type="text"
+                            value={draftInputs[`p52_${idx}`] !== undefined ? draftInputs[`p52_${idx}`] : r.proporsi52.toFixed(2)}
+                            onChange={e => handleProporsiInputChange(`p52_${idx}`, idx, 'proporsi52', e.target.value)}
+                            onBlur={() => handleInputBlur(`p52_${idx}`)}
+                            className="w-13 text-right px-1 py-0.5 rounded text-xs font-mono font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                            title={`Proporsi Pagu Belanja 52 Periode ${r.periode} (${r.proporsi52.toFixed(2)}%). Dapat disesuaikan bila terjadi perubahan pagu DIPA.`}
+                          />
+                          <span className="text-[10px] text-purple-400 font-bold">%</span>
+                        </div>
                       </td>
 
                       {/* T: % Proporsi 53 */}
-                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
-                        {r.proporsi53.toFixed(2)}%
+                      <td className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <input
+                            type="text"
+                            value={draftInputs[`p53_${idx}`] !== undefined ? draftInputs[`p53_${idx}`] : r.proporsi53.toFixed(2)}
+                            onChange={e => handleProporsiInputChange(`p53_${idx}`, idx, 'proporsi53', e.target.value)}
+                            onBlur={() => handleInputBlur(`p53_${idx}`)}
+                            className="w-13 text-right px-1 py-0.5 rounded text-xs font-mono font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                            title={`Proporsi Pagu Belanja 53 Periode ${r.periode} (${r.proporsi53.toFixed(2)}%). Dapat disesuaikan bila terjadi perubahan pagu DIPA.`}
+                          />
+                          <span className="text-[10px] text-purple-400 font-bold">%</span>
+                        </div>
                       </td>
 
                       {/* U: % Proporsi 57 */}
-                      <td className="px-2 py-1.5 text-right border-r-2 border-purple-400 dark:border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
-                        {r.proporsi57 > 0 ? `${r.proporsi57.toFixed(2)}%` : '0,00%'}
+                      <td className="px-1.5 py-1 text-right border-r-2 border-purple-400 dark:border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
+                        <div className="flex items-center justify-end gap-0.5">
+                          <input
+                            type="text"
+                            value={draftInputs[`p57_${idx}`] !== undefined ? draftInputs[`p57_${idx}`] : (r.proporsi57 > 0 ? r.proporsi57.toFixed(2) : '0.00')}
+                            onChange={e => handleProporsiInputChange(`p57_${idx}`, idx, 'proporsi57', e.target.value)}
+                            onBlur={() => handleInputBlur(`p57_${idx}`)}
+                            className="w-13 text-right px-1 py-0.5 rounded text-xs font-mono font-bold border border-purple-200 dark:border-purple-800 bg-white dark:bg-slate-900 text-purple-950 dark:text-purple-100 focus:outline-none focus:ring-1 focus:ring-purple-500 shadow-2xs"
+                            title={`Proporsi Pagu Belanja 57 Periode ${r.periode} (${r.proporsi57.toFixed(2)}%). Dapat disesuaikan bila terjadi perubahan pagu DIPA.`}
+                          />
+                          <span className="text-[10px] text-purple-400 font-bold">%</span>
+                        </div>
                       </td>
 
                       {/* V: % Deviasi Tertimbang 51 */}
@@ -1885,10 +1958,24 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                                   ? 'border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200'
                                   : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
                               }`}
-                              title={`Deviasi tertimbang 51. Rumus otomatis: ${r.autoDeviasiTertimbang51?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                              title={
+                                r.isDispensasi51
+                                  ? `Dispensasi aktif: ${r.deviasiTertimbang51.toFixed(2)}%. Rumus otomatis: ${r.autoDeviasiTertimbang51?.toFixed(2)}%.`
+                                  : isMaret
+                                  ? 'Khusus Bulan Maret: Deviasi tertimbang Belanja 51 otomatis 0.00% sesuai regulasi S-119/PB.2/2024.'
+                                  : `Deviasi tertimbang 51. Rumus otomatis: ${r.autoDeviasiTertimbang51?.toFixed(2)}%.`
+                              }
                             />
                             <span className="text-[10px] text-slate-400 font-bold">%</span>
                           </div>
+                          {isMaret && !r.isDispensasi51 && (
+                            <span
+                              className="text-[8px] font-mono text-amber-700 dark:text-amber-300 font-bold"
+                              title="Sesuai S-119/PB.2/2024: Deviasi tertimbang Belanja 51 di bulan Maret dinolkan (0%)"
+                            >
+                              S-119 (0%)
+                            </span>
+                          )}
                           {r.isDispensasi51 && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <span
@@ -1939,10 +2026,24 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                                   ? 'border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200'
                                   : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
                               }`}
-                              title={`Deviasi tertimbang 52. Rumus otomatis: ${r.autoDeviasiTertimbang52?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                              title={
+                                r.isDispensasi52
+                                  ? `Dispensasi aktif: ${r.deviasiTertimbang52.toFixed(2)}%. Rumus otomatis: ${r.autoDeviasiTertimbang52?.toFixed(2)}%.`
+                                  : isMaret
+                                  ? 'Khusus Bulan Maret: Deviasi tertimbang Belanja 52 otomatis 0.00% sesuai regulasi S-119/PB.2/2024.'
+                                  : `Deviasi tertimbang 52. Rumus otomatis: ${r.autoDeviasiTertimbang52?.toFixed(2)}%.`
+                              }
                             />
                             <span className="text-[10px] text-slate-400 font-bold">%</span>
                           </div>
+                          {isMaret && !r.isDispensasi52 && (
+                            <span
+                              className="text-[8px] font-mono text-amber-700 dark:text-amber-300 font-bold"
+                              title="Sesuai S-119/PB.2/2024: Deviasi tertimbang Belanja 52 di bulan Maret dinolkan (0%)"
+                            >
+                              S-119 (0%)
+                            </span>
+                          )}
                           {r.isDispensasi52 && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <span

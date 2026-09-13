@@ -5,7 +5,10 @@ import { DeviasiHalIIIInput, DeviasiHal3Row, IndicatorResult, CalculationDetail 
  * Sesuai aturan: Math.round((value + Number.EPSILON) * 100) / 100.
  */
 export function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  if (isNaN(value) || !isFinite(value)) return 0;
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  return (sign * Math.round((abs + 1e-9) * 100)) / 100;
 }
 
 /**
@@ -164,15 +167,23 @@ export function calculateCumulativeDeviation(
 
 /**
  * 12. KOLOM AB — NILAI IKPA
- * Formula Excel: =IF(AA5<=5, 100, (100-AA5))
+ * Regulasi PER-5/PB/2022:
+ * Ambang batas rata-rata deviasi bulanan sebesar 5,0% untuk memperoleh nilai maksimal (100).
+ * Rentang Deviasi:
+ * 1. 0 - 5,0%: Nilai Indikator = 100,0
+ * 2. > 5,0%: Nilai Indikator = 0 - 95,0 (sesuai persentase deviasi: 100 - Deviasi)
+ *
+ * Apabila satker memperoleh dispensasi, ambang batas dapat disesuaikan (misal relaksasi batas deviasi).
+ * Formula Excel: =IF(AA<=threshold, 100, (100-AA))
  * Tidak ada ROUND tambahan pada formula AB.
  */
-export function calculateIkpa(cumulativeDeviation: number): number {
+export function calculateIkpa(cumulativeDeviation: number, threshold: number = 5.0): number {
   const cd = Number(cumulativeDeviation) || 0;
-  if (cd <= 5) {
+  const th = typeof threshold === 'number' && !isNaN(threshold) && threshold >= 0 ? threshold : 5.0;
+  if (cd <= th) {
     return 100;
   }
-  return 100 - cd;
+  return round2(Math.max(0, 100 - cd));
 }
 
 /**
@@ -210,7 +221,8 @@ export function calculateDeviasiHal3(
   inputs: (DeviasiHalIIIInput | DeviasiHal3Row)[],
   weight: number = 15,
   isActive: boolean = true,
-  cutoffMonth: number = 12
+  cutoffMonth: number = 12,
+  thresholdMaxScore: number = 5.0
 ): {
   rows: DeviasiHal3Row[];
   result: IndicatorResult;
@@ -382,7 +394,8 @@ export function calculateDeviasiHal3(
       overrideDeviasiTertimbang51: existing?.overrideDeviasiTertimbang51,
       overrideDeviasiTertimbang52: existing?.overrideDeviasiTertimbang52,
       overrideDeviasiTertimbang53: existing?.overrideDeviasiTertimbang53,
-      overrideDeviasiTertimbang57: existing?.overrideDeviasiTertimbang57
+      overrideDeviasiTertimbang57: existing?.overrideDeviasiTertimbang57,
+      overrideNilaiIKPA: existing?.overrideNilaiIKPA
     };
   });
 
@@ -449,6 +462,7 @@ export function calculateDeviasiHal3(
     overrideDeviasiTertimbang52?: number | null;
     overrideDeviasiTertimbang53?: number | null;
     overrideDeviasiTertimbang57?: number | null;
+    overrideNilaiIKPA?: number | null;
     isDispensasi51?: boolean;
     isDispensasi52?: boolean;
     isDispensasi53?: boolean;
@@ -545,6 +559,7 @@ export function calculateDeviasiHal3(
       overrideDeviasiTertimbang52: r.overrideDeviasiTertimbang52,
       overrideDeviasiTertimbang53: r.overrideDeviasiTertimbang53,
       overrideDeviasiTertimbang57: r.overrideDeviasiTertimbang57,
+      overrideNilaiIKPA: r.overrideNilaiIKPA,
       isDispensasi51,
       isDispensasi52,
       isDispensasi53,
@@ -560,12 +575,18 @@ export function calculateDeviasiHal3(
   // Step 3: Hitung Kolom AA (% Rata-Rata Deviasi Kumulatif) dan AB (Nilai IKPA)
   const finalRows: DeviasiHal3Row[] = intermediateRows.map((row, idx) => {
     const rataRataDeviasiKumulatif = calculateCumulativeDeviation(totalDeviationsList, idx);
-    const nilaiIKPA = calculateIkpa(rataRataDeviasiKumulatif);
+    const autoNilaiIKPA = calculateIkpa(rataRataDeviasiKumulatif, thresholdMaxScore);
+    const hasOverrideIKPA = row.overrideNilaiIKPA !== undefined && row.overrideNilaiIKPA !== null && !isNaN(Number(row.overrideNilaiIKPA));
+    const nilaiIKPA = hasOverrideIKPA ? Math.min(100, Math.max(0, round2(Number(row.overrideNilaiIKPA)))) : autoNilaiIKPA;
+    const isDispensasiNilaiIKPA = hasOverrideIKPA;
 
     return {
       ...row,
       rataRataDeviasiKumulatif,
-      nilaiIKPA
+      nilaiIKPA,
+      autoNilaiIKPA,
+      overrideNilaiIKPA: row.overrideNilaiIKPA,
+      isDispensasiNilaiIKPA
     };
   });
 
@@ -657,9 +678,10 @@ export function calculateDeviasiHalIII(
   weight: number = 15,
   isActive: boolean = true,
   mode: 'excel_compatible' | 'validation' = 'excel_compatible',
-  cutoffMonth: number = 12
+  cutoffMonth: number = 12,
+  thresholdMaxScore: number = 5.0
 ): IndicatorResult {
-  const { result } = calculateDeviasiHal3(inputs, weight, isActive, cutoffMonth);
+  const { result } = calculateDeviasiHal3(inputs, weight, isActive, cutoffMonth, thresholdMaxScore);
   return result;
 }
 
