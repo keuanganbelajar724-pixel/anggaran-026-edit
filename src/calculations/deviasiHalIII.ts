@@ -89,15 +89,17 @@ export function calculateBudgetProportion(
   const p53 = Math.max(0, Number(pagu53) || 0);
   const p57 = Math.max(0, Number(pagu57) || 0);
 
-  const sum5152 = p51 + p52;
-  const proporsi51 = sum5152 > 0 ? round2((p51 / sum5152) * 100) : 0;
-  const proporsi52 = sum5152 > 0 ? round2((p52 / sum5152) * 100) : 0;
-
   const totalAll = p51 + p52 + p53 + p57;
-  const proporsi53 = totalAll > 0 ? round2((p53 / totalAll) * 100) : 0;
-  const proporsi57 = totalAll > 0 ? round2((p57 / totalAll) * 100) : 0;
+  if (totalAll > 0) {
+    return {
+      proporsi51: round2((p51 / totalAll) * 100),
+      proporsi52: round2((p52 / totalAll) * 100),
+      proporsi53: round2((p53 / totalAll) * 100),
+      proporsi57: round2((p57 / totalAll) * 100)
+    };
+  }
 
-  return { proporsi51, proporsi52, proporsi53, proporsi57 };
+  return { proporsi51: 0, proporsi52: 0, proporsi53: 0, proporsi57: 0 };
 }
 
 /**
@@ -228,6 +230,10 @@ export function calculateDeviasiHal3(
   if (!inputs || inputs.length === 0 || uniquePeriods.length === 0 || !hasActualDeviasiHal3Data(inputs)) {
     const emptyRows: DeviasiHal3Row[] = (inputs || []).map(inp => ({
       periode: inp?.periode || '01',
+      pagu51: Number(inp?.pagu51) || 0,
+      pagu52: Number(inp?.pagu52) || 0,
+      pagu53: Number(inp?.pagu53) || 0,
+      pagu57: Number(inp?.pagu57) || 0,
       rencana51: Number(inp?.rencana51) || 0,
       rencana52: Number(inp?.rencana52) || 0,
       rencana53: Number(inp?.rencana53) || 0,
@@ -317,14 +323,38 @@ export function calculateDeviasiHal3(
     let y53 = Number(existing?.penyerapan53 ?? (existing as any)?.realisasi53) || 0;
     let y57 = Number(existing?.penyerapan57 ?? (existing as any)?.realisasi57) || 0;
 
-    // Proporsi
-    let p51 = existing?.proporsi51 ?? existing?.proporsiPagu51 ?? DEFAULT_WORKBOOK_PROPORTIONS[51];
-    let p52 = existing?.proporsi52 ?? existing?.proporsiPagu52 ?? DEFAULT_WORKBOOK_PROPORTIONS[52];
-    let p53 = existing?.proporsi53 ?? existing?.proporsiPagu53 ?? DEFAULT_WORKBOOK_PROPORTIONS[53];
-    let p57 = existing?.proporsi57 ?? existing?.proporsiPagu57 ?? DEFAULT_WORKBOOK_PROPORTIONS[57];
+    // Nominal Pagu
+    let pagu51 = Number(existing?.pagu51) || 0;
+    let pagu52 = Number(existing?.pagu52) || 0;
+    let pagu53 = Number(existing?.pagu53) || 0;
+    let pagu57 = Number(existing?.pagu57) || 0;
+    const totalPagu = pagu51 + pagu52 + pagu53 + pagu57;
+
+    // Proporsi: prioritas 1 dari input proporsi, prioritas 2 dari nominal pagu, prioritas 3 default workbook
+    let p51 = existing?.proporsi51 ?? existing?.proporsiPagu51;
+    let p52 = existing?.proporsi52 ?? existing?.proporsiPagu52;
+    let p53 = existing?.proporsi53 ?? existing?.proporsiPagu53;
+    let p57 = existing?.proporsi57 ?? existing?.proporsiPagu57;
+
+    if ((p51 === undefined || p51 === null) && totalPagu > 0) {
+      const calcProp = calculateBudgetProportion(pagu51, pagu52, pagu53, pagu57);
+      p51 = calcProp.proporsi51;
+      p52 = calcProp.proporsi52;
+      p53 = calcProp.proporsi53;
+      p57 = calcProp.proporsi57;
+    } else {
+      p51 = p51 !== undefined && p51 !== null ? Number(p51) : DEFAULT_WORKBOOK_PROPORTIONS[51];
+      p52 = p52 !== undefined && p52 !== null ? Number(p52) : DEFAULT_WORKBOOK_PROPORTIONS[52];
+      p53 = p53 !== undefined && p53 !== null ? Number(p53) : DEFAULT_WORKBOOK_PROPORTIONS[53];
+      p57 = p57 !== undefined && p57 !== null ? Number(p57) : DEFAULT_WORKBOOK_PROPORTIONS[57];
+    }
 
     return {
       periode,
+      pagu51,
+      pagu52,
+      pagu53,
+      pagu57,
       rencana51: r51,
       rencana52: r52,
       rencana53: r53,
@@ -431,6 +461,10 @@ export function calculateDeviasiHal3(
 
     intermediateRows.push({
       periode: r.periode,
+      pagu51: r.pagu51,
+      pagu52: r.pagu52,
+      pagu53: r.pagu53,
+      pagu57: r.pagu57,
       rencana51: r.rencana51,
       rencana52: r.rencana52,
       rencana53: r.rencana53,

@@ -50,6 +50,8 @@ import {
 } from '../../../calculations/deviasiHalIII';
 import { DEFAULT_EXCEL_DEV_HAL3_ROWS } from '../../../utils/excelReferenceDefaultData';
 import { formatRupiah, formatPercent, formatScore, BULAN_NAMES } from '../../../utils/excelReferenceDataHelper';
+import { DeviasiHal3LogicModal } from './DeviasiHal3LogicModal';
+import { PaguDipaConfigCard, getQuarterForPeriod, getQuarterMonths } from './PaguDipaConfigCard';
 
 interface DeviasiHal3TabProps {
   project: SimulationProject;
@@ -81,6 +83,7 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   const [auditSelectedPeriode, setAuditSelectedPeriode] = useState<string>('01');
   const [auditSelectedBelanja, setAuditSelectedBelanja] = useState<'51' | '52' | '53' | '57'>('51');
   const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+  const [showLogicModal, setShowLogicModal] = useState<boolean>(false);
 
   // Draft input untuk string nominal rupiah agar pengetikan tidak terganggu re-render angka
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({});
@@ -187,14 +190,264 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   const nextMonthNum = existingPeriodNums.length > 0 ? Math.max(...existingPeriodNums) + 1 : 1;
   const nextMonthLabel = nextMonthNum <= 12 ? `Bulan ${String(nextMonthNum).padStart(2, '0')}` : 'Maksimal 12 Bulan';
 
+  // Ambil referensi proporsi & pagu terakhir untuk diwariskan ke baris baru
+  const lastRowRef = rawInputs.length > 0 ? rawInputs[rawInputs.length - 1] : undefined;
+
+  // Dapatkan proporsi dan pagu awal untuk suatu bulan sesuai triwulan (TW I s.d. IV)
+  const getProportionsForNewMonth = (monthPeriod: string) => {
+    const q = getQuarterForPeriod(monthPeriod);
+    const qMonths = getQuarterMonths(q);
+    // 1. Cek apakah di triwulan yang sama sudah ada baris yang diset
+    const inQuarter = rawInputs.find(r => qMonths.includes(r.periode));
+    if (inQuarter) {
+      return {
+        pagu51: inQuarter.pagu51 ?? 0,
+        pagu52: inQuarter.pagu52 ?? 0,
+        pagu53: inQuarter.pagu53 ?? 0,
+        pagu57: inQuarter.pagu57 ?? 0,
+        proporsi51: inQuarter.proporsi51 !== undefined ? inQuarter.proporsi51 : DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: inQuarter.proporsi52 !== undefined ? inQuarter.proporsi52 : DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: inQuarter.proporsi53 !== undefined ? inQuarter.proporsi53 : DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: inQuarter.proporsi57 !== undefined ? inQuarter.proporsi57 : DEFAULT_WORKBOOK_PROPORTIONS[57]
+      };
+    }
+    // 2. Cek apakah ada baris terakhir yang ada
+    if (lastRowRef) {
+      return {
+        pagu51: lastRowRef.pagu51 ?? 0,
+        pagu52: lastRowRef.pagu52 ?? 0,
+        pagu53: lastRowRef.pagu53 ?? 0,
+        pagu57: lastRowRef.pagu57 ?? 0,
+        proporsi51: lastRowRef.proporsi51 !== undefined ? lastRowRef.proporsi51 : DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: lastRowRef.proporsi52 !== undefined ? lastRowRef.proporsi52 : DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: lastRowRef.proporsi53 !== undefined ? lastRowRef.proporsi53 : DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: lastRowRef.proporsi57 !== undefined ? lastRowRef.proporsi57 : DEFAULT_WORKBOOK_PROPORTIONS[57]
+      };
+    }
+    // 3. Fallback default
+    return {
+      pagu51: 0,
+      pagu52: 0,
+      pagu53: 0,
+      pagu57: 0,
+      proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+      proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+      proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+      proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+    };
+  };
+
+  // Terapkan proporsi (dan nominal pagu) khusus untuk triwulan tertentu (Cut-Off TW I s.d. IV)
+  const handleApplyQuarterProportions = (
+    quarter: 1 | 2 | 3 | 4,
+    p51: number,
+    p52: number,
+    p53: number,
+    p57: number,
+    nominals?: { pagu51: number; pagu52: number; pagu53: number; pagu57: number }
+  ) => {
+    const qMonths = getQuarterMonths(quarter);
+
+    // Jika belum ada data sama sekali di tabel, buat baris untuk bulan-bulan di triwulan ini
+    if (rawInputs.length === 0) {
+      const initialRows: DeviasiHalIIIInput[] = qMonths.map(m => ({
+        periode: m,
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        proporsi51: p51,
+        proporsi52: p52,
+        proporsi53: p53,
+        proporsi57: p57,
+        ...(nominals ? {
+          pagu51: nominals.pagu51,
+          pagu52: nominals.pagu52,
+          pagu53: nominals.pagu53,
+          pagu57: nominals.pagu57
+        } : {})
+      }));
+      onUpdateProject({
+        ...project,
+        deviasiHalIII: initialRows
+      });
+      return;
+    }
+
+    const hasAnyInQuarter = rawInputs.some(r => qMonths.includes(r.periode));
+    let updated: DeviasiHalIIIInput[] = [];
+
+    if (!hasAnyInQuarter) {
+      // Jika baris triwulan ini belum ada di tabel, tambahkan baris bulan-bulannya
+      const newQuarterRows: DeviasiHalIIIInput[] = qMonths.map(m => ({
+        periode: m,
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        proporsi51: p51,
+        proporsi52: p52,
+        proporsi53: p53,
+        proporsi57: p57,
+        ...(nominals ? {
+          pagu51: nominals.pagu51,
+          pagu52: nominals.pagu52,
+          pagu53: nominals.pagu53,
+          pagu57: nominals.pagu57
+        } : {})
+      }));
+      updated = [...rawInputs, ...newQuarterRows].sort((a, b) => parseInt(a.periode, 10) - parseInt(b.periode, 10));
+    } else {
+      // Perbarui hanya baris yang berada di dalam triwulan ini
+      updated = rawInputs.map(r => {
+        if (qMonths.includes(r.periode)) {
+          return {
+            ...r,
+            proporsi51: p51,
+            proporsi52: p52,
+            proporsi53: p53,
+            proporsi57: p57,
+            ...(nominals ? {
+              pagu51: nominals.pagu51,
+              pagu52: nominals.pagu52,
+              pagu53: nominals.pagu53,
+              pagu57: nominals.pagu57
+            } : {})
+          };
+        }
+        return r;
+      });
+    }
+
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  // Terapkan proporsi (dan nominal pagu) ke semua baris periode (TW I s.d. IV)
+  const handleApplyProportionsToAll = (
+    p51: number,
+    p52: number,
+    p53: number,
+    p57: number,
+    nominals?: { pagu51: number; pagu52: number; pagu53: number; pagu57: number }
+  ) => {
+    if (rawInputs.length === 0) {
+      const initialRow: DeviasiHalIIIInput = {
+        periode: '01',
+        rencana51: 0,
+        rencana52: 0,
+        rencana53: 0,
+        rencana57: 0,
+        penyerapan51: 0,
+        penyerapan52: 0,
+        penyerapan53: 0,
+        penyerapan57: 0,
+        proporsi51: p51,
+        proporsi52: p52,
+        proporsi53: p53,
+        proporsi57: p57,
+        ...(nominals ? {
+          pagu51: nominals.pagu51,
+          pagu52: nominals.pagu52,
+          pagu53: nominals.pagu53,
+          pagu57: nominals.pagu57
+        } : {})
+      };
+      onUpdateProject({
+        ...project,
+        deviasiHalIII: [initialRow]
+      });
+      return;
+    }
+
+    const updated = rawInputs.map(r => ({
+      ...r,
+      proporsi51: p51,
+      proporsi52: p52,
+      proporsi53: p53,
+      proporsi57: p57,
+      ...(nominals ? {
+        pagu51: nominals.pagu51,
+        pagu52: nominals.pagu52,
+        pagu53: nominals.pagu53,
+        pagu57: nominals.pagu57
+      } : {})
+    }));
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  // Handler preset data satker 247161 dari screenshot OM-SPAN
+  const handleApplyOmSpanPreset247161 = () => {
+    const p51 = 45.75;
+    const p52 = 41.98;
+    const p53 = 12.27;
+    const p57 = 0.0;
+
+    const row01: DeviasiHalIIIInput = {
+      periode: '01',
+      rencana51: 1360767000,
+      rencana52: 524526060,
+      rencana53: 0,
+      rencana57: 0,
+      penyerapan51: 1220727139,
+      penyerapan52: 330040,
+      penyerapan53: 0,
+      penyerapan57: 0,
+      proporsi51: p51,
+      proporsi52: p52,
+      proporsi53: p53,
+      proporsi57: p57
+    };
+
+    let updatedRows: DeviasiHalIIIInput[] = [];
+    if (rawInputs.length <= 1) {
+      updatedRows = [row01];
+    } else {
+      updatedRows = rawInputs.map(r => {
+        if (r.periode === '01') return row01;
+        return {
+          ...r,
+          proporsi51: p51,
+          proporsi52: p52,
+          proporsi53: p53,
+          proporsi57: p57
+        };
+      });
+    }
+
+    setDraftInputs({});
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updatedRows
+    });
+  };
+
   const handleAddMonthRow = () => {
     if (nextMonthNum > 12) {
       alert('Tabel sudah mencapai batas maksimum 12 periode (Desember).');
       return;
     }
     const nextPeriode = String(nextMonthNum).padStart(2, '0');
+    const initProps = getProportionsForNewMonth(nextPeriode);
     const newRow: DeviasiHalIIIInput = {
       periode: nextPeriode,
+      pagu51: initProps.pagu51,
+      pagu52: initProps.pagu52,
+      pagu53: initProps.pagu53,
+      pagu57: initProps.pagu57,
       rencana51: 0,
       rencana52: 0,
       rencana53: 0,
@@ -203,10 +456,10 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       penyerapan52: 0,
       penyerapan53: 0,
       penyerapan57: 0,
-      proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
-      proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
-      proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
-      proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+      proporsi51: initProps.proporsi51,
+      proporsi52: initProps.proporsi52,
+      proporsi53: initProps.proporsi53,
+      proporsi57: initProps.proporsi57
     };
     onUpdateProject({
       ...project,
@@ -221,8 +474,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     const toAdd: DeviasiHalIIIInput[] = [];
     months.forEach(m => {
       if (!existingPeriods.has(m)) {
+        const initProps = getProportionsForNewMonth(m);
         toAdd.push({
           periode: m,
+          pagu51: initProps.pagu51,
+          pagu52: initProps.pagu52,
+          pagu53: initProps.pagu53,
+          pagu57: initProps.pagu57,
           rencana51: 0,
           rencana52: 0,
           rencana53: 0,
@@ -231,10 +489,10 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
           penyerapan52: 0,
           penyerapan53: 0,
           penyerapan57: 0,
-          proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
-          proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
-          proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
-          proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+          proporsi51: initProps.proporsi51,
+          proporsi52: initProps.proporsi52,
+          proporsi53: initProps.proporsi53,
+          proporsi57: initProps.proporsi57
         });
       }
     });
@@ -251,8 +509,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       const p = String(i + 1).padStart(2, '0');
       const existing = rawInputs.find(r => r.periode === p);
       if (existing) return existing;
+      const initProps = getProportionsForNewMonth(p);
       return {
         periode: p,
+        pagu51: initProps.pagu51,
+        pagu52: initProps.pagu52,
+        pagu53: initProps.pagu53,
+        pagu57: initProps.pagu57,
         rencana51: 0,
         rencana52: 0,
         rencana53: 0,
@@ -261,10 +524,10 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         penyerapan52: 0,
         penyerapan53: 0,
         penyerapan57: 0,
-        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
-        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
-        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
-        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+        proporsi51: initProps.proporsi51,
+        proporsi52: initProps.proporsi52,
+        proporsi53: initProps.proporsi53,
+        proporsi57: initProps.proporsi57
       };
     });
     onUpdateProject({
@@ -275,9 +538,14 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
 
   // Mulai hanya 1 Bulan dulu (Bulan 01 - Januari)
   const handleStartMonth1Only = () => {
+    const initProps = getProportionsForNewMonth('01');
     const month1: DeviasiHalIIIInput[] = [
       {
         periode: '01',
+        pagu51: initProps.pagu51,
+        pagu52: initProps.pagu52,
+        pagu53: initProps.pagu53,
+        pagu57: initProps.pagu57,
         rencana51: 0,
         rencana52: 0,
         rencana53: 0,
@@ -286,10 +554,10 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         penyerapan52: 0,
         penyerapan53: 0,
         penyerapan57: 0,
-        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
-        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
-        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
-        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57]
+        proporsi51: initProps.proporsi51,
+        proporsi52: initProps.proporsi52,
+        proporsi53: initProps.proporsi53,
+        proporsi57: initProps.proporsi57
       }
     ];
     setDraftInputs({});
@@ -702,6 +970,18 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         indicatorId="deviasi-hal3"
         isDark={isDark}
         defaultExpanded={true}
+      />
+
+      {/* Pengaturan Pagu DIPA & Bobot Proporsi per Triwulan (Cut-Off TW I s.d. IV) */}
+      <PaguDipaConfigCard
+        project={project}
+        rows={rows}
+        rawInputs={rawInputs as DeviasiHalIIIInput[]}
+        onApplyQuarterProportions={handleApplyQuarterProportions}
+        onApplyProportionsToAll={handleApplyProportionsToAll}
+        onApplyOmSpanPreset247161={handleApplyOmSpanPreset247161}
+        onOpenLogicModal={() => setShowLogicModal(true)}
+        isDark={isDark}
       />
 
       {/* 2. Audit Perhitungan Panel (Collapsible) */}
@@ -1150,7 +1430,17 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                     N:Q — % DEVIASI (CAP 100)
                   </th>
                   <th colSpan={4} className="px-2 py-2 border-r-2 border-purple-900 bg-purple-700 text-white font-bold shadow-xs">
-                    R:U — % PROPORSI PAGU
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>R:U — % PROPORSI PAGU</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowLogicModal(true)}
+                        className="p-0.5 rounded hover:bg-purple-600 text-purple-200 hover:text-white transition-colors cursor-pointer"
+                        title="Klik untuk melihat penjelasan logika & rumus Proporsi Pagu"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </th>
                   <th colSpan={4} className="px-2 py-2 border-r-2 border-amber-900 bg-amber-700 text-white font-bold shadow-xs">
                     V:Y — % DEVIASI TERTIMBANG
@@ -1384,23 +1674,23 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </td>
 
                       {/* R: % Proporsi 51 */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
+                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
                         {r.proporsi51.toFixed(2)}%
                       </td>
 
                       {/* S: % Proporsi 52 */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
+                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
                         {r.proporsi52.toFixed(2)}%
                       </td>
 
                       {/* T: % Proporsi 53 */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
+                      <td className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
                         {r.proporsi53.toFixed(2)}%
                       </td>
 
                       {/* U: % Proporsi 57 */}
-                      <td className="px-2.5 py-1.5 text-right border-r-2 border-purple-400 dark:border-purple-600 bg-purple-50/30 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200 font-bold">
-                        {r.proporsi57 > 0 ? `${r.proporsi57.toFixed(2)}%` : '-'}
+                      <td className="px-2 py-1.5 text-right border-r-2 border-purple-400 dark:border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 text-purple-950 dark:text-purple-100 font-bold text-xs font-mono">
+                        {r.proporsi57 > 0 ? `${r.proporsi57.toFixed(2)}%` : '0,00%'}
                       </td>
 
                       {/* V: % Deviasi Tertimbang 51 */}
@@ -1941,6 +2231,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Modal Penjelasan Logika OM-SPAN Deviasi Hal III & Proporsi Pagu */}
+      <DeviasiHal3LogicModal
+        isOpen={showLogicModal}
+        onClose={() => setShowLogicModal(false)}
+        isDark={isDark}
+      />
     </div>
   );
 };

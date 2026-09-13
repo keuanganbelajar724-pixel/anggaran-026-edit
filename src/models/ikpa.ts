@@ -95,6 +95,11 @@ export interface RevisiDIPAInput {
 export interface DeviasiHal3Row {
   periode: string; // "01" .. "12"
 
+  pagu51?: number;
+  pagu52?: number;
+  pagu53?: number;
+  pagu57?: number;
+
   rencana51: number;
   rencana52: number;
   rencana53: number;
@@ -132,6 +137,10 @@ export interface DeviasiHal3Row {
 
 export interface DeviasiHalIIIInput extends Partial<DeviasiHal3Row> {
   periode: string; // "01" .. "12"
+  pagu51?: number;
+  pagu52?: number;
+  pagu53?: number;
+  pagu57?: number;
   rencana51: number;
   rencana52: number;
   rencana53: number;
