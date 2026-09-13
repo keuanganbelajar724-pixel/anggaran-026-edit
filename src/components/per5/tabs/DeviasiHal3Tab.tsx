@@ -158,16 +158,17 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     });
   };
 
-  // Handler input change dengan parsing angka bersih
+  // Handler input change dengan parsing angka bersih dan format titik instan
   const handleInputChange = (
     key: string,
     index: number,
     field: keyof DeviasiHalIIIInput,
     rawText: string
   ) => {
-    setDraftInputs(prev => ({ ...prev, [key]: rawText }));
     const cleanNumber = rawText.replace(/\D/g, '');
     const val = cleanNumber === '' ? 0 : Number(cleanNumber);
+    const formattedDraft = cleanNumber === '' ? '' : formatRupiah(val);
+    setDraftInputs(prev => ({ ...prev, [key]: formattedDraft }));
     handleUpdateField(index, field, val);
   };
 

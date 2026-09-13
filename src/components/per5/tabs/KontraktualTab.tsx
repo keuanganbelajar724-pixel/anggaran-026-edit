@@ -51,6 +51,7 @@ import {
 import { DEFAULT_EXCEL_KONTRAKTUAL_ROWS } from '../../../utils/excelReferenceDefaultData';
 import { formatRupiah, formatPercent, formatScore } from '../../../utils/excelReferenceDataHelper';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
+import { RupiahInput } from '../common/RupiahInput';
 
 interface KontraktualTabProps {
   project: SimulationProject;
@@ -861,11 +862,10 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
 
                       {/* Kolom G: Nilai Kontrak */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-right">
-                        <input
-                          type="number"
+                        <RupiahInput
                           value={r.nilaiKontrak}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'nilaiKontrak', Math.max(0, Number(e.target.value)))}
-                          className="w-full text-right bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-mono"
+                          onChange={(val) => handleUpdateRow(targetIdx, 'nilaiKontrak', val)}
+                          className="w-full text-right bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-mono text-xs"
                         />
                         {r.isEligible53Range && (
                           <span className="block text-[9px] text-indigo-500 font-sans mt-0.5">
@@ -1212,10 +1212,9 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
 
                     <div>
                       <label className="text-[10px] text-slate-400 block uppercase font-medium">Nilai Kontrak</label>
-                      <input
-                        type="number"
+                      <RupiahInput
                         value={r.nilaiKontrak}
-                        onChange={(e) => handleUpdateRow(targetIdx, 'nilaiKontrak', Math.max(0, Number(e.target.value)))}
+                        onChange={(val) => handleUpdateRow(targetIdx, 'nilaiKontrak', val)}
                         className="w-full mt-0.5 px-2 py-1 text-xs font-mono text-right rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                       />
                     </div>

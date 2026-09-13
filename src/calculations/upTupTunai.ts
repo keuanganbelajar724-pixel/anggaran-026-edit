@@ -47,6 +47,44 @@ export function getCalendarDaysDiff(dateEarlyStr: string, dateLateStr: string): 
 }
 
 /**
+ * Menghitung jumlah hari kalender dalam sebulan (28/29/30/31) dari string tanggal
+ */
+export function getDaysInMonthFromDateString(dateStr: string): number {
+  if (!dateStr) return 30;
+  const d = new Date(dateStr.includes('T') ? dateStr.split('T')[0] : dateStr);
+  if (isNaN(d.getTime())) return 30;
+  // new Date(year, monthIndex + 1, 0) menghasilkan tanggal terakhir dari bulan tersebut
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+
+/**
+ * Menghitung otomatis Total Hari Sebulan (Kolom M) sesuai PER-5/PB/2024:
+ * Jumlah hari kalender pada bulan awal interval (transaksi UP/GUP sebelumnya).
+ * Misal:
+ * - 20 Januari ke 11 Februari -> 31 hari (Januari = 31)
+ * - 11 Februari ke 25 Februari -> 28 hari (Februari 2026 = 28)
+ * - 20 Februari ke 20 Maret -> 28 hari (Februari = 28)
+ * - Transaksi pertama UP -> 0
+ */
+export function calculateAutoDaysInMonth(
+  transactions: UPTUPTunaiInput[],
+  index: number
+): number {
+  const current = transactions[index];
+  if (!current || index === 0 || current.jenis === 'UP' || current.jenis === 'TUP') {
+    return 0;
+  }
+  const prev = getPreviousRelevantTransaction(transactions, index);
+  if (prev && prev.tanggal) {
+    return getDaysInMonthFromDateString(prev.tanggal);
+  }
+  if (current.tanggal) {
+    return getDaysInMonthFromDateString(current.tanggal);
+  }
+  return 30;
+}
+
+/**
  * Menentukan transaksi sebelumnya yang relevan untuk perhitungan selisih hari (Kompatibel Excel):
  * - SETORAN TUP (H25) = G25 - G22 (mengacu ke tanggal transaksi TUP)
  * - GTUP NIHIL (H26) = G26 - G22 (mengacu ke tanggal transaksi TUP)
@@ -202,7 +240,14 @@ export function calculateUPTUPTunai(inputs: UPTUPTunaiInput[]): UPTUPTunaiResult
       item.status === 'TEPAT WAKTU' || item.status === 'TERLAMBAT' ? item.status : '-';
 
     // 5. Total Hari Sebulan (Kolom M)
-    const totalHariSebulan = Number(item.totalHariSebulan || 30);
+    let totalHariSebulan: number;
+    if (typeof item.totalHariSebulan === 'number' && item.totalHariSebulan !== 0) {
+      totalHariSebulan = item.totalHariSebulan;
+    } else if (jenis === 'UP' || jenis === 'TUP' || index === 0) {
+      totalHariSebulan = item.totalHariSebulan ?? 0;
+    } else {
+      totalHariSebulan = calculateAutoDaysInMonth(inputs, index);
+    }
 
     // 6. Persen GUP Disebulankan (Kolom N) & Nilai Persentase GUP Disebulankan (Kolom R)
     let persenGupDisebulankan: number | null = null;

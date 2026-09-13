@@ -19,11 +19,12 @@ import {
   Download,
   Copy,
   Calendar,
-  Info
+  Info,
+  Edit2
 } from 'lucide-react';
 import { SimulationProject, UPTUPTunaiInput, UPTUPKKPInput, IndicatorResult } from '../../../models/ikpa';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
-import { calculateUPTUPTunai, ProcessedUPTunaiRow, getCalendarDaysDiff } from '../../../calculations/upTupTunai';
+import { calculateUPTUPTunai, ProcessedUPTunaiRow, getCalendarDaysDiff, calculateAutoDaysInMonth } from '../../../calculations/upTupTunai';
 import { calculateUPKKP, ProcessedKKPMonthRow, KKP_TARGET_PERCENT } from '../../../calculations/upTupKKP';
 import {
   calculateUPTUPCombinedRaw,
@@ -37,6 +38,7 @@ import { validateUpTup } from '../../../utils/indikatorValidation';
 import { IndikatorValidationBanner } from '../common/IndikatorValidationBanner';
 import { IndikatorCalculateButton } from '../common/IndikatorCalculateButton';
 import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
+import { RupiahInput } from '../common/RupiahInput';
 
 interface UpTupTabProps {
   project: SimulationProject;
@@ -226,6 +228,9 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const [simTupPagu, setSimTupPagu] = useState<number>(500000000);
   const [simTupSetoran, setSimTupSetoran] = useState<number>(50000000);
 
+  // State untuk melacak baris mana yang sedang diedit manual kolom M (Total Hari Sebulan)
+  const [editingDaysRow, setEditingDaysRow] = useState<number | null>(null);
+
   // Handlers for Tunai data updates
   const handleUpdateTunaiRow = (index: number, field: keyof UPTUPTunaiInput, val: any) => {
     const newRows = [...tunaiRows];
@@ -234,7 +239,28 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       processedVal = normalizeDateToIso(val);
     }
     newRows[index] = { ...newRows[index], [field]: processedVal };
+
+    // Jika tanggal atau jenis diubah, perbarui otomatis hari kalender untuk baris ini dan seterusnya jika sebelumnya mengikuti auto
+    if (field === 'tanggal' || field === 'jenis') {
+      for (let i = index; i < newRows.length; i++) {
+        const autoDays = calculateAutoDaysInMonth(newRows, i);
+        // Perbarui jika nilai lama adalah 0 atau 30 default atau sama dengan autoDays sebelumnya
+        newRows[i] = {
+          ...newRows[i],
+          totalHariSebulan: autoDays
+        };
+      }
+    }
+
     onUpdateProject({ ...project, upTUPTunai: newRows });
+  };
+
+  const handleSyncAllDaysInMonth = () => {
+    const updated = tunaiRows.map((r, i) => ({
+      ...r,
+      totalHariSebulan: calculateAutoDaysInMonth(tunaiRows, i)
+    }));
+    onUpdateProject({ ...project, upTUPTunai: updated });
   };
 
   const handleAddTunaiRow = () => {
@@ -262,7 +288,9 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       totalSetoranTUP: 0,
       status: '-'
     };
-    onUpdateProject({ ...project, upTUPTunai: [...tunaiRows, newRow] });
+    const updatedWithNew = [...tunaiRows, newRow];
+    newRow.totalHariSebulan = calculateAutoDaysInMonth(updatedWithNew, updatedWithNew.length - 1);
+    onUpdateProject({ ...project, upTUPTunai: updatedWithNew });
   };
 
   const handleDeleteTunaiRow = (index: number) => {
@@ -800,13 +828,31 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
             isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-300'
           }`}>
             {/* Sheet Title Bar */}
-            <div className="bg-slate-100 dark:bg-slate-800/80 px-4 py-2 border-b border-slate-300 dark:border-slate-700 flex items-center justify-between">
-              <span className="font-bold text-xs text-slate-800 dark:text-slate-200 font-sans tracking-wide">
-                Detail Indikator UP dan TUP Tunai
-              </span>
-              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                {tunaiResult.processedRows.length} Baris Transaksi
-              </span>
+            <div className="bg-slate-100 dark:bg-slate-800/80 px-4 py-2 border-b border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-xs text-slate-800 dark:text-slate-200 font-sans tracking-wide">
+                  Detail Indikator UP dan TUP Tunai
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-sans font-medium flex items-center gap-1 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  Tersimpan Otomatis
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSyncAllDaysInMonth}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-[11px] font-sans font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+                  title="Hitung otomatis Kolom M (Total Hari Sebulan) berdasarkan kalender bulan transaksi sebelumnya (PER-5/PB/2024: Jan=31, Feb=28/29, Mar=31, Apr=30, dst.)"
+                >
+                  <RefreshCw className="w-3 h-3 text-emerald-600" />
+                  <span>Hitung Otomatis Hari Sebulan</span>
+                </button>
+                <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                  {tunaiResult.processedRows.length} Baris Transaksi
+                </span>
+              </div>
             </div>
 
             <div className="overflow-x-auto max-h-[700px] scrollbar-thin">
@@ -869,7 +915,12 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                       Persen
                     </th>
                     <th className="px-3 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">Status</th>
-                    <th className="px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">Total hari Sebulan</th>
+                    <th className="px-2.5 py-2.5 text-center border-r border-slate-300 dark:border-slate-800 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1 cursor-help" title="Jumlah hari kalender pada bulan transaksi sebelumnya (Jan=31, Feb=28/29, Mar=31, Apr=30, dst. sesuai PER-5/PB/2024). Klik tombol 'Ubah' pada baris untuk penyesuaian manual.">
+                        <span>Total hari Sebulan</span>
+                        <Info className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+                      </div>
+                    </th>
                     {/* N (Hijau) */}
                     <th className="px-2.5 py-2.5 text-right border-r border-emerald-300 dark:border-emerald-800 bg-[#e2f0d9] dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 whitespace-nowrap">
                       Persen GUP Disebulankan
@@ -1127,11 +1178,10 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                             activeCell.coord === `I${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
-                          <input
-                            type="number"
+                          <RupiahInput
                             value={r.totalGU}
-                            onChange={e => handleUpdateTunaiRow(idx, 'totalGUP', Number(e.target.value))}
-                            className="w-24 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-medium"
+                            onChange={val => handleUpdateTunaiRow(idx, 'totalGUP', val)}
+                            className="w-28 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-medium"
                           />
                         </td>
 
@@ -1148,11 +1198,10 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                             activeCell.coord === `J${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
-                          <input
-                            type="number"
+                          <RupiahInput
                             value={r.totalOutstandingUP}
-                            onChange={e => handleUpdateTunaiRow(idx, 'totalOutstandingUP', Number(e.target.value))}
-                            className="w-24 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-medium"
+                            onChange={val => handleUpdateTunaiRow(idx, 'totalOutstandingUP', val)}
+                            className="w-28 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-medium"
                           />
                         </td>
 
@@ -1202,7 +1251,7 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                           </select>
                         </td>
 
-                        {/* M: Total hari Sebulan (Kolom Putih) */}
+                        {/* M: Total hari Sebulan (Kolom Otomatis dengan Tombol Ubah Manual) */}
                         <td
                           onClick={() => setActiveCell({
                             coord: `M${excelRowNumber}`,
@@ -1211,16 +1260,61 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                             formula: String(r.totalHariSebulan),
                             isFormula: false
                           })}
-                          className={`px-2.5 py-1.5 text-center border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
+                          className={`px-1.5 py-1 text-center border-r border-slate-300 dark:border-slate-800 cursor-pointer ${
                             activeCell.coord === `M${excelRowNumber}` ? 'ring-2 ring-emerald-500' : ''
                           }`}
                         >
-                          <input
-                            type="number"
-                            value={r.totalHariSebulan}
-                            onChange={e => handleUpdateTunaiRow(idx, 'totalHariSebulan', Number(e.target.value))}
-                            className="w-8 text-center bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px]"
-                          />
+                          <div className="flex items-center justify-center gap-1">
+                            {editingDaysRow === idx ? (
+                              <input
+                                type="number"
+                                autoFocus
+                                value={r.totalHariSebulan}
+                                onChange={e => handleUpdateTunaiRow(idx, 'totalHariSebulan', Number(e.target.value))}
+                                onBlur={() => setEditingDaysRow(null)}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') setEditingDaysRow(null);
+                                }}
+                                className="w-10 text-center bg-white dark:bg-slate-800 border border-emerald-500 rounded px-1 py-0.5 text-[11px] font-bold shadow-xs focus:outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono text-[11px] font-semibold text-slate-800 dark:text-slate-100 min-w-[20px]">
+                                {r.totalHariSebulan}
+                              </span>
+                            )}
+
+                            {/* Tombol Ubah Manual */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingDaysRow(editingDaysRow === idx ? null : idx);
+                              }}
+                              className={`p-1 rounded text-[10px] transition-colors ${
+                                editingDaysRow === idx
+                                  ? 'bg-emerald-500 text-white font-bold'
+                                  : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                              }`}
+                              title={editingDaysRow === idx ? 'Selesai ubah' : 'Ubah jumlah hari sebulan secara manual'}
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+
+                            {/* Tombol Kembalikan ke Otomatis (jika nilai berbeda dari hitungan kalender otomatis) */}
+                            {r.totalHariSebulan !== calculateAutoDaysInMonth(tunaiRows, idx) && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUpdateTunaiRow(idx, 'totalHariSebulan', calculateAutoDaysInMonth(tunaiRows, idx));
+                                }}
+                                className="px-1 py-0.5 rounded text-[9px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors"
+                                title={`Kembalikan ke hitungan kalender otomatis (${calculateAutoDaysInMonth(tunaiRows, idx)} hari)`}
+                              >
+                                Auto
+                              </button>
+                            )}
+                          </div>
                         </td>
 
                         {/* N: Persen GUP Disebulankan (KOLOM HIJAU - Rumus Otomatis) */}
@@ -1269,14 +1363,13 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                           }`}
                         >
                           {r.jenis === 'SETORAN TUP' || r.jenis === 'GTUP NIHIL' ? (
-                            <input
-                              type="number"
+                            <RupiahInput
                               value={r.totalSetoranTUP}
-                              onChange={e => handleUpdateTunaiRow(idx, 'totalSetoranTUP', Number(e.target.value))}
-                              className="w-24 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-bold text-amber-700 dark:text-amber-400"
+                              onChange={val => handleUpdateTunaiRow(idx, 'totalSetoranTUP', val)}
+                              className="w-28 text-right bg-transparent border-none p-0 focus:outline-none focus:ring-0 text-[11px] font-bold text-amber-700 dark:text-amber-400"
                             />
                           ) : (
-                            <span className="text-slate-400">0</span>
+                            <span className="text-slate-400">Rp. 0</span>
                           )}
                         </td>
 
@@ -1521,12 +1614,10 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                           {formatRupiah(m.targetPenggunaanKKP)}
                         </td>
                         <td className="px-4 py-2.5 text-right">
-                          <input
-                            type="number"
+                          <RupiahInput
                             value={m.penggunaanKKP}
-                            onChange={e => handleUpdateKkpUsage(idx, Number(e.target.value))}
-                            className="w-32 text-right rounded-lg border px-2 py-0.5 text-[11px] font-bold dark:bg-slate-800 dark:border-slate-700"
-                            step="500000"
+                            onChange={val => handleUpdateKkpUsage(idx, val)}
+                            className="w-36 text-right rounded-lg border border-slate-300 dark:border-slate-700 px-2 py-0.5 text-[11px] font-bold bg-white dark:bg-slate-800"
                           />
                         </td>
                         <td className="px-3 py-2.5 text-center font-sans">
@@ -1612,12 +1703,10 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
 
               <div>
                 <label className="text-slate-500 dark:text-slate-400 block mb-1">Rencana Penggunaan KKP (Rp):</label>
-                <input
-                  type="number"
+                <RupiahInput
                   value={simKkpUsage}
-                  onChange={e => setSimKkpUsage(Number(e.target.value))}
-                  className="w-full rounded-xl border px-3 py-2 text-xs font-mono font-bold dark:bg-slate-800 dark:border-slate-700 text-right"
-                  step="5000000"
+                  onChange={val => setSimKkpUsage(val)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-mono font-bold bg-white dark:bg-slate-800 text-right"
                 />
               </div>
 
@@ -1683,22 +1772,18 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-slate-500 dark:text-slate-400 block mb-1">Nominal GUP:</label>
-                  <input
-                    type="number"
+                  <RupiahInput
                     value={simGupAmount}
-                    onChange={e => setSimGupAmount(Number(e.target.value))}
-                    className="w-full rounded-xl border px-2 py-1.5 text-xs font-mono text-right dark:bg-slate-800 dark:border-slate-700"
-                    step="5000000"
+                    onChange={val => setSimGupAmount(val)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-xs font-mono text-right bg-white dark:bg-slate-800"
                   />
                 </div>
                 <div>
                   <label className="text-slate-500 dark:text-slate-400 block mb-1">Outstanding UP:</label>
-                  <input
-                    type="number"
+                  <RupiahInput
                     value={simGupOutstanding}
-                    onChange={e => setSimGupOutstanding(Number(e.target.value))}
-                    className="w-full rounded-xl border px-2 py-1.5 text-xs font-mono text-right dark:bg-slate-800 dark:border-slate-700"
-                    step="5000000"
+                    onChange={val => setSimGupOutstanding(val)}
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-xs font-mono text-right bg-white dark:bg-slate-800"
                   />
                 </div>
               </div>
@@ -1739,23 +1824,19 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
             <div className="space-y-3 text-xs">
               <div>
                 <label className="text-slate-500 dark:text-slate-400 block mb-1">Total Pagu TUP (Rp):</label>
-                <input
-                  type="number"
+                <RupiahInput
                   value={simTupPagu}
-                  onChange={e => setSimTupPagu(Number(e.target.value))}
-                  className="w-full rounded-xl border px-3 py-2 text-xs font-mono text-right dark:bg-slate-800 dark:border-slate-700"
-                  step="10000000"
+                  onChange={val => setSimTupPagu(val)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-mono text-right bg-white dark:bg-slate-800"
                 />
               </div>
 
               <div>
                 <label className="text-slate-500 dark:text-slate-400 block mb-1">Rencana Setoran TUP (Sisa TUP):</label>
-                <input
-                  type="number"
+                <RupiahInput
                   value={simTupSetoran}
-                  onChange={e => setSimTupSetoran(Number(e.target.value))}
-                  className="w-full rounded-xl border px-3 py-2 text-xs font-mono text-right dark:bg-slate-800 dark:border-slate-700 text-amber-600 font-bold"
-                  step="5000000"
+                  onChange={val => setSimTupSetoran(val)}
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-700 px-3 py-2 text-xs font-mono text-right bg-white dark:bg-slate-800 text-amber-600 font-bold"
                 />
               </div>
 
