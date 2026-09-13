@@ -218,37 +218,105 @@ export const DeviasiHal3LogicModal: React.FC<DeviasiHal3LogicModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Fitur Baru yang Disediakan */}
-          <div className="space-y-2">
+          {/* 3. Asal Usul Proporsi Pagu: Rencana Triwulan vs Pagu DIPA */}
+          <div className="space-y-3">
             <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
               <Coins className="w-4 h-4 text-amber-600" />
-              3. Fitur Pagu & Proporsi yang Telah Kami Sediakan
+              3. Dari Mana Asal Angka % Proporsi Pagu dan Mengapa per Triwulan?
             </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
-              <div
-                className={`p-3 rounded-xl border ${
-                  isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <div className="font-bold text-slate-900 dark:text-white mb-1">
-                  1. Panel Pengaturan Pagu DIPA (Atas Tabel)
+            <div className="p-4 rounded-xl border bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/50 space-y-2.5 text-slate-700 dark:text-slate-300">
+              <p>
+                Berdasarkan regulasi Indikator Kinerja Pelaksanaan Anggaran (IKPA) dan sistem OM-SPAN, persentase di Kolom R:U adalah <strong>faktor penimbang (weight)</strong> deviasi belanja. Sumber angka ini memiliki 2 pendekatan yang diakomodasi:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-amber-200/80 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-slate-900 dark:text-white text-xs">
+                    Metode A: Proporsi dari Rencana Triwulan (RPD TW)
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Jumlah rencana penarikan dana per jenis belanja (51, 52, 53, 57) pada bulan-bulan dalam triwulan tersebut dijumlahkan, kemudian dibagi dengan total rencana penarikan seluruh belanja di triwulan tersebut.
+                  </p>
+                  <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-900 font-mono text-[10px] text-amber-800 dark:text-amber-300">
+                    % 51 = (∑ Rencana 51 TW ÷ ∑ Total Rencana TW) × 100%
+                  </div>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400">
-                  Anda bisa menginput nominal Pagu (51, 52, 53, 57) atau mengetik langsung persentase proporsi (% 51, 52, 53, 57), lalu klik <strong>"Terapkan ke Semua Bulan"</strong>.
-                </p>
+
+                <div className="p-3 rounded-lg bg-white dark:bg-slate-800 border border-amber-200/80 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-slate-900 dark:text-white text-xs">
+                    Metode B: Komposisi Pagu DIPA Satker
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                    Pagu DIPA per jenis belanja dibagi total pagu DIPA satker pada posisi cut-off triwulan tersebut.
+                  </p>
+                  <div className="p-1.5 rounded bg-slate-50 dark:bg-slate-900 font-mono text-[10px] text-amber-800 dark:text-amber-300">
+                    % 51 = (Pagu 51 DIPA ÷ Total Pagu DIPA) × 100%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Panduan Langkah Demi Langkah Cara Pengisian Tiap Triwulan Agar Tidak Salah */}
+          <div className="space-y-3">
+            <h4 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              4. Panduan Cara Pengisian Tiap Triwulan (TW I s.d. TW IV) Agar Tidak Salah
+            </h4>
+            <div className="space-y-2.5 text-[11px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">I</span>
+                    Triwulan I (Bulan 01, 02, 03)
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    1. Isi Rencana B:E dan Realisasi F:I bulan 01 s.d. 03 di tabel.<br />
+                    2. Di panel atas, klik tab <strong>Triwulan I</strong>.<br />
+                    3. Klik tombol <strong>"Gunakan Proporsi Rencana TW Ini"</strong> (atau input langsung % dari OM-SPAN).<br />
+                    4. Klik <strong>"Terapkan ke Triwulan I"</strong>. Nilai kolom R:U bulan 01 s.d. 03 akan terisi otomatis dan terkunci seragam.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">II</span>
+                    Triwulan II (Bulan 04, 05, 06)
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    1. Jika ada revisi cut-off akhir Triwulan I, sesuaikan rencana bulan 04-06 lalu klik <em>"Gunakan Proporsi Rencana TW Ini"</em>.<br />
+                    2. Jika tidak ada perubahan komposisi rencana, cukup klik <strong>"Salin dari TW 1"</strong>.<br />
+                    3. Klik <strong>"Terapkan ke Triwulan II"</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">III</span>
+                    Triwulan III (Bulan 07, 08, 09)
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    1. Sesuaikan dengan revisi cut-off triwulan II (Juli).<br />
+                    2. Atau klik <strong>"Salin dari TW 2"</strong> bila proporsi tetap.<br />
+                    3. Klik <strong>"Terapkan ke Triwulan III"</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 space-y-1">
+                  <div className="font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 flex items-center justify-center text-[10px] font-black">IV</span>
+                    Triwulan IV (Bulan 10, 11, 12)
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400">
+                    1. Sesuaikan dengan revisi cut-off triwulan III (Oktober).<br />
+                    2. Atau klik <strong>"Salin dari TW 3"</strong> bila proporsi tetap.<br />
+                    3. Klik <strong>"Terapkan ke Triwulan IV"</strong>.
+                  </p>
+                </div>
               </div>
 
-              <div
-                className={`p-3 rounded-xl border ${
-                  isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'
-                }`}
-              >
-                <div className="font-bold text-slate-900 dark:text-white mb-1">
-                  2. Kolom Pagu DIPA di Tabel & Edit Sel R:U
-                </div>
-                <p className="text-slate-500 dark:text-slate-400">
-                  Tersedia tombol toggle <strong>"Tampilkan Kolom Pagu di Tabel"</strong> untuk melihat nominal pagu per bulan, dan sel pada Kolom R:U kini dapat diedit langsung per baris.
-                </p>
+              {/* Catatan Kritis */}
+              <div className="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200">
+                <strong>Catatan Kritis:</strong> Pastikan total proporsi <strong>(51 + 52 + 53 + 57) selalu berjumlah tepat 100,00%</strong>. Nilai kolom R:U dikunci seragam per triwulan melalui panel ini agar data tabel Anda konsisten, rapi, dan tidak terjadi ketidaksinkronan antar baris.
               </div>
             </div>
           </div>

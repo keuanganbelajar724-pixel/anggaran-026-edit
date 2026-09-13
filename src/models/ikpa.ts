@@ -130,6 +130,20 @@ export interface DeviasiHal3Row {
   deviasiTertimbang53: number;
   deviasiTertimbang57: number;
 
+  // Dispensasi & Override Deviasi Tertimbang
+  overrideDeviasiTertimbang51?: number | null;
+  overrideDeviasiTertimbang52?: number | null;
+  overrideDeviasiTertimbang53?: number | null;
+  overrideDeviasiTertimbang57?: number | null;
+  isDispensasi51?: boolean;
+  isDispensasi52?: boolean;
+  isDispensasi53?: boolean;
+  isDispensasi57?: boolean;
+  autoDeviasiTertimbang51?: number;
+  autoDeviasiTertimbang52?: number;
+  autoDeviasiTertimbang53?: number;
+  autoDeviasiTertimbang57?: number;
+
   deviasiSeluruhJenisBelanja: number;
   rataRataDeviasiKumulatif: number;
   nilaiIKPA: number;
@@ -153,6 +167,10 @@ export interface DeviasiHalIIIInput extends Partial<DeviasiHal3Row> {
   proporsiPagu52?: number;
   proporsiPagu53?: number;
   proporsiPagu57?: number;
+  overrideDeviasiTertimbang51?: number | null;
+  overrideDeviasiTertimbang52?: number | null;
+  overrideDeviasiTertimbang53?: number | null;
+  overrideDeviasiTertimbang57?: number | null;
 }
 
 export interface PenyerapanPeriod {

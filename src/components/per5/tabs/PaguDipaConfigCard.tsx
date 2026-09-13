@@ -9,7 +9,10 @@ import {
   Copy,
   Check,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Calculator,
+  BookOpen,
+  Info
 } from 'lucide-react';
 import { SimulationProject, DeviasiHalIIIInput, DeviasiHal3Row } from '../../../models/ikpa';
 import { round2, calculateBudgetProportion, DEFAULT_WORKBOOK_PROPORTIONS } from '../../../calculations/deviasiHalIII';
@@ -85,6 +88,7 @@ export const PaguDipaConfigCard: React.FC<PaguDipaConfigCardProps> = ({
   isDark = false
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [showQuarterGuide, setShowQuarterGuide] = useState<boolean>(false);
   const [selectedQuarter, setSelectedQuarter] = useState<1 | 2 | 3 | 4>(1);
   const [appliedFeedback, setAppliedFeedback] = useState<string | null>(null);
 
@@ -194,6 +198,36 @@ export const PaguDipaConfigCard: React.FC<PaguDipaConfigCardProps> = ({
   const nProp53 = parseFloat(currentQData.prop53.replace(',', '.')) || 0;
   const nProp57 = parseFloat(currentQData.prop57.replace(',', '.')) || 0;
   const totalPercent = round2(nProp51 + nProp52 + nProp53 + nProp57);
+
+  // Perhitungan Akumulasi Rencana Penarikan Dana Triwulanan (Kolom B:E di Tabel)
+  const quarterMonths = getQuarterMonths(selectedQuarter);
+  const rowsInSelectedQuarter = rawInputs.filter(r => quarterMonths.includes(r.periode));
+  const sumRencana51 = rowsInSelectedQuarter.reduce((acc, r) => acc + (r.rencana51 || 0), 0);
+  const sumRencana52 = rowsInSelectedQuarter.reduce((acc, r) => acc + (r.rencana52 || 0), 0);
+  const sumRencana53 = rowsInSelectedQuarter.reduce((acc, r) => acc + (r.rencana53 || 0), 0);
+  const sumRencana57 = rowsInSelectedQuarter.reduce((acc, r) => acc + (r.rencana57 || 0), 0);
+  const totalRencanaSelectedQuarter = sumRencana51 + sumRencana52 + sumRencana53 + sumRencana57;
+
+  // Persentase proporsi jika dihitung dari Rencana Belanja Triwulan ini
+  const planProp51 = totalRencanaSelectedQuarter > 0 ? round2((sumRencana51 / totalRencanaSelectedQuarter) * 100) : 0;
+  const planProp52 = totalRencanaSelectedQuarter > 0 ? round2((sumRencana52 / totalRencanaSelectedQuarter) * 100) : 0;
+  const planProp53 = totalRencanaSelectedQuarter > 0 ? round2((sumRencana53 / totalRencanaSelectedQuarter) * 100) : 0;
+  const planProp57 = totalRencanaSelectedQuarter > 0 ? round2(Math.max(0, 100 - (planProp51 + planProp52 + planProp53))) : 0;
+
+  const handleApplyFromQuarterPlan = () => {
+    if (totalRencanaSelectedQuarter === 0) {
+      alert(`Belum ada data nominal Rencana Belanja (Kolom B:E) yang diisi pada baris ${QUARTER_LABELS[selectedQuarter].monthsLabel}. Silakan lengkapi rencana penarikan dana di tabel terlebih dahulu.`);
+      return;
+    }
+    updateCurrentQuarter({
+      mode: 'percent',
+      prop51: String(planProp51),
+      prop52: String(planProp52),
+      prop53: String(planProp53),
+      prop57: String(planProp57),
+    });
+    triggerFeedback(`Berhasil menghitung proporsi dari total rencana belanja ${QUARTER_LABELS[selectedQuarter].title}: 51=${planProp51}%, 52=${planProp52}%, 53=${planProp53}%, 57=${planProp57}%. Klik 'Terapkan ke ${QUARTER_LABELS[selectedQuarter].title}' untuk memperbarui tabel.`);
+  };
 
   const updateCurrentQuarter = (patch: Partial<QuarterDataState>) => {
     setQuartersData(prev => ({
@@ -349,6 +383,20 @@ export const PaguDipaConfigCard: React.FC<PaguDipaConfigCardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Tombol Panduan Pengisian Tiap Triwulan */}
+          <button
+            onClick={() => setShowQuarterGuide(!showQuarterGuide)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer ${
+              showQuarterGuide
+                ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 ring-2 ring-indigo-500/20'
+                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+            }`}
+            title="Panduan langkah demi langkah cara mengisi proporsi tiap triwulan agar tidak salah"
+          >
+            <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            Panduan Pengisian Tiap TW
+          </button>
+
           {/* Tombol Pentung Edukasi Logika Rumus */}
           <button
             onClick={onOpenLogicModal}
@@ -378,6 +426,110 @@ export const PaguDipaConfigCard: React.FC<PaguDipaConfigCardProps> = ({
             <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center gap-2 animate-fade-in">
               <Check className="w-4 h-4" />
               {appliedFeedback}
+            </div>
+          )}
+
+          {/* Panduan Pengisian Tiap Triwulan */}
+          {showQuarterGuide && (
+            <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/90 via-purple-50/50 to-white dark:from-indigo-950/30 dark:via-purple-950/20 dark:to-slate-900 shadow-sm animate-fade-in space-y-4 text-xs">
+              <div className="flex items-start justify-between gap-3 pb-3 border-b border-indigo-100 dark:border-indigo-800/50">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-xs">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-indigo-950 dark:text-indigo-200">
+                      Panduan Lengkap: Cara Pengisian Proporsi Pagu Tiap Triwulan Agar Tidak Salah
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Memahami asal persentase bobot proporsi dan alur kerja cut-off per triwulan di OM-SPAN
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowQuarterGuide(false)}
+                  className="px-2 py-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-[11px] font-bold cursor-pointer"
+                >
+                  Tutup Panduan ✕
+                </button>
+              </div>
+
+              {/* 3 Kotak Inti Penjelasan */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* 1. Asal Usul Angka */}
+                <div className="p-3.5 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-indigo-100 dark:border-indigo-800/40 space-y-1.5">
+                  <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black">1</span>
+                    Dari Mana Asal Angka % Ini?
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                    Persentase Kolom R:U adalah <strong>Bobot Penimbang (Weight)</strong>. Angka ini berasal dari <strong>Total Rencana Belanja Jenis Tertentu di Triwulan tersebut</strong> dibagi <strong>Total Seluruh Rencana Belanja Triwulan tersebut</strong> (atau komposisi Pagu DIPA).
+                  </p>
+                  <div className="p-1.5 rounded bg-indigo-50/60 dark:bg-indigo-950/40 text-[10px] font-mono text-indigo-900 dark:text-indigo-300 border border-indigo-200/50">
+                    % Proporsi 51 = (Rencana 51 TW ÷ Total Rencana TW) × 100%
+                  </div>
+                </div>
+
+                {/* 2. Mengapa Per Triwulan? */}
+                <div className="p-3.5 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-indigo-100 dark:border-indigo-800/40 space-y-1.5">
+                  <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-[10px] font-black">2</span>
+                    Mengapa Harus per Triwulan?
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                    Sesuai Perdirjen Perbendaharaan, pemutakhiran RPD Halaman III DIPA dilakukan paling lambat hari kerja ke-10 awal triwulan (cut-off). Oleh karena itu, OM-SPAN mengunci proporsi yang <strong>seragam untuk 3 bulan dalam 1 triwulan</strong>, namun bisa berubah di triwulan berikutnya bila ada revisi.
+                  </p>
+                </div>
+
+                {/* 3. Aturan Emas 100% */}
+                <div className="p-3.5 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-indigo-100 dark:border-indigo-800/40 space-y-1.5">
+                  <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-[10px] font-black">3</span>
+                    Aturan Wajib: Total Harus 100%
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
+                    Jumlah total proporsi <strong>(51 + 52 + 53 + 57) wajib tepat 100,00%</strong>. Karena deviasi tertimbang bulanan dihitung dari: <em>% Deviasi × % Proporsi</em>. Jika total proporsi di bawah 100%, nilai IKPA akan terdistorsi (bias).
+                  </p>
+                </div>
+              </div>
+
+              {/* Alur Kerja Pengisian Praktis */}
+              <div className="p-3.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/50 space-y-2">
+                <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5 text-xs">
+                  <Info className="w-4 h-4 text-indigo-600" />
+                  Alur Praktis Pengisian Tiap Triwulan di Aplikasi Ini:
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                  <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                    <div className="font-black text-purple-700 dark:text-purple-300">Langkah 1: TW I (Bln 01-03)</div>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Pilih tab TW I. Isi Rencana B:E di tabel, lalu klik tombol <strong>"Gunakan Proporsi Rencana TW Ini"</strong> atau ketik langsung angka dari OM-SPAN. Klik <strong>"Terapkan ke Triwulan I"</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                    <div className="font-black text-purple-700 dark:text-purple-300">Langkah 2: TW II (Bln 04-06)</div>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Pilih tab TW II. Jika ada revisi cut-off TW II, hitung ulang proporsi rencana TW II. Jika komposisi pagu/rencana tidak berubah, cukup klik <strong>"Salin dari TW 1"</strong> lalu terapkan.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                    <div className="font-black text-purple-700 dark:text-purple-300">Langkah 3: TW III (Bln 07-09)</div>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Pilih tab TW III. Sesuaikan jika ada revisi cut-off TW III (Juli), atau klik <strong>"Salin dari TW 2"</strong> bila komposisi rencana belanja tetap. Klik terapkan ke TW III.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800 space-y-1">
+                    <div className="font-black text-purple-700 dark:text-purple-300">Langkah 4: TW IV (Bln 10-12)</div>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Pilih tab TW IV. Sesuaikan jika ada revisi batas akhir triwulan III (Oktober), atau klik <strong>"Salin dari TW 3"</strong>. Klik terapkan ke TW IV.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -476,6 +628,51 @@ export const PaguDipaConfigCard: React.FC<PaguDipaConfigCardProps> = ({
                   <Coins className="w-3.5 h-3.5 text-amber-600" />
                   Input Nominal Pagu DIPA (Rp)
                 </button>
+              </div>
+            </div>
+
+            {/* Fitur Hitung Otomatis dari Rencana Triwulan (Kolom B:E) */}
+            <div
+              className={`p-3.5 rounded-xl border transition-all ${
+                totalRencanaSelectedQuarter > 0
+                  ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800/50'
+                  : 'bg-slate-100/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${totalRencanaSelectedQuarter > 0 ? 'bg-indigo-500 animate-pulse' : 'bg-slate-400'}`} />
+                    <span className="text-xs font-black text-indigo-950 dark:text-indigo-200">
+                      Rencana Penarikan Dana {QUARTER_LABELS[selectedQuarter].title} ({QUARTER_LABELS[selectedQuarter].monthsLabel}):
+                    </span>
+                  </div>
+                  {totalRencanaSelectedQuarter > 0 ? (
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono">
+                      <span>Total: <strong>Rp {formatRupiah(totalRencanaSelectedQuarter)}</strong></span>
+                      <span className="text-indigo-700 dark:text-indigo-300 font-bold">| 51: {formatRupiah(sumRencana51)} ({planProp51.toFixed(2)}%)</span>
+                      <span className="text-indigo-700 dark:text-indigo-300 font-bold">| 52: {formatRupiah(sumRencana52)} ({planProp52.toFixed(2)}%)</span>
+                      <span className="text-indigo-700 dark:text-indigo-300 font-bold">| 53: {formatRupiah(sumRencana53)} ({planProp53.toFixed(2)}%)</span>
+                      <span className="text-indigo-700 dark:text-indigo-300 font-bold">| 57: {formatRupiah(sumRencana57)} ({planProp57.toFixed(2)}%)</span>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Belum ada nilai rencana belanja di Kolom B:E untuk bulan {QUARTER_LABELS[selectedQuarter].monthsLabel}. Anda bisa menginput rencana belanja di tabel terlebih dahulu atau mengisi langsung persen/nominal di bawah.
+                    </p>
+                  )}
+                </div>
+
+                {totalRencanaSelectedQuarter > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApplyFromQuarterPlan}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 cursor-pointer self-start lg:self-center"
+                    title="Gunakan persentase proporsi yang dihitung dari total rencana belanja triwulan ini"
+                  >
+                    <Calculator className="w-3.5 h-3.5" />
+                    Gunakan Proporsi Rencana TW Ini
+                  </button>
+                )}
               </div>
             </div>
 

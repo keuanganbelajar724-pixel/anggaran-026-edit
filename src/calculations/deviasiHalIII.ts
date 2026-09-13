@@ -258,6 +258,18 @@ export function calculateDeviasiHal3(
       deviasiTertimbang52: 0,
       deviasiTertimbang53: 0,
       deviasiTertimbang57: 0,
+      overrideDeviasiTertimbang51: inp?.overrideDeviasiTertimbang51,
+      overrideDeviasiTertimbang52: inp?.overrideDeviasiTertimbang52,
+      overrideDeviasiTertimbang53: inp?.overrideDeviasiTertimbang53,
+      overrideDeviasiTertimbang57: inp?.overrideDeviasiTertimbang57,
+      isDispensasi51: false,
+      isDispensasi52: false,
+      isDispensasi53: false,
+      isDispensasi57: false,
+      autoDeviasiTertimbang51: 0,
+      autoDeviasiTertimbang52: 0,
+      autoDeviasiTertimbang53: 0,
+      autoDeviasiTertimbang57: 0,
       deviasiSeluruhJenisBelanja: 0,
       rataRataDeviasiKumulatif: 0,
       nilaiIKPA: 0
@@ -366,7 +378,11 @@ export function calculateDeviasiHal3(
       proporsi51: p51,
       proporsi52: p52,
       proporsi53: p53,
-      proporsi57: p57
+      proporsi57: p57,
+      overrideDeviasiTertimbang51: existing?.overrideDeviasiTertimbang51,
+      overrideDeviasiTertimbang52: existing?.overrideDeviasiTertimbang52,
+      overrideDeviasiTertimbang53: existing?.overrideDeviasiTertimbang53,
+      overrideDeviasiTertimbang57: existing?.overrideDeviasiTertimbang57
     };
   });
 
@@ -391,12 +407,20 @@ export function calculateDeviasiHal3(
       dec.proporsi52 = nov.proporsi52;
       dec.proporsi53 = nov.proporsi53;
       dec.proporsi57 = nov.proporsi57;
+      dec.overrideDeviasiTertimbang51 = nov.overrideDeviasiTertimbang51;
+      dec.overrideDeviasiTertimbang52 = nov.overrideDeviasiTertimbang52;
+      dec.overrideDeviasiTertimbang53 = nov.overrideDeviasiTertimbang53;
+      dec.overrideDeviasiTertimbang57 = nov.overrideDeviasiTertimbang57;
     }
   }
 
   // Step 2: Hitung Kolom J s.d. Z untuk setiap baris
   const intermediateRows: Array<{
     periode: string;
+    pagu51?: number;
+    pagu52?: number;
+    pagu53?: number;
+    pagu57?: number;
     rencana51: number;
     rencana52: number;
     rencana53: number;
@@ -421,6 +445,18 @@ export function calculateDeviasiHal3(
     deviasiTertimbang52: number;
     deviasiTertimbang53: number;
     deviasiTertimbang57: number;
+    overrideDeviasiTertimbang51?: number | null;
+    overrideDeviasiTertimbang52?: number | null;
+    overrideDeviasiTertimbang53?: number | null;
+    overrideDeviasiTertimbang57?: number | null;
+    isDispensasi51?: boolean;
+    isDispensasi52?: boolean;
+    isDispensasi53?: boolean;
+    isDispensasi57?: boolean;
+    autoDeviasiTertimbang51?: number;
+    autoDeviasiTertimbang52?: number;
+    autoDeviasiTertimbang53?: number;
+    autoDeviasiTertimbang57?: number;
     deviasiSeluruhJenisBelanja: number;
   }> = [];
 
@@ -442,12 +478,28 @@ export function calculateDeviasiHal3(
     const persenDeviasi53 = calculateDeviationPercent(r.rencana53, r.penyerapan53);
     const persenDeviasi57 = calculateDeviationPercent(r.rencana57, r.penyerapan57);
 
-    // V:Y = % Deviasi Tertimbang
-    // Maret: V7 = 0 dan W7 = 0
-    const deviasiTertimbang51 = calculateWeightedDeviation(persenDeviasi51, r.proporsi51, isMaret);
-    const deviasiTertimbang52 = calculateWeightedDeviation(persenDeviasi52, r.proporsi52, isMaret);
-    const deviasiTertimbang53 = calculateWeightedDeviation(persenDeviasi53, r.proporsi53, false);
-    const deviasiTertimbang57 = calculateWeightedDeviation(persenDeviasi57, r.proporsi57, false);
+    // Formula Otomatis V:Y = % Deviasi Tertimbang
+    // Standar Maret: V7 = 0 dan W7 = 0 (S-119/PB.2/2024)
+    const autoDeviasiTertimbang51 = calculateWeightedDeviation(persenDeviasi51, r.proporsi51, isMaret);
+    const autoDeviasiTertimbang52 = calculateWeightedDeviation(persenDeviasi52, r.proporsi52, isMaret);
+    const autoDeviasiTertimbang53 = calculateWeightedDeviation(persenDeviasi53, r.proporsi53, false);
+    const autoDeviasiTertimbang57 = calculateWeightedDeviation(persenDeviasi57, r.proporsi57, false);
+
+    // Cek apakah ada override/dispensasi manual yang diinputkan pengguna
+    const hasOverride51 = r.overrideDeviasiTertimbang51 !== undefined && r.overrideDeviasiTertimbang51 !== null && !isNaN(Number(r.overrideDeviasiTertimbang51));
+    const hasOverride52 = r.overrideDeviasiTertimbang52 !== undefined && r.overrideDeviasiTertimbang52 !== null && !isNaN(Number(r.overrideDeviasiTertimbang52));
+    const hasOverride53 = r.overrideDeviasiTertimbang53 !== undefined && r.overrideDeviasiTertimbang53 !== null && !isNaN(Number(r.overrideDeviasiTertimbang53));
+    const hasOverride57 = r.overrideDeviasiTertimbang57 !== undefined && r.overrideDeviasiTertimbang57 !== null && !isNaN(Number(r.overrideDeviasiTertimbang57));
+
+    const deviasiTertimbang51 = hasOverride51 ? Math.max(0, round2(Number(r.overrideDeviasiTertimbang51))) : autoDeviasiTertimbang51;
+    const deviasiTertimbang52 = hasOverride52 ? Math.max(0, round2(Number(r.overrideDeviasiTertimbang52))) : autoDeviasiTertimbang52;
+    const deviasiTertimbang53 = hasOverride53 ? Math.max(0, round2(Number(r.overrideDeviasiTertimbang53))) : autoDeviasiTertimbang53;
+    const deviasiTertimbang57 = hasOverride57 ? Math.max(0, round2(Number(r.overrideDeviasiTertimbang57))) : autoDeviasiTertimbang57;
+
+    const isDispensasi51 = hasOverride51;
+    const isDispensasi52 = hasOverride52;
+    const isDispensasi53 = hasOverride53;
+    const isDispensasi57 = hasOverride57;
 
     // Z = % Deviasi Seluruh J.Bel = SUM(V:Y)
     const deviasiSeluruhJenisBelanja = calculateTotalDeviation(
@@ -489,6 +541,18 @@ export function calculateDeviasiHal3(
       deviasiTertimbang52,
       deviasiTertimbang53,
       deviasiTertimbang57,
+      overrideDeviasiTertimbang51: r.overrideDeviasiTertimbang51,
+      overrideDeviasiTertimbang52: r.overrideDeviasiTertimbang52,
+      overrideDeviasiTertimbang53: r.overrideDeviasiTertimbang53,
+      overrideDeviasiTertimbang57: r.overrideDeviasiTertimbang57,
+      isDispensasi51,
+      isDispensasi52,
+      isDispensasi53,
+      isDispensasi57,
+      autoDeviasiTertimbang51,
+      autoDeviasiTertimbang52,
+      autoDeviasiTertimbang53,
+      autoDeviasiTertimbang57,
       deviasiSeluruhJenisBelanja
     });
   }

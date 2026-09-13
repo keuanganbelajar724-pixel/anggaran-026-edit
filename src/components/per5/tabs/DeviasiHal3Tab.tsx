@@ -24,7 +24,8 @@ import {
   Zap,
   Sparkles,
   Plus,
-  Trash2
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import {
   SimulationProject,
@@ -115,6 +116,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   const lastRow = rows[rows.length - 1];
   const finalCumulativeDeviation = lastRow ? lastRow.rataRataDeviasiKumulatif : 0;
 
+  // Hitung total sel yang memperoleh dispensasi manual (override deviasi tertimbang)
+  const totalDispensasiActive = useMemo(() => {
+    return rows.reduce((acc, r) => {
+      return acc + (r.isDispensasi51 ? 1 : 0) + (r.isDispensasi52 ? 1 : 0) + (r.isDispensasi53 ? 1 : 0) + (r.isDispensasi57 ? 1 : 0);
+    }, 0);
+  }, [rows]);
+
   // Handler update field nominal (Rencana / Penyerapan)
   const handleUpdateField = (
     index: number,
@@ -180,6 +188,94 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       const copy = { ...prev };
       delete copy[key];
       return copy;
+    });
+  };
+
+  // Handler update deviasi tertimbang manual (Dispensasi)
+  const handleUpdateDeviasiTertimbang = (
+    index: number,
+    field: 'overrideDeviasiTertimbang51' | 'overrideDeviasiTertimbang52' | 'overrideDeviasiTertimbang53' | 'overrideDeviasiTertimbang57',
+    numValue: number | null
+  ) => {
+    if (index < 0 || index >= rawInputs.length) return;
+    const updated = [...rawInputs];
+    const targetRow = { ...updated[index] };
+    if (numValue === null || isNaN(numValue)) {
+      delete (targetRow as any)[field];
+    } else {
+      (targetRow as any)[field] = Math.max(0, round2(numValue));
+    }
+    updated[index] = targetRow;
+
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  const handleResetDeviasiTertimbang = (
+    index: number,
+    field: 'overrideDeviasiTertimbang51' | 'overrideDeviasiTertimbang52' | 'overrideDeviasiTertimbang53' | 'overrideDeviasiTertimbang57'
+  ) => {
+    handleUpdateDeviasiTertimbang(index, field, null);
+  };
+
+  const handleDeviasiTertimbangInputChange = (
+    key: string,
+    index: number,
+    field: 'overrideDeviasiTertimbang51' | 'overrideDeviasiTertimbang52' | 'overrideDeviasiTertimbang53' | 'overrideDeviasiTertimbang57',
+    rawText: string
+  ) => {
+    setDraftInputs(prev => ({ ...prev, [key]: rawText }));
+    const clean = rawText.replace(',', '.').trim();
+    if (clean === '') {
+      handleUpdateDeviasiTertimbang(index, field, null);
+    } else {
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        handleUpdateDeviasiTertimbang(index, field, num);
+      }
+    }
+  };
+
+  // Preset dispensasi cepat untuk Februari dan Maret (0.00% untuk 51, 52, 53)
+  const handleApplyDispensasiFebMar = () => {
+    const updated = [...rawInputs];
+    let appliedCount = 0;
+    ['02', '03'].forEach(period => {
+      const idx = updated.findIndex(r => r.periode === period);
+      if (idx >= 0) {
+        updated[idx] = {
+          ...updated[idx],
+          overrideDeviasiTertimbang51: 0,
+          overrideDeviasiTertimbang52: 0,
+          overrideDeviasiTertimbang53: 0
+        };
+        appliedCount++;
+      }
+    });
+
+    if (appliedCount > 0) {
+      onUpdateProject({
+        ...project,
+        deviasiHalIII: updated
+      });
+    }
+  };
+
+  // Reset seluruh dispensasi override kembali ke formula standar otomatis
+  const handleResetAllDispensasi = () => {
+    const updated = rawInputs.map(r => {
+      const copy = { ...r };
+      delete (copy as any).overrideDeviasiTertimbang51;
+      delete (copy as any).overrideDeviasiTertimbang52;
+      delete (copy as any).overrideDeviasiTertimbang53;
+      delete (copy as any).overrideDeviasiTertimbang57;
+      return copy;
+    });
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
     });
   };
 
@@ -759,6 +855,9 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     let label = '51 (Belanja Pegawai)';
     let isMaretZeroed = false;
 
+    let isDispensasi = false;
+    let autoTertimbang = 0;
+
     if (auditSelectedBelanja === '51') {
       rencana = auditRow.rencana51;
       penyerapan = auditRow.penyerapan51;
@@ -766,6 +865,8 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       persenDeviasi = auditRow.persenDeviasi51;
       proporsi = auditRow.proporsi51;
       tertimbang = auditRow.deviasiTertimbang51;
+      isDispensasi = !!auditRow.isDispensasi51;
+      autoTertimbang = auditRow.autoDeviasiTertimbang51 ?? 0;
       label = 'Belanja Pegawai (51)';
       isMaretZeroed = isMaret;
     } else if (auditSelectedBelanja === '52') {
@@ -775,6 +876,8 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       persenDeviasi = auditRow.persenDeviasi52;
       proporsi = auditRow.proporsi52;
       tertimbang = auditRow.deviasiTertimbang52;
+      isDispensasi = !!auditRow.isDispensasi52;
+      autoTertimbang = auditRow.autoDeviasiTertimbang52 ?? 0;
       label = 'Belanja Barang (52)';
       isMaretZeroed = isMaret;
     } else if (auditSelectedBelanja === '53') {
@@ -784,6 +887,8 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       persenDeviasi = auditRow.persenDeviasi53;
       proporsi = auditRow.proporsi53;
       tertimbang = auditRow.deviasiTertimbang53;
+      isDispensasi = !!auditRow.isDispensasi53;
+      autoTertimbang = auditRow.autoDeviasiTertimbang53 ?? 0;
       label = 'Belanja Modal (53)';
     } else {
       rencana = auditRow.rencana57;
@@ -792,6 +897,8 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       persenDeviasi = auditRow.persenDeviasi57;
       proporsi = auditRow.proporsi57;
       tertimbang = auditRow.deviasiTertimbang57;
+      isDispensasi = !!auditRow.isDispensasi57;
+      autoTertimbang = auditRow.autoDeviasiTertimbang57 ?? 0;
       label = 'Bantuan Sosial (57)';
     }
 
@@ -803,6 +910,8 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       persenDeviasi,
       proporsi,
       tertimbang,
+      isDispensasi,
+      autoTertimbang,
       isMaretZeroed,
       isMaret
     };
@@ -1099,7 +1208,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                     </span>
                   </div>
                 </div>
-                {auditDataBelanja.isMaretZeroed ? (
+                {auditDataBelanja.isDispensasi ? (
+                  <div className="text-[10px] text-amber-700 dark:text-amber-300 font-bold pt-1 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                    <span>Dispensasi Aktif (Formula Otomatis: {auditDataBelanja.autoTertimbang.toFixed(2)}%)</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-black uppercase">Dispensasi</span>
+                  </div>
+                ) : auditDataBelanja.isMaretZeroed ? (
                   <div className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold pt-1 border-t border-slate-100 dark:border-slate-700">
                     Khusus Maret 0% per S-119/PB.2/2024
                   </div>
@@ -1384,22 +1498,49 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}
         >
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-800/40">
+          <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/40">
             <div>
               <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
                 Matriks Tabel Deviasi Halaman III DIPA Sesuai Struktur Kolom Workbook Excel
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Kolom putih (B s.d. I) merupakan input pengguna. Kolom berwarna (J s.d. AB) dihitung otomatis oleh formula Excel.
+                Kolom putih (B s.d. I) merupakan input nominal. Kolom V:Y (% Deviasi Tertimbang) dapat diedit langsung jika satker memperoleh dispensasi.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-bold">
-                Row 7: Maret V7 & W7 = 0
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {totalDispensasiActive > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500 text-white font-black text-xs shadow-2xs">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{totalDispensasiActive} Dispensasi Aktif</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetAllDispensasi}
+                    className="px-2 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 font-bold text-[11px] transition-colors cursor-pointer"
+                    title="Hapus semua penyesuaian dispensasi dan kembalikan ke perhitungan otomatis"
+                  >
+                    Reset Semua Auto
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleApplyDispensasiFebMar}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200 dark:hover:bg-amber-900 border border-amber-300 dark:border-amber-700 font-bold text-[11px] transition-colors cursor-pointer shadow-2xs"
+                title="Terapkan dispensasi 0.00% untuk Belanja 51, 52, 53 pada Bulan 02 (Februari) dan Bulan 03 (Maret) sekaligus"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Dispensasi Cepat Feb &amp; Mar (0%)</span>
+              </button>
+
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 font-bold font-mono">
+                Maret V7 &amp; W7 = 0
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-bold">
-                Row 16: AA16 = AA15
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 font-bold font-mono">
+                AA16 = AA15
               </span>
             </div>
           </div>
@@ -1443,7 +1584,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                     </div>
                   </th>
                   <th colSpan={4} className="px-2 py-2 border-r-2 border-amber-900 bg-amber-700 text-white font-bold shadow-xs">
-                    V:Y — % DEVIASI TERTIMBANG
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span>V:Y — % DEVIASI TERTIMBANG</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-black tracking-wider uppercase" title="Dapat diedit langsung jika satker memperoleh dispensasi">
+                        Dapat Diedit
+                      </span>
+                    </div>
                   </th>
                   <th className="px-3 py-2 border-r-2 border-orange-900 bg-orange-700 text-white font-black shadow-xs">
                     Z: TOTAL
@@ -1496,10 +1642,30 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                   <th className="px-2 py-2 text-right border-r-2 border-purple-950 bg-purple-800/90 text-purple-100 min-w-[65px]">U: 57%</th>
 
                   {/* V:Y % Deviasi Tertimbang */}
-                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">V: 51</th>
-                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">W: 52</th>
-                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[65px]">X: 53</th>
-                  <th className="px-2 py-2 text-right border-r-2 border-amber-950 bg-amber-800/90 text-amber-100 min-w-[65px]">Y: 57</th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[80px]" title="Kolom V: % Deviasi Tertimbang 51 (Bisa diedit jika ada dispensasi)">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>V: 51</span>
+                      <Edit3 className="w-2.5 h-2.5 text-amber-300" />
+                    </div>
+                  </th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[80px]" title="Kolom W: % Deviasi Tertimbang 52 (Bisa diedit jika ada dispensasi)">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>W: 52</span>
+                      <Edit3 className="w-2.5 h-2.5 text-amber-300" />
+                    </div>
+                  </th>
+                  <th className="px-2 py-2 text-right border-r border-amber-800 bg-amber-800/90 text-amber-100 min-w-[80px]" title="Kolom X: % Deviasi Tertimbang 53 (Bisa diedit jika ada dispensasi)">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>X: 53</span>
+                      <Edit3 className="w-2.5 h-2.5 text-amber-300" />
+                    </div>
+                  </th>
+                  <th className="px-2 py-2 text-right border-r-2 border-amber-950 bg-amber-800/90 text-amber-100 min-w-[80px]" title="Kolom Y: % Deviasi Tertimbang 57 (Bisa diedit jika ada dispensasi)">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Y: 57</span>
+                      <Edit3 className="w-2.5 h-2.5 text-amber-300" />
+                    </div>
+                  </th>
 
                   {/* Z, AA, AB */}
                   <th className="px-2.5 py-2 text-right border-r-2 border-orange-950 bg-orange-800/90 text-orange-100 min-w-[80px]">Z: Total</th>
@@ -1694,23 +1860,211 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </td>
 
                       {/* V: % Deviasi Tertimbang 51 */}
-                      <td className={`px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-800 dark:text-amber-300 font-black bg-amber-200/60 dark:bg-amber-950/50' : 'bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold'}`}>
-                        {r.deviasiTertimbang51.toFixed(2)}%
+                      <td className={`px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 transition-colors ${
+                        r.isDispensasi51
+                          ? 'bg-amber-100/80 dark:bg-amber-950/60'
+                          : isMaret
+                          ? 'bg-amber-200/50 dark:bg-amber-950/40'
+                          : 'bg-amber-50/40 dark:bg-amber-950/20'
+                      }`}>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <input
+                              type="text"
+                              value={
+                                draftInputs[`dt51_${idx}`] !== undefined
+                                  ? draftInputs[`dt51_${idx}`]
+                                  : r.deviasiTertimbang51.toFixed(2)
+                              }
+                              onChange={e => handleDeviasiTertimbangInputChange(`dt51_${idx}`, idx, 'overrideDeviasiTertimbang51', e.target.value)}
+                              onBlur={() => handleInputBlur(`dt51_${idx}`)}
+                              className={`w-14 text-right px-1 py-0.5 rounded text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs transition-all ${
+                                r.isDispensasi51
+                                  ? 'border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 font-black'
+                                  : isMaret
+                                  ? 'border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200'
+                                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                              }`}
+                              title={`Deviasi tertimbang 51. Rumus otomatis: ${r.autoDeviasiTertimbang51?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                            />
+                            <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          </div>
+                          {r.isDispensasi51 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs leading-tight"
+                                title="Nilai ini disesuaikan karena satker mendapat dispensasi"
+                              >
+                                Dispensasi
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetDeviasiTertimbang(idx, 'overrideDeviasiTertimbang51');
+                                }}
+                                className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer shadow-2xs leading-tight"
+                                title={`Dispensasi aktif: ${r.deviasiTertimbang51.toFixed(2)}%. Klik Auto untuk mereset ke formula otomatis (${r.autoDeviasiTertimbang51?.toFixed(2)}%)`}
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* W: % Deviasi Tertimbang 52 */}
-                      <td className={`px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 ${isMaret ? 'text-amber-800 dark:text-amber-300 font-black bg-amber-200/60 dark:bg-amber-950/50' : 'bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold'}`}>
-                        {r.deviasiTertimbang52.toFixed(2)}%
+                      <td className={`px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 transition-colors ${
+                        r.isDispensasi52
+                          ? 'bg-amber-100/80 dark:bg-amber-950/60'
+                          : isMaret
+                          ? 'bg-amber-200/50 dark:bg-amber-950/40'
+                          : 'bg-amber-50/40 dark:bg-amber-950/20'
+                      }`}>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <input
+                              type="text"
+                              value={
+                                draftInputs[`dt52_${idx}`] !== undefined
+                                  ? draftInputs[`dt52_${idx}`]
+                                  : r.deviasiTertimbang52.toFixed(2)
+                              }
+                              onChange={e => handleDeviasiTertimbangInputChange(`dt52_${idx}`, idx, 'overrideDeviasiTertimbang52', e.target.value)}
+                              onBlur={() => handleInputBlur(`dt52_${idx}`)}
+                              className={`w-14 text-right px-1 py-0.5 rounded text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs transition-all ${
+                                r.isDispensasi52
+                                  ? 'border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 font-black'
+                                  : isMaret
+                                  ? 'border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-200'
+                                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                              }`}
+                              title={`Deviasi tertimbang 52. Rumus otomatis: ${r.autoDeviasiTertimbang52?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                            />
+                            <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          </div>
+                          {r.isDispensasi52 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs leading-tight"
+                                title="Nilai ini disesuaikan karena satker mendapat dispensasi"
+                              >
+                                Dispensasi
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetDeviasiTertimbang(idx, 'overrideDeviasiTertimbang52');
+                                }}
+                                className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer shadow-2xs leading-tight"
+                                title={`Dispensasi aktif: ${r.deviasiTertimbang52.toFixed(2)}%. Klik Auto untuk mereset ke formula otomatis (${r.autoDeviasiTertimbang52?.toFixed(2)}%)`}
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* X: % Deviasi Tertimbang 53 */}
-                      <td className="px-2.5 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold">
-                        {r.deviasiTertimbang53.toFixed(2)}%
+                      <td className={`px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 transition-colors ${
+                        r.isDispensasi53
+                          ? 'bg-amber-100/80 dark:bg-amber-950/60'
+                          : 'bg-amber-50/40 dark:bg-amber-950/20'
+                      }`}>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <input
+                              type="text"
+                              value={
+                                draftInputs[`dt53_${idx}`] !== undefined
+                                  ? draftInputs[`dt53_${idx}`]
+                                  : r.deviasiTertimbang53.toFixed(2)
+                              }
+                              onChange={e => handleDeviasiTertimbangInputChange(`dt53_${idx}`, idx, 'overrideDeviasiTertimbang53', e.target.value)}
+                              onBlur={() => handleInputBlur(`dt53_${idx}`)}
+                              className={`w-14 text-right px-1 py-0.5 rounded text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs transition-all ${
+                                r.isDispensasi53
+                                  ? 'border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 font-black'
+                                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                              }`}
+                              title={`Deviasi tertimbang 53. Rumus otomatis: ${r.autoDeviasiTertimbang53?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                            />
+                            <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          </div>
+                          {r.isDispensasi53 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs leading-tight"
+                                title="Nilai ini disesuaikan karena satker mendapat dispensasi"
+                              >
+                                Dispensasi
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetDeviasiTertimbang(idx, 'overrideDeviasiTertimbang53');
+                                }}
+                                className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer shadow-2xs leading-tight"
+                                title={`Dispensasi aktif: ${r.deviasiTertimbang53.toFixed(2)}%. Klik Auto untuk mereset ke formula otomatis (${r.autoDeviasiTertimbang53?.toFixed(2)}%)`}
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Y: % Deviasi Tertimbang 57 */}
-                      <td className="px-2.5 py-1.5 text-right border-r-2 border-amber-400 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 font-bold">
-                        {r.deviasiTertimbang57 > 0 ? `${r.deviasiTertimbang57.toFixed(2)}%` : '0,00%'}
+                      <td className={`px-2 py-1.5 text-right border-r-2 border-amber-400 dark:border-amber-600 transition-colors ${
+                        r.isDispensasi57
+                          ? 'bg-amber-100/80 dark:bg-amber-950/60'
+                          : 'bg-amber-50/40 dark:bg-amber-950/20'
+                      }`}>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <input
+                              type="text"
+                              value={
+                                draftInputs[`dt57_${idx}`] !== undefined
+                                  ? draftInputs[`dt57_${idx}`]
+                                  : (r.deviasiTertimbang57 > 0 ? r.deviasiTertimbang57.toFixed(2) : '0.00')
+                              }
+                              onChange={e => handleDeviasiTertimbangInputChange(`dt57_${idx}`, idx, 'overrideDeviasiTertimbang57', e.target.value)}
+                              onBlur={() => handleInputBlur(`dt57_${idx}`)}
+                              className={`w-14 text-right px-1 py-0.5 rounded text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs transition-all ${
+                                r.isDispensasi57
+                                  ? 'border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 font-black'
+                                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100'
+                              }`}
+                              title={`Deviasi tertimbang 57. Rumus otomatis: ${r.autoDeviasiTertimbang57?.toFixed(2)}%. Diedit manual jika ada dispensasi.`}
+                            />
+                            <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          </div>
+                          {r.isDispensasi57 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs leading-tight"
+                                title="Nilai ini disesuaikan karena satker mendapat dispensasi"
+                              >
+                                Dispensasi
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetDeviasiTertimbang(idx, 'overrideDeviasiTertimbang57');
+                                }}
+                                className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer shadow-2xs leading-tight"
+                                title={`Dispensasi aktif: ${r.deviasiTertimbang57.toFixed(2)}%. Klik Auto untuk mereset ke formula otomatis (${r.autoDeviasiTertimbang57?.toFixed(2)}%)`}
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Z: % Deviasi Seluruh Jenis Belanja */}
@@ -1974,11 +2328,39 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                         <span className="text-slate-500">% Deviasi:</span>
                         <span className="text-blue-600 dark:text-blue-400">{activeRow.persenDeviasi51.toFixed(2)}%</span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500">Tertimbang:</span>
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          {activeRow.deviasiTertimbang51.toFixed(2)}%
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <span>Tertimbang:</span>
+                          {activeRow.isDispensasi51 && (
+                            <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[8px] font-black uppercase">
+                              Dispensasi
+                            </span>
+                          )}
                         </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={
+                              draftInputs[`dt51_${selectedSimpleMonthIdx}`] !== undefined
+                                ? draftInputs[`dt51_${selectedSimpleMonthIdx}`]
+                                : activeRow.deviasiTertimbang51.toFixed(2)
+                            }
+                            onChange={e => handleDeviasiTertimbangInputChange(`dt51_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'overrideDeviasiTertimbang51', e.target.value)}
+                            onBlur={() => handleInputBlur(`dt51_${selectedSimpleMonthIdx}`)}
+                            className="w-14 text-right px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 font-bold text-[11px] text-amber-600 dark:text-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            title="Edit persentase jika ada dispensasi"
+                          />
+                          <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          {activeRow.isDispensasi51 && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetDeviasiTertimbang(selectedSimpleMonthIdx, 'overrideDeviasiTertimbang51')}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 transition-colors"
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2031,11 +2413,39 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                         <span className="text-slate-500">% Deviasi:</span>
                         <span className="text-blue-600 dark:text-blue-400">{activeRow.persenDeviasi52.toFixed(2)}%</span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500">Tertimbang:</span>
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          {activeRow.deviasiTertimbang52.toFixed(2)}%
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <span>Tertimbang:</span>
+                          {activeRow.isDispensasi52 && (
+                            <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[8px] font-black uppercase">
+                              Dispensasi
+                            </span>
+                          )}
                         </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={
+                              draftInputs[`dt52_${selectedSimpleMonthIdx}`] !== undefined
+                                ? draftInputs[`dt52_${selectedSimpleMonthIdx}`]
+                                : activeRow.deviasiTertimbang52.toFixed(2)
+                            }
+                            onChange={e => handleDeviasiTertimbangInputChange(`dt52_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'overrideDeviasiTertimbang52', e.target.value)}
+                            onBlur={() => handleInputBlur(`dt52_${selectedSimpleMonthIdx}`)}
+                            className="w-14 text-right px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 font-bold text-[11px] text-amber-600 dark:text-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            title="Edit persentase jika ada dispensasi"
+                          />
+                          <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          {activeRow.isDispensasi52 && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetDeviasiTertimbang(selectedSimpleMonthIdx, 'overrideDeviasiTertimbang52')}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 transition-colors"
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2088,11 +2498,39 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                         <span className="text-slate-500">% Deviasi:</span>
                         <span className="text-blue-600 dark:text-blue-400">{activeRow.persenDeviasi53.toFixed(2)}%</span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500">Tertimbang:</span>
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          {activeRow.deviasiTertimbang53.toFixed(2)}%
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <span>Tertimbang:</span>
+                          {activeRow.isDispensasi53 && (
+                            <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[8px] font-black uppercase">
+                              Dispensasi
+                            </span>
+                          )}
                         </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={
+                              draftInputs[`dt53_${selectedSimpleMonthIdx}`] !== undefined
+                                ? draftInputs[`dt53_${selectedSimpleMonthIdx}`]
+                                : activeRow.deviasiTertimbang53.toFixed(2)
+                            }
+                            onChange={e => handleDeviasiTertimbangInputChange(`dt53_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'overrideDeviasiTertimbang53', e.target.value)}
+                            onBlur={() => handleInputBlur(`dt53_${selectedSimpleMonthIdx}`)}
+                            className="w-14 text-right px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 font-bold text-[11px] text-amber-600 dark:text-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            title="Edit persentase jika ada dispensasi"
+                          />
+                          <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          {activeRow.isDispensasi53 && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetDeviasiTertimbang(selectedSimpleMonthIdx, 'overrideDeviasiTertimbang53')}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 transition-colors"
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2147,11 +2585,39 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                         <span className="text-slate-500">% Deviasi:</span>
                         <span className="text-blue-600 dark:text-blue-400">{activeRow.persenDeviasi57.toFixed(2)}%</span>
                       </div>
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-500">Tertimbang:</span>
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          {activeRow.deviasiTertimbang57.toFixed(2)}%
+                      <div className="flex items-center justify-between text-[11px] pt-1">
+                        <span className="text-slate-500 flex items-center gap-1">
+                          <span>Tertimbang:</span>
+                          {activeRow.isDispensasi57 && (
+                            <span className="px-1 py-0.2 rounded bg-amber-500 text-white text-[8px] font-black uppercase">
+                              Dispensasi
+                            </span>
+                          )}
                         </span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={
+                              draftInputs[`dt57_${selectedSimpleMonthIdx}`] !== undefined
+                                ? draftInputs[`dt57_${selectedSimpleMonthIdx}`]
+                                : activeRow.deviasiTertimbang57.toFixed(2)
+                            }
+                            onChange={e => handleDeviasiTertimbangInputChange(`dt57_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, 'overrideDeviasiTertimbang57', e.target.value)}
+                            onBlur={() => handleInputBlur(`dt57_${selectedSimpleMonthIdx}`)}
+                            className="w-14 text-right px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 font-bold text-[11px] text-amber-600 dark:text-amber-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            title="Edit persentase jika ada dispensasi"
+                          />
+                          <span className="text-[10px] text-slate-400 font-bold">%</span>
+                          {activeRow.isDispensasi57 && (
+                            <button
+                              type="button"
+                              onClick={() => handleResetDeviasiTertimbang(selectedSimpleMonthIdx, 'overrideDeviasiTertimbang57')}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 transition-colors"
+                            >
+                              Auto
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
