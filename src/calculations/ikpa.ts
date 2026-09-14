@@ -80,7 +80,11 @@ export function calculateIKPA(
   const belanjaKontraktual = calculateBelanjaKontraktual(
     project.belanjaKontraktual,
     appliedWeights.belanjaKontraktual,
-    active.belanjaKontraktual
+    active.belanjaKontraktual,
+    project.overrideNilaiKontraktual,
+    project.isNormalisasiBobotKontraktual !== false,
+    project.keteranganDispensasiKontraktual,
+    project.metodeKalkulasiKontraktual || 'omspan'
   );
 
   // 5. Penyelesaian Tagihan (K6)

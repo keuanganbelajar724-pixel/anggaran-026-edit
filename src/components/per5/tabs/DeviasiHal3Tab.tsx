@@ -53,6 +53,7 @@ import { DEFAULT_EXCEL_DEV_HAL3_ROWS } from '../../../utils/excelReferenceDefaul
 import { formatRupiah, formatPercent, formatScore, BULAN_NAMES } from '../../../utils/excelReferenceDataHelper';
 import { DeviasiHal3LogicModal } from './DeviasiHal3LogicModal';
 import { PaguDipaConfigCard, getQuarterForPeriod, getQuarterMonths } from './PaguDipaConfigCard';
+import { AmbangBatasDeviasiCard } from './AmbangBatasDeviasiCard';
 
 interface DeviasiHal3TabProps {
   project: SimulationProject;
@@ -97,10 +98,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     return [];
   }, [project.deviasiHalIII]);
 
+  // Ambang batas deviasi maksimal (normalnya 5.0% berdasarkan PER-5/PB/2022)
+  const ambangBatas = project.ambangBatasDeviasiHal3 ?? project.metadata?.ambangBatasDeviasiHal3 ?? 5.0;
+
   // 2. Hitung baris secara deterministik dengan calculation engine
   const calculation = useMemo(() => {
-    return calculateDeviasiHal3(rawInputs, 15, true);
-  }, [rawInputs]);
+    return calculateDeviasiHal3(rawInputs, 15, true, 12, ambangBatas);
+  }, [rawInputs, ambangBatas]);
 
   const rows: DeviasiHal3Row[] = calculation.rows;
   const result = calculation.result;
@@ -116,10 +120,17 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
   const lastRow = rows[rows.length - 1];
   const finalCumulativeDeviation = lastRow ? lastRow.rataRataDeviasiKumulatif : 0;
 
-  // Hitung total sel yang memperoleh dispensasi manual (override deviasi tertimbang)
+  // Hitung total sel yang memperoleh dispensasi manual (override deviasi tertimbang / nilai IKPA)
   const totalDispensasiActive = useMemo(() => {
     return rows.reduce((acc, r) => {
-      return acc + (r.isDispensasi51 ? 1 : 0) + (r.isDispensasi52 ? 1 : 0) + (r.isDispensasi53 ? 1 : 0) + (r.isDispensasi57 ? 1 : 0);
+      return (
+        acc +
+        (r.isDispensasi51 ? 1 : 0) +
+        (r.isDispensasi52 ? 1 : 0) +
+        (r.isDispensasi53 ? 1 : 0) +
+        (r.isDispensasi57 ? 1 : 0) +
+        (r.isDispensasiNilaiIKPA ? 1 : 0)
+      );
     }, 0);
   }, [rows]);
 
@@ -238,6 +249,60 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     }
   };
 
+  // Handler update ambang batas deviasi maksimal (normal 5.0% atau relaksasi dispensasi)
+  const handleUpdateThreshold = (newThreshold: number) => {
+    onUpdateProject({
+      ...project,
+      ambangBatasDeviasiHal3: newThreshold,
+      metadata: {
+        ...project.metadata,
+        ambangBatasDeviasiHal3: newThreshold
+      }
+    });
+  };
+
+  // Handler update nilai IKPA manual (Dispensasi Kolom AB)
+  const handleUpdateNilaiIKPA = (
+    index: number,
+    numValue: number | null
+  ) => {
+    if (index < 0 || index >= rawInputs.length) return;
+    const updated = [...rawInputs];
+    const targetRow = { ...updated[index] };
+    if (numValue === null || isNaN(numValue)) {
+      delete (targetRow as any).overrideNilaiIKPA;
+    } else {
+      targetRow.overrideNilaiIKPA = Math.min(100, Math.max(0, round2(numValue)));
+    }
+    updated[index] = targetRow;
+
+    onUpdateProject({
+      ...project,
+      deviasiHalIII: updated
+    });
+  };
+
+  const handleResetNilaiIKPA = (index: number) => {
+    handleUpdateNilaiIKPA(index, null);
+  };
+
+  const handleNilaiIKPAInputChange = (
+    key: string,
+    index: number,
+    rawText: string
+  ) => {
+    setDraftInputs(prev => ({ ...prev, [key]: rawText }));
+    const clean = rawText.replace(',', '.').trim();
+    if (clean === '') {
+      handleUpdateNilaiIKPA(index, null);
+    } else {
+      const num = parseFloat(clean);
+      if (!isNaN(num)) {
+        handleUpdateNilaiIKPA(index, num);
+      }
+    }
+  };
+
   // Handler update proporsi pagu per baris (Kolom R, S, T, U)
   const handleUpdateProporsi = (
     index: number,
@@ -304,10 +369,16 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
       delete (copy as any).overrideDeviasiTertimbang52;
       delete (copy as any).overrideDeviasiTertimbang53;
       delete (copy as any).overrideDeviasiTertimbang57;
+      delete (copy as any).overrideNilaiIKPA;
       return copy;
     });
     onUpdateProject({
       ...project,
+      ambangBatasDeviasiHal3: 5.0,
+      metadata: {
+        ...project.metadata,
+        ambangBatasDeviasiHal3: 5.0
+      },
       deviasiHalIII: updated
     });
   };
@@ -1126,6 +1197,13 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         isDark={isDark}
       />
 
+      {/* Aturan Regulasi PER-5/PB/2022 & Isian Khusus Dispensasi Ambang Batas Nilai Maksimal */}
+      <AmbangBatasDeviasiCard
+        currentThreshold={ambangBatas}
+        onUpdateThreshold={handleUpdateThreshold}
+        isDark={isDark}
+      />
+
       {/* 2. Audit Perhitungan Panel (Collapsible) */}
       {showAuditPanel && (
         <div
@@ -1279,7 +1357,11 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-700 font-mono">
-                  {auditRow?.periode === '12' ? 'AA16 = AA15 (Desember = November)' : '=IF(AA<=5, 100, 100-AA)'}
+                  {auditRow?.isDispensasiNilaiIKPA
+                    ? `Dispensasi Manual: ${auditRow.nilaiIKPA.toFixed(2)} (Otomatis: ${auditRow.autoNilaiIKPA?.toFixed(2)})`
+                    : auditRow?.periode === '12'
+                    ? 'AA16 = AA15 (Desember = November)'
+                    : `=IF(AA<=${ambangBatas.toFixed(1)}, 100, 100-AA)`}
                 </div>
               </div>
             </div>
@@ -1703,7 +1785,12 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                   {/* Z, AA, AB */}
                   <th className="px-2.5 py-2 text-right border-r-2 border-orange-950 bg-orange-800/90 text-orange-100 min-w-[80px]">Z: Total</th>
                   <th className="px-2.5 py-2 text-right border-r-2 border-teal-950 bg-teal-800/90 text-teal-100 min-w-[85px]">AA: Rata Kum</th>
-                  <th className="px-3 py-2 text-right min-w-[95px] font-black bg-emerald-900 text-emerald-100">AB: Nilai IKPA</th>
+                  <th className="px-3 py-2 text-right min-w-[95px] font-black bg-emerald-900 text-emerald-100" title={`Kolom AB: Nilai IKPA =IF(AA<=${ambangBatas.toFixed(1)}, 100, 100-AA). Tersedia isian khusus dispensasi`}>
+                    <div className="flex items-center justify-end gap-1">
+                      <span>AB: Nilai</span>
+                      <Edit3 className="w-2.5 h-2.5 text-emerald-300" />
+                    </div>
+                  </th>
                 </tr>
               </thead>
 
@@ -2179,10 +2266,52 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </td>
 
                       {/* AB: Nilai IKPA */}
-                      <td className="px-3 py-1.5 text-right bg-emerald-100/50 dark:bg-emerald-950/40">
-                        <span className="inline-block px-3 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-xs">
-                          {r.nilaiIKPA.toFixed(2)}
-                        </span>
+                      <td className={`px-2 py-1.5 text-right transition-colors ${
+                        r.isDispensasiNilaiIKPA
+                          ? 'bg-amber-100/80 dark:bg-amber-950/60'
+                          : 'bg-emerald-100/50 dark:bg-emerald-950/40'
+                      }`}>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center justify-end gap-1 w-full">
+                            <input
+                              type="text"
+                              value={
+                                draftInputs[`nikpa_${idx}`] !== undefined
+                                  ? draftInputs[`nikpa_${idx}`]
+                                  : r.nilaiIKPA.toFixed(2)
+                              }
+                              onChange={e => handleNilaiIKPAInputChange(`nikpa_${idx}`, idx, e.target.value)}
+                              onBlur={() => handleInputBlur(`nikpa_${idx}`)}
+                              className={`w-16 text-right px-1 py-0.5 rounded text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs transition-all ${
+                                r.isDispensasiNilaiIKPA
+                                  ? 'border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/60 text-amber-950 dark:text-amber-100 font-black'
+                                  : 'border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 font-black'
+                              }`}
+                              title={`Nilai IKPA Kolom AB. Rumus normal: =IF(AA<=${ambangBatas.toFixed(1)}, 100, 100-AA). Otomatis: ${r.autoNilaiIKPA !== undefined ? r.autoNilaiIKPA.toFixed(2) : r.nilaiIKPA.toFixed(2)}. Diedit manual jika ada dispensasi.`}
+                            />
+                          </div>
+                          {r.isDispensasiNilaiIKPA && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span
+                                className="px-1 py-0.2 rounded text-[7px] font-black bg-amber-500 text-white uppercase tracking-wider shadow-2xs leading-tight"
+                                title="Nilai IKPA disesuaikan manual karena satker mendapat dispensasi"
+                              >
+                                Dispensasi
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResetNilaiIKPA(idx);
+                                }}
+                                className="px-1 py-0.2 rounded text-[8px] font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer shadow-2xs leading-tight"
+                                title={`Dispensasi aktif: ${r.nilaiIKPA.toFixed(2)}. Klik Auto untuk mereset ke formula reguler (${r.autoNilaiIKPA?.toFixed(2)})`}
+                              >
+                                Auto
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
 
                       {/* Aksi: Hapus Baris */}
@@ -2351,12 +2480,47 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
                       </span>
                     </div>
                     <div className="text-right pl-3 border-l border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold block">
-                        Nilai IKPA Bulan (AB)
-                      </span>
-                      <span className="text-xl font-mono font-black text-emerald-600 dark:text-emerald-400">
-                        {activeRow.nilaiIKPA.toFixed(2)}
-                      </span>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span className="text-[10px] text-slate-400 uppercase font-bold block">
+                          Nilai IKPA Bulan (AB)
+                        </span>
+                        {activeRow.isDispensasiNilaiIKPA && (
+                          <span className="px-1.5 py-0.2 rounded text-[8px] font-black bg-amber-500 text-white uppercase tracking-wider">
+                            Dispensasi
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={
+                            draftInputs[`nikpa_simple_${selectedSimpleMonthIdx}`] !== undefined
+                              ? draftInputs[`nikpa_simple_${selectedSimpleMonthIdx}`]
+                              : activeRow.nilaiIKPA.toFixed(2)
+                          }
+                          onChange={e => handleNilaiIKPAInputChange(`nikpa_simple_${selectedSimpleMonthIdx}`, selectedSimpleMonthIdx, e.target.value)}
+                          onBlur={() => handleInputBlur(`nikpa_simple_${selectedSimpleMonthIdx}`)}
+                          className={`w-24 text-right px-2 py-0.5 rounded-lg text-lg font-mono font-black border focus:outline-none focus:ring-2 ${
+                            activeRow.isDispensasiNilaiIKPA
+                              ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/50 text-amber-950 dark:text-amber-100 focus:ring-amber-500'
+                              : 'border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 focus:ring-emerald-500'
+                          }`}
+                          title={`Nilai IKPA Kolom AB. Otomatis: ${activeRow.autoNilaiIKPA !== undefined ? activeRow.autoNilaiIKPA.toFixed(2) : activeRow.nilaiIKPA.toFixed(2)}`}
+                        />
+                        {activeRow.isDispensasiNilaiIKPA && (
+                          <button
+                            type="button"
+                            onClick={() => handleResetNilaiIKPA(selectedSimpleMonthIdx)}
+                            className="px-2 py-1 rounded-lg text-xs font-bold bg-amber-200 hover:bg-amber-300 text-amber-900 dark:bg-amber-900 dark:text-amber-100 dark:hover:bg-amber-800 transition-colors cursor-pointer"
+                            title="Reset Nilai IKPA ke formula otomatis"
+                          >
+                            Auto
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

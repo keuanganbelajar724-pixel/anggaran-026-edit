@@ -263,9 +263,12 @@ export interface BelanjaKontraktualInput {
   quarterKontrak?: "I" | "II" | "III" | "IV";
   semesterKontrak?: "I" | "II";
   isEarlyContract?: boolean; // >= 110
-  nilaiDistribusiAkselerasi?: number;
-  nilaiKontrakDini?: number;
-  nilaiAkselerasi53?: number;
+  nilaiDistribusiAkselerasi?: number | null;
+  nilaiKontrakDini?: number | null;
+  nilaiAkselerasi53?: number | null;
+  overrideNilaiIKPA?: number | null;
+  isDispensasi?: boolean;
+  keteranganDispensasi?: string;
 }
 
 export interface PenyelesaianTagihanRow {
@@ -388,6 +391,10 @@ export interface SimulationProject {
   isBaseline?: boolean;
   parentId?: string; // If branched from another scenario
   ambangBatasDeviasiHal3?: number; // Ambang batas maksimal (normalnya 5.0%)
+  overrideNilaiKontraktual?: number | null; // Dispensasi Nilai IKPA Belanja Kontraktual
+  isNormalisasiBobotKontraktual?: boolean; // Normalisasi bobot jika komponen tanpa objek (Standar My InTress, default true)
+  keteranganDispensasiKontraktual?: string;
+  metodeKalkulasiKontraktual?: 'omspan' | 'excel'; // 'omspan' (Standar Rasio Satker PER-5, default) atau 'excel' (Rata-rata Baris Kolom N)
 
   calculationVersion: string; // "IKPA-2026-EXCEL-COMPATIBLE-v1"
   calculationMode: "excel_compatible" | "validation";

@@ -39,6 +39,7 @@ import {
   calculateQuarter53,
   convertDistribusiRasio,
   getAkselerasi53Score,
+  getKontrakDiniScore,
   calculateBelanjaKontraktualSummary,
   calculateDaysDifference,
   runBelanjaKontraktualGoldenTest,
@@ -52,6 +53,8 @@ import { DEFAULT_EXCEL_KONTRAKTUAL_ROWS } from '../../../utils/excelReferenceDef
 import { formatRupiah, formatPercent, formatScore } from '../../../utils/excelReferenceDataHelper';
 import { normalizeDateToIso } from '../../../utils/ikpaDateUtils';
 import { RupiahInput } from '../common/RupiahInput';
+import { DispensasiKontraktualCard } from './DispensasiKontraktualCard';
+import { OmspanComparisonCard } from './OmspanComparisonCard';
 
 interface KontraktualTabProps {
   project: SimulationProject;
@@ -124,12 +127,75 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
     }
   }, [project.metadata?.kodeSatker, project.metadata?.namaSatker, project.metadata?.kodeKPPN, rawContracts.length]);
 
-  // Hitung hasil kalkulasi deterministik
+  // Hitung hasil kalkulasi deterministik sesuai standar My InTress & PER-5
   const calculation = useMemo(() => {
-    return calculateBelanjaKontraktualSummary(rawContracts, 10, true);
-  }, [rawContracts]);
+    return calculateBelanjaKontraktualSummary(
+      rawContracts,
+      10,
+      true,
+      project.overrideNilaiKontraktual,
+      project.isNormalisasiBobotKontraktual !== false,
+      project.keteranganDispensasiKontraktual,
+      project.metodeKalkulasiKontraktual || 'omspan'
+    );
+  }, [
+    rawContracts,
+    project.overrideNilaiKontraktual,
+    project.isNormalisasiBobotKontraktual,
+    project.keteranganDispensasiKontraktual,
+    project.metodeKalkulasiKontraktual
+  ]);
 
   const { processedRows, summary, indicatorResult } = calculation;
+
+  const handleUpdateDispensasi = (
+    overrideNilai: number | null,
+    isNormalisasi: boolean,
+    keterangan?: string
+  ) => {
+    onUpdateProject({
+      ...project,
+      overrideNilaiKontraktual: overrideNilai,
+      isNormalisasiBobotKontraktual: isNormalisasi,
+      keteranganDispensasiKontraktual: keterangan
+    });
+  };
+
+  const handleSelectMetode = (metode: 'omspan' | 'excel') => {
+    onUpdateProject({
+      ...project,
+      metodeKalkulasiKontraktual: metode
+    });
+  };
+
+  const handleSyncToOmspan = () => {
+    const totalCount = rawContracts.length;
+    const countSmtI = rawContracts.filter(c => {
+      const tgl = normalizeDateToIso(c.tanggalKontrak);
+      const sem = c.semesterKontrak || getSemesterFromDate(tgl);
+      const qtr = c.quarterKontrak || getQuarterFromDate(tgl);
+      return sem === 'I' || qtr === 'I' || qtr === 'II';
+    }).length;
+    const rasio = totalCount > 0 ? (countSmtI / totalCount) * 100 : 0;
+    const skorSatker = convertDistribusiRasio(rasio);
+
+    const updated = rawContracts.map(c => {
+      const tgl = normalizeDateToIso(c.tanggalKontrak);
+      const sem = c.semesterKontrak || getSemesterFromDate(tgl);
+      const qtr = c.quarterKontrak || getQuarterFromDate(tgl);
+      const isSmtI = sem === 'I' || qtr === 'I' || qtr === 'II';
+      return {
+        ...c,
+        nilaiDistribusiAkselerasi: isSmtI ? 100 : skorSatker
+      };
+    });
+
+    onUpdateProject({
+      ...project,
+      belanjaKontraktual: updated,
+      metodeKalkulasiKontraktual: 'omspan'
+    });
+  };
 
   // Validasi otomatis data Belanja Kontraktual
   const validationIssues = useMemo(() => {
@@ -152,6 +218,8 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
   // Update a specific contract row
   const handleUpdateRow = (rowIndex: number, field: keyof BelanjaKontraktualInput, val: any) => {
     const newItems = [...rawContracts];
+    if (rowIndex < 0 || rowIndex >= newItems.length) return;
+
     const isDateField = field === 'tanggalKontrak' || field === 'tanggalMasuk' || field === 'tanggalPenyelesaian';
     const processedVal = isDateField ? normalizeDateToIso(val) : val;
 
@@ -163,6 +231,28 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       const qtr = getQuarterFromDate(processedVal);
       currentItem.semesterKontrak = sem || 'I';
       currentItem.quarterKontrak = qtr || 'I';
+      // Parameter otomatis: hanya tanggal kontrak sebelum tahun berjalan (Pra-DIPA, < 1 Jan)
+      // Jika di tahun berjalan, defaultnya null (bukan objek dini), kecuali diubah secara manual di tabel
+      const autoScore = getKontrakDiniScore(processedVal);
+      currentItem.nilaiKontrakDini = autoScore;
+      currentItem.isEarlyContract = autoScore !== null && autoScore >= 110;
+    }
+
+    if (field === 'nilaiKontrak') {
+      const is50jt = Number(processedVal) >= 50_000_000;
+      if (!is50jt) {
+        currentItem.nilaiKontrakDini = null;
+        currentItem.isEarlyContract = false;
+      }
+    }
+
+    // Jika pengguna mengubah Kolom O (Nilai Kontrak Dini) secara langsung:
+    if (field === 'nilaiKontrakDini') {
+      const parsed = (processedVal === '' || processedVal === null || processedVal === undefined || Number(processedVal) === 0)
+        ? null
+        : Number(processedVal);
+      currentItem.nilaiKontrakDini = parsed;
+      currentItem.isEarlyContract = parsed !== null && parsed >= 110;
     }
 
     newItems[rowIndex] = currentItem;
@@ -190,9 +280,9 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       tanggalMasuk: '',
       tanggalPenyelesaian: '',
       isEarlyContract: false,
-      nilaiDistribusiAkselerasi: 0,
-      nilaiKontrakDini: 0,
-      nilaiAkselerasi53: 0
+      nilaiDistribusiAkselerasi: undefined,
+      nilaiKontrakDini: null as any,
+      nilaiAkselerasi53: null as any
     };
     onUpdateProject({ ...project, belanjaKontraktual: [...rawContracts, newRow] });
   };
@@ -386,9 +476,12 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
               Kalkulator Indikator Belanja Kontraktual
             </h3>
             <p className={`text-xs max-w-3xl leading-relaxed ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-              Perhitungan deterministik 100% identik workbook Excel referensi. Formula Excel:
+              Perhitungan deterministik sesuai regulasi PER-5 & standar OM-SPAN / My InTress. Formula:
               <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 ml-1">
                 = (20% × Distribusi Akselerasi) + (40% × Kontrak Dini) + (40% × Akselerasi Belanja Modal 53)
+              </span>
+              <span className="text-emerald-600 dark:text-emerald-400 ml-1 font-semibold">
+                (dengan Normalisasi Bobot OM-SPAN bila komponen nihil objek)
               </span>.
             </p>
           </div>
@@ -469,6 +562,25 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
         defaultExpanded={true}
       />
 
+      {/* Kartu Evaluasi & Sinkronisasi Standar OM-SPAN / My InTress vs Excel */}
+      <OmspanComparisonCard
+        summary={summary}
+        activeMetode={project.metodeKalkulasiKontraktual || 'omspan'}
+        onSelectMetode={handleSelectMetode}
+        onSyncToOmspan={handleSyncToOmspan}
+        isDark={isDark}
+      />
+
+      {/* Kartu Evaluasi My InTress & Pengaturan Dispensasi Belanja Kontraktual */}
+      <DispensasiKontraktualCard
+        summary={summary}
+        isNormalisasi={project.isNormalisasiBobotKontraktual !== false}
+        overrideNilai={project.overrideNilaiKontraktual}
+        keteranganDispensasi={project.keteranganDispensasiKontraktual}
+        onUpdateDispensasi={handleUpdateDispensasi}
+        isDark={isDark}
+      />
+
       {/* 2. Three Component Breakdown Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Komponen 1: Distribusi Akselerasi (Bobot 20%) */}
@@ -479,19 +591,27 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
               Komponen 1 (Bobot 20%)
             </span>
-            <span className="font-mono text-xs text-slate-400">Sel N29</span>
+            <span className="font-mono text-xs text-slate-400">
+              {summary.metodeKalkulasi === 'omspan' ? 'PER-5 Rasio Satker' : 'Sel N29'}
+            </span>
           </div>
           <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 mt-2">
             Distribusi Akselerasi Kontrak
           </h4>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-            Mendorong pendaftaran kontrak di Semester I (TW I & II). Ketepatan pendaftaran &lt; 5 hari kerja.
+            {summary.metodeKalkulasi === 'omspan'
+              ? `Standar OM-SPAN: Berdasarkan rasio pendaftaran kontrak s.d. Semester I (${summary.countKontrakSmtI}/${summary.rowCount} kontrak = ${formatPercent(summary.rasioKontrakSmtI)}).`
+              : 'Simulasi Excel: Berdasarkan rata-rata nilai baris Kolom N.'}
           </p>
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <div>
-              <span className="text-[10px] text-slate-400 block">Rata-rata Sem I (N27)</span>
+              <span className="text-[10px] text-slate-400 block">
+                {summary.metodeKalkulasi === 'omspan' ? 'Rasio Smt I → Skor' : 'Rata-rata Sem I (N27)'}
+              </span>
               <span className="font-mono font-bold text-sm text-slate-700 dark:text-slate-300">
-                {formatScore(summary.avgDistribusiRaw)}% → Konversi {summary.nilaiDistribusiConverted}
+                {summary.metodeKalkulasi === 'omspan'
+                  ? `${formatPercent(summary.rasioKontrakSmtI)} → ${summary.skorDistribusiOmspan}`
+                  : `${formatScore(summary.avgDistribusiRaw)} → ${summary.nilaiDistribusiConverted}`}
               </span>
             </div>
             <div className="text-right">
@@ -770,7 +890,10 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                     Nilai Distribusi
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-sky-100/50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-300">
-                    Nilai Dini
+                    <div className="flex flex-col items-center">
+                      <span>Nilai Dini</span>
+                      <span className="text-[9px] font-normal text-sky-600 dark:text-sky-400">(&lt; 1 Jan / Manual)</span>
+                    </div>
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-indigo-100/50 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300">
                     Nilai Aksel 53
@@ -890,17 +1013,8 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                           type="date"
                           value={r.tanggalMasuk}
                           onChange={(e) => handleUpdateRow(targetIdx, 'tanggalMasuk', e.target.value)}
-                          className={`w-28 bg-transparent px-1 py-0.5 rounded border text-[11px] ${
-                            r.isPendaftaranTerlambat
-                              ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400'
-                              : 'border-transparent hover:border-slate-300 dark:hover:border-slate-600'
-                          } focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500`}
+                          className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 text-[11px]"
                         />
-                        {r.isPendaftaranTerlambat && (
-                          <span className="block text-[9px] text-amber-600 font-sans mt-0.5">
-                            &gt;5 hari ({r.selisihHariPendaftaran} hr)
-                          </span>
-                        )}
                       </td>
 
                       {/* Kolom J: Tanggal Penyelesaian */}
@@ -936,29 +1050,70 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                           onChange={(e) => handleUpdateRow(targetIdx, 'nilaiDistribusiAkselerasi', Number(e.target.value))}
                           className="w-16 text-center bg-transparent py-0.5 rounded font-bold text-emerald-600 dark:text-emerald-400 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
                         />
+                        {r.nilaiKontrak < 50_000_000 ? (
+                          <span className="block text-[9px] text-slate-400 font-sans">
+                            &lt; Rp50jt (N/A)
+                          </span>
+                        ) : r.semesterKontrak === 'I' || r.triwulanKontrak === 'I' || r.triwulanKontrak === 'II' ? (
+                          <span className="block text-[9px] text-emerald-600 dark:text-emerald-400 font-medium font-sans">
+                            Sem I (100)
+                          </span>
+                        ) : (
+                          <span className="block text-[9px] text-amber-600 dark:text-amber-400 font-medium font-sans">
+                            Sem II (Skor {summary.skorDistribusiOmspan})
+                          </span>
+                        )}
                       </td>
 
-                      {/* Kolom O: Nilai Kontrak Dini (Input/Override Sensitif) */}
+                      {/* Kolom O: Nilai Kontrak Dini (Pra-DIPA Otomatis / Fleksibel Manual) */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-sky-50/30 dark:bg-sky-950/10">
                         <select
-                          value={r.nilaiKontrakDini}
+                          value={r.nilaiKontrakDini === null || r.nilaiKontrakDini === undefined ? '' : r.nilaiKontrakDini}
                           onChange={(e) => {
-                            const val = Number(e.target.value);
+                            const val = e.target.value === '' ? null : Number(e.target.value);
                             handleUpdateRow(targetIdx, 'nilaiKontrakDini', val);
-                            handleUpdateRow(targetIdx, 'isEarlyContract', val >= 110);
                           }}
                           className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sky-700 dark:text-sky-300"
                         >
-                          <option value="120">120 (Pra-DIPA)</option>
-                          <option value="110">110 (Dini TW I)</option>
+                          <option value="">- (Bukan Objek Dini)</option>
+                          <option value="120">120 (Pra-DIPA &lt; 1 Jan)</option>
+                          <option value="110">110 (Dini TW I - My InTress)</option>
                           <option value="100">100 (Standar)</option>
-                          <option value="0">0 (Terlambat)</option>
                         </select>
+                        {r.nilaiKontrakDini === 120 && (
+                          <span className="block text-[9px] text-sky-600 dark:text-sky-400 font-medium font-sans">
+                            Pra-DIPA (&lt; 1 Jan)
+                          </span>
+                        )}
+                        {r.nilaiKontrakDini === 110 && (
+                          <span className="block text-[9px] text-sky-600 dark:text-sky-400 font-medium font-sans">
+                            Dini TW I (My InTress)
+                          </span>
+                        )}
+                        {r.nilaiKontrakDini === 100 && (
+                          <span className="block text-[9px] text-slate-500 font-medium font-sans">
+                            Standar (100)
+                          </span>
+                        )}
                       </td>
 
-                      {/* Kolom P: Nilai Akselerasi 53 (Otomatis) */}
-                      <td className="py-2 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-indigo-50/30 dark:bg-indigo-950/10 font-bold text-indigo-700 dark:text-indigo-300">
-                        {r.nilaiAkselerasi53}
+                      {/* Kolom P: Nilai Akselerasi 53 (Otomatis / Sesuai My InTress) */}
+                      <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-indigo-50/30 dark:bg-indigo-950/10 font-bold text-indigo-700 dark:text-indigo-300">
+                        <select
+                          value={r.nilaiAkselerasi53 === null || r.nilaiAkselerasi53 === undefined ? '' : r.nilaiAkselerasi53}
+                          onChange={(e) => {
+                            const val = e.target.value === '' ? null : Number(e.target.value);
+                            handleUpdateRow(targetIdx, 'nilaiAkselerasi53', val);
+                          }}
+                          className="px-1.5 py-0.5 rounded text-[11px] font-bold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-300"
+                        >
+                          <option value="">- (Bukan 53 50-200jt)</option>
+                          <option value="100">100 (Selesai TW I)</option>
+                          <option value="90">90 (Selesai TW II)</option>
+                          <option value="80">80 (Selesai TW III)</option>
+                          <option value="70">70 (Selesai TW IV)</option>
+                          <option value="0">0 (Lainnya)</option>
+                        </select>
                       </td>
 
                       {/* Kolom Aksi */}
@@ -1021,7 +1176,7 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
               </tbody>
 
               {/* ==================================================
-                  BAGIAN REKAPITULASI SESUAI EXCEL (BARIS 27 - 30)
+                  BAGIAN REKAPITULASI SESUAI EXCEL & MY INTRESS (BARIS 27 - 30)
                   ================================================== */}
               <tfoot className="border-t-2 border-slate-400 dark:border-slate-600 font-mono text-[11px] font-bold">
                 {/* Baris 27: RATA-RATA (=AVERAGE(N6:N26)) */}
@@ -1034,10 +1189,10 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                     {formatScore(summary.avgDistribusiRaw)}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border-r border-slate-200 dark:border-slate-700">
-                    {formatScore(summary.avgKontrakDini)}
+                    {summary.avgKontrakDini !== null ? formatScore(summary.avgKontrakDini) : '-'}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-r border-slate-200 dark:border-slate-700">
-                    {formatScore(summary.avgAkselerasi53)}
+                    {summary.avgAkselerasi53 !== null ? formatScore(summary.avgAkselerasi53) : '-'}
                   </td>
                   <td className="py-2 px-2 text-center text-slate-400">-</td>
                 </tr>
@@ -1046,48 +1201,74 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
                   <td className="py-2 px-2 text-center font-bold text-slate-500 border-r border-slate-200 dark:border-slate-700">28</td>
                   <td colSpan={12} className="py-2 px-3 text-right font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
-                    BOBOT KOMPONEN :
+                    BOBOT KOMPONEN {summary.totalActiveWeight < 1 && summary.isNormalisasiBobot && `(Efektif ${Math.round(summary.totalActiveWeight * 100)}%)`} :
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 border-r border-slate-200 dark:border-slate-700">
-                    20%
+                    {summary.hasDistribusi ? (summary.isNormalisasiBobot && summary.totalActiveWeight < 1 ? `${Math.round(summary.effectiveBobotDistribusi * 100)}%` : '20%') : '-'}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-sky-700 dark:text-sky-400 bg-sky-50/50 dark:bg-sky-950/20 border-r border-slate-200 dark:border-slate-700">
-                    40%
+                    {summary.hasKontrakDini ? (summary.isNormalisasiBobot && summary.totalActiveWeight < 1 ? `${Math.round(summary.effectiveBobotKontrakDini * 100)}%` : '40%') : '-'}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 border-r border-slate-200 dark:border-slate-700">
-                    40%
+                    {summary.hasAkselerasi53 ? (summary.isNormalisasiBobot && summary.totalActiveWeight < 1 ? `${Math.round(summary.effectiveBobotAkselerasi53 * 100)}%` : '40%') : '-'}
                   </td>
                   <td className="py-2 px-2 text-center text-slate-400">-</td>
                 </tr>
 
-                {/* Baris 29: KOMPONEN NILAI / KONVERSI */}
+                {/* Baris 29: KOMPONEN NILAI / KINERJA */}
                 <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
                   <td className="py-2 px-2 text-center font-bold text-slate-500 border-r border-slate-200 dark:border-slate-700">29</td>
                   <td colSpan={12} className="py-2 px-3 text-right font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
-                    KOMPONEN NILAI (=BOBOT × RATA-RATA / KONVERSI) :
+                    KOMPONEN NILAI / KINERJA (=BOBOT × RATA-RATA) :
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 border-r border-slate-200 dark:border-slate-700">
-                    {formatScore(summary.kompDistribusi)}
+                    {summary.hasDistribusi ? formatScore(summary.kompDistribusi) : '-'}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-sky-700 dark:text-sky-400 bg-sky-100/60 dark:bg-sky-900/40 border-r border-slate-200 dark:border-slate-700">
-                    {formatScore(summary.kompKontrakDini)}
+                    {summary.hasKontrakDini && summary.avgKontrakDini !== null ? formatScore(summary.kompKontrakDini) : '-'}
                   </td>
                   <td className="py-2 px-2 text-center font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-100/60 dark:bg-indigo-900/40 border-r border-slate-200 dark:border-slate-700">
-                    {formatScore(summary.kompAkselerasi53)}
+                    {summary.hasAkselerasi53 && summary.avgAkselerasi53 !== null ? formatScore(summary.kompAkselerasi53) : '-'}
                   </td>
                   <td className="py-2 px-2 text-center text-slate-400">-</td>
                 </tr>
 
-                {/* Baris 30: NILAI INDIKATOR BELANJA KONTRAKTUAL (=N29 + O29 + P29) */}
-                <tr className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 text-xs font-black">
-                  <td className="py-3 px-2 text-center border-r border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400">30</td>
-                  <td colSpan={12} className="py-3 px-3 text-right font-bold text-emerald-800 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 tracking-wide">
-                    NILAI INDIKATOR BELANJA KONTRAKTUAL (SEL N30 = N29 + O29 + P29) :
+                {/* Baris 30: NILAI INDIKATOR BELANJA KONTRAKTUAL */}
+                <tr className={`${
+                  summary.isDispensasi
+                    ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-900 dark:text-amber-100'
+                    : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100'
+                } text-xs font-black`}>
+                  <td className={`py-3 px-2 text-center border-r ${
+                    summary.isDispensasi ? 'border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400' : 'border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                  }`}>30</td>
+                  <td colSpan={12} className={`py-3 px-3 text-right font-bold ${
+                    summary.isDispensasi ? 'text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  } border-r tracking-wide`}>
+                    {summary.isDispensasi ? (
+                      <span className="flex items-center justify-end gap-2 text-amber-700 dark:text-amber-300">
+                        <Sliders className="h-4 w-4" />
+                        NILAI INDIKATOR BELANJA KONTRAKTUAL (DISPENSASI / OVERRIDE AKTIF) :
+                      </span>
+                    ) : summary.isNormalisasiBobot && summary.totalActiveWeight < 1 ? (
+                      `NILAI INDIKATOR BELANJA KONTRAKTUAL (NORMALISASI MY INTRESS - BOBOT AKTIF ${Math.round(summary.totalActiveWeight * 100)}%) :`
+                    ) : (
+                      'NILAI INDIKATOR BELANJA KONTRAKTUAL (SEL N30 = N29 + O29 + P29) :'
+                    )}
                   </td>
-                  <td colSpan={3} className="py-3 px-4 text-center font-black text-lg text-emerald-600 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 font-mono">
-                    {formatScore(summary.nilaiIndikator)}
+                  <td colSpan={3} className={`py-3 px-4 text-center font-black text-lg ${
+                    summary.isDispensasi ? 'text-amber-600 dark:text-amber-300 border-amber-200 dark:border-amber-800' : 'text-emerald-600 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  } border-r font-mono`}>
+                    <div className="flex flex-col items-center justify-center">
+                      <span>{formatScore(summary.nilaiIndikator)}</span>
+                      {summary.rawNilaiIndikator !== undefined && summary.rawNilaiIndikator > 100 && (
+                        <span className="text-[10px] font-sans font-normal opacity-85 mt-0.5">
+                          (Capped Maks. 100,00 | Rumus: {formatScore(summary.rawNilaiIndikator)})
+                        </span>
+                      )}
+                    </div>
                   </td>
-                  <td className="py-3 px-2 text-center text-emerald-600">✓</td>
+                  <td className={`py-3 px-2 text-center ${summary.isDispensasi ? 'text-amber-600' : 'text-emerald-600'}`}>✓</td>
                 </tr>
               </tfoot>
             </table>
@@ -1264,35 +1445,39 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
                     <div className="flex items-center gap-1.5">
                       <span className="text-slate-400">Dini:</span>
                       <select
-                        value={r.nilaiKontrakDini}
+                        value={r.nilaiKontrakDini === null || r.nilaiKontrakDini === undefined ? '' : r.nilaiKontrakDini}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
+                          const val = e.target.value === '' ? null : Number(e.target.value);
                           handleUpdateRow(targetIdx, 'nilaiKontrakDini', val);
-                          handleUpdateRow(targetIdx, 'isEarlyContract', val >= 110);
                         }}
                         className="px-1 py-0.5 text-[10px] font-bold rounded border bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300"
                       >
+                        <option value="">- (Bukan Dini)</option>
                         <option value="120">120 (Pra-DIPA)</option>
-                        <option value="110">110 (Dini TW I)</option>
+                        <option value="110">110 (Dini TW I - My InTress)</option>
                         <option value="100">100 (Standar)</option>
-                        <option value="0">0</option>
                       </select>
                     </div>
 
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       <span className="text-slate-400">Aksel 53:</span>
-                      <span className="font-bold text-indigo-600">
-                        {r.nilaiAkselerasi53}
-                      </span>
+                      <select
+                        value={r.nilaiAkselerasi53 === null || r.nilaiAkselerasi53 === undefined ? '' : r.nilaiAkselerasi53}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? null : Number(e.target.value);
+                          handleUpdateRow(targetIdx, 'nilaiAkselerasi53', val);
+                        }}
+                        className="px-1 py-0.5 text-[10px] font-bold rounded border bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
+                      >
+                        <option value="">-</option>
+                        <option value="100">100 (TW I)</option>
+                        <option value="90">90 (TW II)</option>
+                        <option value="80">80 (TW III)</option>
+                        <option value="70">70 (TW IV)</option>
+                        <option value="0">0</option>
+                      </select>
                     </div>
                   </div>
-
-                  {r.isPendaftaranTerlambat && (
-                    <div className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-1.5 rounded-lg border border-amber-200 dark:border-amber-800/40">
-                      <AlertTriangle className="h-3 w-3 shrink-0" />
-                      <span>Pendaftaran terlambat {r.selisihHariPendaftaran} hari kalender (&gt; 5 hari)</span>
-                    </div>
-                  )}
                 </div>
               );
             })}
