@@ -24,7 +24,8 @@ import {
   Sparkles,
   Calendar,
   Filter,
-  FileText
+  FileText,
+  Lock
 } from 'lucide-react';
 import { SimulationProject, PenyelesaianTagihanRow } from '../../../models/ikpa';
 import { validateTagihan } from '../../../utils/indikatorValidation';
@@ -40,6 +41,8 @@ import {
   countLate,
   calculateBillingCompletionScore,
   calculateHolidayDays,
+  getNextWorkingDay,
+  INDONESIAN_NATIONAL_HOLIDAYS,
   processTagihanRows,
   calculatePenyelesaianTagihan,
   runPenyelesaianTagihanGoldenTest,
@@ -86,35 +89,54 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   // Raw rows from project (default 0 baris agar Satker dapat menambah mandiri tanpa beban mengisi banyak)
   const rawRows: PenyelesaianTagihanRow[] = useMemo(() => {
     if (project.penyelesaianTagihan !== undefined && Array.isArray(project.penyelesaianTagihan)) {
-      return project.penyelesaianTagihan.map((r: any, idx: number) => ({
-        no: r.no || idx + 1,
-        identitasTagihan: r.identitasTagihan || r.satker || r.nomorSP2D || `Tagihan #${r.no || idx + 1}`,
-        keterangan: r.keterangan || 'SPM-LS Kontraktual Non Belanja Pegawai',
-        jenisTagihan: r.jenisTagihan || 'SPM-LS Kontraktual',
-        nomorSPP: r.nomorSPP || r.nomorSPM || `SPP-${String(idx + 1).padStart(3, '0')}`,
-        tanggalSPP: normalizeDateToIso(r.tanggalSPP || r.tanggalSPM) || null,
-        tanggalTagihan: normalizeDateToIso(r.tanggalTagihan || r.tanggalBAST) || null,
-        tanggalDokumenPendukung: normalizeDateToIso(r.tanggalDokumenPendukung || r.tanggalBAPP || r.tanggalBAST) || null,
-        tanggalPenyampaian: normalizeDateToIso(r.tanggalPenyampaian || r.tanggalKonversiADK) || null,
-        tanggalMulai: normalizeDateToIso(r.tanggalMulai || r.tanggalMulaiPerhitungan || r.tanggalBAST) || null,
-        tanggalKonversi: normalizeDateToIso(r.tanggalKonversi || r.tanggalKonversiADK || r.tanggalSPM) || null,
-        selisihHari: r.selisihHari ?? null,
-        hariLibur: r.hariLibur ?? r.jumlahHariLibur ?? 0,
-        jumlahHariEfektif: r.jumlahHariEfektif ?? r.jumlahHariFinal ?? null,
-        status: (r.status || 'TEPAT') as "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP",
-        keteranganHasil: r.keteranganHasil || '',
-        satker: r.satker,
-        nomorSPM: r.nomorSPM || r.nomorSPP,
-        tanggalSPM: normalizeDateToIso(r.tanggalSPM || r.tanggalSPP) || null,
-        nomorSP2D: r.nomorSP2D,
-        tanggalSP2D: normalizeDateToIso(r.tanggalSP2D) || null,
-        nilaiSP2D: r.nilaiSP2D,
-        tanggalBAST: normalizeDateToIso(r.tanggalBAST) || null,
-        tanggalBAPP: normalizeDateToIso(r.tanggalBAPP) || null,
-        tanggalMulaiPerhitungan: normalizeDateToIso(r.tanggalMulai || r.tanggalMulaiPerhitungan) || null,
-        tanggalKonversiADK: normalizeDateToIso(r.tanggalKonversi || r.tanggalKonversiADK) || null,
-        jumlahHariLibur: r.hariLibur ?? r.jumlahHariLibur ?? 0
-      }));
+      return project.penyelesaianTagihan.map((r: any, idx: number) => {
+        const nomorSpmVal = r.nomorSPM || r.nomorSPP || `SPM-${String(idx + 1).padStart(3, '0')}`;
+        const tglSpmVal = normalizeDateToIso(r.tanggalSPM || r.tanggalSPP) || null;
+        const uraianSpmVal = r.uraianSPM || r.keterangan || 'SPM-LS Kontraktual Non Belanja Pegawai';
+        const tglBastVal = normalizeDateToIso(r.tanggalBAST || r.tanggalTagihan || r.tanggalDokumenPendukung) || null;
+
+        // Tanggal Mulai otomatis 1 hari kerja setelah Tanggal BAST jika belum diset
+        const autoMulai = tglBastVal ? getNextWorkingDay(tglBastVal) : null;
+        const tglMulaiVal = normalizeDateToIso(r.tanggalMulai || r.tanggalMulaiPerhitungan) || autoMulai;
+        const tglKonversiVal = normalizeDateToIso(r.tanggalKonversi || r.tanggalKonversiADK || r.tanggalPenyampaian) || null;
+
+        // Hitung otomatis hari libur jika belum diset
+        let holidays = r.hariLibur ?? r.jumlahHariLibur ?? 0;
+        if (holidays === 0 && tglMulaiVal && tglKonversiVal) {
+          holidays = calculateHolidayDays(tglMulaiVal, tglKonversiVal);
+        }
+
+        return {
+          no: r.no || idx + 1,
+          identitasTagihan: r.identitasTagihan || r.satker || r.nomorSP2D || `Tagihan #${r.no || idx + 1}`,
+          keterangan: uraianSpmVal,
+          uraianSPM: uraianSpmVal,
+          jenisTagihan: 'SPM-LS Kontraktual', // Terkunci pada SPM-LS Kontraktual
+          nomorSPM: nomorSpmVal,
+          nomorSPP: nomorSpmVal,
+          tanggalSPM: tglSpmVal,
+          tanggalSPP: tglSpmVal,
+          tanggalBAST: tglBastVal,
+          tanggalTagihan: tglBastVal,
+          tanggalDokumenPendukung: tglBastVal,
+          tanggalPenyampaian: tglKonversiVal,
+          tanggalMulai: tglMulaiVal,
+          tanggalKonversi: tglKonversiVal,
+          selisihHari: r.selisihHari ?? null,
+          hariLibur: holidays,
+          jumlahHariEfektif: r.jumlahHariEfektif ?? r.jumlahHariFinal ?? null,
+          status: (r.status || 'TEPAT') as "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP",
+          keteranganHasil: r.keteranganHasil || '',
+          satker: r.satker,
+          nomorSP2D: r.nomorSP2D,
+          tanggalSP2D: normalizeDateToIso(r.tanggalSP2D) || null,
+          nilaiSP2D: r.nilaiSP2D,
+          tanggalBAPP: normalizeDateToIso(r.tanggalBAPP) || null,
+          tanggalMulaiPerhitungan: tglMulaiVal,
+          tanggalKonversiADK: tglKonversiVal,
+          jumlahHariLibur: holidays
+        };
+      });
     }
 
     return [];
@@ -140,10 +162,12 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   // Filtered rows for search/filtering
   const displayedRows = useMemo(() => {
     return processedRows.filter(r => {
+      const spmCode = r.nomorSPM || r.nomorSPP;
+      const uraian = r.uraianSPM || r.keterangan;
       const matchSearch =
-        r.nomorSPP.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        spmCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.identitasTagihan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.keterangan && r.keterangan.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (uraian && uraian.toLowerCase().includes(searchQuery.toLowerCase())) ||
         r.no.toString() === searchQuery.trim();
       const matchStatus = filterStatus === 'all' || r.status === filterStatus;
       return matchSearch && matchStatus;
@@ -153,20 +177,76 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   // Handle row updates
   const handleUpdateRow = (rowIndex: number, field: keyof PenyelesaianTagihanRow, val: any) => {
     const newItems = [...rawRows];
-    const isDateField = field === 'tanggalSPP' || field === 'tanggalTagihan' || field === 'tanggalDokumenPendukung' ||
-                        field === 'tanggalPenyampaian' || field === 'tanggalMulai' || field === 'tanggalKonversi';
+    const isDateField = field === 'tanggalSPM' || field === 'tanggalSPP' || field === 'tanggalBAST' ||
+                        field === 'tanggalMulai' || field === 'tanggalKonversi';
     const processedVal = isDateField ? (normalizeDateToIso(val) || null) : val;
 
     const currentItem = { ...newItems[rowIndex], [field]: processedVal };
 
-    // Auto calculate holidays if auto mode is active
-    if (holidayMode === 'auto' && (field === 'tanggalMulai' || field === 'tanggalKonversi')) {
-      const autoHolidays = calculateHolidayDays(
-        field === 'tanggalMulai' ? processedVal : currentItem.tanggalMulai,
-        field === 'tanggalKonversi' ? processedVal : currentItem.tanggalKonversi
-      );
-      currentItem.hariLibur = autoHolidays;
-      currentItem.jumlahHariLibur = autoHolidays;
+    // Sinkronisasi SPM & Uraian
+    if (field === 'nomorSPM' || field === 'nomorSPP') {
+      currentItem.nomorSPM = val;
+      currentItem.nomorSPP = val;
+    }
+
+    if (field === 'uraianSPM' || field === 'keterangan') {
+      currentItem.uraianSPM = val;
+      currentItem.keterangan = val;
+    }
+
+    if (field === 'tanggalSPM' || field === 'tanggalSPP') {
+      currentItem.tanggalSPM = processedVal;
+      currentItem.tanggalSPP = processedVal;
+    }
+
+    // Jenis Tagihan selalu terkunci pada 'SPM-LS Kontraktual'
+    currentItem.jenisTagihan = 'SPM-LS Kontraktual';
+
+    // Otomatisasi: Tanggal Mulai = 1 hari kerja setelah Tanggal BAST (dan bisa diganti)
+    if (field === 'tanggalBAST') {
+      currentItem.tanggalBAST = processedVal;
+      currentItem.tanggalTagihan = processedVal;
+      currentItem.tanggalDokumenPendukung = processedVal;
+      if (processedVal) {
+        const autoMulai = getNextWorkingDay(processedVal);
+        currentItem.tanggalMulai = autoMulai;
+        currentItem.tanggalMulaiPerhitungan = autoMulai;
+        // Susun hari libur otomatis jika tanggal konversi sudah ada
+        if (currentItem.tanggalKonversi) {
+          const autoHolidays = calculateHolidayDays(autoMulai, currentItem.tanggalKonversi);
+          currentItem.hariLibur = autoHolidays;
+          currentItem.jumlahHariLibur = autoHolidays;
+        }
+      }
+    }
+
+    // Tanggal Mulai (dapat diubah bebas oleh pengguna)
+    if (field === 'tanggalMulai') {
+      currentItem.tanggalMulai = processedVal;
+      currentItem.tanggalMulaiPerhitungan = processedVal;
+      if (currentItem.tanggalKonversi) {
+        const autoHolidays = calculateHolidayDays(processedVal, currentItem.tanggalKonversi);
+        currentItem.hariLibur = autoHolidays;
+        currentItem.jumlahHariLibur = autoHolidays;
+      }
+    }
+
+    // Tanggal Konversi (update hari libur otomatis)
+    if (field === 'tanggalKonversi') {
+      currentItem.tanggalKonversi = processedVal;
+      currentItem.tanggalKonversiADK = processedVal;
+      if (currentItem.tanggalMulai) {
+        const autoHolidays = calculateHolidayDays(currentItem.tanggalMulai, processedVal);
+        currentItem.hariLibur = autoHolidays;
+        currentItem.jumlahHariLibur = autoHolidays;
+      }
+    }
+
+    // Hari Libur (bisa diubah manual oleh pengguna)
+    if (field === 'hariLibur' || field === 'jumlahHariLibur') {
+      const holidayNum = Math.max(0, Number(val));
+      currentItem.hariLibur = holidayNum;
+      currentItem.jumlahHariLibur = holidayNum;
     }
 
     newItems[rowIndex] = currentItem;
@@ -179,13 +259,14 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     const newRow: PenyelesaianTagihanRow = {
       no: nextNo,
       identitasTagihan: `Tagihan #${nextNo}`,
-      keterangan: '',
+      uraianSPM: 'SPM-LS Kontraktual Non Belanja Pegawai',
+      keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
       jenisTagihan: 'SPM-LS Kontraktual',
+      nomorSPM: '',
       nomorSPP: '',
+      tanggalSPM: '',
       tanggalSPP: '',
-      tanggalTagihan: '',
-      tanggalDokumenPendukung: '',
-      tanggalPenyampaian: '',
+      tanggalBAST: '',
       tanggalMulai: '',
       tanggalKonversi: '',
       selisihHari: 0,
@@ -202,10 +283,12 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   const handleDuplicateRow = (index: number) => {
     const target = rawRows[index];
     const nextNo = rawRows.length + 1;
+    const spmVal = target.nomorSPM || target.nomorSPP || `SPM-${nextNo}`;
     const duplicated: PenyelesaianTagihanRow = {
       ...target,
       no: nextNo,
-      nomorSPP: `${target.nomorSPP}-COPY`
+      nomorSPM: `${spmVal}-COPY`,
+      nomorSPP: `${spmVal}-COPY`
     };
     onUpdateProject({ ...project, penyelesaianTagihan: [...rawRows, duplicated] });
   };
@@ -755,22 +838,20 @@ KETENTUAN FORMULA:
 
           <div className="overflow-x-auto max-h-[620px]">
             <table className="w-full text-left text-xs border-collapse min-w-[1400px]">
-              {/* Header Kolom Huruf Excel (A s.d. S) */}
+              {/* Header Kolom Huruf Excel (A s.d. P) */}
               <thead className="sticky top-0 z-20 font-mono text-[11px] bg-slate-100 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
                 <tr className="text-center font-bold text-slate-500 dark:text-slate-400">
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-slate-200/60 dark:bg-slate-800/90 w-12">A</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-32">B</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-44">C</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-32">D</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-36">E</th>
+                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-36">D</th>
+                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-32">E</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-28">F</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-28">G</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-28">H</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-28">I</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 w-28">J</th>
+                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 w-32">J</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-300 w-28">K</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-300 w-20">L</th>
-                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 w-20">M</th>
+                  <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-300 w-24">M</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 w-24">N</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 bg-emerald-100/70 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 w-24">O</th>
                   <th className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 w-36">P</th>
@@ -780,18 +861,17 @@ KETENTUAN FORMULA:
                 <tr className="border-b border-slate-300 dark:border-slate-700 text-left font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">No.</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor/Nama Tagihan</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Keterangan</th>
+                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Uraian SPM</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Jenis Tagihan</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor SPP</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl SPP</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl Tagihan</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl BAST/BAPP</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl Penyampaian</th>
+                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor SPM</th>
+                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl SPM</th>
+                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">Tgl BAST</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
-                    Tgl Mulai (J)
+                    <div>Tgl Mulai (J)</div>
+                    <span className="text-[9px] font-normal text-emerald-600 dark:text-emerald-400">1 hr kerja BAST</span>
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300">
-                    Tgl Konversi (K)
+                    Tgl Konversi ADK (K)
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-sky-50/70 dark:bg-sky-950/30 text-sky-800 dark:text-sky-300">
                     Selisih (L=K-J)
@@ -842,87 +922,72 @@ KETENTUAN FORMULA:
                         />
                       </td>
 
-                      {/* Kolom C: Keterangan */}
+                      {/* Kolom C: Uraian SPM */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 font-sans text-[11px]">
                         <input
                           type="text"
-                          value={r.keterangan}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'keterangan', e.target.value)}
+                          value={r.uraianSPM || r.keterangan || ''}
+                          placeholder="Uraian SPM..."
+                          onChange={(e) => handleUpdateRow(targetIdx, 'uraianSPM', e.target.value)}
                           className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
                         />
                       </td>
 
-                      {/* Kolom D: Jenis Tagihan */}
-                      <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400">
-                        <input
-                          type="text"
-                          value={r.jenisTagihan}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'jenisTagihan', e.target.value)}
-                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
-                        />
+                      {/* Kolom D: Jenis Tagihan (Terkunci: SPM-LS Kontraktual) */}
+                      <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700">
+                        <div
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 select-none"
+                          title="Jenis tagihan terkunci pada SPM-LS Kontraktual"
+                        >
+                          <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+                          <span className="truncate max-w-[110px]">SPM-LS Kontraktual</span>
+                        </div>
                       </td>
 
-                      {/* Kolom E: Nomor SPP */}
+                      {/* Kolom E: Nomor SPM */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 font-semibold">
                         <input
                           type="text"
-                          value={r.nomorSPP}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'nomorSPP', e.target.value)}
+                          value={r.nomorSPM || r.nomorSPP || ''}
+                          placeholder="Nomor SPM"
+                          onChange={(e) => handleUpdateRow(targetIdx, 'nomorSPM', e.target.value)}
                           className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
                         />
                       </td>
 
-                      {/* Kolom F: Tanggal SPP */}
+                      {/* Kolom F: Tanggal SPM */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center">
                         <input
                           type="date"
-                          value={r.tanggalSPP || ''}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalSPP', e.target.value)}
+                          value={r.tanggalSPM || r.tanggalSPP || ''}
+                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalSPM', e.target.value)}
                           className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 text-[11px]"
                         />
                       </td>
 
-                      {/* Kolom G: Tanggal Tagihan */}
+                      {/* Kolom G: Tanggal BAST */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center">
                         <input
                           type="date"
-                          value={r.tanggalTagihan || ''}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalTagihan', e.target.value)}
+                          value={r.tanggalBAST || ''}
+                          title="Tanggal BAST (mengotomatiskan Tanggal Mulai = 1 hari kerja setelah BAST)"
+                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalBAST', e.target.value)}
                           className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 text-[11px]"
                         />
                       </td>
 
-                      {/* Kolom H: Tanggal Dokumen Pendukung */}
-                      <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center">
-                        <input
-                          type="date"
-                          value={r.tanggalDokumenPendukung || ''}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalDokumenPendukung', e.target.value)}
-                          className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 text-[11px]"
-                        />
-                      </td>
-
-                      {/* Kolom I: Tanggal Penyampaian */}
-                      <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center">
-                        <input
-                          type="date"
-                          value={r.tanggalPenyampaian || ''}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalPenyampaian', e.target.value)}
-                          className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 text-[11px]"
-                        />
-                      </td>
-
-                      {/* Kolom J: Tanggal Mulai (Input Kunci) */}
+                      {/* Kolom J: Tanggal Mulai (Otomatis BAST + 1 hari kerja, dan bisa diganti) */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-emerald-50/40 dark:bg-emerald-950/20">
                         <input
                           type="date"
                           value={r.tanggalMulai || ''}
+                          title="Tanggal Mulai Perhitungan (otomatis 1 hari kerja setelah BAST, dapat diganti mandiri)"
                           onChange={(e) => handleUpdateRow(targetIdx, 'tanggalMulai', e.target.value)}
                           className="w-28 bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-semibold text-emerald-800 dark:text-emerald-300 text-[11px]"
                         />
                       </td>
 
-                      {/* Kolom K: Tanggal Konversi (Input Kunci) */}
+                      {/* Kolom K: Tanggal Konversi ADK (Input Kunci) */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-emerald-50/40 dark:bg-emerald-950/20">
                         <input
                           type="date"
@@ -946,15 +1011,30 @@ KETENTUAN FORMULA:
                         {r.selisihHari !== null ? r.selisihHari : '-'}
                       </td>
 
-                      {/* Kolom M: Hari Libur */}
+                      {/* Kolom M: Hari Libur (Otomatis & Bisa Diubah) */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-amber-50/40 dark:bg-amber-950/20">
-                        <input
-                          type="number"
-                          min="0"
-                          value={r.hariLibur}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'hariLibur', Math.max(0, Number(e.target.value)))}
-                          className="w-14 text-center bg-transparent py-0.5 rounded font-bold text-amber-700 dark:text-amber-300 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
-                        />
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={r.hariLibur}
+                            title="Jumlah hari libur (otomatis dihitung, dapat diubah manual)"
+                            onChange={(e) => handleUpdateRow(targetIdx, 'hariLibur', Math.max(0, Number(e.target.value)))}
+                            className="w-12 text-center bg-transparent py-0.5 rounded font-bold text-amber-700 dark:text-amber-300 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+                          />
+                          <button
+                            type="button"
+                            title="Hitung otomatis hari libur (weekend + libur nasional)"
+                            onClick={() => {
+                              if (r.tanggalMulai && r.tanggalKonversi) {
+                                handleUpdateRow(targetIdx, 'hariLibur', calculateHolidayDays(r.tanggalMulai, r.tanggalKonversi));
+                              }
+                            }}
+                            className="text-[10px] text-slate-400 hover:text-emerald-600 p-0.5"
+                          >
+                            <RotateCcw className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
                       </td>
 
                       {/* Kolom N: Hari Efektif (=L - M) */}
@@ -1016,7 +1096,7 @@ KETENTUAN FORMULA:
 
                 {displayedRows.length === 0 && (
                   <tr>
-                    <td colSpan={17} className="py-12 px-4 text-center">
+                    <td colSpan={15} className="py-12 px-4 text-center">
                       <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
                         <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
                           <FileText className="w-6 h-6" />
@@ -1056,13 +1136,13 @@ KETENTUAN FORMULA:
               <tfoot className="border-t-2 border-slate-400 dark:border-slate-600 font-mono text-[11px] font-bold">
                 {/* Baris Summary Q4, R4, S4 */}
                 <tr className="bg-slate-100 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200">
-                  <td colSpan={10} className="py-2.5 px-3 text-right font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
+                  <td colSpan={9} className="py-2.5 px-3 text-right font-bold text-slate-600 dark:text-slate-400 border-r border-slate-200 dark:border-slate-700">
                     REKAPITULASI TRANSAKSI :
                   </td>
                   <td colSpan={2} className="py-2 px-2 text-center font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-r border-slate-200 dark:border-slate-700">
                     TEPAT (Q4) = {summary.jumlahTepatWaktu}
                   </td>
-                  <td colSpan={2} className="py-2 px-2 text-center font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-r border-slate-200 dark:border-slate-700">
+                  <td colSpan={1} className="py-2 px-2 text-center font-bold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-r border-slate-200 dark:border-slate-700">
                     TERLAMBAT (R4) = {summary.jumlahTerlambat}
                   </td>
                   <td colSpan={2} className="py-2 px-2 text-center font-bold text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/40 border-r border-slate-200 dark:border-slate-700">
@@ -1073,10 +1153,10 @@ KETENTUAN FORMULA:
 
                 {/* Baris Formula R6: NILAI INDIKATOR = Q4/S4*100 */}
                 <tr className="bg-emerald-50 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-100 text-xs font-black">
-                  <td colSpan={10} className="py-3 px-3 text-right font-bold text-emerald-800 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 tracking-wide">
+                  <td colSpan={9} className="py-3 px-3 text-right font-bold text-emerald-800 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 tracking-wide">
                     NILAI PENYELESAIAN TAGIHAN (SEL R6 = Q4 / S4 × 100) :
                   </td>
-                  <td colSpan={6} className="py-3 px-4 text-center font-black text-lg text-emerald-600 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 font-mono">
+                  <td colSpan={5} className="py-3 px-4 text-center font-black text-lg text-emerald-600 dark:text-emerald-300 border-r border-emerald-200 dark:border-emerald-800 font-mono">
                     {formatScore(summary.nilaiIndikator)}
                   </td>
                   <td className="py-3 px-2 text-center text-emerald-600">✓</td>
@@ -1121,7 +1201,7 @@ KETENTUAN FORMULA:
                         #{r.no}
                       </span>
                       <span className="font-mono text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        {r.nomorSPP}
+                        {r.nomorSPM || r.nomorSPP || `SPM #${r.no}`}
                       </span>
                     </div>
 
@@ -1153,28 +1233,69 @@ KETENTUAN FORMULA:
                   {/* Identitas Tagihan & Jenis */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-slate-400 block uppercase font-medium">Nomor SPP</label>
+                      <label className="text-[10px] text-slate-400 block uppercase font-medium">Nomor SPM</label>
                       <input
                         type="text"
-                        value={r.nomorSPP}
-                        onChange={(e) => handleUpdateRow(targetIdx, 'nomorSPP', e.target.value)}
+                        value={r.nomorSPM || r.nomorSPP || ''}
+                        placeholder="Nomor SPM"
+                        onChange={(e) => handleUpdateRow(targetIdx, 'nomorSPM', e.target.value)}
                         className="w-full mt-0.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                       />
                     </div>
                     <div>
                       <label className="text-[10px] text-slate-400 block uppercase font-medium">Jenis Tagihan</label>
+                      <div
+                        className="flex items-center gap-1.5 mt-0.5 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium select-none"
+                        title="Jenis tagihan terkunci pada SPM-LS Kontraktual"
+                      >
+                        <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+                        <span className="truncate">SPM-LS Kontraktual</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Uraian SPM & Tanggal SPM */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 block uppercase font-medium">Uraian SPM</label>
                       <input
                         type="text"
-                        value={r.jenisTagihan}
-                        onChange={(e) => handleUpdateRow(targetIdx, 'jenisTagihan', e.target.value)}
+                        value={r.uraianSPM || r.keterangan || ''}
+                        placeholder="Uraian SPM..."
+                        onChange={(e) => handleUpdateRow(targetIdx, 'uraianSPM', e.target.value)}
                         className="w-full mt-0.5 px-2 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 block uppercase font-medium">Tanggal SPM</label>
+                      <input
+                        type="date"
+                        value={r.tanggalSPM || r.tanggalSPP || ''}
+                        onChange={(e) => handleUpdateRow(targetIdx, 'tanggalSPM', e.target.value)}
+                        className="w-full mt-0.5 px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                       />
                     </div>
                   </div>
 
-                  {/* Input Tanggal Kunci: Tanggal Mulai (J) & Tanggal Konversi (K) */}
-                  <div className="space-y-2 pt-1">
+                  {/* Tanggal BAST & Otomatisasi Tanggal Mulai (J) */}
+                  <div className="space-y-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                     <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-sky-600 dark:text-sky-400 block uppercase font-bold">
+                          Tanggal BAST
+                        </label>
+                        <input
+                          type="date"
+                          value={r.tanggalBAST || ''}
+                          title="Tanggal BAST (mengotomatiskan Tanggal Mulai = 1 hari kerja setelah BAST)"
+                          onChange={(e) => handleUpdateRow(targetIdx, 'tanggalBAST', e.target.value)}
+                          className="w-full mt-0.5 px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                        />
+                        <span className="text-[9px] text-slate-400 block mt-0.5">
+                          Set otomatis Tgl Mulai
+                        </span>
+                      </div>
+
                       <div>
                         <label className="text-[10px] text-emerald-600 dark:text-emerald-400 block uppercase font-bold">
                           Tanggal Mulai (J)
@@ -1182,14 +1303,20 @@ KETENTUAN FORMULA:
                         <input
                           type="date"
                           value={r.tanggalMulai || ''}
+                          title="Tanggal Mulai (otomatis 1 hari kerja setelah BAST, dapat diganti)"
                           onChange={(e) => handleUpdateRow(targetIdx, 'tanggalMulai', e.target.value)}
-                          className="w-full mt-0.5 px-2 py-1 text-xs font-mono rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                          className="w-full mt-0.5 px-2 py-1 text-xs font-mono font-semibold rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-200"
                         />
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                          BAST + 1 hr kerja (bisa diedit)
+                        </span>
                       </div>
+                    </div>
 
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] text-emerald-600 dark:text-emerald-400 block uppercase font-bold">
-                          Tanggal Konversi (K)
+                          Tanggal Konversi ADK (K)
                         </label>
                         <input
                           type="date"
@@ -1200,18 +1327,38 @@ KETENTUAN FORMULA:
                           }`}
                         />
                       </div>
-                    </div>
 
-                    {/* Hari Libur (M) */}
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <span className="text-[11px] text-slate-500">Hari Libur (M):</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={r.hariLibur}
-                        onChange={(e) => handleUpdateRow(targetIdx, 'hariLibur', Math.max(0, Number(e.target.value)))}
-                        className="w-20 px-2 py-0.5 text-xs font-mono text-center rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                      />
+                      {/* Hari Libur (M) */}
+                      <div>
+                        <label className="text-[10px] text-amber-600 dark:text-amber-400 block uppercase font-bold">
+                          Hari Libur (M)
+                        </label>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <input
+                            type="number"
+                            min="0"
+                            value={r.hariLibur}
+                            title="Hari libur (otomatis dihitung, dapat diubah manual)"
+                            onChange={(e) => handleUpdateRow(targetIdx, 'hariLibur', Math.max(0, Number(e.target.value)))}
+                            className="w-full px-2 py-1 text-xs font-mono text-center font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300"
+                          />
+                          <button
+                            type="button"
+                            title="Hitung ulang hari libur otomatis"
+                            onClick={() => {
+                              if (r.tanggalMulai && r.tanggalKonversi) {
+                                handleUpdateRow(targetIdx, 'hariLibur', calculateHolidayDays(r.tanggalMulai, r.tanggalKonversi));
+                              }
+                            }}
+                            className="p-1 rounded border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-600"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">
+                          Otomatis / bisa diubah
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -1289,8 +1436,27 @@ KETENTUAN FORMULA:
             <div className="my-4 space-y-3 font-mono text-xs">
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                 <div className="flex justify-between font-sans">
-                  <span className="text-slate-400">Nomor SPP:</span>
-                  <span className="font-bold">{selectedAuditRow.nomorSPP}</span>
+                  <span className="text-slate-400">Nomor SPM:</span>
+                  <span className="font-bold">{selectedAuditRow.nomorSPM || selectedAuditRow.nomorSPP}</span>
+                </div>
+                <div className="flex justify-between font-sans">
+                  <span className="text-slate-400">Uraian SPM:</span>
+                  <span className="font-semibold">{selectedAuditRow.uraianSPM || selectedAuditRow.keterangan || '-'}</span>
+                </div>
+                <div className="flex justify-between font-sans">
+                  <span className="text-slate-400">Jenis Tagihan:</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-300">
+                    <Lock className="h-3 w-3 text-amber-500" />
+                    SPM-LS Kontraktual (Terkunci)
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tanggal SPM:</span>
+                  <span>{selectedAuditRow.tanggalSPM || selectedAuditRow.tanggalSPP || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tanggal BAST:</span>
+                  <span>{selectedAuditRow.tanggalBAST || '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Tanggal Mulai (J):</span>

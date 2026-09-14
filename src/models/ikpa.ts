@@ -275,12 +275,15 @@ export interface PenyelesaianTagihanRow {
   no: number;
   identitasTagihan: string;
   keterangan: string;
+  uraianSPM?: string;
   jenisTagihan: string;
   nomorSPP: string;
   tanggalSPP: string | null;
-  tanggalTagihan: string | null;
-  tanggalDokumenPendukung: string | null;
-  tanggalPenyampaian: string | null;
+  nomorSPM?: string;
+  tanggalSPM?: string | null;
+  tanggalTagihan?: string | null;
+  tanggalDokumenPendukung?: string | null;
+  tanggalPenyampaian?: string | null;
   tanggalMulai: string | null;
   tanggalKonversi: string | null;
   selisihHari: number | null;
@@ -290,8 +293,6 @@ export interface PenyelesaianTagihanRow {
   keteranganHasil: string;
   // Compatibility & Legacy fields
   satker?: string;
-  nomorSPM?: string;
-  tanggalSPM?: string | null;
   nomorSP2D?: string;
   tanggalSP2D?: string | null;
   nilaiSP2D?: number;
@@ -395,6 +396,7 @@ export interface SimulationProject {
   isNormalisasiBobotKontraktual?: boolean; // Normalisasi bobot jika komponen tanpa objek (Standar My InTress, default true)
   keteranganDispensasiKontraktual?: string;
   metodeKalkulasiKontraktual?: 'omspan' | 'excel'; // 'omspan' (Standar Rasio Satker PER-5, default) atau 'excel' (Rata-rata Baris Kolom N)
+  penyerapanQuarterTargets?: Record<number, { 51: number; 52: number; 53: number; 57: number }>; // Setting target triwulanan (standar / dispensasi)
 
   calculationVersion: string; // "IKPA-2026-EXCEL-COMPATIBLE-v1"
   calculationMode: "excel_compatible" | "validation";

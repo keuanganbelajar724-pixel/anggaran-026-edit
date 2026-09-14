@@ -73,7 +73,8 @@ export function calculateIKPA(
     project.penyerapan,
     appliedWeights.penyerapan,
     active.penyerapan,
-    cutoff
+    cutoff,
+    project.penyerapanQuarterTargets
   );
 
   // 4. Belanja Kontraktual (J6)

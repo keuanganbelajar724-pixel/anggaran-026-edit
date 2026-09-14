@@ -28,6 +28,19 @@ export const TARGETS: Record<string, { 51: number; 52: number; 53: number; 57: n
   '12': { 51: 0.95, 52: 0.90, 53: 0.90, 57: 0.95 }
 };
 
+// Default target standar per triwulan sesuai PER-5/PB/2024:
+export const DEFAULT_QUARTER_TARGETS: Record<number, { 51: number; 52: number; 53: number; 57: number }> = {
+  1: { 51: 0.20, 52: 0.15, 53: 0.10, 57: 0.25 },
+  2: { 51: 0.50, 52: 0.50, 53: 0.40, 57: 0.50 },
+  3: { 51: 0.75, 52: 0.70, 53: 0.70, 57: 0.75 },
+  4: { 51: 0.95, 52: 0.90, 53: 0.90, 57: 0.95 }
+};
+
+export function getQuarterFromPeriod(periode: string | number): number {
+  const pNum = parseInt(String(periode || '1').trim(), 10) || 1;
+  return pNum <= 3 ? 1 : pNum <= 6 ? 2 : pNum <= 9 ? 3 : 4;
+}
+
 // Backward-compatible array for existing consumers
 export const PENYERAPAN_TARGETS = [
   { periode: '01', 51: 0.20, 52: 0.15, 53: 0.10, 57: 0.25 },
@@ -55,11 +68,26 @@ export function calculateNetBudget(pagu: number, blokir: number): number {
 }
 
 // ==================================================
-// 4b. GET TARGETS
+// 4b. GET TARGETS (Dukungan Custom Target Triwulanan & Dispensasi)
 // ==================================================
-export function calculateTargets(periode: string): { 51: number; 52: number; 53: number; 57: number } {
+export function calculateTargets(
+  periode: string,
+  customQuarterTargets?: Record<number, { 51: number; 52: number; 53: number; 57: number }>
+): { 51: number; 52: number; 53: number; 57: number } {
   const clean = String(periode).trim().padStart(2, '0');
-  return TARGETS[clean] || TARGETS['12'] || { 51: 0.95, 52: 0.90, 53: 0.90, 57: 0.95 };
+  const qNum = getQuarterFromPeriod(clean);
+  if (customQuarterTargets && customQuarterTargets[qNum]) {
+    return customQuarterTargets[qNum];
+  }
+  return TARGETS[clean] || DEFAULT_QUARTER_TARGETS[qNum] || { 51: 0.95, 52: 0.90, 53: 0.90, 57: 0.95 };
+}
+
+// Normalisasi input target (misal 15 menjadi 0.15, atau 0.15 tetap 0.15)
+export function parseTargetValue(rawVal: any, defaultTarget: number): number {
+  if (rawVal === undefined || rawVal === null || rawVal === '') return defaultTarget;
+  const num = Number(rawVal);
+  if (isNaN(num) || num < 0) return defaultTarget;
+  return num > 1 ? num / 100 : num;
 }
 
 // ==================================================
@@ -88,10 +116,11 @@ export function calculateAchievement(actual: number, target: number): number {
 }
 
 // ==================================================
-// 8, 9, 10 & 23. PROPORSI PAGU (KONSISTEN DENGAN DEVIASI HAL III)
+// 8, 9, 10 & 23. PROPORSI PAGU SESUAI PER-5 & MY INTRESS
 // ==================================================
-// 51 & 52: proporsi terhadap (51 + 52)
-// 53 & 57: proporsi terhadap (51 + 52 + 53 + 57)
+// Sesuai rumus resmi DJPb / OM-SPAN / My InTress:
+// NKPAT JBx = ((PAn / TAn) x (Pagu per JB / Total Pagu)) x 100
+// Proporsi setiap jenis belanja adalah Pagu Netto JB / Total Pagu Netto Seluruh JB (51+52+53+57)
 export function calculateBudgetProportions(
   pagu51: number,
   pagu52: number,
@@ -108,13 +137,15 @@ export function calculateBudgetProportions(
   const p53 = Math.max(0, Number(pagu53) || 0);
   const p57 = Math.max(0, Number(pagu57) || 0);
 
-  const sum5152 = p51 + p52;
-  const proporsi51 = sum5152 > 0 ? (p51 / sum5152) * 100 : 0;
-  const proporsi52 = sum5152 > 0 ? (p52 / sum5152) * 100 : 0;
-
   const totalAll = p51 + p52 + p53 + p57;
-  const proporsi53 = totalAll > 0 ? (p53 / totalAll) * 100 : 0;
-  const proporsi57 = totalAll > 0 ? (p57 / totalAll) * 100 : 0;
+  if (totalAll <= 0) {
+    return { proporsi51: 0, proporsi52: 0, proporsi53: 0, proporsi57: 0 };
+  }
+
+  const proporsi51 = (p51 / totalAll) * 100;
+  const proporsi52 = (p52 / totalAll) * 100;
+  const proporsi53 = (p53 / totalAll) * 100;
+  const proporsi57 = (p57 / totalAll) * 100;
 
   return { proporsi51, proporsi52, proporsi53, proporsi57 };
 }
@@ -203,7 +234,8 @@ export function calculatePenyerapanAnggaran(
   inputs: (PenyerapanInput | PenyerapanPeriod)[],
   weight: number = 20,
   isActive: boolean = true,
-  cutoffMonth: number = 12
+  cutoffMonth: number = 12,
+  customQuarterTargets?: Record<number, { 51: number; 52: number; 53: number; 57: number }>
 ): PenyerapanCalculationOutput {
   const warnings: string[] = [];
 
@@ -250,12 +282,12 @@ export function calculatePenyerapanAnggaran(
   const preProcessed = normalizedInputs.map((inp, idx) => {
     const pNum = parseInt(String(inp.periode || idx + 1).trim(), 10) || (idx + 1);
     const pStr = String(pNum).padStart(2, '0');
-    const targets = calculateTargets(pStr);
+    const targets = calculateTargets(pStr, customQuarterTargets);
 
-    const t51 = inp.target51 ?? targets[51];
-    const t52 = inp.target52 ?? targets[52];
-    const t53 = inp.target53 ?? targets[53];
-    const t57 = inp.target57 ?? targets[57];
+    const t51 = parseTargetValue(inp.target51, targets[51]);
+    const t52 = parseTargetValue(inp.target52, targets[52]);
+    const t53 = parseTargetValue(inp.target53, targets[53]);
+    const t57 = parseTargetValue(inp.target57, targets[57]);
 
     const pagu51 = Number(inp.pagu51) || 0;
     const pagu52 = Number(inp.pagu52) || 0;
@@ -391,9 +423,10 @@ export function calculatePenyerapan(
   inputs: PenyerapanInput[],
   weight: number = 20,
   isActive: boolean = true,
-  cutoffMonth: number = 12
+  cutoffMonth: number = 12,
+  customQuarterTargets?: Record<number, { 51: number; 52: number; 53: number; 57: number }>
 ): IndicatorResult {
-  const output = calculatePenyerapanAnggaran(inputs, weight, isActive, cutoffMonth);
+  const output = calculatePenyerapanAnggaran(inputs, weight, isActive, cutoffMonth, customQuarterTargets);
   return output?.result || {
     rawValue: 0,
     cappedValue: 0,

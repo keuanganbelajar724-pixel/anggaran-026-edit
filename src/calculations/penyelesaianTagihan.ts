@@ -123,9 +123,135 @@ export function calculateBillingCompletionScore(
 export const calculateBillingScore = calculateBillingCompletionScore;
 
 /**
- * 18. HARI LIBUR OTOMATIS (OPSIONAL)
- * Menghitung hari Sabtu, Minggu, dan hari libur nasional tentatif di antara dua tanggal.
- * Digunakan jika pengguna memilih mode "Otomatis" untuk estimasi hari libur.
+ * 18. DAFTAR HARI LIBUR NASIONAL & CUTI BERSAMA (INDONESIA)
+ * Mendukung tahun anggaran 2024, 2025, 2026, 2027 berdasarkan SKB 3 Menteri
+ */
+export const INDONESIAN_NATIONAL_HOLIDAYS: Record<string, string> = {
+  // 2024
+  '2024-01-01': 'Tahun Baru 2024 Masehi',
+  '2024-02-08': 'Isra Mi\'raj Nabi Muhammad SAW',
+  '2024-02-09': 'Cuti Bersama Tahun Baru Imlek',
+  '2024-02-10': 'Tahun Baru Imlek 2575 Kongzili',
+  '2024-03-11': 'Hari Suci Nyepi 1946',
+  '2024-03-12': 'Cuti Bersama Nyepi',
+  '2024-03-29': 'Wafat Yesus Kristus',
+  '2024-04-08': 'Cuti Bersama Idul Fitri',
+  '2024-04-09': 'Cuti Bersama Idul Fitri',
+  '2024-04-10': 'Hari Raya Idul Fitri 1445 H',
+  '2024-04-11': 'Hari Raya Idul Fitri 1445 H',
+  '2024-04-12': 'Cuti Bersama Idul Fitri',
+  '2024-04-15': 'Cuti Bersama Idul Fitri',
+  '2024-05-01': 'Hari Buruh Internasional',
+  '2024-05-09': 'Kenaikan Yesus Kristus',
+  '2024-05-10': 'Cuti Bersama Kenaikan Yesus Kristus',
+  '2024-05-23': 'Hari Raya Waisak 2568 BE',
+  '2024-05-24': 'Cuti Bersama Waisak',
+  '2024-06-01': 'Hari Lahir Pancasila',
+  '2024-06-17': 'Hari Raya Idul Adha 1445 H',
+  '2024-06-18': 'Cuti Bersama Idul Adha',
+  '2024-07-07': 'Tahun Baru Islam 1446 H',
+  '2024-08-17': 'Hari Kemerdekaan RI',
+  '2024-09-16': 'Maulid Nabi Muhammad SAW',
+  '2024-12-25': 'Hari Raya Natal',
+  '2024-12-26': 'Cuti Bersama Natal',
+
+  // 2025
+  '2025-01-01': 'Tahun Baru 2025 Masehi',
+  '2025-01-27': 'Isra Mi\'raj Nabi Muhammad SAW',
+  '2025-01-28': 'Cuti Bersama Tahun Baru Imlek',
+  '2025-01-29': 'Tahun Baru Imlek 2576 Kongzili',
+  '2025-03-28': 'Cuti Bersama Nyepi',
+  '2025-03-29': 'Hari Suci Nyepi 1947',
+  '2025-03-31': 'Hari Raya Idul Fitri 1446 H',
+  '2025-04-01': 'Hari Raya Idul Fitri 1446 H',
+  '2025-04-02': 'Cuti Bersama Idul Fitri',
+  '2025-04-03': 'Cuti Bersama Idul Fitri',
+  '2025-04-04': 'Cuti Bersama Idul Fitri',
+  '2025-04-07': 'Cuti Bersama Idul Fitri',
+  '2025-04-18': 'Wafat Yesus Kristus',
+  '2025-05-01': 'Hari Buruh Internasional',
+  '2025-05-12': 'Hari Raya Waisak 2569 BE',
+  '2025-05-13': 'Cuti Bersama Waisak',
+  '2025-05-29': 'Kenaikan Yesus Kristus',
+  '2025-05-30': 'Cuti Bersama Kenaikan Yesus Kristus',
+  '2025-06-01': 'Hari Lahir Pancasila',
+  '2025-06-06': 'Hari Raya Idul Adha 1446 H',
+  '2025-06-09': 'Cuti Bersama Idul Adha',
+  '2025-06-27': 'Tahun Baru Islam 1447 H',
+  '2025-08-17': 'Hari Kemerdekaan RI',
+  '2025-09-05': 'Maulid Nabi Muhammad SAW',
+  '2025-12-25': 'Hari Raya Natal',
+  '2025-12-26': 'Cuti Bersama Natal',
+
+  // 2026 (SKB 3 Menteri & Kalender Hijriah/Nasional 2026)
+  '2026-01-01': 'Tahun Baru 2026 Masehi',
+  '2026-01-16': 'Isra Mi\'raj Nabi Muhammad SAW',
+  '2026-02-16': 'Cuti Bersama Imlek',
+  '2026-02-17': 'Tahun Baru Imlek 2577 Kongzili',
+  '2026-03-20': 'Hari Suci Nyepi 1948',
+  '2026-03-21': 'Hari Raya Idul Fitri 1447 H',
+  '2026-03-22': 'Hari Raya Idul Fitri 1447 H',
+  '2026-03-23': 'Cuti Bersama Idul Fitri',
+  '2026-03-24': 'Cuti Bersama Idul Fitri',
+  '2026-03-25': 'Cuti Bersama Idul Fitri',
+  '2026-03-26': 'Cuti Bersama Idul Fitri',
+  '2026-04-03': 'Wafat Yesus Kristus',
+  '2026-05-01': 'Hari Buruh Internasional',
+  '2026-05-14': 'Kenaikan Yesus Kristus',
+  '2026-05-27': 'Hari Raya Idul Adha 1447 H',
+  '2026-05-28': 'Cuti Bersama Idul Adha',
+  '2026-05-31': 'Hari Raya Waisak 2570 BE',
+  '2026-06-01': 'Hari Lahir Pancasila',
+  '2026-06-17': 'Tahun Baru Islam 1448 H',
+  '2026-08-17': 'Hari Kemerdekaan RI',
+  '2026-08-26': 'Maulid Nabi Muhammad SAW',
+  '2026-12-25': 'Hari Raya Natal',
+  '2026-12-26': 'Cuti Bersama Natal'
+};
+
+/**
+ * Memeriksa apakah suatu tanggal adalah akhir pekan (Sabtu/Minggu) atau libur nasional
+ */
+export function isHolidayOrWeekend(date: Date): boolean {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return true; // Minggu (0) atau Sabtu (6)
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const isoStr = `${y}-${m}-${d}`;
+
+  return !!INDONESIAN_NATIONAL_HOLIDAYS[isoStr];
+}
+
+/**
+ * Menghasilkan tanggal 1 hari kerja setelah Tanggal BAST.
+ * Jika BAST jatuh pada hari Jumat, Sabtu, atau menjelang libur nasional,
+ * sistem secara otomatis mencari hari kerja aktif berikutnya.
+ */
+export function getNextWorkingDay(bastDateStr: string | null | undefined): string {
+  if (!bastDateStr) return '';
+  const p = parseDateParts(bastDateStr);
+  if (!p) return '';
+
+  const d = new Date(p[0], p[1] - 1, p[2]);
+  // Maju minimal 1 hari kalender
+  d.setDate(d.getDate() + 1);
+
+  // Selama jatuh di hari libur (akhir pekan / libur nasional), maju terus
+  while (isHolidayOrWeekend(d)) {
+    d.setDate(d.getDate() + 1);
+  }
+
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Menghitung hari Sabtu, Minggu, dan hari libur nasional di antara dua tanggal.
+ * Menghitung dari (Tanggal Mulai + 1) s.d. Tanggal Konversi.
  */
 export function calculateHolidayDays(
   startDateStr: string | null | undefined,
@@ -145,8 +271,7 @@ export function calculateHolidayDays(
   current.setDate(current.getDate() + 1); // Start checking after start date up to conversion date
 
   while (current <= dConv) {
-    const dayOfWeek = current.getDay(); // 0 = Sun, 6 = Sat
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    if (isHolidayOrWeekend(current)) {
       holidays++;
     }
     current.setDate(current.getDate() + 1);
@@ -186,19 +311,25 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
 } {
   const processedRows: ProcessedTagihanRow[] = (inputs || []).map((item, index) => {
     const no = item.no || index + 1;
-    const nomorSPP = item.nomorSPP || item.nomorSPM || `SPP-${String(no).padStart(3, '0')}`;
+    const nomorSPM = item.nomorSPM || item.nomorSPP || `SPM-${String(no).padStart(3, '0')}`;
+    const nomorSPP = nomorSPM;
     const identitasTagihan = item.identitasTagihan || item.satker || item.nomorSP2D || `Tagihan #${no}`;
-    const keterangan = item.keterangan || 'SPM-LS Kontraktual Non Belanja Pegawai';
-    const jenisTagihan = item.jenisTagihan || 'SPM-LS Kontraktual';
+    const uraianSPM = item.uraianSPM || item.keterangan || 'SPM-LS Kontraktual Non Belanja Pegawai';
+    const keterangan = uraianSPM;
+    const jenisTagihan = 'SPM-LS Kontraktual'; // Locked strictly to SPM-LS Kontraktual
 
     // Tanggal-tanggal
-    const tanggalSPP = item.tanggalSPP || item.tanggalSPM || null;
-    const tanggalTagihan = item.tanggalTagihan || item.tanggalBAST || null;
-    const tanggalDokumenPendukung = item.tanggalDokumenPendukung || item.tanggalBAPP || item.tanggalBAST || null;
+    const tanggalSPM = item.tanggalSPM || item.tanggalSPP || null;
+    const tanggalSPP = tanggalSPM;
+    const tanggalBAST = item.tanggalBAST || item.tanggalTagihan || item.tanggalDokumenPendukung || null;
+    const tanggalTagihan = item.tanggalTagihan || tanggalBAST;
+    const tanggalDokumenPendukung = item.tanggalDokumenPendukung || tanggalBAST;
     const tanggalPenyampaian = item.tanggalPenyampaian || item.tanggalKonversiADK || null;
 
     // Tanggal Mulai (Kolom J) & Tanggal Konversi (Kolom K)
-    const tanggalMulai = item.tanggalMulai || item.tanggalMulaiPerhitungan || item.tanggalBAST || null;
+    // Otomatis menyamakan dengan 1 hari kerja setelah tanggal BAST jika belum diset, dan tetap dapat diganti
+    const autoMulaiDariBast = tanggalBAST ? getNextWorkingDay(tanggalBAST) : null;
+    const tanggalMulai = item.tanggalMulai || item.tanggalMulaiPerhitungan || autoMulaiDariBast || null;
     const tanggalKonversi = item.tanggalKonversi || item.tanggalKonversiADK || item.tanggalSPM || null;
 
     // Kolom L: Selisih Hari Kalender (=K - J)
@@ -207,7 +338,7 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
     // Validasi apakah tanggal terbalik
     const isDateReversed = selisihHari !== null && selisihHari < 0;
 
-    // Kolom M: Hari Libur
+    // Kolom M: Hari Libur (Bisa diisi manual atau dihitung otomatis)
     const hariLibur = Math.max(0, item.hariLibur ?? item.jumlahHariLibur ?? 0);
 
     // Kolom N: Jumlah Hari Efektif (=L - M)
@@ -240,10 +371,14 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
       ...item,
       no,
       identitasTagihan,
+      uraianSPM,
       keterangan,
       jenisTagihan,
+      nomorSPM,
       nomorSPP,
+      tanggalSPM,
       tanggalSPP,
+      tanggalBAST,
       tanggalTagihan,
       tanggalDokumenPendukung,
       tanggalPenyampaian,
@@ -257,8 +392,6 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
       isDateReversed,
       warningMessage,
       // Compatibility aliases
-      nomorSPM: nomorSPP,
-      tanggalSPM: tanggalSPP,
       tanggalMulaiPerhitungan: tanggalMulai,
       tanggalKonversiADK: tanggalKonversi,
       jumlahHariLibur: hariLibur,

@@ -258,3 +258,117 @@ export function formatScore(val: number, decimals = 2): string {
   if (isNaN(val) || val === null || val === undefined) return '0,00';
   return val.toFixed(decimals).replace('.', ',');
 }
+
+/**
+ * Mem-parsing string nominal rupiah ke number secara akurat.
+ * Mendukung format:
+ * - "916.718.000" (titik sebagai pemisah ribuan standar Indonesia) -> 916718000
+ * - "916,718,000" (koma sebagai pemisah ribuan standar US) -> 916718000
+ * - "916718000" (angka polos) -> 916718000
+ * - "Rp 916.718.000" (dengan prefix Rp) -> 916718000
+ * - "916.718.000,00" (titik ribuan, koma desimal) -> 916718000
+ * - "916,718,000.00" (koma ribuan, titik desimal) -> 916718000
+ */
+export function parseRupiahAmount(rawInput: string | number): number {
+  if (typeof rawInput === 'number') {
+    return isNaN(rawInput) ? 0 : rawInput;
+  }
+  if (!rawInput) return 0;
+
+  let str = String(rawInput).trim();
+  if (!str) return 0;
+
+  // Hapus prefix "Rp", "IDR", dan spasi
+  str = str.replace(/^(?:rp|idr)\.?\s*/i, '').replace(/\s+/g, '');
+
+  const hasDot = str.includes('.');
+  const hasComma = str.includes(',');
+
+  // Kasus 1: Memiliki titik DAN koma
+  if (hasDot && hasComma) {
+    const lastDot = str.lastIndexOf('.');
+    const lastComma = str.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      // Format Indonesia: 916.718.000,50 -> titik ribuan, koma desimal
+      str = str.replace(/\./g, '').replace(',', '.');
+    } else {
+      // Format US: 916,718,000.50 -> koma ribuan, titik desimal
+      str = str.replace(/,/g, '');
+    }
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // Kasus 2: Hanya memiliki titik
+  if (hasDot && !hasComma) {
+    const dotCount = (str.match(/\./g) || []).length;
+    // Jika lebih dari 1 titik (contoh: 916.718.000), pasti pemisah ribuan
+    if (dotCount > 1) {
+      str = str.replace(/\./g, '');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+    // Jika tepat 1 titik:
+    const parts = str.split('.');
+    // Jika 3 digit di belakang titik (contoh: "916.718" atau "500.000"), di konteks rupiah adalah pemisah ribuan!
+    if (parts[1] && parts[1].length === 3) {
+      str = str.replace(/\./g, '');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+    // Jika bukan 3 digit (contoh "41.2" atau "10.5"), perlakukan sebagai desimal
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // Kasus 3: Hanya memiliki koma
+  if (hasComma && !hasDot) {
+    const commaCount = (str.match(/,/g) || []).length;
+    // Jika lebih dari 1 koma (contoh: 916,718,000), pasti pemisah ribuan
+    if (commaCount > 1) {
+      str = str.replace(/,/g, '');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+    // Jika tepat 1 koma:
+    const parts = str.split(',');
+    if (parts[1] && parts[1].length === 3) {
+      // Pemisah ribuan ala US (contoh: 916,718)
+      str = str.replace(/,/g, '');
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+    // Desimal koma ala Indonesia (contoh: "15,5" -> 15.5)
+    str = str.replace(',', '.');
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // Kasus 4: Hanya angka biasa
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
+
+/**
+ * Mem-parsing string persentase target ke decimal (0 s.d. 1)
+ * Contoh: "15%" -> 0.15, "15" -> 0.15, "15,5%" -> 0.155
+ */
+export function parseTargetPercent(rawInput: string | number): number | undefined {
+  if (rawInput === undefined || rawInput === null) return undefined;
+  if (typeof rawInput === 'number') {
+    if (isNaN(rawInput) || rawInput < 0) return undefined;
+    return rawInput > 1 ? rawInput / 100 : rawInput;
+  }
+
+  const str = String(rawInput).trim();
+  if (str === '') return undefined;
+
+  // Hapus % dan spasi, ganti koma desimal menjadi titik
+  const sanitized = str.replace(/%/g, '').replace(/,/g, '.').replace(/[^0-9.-]/g, '');
+  if (!sanitized) return undefined;
+
+  const num = parseFloat(sanitized);
+  if (isNaN(num) || num < 0) return undefined;
+  return num > 1 ? num / 100 : num;
+}
+

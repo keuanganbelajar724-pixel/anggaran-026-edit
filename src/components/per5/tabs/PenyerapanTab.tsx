@@ -25,7 +25,9 @@ import {
   Sparkles,
   ShieldCheck,
   Plus,
-  Trash2
+  Trash2,
+  Settings2,
+  Target
 } from 'lucide-react';
 import {
   SimulationProject,
@@ -40,6 +42,8 @@ import { PetunjukPengisianCard } from '../common/PetunjukPengisianCard';
 import {
   round2,
   TARGETS,
+  DEFAULT_QUARTER_TARGETS,
+  getQuarterFromPeriod,
   calculateNetBudget,
   calculateTargets,
   calculateTargetNominal,
@@ -53,7 +57,14 @@ import {
   PenyerapanGoldenTestSummary
 } from '../../../calculations/penyerapan';
 import { DEFAULT_EXCEL_PENYERAPAN_PERIODS } from '../../../utils/excelReferenceDefaultData';
-import { formatRupiah, formatPercent, formatScore, BULAN_NAMES } from '../../../utils/excelReferenceDataHelper';
+import {
+  formatRupiah,
+  formatPercent,
+  formatScore,
+  BULAN_NAMES,
+  parseRupiahAmount,
+  parseTargetPercent
+} from '../../../utils/excelReferenceDataHelper';
 
 interface PenyerapanTabProps {
   project: SimulationProject;
@@ -85,9 +96,24 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
   const [auditSelectedPeriode, setAuditSelectedPeriode] = useState<string>('01');
   const [auditSelectedBelanja, setAuditSelectedBelanja] = useState<'51' | '52' | '53' | '57'>('51');
   const [isValidationConfirmed, setIsValidationConfirmed] = useState(false);
+  const [showTargetSetting, setShowTargetSetting] = useState(false);
 
-  // Draft input untuk string nominal rupiah agar pengetikan tidak terganggu re-render angka
+  // Draft input untuk string nominal rupiah & target agar pengetikan tidak terganggu re-render angka
   const [draftInputs, setDraftInputs] = useState<Record<string, string>>({});
+
+  // Active quarter targets (gabungan standar PER-5 dan kustom/dispensasi)
+  const activeQuarterTargets = useMemo(() => {
+    return {
+      1: { ...(project.penyerapanQuarterTargets?.[1] || DEFAULT_QUARTER_TARGETS[1]) },
+      2: { ...(project.penyerapanQuarterTargets?.[2] || DEFAULT_QUARTER_TARGETS[2]) },
+      3: { ...(project.penyerapanQuarterTargets?.[3] || DEFAULT_QUARTER_TARGETS[3]) },
+      4: { ...(project.penyerapanQuarterTargets?.[4] || DEFAULT_QUARTER_TARGETS[4]) }
+    };
+  }, [project.penyerapanQuarterTargets]);
+
+  const hasCustomQuarterTargets = useMemo(() => {
+    return !!project.penyerapanQuarterTargets && Object.keys(project.penyerapanQuarterTargets).length > 0;
+  }, [project.penyerapanQuarterTargets]);
 
   // 1. Ambil baris data dari project atau inisialisasi kosong (blank slate)
   const rawInputs: PenyerapanInput[] = useMemo(() => {
@@ -119,8 +145,14 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
 
   // 3. Eksekusi perhitungan deterministik menggunakan calculation engine
   const calculationOutput = useMemo(() => {
-    return calculatePenyerapanAnggaran(effectiveInputs, 20, true);
-  }, [effectiveInputs]);
+    return calculatePenyerapanAnggaran(
+      effectiveInputs,
+      20,
+      true,
+      project.metadata?.periodeCutoff || 12,
+      project.penyerapanQuarterTargets
+    );
+  }, [effectiveInputs, project.metadata?.periodeCutoff, project.penyerapanQuarterTargets]);
 
   const periods = calculationOutput?.periods || [];
   const result: IndicatorResult = calculationOutput?.result || {
@@ -158,15 +190,118 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     });
   };
 
-  // Handler commit draft string ke number
+  // Handler commit draft string ke number (mendukung ribuan/jutaan/milyaran dengan titik atau angka utuh)
   const handleCommitDraft = (key: string, idx: number, field: keyof PenyerapanInput) => {
     if (draftInputs[key] !== undefined) {
-      const num = parseFloat(draftInputs[key].replace(/[^0-9.-]/g, '')) || 0;
+      const num = parseRupiahAmount(draftInputs[key]);
       handleUpdateRowField(idx, field, num);
       const next = { ...draftInputs };
       delete next[key];
       setDraftInputs(next);
     }
+  };
+
+  // Handler commit draft target persentase (mendukung koma atau titik desimal: contoh 15, 15%, 15,5%)
+  const handleCommitTargetDraft = (key: string, idx: number, field: keyof PenyerapanInput) => {
+    if (draftInputs[key] !== undefined) {
+      const val = parseTargetPercent(draftInputs[key]);
+      const updated = [...rawInputs];
+      updated[idx] = {
+        ...updated[idx],
+        [field]: val
+      };
+      onUpdateProject({
+        ...project,
+        penyerapan: updated
+      });
+      const next = { ...draftInputs };
+      delete next[key];
+      setDraftInputs(next);
+    }
+  };
+
+  // Deteksi apakah ada nilai yang terpotong desimal akibat pembacaan titik sebelumnya (misal 916.718 alih-alih 916.718.000)
+  const truncatedStats = useMemo(() => {
+    let count = 0;
+    const isTruncated = (val: number | undefined) => typeof val === 'number' && val > 0 && val < 100000 && !Number.isInteger(val);
+    rawInputs.forEach(r => {
+      (['51', '52', '53', '57'] as const).forEach(b => {
+        if (isTruncated(r[`pagu${b}`])) count++;
+        if (isTruncated(r[`blokir${b}`])) count++;
+        if (isTruncated(r[`realisasi${b}`])) count++;
+      });
+    });
+    return { hasTruncated: count > 0, count };
+  }, [rawInputs]);
+
+  // Perbaiki otomatis seluruh nilai terpotong ke nilai rupiah utuh (x 1.000.000)
+  const handleFixTruncatedNumbers = () => {
+    const isTruncated = (val: number | undefined) => typeof val === 'number' && val > 0 && val < 100000 && !Number.isInteger(val);
+    const fixVal = (val: number | undefined) => {
+      if (typeof val !== 'number') return 0;
+      return isTruncated(val) ? Math.round(val * 1000000) : val;
+    };
+
+    const fixed = rawInputs.map(r => ({
+      ...r,
+      pagu51: fixVal(r.pagu51),
+      pagu52: fixVal(r.pagu52),
+      pagu53: fixVal(r.pagu53),
+      pagu57: fixVal(r.pagu57),
+      blokir51: fixVal(r.blokir51),
+      blokir52: fixVal(r.blokir52),
+      blokir53: fixVal(r.blokir53),
+      blokir57: fixVal(r.blokir57),
+      realisasi51: fixVal(r.realisasi51),
+      realisasi52: fixVal(r.realisasi52),
+      realisasi53: fixVal(r.realisasi53),
+      realisasi57: fixVal(r.realisasi57)
+    }));
+
+    setDraftInputs({});
+    onUpdateProject({
+      ...project,
+      penyerapan: fixed
+    });
+  };
+
+  // Reset override target periode tertentu ke standar triwulan
+  const handleResetRowTarget = (idx: number, field: keyof PenyerapanInput) => {
+    const updated = [...rawInputs];
+    updated[idx] = {
+      ...updated[idx],
+      [field]: undefined
+    };
+    onUpdateProject({
+      ...project,
+      penyerapan: updated
+    });
+  };
+
+  // Update target triwulanan di awal / global dispensasi
+  const handleUpdateQuarterTarget = (quarter: number, belanja: '51' | '52' | '53' | '57', valPercent: number) => {
+    const current = {
+      1: { ...(project.penyerapanQuarterTargets?.[1] || DEFAULT_QUARTER_TARGETS[1]) },
+      2: { ...(project.penyerapanQuarterTargets?.[2] || DEFAULT_QUARTER_TARGETS[2]) },
+      3: { ...(project.penyerapanQuarterTargets?.[3] || DEFAULT_QUARTER_TARGETS[3]) },
+      4: { ...(project.penyerapanQuarterTargets?.[4] || DEFAULT_QUARTER_TARGETS[4]) }
+    };
+    current[quarter as 1 | 2 | 3 | 4] = {
+      ...current[quarter as 1 | 2 | 3 | 4],
+      [belanja]: Math.max(0, valPercent / 100)
+    };
+    onUpdateProject({
+      ...project,
+      penyerapanQuarterTargets: current
+    });
+  };
+
+  // Reset seluruh target triwulanan ke standar awal DJPb PER-5/PB/2024
+  const handleResetQuarterTargets = () => {
+    onUpdateProject({
+      ...project,
+      penyerapanQuarterTargets: undefined
+    });
   };
 
   // Tambah 1 baris periode baru (berurutan)
@@ -602,6 +737,32 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
         </div>
       )}
 
+      {/* 2b. ALERT RECOVERY JIKA TERDETEKSI NILAI TERPOTONG DESIMAL */}
+      {truncatedStats.hasTruncated && (
+        <div className="rounded-2xl border border-amber-400 bg-amber-50/90 dark:bg-amber-950/50 dark:border-amber-700/80 p-4 text-xs flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start gap-3 max-w-3xl">
+            <Sparkles className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold text-amber-950 dark:text-amber-200">
+                Terdeteksi Nilai Anggaran Terpotong Desimal ({truncatedStats.count} sel)
+              </div>
+              <p className="mt-0.5 text-amber-900 dark:text-amber-300 leading-relaxed">
+                Ditemukan nilai pecahan (seperti <code>916.718</code> alih-alih <code>916.718.000</code>) akibat pembacaan titik sebelumnya. 
+                Sistem kini sudah mendukung format ribuan/jutaan penuh. Anda dapat langsung mengetik ulang angka ribuan dengan titik, atau klik tombol di samping untuk otomatis mengembalikan angka terpotong ke nilai rupiah utuh.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleFixTruncatedNumbers}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
+          >
+            <Sparkles className="h-4 w-4" />
+            Perbaiki Otomatis ke Rupiah Utuh (x1.000.000)
+          </button>
+        </div>
+      )}
+
       {/* 3. RINGKASAN TRIWULAN (SECTION 26) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className={`p-4 rounded-2xl border ${
@@ -713,6 +874,140 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
             )}
           </div>
         </div>
+      </div>
+
+      {/* 4.5. PENGATURAN TARGET TRIWULANAN & DISPENSASI (ATURAN AWAL) */}
+      <div className={`rounded-2xl border transition-all ${
+        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+      }`}>
+        <div 
+          onClick={() => setShowTargetSetting(!showTargetSetting)}
+          className="p-4 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none hover:bg-slate-50/50 dark:hover:bg-slate-800/50 rounded-2xl transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+              <Target className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-bold text-xs text-slate-900 dark:text-slate-100 uppercase tracking-wider">
+                  Pengaturan Target Triwulanan (Standar PER-5 / Dispensasi)
+                </h4>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  hasCustomQuarterTargets
+                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                }`}>
+                  {hasCustomQuarterTargets ? '⚡ Target Kustom / Ada Dispensasi' : '✓ Standar DJPb PER-5'}
+                </span>
+              </div>
+              <p className={`text-xs mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Target acuan triwulan: TW I (20/15/10/25%) • TW II (50/50/40/50%) • TW III (75/70/70/75%) • TW IV (95/90/90/95%). Klik untuk atur dispensasi.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {hasCustomQuarterTargets && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleResetQuarterTargets();
+                }}
+                className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Reset ke Standar PER-5
+              </button>
+            )}
+            <button
+              type="button"
+              className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              {showTargetSetting ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {showTargetSetting && (
+          <div className="px-4 pb-4 pt-1 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 text-xs text-indigo-900 dark:text-indigo-200 leading-relaxed">
+              💡 <strong>Aturan Awal & Dispensasi:</strong> Target triwulanan berikut berlaku sebagai standar otomatis untuk seluruh bulan pada triwulan terkait. Jika satker menerima surat dispensasi/relaksasi target, Anda dapat mengubah persentase di bawah ini untuk seluruh triwulan, atau langsung mengubah target periode tertentu pada kolom <strong>Target % (Dispensasi)</strong> di tabel periode.
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse font-sans">
+                <thead>
+                  <tr className={`border-b font-bold ${isDark ? 'bg-slate-800/80 text-slate-200' : 'bg-slate-100 text-slate-700'}`}>
+                    <th className="px-3 py-2 text-left w-36">Triwulan</th>
+                    <th className="px-3 py-2 text-left w-40">Periode Bulan</th>
+                    <th className="px-3 py-2 text-right">Belanja Pegawai (51)</th>
+                    <th className="px-3 py-2 text-right">Belanja Barang (52)</th>
+                    <th className="px-3 py-2 text-right">Belanja Modal (53)</th>
+                    <th className="px-3 py-2 text-right">Belanja Bansos (57)</th>
+                    <th className="px-3 py-2 text-center w-28">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
+                  {[
+                    { q: 1, label: 'Triwulan I', months: '01 s.d. 03 (Jan - Mar)' },
+                    { q: 2, label: 'Triwulan II', months: '04 s.d. 06 (Apr - Jun)' },
+                    { q: 3, label: 'Triwulan III', months: '07 s.d. 09 (Jul - Sep)' },
+                    { q: 4, label: 'Triwulan IV', months: '10 s.d. 12 (Okt - Des)' },
+                  ].map(row => {
+                    const qTargets = activeQuarterTargets[row.q as 1 | 2 | 3 | 4];
+                    const defaultQ = DEFAULT_QUARTER_TARGETS[row.q];
+                    const isCustomQ = (qTargets[51] !== defaultQ[51]) ||
+                                      (qTargets[52] !== defaultQ[52]) ||
+                                      (qTargets[53] !== defaultQ[53]) ||
+                                      (qTargets[57] !== defaultQ[57]);
+
+                    return (
+                      <tr key={row.q} className={isDark ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/60'}>
+                        <td className="px-3 py-2.5 font-bold font-sans text-slate-800 dark:text-slate-200">
+                          {row.label}
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 font-sans text-[11px]">
+                          {row.months}
+                        </td>
+                        {(['51', '52', '53', '57'] as const).map(b => {
+                          const val = Math.round(qTargets[b] * 100);
+                          return (
+                            <td key={b} className="px-2 py-1.5 text-right">
+                              <div className="inline-flex items-center gap-1 justify-end">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  value={val}
+                                  onChange={e => handleUpdateQuarterTarget(row.q, b, Number(e.target.value) || 0)}
+                                  className="w-16 text-right rounded border px-2 py-1 text-xs font-mono font-bold bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-indigo-700 dark:text-indigo-300 focus:outline-none focus:border-indigo-500"
+                                />
+                                <span className="text-slate-400 font-sans text-xs">%</span>
+                              </div>
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2 text-center font-sans">
+                          {isCustomQ ? (
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 font-bold text-[10px]">
+                              Dispensasi
+                            </span>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px]">
+                              Standar
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 5. TOOLBAR: VIEW MODES & DATA ACTIONS */}
@@ -1113,6 +1408,10 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                   <span className="w-2.5 h-2.5 rounded-xs bg-amber-500/20 border border-amber-500"></span>
                   Input Pagu & Blokir
                 </span>
+                <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-medium">
+                  <span className="w-2.5 h-2.5 rounded-xs bg-indigo-500/20 border border-indigo-500"></span>
+                  Target % (Dispensasi)
+                </span>
                 <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium">
                   <span className="w-2.5 h-2.5 rounded-xs bg-blue-500/20 border border-blue-500"></span>
                   Input Realisasi
@@ -1141,6 +1440,9 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                     </th>
                     <th colSpan={4} className="px-3 py-2 text-center border-r border-slate-200 dark:border-slate-700 bg-slate-500/10">
                       Pagu Netto (J:M)
+                    </th>
+                    <th colSpan={4} className="px-3 py-2 text-center border-r border-slate-200 dark:border-slate-700 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300">
+                      Target % (Dispensasi)
                     </th>
                     <th colSpan={4} className="px-3 py-2 text-center border-r border-slate-200 dark:border-slate-700 bg-blue-500/10">
                       Realisasi Anggaran
@@ -1177,6 +1479,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                     <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700">52</th>
                     <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700">53</th>
                     <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700">57</th>
+                    {/* Target % */}
+                    <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 text-indigo-700 dark:text-indigo-300">51</th>
+                    <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 text-indigo-700 dark:text-indigo-300">52</th>
+                    <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 text-indigo-700 dark:text-indigo-300">53</th>
+                    <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700 bg-indigo-50/40 text-indigo-700 dark:text-indigo-300">57</th>
                     {/* Realisasi */}
                     <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700">51</th>
                     <th className="px-2 py-1.5 text-right border-r border-slate-200 dark:border-slate-700">52</th>
@@ -1225,13 +1532,15 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                           const field = `pagu${b}` as keyof PenyerapanInput;
                           const val = r[field as keyof PenyerapanPeriod] as number;
                           return (
-                            <td key={b} className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                            <td key={b} className="px-1 py-1 text-right border-r border-slate-200 dark:border-slate-700">
                               <input
                                 type="text"
-                                value={draftInputs[key] !== undefined ? draftInputs[key] : val.toLocaleString('id-ID')}
+                                value={draftInputs[key] !== undefined ? draftInputs[key] : (val === 0 ? '0' : val.toLocaleString('id-ID'))}
                                 onChange={e => setDraftInputs({ ...draftInputs, [key]: e.target.value })}
                                 onBlur={() => handleCommitDraft(key, idx, field)}
-                                className="w-20 text-right rounded border px-1.5 py-0.5 text-[10px] bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 focus:outline-none focus:border-amber-500"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-24 sm:w-28 min-w-[95px] text-right rounded border px-1.5 py-0.5 text-[11px] font-mono bg-amber-50/50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900 focus:outline-none focus:border-amber-500"
                               />
                             </td>
                           );
@@ -1243,13 +1552,15 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                           const field = `blokir${b}` as keyof PenyerapanInput;
                           const val = r[field as keyof PenyerapanPeriod] as number;
                           return (
-                            <td key={b} className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                            <td key={b} className="px-1 py-1 text-right border-r border-slate-200 dark:border-slate-700">
                               <input
                                 type="text"
                                 value={draftInputs[key] !== undefined ? draftInputs[key] : (val > 0 ? val.toLocaleString('id-ID') : '0')}
                                 onChange={e => setDraftInputs({ ...draftInputs, [key]: e.target.value })}
                                 onBlur={() => handleCommitDraft(key, idx, field)}
-                                className="w-16 text-right rounded border px-1 py-0.5 text-[10px] bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:border-slate-400"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-20 sm:w-24 min-w-[80px] text-right rounded border px-1.5 py-0.5 text-[11px] font-mono bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 focus:outline-none focus:border-slate-400"
                               />
                             </td>
                           );
@@ -1259,8 +1570,51 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                         {(['51', '52', '53', '57'] as const).map(b => {
                           const netto = r[`paguNetto${b}` as keyof PenyerapanPeriod] as number;
                           return (
-                            <td key={b} className="px-2 py-1 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                            <td key={b} className="px-2 py-1 text-right border-r border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-[11px]">
                               {formatRupiah(netto)}
+                            </td>
+                          );
+                        })}
+
+                        {/* Target % 51, 52, 53, 57 (Aturan Awal / Dispensasi) */}
+                        {(['51', '52', '53', '57'] as const).map(b => {
+                          const key = `target_${idx}_${b}`;
+                          const field = `target${b}` as keyof PenyerapanInput;
+                          const isOverridden = rawInputs[idx]?.[field] !== undefined && rawInputs[idx]?.[field] !== null;
+                          const targetVal = r[`target${b}` as keyof PenyerapanPeriod] as number;
+                          const targetNominal = r[`targetNominal${b}` as keyof PenyerapanPeriod] as number;
+                          const displayVal = draftInputs[key] !== undefined
+                            ? draftInputs[key]
+                            : `${Math.round(targetVal * 100)}`;
+
+                          return (
+                            <td key={b} className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                              <div className="relative inline-flex items-center justify-end group">
+                                <input
+                                  type="text"
+                                  value={displayVal}
+                                  title={`Target ${b}: ${(targetVal * 100).toFixed(1)}% (Nominal Target: Rp${formatRupiah(targetNominal)})${isOverridden ? ' [Dispensasi Khusus Periode]' : ' [Standar Triwulan]'}`}
+                                  onChange={e => setDraftInputs({ ...draftInputs, [key]: e.target.value })}
+                                  onBlur={() => handleCommitTargetDraft(key, idx, field)}
+                                  onFocus={e => e.target.select()}
+                                  className={`w-14 text-right rounded border px-1 py-0.5 text-[10px] font-mono focus:outline-none transition-colors ${
+                                    isOverridden
+                                      ? 'bg-amber-100/90 border-amber-400 text-amber-900 dark:bg-amber-950/60 dark:border-amber-600 dark:text-amber-200 font-bold focus:border-amber-500'
+                                      : 'bg-indigo-50/50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-900 dark:text-indigo-300 focus:border-indigo-500'
+                                  }`}
+                                />
+                                <span className="text-[9px] text-slate-400 ml-0.5">%</span>
+                                {isOverridden && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRowTarget(idx, field)}
+                                    title="Kembalikan ke target triwulanan standar"
+                                    className="hidden group-hover:inline-flex absolute -top-1.5 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-3.5 h-3.5 items-center justify-center text-[9px] font-bold shadow-xs cursor-pointer z-10"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           );
                         })}
@@ -1271,13 +1625,15 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                           const field = `realisasi${b}` as keyof PenyerapanInput;
                           const val = r[field as keyof PenyerapanPeriod] as number;
                           return (
-                            <td key={b} className="px-1.5 py-1 text-right border-r border-slate-200 dark:border-slate-700">
+                            <td key={b} className="px-1 py-1 text-right border-r border-slate-200 dark:border-slate-700">
                               <input
                                 type="text"
-                                value={draftInputs[key] !== undefined ? draftInputs[key] : val.toLocaleString('id-ID')}
+                                value={draftInputs[key] !== undefined ? draftInputs[key] : (val === 0 ? '0' : val.toLocaleString('id-ID'))}
                                 onChange={e => setDraftInputs({ ...draftInputs, [key]: e.target.value })}
                                 onBlur={() => handleCommitDraft(key, idx, field)}
-                                className="w-20 text-right rounded border px-1.5 py-0.5 text-[10px] bg-blue-50/50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300 font-medium focus:outline-none focus:border-blue-500"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-24 sm:w-28 min-w-[95px] text-right rounded border px-1.5 py-0.5 text-[11px] font-mono bg-blue-50/50 border-blue-200 text-blue-700 dark:bg-blue-950/20 dark:border-blue-900 dark:text-blue-300 font-medium focus:outline-none focus:border-blue-500"
                               />
                             </td>
                           );
@@ -1504,7 +1860,9 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
 
                       const keyPagu = `pagu_${curIdx}_${code}`;
                       const keyBlokir = `blokir_${curIdx}_${code}`;
+                      const keyTarget = `target_${curIdx}_${code}`;
                       const keyReal = `realisasi_${curIdx}_${code}`;
+                      const isOverridden = rawInputs[curIdx]?.[`target${code}` as keyof PenyerapanInput] !== undefined && rawInputs[curIdx]?.[`target${code}` as keyof PenyerapanInput] !== null;
 
                       return (
                         <div key={code} className={`rounded-2xl border p-4 space-y-3.5 ${
@@ -1514,21 +1872,27 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                             <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
                               {b.label}
                             </span>
-                            <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 font-semibold">
-                              Target: {(target * 100).toFixed(0)}%
+                            <span className={`text-[11px] font-mono px-2 py-0.5 rounded-md font-semibold ${
+                              isOverridden
+                                ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                            }`}>
+                              Target: {(target * 100).toFixed(0)}% {isOverridden && '(Dispensasi)'}
                             </span>
                           </div>
 
                           {/* Input Fields */}
-                          <div className="grid grid-cols-3 gap-2.5 text-xs">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
                             <div>
                               <label className="text-[10px] text-slate-400 block mb-1 font-semibold">PAGU DIPA</label>
                               <input
                                 type="text"
-                                value={draftInputs[keyPagu] !== undefined ? draftInputs[keyPagu] : pagu.toLocaleString('id-ID')}
+                                value={draftInputs[keyPagu] !== undefined ? draftInputs[keyPagu] : (pagu === 0 ? '0' : pagu.toLocaleString('id-ID'))}
                                 onChange={e => setDraftInputs({ ...draftInputs, [keyPagu]: e.target.value })}
                                 onBlur={() => handleCommitDraft(keyPagu, curIdx, `pagu${code}` as keyof PenyerapanInput)}
-                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:border-amber-500"
                               />
                             </div>
 
@@ -1539,7 +1903,37 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                                 value={draftInputs[keyBlokir] !== undefined ? draftInputs[keyBlokir] : (blokir > 0 ? blokir.toLocaleString('id-ID') : '0')}
                                 onChange={e => setDraftInputs({ ...draftInputs, [keyBlokir]: e.target.value })}
                                 onBlur={() => handleCommitDraft(keyBlokir, curIdx, `blokir${code}` as keyof PenyerapanInput)}
-                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:border-slate-400"
+                              />
+                            </div>
+
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] text-indigo-500 font-semibold block">TARGET (%)</label>
+                                {isOverridden && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetRowTarget(curIdx, `target${code}` as keyof PenyerapanInput)}
+                                    className="text-[9px] text-rose-500 hover:underline cursor-pointer"
+                                    title="Reset ke target triwulan standar"
+                                  >
+                                    Reset
+                                  </button>
+                                )}
+                              </div>
+                              <input
+                                type="text"
+                                value={draftInputs[keyTarget] !== undefined ? draftInputs[keyTarget] : `${Math.round(target * 100)}`}
+                                onChange={e => setDraftInputs({ ...draftInputs, [keyTarget]: e.target.value })}
+                                onBlur={() => handleCommitTargetDraft(keyTarget, curIdx, `target${code}` as keyof PenyerapanInput)}
+                                onFocus={e => e.target.select()}
+                                className={`w-full text-right rounded-lg border px-2 py-1 font-mono text-xs focus:outline-none ${
+                                  isOverridden
+                                    ? 'bg-amber-50 border-amber-300 text-amber-900 dark:bg-amber-950/30 dark:border-amber-700 dark:text-amber-200 font-bold focus:border-amber-500'
+                                    : 'bg-indigo-50/50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-800 dark:text-indigo-300 font-bold focus:border-indigo-500'
+                                }`}
                               />
                             </div>
 
@@ -1547,10 +1941,12 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                               <label className="text-[10px] text-blue-500 font-semibold block mb-1">REALISASI</label>
                               <input
                                 type="text"
-                                value={draftInputs[keyReal] !== undefined ? draftInputs[keyReal] : realisasi.toLocaleString('id-ID')}
+                                value={draftInputs[keyReal] !== undefined ? draftInputs[keyReal] : (realisasi === 0 ? '0' : realisasi.toLocaleString('id-ID'))}
                                 onChange={e => setDraftInputs({ ...draftInputs, [keyReal]: e.target.value })}
                                 onBlur={() => handleCommitDraft(keyReal, curIdx, `realisasi${code}` as keyof PenyerapanInput)}
-                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-blue-50/50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300 font-bold"
+                                onFocus={e => e.target.select()}
+                                placeholder="0"
+                                className="w-full text-right rounded-lg border px-2 py-1 font-mono text-xs bg-blue-50/50 border-blue-300 text-blue-700 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300 font-bold focus:outline-none focus:border-blue-500"
                               />
                             </div>
                           </div>
@@ -1559,7 +1955,7 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
                           <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700 text-center font-mono text-[11px]">
                             <div className="bg-white dark:bg-slate-800/80 p-1.5 rounded-lg border border-slate-100 dark:border-slate-700">
                               <span className="text-[9px] font-sans text-slate-400 block">Pagu Netto</span>
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              <span className="font-semibold text-slate-700 dark:text-slate-300" title={`Target Nominal: Rp${formatRupiah(targetNom)}`}>
                                 Rp{formatRupiah(netto)}
                               </span>
                             </div>

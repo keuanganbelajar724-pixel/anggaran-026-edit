@@ -446,68 +446,73 @@ export const PETUNJUK_INDIKATOR_DATA: Record<string, PetunjukIndicatorContent> =
     aspek: 'Kualitas Pelaksanaan Anggaran',
     color: 'violet',
     deskripsiSingkat:
-      'Mengukur ketepatan waktu penyelesaian tagihan pihak ketiga dengan menerbitkan SPM-LS non-belanja pegawai ke KPPN maksimal 17 hari kerja sejak timbulnya hak tagih (BAST).',
+      'Mengukur ketepatan waktu penyelesaian tagihan kontraktual pihak ketiga dengan menerbitkan SPM-LS Kontraktual non-belanja pegawai ke KPPN maksimal 17 hari kerja sejak timbulnya hak tagih (BAST).',
     alurKerjaCepat: [
       {
         step: 1,
-        title: 'Kumpulkan Data BAST & SPM-LS',
-        description: 'Buka SAKTI Modul Pembayaran untuk mencatat Nomor & Tanggal BAST (Berita Acara Serah Terima) serta Tanggal terbit SPM-LS non-pegawai.',
-        highlight: 'Batas toleransi: 17 hari kerja'
+        title: 'Kumpulkan Data BAST & SPM-LS Kontraktual',
+        description: 'Buka SAKTI Modul Pembayaran untuk mencatat Nomor SPM, Uraian SPM, Tanggal SPM, Tanggal BAST, dan Tanggal Konversi ADK.',
+        highlight: 'Jenis tagihan terkunci: SPM-LS Kontraktual'
       },
       {
         step: 2,
-        title: 'Input Baris Tagihan pada Tabel',
-        description: 'Ketik Nomor BAST, Tanggal BAST, Nomor SPM, Tanggal SPM, dan Nilai Tagihan (Rupiah).',
-        highlight: 'Sistem menghitung selisih hari kerja otomatis'
+        title: 'Input Tanggal BAST & Otomatisasi Tanggal Mulai',
+        description: 'Saat Tanggal BAST diisi, Tanggal Mulai (J) otomatis terisi 1 hari kerja berikutnya (dapat disesuaikan). Hari libur nasional & akhir pekan juga otomatis terhitung.',
+        highlight: 'Tanggal Mulai = BAST + 1 hari kerja'
       },
       {
         step: 3,
-        title: 'Lihat Rasio Ketepatan & Simpan',
-        description: 'Sistem menganalisis apakah SPM <= 17 hari kerja (Tepat Waktu). Nilai = (SPM Tepat Waktu / Total SPM) * 100. Klik tombol hijau untuk menyimpan.',
-        highlight: 'Target: 100% tepat waktu'
+        title: 'Periksa Hari Efektif (N) & Nilai Indikator (R6)',
+        description: 'Sistem menghitung Selisih (L=K-J), Hari Libur (M), dan Hari Efektif (N=L-M). Status TEPAT jika N <= 17 hari. Nilai = Q4/S4 × 100.',
+        highlight: 'Target: 100% tepat waktu (Q4)'
       }
     ],
     kolomInputManual: [
-      { nama: 'Nomor BAST / Hak Tagih', keterangan: 'Nomor Berita Acara Serah Terima pekerjaan atau dokumen timbulnya hak tagih.' },
-      { nama: 'Tanggal BAST', keterangan: 'Tanggal resmi penandatanganan serah terima pekerjaan/barang.' },
-      { nama: 'Nomor SPM', keterangan: 'Nomor Surat Perintah Membayar (SPM-LS) yang diterbitkan PPSPM.' },
-      { nama: 'Tanggal SPM', keterangan: 'Tanggal penerbitan SPM oleh Satker ke KPPN.' },
-      { nama: 'Nilai SPM (Rupiah)', keterangan: 'Nominal rupiah tagihan yang dibayarkan.' }
+      { nama: 'Nomor SPM', keterangan: 'Nomor Surat Perintah Membayar (SPM-LS Kontraktual) yang diterbitkan Satker.' },
+      { nama: 'Uraian SPM', keterangan: 'Deskripsi peruntukan atau uraian pekerjaan belanja kontraktual pada SPM.' },
+      { nama: 'Jenis Tagihan', keterangan: 'Terkunci otomatis pada "SPM-LS Kontraktual".' },
+      { nama: 'Tanggal SPM', keterangan: 'Tanggal penerbitan SPM oleh Satker.' },
+      { nama: 'Tanggal BAST', keterangan: 'Tanggal Berita Acara Serah Terima pekerjaan. Otomatis mengeset Tanggal Mulai = 1 hari kerja setelah BAST.' },
+      { nama: 'Tanggal Mulai (J)', keterangan: 'Tanggal awal perhitungan (otomatis 1 hari kerja setelah BAST, dapat diganti manual jika ada dispensasi).' },
+      { nama: 'Tanggal Konversi ADK (K)', keterangan: 'Tanggal unggah dan konversi ADK SPM di KPPN.' },
+      { nama: 'Hari Libur (M)', keterangan: 'Otomatis disusun dari akhir pekan & hari libur nasional Indonesia, serta dapat diubah secara bebas.' }
     ],
     kolomOtomatisSistem: [
-      { nama: 'Selisih Hari Kerja', keterangan: 'Jumlah hari kerja antara Tanggal BAST dan Tanggal SPM (weekend & libur nasional tidak dihitung).' },
-      { nama: 'Status Ketepatan', keterangan: '"Tepat Waktu" jika selisih <= 17 hari kerja; "Terlambat" jika selisih > 17 hari kerja.' },
-      { nama: 'Jumlah SPM Tepat Waktu', keterangan: 'Total baris SPM yang berstatus Tepat Waktu.' },
-      { nama: 'Rasio Ketepatan (%)', keterangan: '(Jumlah Tepat Waktu / Total SPM) × 100%.' },
-      { nama: 'Nilai IKPA (G10)', keterangan: 'Nilai persentase ketepatan, maksimal 100 poin.' }
+      { nama: 'Selisih Hari Kalender (L)', keterangan: 'Formula: L = K - J (selisih hari kalender antara Konversi dan Mulai).' },
+      { nama: 'Jumlah Hari Efektif (N)', keterangan: 'Formula: N = L - M (hari kalender dikurangi hari libur/weekend).' },
+      { nama: 'Status Ketepatan (O)', keterangan: 'Formula: =IF(N <= 17, "TEPAT", "TERLAMBAT").' },
+      { nama: 'Rekapitulasi Q4, R4, S4', keterangan: 'Q4 = COUNTIF(TEPAT), R4 = COUNTIF(TERLAMBAT), S4 = Total SPM (Q4 + R4).' },
+      { nama: 'Nilai Indikator / Sel R6', keterangan: 'Formula: =Q4 / S4 × 100. Bobot indikator 10% (K8 = R6 × 10%).' }
     ],
     sumberData: [
-      'SAKTI Modul Pembayaran (SPM-LS Non-Belanja Pegawai)',
+      'SAKTI Modul Pembayaran (SPM-LS Kontraktual Non-Belanja Pegawai)',
       'Berita Acara Serah Terima (BAST) / Berita Acara Penyelesaian Pekerjaan (BAPP)',
-      'Format Sheet Excel: Penyelesaian Tagihan'
+      'Format Sheet Excel: Penyelesaian Tagihan (Kolom A s.d. P, Sel R6 & K8)'
     ],
     langkahPengisian: [
-      { kolom: 'Nomor BAST / Dokumen Hak', tipe: 'Input', keterangan: 'Nomor dokumen serah terima pekerjaan/barang.' },
-      { kolom: 'Tanggal BAST', tipe: 'Input', keterangan: 'Tanggal penyelesaian pekerjaan yang disepakati.' },
-      { kolom: 'Nomor & Tanggal SPM', tipe: 'Input', keterangan: 'Tanggal penerbitan SPM-LS Non-Pegawai oleh PPSPM.' },
-      { kolom: 'Hari Kerja (BAST s.d. SPM)', tipe: 'Otomatis', keterangan: 'Jumlah hari kerja antara tanggal BAST dan tanggal SPM (hari libur tidak dihitung).' },
-      { kolom: 'Status Ketepatan', tipe: 'Otomatis', keterangan: 'Tepat Waktu jika <= 17 Hari Kerja; Terlambat jika > 17 Hari Kerja.' }
+      { kolom: 'Nomor SPM & Uraian SPM', tipe: 'Input', keterangan: 'Nomor SPM-LS dan uraian pekerjaan yang ditagihkan.' },
+      { kolom: 'Tanggal BAST', tipe: 'Input', keterangan: 'Tanggal BAST yang otomatis mengeset Tanggal Mulai ke 1 hari kerja setelahnya.' },
+      { kolom: 'Tanggal Mulai (J)', tipe: 'Input/Hitung', keterangan: 'Tanggal dimulainya perhitungan batas 17 hari kerja.' },
+      { kolom: 'Tanggal Konversi ADK (K)', tipe: 'Input', keterangan: 'Tanggal konversi ADK SPM oleh sistem KPPN.' },
+      { kolom: 'Hari Libur (M)', tipe: 'Input/Hitung', keterangan: 'Hari libur akhir pekan dan libur nasional resmi Indonesia (dapat diubah manual).' }
     ],
-    rumusExcel: "=IF(COUNT(D5:D) = 0, 100, (COUNTIF(Status, 'Tepat Waktu') / Total_SPM) * 100)",
+    rumusExcel: "=Q4 / S4 * 100",
     penjelasanRumus: [
-      'Batas penyelesaian tagihan kontraktual (SPM-LS non belanja pegawai) adalah maksimal 17 hari kerja sejak timbulnya hak tagih (BAST).',
-      'Nilai indikator merupakan persentase jumlah SPM yang tepat waktu (<=17 HK) dibandingkan seluruh SPM yang diajukan.',
-      'Jika tidak ada tagihan kontraktual pada satker bersangkutan, nilai default dihitung 100.'
+      'Batas penyelesaian tagihan kontraktual (SPM-LS non belanja pegawai) adalah maksimal 17 hari efektif (hari kalender dikurangi hari libur) sejak timbulnya hak tagih (BAST).',
+      'Tanggal Mulai (J) otomatis disetel ke 1 hari kerja setelah BAST, namun tetap dapat diubah secara fleksibel apabila satker memiliki dispensasi/ketentuan khusus.',
+      'Hari libur disusun otomatis berdasarkan kalender resmi Indonesia (Sabtu, Minggu, dan Hari Libur Nasional), serta dapat disesuaikan manual pada setiap baris.',
+      'Nilai indikator merupakan persentase SPM Tepat Waktu (Q4) dibagi total SPM (S4) dikalikan 100.'
     ],
     tipsNilai100: [
-      'Segera lakukan pengujian berkas tagihan oleh PPK maksimal 5 hari kerja sejak BAST diterima.',
-      'Terbitkan SPP dan ajukan SPM oleh PPSPM dalam waktu maksimal 5 hari kerja berikutnya.',
-      'Jangan menandatangani BAST jika rekanan belum siap menyampaikan tagihan fisik secara lengkap.'
+      'Segera daftarkan SPM-LS ke KPPN tidak lebih dari 17 hari kerja sejak BAST ditandatangani.',
+      'Perhatikan hari libur nasional dan akhir pekan saat memperhitungkan jadwal penerbitan SPM.',
+      'Gunakan tombol "Optimasi" untuk menyesuaikan tanggal simulasi tagihan agar seluruh SPM berstatus tepat waktu.'
     ],
     panduanTombol: [
       { namaTombol: 'Perhitungkan Indikator Ini', keterangan: 'Menghitung rasio ketepatan SPM dan menyimpan nilai tagihan ke proyek aktif.' },
-      { namaTombol: 'Formula Inspector', keterangan: 'Melihat formula Excel sel G10 dan rincian langkah perhitungan.' },
-      { namaTombol: 'Tambah Baris Tagihan', keterangan: 'Menambahkan baris data tagihan BAST baru.' }
+      { namaTombol: 'Formula Inspector', keterangan: 'Melihat formula Excel sel R6 & K8 beserta langkah perhitungan transparan.' },
+      { namaTombol: '+ Tambah Tagihan', keterangan: 'Menambahkan baris SPM-LS Kontraktual baru.' },
+      { namaTombol: 'Audit Excel', keterangan: 'Menjalankan pengujian kompatibilitas otomatis terhadap formula Excel resmi.' }
     ]
   },
 
