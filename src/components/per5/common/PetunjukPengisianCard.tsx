@@ -166,13 +166,14 @@ export const PETUNJUK_INDIKATOR_DATA: Record<string, PetunjukIndicatorContent> =
     kolomInputManual: [
       { nama: 'Revisi Ke (Kolom C)', keterangan: 'Nomor urut pengesahan revisi DIPA (misal: 1, 2, 3).' },
       { nama: 'Tanggal SP DIPA (Kolom D)', keterangan: 'Tanggal terbit pengesahan DIPA revisi (format YYYY-MM-DD).' },
+      { nama: 'Kode Jenis Revisi (Kolom E)', keterangan: 'Bisa diisi lebih dari satu kode (misal: 217, 315). Jika memuat minimal salah satu dari 14 jenis pembatasan, Kolom H otomatis terdeteksi "ya".' },
       { nama: 'Pagu DIPA Sebelum (Kolom F)', keterangan: 'Total nominal rupiah pagu DIPA sebelum revisi dilakukan.' },
       { nama: 'Pagu DIPA Menjadi (Kolom G)', keterangan: 'Total nominal rupiah pagu DIPA setelah pengesahan revisi.' },
-      { nama: '14 Jenis Revisi (Kolom H)', keterangan: 'Pilih "ya" jika revisi masuk dalam 14 kriteria yang dibatasi, atau "tidak" jika dikecualikan.' }
+      { nama: '14 Jenis Revisi (Kolom H)', keterangan: 'Otomatis terdeteksi "ya" dari Kode Kolom E, atau pilih manual "ya"/"tidak" sesuai SP DIPA.' }
     ],
     kolomOtomatisSistem: [
-      { nama: 'Pagu Tetap? (Kolom E)', keterangan: 'Otomatis "ya" jika Pagu Sebelum sama dengan Pagu Menjadi.' },
-      { nama: 'Dihitung? (Kolom I)', keterangan: 'Bernilai 1 jika Pagu Tetap = "ya" DAN 14 Jenis Revisi = "ya".' },
+      { nama: 'Pagu Tetap (F == G)', keterangan: 'Otomatis terpenuhi jika Pagu Sebelum sama dengan Pagu Menjadi.' },
+      { nama: 'Dihitung? (Kolom I)', keterangan: 'Bernilai 1 jika Pagu Tetap DAN 14 Jenis Revisi = "ya".' },
       { nama: 'Jumlah Revisi Sem I & II (Kolom J)', keterangan: 'Menghitung akumulasi frekuensi revisi semesteran (J9 untuk Sem I, J15 untuk Sem II).' },
       { nama: 'Nilai Semester (Kolom L)', keterangan: 'L9 = 100 - (Revisi Sem I - 1)*10; L15 = 100 - (Revisi Sem II - 1)*10.' },
       { nama: 'Nilai Akhir (M15 / G6)', keterangan: 'Rata-rata L9 dan L15, dibatasi maksimal 100 poin.' }

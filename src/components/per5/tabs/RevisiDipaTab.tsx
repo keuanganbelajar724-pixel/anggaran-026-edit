@@ -763,30 +763,67 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                         />
                       </td>
 
-                      {/* E. Kode Jenis Revisi (Input dengan Bantuan Otomatis 14 Jenis) */}
+                      {/* E. Kode Jenis Revisi (Input dengan Dukungan Multi-Kode SAKTI & Bantuan Otomatis 14 Jenis) */}
                       <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
                         <input
                           type="text"
                           value={r.kodeJenisRevisi || ''}
                           onChange={(e) => {
-                            handleUpdateRow(effectiveIdx, { kodeJenisRevisi: e.target.value });
+                            const newCodesStr = e.target.value;
+                            const check = checkRevisionCodes(newCodesStr);
+                            let nextH = r.empatBelasJenis;
+                            if (check.hasAny14) {
+                              nextH = 'ya';
+                            } else if (check.codes.length > 0) {
+                              nextH = 'tidak';
+                            } else if (check.codes.length === 0 && (!r.revisiKe || String(r.revisiKe).trim() === '')) {
+                              nextH = '-';
+                            }
+
+                            handleUpdateRow(effectiveIdx, {
+                              kodeJenisRevisi: newCodesStr,
+                              empatBelasJenis: nextH
+                            });
                           }}
-                          placeholder="contoh: 212 atau 102, 221"
-                          className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                          placeholder="contoh: 217, 315 atau 212"
+                          title="Bisa diisi lebih dari satu kode (misal: 217, 315). Jika memuat minimal salah satu dari 14 jenis pembatasan, Kolom H otomatis terdeteksi 'ya'."
+                          className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs font-mono"
                         />
-                        {/* Assistive UI Badge untuk Kode E */}
+                        {/* Assistive UI Badge untuk Kode E (Multi-Kode SAKTI / SPAN) */}
                         {r.kodeJenisRevisi && r.kodeJenisRevisi.trim() !== '' && (
-                          <div className="mt-1 font-sans text-[10px]">
+                          <div className="mt-1 font-sans text-[10px] space-y-1">
+                            {/* Badges per-kode */}
+                            <div className="flex flex-wrap items-center gap-1">
+                              {codeCheck.descriptions.map((d, dIdx) => (
+                                <span
+                                  key={dIdx}
+                                  title={`${d.kode}: ${d.uraian} (${d.is14 ? 'Masuk 14 Jenis Pembatasan IKPA' : 'Bukan 14 Jenis / Bebas Kewenangan KPA'})`}
+                                  className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-semibold border ${
+                                    d.is14
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                      : 'bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                                  }`}
+                                >
+                                  {d.is14 ? '✓ ' : 'ℹ '}
+                                  {d.kode}
+                                  <span className="font-normal opacity-85 hidden sm:inline">
+                                    : {d.uraian.length > 20 ? d.uraian.slice(0, 18) + '…' : d.uraian}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* Status Kombinasi */}
                             {codeCheck.hasAny14 ? (
                               <div className="flex items-center justify-between gap-1 text-emerald-700 dark:text-emerald-400">
-                                <span className="inline-flex items-center gap-0.5 truncate" title={codeCheck.descriptions.map(d => `${d.kode}: ${d.uraian}`).join(', ')}>
-                                  ✓ 14 Jenis: {codeCheck.matchedCodes.join(', ')}
+                                <span className="inline-flex items-center gap-0.5 truncate font-medium" title={codeCheck.descriptions.map(d => `${d.kode}: ${d.uraian}`).join(', ')}>
+                                  ✓ Memuat 14 Jenis ({codeCheck.matchedCodes.join(', ')}) ➔ Kolom H=&quot;ya&quot;
                                 </span>
                                 {r.empatBelasJenis !== 'ya' && (
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateRow(effectiveIdx, { empatBelasJenis: 'ya' })}
-                                    className="underline text-[9px] cursor-pointer hover:text-emerald-900"
+                                    className="underline text-[9px] cursor-pointer hover:text-emerald-900 ml-1 shrink-0"
                                     title="Pilih 'ya' pada Kolom H"
                                   >
                                     Set H=&apos;ya&apos;
@@ -795,12 +832,12 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                               </div>
                             ) : (
                               <div className="flex items-center justify-between gap-1 text-amber-700 dark:text-amber-400">
-                                <span className="truncate">⚠ Bukan 14 jenis</span>
+                                <span className="truncate font-medium">ℹ Bebas dari 14 jenis pembatasan</span>
                                 {r.empatBelasJenis !== 'tidak' && (
                                   <button
                                     type="button"
                                     onClick={() => handleUpdateRow(effectiveIdx, { empatBelasJenis: 'tidak' })}
-                                    className="underline text-[9px] cursor-pointer hover:text-amber-900"
+                                    className="underline text-[9px] cursor-pointer hover:text-amber-900 ml-1 shrink-0"
                                     title="Pilih 'tidak' pada Kolom H"
                                   >
                                     Set H=&apos;tidak&apos;
