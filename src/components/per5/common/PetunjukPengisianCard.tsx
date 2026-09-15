@@ -468,6 +468,7 @@ export const PETUNJUK_INDIKATOR_DATA: Record<string, PetunjukIndicatorContent> =
       }
     ],
     kolomInputManual: [
+      { nama: 'Nomor SP2D', keterangan: 'Nomor SP2D (15 digit) yang diterbitkan KPPN.' },
       { nama: 'Nomor SPM', keterangan: 'Nomor Surat Perintah Membayar (SPM-LS Kontraktual) yang diterbitkan Satker.' },
       { nama: 'Uraian SPM', keterangan: 'Deskripsi peruntukan atau uraian pekerjaan belanja kontraktual pada SPM.' },
       { nama: 'Jenis Tagihan', keterangan: 'Terkunci otomatis pada "SPM-LS Kontraktual".' },
@@ -475,7 +476,7 @@ export const PETUNJUK_INDIKATOR_DATA: Record<string, PetunjukIndicatorContent> =
       { nama: 'Tanggal BAST', keterangan: 'Tanggal Berita Acara Serah Terima pekerjaan. Otomatis mengeset Tanggal Mulai = 1 hari kerja setelah BAST.' },
       { nama: 'Tanggal Mulai (J)', keterangan: 'Tanggal awal perhitungan (otomatis 1 hari kerja setelah BAST, dapat diganti manual jika ada dispensasi).' },
       { nama: 'Tanggal Konversi ADK (K)', keterangan: 'Tanggal unggah dan konversi ADK SPM di KPPN.' },
-      { nama: 'Hari Libur (M)', keterangan: 'Otomatis disusun dari akhir pekan & hari libur nasional Indonesia, serta dapat diubah secara bebas.' }
+      { nama: 'Hari Libur (M)', keterangan: 'Sabtu & Minggu otomatis terhitung sistem. Pengguna dapat mengisi/menambahkan hari libur nasional secara mandiri.' }
     ],
     kolomOtomatisSistem: [
       { nama: 'Selisih Hari Kalender (L)', keterangan: 'Formula: L = K - J (selisih hari kalender antara Konversi dan Mulai).' },
@@ -500,7 +501,7 @@ export const PETUNJUK_INDIKATOR_DATA: Record<string, PetunjukIndicatorContent> =
     penjelasanRumus: [
       'Batas penyelesaian tagihan kontraktual (SPM-LS non belanja pegawai) adalah maksimal 17 hari efektif (hari kalender dikurangi hari libur) sejak timbulnya hak tagih (BAST).',
       'Tanggal Mulai (J) otomatis disetel ke 1 hari kerja setelah BAST, namun tetap dapat diubah secara fleksibel apabila satker memiliki dispensasi/ketentuan khusus.',
-      'Hari libur disusun otomatis berdasarkan kalender resmi Indonesia (Sabtu, Minggu, dan Hari Libur Nasional), serta dapat disesuaikan manual pada setiap baris.',
+      'Hari libur akhir pekan (Sabtu & Minggu) terisi otomatis oleh sistem. Jika terdapat hari libur nasional, satker dapat langsung menambahkan jumlahnya pada kolom M.',
       'Nilai indikator merupakan persentase SPM Tepat Waktu (Q4) dibagi total SPM (S4) dikalikan 100.'
     ],
     tipsNilai100: [

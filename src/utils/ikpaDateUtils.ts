@@ -113,6 +113,7 @@ export function sanitizeProjectDates<T extends {
     ...project,
     revisiDIPA: (project.revisiDIPA || []).map(r => ({
       ...r,
+      revisiKe: r.revisiKe !== null && r.revisiKe !== undefined ? Math.max(0, Math.abs(Number(r.revisiKe))) : null,
       tanggalRevisi: r.tanggalRevisi ? normalizeDateToIso(r.tanggalRevisi) : ''
     })),
     belanjaKontraktual: (project.belanjaKontraktual || []).map(k => ({

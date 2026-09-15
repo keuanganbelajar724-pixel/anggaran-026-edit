@@ -2,38 +2,65 @@ import { RevisiDIPAInput, RevisionDipaRow, IndicatorResult, CalculationDetail } 
 import { round2 } from './rounding';
 
 /**
- * Master Data: 14 Jenis Revisi yang Diakui IKPA 2026
+ * Master Data: 14 Jenis Revisi yang Diakui IKPA 2026 (PER-5/PB/2022 & PER-5/PB/2024)
+ * Revisi dalam batas pagu tetap (pagu sebelum === pagu menjadi)
  */
 export const VALID_REVISION_CODES = [
-  "201", "211", "212", "213", "217", "220", "221",
-  "222", "225", "226", "229", "231", "236", "239"
+  "201", "211", "212", "213", "217", "219", "220", "221",
+  "222", "224", "225", "226", "229", "231", "233", "234", "236", "238", "239"
 ];
 
 export const VALID_REVISION_CODE_MAP: Record<string, string> = {
+  // 14 Jenis Revisi yang Diperhitungkan (Pagu Tetap - Kewenangan Kanwil DJPb / DJA)
   "201": "Antar-Fungsi/Sub-Fungsi dan/atau Antar-Program",
   "211": "Pemenuhan Belanja Operasional",
   "212": "Penyelesaian Pagu Minus Belanja Pegawai Operasional",
   "213": "Pergeseran Anggaran dari Belanja Operasional ke Belanja Non-Operasional",
   "217": "Penyelesaian Tunggakan",
+  "219": "Kegiatan Dekonsentrasi dan/atau Tugas Pembantuan dan Urusan Bersama",
   "220": "Pemanfaatan Sisa Anggaran Kontraktual dan/atau Swakelola",
-  "221": "Pergeseran anggaran Antarjenis Belanja",
-  "222": "Kontrak Tahun Jamak",
-  "225": "RO Cadangan",
-  "226": "Penurunan volume RO secara total",
-  "229": "Penyelesaian putusan pengadilan yang telah mempunyai kekuatan hukum tetap (inkracht)",
+  "221": "Pergeseran Anggaran Antarjenis Belanja",
+  "222": "Kontrak Tahun Jamak (Multi-Years Contract)",
+  "224": "Pergeseran Anggaran dalam 1 (satu) RO Prioritas Nasional",
+  "225": "Rincian Output (RO) Cadangan",
+  "226": "Penurunan Volume RO secara Total",
+  "229": "Penyelesaian Putusan Pengadilan Berkekuatan Hukum Tetap (Inkracht)",
   "231": "Penyelesaian Pekerjaan yang Tidak Terselesaikan sampai dengan Akhir Tahun Anggaran",
+  "233": "Pergeseran Anggaran DIPA K/L untuk Anggaran dari SP SABA 999.08",
+  "234": "Pergeseran Belanja Barang Diserahkan ke Pemda/Masyarakat (Akun 526)",
   "236": "Pergeseran Anggaran Antar-KRO dan/atau Antar-Kegiatan",
-  "239": "Revisi dalam rangka Pagu Anggaran Tetap lainnya"
+  "238": "Pergeseran Anggaran Antar-Satker",
+  "239": "Revisi dalam Rangka Pagu Anggaran Tetap Lainnya",
+
+  // Kategori Administrasi KPA (Kode 300-an) - Bukan 14 Jenis IKPA (Pengecualian / Bebas)
+  "311": "Ralat Kode Akun Kebijakan Akuntansi (KPA)",
+  "312": "Perubahan Pejabat Perbendaharaan KPA/PPK/PPSPM/Bendahara (KPA)",
+  "313": "Ralat Kode KPPN/Lokasi Satker (KPA)",
+  "314": "Perubahan Nomenklatur Bagian Anggaran dan/atau Satker (KPA)",
+  "315": "Pencantuman/Perubahan Rencana Penarikan Dana (RPD) Hal III DIPA (KPA)",
+  "316": "Ralat Redaksional Penulisan DIPA (KPA)",
+  "317": "Perubahan/Pergeseran dalam 1 (satu) RO Komponen/Subkomponen (KPA)",
+  "318": "Pembukaan Blokir Anggaran (KPA)",
+  "321": "Revisi Administrasi KPA Lainnya (KPA)",
+
+  // Kategori DJA / Pagu Berubah (Kode 100-an)
+  "101": "Perubahan Pagu Anggaran Belanja (DJA/DPR)",
+  "102": "Tanggap Darurat Bencana (DJA)",
+  "103": "Luncuran Pinjaman/Hibah Luar Negeri - PHLN (DJA)",
+  "104": "Penggunaan Saldo Awal BLU (DJA)",
+  "105": "Pengesahan Pendapatan Hibah Langsung (DJA)"
 };
 
 /**
- * Memecah kode jenis revisi string (mendukung koma) dan membersihkan whitespace
- * Contoh: "102, 221, 315" -> ["102", "221", "315"]
+ * Memecah kode jenis revisi string (mendukung koma, titik koma, spasi, atau garis miring)
+ * Contoh: "217, 315" -> ["217", "315"]
+ * Contoh: "217,315" -> ["217", "315"]
+ * Contoh: "201; 212" -> ["201", "212"]
  */
 export function parseRevisionCodes(codeStr: string | null | undefined): string[] {
   if (!codeStr) return [];
   return String(codeStr)
-    .split(',')
+    .split(/[,;\s/]+/)
     .map(s => s.trim())
     .filter(Boolean);
 }
@@ -64,7 +91,7 @@ export function checkRevisionCodes(codeStr: string | null | undefined): {
   const unmatchedCodes = codes.filter(c => !VALID_REVISION_CODES.includes(c));
   const descriptions = codes.map(c => ({
     kode: c,
-    uraian: VALID_REVISION_CODE_MAP[c] || 'Kode di luar 14 jenis revisi',
+    uraian: VALID_REVISION_CODE_MAP[c] || (c.startsWith('3') ? 'Revisi Administrasi KPA (Non-14 Jenis)' : 'Kode revisi di luar 14 jenis pembatasan IKPA'),
     is14: VALID_REVISION_CODES.includes(c)
   }));
 
@@ -83,14 +110,29 @@ export function checkRevisionCodes(codeStr: string | null | undefined): {
  * Formula Excel: =IF(AND(H4="ya",F4=G4),"diperhitungkan","tidak diperhitungkan")
  *
  * Syarat:
- * 1. H === "ya"
- * 2. Pagu Sebelum (F) === Pagu Menjadi (G) (keduanya tidak null/kosong)
+ * 1. H === "ya" (atau auto-infer dari kodeJenisRevisi jika H masih "-")
+ * 2. Pagu Sebelum (F) === Pagu Menjadi (G) (keduanya tidak null/kosong dan > 0)
  */
 export function calculateRevisionEligibility(
   row: Partial<RevisionDipaRow & RevisiDIPAInput>
 ): "diperhitungkan" | "tidak diperhitungkan" {
-  const hRaw = row.empatBelasJenis ?? row.jenisRevisi14 ?? "-";
-  const h = String(hRaw).trim().toLowerCase();
+  let hRaw = row.empatBelasJenis ?? row.jenisRevisi14 ?? "-";
+  let h = String(hRaw).trim().toLowerCase();
+
+  // Otomatis deteksi dari kode jenis revisi jika kolom H belum dipilih secara eksplisit ("-")
+  if (h === "-" && row.kodeJenisRevisi) {
+    const check = checkRevisionCodes(row.kodeJenisRevisi);
+    if (check.hasAny14) {
+      h = "ya";
+    } else if (check.codes.length > 0) {
+      h = "tidak";
+    }
+  }
+
+  // Jika tidak ada revisi ("-") atau "tidak", otomatis tidak diperhitungkan
+  if (h !== "ya") {
+    return "tidak diperhitungkan";
+  }
 
   const f = row.paguSebelum !== undefined && row.paguSebelum !== null
     ? Number(row.paguSebelum)
@@ -99,11 +141,6 @@ export function calculateRevisionEligibility(
   const g = row.paguMenjadi !== undefined && row.paguMenjadi !== null
     ? Number(row.paguMenjadi)
     : (row.paguDipaMenjadi !== undefined && row.paguDipaMenjadi !== null ? Number(row.paguDipaMenjadi) : null);
-
-  // Jika tidak ada revisi ("-") atau "tidak", otomatis tidak diperhitungkan
-  if (h !== "ya") {
-    return "tidak diperhitungkan";
-  }
 
   // Jika H === "ya", F dan G wajib ada dan F === G (Pagu DIPA Tetap)
   if (f !== null && g !== null && f === g && f > 0) {
@@ -169,7 +206,8 @@ export function calculateSemesterIKPA(
     const isSem1 = no <= 6;
     const keterangan = isSem1 ? 'Semester I' : 'Semester II';
 
-    const revisiKe = existing?.revisiKe !== undefined ? existing.revisiKe : null;
+    const rawRevKe = existing?.revisiKe !== undefined && existing?.revisiKe !== null ? Number(existing.revisiKe) : null;
+    const revisiKe = rawRevKe !== null && !isNaN(rawRevKe) ? Math.max(0, Math.abs(rawRevKe)) : null;
     const tanggalRevisi = existing?.tanggalRevisi || null;
     const kodeJenisRevisi = existing?.kodeJenisRevisi || '';
 
@@ -188,7 +226,7 @@ export function calculateSemesterIKPA(
     return {
       no,
       periode,
-      revisiKe: revisiKe !== null && revisiKe !== undefined ? Number(revisiKe) : null,
+      revisiKe,
       tanggalRevisi,
       kodeJenisRevisi,
       paguSebelum: f !== null && f !== undefined ? Number(f) : null,
@@ -329,14 +367,47 @@ export function calculateRevisiDIPA(
     };
   }
 
-  // Hitung tabel 12 periode
+  // Hitung tabel periode (12 periode standar atau baris dinamis satker)
   const calculatedRows = calculateSemesterIKPA(inputs || []);
+  if (calculatedRows.length === 0) {
+    return {
+      rawValue: 0,
+      cappedValue: 0,
+      weight: isActive ? weight : 0,
+      weightedValue: 0,
+      isActive,
+      details: [{
+        step: 'Data Revisi DIPA Kosong',
+        formulaHuman: 'Belum ada data revisi DIPA yang diinputkan (Nilai = 0)',
+        formulaTechnical: '0',
+        value: 0,
+        note: 'Nilai awal simulasi 0 sebelum data revisi DIPA diisi'
+      }],
+      metadata: {
+        rows: [],
+        sem1Count: 0,
+        sem2Count: 0,
+        sem1Indicator: 0,
+        sem2Indicator: 0,
+        m15: 0,
+        finalScore: 0
+      }
+    };
+  }
 
-  const sem1Count = calculatedRows[5].jumlahDiperhitungkan;
-  const sem2Count = calculatedRows[11].jumlahDiperhitungkan;
-  const l9Value = calculatedRows[5].nilaiIndikator;
-  const l15Value = calculatedRows[11].nilaiIndikator;
-  const m15Value = calculatedRows[11].nilaiIKPA;
+  // Cari baris terakhir Semester I (no <= 6) dan Semester II (no > 6)
+  const sem1Rows = calculatedRows.filter(r => r.no <= 6);
+  const sem2Rows = calculatedRows.filter(r => r.no > 6);
+  const lastSem1 = sem1Rows.length > 0 ? sem1Rows[sem1Rows.length - 1] : undefined;
+  const lastSem2 = sem2Rows.length > 0 ? sem2Rows[sem2Rows.length - 1] : undefined;
+
+  const sem1Count = lastSem1 ? lastSem1.jumlahDiperhitungkan : 0;
+  const sem2Count = lastSem2 ? lastSem2.jumlahDiperhitungkan : 0;
+  const l9Value = lastSem1 ? lastSem1.nilaiIndikator : 110;
+  const l15Value = lastSem2 ? lastSem2.nilaiIndikator : l9Value;
+
+  const lastRow = calculatedRows[calculatedRows.length - 1];
+  const m15Value = lastRow ? lastRow.nilaiIKPA : (lastSem2 ? (l9Value + l15Value) / 2 : l9Value);
 
   const rawValue = m15Value;
   const cappedValue = Math.min(100, rawValue);
@@ -359,30 +430,41 @@ export function calculateRevisiDIPA(
     value: l9Value
   });
 
-  details.push({
-    step: 'Revisi Diperhitungkan Semester II (J15)',
-    formulaHuman: `COUNTIF(I10:I15; "diperhitungkan") = ${sem2Count} revisi (dihitung ulang mulai periode 07)`,
-    formulaTechnical: 'COUNTIF(I10:I15, "diperhitungkan")',
-    excelCell: 'J15',
-    value: sem2Count,
-    note: 'Basis perhitungan Semester II terpisah, tidak menggabungkan Semester I'
-  });
+  if (sem2Rows.length > 0) {
+    details.push({
+      step: 'Revisi Diperhitungkan Semester II (J15)',
+      formulaHuman: `COUNTIF(I10:I15; "diperhitungkan") = ${sem2Count} revisi (dihitung ulang mulai periode 07)`,
+      formulaTechnical: 'COUNTIF(I10:I15, "diperhitungkan")',
+      excelCell: 'J15',
+      value: sem2Count,
+      note: 'Basis perhitungan Semester II terpisah, tidak menggabungkan Semester I'
+    });
 
-  details.push({
-    step: 'Nilai Indikator Semester II (L15)',
-    formulaHuman: `IF(J15<=1; 110; IF(J15=2; 100; 50)) = ${l15Value}`,
-    formulaTechnical: 'IF(J15<=1, 110, IF(J15=2, 100, 50))',
-    excelCell: 'L15',
-    value: l15Value
-  });
+    details.push({
+      step: 'Nilai Indikator Semester II (L15)',
+      formulaHuman: `IF(J15<=1; 110; IF(J15=2; 100; 50)) = ${l15Value}`,
+      formulaTechnical: 'IF(J15<=1, 110, IF(J15=2, 100, 50))',
+      excelCell: 'L15',
+      value: l15Value
+    });
 
-  details.push({
-    step: 'Nilai Akhir Indikator (M15)',
-    formulaHuman: `AVERAGE(L9; L15) = (${l9Value} + ${l15Value}) / 2 = ${m15Value}`,
-    formulaTechnical: 'AVERAGE($L$9, L15)',
-    excelCell: 'M15',
-    value: m15Value
-  });
+    details.push({
+      step: 'Nilai Akhir Indikator (M15)',
+      formulaHuman: `AVERAGE(L9; L15) = (${l9Value} + ${l15Value}) / 2 = ${m15Value}`,
+      formulaTechnical: 'AVERAGE($L$9, L15)',
+      excelCell: 'M15',
+      value: m15Value
+    });
+  } else {
+    details.push({
+      step: 'Nilai Akhir Indikator Semester I (M)',
+      formulaHuman: `Nilai Semester I = ${m15Value}`,
+      formulaTechnical: 'M = L9',
+      excelCell: 'M9',
+      value: m15Value,
+      note: 'Belum ada data revisi untuk Semester II'
+    });
+  }
 
   details.push({
     step: 'Nilai Capped Masuk Dashboard (Interface G6)',

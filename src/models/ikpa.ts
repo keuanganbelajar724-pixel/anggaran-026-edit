@@ -294,6 +294,7 @@ export interface PenyelesaianTagihanRow {
   // Compatibility & Legacy fields
   satker?: string;
   nomorSP2D?: string;
+  isCustomHariLibur?: boolean;
   tanggalSP2D?: string | null;
   nilaiSP2D?: number;
   tanggalBAST?: string | null;

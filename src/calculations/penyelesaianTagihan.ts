@@ -281,6 +281,39 @@ export function calculateHolidayDays(
 }
 
 /**
+ * Menghitung jumlah hari Sabtu dan Minggu (Akhir Pekan) di antara dua tanggal.
+ * Menghitung interval (Tanggal Mulai + 1) s.d. Tanggal Konversi (selisih hari L = K - J).
+ * Sesuai aturan SAKTI / OMSPAN: hari Sabtu & Minggu terisi otomatis, hari libur nasional diisi pengguna.
+ */
+export function calculateWeekendDays(
+  startDateStr: string | null | undefined,
+  conversionDateStr: string | null | undefined
+): number {
+  if (!startDateStr || !conversionDateStr) return 0;
+  const pStart = parseDateParts(startDateStr);
+  const pConv = parseDateParts(conversionDateStr);
+  if (!pStart || !pConv) return 0;
+
+  const dStart = new Date(pStart[0], pStart[1] - 1, pStart[2]);
+  const dConv = new Date(pConv[0], pConv[1] - 1, pConv[2]);
+  if (dConv <= dStart) return 0;
+
+  let weekends = 0;
+  const current = new Date(dStart.getTime());
+  current.setDate(current.getDate() + 1);
+
+  while (current <= dConv) {
+    const day = current.getDay();
+    if (day === 0 || day === 6) { // 0 = Minggu, 6 = Sabtu
+      weekends++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return weekends;
+}
+
+/**
  * Interface untuk baris data yang sudah diproses secara lengkap
  */
 export interface ProcessedTagihanRow extends PenyelesaianTagihanRow {
@@ -313,7 +346,8 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
     const no = item.no || index + 1;
     const nomorSPM = item.nomorSPM || item.nomorSPP || `SPM-${String(no).padStart(3, '0')}`;
     const nomorSPP = nomorSPM;
-    const identitasTagihan = item.identitasTagihan || item.satker || item.nomorSP2D || `Tagihan #${no}`;
+    const nomorSP2D = item.nomorSP2D || item.identitasTagihan || item.satker || `SP2D-${String(no).padStart(3, '0')}`;
+    const identitasTagihan = nomorSP2D;
     const uraianSPM = item.uraianSPM || item.keterangan || 'SPM-LS Kontraktual Non Belanja Pegawai';
     const keterangan = uraianSPM;
     const jenisTagihan = 'SPM-LS Kontraktual'; // Locked strictly to SPM-LS Kontraktual
@@ -338,8 +372,20 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
     // Validasi apakah tanggal terbalik
     const isDateReversed = selisihHari !== null && selisihHari < 0;
 
-    // Kolom M: Hari Libur (Bisa diisi manual atau dihitung otomatis)
-    const hariLibur = Math.max(0, item.hariLibur ?? item.jumlahHariLibur ?? 0);
+    // Kolom M: Hari Libur
+    // Otomatis terisi hari Sabtu & Minggu (akhir pekan) jika ada tanggal mulai & konversi.
+    // Jika pengguna mengisi manual (misal menambah libur nasional), nilai pengguna diprioritaskan.
+    const autoWeekends = (tanggalMulai && tanggalKonversi) ? calculateWeekendDays(tanggalMulai, tanggalKonversi) : 0;
+    let hariLibur: number;
+    if (item.isCustomHariLibur && item.hariLibur !== undefined && item.hariLibur !== null) {
+      hariLibur = Math.max(0, item.hariLibur);
+    } else if (item.hariLibur !== undefined && item.hariLibur !== null && item.hariLibur > 0) {
+      hariLibur = item.hariLibur;
+    } else if (autoWeekends > 0) {
+      hariLibur = autoWeekends;
+    } else {
+      hariLibur = Math.max(0, item.hariLibur ?? item.jumlahHariLibur ?? 0);
+    }
 
     // Kolom N: Jumlah Hari Efektif (=L - M)
     const jumlahHariEfektif = calculateEffectiveDays(selisihHari, hariLibur);
@@ -371,6 +417,7 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
       ...item,
       no,
       identitasTagihan,
+      nomorSP2D,
       uraianSPM,
       keterangan,
       jenisTagihan,

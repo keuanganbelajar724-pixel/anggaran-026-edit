@@ -41,6 +41,7 @@ import {
   countLate,
   calculateBillingCompletionScore,
   calculateHolidayDays,
+  calculateWeekendDays,
   getNextWorkingDay,
   INDONESIAN_NATIONAL_HOLIDAYS,
   processTagihanRows,
@@ -100,15 +101,27 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
         const tglMulaiVal = normalizeDateToIso(r.tanggalMulai || r.tanggalMulaiPerhitungan) || autoMulai;
         const tglKonversiVal = normalizeDateToIso(r.tanggalKonversi || r.tanggalKonversiADK || r.tanggalPenyampaian) || null;
 
-        // Hitung otomatis hari libur jika belum diset
-        let holidays = r.hariLibur ?? r.jumlahHariLibur ?? 0;
-        if (holidays === 0 && tglMulaiVal && tglKonversiVal) {
-          holidays = calculateHolidayDays(tglMulaiVal, tglKonversiVal);
+        // Nomor SP2D (menggantikan nomor/nama tagihan)
+        const nomorSp2dVal = r.nomorSP2D || r.identitasTagihan || r.satker || '';
+
+        // Hitung otomatis akhir pekan (Sabtu & Minggu) jika ada tanggal mulai & konversi
+        const autoWeekends = (tglMulaiVal && tglKonversiVal) ? calculateWeekendDays(tglMulaiVal, tglKonversiVal) : 0;
+        let holidays: number;
+        if (r.isCustomHariLibur && r.hariLibur !== undefined && r.hariLibur !== null) {
+          holidays = Math.max(0, r.hariLibur);
+        } else if (r.hariLibur !== undefined && r.hariLibur !== null && r.hariLibur > 0) {
+          holidays = r.hariLibur;
+        } else if (autoWeekends > 0) {
+          holidays = autoWeekends;
+        } else {
+          holidays = Math.max(0, r.hariLibur ?? r.jumlahHariLibur ?? 0);
         }
 
         return {
           no: r.no || idx + 1,
-          identitasTagihan: r.identitasTagihan || r.satker || r.nomorSP2D || `Tagihan #${r.no || idx + 1}`,
+          identitasTagihan: nomorSp2dVal || `Tagihan #${r.no || idx + 1}`,
+          nomorSP2D: nomorSp2dVal,
+          isCustomHariLibur: r.isCustomHariLibur ?? (r.hariLibur !== undefined && r.hariLibur > 0 && r.hariLibur !== autoWeekends),
           keterangan: uraianSpmVal,
           uraianSPM: uraianSpmVal,
           jenisTagihan: 'SPM-LS Kontraktual', // Terkunci pada SPM-LS Kontraktual
@@ -128,7 +141,6 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
           status: (r.status || 'TEPAT') as "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP",
           keteranganHasil: r.keteranganHasil || '',
           satker: r.satker,
-          nomorSP2D: r.nomorSP2D,
           tanggalSP2D: normalizeDateToIso(r.tanggalSP2D) || null,
           nilaiSP2D: r.nilaiSP2D,
           tanggalBAPP: normalizeDateToIso(r.tanggalBAPP) || null,
@@ -162,12 +174,13 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   // Filtered rows for search/filtering
   const displayedRows = useMemo(() => {
     return processedRows.filter(r => {
-      const spmCode = r.nomorSPM || r.nomorSPP;
-      const uraian = r.uraianSPM || r.keterangan;
+      const sp2dCode = r.nomorSP2D || r.identitasTagihan || '';
+      const spmCode = r.nomorSPM || r.nomorSPP || '';
+      const uraian = r.uraianSPM || r.keterangan || '';
       const matchSearch =
+        sp2dCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
         spmCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.identitasTagihan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (uraian && uraian.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        uraian.toLowerCase().includes(searchQuery.toLowerCase()) ||
         r.no.toString() === searchQuery.trim();
       const matchStatus = filterStatus === 'all' || r.status === filterStatus;
       return matchSearch && matchStatus;
@@ -182,6 +195,12 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     const processedVal = isDateField ? (normalizeDateToIso(val) || null) : val;
 
     const currentItem = { ...newItems[rowIndex], [field]: processedVal };
+
+    // Sinkronisasi Nomor SP2D
+    if (field === 'nomorSP2D' || field === 'identitasTagihan') {
+      currentItem.nomorSP2D = val;
+      currentItem.identitasTagihan = val;
+    }
 
     // Sinkronisasi SPM & Uraian
     if (field === 'nomorSPM' || field === 'nomorSPP') {
@@ -211,11 +230,11 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
         const autoMulai = getNextWorkingDay(processedVal);
         currentItem.tanggalMulai = autoMulai;
         currentItem.tanggalMulaiPerhitungan = autoMulai;
-        // Susun hari libur otomatis jika tanggal konversi sudah ada
-        if (currentItem.tanggalKonversi) {
-          const autoHolidays = calculateHolidayDays(autoMulai, currentItem.tanggalKonversi);
-          currentItem.hariLibur = autoHolidays;
-          currentItem.jumlahHariLibur = autoHolidays;
+        // Susun hari libur otomatis (Sabtu & Minggu) jika tanggal konversi sudah ada dan belum dicustom
+        if (currentItem.tanggalKonversi && !currentItem.isCustomHariLibur) {
+          const autoWeekends = calculateWeekendDays(autoMulai, currentItem.tanggalKonversi);
+          currentItem.hariLibur = autoWeekends;
+          currentItem.jumlahHariLibur = autoWeekends;
         }
       }
     }
@@ -224,10 +243,10 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     if (field === 'tanggalMulai') {
       currentItem.tanggalMulai = processedVal;
       currentItem.tanggalMulaiPerhitungan = processedVal;
-      if (currentItem.tanggalKonversi) {
-        const autoHolidays = calculateHolidayDays(processedVal, currentItem.tanggalKonversi);
-        currentItem.hariLibur = autoHolidays;
-        currentItem.jumlahHariLibur = autoHolidays;
+      if (currentItem.tanggalKonversi && !currentItem.isCustomHariLibur) {
+        const autoWeekends = calculateWeekendDays(processedVal, currentItem.tanggalKonversi);
+        currentItem.hariLibur = autoWeekends;
+        currentItem.jumlahHariLibur = autoWeekends;
       }
     }
 
@@ -235,18 +254,19 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     if (field === 'tanggalKonversi') {
       currentItem.tanggalKonversi = processedVal;
       currentItem.tanggalKonversiADK = processedVal;
-      if (currentItem.tanggalMulai) {
-        const autoHolidays = calculateHolidayDays(currentItem.tanggalMulai, processedVal);
-        currentItem.hariLibur = autoHolidays;
-        currentItem.jumlahHariLibur = autoHolidays;
+      if (currentItem.tanggalMulai && !currentItem.isCustomHariLibur) {
+        const autoWeekends = calculateWeekendDays(currentItem.tanggalMulai, processedVal);
+        currentItem.hariLibur = autoWeekends;
+        currentItem.jumlahHariLibur = autoWeekends;
       }
     }
 
-    // Hari Libur (bisa diubah manual oleh pengguna)
+    // Hari Libur (bisa diisi manual oleh pengguna jika ada hari libur nasional)
     if (field === 'hariLibur' || field === 'jumlahHariLibur') {
       const holidayNum = Math.max(0, Number(val));
       currentItem.hariLibur = holidayNum;
       currentItem.jumlahHariLibur = holidayNum;
+      currentItem.isCustomHariLibur = true;
     }
 
     newItems[rowIndex] = currentItem;
@@ -258,7 +278,8 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     const nextNo = rawRows.length + 1;
     const newRow: PenyelesaianTagihanRow = {
       no: nextNo,
-      identitasTagihan: `Tagihan #${nextNo}`,
+      identitasTagihan: '',
+      nomorSP2D: '',
       uraianSPM: 'SPM-LS Kontraktual Non Belanja Pegawai',
       keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
       jenisTagihan: 'SPM-LS Kontraktual',
@@ -269,9 +290,10 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       tanggalBAST: '',
       tanggalMulai: '',
       tanggalKonversi: '',
-      selisihHari: 0,
+      selisihHari: null,
       hariLibur: 0,
-      jumlahHariEfektif: 0,
+      isCustomHariLibur: false,
+      jumlahHariEfektif: null,
       status: 'BELUM LENGKAP',
       keteranganHasil: '',
       nilaiSP2D: 0
@@ -284,9 +306,12 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
     const target = rawRows[index];
     const nextNo = rawRows.length + 1;
     const spmVal = target.nomorSPM || target.nomorSPP || `SPM-${nextNo}`;
+    const sp2dVal = target.nomorSP2D || target.identitasTagihan || '';
     const duplicated: PenyelesaianTagihanRow = {
       ...target,
       no: nextNo,
+      nomorSP2D: sp2dVal ? `${sp2dVal}-COPY` : '',
+      identitasTagihan: sp2dVal ? `${sp2dVal}-COPY` : '',
       nomorSPM: `${spmVal}-COPY`,
       nomorSPP: `${spmVal}-COPY`
     };
@@ -336,10 +361,13 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
   const handleResetToExcelDefault = () => {
     const defaultData: PenyelesaianTagihanRow[] = DEFAULT_EXCEL_TAGIHAN_ROWS.map((r: any, idx: number) => ({
       no: r.id || idx + 1,
-      identitasTagihan: r.noSp2d || `Tagihan #${r.id}`,
+      identitasTagihan: r.noSp2d || `SP2D-${r.id}`,
+      nomorSP2D: r.noSp2d || `SP2D-${r.id}`,
       keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
+      uraianSPM: 'SPM-LS Kontraktual Non Belanja Pegawai',
       jenisTagihan: 'SPM-LS Kontraktual',
-      nomorSPP: r.noSpm || `SPP-${r.id}`,
+      nomorSPP: r.noSpm || `SPM-${r.id}`,
+      nomorSPM: r.noSpm || `SPM-${r.id}`,
       tanggalSPP: normalizeDateToIso(r.tanggalSpm),
       tanggalTagihan: normalizeDateToIso(r.tanggalBast),
       tanggalDokumenPendukung: normalizeDateToIso(r.tanggalBast),
@@ -348,13 +376,12 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       tanggalKonversi: normalizeDateToIso(r.tanggalKonversiAdk),
       selisihHari: r.selisihHari,
       hariLibur: r.jumlahHariLibur ?? 0,
+      isCustomHariLibur: false,
       jumlahHariEfektif: r.jumlahHariFinal,
       status: (r.status || 'TEPAT') as "TEPAT" | "TERLAMBAT",
       keteranganHasil: r.status === 'TEPAT' ? 'Tepat Waktu (<= 17 hari)' : 'Terlambat (> 17 hari)',
       satker: r.satker,
-      nomorSPM: r.noSpm,
       tanggalSPM: normalizeDateToIso(r.tanggalSpm),
-      nomorSP2D: r.noSp2d,
       tanggalSP2D: normalizeDateToIso(r.tanggalSp2d),
       nilaiSP2D: r.nilaiSp2d,
       tanggalBAST: normalizeDateToIso(r.tanggalBast),
@@ -860,7 +887,7 @@ KETENTUAN FORMULA:
                 {/* Header Judul Kolom */}
                 <tr className="border-b border-slate-300 dark:border-slate-700 text-left font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">No.</th>
-                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor/Nama Tagihan</th>
+                  <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor SP2D</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Uraian SPM</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Jenis Tagihan</th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700">Nomor SPM</th>
@@ -877,7 +904,8 @@ KETENTUAN FORMULA:
                     Selisih (L=K-J)
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300">
-                    Hari Libur (M)
+                    <div>Hari Libur (M)</div>
+                    <span className="text-[9px] font-normal text-amber-600 dark:text-amber-400">Sabtu & Minggu Auto</span>
                   </th>
                   <th className="py-2.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300">
                     Hari Efektif (N=L-M)
@@ -912,13 +940,14 @@ KETENTUAN FORMULA:
                         {r.no}
                       </td>
 
-                      {/* Kolom B: Identitas Tagihan */}
+                      {/* Kolom B: Nomor SP2D */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700">
                         <input
                           type="text"
-                          value={r.identitasTagihan}
-                          onChange={(e) => handleUpdateRow(targetIdx, 'identitasTagihan', e.target.value)}
-                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500"
+                          value={r.nomorSP2D || r.identitasTagihan || ''}
+                          placeholder="Nomor SP2D"
+                          onChange={(e) => handleUpdateRow(targetIdx, 'nomorSP2D', e.target.value)}
+                          className="w-full bg-transparent px-1 py-0.5 rounded border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-emerald-500 font-mono text-[11px]"
                         />
                       </td>
 
@@ -1011,30 +1040,41 @@ KETENTUAN FORMULA:
                         {r.selisihHari !== null ? r.selisihHari : '-'}
                       </td>
 
-                      {/* Kolom M: Hari Libur (Otomatis & Bisa Diubah) */}
+                      {/* Kolom M: Hari Libur (Sabtu & Minggu Otomatis, Libur Nasional Manual) */}
                       <td className="py-1 px-2 border-r border-slate-200 dark:border-slate-700 text-center bg-amber-50/40 dark:bg-amber-950/20">
                         <div className="flex items-center justify-center gap-1">
                           <input
                             type="number"
                             min="0"
                             value={r.hariLibur}
-                            title="Jumlah hari libur (otomatis dihitung, dapat diubah manual)"
+                            title="Sabtu & Minggu terhitung otomatis. Tambah/ubah manual jika ada hari libur nasional."
                             onChange={(e) => handleUpdateRow(targetIdx, 'hariLibur', Math.max(0, Number(e.target.value)))}
-                            className="w-12 text-center bg-transparent py-0.5 rounded font-bold text-amber-700 dark:text-amber-300 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+                            className="w-12 text-center bg-transparent py-0.5 rounded font-bold text-amber-700 dark:text-amber-300 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:bg-white dark:focus:bg-slate-800 focus:border-amber-500"
                           />
                           <button
                             type="button"
-                            title="Hitung otomatis hari libur (weekend + libur nasional)"
+                            title={`Reset ke perhitungan otomatis akhir pekan (Sabtu & Minggu): ${(r.tanggalMulai && r.tanggalKonversi) ? calculateWeekendDays(r.tanggalMulai, r.tanggalKonversi) : 0} hari`}
                             onClick={() => {
                               if (r.tanggalMulai && r.tanggalKonversi) {
-                                handleUpdateRow(targetIdx, 'hariLibur', calculateHolidayDays(r.tanggalMulai, r.tanggalKonversi));
+                                const autoW = calculateWeekendDays(r.tanggalMulai, r.tanggalKonversi);
+                                const newItems = [...rawRows];
+                                newItems[targetIdx] = {
+                                  ...newItems[targetIdx],
+                                  hariLibur: autoW,
+                                  jumlahHariLibur: autoW,
+                                  isCustomHariLibur: false
+                                };
+                                onUpdateProject({ ...project, penyelesaianTagihan: newItems });
                               }
                             }}
-                            className="text-[10px] text-slate-400 hover:text-emerald-600 p-0.5"
+                            className="text-[10px] text-slate-400 hover:text-amber-600 p-0.5 transition-colors"
                           >
-                            <RotateCcw className="h-2.5 w-2.5" />
+                            <RotateCcw className="h-3 w-3" />
                           </button>
                         </div>
+                        <span className="block text-[8.5px] text-slate-400 font-sans mt-0.5">
+                          {r.isCustomHariLibur ? 'Manual (+Nasional)' : 'Sabtu & Minggu'}
+                        </span>
                       </td>
 
                       {/* Kolom N: Hari Efektif (=L - M) */}
@@ -1435,6 +1475,10 @@ KETENTUAN FORMULA:
 
             <div className="my-4 space-y-3 font-mono text-xs">
               <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex justify-between font-sans">
+                  <span className="text-slate-400">Nomor SP2D:</span>
+                  <span className="font-bold">{selectedAuditRow.nomorSP2D || selectedAuditRow.identitasTagihan || '-'}</span>
+                </div>
                 <div className="flex justify-between font-sans">
                   <span className="text-slate-400">Nomor SPM:</span>
                   <span className="font-bold">{selectedAuditRow.nomorSPM || selectedAuditRow.nomorSPP}</span>

@@ -677,6 +677,8 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
             {/* Table Body */}
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
               {calculatedRows.map((r, idx) => {
+                const targetIdx = rawInputs.findIndex(item => item.no === r.no);
+                const effectiveIdx = targetIdx !== -1 ? targetIdx : idx;
                 const codeCheck = checkRevisionCodes(r.kodeJenisRevisi);
                 const isSem1Header = idx === 0 && r.no <= 6;
                 const isSem2Header = r.no > 6 && (idx === 0 || calculatedRows[idx - 1]?.no <= 6);
@@ -684,7 +686,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                 const isCounted = r.diperhitungkan === 'diperhitungkan';
 
                 return (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={r.no ?? idx}>
                     {/* Section Header Semester I */}
                     {isSem1Header && (
                       <tr className="bg-emerald-500/10 dark:bg-emerald-950/40 border-y border-emerald-500/20">
@@ -718,16 +720,32 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                         {r.periode}
                       </td>
 
-                      {/* C. Revisi Ke (Input) */}
+                      {/* C. Revisi Ke (Input Angka Positif >= 0) */}
                       <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
                         <input
                           type="number"
-                          value={r.revisiKe !== null && r.revisiKe !== undefined ? r.revisiKe : ''}
-                          onChange={(e) => {
-                            const val = e.target.value === '' ? null : Number(e.target.value);
-                            handleUpdateRow(idx, { revisiKe: val });
+                          min="0"
+                          step="1"
+                          value={r.revisiKe !== null && r.revisiKe !== undefined ? Math.max(0, Math.abs(r.revisiKe)) : ''}
+                          onKeyDown={(e) => {
+                            // Blokir pengetikan tanda minus, plus, eksponensial, atau titik desimal
+                            if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E' || e.key === '.') {
+                              e.preventDefault();
+                            }
                           }}
-                          placeholder="-"
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            if (raw === '') {
+                              handleUpdateRow(effectiveIdx, { revisiKe: null });
+                            } else {
+                              const parsed = parseInt(raw, 10);
+                              if (!isNaN(parsed)) {
+                                handleUpdateRow(effectiveIdx, { revisiKe: Math.max(0, Math.abs(parsed)) });
+                              }
+                            }
+                          }}
+                          placeholder="contoh: 1"
+                          title="Nomor urut revisi DIPA (contoh: 1, 2, dst. atau kosongkan jika belum ada revisi)"
                           className="w-full text-center px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
                         />
                       </td>
@@ -736,9 +754,10 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                       <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800">
                         <input
                           type="date"
-                          value={normalizeDateToIso(r.tanggalRevisi)}
+                          value={r.tanggalRevisi ? normalizeDateToIso(r.tanggalRevisi) : ''}
                           onChange={(e) => {
-                            handleUpdateRow(idx, { tanggalRevisi: e.target.value || null });
+                            const val = e.target.value ? normalizeDateToIso(e.target.value) : null;
+                            handleUpdateRow(effectiveIdx, { tanggalRevisi: val });
                           }}
                           className="w-full px-1.5 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-[11px]"
                         />
@@ -750,7 +769,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                           type="text"
                           value={r.kodeJenisRevisi || ''}
                           onChange={(e) => {
-                            handleUpdateRow(idx, { kodeJenisRevisi: e.target.value });
+                            handleUpdateRow(effectiveIdx, { kodeJenisRevisi: e.target.value });
                           }}
                           placeholder="contoh: 212 atau 102, 221"
                           className="w-full px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
@@ -766,7 +785,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                                 {r.empatBelasJenis !== 'ya' && (
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateRow(idx, { empatBelasJenis: 'ya' })}
+                                    onClick={() => handleUpdateRow(effectiveIdx, { empatBelasJenis: 'ya' })}
                                     className="underline text-[9px] cursor-pointer hover:text-emerald-900"
                                     title="Pilih 'ya' pada Kolom H"
                                   >
@@ -780,7 +799,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                                 {r.empatBelasJenis !== 'tidak' && (
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateRow(idx, { empatBelasJenis: 'tidak' })}
+                                    onClick={() => handleUpdateRow(effectiveIdx, { empatBelasJenis: 'tidak' })}
                                     className="underline text-[9px] cursor-pointer hover:text-amber-900"
                                     title="Pilih 'tidak' pada Kolom H"
                                   >
@@ -797,22 +816,22 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                       <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-right">
                         <input
                           type="text"
-                          value={draftPaguSebelum[idx] !== undefined ? draftPaguSebelum[idx] : (r.paguSebelum !== null ? formatRupiah(r.paguSebelum) : '')}
+                          value={draftPaguSebelum[effectiveIdx] !== undefined ? draftPaguSebelum[effectiveIdx] : (r.paguSebelum !== null ? formatRupiah(r.paguSebelum) : '')}
                           onFocus={() => {
-                            setDraftPaguSebelum(prev => ({ ...prev, [idx]: r.paguSebelum !== null ? String(r.paguSebelum) : '' }));
+                            setDraftPaguSebelum(prev => ({ ...prev, [effectiveIdx]: r.paguSebelum !== null ? String(r.paguSebelum) : '' }));
                           }}
                           onChange={(e) => {
-                            setDraftPaguSebelum(prev => ({ ...prev, [idx]: e.target.value }));
+                            setDraftPaguSebelum(prev => ({ ...prev, [effectiveIdx]: e.target.value }));
                           }}
                           onBlur={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
                             const num = raw === '' ? null : Number(raw);
                             setDraftPaguSebelum(prev => {
                               const next = { ...prev };
-                              delete next[idx];
+                              delete next[effectiveIdx];
                               return next;
                             });
-                            handleUpdateRow(idx, { paguSebelum: num });
+                            handleUpdateRow(effectiveIdx, { paguSebelum: num });
                           }}
                           placeholder="Rp 0"
                           className="w-full text-right px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
@@ -823,22 +842,22 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                       <td className="px-2.5 py-2 border-r border-slate-200 dark:border-slate-800 text-right">
                         <input
                           type="text"
-                          value={draftPaguMenjadi[idx] !== undefined ? draftPaguMenjadi[idx] : (r.paguMenjadi !== null ? formatRupiah(r.paguMenjadi) : '')}
+                          value={draftPaguMenjadi[effectiveIdx] !== undefined ? draftPaguMenjadi[effectiveIdx] : (r.paguMenjadi !== null ? formatRupiah(r.paguMenjadi) : '')}
                           onFocus={() => {
-                            setDraftPaguMenjadi(prev => ({ ...prev, [idx]: r.paguMenjadi !== null ? String(r.paguMenjadi) : '' }));
+                            setDraftPaguMenjadi(prev => ({ ...prev, [effectiveIdx]: r.paguMenjadi !== null ? String(r.paguMenjadi) : '' }));
                           }}
                           onChange={(e) => {
-                            setDraftPaguMenjadi(prev => ({ ...prev, [idx]: e.target.value }));
+                            setDraftPaguMenjadi(prev => ({ ...prev, [effectiveIdx]: e.target.value }));
                           }}
                           onBlur={(e) => {
                             const raw = e.target.value.replace(/[^0-9]/g, '');
                             const num = raw === '' ? null : Number(raw);
                             setDraftPaguMenjadi(prev => {
                               const next = { ...prev };
-                              delete next[idx];
+                              delete next[effectiveIdx];
                               return next;
                             });
-                            handleUpdateRow(idx, { paguMenjadi: num });
+                            handleUpdateRow(effectiveIdx, { paguMenjadi: num });
                           }}
                           placeholder="Rp 0"
                           className="w-full text-right px-2 py-1 rounded border border-slate-200 dark:border-slate-700 bg-transparent focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
@@ -861,7 +880,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                           value={r.empatBelasJenis}
                           onChange={(e) => {
                             const val = e.target.value as "ya" | "tidak" | "-";
-                            handleUpdateRow(idx, { empatBelasJenis: val });
+                            handleUpdateRow(effectiveIdx, { empatBelasJenis: val });
                           }}
                           className={`w-full text-center px-2 py-1 rounded border text-xs font-sans font-semibold cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500 ${
                             r.empatBelasJenis === 'ya'
@@ -928,7 +947,7 @@ export const RevisiDipaTab: React.FC<RevisiDipaTabProps> = ({
                       {/* Aksi: Hapus Baris */}
                       <td className="px-2.5 py-2 text-center border-l border-slate-200 dark:border-slate-800">
                         <button
-                          onClick={() => handleDeleteRow(idx)}
+                          onClick={() => handleDeleteRow(effectiveIdx)}
                           title={`Hapus baris No. ${r.no} (${r.periode})`}
                           className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition-colors cursor-pointer"
                         >
