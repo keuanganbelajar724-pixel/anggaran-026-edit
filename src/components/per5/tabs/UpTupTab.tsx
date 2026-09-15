@@ -195,12 +195,35 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   // Modal penjelasan logika perhitungan Total Hari Sebulan (31, 28, 35, 38, 30 hari)
   const [showLogicExplainerModal, setShowLogicExplainerModal] = useState(false);
 
+  // Cutoff Periode Evaluasi KKP: 'auto' (default: periode berjalan terakhir yang berisi realisasi > 0), atau angka 1..12
+  const [kkpCutoffMode, setKkpCutoffMode] = useState<'auto' | number>('auto');
+
+  // Cari periode terakhir yang memiliki nilai transaksi / realisasi KKP > 0
+  const latestFilledKkpPeriod = useMemo(() => {
+    let last = 1;
+    kkpRows.forEach((r, idx) => {
+      if (Number(r.penggunaanKKP ?? 0) > 0) {
+        last = idx + 1;
+      }
+    });
+    return last;
+  }, [kkpRows]);
+
+  const effectiveKkpCutoff = useMemo(() => {
+    if (kkpCutoffMode === 'auto') {
+      return latestFilledKkpPeriod;
+    }
+    return kkpCutoffMode;
+  }, [kkpCutoffMode, latestFilledKkpPeriod]);
+
   // Active calculations
   const tunaiResult = useMemo(() => calculateUPTUPTunai(tunaiRows), [tunaiRows]);
-  const kkpResult = useMemo(() => calculateUPKKP(kkpRows), [kkpRows]);
+  const kkpResult = useMemo(() => calculateUPKKP(kkpRows, effectiveKkpCutoff), [kkpRows, effectiveKkpCutoff]);
+  const kkpYearEndResult = useMemo(() => calculateUPKKP(kkpRows, 12), [kkpRows]);
 
   const valTunai = tunaiResult.rawValue; // Q28
-  const valKKP = kkpResult.rawValue; // J16
+  const valKKP = kkpResult.rawValue; // Nilai KKP pada periode cutoff aktif (misal Periode 04 = 110.00)
+  const valKKPYearEnd = kkpYearEndResult.rawValue; // J16 (akhir tahun penuh)
   const rawCombined = calculateUPTUPCombinedRaw(valTunai, valKKP); // N7
   const finalCombined = calculateUPTUPCombinedFinal(valTunai, valKKP); // N8
 
@@ -221,11 +244,11 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
       isActive: true,
       details: [
         { step: 'Komponen UP & TUP Tunai (Q28)', formulaHuman: '90% * Nilai Tunai', value: formatScore(valTunai) },
-        { step: 'Komponen UP KKP (J16)', formulaHuman: '10% * Nilai KKP', value: formatScore(valKKP) },
+        { step: `Komponen UP KKP (s.d. Periode ${String(effectiveKkpCutoff).padStart(2, '0')})`, formulaHuman: '10% * Nilai KKP', value: formatScore(valKKP) },
         { step: 'Nilai Akhir Indikator (N8)', formulaHuman: 'ROUND(IF(N7>100, 100, (90%*Tunai)+(10%*KKP)), 2)', value: formatScore(finalCombined) }
       ]
     };
-  }, [project.output, rawCombined, finalCombined, valTunai, valKKP]);
+  }, [project.output, rawCombined, finalCombined, valTunai, valKKP, effectiveKkpCutoff]);
 
   // What-If Simulator state
   const [simKkpPeriod, setSimKkpPeriod] = useState<number>(12);
@@ -463,6 +486,31 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
   const handleUpdateKkpPaguPerBulan = (val: number) => {
     const positiveVal = Math.max(0, val);
     const newKkp = kkpRows.map(r => ({ ...r, upKKPPerBulan: positiveVal }));
+    onUpdateProject({ ...project, upTUPKKP: newKkp });
+  };
+
+  const handleLoadSample651011 = () => {
+    const sampleRealizations: Record<number, number> = {
+      1: 0,
+      2: 11377742,
+      3: 32723244,
+      4: 47150035,
+      5: 62541583,
+      6: 71595768,
+      7: 81997452,
+      8: 81997452,
+      9: 81997452,
+      10: 81997452,
+      11: 81997452,
+      12: 81997452,
+    };
+    const newKkp = kkpRows.map((r, idx) => ({
+      ...r,
+      kodeSatker: '651011',
+      namaSatker: 'BIDPROPAM POLDA JATENG',
+      upKKPPerBulan: 14000000,
+      penggunaanKKP: sampleRealizations[idx + 1] ?? 0
+    }));
     onUpdateProject({ ...project, upTUPKKP: newKkp });
   };
 
@@ -1694,20 +1742,28 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                 Nilai 1 Tahun dihitung otomatis (Kolom F = E × 12). Target bertahap: TW I = 1%, TW II = 5%, TW III = 9%, TW IV = 12,5%.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
                 <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Pagu/Bulan: Rp</label>
-                <input
-                  type="number"
-                  value={kkpRows[0]?.upKKPPerBulan || 20000000}
-                  onChange={e => handleUpdateKkpPaguPerBulan(Number(e.target.value))}
-                  className="w-36 rounded-xl border px-3 py-1.5 text-xs font-mono font-bold dark:bg-slate-800 dark:border-slate-700 text-right"
-                  step="1000000"
+                <RupiahInput
+                  prefix=""
+                  value={kkpRows[0]?.upKKPPerBulan ?? 14000000}
+                  onChange={val => handleUpdateKkpPaguPerBulan(val)}
+                  placeholder="0"
+                  className="w-36 rounded-xl border px-3 py-1.5 text-xs font-mono font-bold dark:bg-slate-800 dark:border-slate-700 text-right bg-white dark:text-slate-100 shadow-xs"
                 />
               </div>
               <div className="px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-300 font-mono text-xs font-bold whitespace-nowrap">
-                Pagu 1 Thn: {formatRupiah((kkpRows[0]?.upKKPPerBulan || 20000000) * 12)}
+                Pagu 1 Thn: {formatRupiah((kkpRows[0]?.upKKPPerBulan ?? 14000000) * 12)}
               </div>
+              <button
+                type="button"
+                onClick={handleLoadSample651011}
+                className="px-3 py-1.5 rounded-xl border border-purple-300 dark:border-purple-700/60 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-xs font-medium transition-all shadow-xs"
+                title="Muat contoh data riil OM-SPAN Satker 651011 (Bidpropam Polda Jateng: Pagu Rp 14.000.000, Realisasi bertahap dari Periode 01 s.d. 07)"
+              >
+                Muat Contoh OM-SPAN Satker 651011
+              </button>
             </div>
           </div>
 
@@ -1715,20 +1771,63 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
           <div className={`rounded-2xl border overflow-hidden shadow-xs ${
             isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
           }`}>
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                  Target &amp; Realisasi Penggunaan KKP 12 Periode (Slide 32 &amp; 34)
-                </h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                    Target &amp; Realisasi Penggunaan KKP 12 Periode (Slide 32 &amp; 34)
+                  </h4>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                    Evaluasi s.d. Periode {String(effectiveKkpCutoff).padStart(2, '0')}
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Nilai Bulanan (I): =IF(H=0, 0, IF(H&gt;=G, 110, 100)). Nilai UP KKP (J): AVERAGE bertahap dari I7, I10, I13, In.
                 </p>
               </div>
-              <div className="text-right">
-                <span className="text-[11px] text-slate-400 block uppercase">Nilai Final (J16)</span>
-                <span className="text-xl font-black font-mono text-purple-600 dark:text-purple-400">
-                  {formatScore(valKKP)}
-                </span>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap font-medium">
+                    Periode Evaluasi:
+                  </label>
+                  <select
+                    value={kkpCutoffMode}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setKkpCutoffMode(val === 'auto' ? 'auto' : Number(val));
+                    }}
+                    className="text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 px-3 py-1.5 shadow-xs"
+                    title="Pilih periode cutoff evaluasi s.d. bulan tertentu"
+                  >
+                    <option value="auto">
+                      Otomatis: Periode Berjalan ({String(latestFilledKkpPeriod).padStart(2, '0')})
+                    </option>
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                      <option key={m} value={m}>
+                        Periode {String(m).padStart(2, '0')} {m === 3 ? '(TW I)' : m === 6 ? '(TW II)' : m === 9 ? '(TW III)' : m === 12 ? '(Akhir Tahun / J16)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="text-right pl-3 border-l border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center justify-end gap-1">
+                    <span className="text-[11px] text-slate-400 block uppercase font-medium">
+                      Nilai KKP (s.d. Periode {String(effectiveKkpCutoff).padStart(2, '0')})
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-end gap-2">
+                    <span className="text-xl font-black font-mono text-purple-600 dark:text-purple-400">
+                      {formatScore(valKKP)}
+                    </span>
+                    {effectiveKkpCutoff < 12 && (
+                      <span className="text-[10px] text-slate-400 font-mono" title="Proyeksi Nilai J16 jika TW berikutnya tidak ada realisasi (0)">
+                        (J16: {formatScore(valKKPYearEnd)})
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1749,19 +1848,28 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
                   {kkpResult.processedMonths.map((m, idx) => {
+                    const periodNum = idx + 1;
                     const isKeyQuarterMonth = idx === 2 || idx === 5 || idx === 8 || idx === 11;
+                    const isCutoffMonth = periodNum === effectiveKkpCutoff;
                     return (
                       <tr
                         key={idx}
                         className={`transition-colors ${
-                          isKeyQuarterMonth
+                          isCutoffMonth
+                            ? isDark ? 'bg-purple-900/30 ring-1 ring-inset ring-purple-500/50' : 'bg-purple-100/50 ring-1 ring-inset ring-purple-300'
+                            : isKeyQuarterMonth
                             ? isDark ? 'bg-purple-950/20' : 'bg-purple-50/40'
                             : isDark ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50/70'
                         }`}
                       >
                         <td className="px-3 py-2.5 text-center font-bold font-sans flex items-center justify-center gap-1.5">
                           <span>Periode {m.periode}</span>
-                          {isKeyQuarterMonth && (
+                          {isCutoffMonth && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-600 text-white font-mono font-bold shadow-xs">
+                              Aktif
+                            </span>
+                          )}
+                          {isKeyQuarterMonth && !isCutoffMonth && (
                             <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300 font-mono">
                               Triwulan
                             </span>
@@ -1806,7 +1914,11 @@ export const UpTupTab: React.FC<UpTupTabProps> = ({
                             {m.nilaiBulanan}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 text-right bg-purple-500/10 font-black text-xs text-purple-700 dark:text-purple-300">
+                        <td className={`px-4 py-2.5 text-right font-black text-xs font-mono ${
+                          isCutoffMonth
+                            ? 'bg-purple-600 text-white font-black rounded-sm'
+                            : 'bg-purple-500/10 text-purple-900 dark:text-purple-200'
+                        }`}>
                           {formatScore(m.nilaiUPKKP)}
                         </td>
                       </tr>
