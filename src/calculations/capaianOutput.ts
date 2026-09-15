@@ -239,6 +239,44 @@ export function calculateSingleKetepatan(row: CapaianOutputKetepatanInput): Sing
 }
 
 /**
+ * Helper untuk memastikan selalu tersedia 12 bulan (Periode 01 s.d. 12) ketepatan pelaporan
+ */
+export function buildDefault12MonthsKetepatan(
+  existing?: CapaianOutputKetepatanInput[],
+  defaultStatus: 'Tepat Waktu' | 'Tidak Tepat Waktu' = 'Tepat Waktu',
+  satkerKode: string = '',
+  namaSatker: string = ''
+): CapaianOutputKetepatanInput[] {
+  return Array.from({ length: 12 }, (_, i) => {
+    const monthNum = i + 1;
+    const monthStr = String(monthNum).padStart(2, '0');
+    const found = (existing || []).find(e => {
+      const bNum = parseInt(e.bulan, 10);
+      return bNum === monthNum || e.bulan === monthStr || e.bulan === String(monthNum);
+    });
+
+    if (found) {
+      return {
+        ...found,
+        no: found.no || monthNum,
+        satker: found.satker || satkerKode,
+        namaSatker: found.namaSatker || namaSatker,
+        bulan: monthStr,
+        ketepatan: found.ketepatan || defaultStatus
+      };
+    }
+
+    return {
+      no: monthNum,
+      satker: satkerKode,
+      namaSatker: namaSatker,
+      bulan: monthStr,
+      ketepatan: defaultStatus
+    };
+  });
+}
+
+/**
  * Perhitungan komprehensif indikator Capaian Output IKPA 2026
  * Mengikuti sheet "Capaian Output" pada workbook Excel:
  * AB6 = AVERAGE(Y5:Y16)
@@ -282,7 +320,12 @@ export function calculateCapaianOutputDetailed(
   }
 
   // 2. Proses baris Ketepatan Waktu (evaluasi s.d. cutoff bulan)
-  const processedKetepatan = (ketepatanInputs || []).map(k => calculateSingleKetepatan(k));
+  // Pastikan selalu 12 bulan bila input kosong atau kurang lengkap
+  const effectiveKetepatan = (!ketepatanInputs || ketepatanInputs.length === 0)
+    ? buildDefault12MonthsKetepatan([], 'Tepat Waktu')
+    : (ketepatanInputs.length < 12 ? buildDefault12MonthsKetepatan(ketepatanInputs, 'Tepat Waktu') : ketepatanInputs);
+
+  const processedKetepatan = effectiveKetepatan.map(k => calculateSingleKetepatan(k));
   const validKetepatan = processedKetepatan.filter(k => k.isValid);
 
   // Filter ketepatan s.d. bulan cutoff (contoh: Januari s.d. September)
@@ -318,7 +361,7 @@ export function calculateCapaianOutputDetailed(
   const clampedFinal = Math.min(100, Math.max(0, ad8NilaiFinal));
   const nilaiTerbobot = roundExcel2((clampedFinal * weight) / 100);
 
-  const hasIncompleteData = processedRO.length === 0 || processedKetepatan.length === 0;
+  const hasIncompleteData = processedRO.length === 0;
 
   return {
     ab6AvgKetepatan,

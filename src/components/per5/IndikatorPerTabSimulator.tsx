@@ -45,6 +45,7 @@ import {
 import { SatkerIKPA, AppTheme, PerhitunganIkpaExcelReference } from '../../types';
 import { SimulationProject, DeviasiHal3Row, PenyerapanInput } from '../../models/ikpa';
 import { calculateIKPA } from '../../calculations/ikpa';
+import { buildDefault12MonthsKetepatan } from '../../calculations/capaianOutput';
 import { getWorkbookSampleProject } from '../../calculations/sampleWorkbookData';
 import { sanitizeProjectDates } from '../../utils/ikpaDateUtils';
 import { verifySatkerPassword, resolveKodeBA } from '../../utils/satkerSecurity';
@@ -323,9 +324,14 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         if (cleanProjects.length > 0) {
           const sanitizedProjects = cleanProjects.map(p => {
             const sanitized = sanitizeProjectDates(p);
-            // If project has no ROs, ensure capaianOutput is clean at 0
-            if (!sanitized.capaianOutput || sanitized.capaianOutput.length === 0) {
-              sanitized.capaianOutputKetepatan = [];
+            // Pastikan 12 periode ketepatan waktu pelaporan selalu terisi lengkap
+            if (!sanitized.capaianOutputKetepatan || sanitized.capaianOutputKetepatan.length < 12) {
+              sanitized.capaianOutputKetepatan = buildDefault12MonthsKetepatan(
+                sanitized.capaianOutputKetepatan,
+                'Tepat Waktu',
+                sanitized.metadata?.kodeSatker || '',
+                sanitized.metadata?.namaSatker || ''
+              );
             }
             // Pastikan kodeKPPN selalu 026 (KPPN Semarang I)
             if (!sanitized.metadata.kodeKPPN) {
@@ -570,8 +576,17 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         showNotification('Formulir Pengelolaan UP & TUP berhasil dikosongkan.', 'success');
         break;
       case 'capaian-output':
-        handleUpdateProject({ ...activeProject, capaianOutput: [], capaianOutputKetepatan: [] });
-        showNotification('Formulir Capaian Output berhasil dikosongkan.', 'success');
+        handleUpdateProject({
+          ...activeProject,
+          capaianOutput: [],
+          capaianOutputKetepatan: buildDefault12MonthsKetepatan(
+            [],
+            'Tidak Tepat Waktu',
+            activeProject.metadata?.kodeSatker || '',
+            activeProject.metadata?.namaSatker || ''
+          )
+        });
+        showNotification('Formulir Capaian Output berhasil dikosongkan (12 periode siap diinput).', 'success');
         break;
       case 'dispensasi-spm':
         handleUpdateProject({

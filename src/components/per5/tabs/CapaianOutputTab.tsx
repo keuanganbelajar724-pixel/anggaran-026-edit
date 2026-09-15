@@ -36,6 +36,7 @@ import {
   calculateCapaianOutputDetailed,
   calculateSingleRO,
   calculateSingleKetepatan,
+  buildDefault12MonthsKetepatan,
   runCapaianOutputGoldenTests,
   CapaianOutputGoldenReport,
   roundExcel2
@@ -93,8 +94,38 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
   });
 
   const roRows = project.capaianOutput || [];
-  const ketepatanRows = project.capaianOutputKetepatan || [];
+  
+  // Pastikan selalu tersedia 12 bulan ketepatan pelaporan (Periode 01 s.d. 12)
+  const ketepatanRows = useMemo(() => {
+    const raw = project.capaianOutputKetepatan;
+    if (raw && raw.length === 12) {
+      return raw;
+    }
+    return buildDefault12MonthsKetepatan(
+      raw,
+      'Tepat Waktu',
+      project.metadata?.kodeSatker || '',
+      (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri') ? project.metadata.namaSatker : ''
+    );
+  }, [project.capaianOutputKetepatan, project.metadata?.kodeSatker, project.metadata?.namaSatker]);
+
   const appliedWeight = project.weights?.capaianOutput ?? 25;
+
+  // Auto-sync 12 bulan ketepatan ke project jika data belum ada atau kurang dari 12
+  useEffect(() => {
+    if (!project.capaianOutputKetepatan || project.capaianOutputKetepatan.length < 12) {
+      const full12 = buildDefault12MonthsKetepatan(
+        project.capaianOutputKetepatan,
+        'Tepat Waktu',
+        project.metadata?.kodeSatker || '',
+        (project.metadata?.namaSatker && project.metadata.namaSatker !== 'Simulasi Mandiri') ? project.metadata.namaSatker : ''
+      );
+      onUpdateProject({
+        ...project,
+        capaianOutputKetepatan: full12
+      });
+    }
+  }, [project.capaianOutputKetepatan?.length]);
 
   // Auto-sync Satker identity and KPPN 026 to RO rows if missing
   useEffect(() => {
@@ -167,25 +198,52 @@ export const CapaianOutputTab: React.FC<CapaianOutputTabProps> = ({
     onUpdateProject({ ...project, capaianOutput: newRows });
   };
 
-  // Handler update baris Ketepatan
+  // Handler update baris Ketepatan (selalu aman 12 bulan)
   const handleUpdateKetepatan = (index: number, field: keyof CapaianOutputKetepatanInput, val: any) => {
-    const newRows = [...ketepatanRows];
-    newRows[index] = { ...newRows[index], [field]: val };
-    onUpdateProject({ ...project, capaianOutputKetepatan: newRows });
+    const base = ketepatanRows.length === 12
+      ? [...ketepatanRows]
+      : buildDefault12MonthsKetepatan(ketepatanRows, 'Tepat Waktu', project.metadata?.kodeSatker, project.metadata?.namaSatker);
+    base[index] = { ...base[index], [field]: val };
+    onUpdateProject({ ...project, capaianOutputKetepatan: base });
   };
 
   // Toggle cepat status ketepatan bulan
   const toggleKetepatan = (index: number) => {
-    const current = ketepatanRows[index]?.ketepatan;
+    const base = ketepatanRows.length === 12
+      ? [...ketepatanRows]
+      : buildDefault12MonthsKetepatan(ketepatanRows, 'Tepat Waktu', project.metadata?.kodeSatker, project.metadata?.namaSatker);
+    const current = base[index]?.ketepatan;
     const next = current === 'Tepat Waktu' ? 'Tidak Tepat Waktu' : 'Tepat Waktu';
-    handleUpdateKetepatan(index, 'ketepatan', next);
+    base[index] = { ...base[index], ketepatan: next };
+    onUpdateProject({ ...project, capaianOutputKetepatan: base });
   };
 
-  // Setel semua ketepatan 100% tepat waktu
+  // Setel semua ketepatan 100% tepat waktu (12 bulan)
   const handleMakeAllTimely = () => {
-    const newKetepatan = ketepatanRows.map(k => ({
+    const base = buildDefault12MonthsKetepatan(
+      ketepatanRows,
+      'Tepat Waktu',
+      project.metadata?.kodeSatker,
+      project.metadata?.namaSatker
+    );
+    const newKetepatan = base.map(k => ({
       ...k,
       ketepatan: 'Tepat Waktu' as const
+    }));
+    onUpdateProject({ ...project, capaianOutputKetepatan: newKetepatan });
+  };
+
+  // Setel semua ketepatan tidak tepat waktu / terlambat (12 bulan)
+  const handleMakeAllLate = () => {
+    const base = buildDefault12MonthsKetepatan(
+      ketepatanRows,
+      'Tidak Tepat Waktu',
+      project.metadata?.kodeSatker,
+      project.metadata?.namaSatker
+    );
+    const newKetepatan = base.map(k => ({
+      ...k,
+      ketepatan: 'Tidak Tepat Waktu' as const
     }));
     onUpdateProject({ ...project, capaianOutputKetepatan: newKetepatan });
   };
@@ -919,12 +977,25 @@ Status Ketepatan: ${report.tepatWaktuCount}/${report.totalKetepatanCount} Bulan 
               </p>
             </div>
 
-            <button
-              onClick={handleMakeAllTimely}
-              className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 shadow-xs"
-            >
-              Setel Semua 12 Bulan Tepat Waktu (100)
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleMakeAllTimely}
+                className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 shadow-xs flex items-center gap-1.5 transition-colors"
+                title="Setel semua 12 bulan menjadi Tepat Waktu (nilai 100 per bulan)"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Setel Semua 12 Bulan Tepat Waktu (100)
+              </button>
+
+              <button
+                onClick={handleMakeAllLate}
+                className="rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 px-3.5 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 shadow-xs flex items-center gap-1.5 transition-colors"
+                title="Setel semua 12 bulan menjadi Tidak Tepat Waktu (nilai 0 per bulan)"
+              >
+                <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                Setel Semua Terlambat (0)
+              </button>
+            </div>
           </div>
 
           <div className={`rounded-2xl border overflow-hidden shadow-xs ${
@@ -945,7 +1016,10 @@ Status Ketepatan: ${report.tepatWaktuCount}/${report.totalKetepatanCount} Bulan 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-[11px]">
-                  {report.processedKetepatan.map((k, idx) => (
+                  {(report.processedKetepatan && report.processedKetepatan.length > 0
+                    ? report.processedKetepatan
+                    : ketepatanRows.map(k => calculateSingleKetepatan(k))
+                  ).map((k, idx) => (
                     <tr
                       key={idx}
                       className={isDark ? 'hover:bg-slate-800/40' : 'hover:bg-slate-50/80'}
