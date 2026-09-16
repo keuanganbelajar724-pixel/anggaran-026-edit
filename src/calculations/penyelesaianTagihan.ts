@@ -390,28 +390,36 @@ export function processTagihanRows(inputs: PenyelesaianTagihanRow[]): {
     // Kolom N: Jumlah Hari Efektif (=L - M)
     const jumlahHariEfektif = calculateEffectiveDays(selisihHari, hariLibur);
 
-    // Kolom O: Status (=IF(N<=17, "TEPAT", "TERLAMBAT"))
+    // Kolom O: Status (=IF(N<=17, "TEPAT", "TERLAMBAT") atau Override Manual)
     let status: "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP";
     let warningMessage: string | undefined;
 
-    if (isDateReversed) {
+    if (item.isManualStatus && (item.status === 'TEPAT' || item.status === 'TERLAMBAT')) {
+      status = item.status;
+    } else if (isDateReversed) {
       status = "TERLAMBAT";
       warningMessage = "Tanggal konversi lebih awal daripada tanggal mulai.";
     } else if (jumlahHariEfektif === null) {
-      status = "BELUM LENGKAP";
-      warningMessage = "Tanggal mulai atau tanggal konversi belum diisi.";
+      if (item.status === 'TEPAT' || item.status === 'TERLAMBAT') {
+        status = item.status;
+      } else {
+        status = "BELUM LENGKAP";
+        warningMessage = "Tanggal mulai atau tanggal konversi belum diisi.";
+      }
     } else {
       status = calculateStatus(jumlahHariEfektif);
     }
 
     // Kolom P: Keterangan Hasil
-    const keteranganHasil = item.keteranganHasil || (
-      status === "TEPAT"
-        ? `Tepat Waktu (${jumlahHariEfektif} hari <= 17)`
-        : status === "TERLAMBAT"
-        ? `Terlambat (${jumlahHariEfektif} hari > 17)`
-        : "Belum Lengkap"
-    );
+    const keteranganHasil = item.isManualStatus
+      ? (status === "TEPAT" ? 'Tepat Waktu (Disetel Manual)' : 'Terlambat (Disetel Manual)')
+      : (item.keteranganHasil || (
+          status === "TEPAT"
+            ? `Tepat Waktu (${jumlahHariEfektif !== null ? `${jumlahHariEfektif} hari ` : ''}<= 17)`
+            : status === "TERLAMBAT"
+            ? `Terlambat (${jumlahHariEfektif !== null ? `${jumlahHariEfektif} hari ` : ''}> 17)`
+            : "Belum Lengkap"
+        ));
 
     return {
       ...item,
@@ -487,12 +495,12 @@ export function calculatePenyelesaianTagihan(
     return {
       rawValue: 0,
       cappedValue: 0,
-      weight: isActive ? weight : 0,
+      weight: 0,
       weightedValue: 0,
-      isActive,
+      isActive: false,
       details: [{
-        step: 'Indikator Tidak Aktif / Kosong',
-        formulaHuman: 'Tidak ada transaksi SPM LS Kontraktual Non Belanja Pegawai / bobot 0%',
+        step: 'Indikator Tidak Diperhitungkan (N/A)',
+        formulaHuman: 'Tidak ada transaksi SPM LS Kontraktual Non Belanja Pegawai / Bobot 0% (Dikecualikan secara adil)',
         value: 0
       }]
     };

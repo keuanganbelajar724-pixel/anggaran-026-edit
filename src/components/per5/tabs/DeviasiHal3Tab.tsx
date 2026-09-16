@@ -10,6 +10,7 @@ import {
   Copy,
   Check,
   CheckCircle2,
+  AlertCircle,
   Info,
   Layers,
   Save,
@@ -763,7 +764,11 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     setDraftInputs({});
     onUpdateProject({
       ...project,
-      deviasiHalIII: month1
+      deviasiHalIII: month1,
+      activeIndicators: {
+        ...project.activeIndicators,
+        deviasiHalIII: true
+      }
     });
   };
 
@@ -772,17 +777,78 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     setDraftInputs({});
     onUpdateProject({
       ...project,
-      deviasiHalIII: []
+      deviasiHalIII: [],
+      activeIndicators: {
+        ...project.activeIndicators,
+        deviasiHalIII: false
+      }
     });
   };
 
-  // Hapus baris tertentu
+  // Hapus baris tertentu - dapat menghapus seluruh baris sampai 0 baris (N/A)
   const handleDeleteRow = (index: number) => {
     const updated = rawInputs.filter((_, i) => i !== index);
     onUpdateProject({
       ...project,
-      deviasiHalIII: updated
+      deviasiHalIII: updated,
+      activeIndicators: {
+        ...project.activeIndicators,
+        deviasiHalIII: updated.length > 0 ? (project.activeIndicators?.deviasiHalIII ?? true) : false
+      }
     });
+  };
+
+  // Toggle apakah indikator Deviasi Hal III diperhitungkan (15%) atau Tidak Diperhitungkan (N/A)
+  const handleToggleActiveIndicator = () => {
+    const isCurrentlyActive = (project.activeIndicators?.deviasiHalIII !== false) && rawInputs.length > 0;
+    if (isCurrentlyActive) {
+      onUpdateProject({
+        ...project,
+        activeIndicators: {
+          ...project.activeIndicators,
+          deviasiHalIII: false
+        }
+      });
+    } else {
+      const rowsToUse = rawInputs.length > 0 ? rawInputs : DEFAULT_EXCEL_DEV_HAL3_ROWS.map((r: any) => ({
+        periode: r.periode,
+        rencana51: r.rencana51 ?? 0,
+        rencana52: r.rencana52 ?? 0,
+        rencana53: r.rencana53 ?? 0,
+        rencana57: r.rencana57 ?? 0,
+        penyerapan51: r.realisasi51 ?? r.penyerapan51 ?? 0,
+        penyerapan52: r.realisasi52 ?? r.penyerapan52 ?? 0,
+        penyerapan53: r.realisasi53 ?? r.penyerapan53 ?? 0,
+        penyerapan57: r.realisasi57 ?? r.penyerapan57 ?? 0,
+        deviasi51: 0,
+        deviasi52: 0,
+        deviasi53: 0,
+        deviasi57: 0,
+        persenDeviasi51: 0,
+        persenDeviasi52: 0,
+        persenDeviasi53: 0,
+        persenDeviasi57: 0,
+        proporsi51: DEFAULT_WORKBOOK_PROPORTIONS[51],
+        proporsi52: DEFAULT_WORKBOOK_PROPORTIONS[52],
+        proporsi53: DEFAULT_WORKBOOK_PROPORTIONS[53],
+        proporsi57: DEFAULT_WORKBOOK_PROPORTIONS[57],
+        deviasiTertimbang51: 0,
+        deviasiTertimbang52: 0,
+        deviasiTertimbang53: 0,
+        deviasiTertimbang57: 0,
+        deviasiSeluruhJenisBelanja: 0,
+        rataRataDeviasiKumulatif: 0,
+        nilaiIKPA: 0
+      }));
+      onUpdateProject({
+        ...project,
+        deviasiHalIII: rowsToUse,
+        activeIndicators: {
+          ...project.activeIndicators,
+          deviasiHalIII: true
+        }
+      });
+    }
   };
 
   // Reset data ke default workbook referensi (12 periode)
@@ -821,17 +887,25 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
     setDraftInputs({});
     onUpdateProject({
       ...project,
-      deviasiHalIII: defaultData
+      deviasiHalIII: defaultData,
+      activeIndicators: {
+        ...project.activeIndicators,
+        deviasiHalIII: true
+      }
     });
   };
 
   // Kosongkan seluruh data rencana & realisasi ke 0 baris (bersih)
   const handleClearForm = () => {
-    if (window.confirm('Kosongkan formulir Deviasi Halaman III DIPA? Formulir akan disetel menjadi 0 baris sehingga Anda dapat menambah baris secara mandiri.')) {
+    if (window.confirm('Kosongkan formulir Deviasi Halaman III DIPA? Formulir akan disetel menjadi 0 baris sehingga Anda dapat menambah baris secara mandiri dan indikator ini akan dijadikan N/A (tidak diperhitungkan).')) {
       setDraftInputs({});
       onUpdateProject({
         ...project,
-        deviasiHalIII: []
+        deviasiHalIII: [],
+        activeIndicators: {
+          ...project.activeIndicators,
+          deviasiHalIII: false
+        }
       });
     }
   };
@@ -1184,6 +1258,64 @@ export const DeviasiHal3Tab: React.FC<DeviasiHal3TabProps> = ({
         isDark={isDark}
         defaultExpanded={true}
       />
+
+      {/* Status Penilaian Indikator (Diperhitungkan / N/A) */}
+      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+        (project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+          ? (isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs')
+          : (isDark ? 'bg-amber-950/20 border-amber-800/40 text-amber-200' : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-xs')
+      }`}>
+        <div className="flex items-start sm:items-center gap-3">
+          <div className={`p-2 rounded-xl mt-0.5 sm:mt-0 ${
+            (project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+              ? 'bg-emerald-500/10 text-emerald-600'
+              : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            {(project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0) ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Status Penilaian Indikator:
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                (project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              }`}>
+                {(project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+                  ? '✓ DIPERHITUNGKAN (Bobot 15%)'
+                  : '⊘ TIDAK DIPERHITUNGKAN / N/A (Bobot 0%)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              {(project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+                ? `Terdapat ${rawInputs.length} baris periode deviasi aktif. Indikator ini diperhitungkan dalam total IKPA.`
+                : 'Indikator ini tidak memiliki data periode (0 baris) atau dinonaktifkan. Nilai akhir IKPA satker dinormalkan via Konversi Bobot (O6) sehingga tidak mengurangi nilai akhir.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={handleToggleActiveIndicator}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors shadow-2xs cursor-pointer ${
+              (project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+                ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300'
+                : 'border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            {(project.activeIndicators?.deviasiHalIII !== false && rawInputs.length > 0)
+              ? 'Jadikan N/A (Nonaktifkan)'
+              : 'Aktifkan Kembali Indikator'}
+          </button>
+        </div>
+      </div>
 
       {/* Pengaturan Pagu DIPA & Bobot Proporsi per Triwulan (Cut-Off TW I s.d. IV) */}
       <PaguDipaConfigCard

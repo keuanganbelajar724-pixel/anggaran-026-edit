@@ -21,38 +21,82 @@ export function getPredikatIKPA(score: number): string {
   return 'KURANG';
 }
 
+/**
+ * Menentukan apakah suatu indikator secara efektif aktif / diperhitungkan dalam IKPA.
+ * Sesuai PER-5 / Juknis IKPA:
+ * 1. Pengguna dapat menonaktifkan indikator via project.activeIndicators[key] === false
+ * 2. Jika suatu indikator tidak memiliki baris data / transaksi sama sekali (0 baris),
+ *    indikator tersebut otomatis diperlakukan sebagai TIDAK DIPERHITUNGKAN (N/A)
+ *    agar satker diperlakukan adil dan bobot dinormalisasi via Konversi Bobot (O6).
+ */
+export function isIndicatorEffectivelyActive(
+  project: SimulationProject,
+  key: keyof SimulationProject['activeIndicators']
+): boolean {
+  // 1. Cek toggle eksplisit dari pengguna
+  if (project.activeIndicators && project.activeIndicators[key] === false) {
+    return false;
+  }
+
+  // 2. Cek apakah ada data baris / transaksi riil
+  switch (key) {
+    case 'revisiDIPA':
+      return Array.isArray(project.revisiDIPA) && project.revisiDIPA.length > 0;
+    case 'deviasiHalIII':
+      return Array.isArray(project.deviasiHalIII) && project.deviasiHalIII.length > 0;
+    case 'penyerapan':
+      return Array.isArray(project.penyerapan) && project.penyerapan.length > 0;
+    case 'belanjaKontraktual':
+      return Array.isArray(project.belanjaKontraktual) && project.belanjaKontraktual.length > 0;
+    case 'penyelesaianTagihan':
+      return Array.isArray(project.penyelesaianTagihan) && project.penyelesaianTagihan.length > 0;
+    case 'pengelolaanUPTUP': {
+      const hasTunai = Array.isArray(project.upTUPTunai) && project.upTUPTunai.length > 0;
+      const hasKKP = Array.isArray(project.upTUPKKP) && project.upTUPKKP.length > 0 &&
+        project.upTUPKKP.some(k => (Number(k.upKKPPerBulan) || 0) > 0 || (Number(k.penggunaanKKP) || 0) > 0);
+      return hasTunai || hasKKP;
+    }
+    case 'capaianOutput':
+      return Array.isArray(project.capaianOutput) && project.capaianOutput.length > 0;
+    default:
+      return true;
+  }
+}
+
 export function calculateIKPA(
   project: SimulationProject,
   options?: { overrideCutoff?: number }
 ): IKPAResult {
   const cutoff = options?.overrideCutoff ?? (project.metadata?.periodeCutoff || 12);
   const weights = { ...DEFAULT_WEIGHTS, ...(project.weights || {}) };
-  const active = project.activeIndicators || {
-    revisiDIPA: true,
-    deviasiHalIII: true,
-    penyerapan: true,
-    belanjaKontraktual: true,
-    penyelesaianTagihan: true,
-    pengelolaanUPTUP: true,
-    capaianOutput: true
+
+  // Hitung status keaktifan efektif untuk seluruh 7 indikator
+  const effectiveActive = {
+    revisiDIPA: isIndicatorEffectivelyActive(project, 'revisiDIPA'),
+    deviasiHalIII: isIndicatorEffectivelyActive(project, 'deviasiHalIII'),
+    penyerapan: isIndicatorEffectivelyActive(project, 'penyerapan'),
+    belanjaKontraktual: isIndicatorEffectivelyActive(project, 'belanjaKontraktual'),
+    penyelesaianTagihan: isIndicatorEffectivelyActive(project, 'penyelesaianTagihan'),
+    pengelolaanUPTUP: isIndicatorEffectivelyActive(project, 'pengelolaanUPTUP'),
+    capaianOutput: isIndicatorEffectivelyActive(project, 'capaianOutput')
   };
 
-  // Determine actual applied weights (0 if indicator is deactivated)
+  // Determine actual applied weights (0 if indicator is deactivated or has 0 rows)
   const appliedWeights = {
-    revisiDIPA: active.revisiDIPA ? weights.revisiDIPA : 0,
-    deviasiHalIII: active.deviasiHalIII ? weights.deviasiHalIII : 0,
-    penyerapan: active.penyerapan ? weights.penyerapan : 0,
-    belanjaKontraktual: active.belanjaKontraktual ? weights.belanjaKontraktual : 0,
-    penyelesaianTagihan: active.penyelesaianTagihan ? weights.penyelesaianTagihan : 0,
-    pengelolaanUPTUP: active.pengelolaanUPTUP ? weights.pengelolaanUPTUP : 0,
-    capaianOutput: active.capaianOutput ? weights.capaianOutput : 0
+    revisiDIPA: effectiveActive.revisiDIPA ? weights.revisiDIPA : 0,
+    deviasiHalIII: effectiveActive.deviasiHalIII ? weights.deviasiHalIII : 0,
+    penyerapan: effectiveActive.penyerapan ? weights.penyerapan : 0,
+    belanjaKontraktual: effectiveActive.belanjaKontraktual ? weights.belanjaKontraktual : 0,
+    penyelesaianTagihan: effectiveActive.penyelesaianTagihan ? weights.penyelesaianTagihan : 0,
+    pengelolaanUPTUP: effectiveActive.pengelolaanUPTUP ? weights.pengelolaanUPTUP : 0,
+    capaianOutput: effectiveActive.capaianOutput ? weights.capaianOutput : 0
   };
 
   // 1. Revisi DIPA (G6)
   const revisiDIPA = calculateRevisiDIPA(
     project.revisiDIPA,
     appliedWeights.revisiDIPA,
-    active.revisiDIPA
+    effectiveActive.revisiDIPA
   );
 
   // 2. Deviasi Halaman III DIPA (H6) - evaluasi s.d. cutoff bulan
@@ -62,7 +106,7 @@ export function calculateIKPA(
   const deviasiHalIII = calculateDeviasiHalIII(
     project.deviasiHalIII,
     appliedWeights.deviasiHalIII,
-    active.deviasiHalIII,
+    effectiveActive.deviasiHalIII,
     project.calculationMode,
     cutoff,
     thresholdDeviasiHal3
@@ -72,7 +116,7 @@ export function calculateIKPA(
   const penyerapan = calculatePenyerapan(
     project.penyerapan,
     appliedWeights.penyerapan,
-    active.penyerapan,
+    effectiveActive.penyerapan,
     cutoff,
     project.penyerapanQuarterTargets
   );
@@ -81,7 +125,7 @@ export function calculateIKPA(
   const belanjaKontraktual = calculateBelanjaKontraktual(
     project.belanjaKontraktual,
     appliedWeights.belanjaKontraktual,
-    active.belanjaKontraktual,
+    effectiveActive.belanjaKontraktual,
     project.overrideNilaiKontraktual,
     project.isNormalisasiBobotKontraktual !== false,
     project.keteranganDispensasiKontraktual,
@@ -92,16 +136,29 @@ export function calculateIKPA(
   const penyelesaianTagihan = calculatePenyelesaianTagihan(
     project.penyelesaianTagihan,
     appliedWeights.penyelesaianTagihan,
-    active.penyelesaianTagihan
+    effectiveActive.penyelesaianTagihan
   );
 
   // 6. Pengelolaan UP/TUP Tunai & KKP (L6) - evaluasi s.d. cutoff bulan
+  // Jika metadata.periodeCutoff atau overrideCutoff tidak diset khusus, gunakan cutoff aktif berdasarkan periode data KKP yang terisi agar sesuai MyIntress (misal TW I = 110, bukan dibagi 4 menjadi 27.50)
+  const effectiveKkpCutoff = options?.overrideCutoff ?? project.metadata?.periodeCutoff ?? (() => {
+    let last = 1;
+    if (Array.isArray(project.upTUPKKP)) {
+      project.upTUPKKP.forEach((r, idx) => {
+        if (Number(r.penggunaanKKP ?? 0) > 0) {
+          last = idx + 1;
+        }
+      });
+    }
+    return last;
+  })();
+
   const pengelolaanUPTUP = calculatePengelolaanUPTUP(
     project.upTUPTunai,
     project.upTUPKKP,
     appliedWeights.pengelolaanUPTUP,
-    active.pengelolaanUPTUP,
-    cutoff
+    effectiveActive.pengelolaanUPTUP,
+    effectiveKkpCutoff
   );
 
   // 7. Capaian Output (M6) - evaluasi s.d. cutoff bulan
@@ -109,7 +166,7 @@ export function calculateIKPA(
     project.capaianOutput,
     project.capaianOutputKetepatan,
     appliedWeights.capaianOutput,
-    active.capaianOutput,
+    effectiveActive.capaianOutput,
     cutoff
   );
 
@@ -120,22 +177,35 @@ export function calculateIKPA(
   });
 
   // Helper to ensure each indicator is defined and type-safe
-  const ensureIndicator = (ind?: IndicatorResult, weight: number = 0, isActive: boolean = true): IndicatorResult => ind || {
-    rawValue: 0,
-    cappedValue: 0,
-    weight: isActive ? weight : 0,
-    weightedValue: 0,
-    isActive,
-    details: []
+  const ensureIndicator = (ind?: IndicatorResult, weight: number = 0, isActive: boolean = true): IndicatorResult => {
+    if (!ind) {
+      return {
+        rawValue: 0,
+        cappedValue: 0,
+        weight: isActive ? weight : 0,
+        weightedValue: 0,
+        isActive,
+        details: []
+      };
+    }
+    if (!isActive) {
+      return {
+        ...ind,
+        weight: 0,
+        weightedValue: 0,
+        isActive: false
+      };
+    }
+    return ind;
   };
 
-  const safeRevisiDIPA = ensureIndicator(revisiDIPA, appliedWeights.revisiDIPA, active.revisiDIPA);
-  const safeDeviasiHalIII = ensureIndicator(deviasiHalIII, appliedWeights.deviasiHalIII, active.deviasiHalIII);
-  const safePenyerapan = ensureIndicator(penyerapan, appliedWeights.penyerapan, active.penyerapan);
-  const safeBelanjaKontraktual = ensureIndicator(belanjaKontraktual, appliedWeights.belanjaKontraktual, active.belanjaKontraktual);
-  const safePenyelesaianTagihan = ensureIndicator(penyelesaianTagihan, appliedWeights.penyelesaianTagihan, active.penyelesaianTagihan);
-  const safePengelolaanUPTUP = ensureIndicator(pengelolaanUPTUP, appliedWeights.pengelolaanUPTUP, active.pengelolaanUPTUP);
-  const safeCapaianOutput = ensureIndicator(capaianOutput, appliedWeights.capaianOutput, active.capaianOutput);
+  const safeRevisiDIPA = ensureIndicator(revisiDIPA, appliedWeights.revisiDIPA, effectiveActive.revisiDIPA);
+  const safeDeviasiHalIII = ensureIndicator(deviasiHalIII, appliedWeights.deviasiHalIII, effectiveActive.deviasiHalIII);
+  const safePenyerapan = ensureIndicator(penyerapan, appliedWeights.penyerapan, effectiveActive.penyerapan);
+  const safeBelanjaKontraktual = ensureIndicator(belanjaKontraktual, appliedWeights.belanjaKontraktual, effectiveActive.belanjaKontraktual);
+  const safePenyelesaianTagihan = ensureIndicator(penyelesaianTagihan, appliedWeights.penyelesaianTagihan, effectiveActive.penyelesaianTagihan);
+  const safePengelolaanUPTUP = ensureIndicator(pengelolaanUPTUP, appliedWeights.pengelolaanUPTUP, effectiveActive.pengelolaanUPTUP);
+  const safeCapaianOutput = ensureIndicator(capaianOutput, appliedWeights.capaianOutput, effectiveActive.capaianOutput);
 
   // Nilai Total: SUM(G8:M8)
   const totalWeighted = round2(

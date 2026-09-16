@@ -32,6 +32,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { SimulationProject, IndicatorResult, DEFAULT_WEIGHTS } from '../../../models/ikpa';
+import { isIndicatorEffectivelyActive } from '../../../calculations/ikpa';
 import { hasActualRevisiDIPAData } from '../../../calculations/revisiDipa';
 import { hasActualDeviasiHal3Data } from '../../../calculations/deviasiHalIII';
 import { GoldenTestCard } from '../goldenTestCard';
@@ -317,11 +318,21 @@ export const DISPENSASI_CONFIG = {
 };
 
 export function getIndicatorDataStatus(key: string, project: SimulationProject): {
-  status: 'Sudah dihitung' | 'Belum diisi' | 'Belum lengkap';
+  status: 'Sudah dihitung' | 'Belum diisi' | 'Belum lengkap' | 'Tidak diperhitungkan';
   badgeClass: string;
-  icon: 'check' | 'empty' | 'partial';
+  icon: 'check' | 'empty' | 'partial' | 'disabled';
   summary: string;
 } {
+  const isEffective = isIndicatorEffectivelyActive(project, key as any);
+  if (!isEffective) {
+    return {
+      status: 'Tidak diperhitungkan',
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+      icon: 'disabled',
+      summary: 'Indikator N/A (Bobot 0%, dinormalkan via O6)'
+    };
+  }
+
   switch (key) {
     case 'revisiDIPA': {
       const rows = project.revisiDIPA || [];
@@ -541,6 +552,30 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
     onUpdateProject({
       ...project,
       weights: project.weights
+    });
+  };
+
+  const handleToggleIndicatorActive = (indicatorKey: string) => {
+    if (!onUpdateProject) return;
+    const isCurrentlyActive = isIndicatorEffectivelyActive(project, indicatorKey as any);
+    const newActiveIndicators = {
+      ...project.activeIndicators,
+      [indicatorKey]: !isCurrentlyActive
+    };
+    onUpdateProject({
+      ...project,
+      activeIndicators: newActiveIndicators
+    });
+  };
+
+  const handleApplyPresetActive = (activeMap: Record<string, boolean>) => {
+    if (!onUpdateProject) return;
+    onUpdateProject({
+      ...project,
+      activeIndicators: {
+        ...project.activeIndicators,
+        ...activeMap
+      }
     });
   };
 
@@ -978,6 +1013,115 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
       {/* 4. VIEW MODE A: DASHBOARD VIEW */}
       {viewMode === 'dashboard' && (
         <div className="space-y-6">
+          {/* BAR PENGATURAN STATUS INDIKATOR & FAIRNESS NORMALISASI BOBOT (O6) */}
+          <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs space-y-3">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
+                  <Sliders className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    Pengaturan Indikator Aktif &amp; Normalisasi Bobot O6
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Bila satker tidak memiliki transaksi pada indikator tertentu (misal: tanpa tagihan SPM-LS atau tanpa kontrak), indikator dapat dibuat <strong>Tidak Diperhitungkan (N/A)</strong> agar nilai akhir tetap adil.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <span className="text-[11px] font-semibold text-slate-500 mr-1">Preset Cepat:</span>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetActive({
+                    revisiDIPA: true,
+                    deviasiHalIII: true,
+                    penyerapan: true,
+                    belanjaKontraktual: true,
+                    penyelesaianTagihan: true,
+                    pengelolaanUPTUP: true,
+                    capaianOutput: true
+                  })}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                >
+                  Semua 100%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetActive({
+                    penyelesaianTagihan: false
+                  })}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+                >
+                  Tanpa Tagihan (90%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetActive({
+                    belanjaKontraktual: false
+                  })}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-100 transition-colors cursor-pointer"
+                >
+                  Tanpa Kontrak (90%)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleApplyPresetActive({
+                    belanjaKontraktual: false,
+                    penyelesaianTagihan: false
+                  })}
+                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 text-rose-800 dark:text-rose-300 hover:bg-rose-100 transition-colors cursor-pointer"
+                >
+                  Tanpa Kontrak &amp; Tagihan (80%)
+                </button>
+              </div>
+            </div>
+
+            {/* Checkbox Chips for 7 Indicators */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {INDICATORS_CONFIG.map((cfg) => {
+                const isEffective = isIndicatorEffectivelyActive(project, cfg.key as any);
+                const indWeight = project.weights?.[cfg.key] ?? DEFAULT_WEIGHTS[cfg.key] ?? 0;
+                return (
+                  <button
+                    key={cfg.key}
+                    type="button"
+                    onClick={() => handleToggleIndicatorActive(cfg.key)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                      isEffective
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-700 dark:text-emerald-300 shadow-2xs'
+                        : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500 line-through'
+                    }`}
+                    title={isEffective ? `Klik untuk jadikan N/A (Bobot ${indWeight}% dialihkan)` : `Klik untuk mengaktifkan kembali (Bobot ${indWeight}%)`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] ${
+                      isEffective ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-600 dark:bg-slate-700'
+                    }`}>
+                      {isEffective ? '✓' : '×'}
+                    </span>
+                    <span>{cfg.shortTitle}</span>
+                    <span className="font-mono text-[10px] opacity-75">
+                      {isEffective ? `${indWeight}%` : '0% (N/A)'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Live conversion explanation banner if conversion < 1 */}
+            {output.weightConversion < 1 && (
+              <div className="p-3 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-950 dark:text-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span>
+                  <strong>Konversi Bobot O6 Aktif:</strong> Total bobot indikator aktif = <strong>{(output.weightConversion * 100).toFixed(0)}%</strong> (Faktor Pembagi O6 = <strong>{output.weightConversion.toFixed(2)}</strong>). Nilai akhir satker dinormalkan secara adil: <code className="font-mono bg-indigo-100 dark:bg-indigo-900 px-1 py-0.5 rounded">Nilai = ROUND({output.totalWeighted.toFixed(2)} / {output.weightConversion.toFixed(2)}, 2) = {output.finalScore.toFixed(2)}</code>.
+                </span>
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 shrink-0">
+                  Adil untuk Satker ✓
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* A.1 GRID 8 KOTAK INDIKATOR SIMULASI BERWARNA (TERBAIK UNTUK UJI COBA & HITUNG) */}
           {(displayStyle === 'cards' || displayStyle === 'both') && (
             <div className="space-y-3">
@@ -995,13 +1139,14 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                     </p>
                   </div>
                 </div>
-                <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  Total 100% Bobot
+                <span className="text-[11px] font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                  Bobot Aktif: {(output.weightConversion * 100).toFixed(0)}% / 100%
                 </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {INDICATORS_CONFIG.map((cfg) => {
+                  const isEffective = isIndicatorEffectivelyActive(project, cfg.key as any);
                   const ind = output.indicators[cfg.key] || {
                     rawValue: 0,
                     cappedValue: 0,
@@ -1016,14 +1161,16 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                   return (
                     <div
                       key={cfg.key}
-                      className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:shadow-md ${cfg.cardContainer}`}
+                      className={`rounded-2xl border p-4 shadow-xs flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:shadow-md ${
+                        isEffective ? cfg.cardContainer : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 opacity-80'
+                      }`}
                     >
                       {/* Top Badges Header */}
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5">
                             {/* Number Pill */}
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${cfg.numberPill}`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-xs ${isEffective ? cfg.numberPill : 'bg-slate-400 text-white'}`}>
                               {cfg.no}
                             </span>
                             {/* Excel Cell Pill */}
@@ -1031,8 +1178,8 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                               Sel {cfg.excelCell}
                             </span>
                             {/* Weight Pill */}
-                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${cfg.badgeBg}`}>
-                              Bobot {ind.weight}%
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${isEffective ? cfg.badgeBg : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:border-slate-700 line-through'}`}>
+                              Bobot {isEffective ? `${ind.weight}%` : '0% (N/A)'}
                             </span>
                           </div>
 
@@ -1044,6 +1191,7 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                             {dataStatus.icon === 'check' && <CheckCircle2 className="h-3 w-3" />}
                             {dataStatus.icon === 'partial' && <AlertCircle className="h-3 w-3" />}
                             {dataStatus.icon === 'empty' && <CircleDot className="h-3 w-3" />}
+                            {dataStatus.icon === 'disabled' && <span className="font-bold">⊘</span>}
                             <span>{dataStatus.status}</span>
                           </span>
                         </div>
@@ -1127,6 +1275,18 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                           </button>
                           <button
                             type="button"
+                            onClick={() => handleToggleIndicatorActive(cfg.key)}
+                            className={`px-2.5 py-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer shadow-xs shrink-0 ${
+                              isEffective
+                                ? 'border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-amber-600 hover:border-amber-300 dark:hover:text-amber-400'
+                                : 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                            }`}
+                            title={isEffective ? `Nonaktifkan ${cfg.title} (Jadikan N/A, Bobot dialihkan via O6)` : `Aktifkan kembali ${cfg.title}`}
+                          >
+                            {isEffective ? 'N/A' : '✓ Aktif'}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => onOpenInspector(
                               `Indikator ${cfg.no}: ${cfg.title} (${cfg.excelCell})`,
                               cfg.excelCell,
@@ -1134,7 +1294,7 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                               ind.cappedValue.toFixed(2),
                               ind.details
                             )}
-                            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 transition-all cursor-pointer shadow-xs"
+                            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800 text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 transition-all cursor-pointer shadow-xs shrink-0"
                             title="Buka Formula Inspector Excel"
                           >
                             <Calculator className="h-3.5 w-3.5" />
@@ -1542,6 +1702,7 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {INDICATORS_CONFIG.map((cfg, idx) => {
+                    const isEffective = isIndicatorEffectivelyActive(project, cfg.key as any);
                     const ind = output.indicators[cfg.key] || {
                       rawValue: 0,
                       cappedValue: 0,
@@ -1556,16 +1717,22 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                     return (
                       <tr
                         key={cfg.key}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                        className={`transition-colors ${
+                          isEffective
+                            ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            : 'bg-slate-50/70 dark:bg-slate-900/40 text-slate-400 dark:text-slate-500'
+                        }`}
                       >
                         <td className="py-2.5 px-3 text-center font-bold text-slate-400 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
                           {rowNumber}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800 font-sans font-semibold text-slate-800 dark:text-slate-200">
-                          {cfg.title}
+                          <span className={!isEffective ? 'line-through opacity-75' : ''}>
+                            {cfg.title}
+                          </span>
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800 text-center font-bold text-slate-700 dark:text-slate-300">
-                          {ind.weight}%
+                          {isEffective ? `${ind.weight}%` : <span className="text-amber-600 dark:text-amber-400 font-mono text-xs">0% (N/A)</span>}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800 text-center font-bold text-emerald-600 dark:text-emerald-400">
                           {cfg.excelCell}
@@ -1588,12 +1755,25 @@ export const InterfaceTab: React.FC<InterfaceTabProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          <button
-                            onClick={() => onNavigateTab(cfg.tabId)}
-                            className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 underline font-sans font-medium"
-                          >
-                            Buka Tab ↗
-                          </button>
+                          <div className="inline-flex items-center gap-1.5">
+                            <button
+                              onClick={() => onNavigateTab(cfg.tabId)}
+                              className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 underline font-sans font-medium"
+                            >
+                              Buka ↗
+                            </button>
+                            <button
+                              onClick={() => handleToggleIndicatorActive(cfg.key)}
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-bold border transition-colors ${
+                                isEffective
+                                  ? 'border-slate-200 text-slate-500 hover:text-amber-700 hover:border-amber-300 hover:bg-amber-50'
+                                  : 'border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                              }`}
+                              title={isEffective ? 'Nonaktifkan indikator (Jadikan N/A)' : 'Aktifkan kembali indikator'}
+                            >
+                              {isEffective ? 'N/A' : 'Aktif'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

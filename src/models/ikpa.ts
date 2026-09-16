@@ -290,6 +290,7 @@ export interface PenyelesaianTagihanRow {
   hariLibur: number;
   jumlahHariEfektif: number | null;
   status: "TEPAT" | "TERLAMBAT" | "BELUM LENGKAP";
+  isManualStatus?: boolean;
   keteranganHasil: string;
   // Compatibility & Legacy fields
   satker?: string;
@@ -413,6 +414,8 @@ export interface SimulationProject {
     penyelesaianTagihan: boolean;
     pengelolaanUPTUP: boolean;
     capaianOutput: boolean;
+    dispensasiSPM?: boolean;
+    [key: string]: boolean | undefined;
   };
 
   revisiDIPA: RevisiDIPAInput[];

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import {
   Clock,
   CheckCircle2,
+  AlertCircle,
   AlertTriangle,
   RotateCcw,
   Eraser,
@@ -269,6 +270,17 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       currentItem.isCustomHariLibur = true;
     }
 
+    // Status Ketepatan Waktu (bisa diisi/diubah manual: TEPAT atau TERLAMBAT)
+    if (field === 'status') {
+      if (val === 'AUTO') {
+        currentItem.isManualStatus = false;
+      } else {
+        currentItem.status = val;
+        currentItem.isManualStatus = true;
+        currentItem.keteranganHasil = val === 'TEPAT' ? 'Tepat Waktu (Disetel Manual)' : 'Terlambat (Disetel Manual)';
+      }
+    }
+
     newItems[rowIndex] = currentItem;
     onUpdateProject({ ...project, penyelesaianTagihan: newItems });
   };
@@ -298,7 +310,14 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       keteranganHasil: '',
       nilaiSP2D: 0
     };
-    onUpdateProject({ ...project, penyelesaianTagihan: [...rawRows, newRow] });
+    onUpdateProject({
+      ...project,
+      penyelesaianTagihan: [...rawRows, newRow],
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyelesaianTagihan: true
+      }
+    });
   };
 
   // Duplicate row
@@ -315,20 +334,87 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       nomorSPM: `${spmVal}-COPY`,
       nomorSPP: `${spmVal}-COPY`
     };
-    onUpdateProject({ ...project, penyelesaianTagihan: [...rawRows, duplicated] });
+    onUpdateProject({
+      ...project,
+      penyelesaianTagihan: [...rawRows, duplicated],
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyelesaianTagihan: true
+      }
+    });
   };
 
-  // Delete row
+  // Delete row - dapat menghapus seluruh baris sampai 0 baris (N/A)
   const handleDeleteRow = (index: number) => {
-    if (rawRows.length <= 1) {
-      alert('Minimal terdapat 1 data tagihan dalam tabel.');
-      return;
-    }
     const filtered = rawRows.filter((_, i) => i !== index).map((item, idx) => ({
       ...item,
       no: idx + 1
     }));
-    onUpdateProject({ ...project, penyelesaianTagihan: filtered });
+    onUpdateProject({
+      ...project,
+      penyelesaianTagihan: filtered,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyelesaianTagihan: filtered.length > 0 ? (project.activeIndicators?.penyelesaianTagihan ?? true) : false
+      }
+    });
+  };
+
+  // Toggle apakah indikator Penyelesaian Tagihan diperhitungkan (10%) atau Tidak Diperhitungkan (N/A)
+  const handleToggleActiveIndicator = () => {
+    const isCurrentlyActive = (project.activeIndicators?.penyelesaianTagihan !== false) && rawRows.length > 0;
+    if (isCurrentlyActive) {
+      // Nonaktifkan indikator
+      onUpdateProject({
+        ...project,
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyelesaianTagihan: false
+        }
+      });
+    } else {
+      // Aktifkan kembali indikator; jika baris 0, muat 1 baris awal
+      const rowsToUse = rawRows.length > 0 ? rawRows : [{
+        no: 1,
+        identitasTagihan: 'SP2D-001',
+        nomorSP2D: 'SP2D-001',
+        keterangan: 'SPM-LS Kontraktual Non Belanja Pegawai',
+        uraianSPM: 'SPM-LS Kontraktual Non Belanja Pegawai',
+        jenisTagihan: 'SPM-LS Kontraktual',
+        nomorSPP: 'SPM-001',
+        nomorSPM: 'SPM-001',
+        tanggalSPP: '2026-04-01',
+        tanggalTagihan: '2026-04-01',
+        tanggalDokumenPendukung: '2026-04-01',
+        tanggalPenyampaian: '2026-04-10',
+        tanggalMulai: '2026-04-01',
+        tanggalKonversi: '2026-04-10',
+        selisihHari: 9,
+        hariLibur: 0,
+        isCustomHariLibur: false,
+        jumlahHariEfektif: 9,
+        status: 'TEPAT' as const,
+        keteranganHasil: 'Tepat Waktu (<= 17 hari)',
+        satker: project.metadata?.namaSatker || 'Satker',
+        tanggalSPM: '2026-04-01',
+        tanggalSP2D: '2026-04-10',
+        nilaiSP2D: 100_000_000,
+        tanggalBAST: '2026-04-01',
+        tanggalBAPP: '2026-04-01',
+        tanggalMulaiPerhitungan: '2026-04-01',
+        tanggalKonversiADK: '2026-04-10',
+        jumlahHariLibur: 0
+      }];
+
+      onUpdateProject({
+        ...project,
+        penyelesaianTagihan: rowsToUse,
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyelesaianTagihan: true
+        }
+      });
+    }
   };
 
   // Optimize: Set all conversion dates to be strictly <= 17 effective days
@@ -390,14 +476,26 @@ export const TagihanTab: React.FC<TagihanTabProps> = ({
       tanggalKonversiADK: normalizeDateToIso(r.tanggalKonversiAdk),
       jumlahHariLibur: r.jumlahHariLibur
     }));
-    onUpdateProject({ ...project, penyelesaianTagihan: defaultData });
+    onUpdateProject({
+      ...project,
+      penyelesaianTagihan: defaultData,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyelesaianTagihan: true
+      }
+    });
   };
 
-  // Kosongkan seluruh data tagihan ke 0
+  // Kosongkan seluruh data tagihan ke 0 baris (Otomatis menjadi N/A / Tidak Diperhitungkan)
   const handleClearForm = () => {
-    if (window.confirm('Kosongkan formulir Penyelesaian Tagihan? Seluruh baris data tagihan (SPM-LS) akan dihapus.')) {
-      onUpdateProject({ ...project, penyelesaianTagihan: [] });
-    }
+    onUpdateProject({
+      ...project,
+      penyelesaianTagihan: [],
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyelesaianTagihan: false
+      }
+    });
   };
 
   // Save to LocalStorage
@@ -599,6 +697,64 @@ KETENTUAN FORMULA:
         isDark={isDark}
         defaultExpanded={true}
       />
+
+      {/* Status Penilaian Indikator (Diperhitungkan / N/A) */}
+      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+        (project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+          ? (isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs')
+          : (isDark ? 'bg-amber-950/20 border-amber-800/40 text-amber-200' : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-xs')
+      }`}>
+        <div className="flex items-start sm:items-center gap-3">
+          <div className={`p-2 rounded-xl mt-0.5 sm:mt-0 ${
+            (project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+              ? 'bg-emerald-500/10 text-emerald-600'
+              : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            {(project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0) ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Status Penilaian Indikator:
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                (project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              }`}>
+                {(project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+                  ? '✓ DIPERHITUNGKAN (Bobot 10%)'
+                  : '⊘ TIDAK DIPERHITUNGKAN / N/A (Bobot 0%)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              {(project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+                ? `Terdapat ${rawRows.length} baris transaksi tagihan SPM-LS aktif. Indikator ini diperhitungkan dalam total IKPA.`
+                : 'Indikator ini tidak memiliki transaksi tagihan atau dinonaktifkan. Nilai akhir IKPA satker dinormalkan via Konversi Bobot (O6) sehingga tidak mengurangi nilai akhir.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={handleToggleActiveIndicator}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+              (project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300 dark:bg-amber-900/40 dark:text-amber-200 dark:border-amber-700'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            }`}
+          >
+            {(project.activeIndicators?.penyelesaianTagihan !== false && rawRows.length > 0)
+              ? 'Jadikan Tidak Diperhitungkan (N/A)'
+              : 'Aktifkan Kembali Indikator Ini'}
+          </button>
+        </div>
+      </div>
 
       {/* 2. Summary Cards (Item 23 & 24) */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1082,19 +1238,23 @@ KETENTUAN FORMULA:
                         {r.jumlahHariEfektif !== null ? r.jumlahHariEfektif : '-'}
                       </td>
 
-                      {/* Kolom O: Status (=IF(N<=17,"TEPAT","TERLAMBAT")) */}
+                      {/* Kolom O: Status (=IF(N<=17,"TEPAT","TERLAMBAT") atau Pilihan Manual) */}
                       <td className="py-1.5 px-2 border-r border-slate-200 dark:border-slate-700 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.status === 'TEPAT'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
-                            : r.status === 'TERLAMBAT'
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-300 dark:border-rose-800'
-                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                        }`}>
-                          {r.status === 'TEPAT' && <Check className="h-3 w-3" />}
-                          {r.status === 'TERLAMBAT' && <AlertTriangle className="h-3 w-3" />}
-                          {r.status}
-                        </span>
+                        <select
+                          value={r.status || 'TEPAT'}
+                          onChange={e => handleUpdateRow(targetIdx, 'status', e.target.value)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition-colors shadow-2xs ${
+                            r.status === 'TEPAT'
+                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                              : r.status === 'TERLAMBAT'
+                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300 border-rose-300 dark:border-rose-800'
+                              : 'bg-slate-50 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-700'
+                          }`}
+                          title="Status Ketepatan Waktu: Otomatis sesuai selisih hari kerja (<= 17 hari TEPAT), atau dapat Anda pilih langsung (TEPAT / TERLAMBAT)"
+                        >
+                          <option value="TEPAT">✓ TEPAT</option>
+                          <option value="TERLAMBAT">⚠ TERLAMBAT</option>
+                        </select>
                       </td>
 
                       {/* Kolom P: Keterangan Hasil */}
@@ -1443,6 +1603,39 @@ KETENTUAN FORMULA:
                 </div>
               );
             })}
+
+            {displayedRows.length === 0 && (
+              <div className="col-span-full py-12 px-4 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-800">
+                <div className="max-w-md mx-auto flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                      Belum Ada Baris Tagihan SPM-LS
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Status indikator saat ini adalah <strong>TIDAK DIPERHITUNGKAN / N/A</strong> dengan Bobot 0%. Rumus IKPA total otomatis menormalkan bobot melalui Konversi Bobot (O6).
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                    <button
+                      onClick={handleAddRow}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      + Tambah Baris Tagihan
+                    </button>
+                    <button
+                      onClick={handleResetToExcelDefault}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-xs cursor-pointer"
+                    >
+                      Muat 26 Contoh Data Excel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

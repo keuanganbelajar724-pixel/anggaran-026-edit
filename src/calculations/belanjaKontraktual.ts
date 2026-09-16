@@ -264,10 +264,12 @@ export function calculateBelanjaKontraktualSummary(
   const details: CalculationDetail[] = [];
 
   const isDispensasi = overrideNilaiIKPA !== undefined && overrideNilaiIKPA !== null;
+  const hasRows = inputs && inputs.length > 0;
+  const isActuallyActive = isActive && weight > 0 && hasRows;
 
-  if (!isActive || weight === 0 || !inputs || inputs.length === 0) {
+  if (!isActuallyActive) {
     const finalScore = isDispensasi ? Math.min(100, Math.max(0, round2(overrideNilaiIKPA!))) : 100;
-    const finalWeighted = round2((finalScore * weight) / 100);
+    const finalWeighted = round2((finalScore * (isActuallyActive ? weight : 0)) / 100);
 
     const emptySummary: BelanjaKontraktualSummary = {
       rowCount: 0,
@@ -313,14 +315,14 @@ export function calculateBelanjaKontraktualSummary(
     const emptyResult: IndicatorResult = {
       rawValue: finalScore,
       cappedValue: finalScore,
-      weight: isActive ? weight : 0,
-      weightedValue: finalWeighted,
-      isActive,
+      weight: 0,
+      weightedValue: 0,
+      isActive: false,
       details: [{
-        step: isDispensasi ? 'Dispensasi Nilai IKPA Belanja Kontraktual' : 'Satker Tanpa Kontrak',
+        step: isDispensasi ? 'Dispensasi Nilai IKPA Belanja Kontraktual' : 'Satker Tanpa Kontrak (N/A)',
         formulaHuman: isDispensasi
           ? `Dispensasi Aktif: Nilai Ditetapkan = ${finalScore}`
-          : 'Satker tidak memiliki data kontrak (Nilai default 100 / Bobot 0%)',
+          : 'Satker tidak memiliki transaksi belanja kontraktual (Bobot dialihkan via Konversi Bobot O6)',
         value: finalScore
       }],
       metadata: emptySummary

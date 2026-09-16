@@ -8,6 +8,7 @@ import {
   Copy,
   Check,
   CheckCircle2,
+  AlertCircle,
   AlertTriangle,
   Info,
   RotateCcw,
@@ -284,7 +285,14 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       nilaiKontrakDini: null as any,
       nilaiAkselerasi53: null as any
     };
-    onUpdateProject({ ...project, belanjaKontraktual: [...rawContracts, newRow] });
+    onUpdateProject({
+      ...project,
+      belanjaKontraktual: [...rawContracts, newRow],
+      activeIndicators: {
+        ...project.activeIndicators,
+        belanjaKontraktual: true
+      }
+    });
   };
 
   // Duplicate contract
@@ -296,16 +304,69 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       no: nextNo,
       nomorKontrak: `${target.nomorKontrak || 'KTR'}-COPY`
     };
-    onUpdateProject({ ...project, belanjaKontraktual: [...rawContracts, duplicated] });
+    onUpdateProject({
+      ...project,
+      belanjaKontraktual: [...rawContracts, duplicated],
+      activeIndicators: {
+        ...project.activeIndicators,
+        belanjaKontraktual: true
+      }
+    });
   };
 
-  // Delete contract
+  // Delete contract - dapat menghapus seluruh baris sampai 0 baris (N/A)
   const handleDeleteRow = (index: number) => {
     const filtered = rawContracts.filter((_, i) => i !== index).map((item, idx) => ({
       ...item,
       no: idx + 1
     }));
-    onUpdateProject({ ...project, belanjaKontraktual: filtered });
+    onUpdateProject({
+      ...project,
+      belanjaKontraktual: filtered,
+      activeIndicators: {
+        ...project.activeIndicators,
+        belanjaKontraktual: filtered.length > 0 ? (project.activeIndicators?.belanjaKontraktual ?? true) : false
+      }
+    });
+  };
+
+  // Toggle apakah indikator Belanja Kontraktual diperhitungkan (10%) atau Tidak Diperhitungkan (N/A)
+  const handleToggleActiveIndicator = () => {
+    const isCurrentlyActive = (project.activeIndicators?.belanjaKontraktual !== false) && rawContracts.length > 0;
+    if (isCurrentlyActive) {
+      onUpdateProject({
+        ...project,
+        activeIndicators: {
+          ...project.activeIndicators,
+          belanjaKontraktual: false
+        }
+      });
+    } else {
+      const rowsToUse = rawContracts.length > 0 ? rawContracts : [{
+        no: 1,
+        kodeSatker: project.metadata?.kodeSatker || '411792',
+        namaSatker: project.metadata?.namaSatker || 'KANTOR IMIGRASI',
+        kodeKPPN: project.metadata?.kodeKPPN || '026',
+        nomorKontrak: '001/SPK/PPK/2026',
+        jenisBelanja: '53' as const,
+        nilaiKontrak: 75_000_000,
+        tanggalKontrak: '2026-01-15',
+        tanggalMasuk: '2026-01-18',
+        tanggalPenyelesaian: '2026-03-20',
+        isEarlyContract: true,
+        nilaiDistribusiAkselerasi: 100,
+        nilaiKontrakDini: 110,
+        nilaiAkselerasi53: 100
+      }];
+      onUpdateProject({
+        ...project,
+        belanjaKontraktual: rowsToUse,
+        activeIndicators: {
+          ...project.activeIndicators,
+          belanjaKontraktual: true
+        }
+      });
+    }
   };
 
   // Quick Optimization: Jadikan semua pendaftaran tepat waktu (< 5 hari) dan akselerasi Belanja 53
@@ -346,13 +407,27 @@ export const KontraktualTab: React.FC<KontraktualTabProps> = ({
       nilaiKontrakDini: k.nilaiKontrakDini,
       nilaiAkselerasi53: k.nilaiAkselerasi53
     }));
-    onUpdateProject({ ...project, belanjaKontraktual: defaultData });
+    onUpdateProject({
+      ...project,
+      belanjaKontraktual: defaultData,
+      activeIndicators: {
+        ...project.activeIndicators,
+        belanjaKontraktual: true
+      }
+    });
   };
 
   // Kosongkan seluruh data kontrak ke 0
   const handleClearForm = () => {
-    if (window.confirm('Kosongkan formulir Belanja Kontraktual? Seluruh baris data kontrak akan dihapus.')) {
-      onUpdateProject({ ...project, belanjaKontraktual: [] });
+    if (window.confirm('Kosongkan formulir Belanja Kontraktual? Seluruh baris data kontrak akan dihapus dan indikator ini akan dijadikan N/A (tidak diperhitungkan).')) {
+      onUpdateProject({
+        ...project,
+        belanjaKontraktual: [],
+        activeIndicators: {
+          ...project.activeIndicators,
+          belanjaKontraktual: false
+        }
+      });
     }
   };
 
@@ -561,6 +636,64 @@ TOTAL KONTRAK: ${summary.rowCount} berkas
         isDark={isDark}
         defaultExpanded={true}
       />
+
+      {/* Status Penilaian Indikator (Diperhitungkan / N/A) */}
+      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+        (project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+          ? (isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs')
+          : (isDark ? 'bg-amber-950/20 border-amber-800/40 text-amber-200' : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-xs')
+      }`}>
+        <div className="flex items-start sm:items-center gap-3">
+          <div className={`p-2 rounded-xl mt-0.5 sm:mt-0 ${
+            (project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+              ? 'bg-emerald-500/10 text-emerald-600'
+              : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            {(project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0) ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Status Penilaian Indikator:
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                (project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              }`}>
+                {(project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+                  ? '✓ DIPERHITUNGKAN (Bobot 10%)'
+                  : '⊘ TIDAK DIPERHITUNGKAN / N/A (Bobot 0%)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              {(project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+                ? `Terdapat ${rawContracts.length} baris transaksi kontrak aktif. Indikator ini diperhitungkan dalam total IKPA.`
+                : 'Indikator ini tidak memiliki transaksi belanja kontraktual atau dinonaktifkan. Nilai akhir IKPA satker dinormalkan via Konversi Bobot (O6) sehingga tidak mengurangi nilai akhir.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={handleToggleActiveIndicator}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors shadow-2xs cursor-pointer ${
+              (project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+                ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300'
+                : 'border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            {(project.activeIndicators?.belanjaKontraktual !== false && rawContracts.length > 0)
+              ? 'Jadikan N/A (Nonaktifkan)'
+              : 'Aktifkan Kembali Indikator'}
+          </button>
+        </div>
+      </div>
 
       {/* Kartu Evaluasi & Sinkronisasi Standar OM-SPAN / My InTress vs Excel */}
       <OmspanComparisonCard

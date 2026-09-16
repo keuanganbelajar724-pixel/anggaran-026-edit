@@ -10,6 +10,7 @@ import {
   Copy,
   Check,
   CheckCircle2,
+  AlertCircle,
   Info,
   Layers,
   Save,
@@ -360,7 +361,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     setDraftInputs({});
     onUpdateProject({
       ...project,
-      penyerapan: month1
+      penyerapan: month1,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: true
+      }
     });
     setSelectedMonthIdx(0);
   };
@@ -370,7 +375,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     setDraftInputs({});
     onUpdateProject({
       ...project,
-      penyerapan: []
+      penyerapan: [],
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: false
+      }
     });
     setSelectedMonthIdx(0);
   };
@@ -398,7 +407,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     const combined = [...rawInputs, ...rowsToAdd].sort((a, b) => parseInt(a.periode, 10) - parseInt(b.periode, 10));
     onUpdateProject({
       ...project,
-      penyerapan: combined
+      penyerapan: combined,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: true
+      }
     });
   };
 
@@ -425,7 +438,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     const combined = [...rawInputs, ...rowsToAdd].sort((a, b) => parseInt(a.periode, 10) - parseInt(b.periode, 10));
     onUpdateProject({
       ...project,
-      penyerapan: combined
+      penyerapan: combined,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: true
+      }
     });
   };
 
@@ -452,28 +469,82 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
     const combined = [...rawInputs, ...rowsToAdd].sort((a, b) => parseInt(a.periode, 10) - parseInt(b.periode, 10));
     onUpdateProject({
       ...project,
-      penyerapan: combined
+      penyerapan: combined,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: true
+      }
     });
   };
 
-  // Hapus satu baris periode
+  // Hapus satu baris periode - dapat menghapus seluruh baris sampai 0 baris (N/A)
   const handleDeletePeriodRow = (idx: number) => {
     const updated = rawInputs.filter((_, i) => i !== idx);
     onUpdateProject({
       ...project,
-      penyerapan: updated
+      penyerapan: updated,
+      activeIndicators: {
+        ...project.activeIndicators,
+        penyerapan: updated.length > 0 ? (project.activeIndicators?.penyerapan ?? true) : false
+      }
     });
     if (selectedMonthIdx >= updated.length) {
       setSelectedMonthIdx(Math.max(0, updated.length - 1));
     }
   };
 
-  // Kosongkan seluruh nilai pagu & baris ke 0 baris
-  const handleClearForm = () => {
-    if (window.confirm('Kosongkan formulir Penyerapan Anggaran (0 baris)? Satker dapat menambahkan baris periode secara mandiri.')) {
+  // Toggle apakah indikator Penyerapan Anggaran diperhitungkan (20%) atau Tidak Diperhitungkan (N/A)
+  const handleToggleActiveIndicator = () => {
+    const isCurrentlyActive = (project.activeIndicators?.penyerapan !== false) && rawInputs.length > 0;
+    if (isCurrentlyActive) {
       onUpdateProject({
         ...project,
-        penyerapan: []
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyerapan: false
+        }
+      });
+    } else {
+      const rowsToUse = rawInputs.length > 0 ? rawInputs : DEFAULT_EXCEL_PENYERAPAN_PERIODS.slice(0, 12).map((r: any) => ({
+        periode: r.periode,
+        pagu51: r.pagu51 ?? 0,
+        pagu52: r.pagu52 ?? 0,
+        pagu53: r.pagu53 ?? 0,
+        pagu57: r.pagu57 ?? 0,
+        blokir51: r.blokir51 ?? 0,
+        blokir52: r.blokir52 ?? 0,
+        blokir53: r.blokir53 ?? 0,
+        blokir57: r.blokir57 ?? 0,
+        target51: r.target51,
+        target52: r.target52,
+        target53: r.target53,
+        target57: r.target57,
+        realisasi51: r.realisasi51 ?? 0,
+        realisasi52: r.realisasi52 ?? 0,
+        realisasi53: r.realisasi53 ?? 0,
+        realisasi57: r.realisasi57 ?? 0
+      }));
+      onUpdateProject({
+        ...project,
+        penyerapan: rowsToUse,
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyerapan: true
+        }
+      });
+    }
+  };
+
+  // Kosongkan seluruh nilai pagu & baris ke 0 baris
+  const handleClearForm = () => {
+    if (window.confirm('Kosongkan formulir Penyerapan Anggaran (0 baris)? Seluruh baris periode akan dihapus dan indikator ini akan dijadikan N/A (tidak diperhitungkan).')) {
+      onUpdateProject({
+        ...project,
+        penyerapan: [],
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyerapan: false
+        }
       });
       setWhatIfBoostPct(0);
       setDraftInputs({});
@@ -504,7 +575,11 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
       }));
       onUpdateProject({
         ...project,
-        penyerapan: defaultRows
+        penyerapan: defaultRows,
+        activeIndicators: {
+          ...project.activeIndicators,
+          penyerapan: true
+        }
       });
       setWhatIfBoostPct(0);
       setDraftInputs({});
@@ -721,6 +796,64 @@ export const PenyerapanTab: React.FC<PenyerapanTabProps> = ({
         isDark={isDark}
         defaultExpanded={true}
       />
+
+      {/* Status Penilaian Indikator (Diperhitungkan / N/A) */}
+      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+        (project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+          ? (isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs')
+          : (isDark ? 'bg-amber-950/20 border-amber-800/40 text-amber-200' : 'bg-amber-50/90 border-amber-200 text-amber-900 shadow-xs')
+      }`}>
+        <div className="flex items-start sm:items-center gap-3">
+          <div className={`p-2 rounded-xl mt-0.5 sm:mt-0 ${
+            (project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+              ? 'bg-emerald-500/10 text-emerald-600'
+              : 'bg-amber-500/15 text-amber-600'
+          }`}>
+            {(project.activeIndicators?.penyerapan !== false && rawInputs.length > 0) ? (
+              <CheckCircle2 className="w-5 h-5" />
+            ) : (
+              <AlertCircle className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Status Penilaian Indikator:
+              </span>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                (project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              }`}>
+                {(project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+                  ? '✓ DIPERHITUNGKAN (Bobot 20%)'
+                  : '⊘ TIDAK DIPERHITUNGKAN / N/A (Bobot 0%)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+              {(project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+                ? `Terdapat ${rawInputs.length} baris periode aktif. Indikator ini diperhitungkan dalam total IKPA.`
+                : 'Indikator ini tidak memiliki data periode aktif (0 baris) atau dinonaktifkan. Nilai akhir IKPA satker dinormalkan via Konversi Bobot (O6) sehingga tidak mengurangi nilai akhir.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <button
+            type="button"
+            onClick={handleToggleActiveIndicator}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors shadow-2xs cursor-pointer ${
+              (project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+                ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300'
+                : 'border-emerald-300 bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
+          >
+            {(project.activeIndicators?.penyerapan !== false && rawInputs.length > 0)
+              ? 'Jadikan N/A (Nonaktifkan)'
+              : 'Aktifkan Kembali Indikator'}
+          </button>
+        </div>
+      </div>
 
       {/* 2. WARNING JIKA BLOKIR > PAGU */}
       {warnings.length > 0 && (
