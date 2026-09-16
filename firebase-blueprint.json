@@ -66,6 +66,17 @@
         "projectData": { "type": "object" },
         "activeProjectId": { "type": "string" }
       }
+    },
+    "catatanDiskusiSatker": {
+      "title": "Catatan Diskusi KPPN & Satker (Khusus Admin)",
+      "description": "Stores history and notes of consultations, discussions, and meetings between KPPN officers and Satker representatives",
+      "type": "object",
+      "properties": {
+        "kodeSatker": { "type": "string" },
+        "namaSatker": { "type": "string" },
+        "list": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -88,6 +99,10 @@
     "/simulasi_state/{stateId}": {
       "schema": { "$ref": "#/entities/simulationProject" },
       "description": "Active simulation project state and active ID synchronization"
+    },
+    "/catatan_diskusi_satker/{kodeSatker}": {
+      "schema": { "$ref": "#/entities/catatanDiskusiSatker" },
+      "description": "Private KPPN-Satker consultation records and action item tracking"
     }
   }
 }

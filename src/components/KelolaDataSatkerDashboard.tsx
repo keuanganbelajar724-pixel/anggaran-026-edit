@@ -412,7 +412,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   const handleBulkSetDefaultPasswords = () => {
     setConfirmModal({
       title: 'Terapkan Password Default Massal ([KodeSatker]_[KodeBA])?',
-      message: `Tindakan ini akan menyetel / mereset password untuk seluruh ${masterSatkers.length} Satker ke format standar resmi KPPN: [KodeSatker]_[KodeBA] (Contoh: 890594_018). Satker hanya dapat mengedit datanya sendiri dengan memasukkan password ini.`,
+      message: `Tindakan ini akan menyetel / mereset password untuk seluruh ${masterSatkers.length} Satker ke format standar resmi KPPN: [KodeSatker]_[KodeBA] (Contoh: 890594_018). Password ini langsung terintegrasi secara terpusat untuk Simulasi IKPA, form kontak 8 pejabat & operator SAKTI, serta seluruh akses Satker di aplikasi.`,
       confirmText: `Ya, Terapkan ke ${masterSatkers.length} Satker`,
       cancelText: 'Batal',
       type: 'warning',
@@ -2268,7 +2268,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               </div>
 
               <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Satker akan menggunakan password ini untuk membuka dan mengisi form kontak pejabat di portal satker.
+                Password ini terintegrasi penuh untuk seluruh portal Satker: <strong>Simulasi IKPA</strong>, form kontak 8 pejabat & operator SAKTI, transaksi KKP, serta Digipay.
               </p>
             </div>
 

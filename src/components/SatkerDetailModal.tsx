@@ -41,8 +41,10 @@ import {
   Filter,
   Table2,
   CalendarRange,
-  ArrowRight
+  ArrowRight,
+  MessageSquareText
 } from 'lucide-react';
+import { CatatanDiskusiSatkerTab } from './admin/CatatanDiskusiSatkerTab';
 
 interface SatkerDetailModalProps {
   satker: SatkerIKPA | null;
@@ -68,11 +70,16 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
   theme = 'light'
 }) => {
   const isDark = theme === 'dark';
-  const [activeSubTab, setActiveSubTab] = useState<'chart' | 'overview' | 'comparison'>('chart');
+  const [activeSubTab, setActiveSubTab] = useState<'chart' | 'overview' | 'comparison' | 'catatanAdmin'>('chart');
   const [selectedChartMetric, setSelectedChartMetric] = useState<
     'nilaiIKPA' | 'ALL' | 'revisiDipa' | 'deviasiHal3Dipa' | 'penyerapanAnggaran' | 
     'belanjaKontraktual' | 'penyelesaianTagihan' | 'pengelolaanUpTup' | 'dispensasiSpm' | 'capaianOutput'
   >('nilaiIKPA');
+
+  // Admin PIN prompt state inside modal
+  const [showAdminPinModal, setShowAdminPinModal] = useState<boolean>(false);
+  const [adminPinInput, setAdminPinInput] = useState<string>('');
+  const [adminPinError, setAdminPinError] = useState<string | null>(null);
 
   // Satker password unlock state
   const [satkerPasswordInput, setSatkerPasswordInput] = useState<string>('');
@@ -86,8 +93,24 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
       setIsSatkerUnlocked(false);
       setSatkerPasswordInput('');
       setSatkerPasswordError(null);
+      // Reset subtab if switching to non-admin
+      if (!isAdminAuthenticated && activeSubTab === 'catatanAdmin') {
+        setActiveSubTab('chart');
+      }
     }
-  }, [satker]);
+  }, [satker, isAdminAuthenticated]);
+
+  const handleAdminPinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onAuthenticateAdmin && onAuthenticateAdmin(adminPinInput)) {
+      setShowAdminPinModal(false);
+      setAdminPinInput('');
+      setAdminPinError(null);
+      setActiveSubTab('catatanAdmin');
+    } else {
+      setAdminPinError('PIN Administrator KPPN tidak valid.');
+    }
+  };
 
   if (!satker) return null;
 
@@ -193,6 +216,24 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
             <Table2 className="w-4 h-4 text-indigo-500" />
             <span>3. Perbandingan Tiap Indikator Antar Periode</span>
           </button>
+
+          {/* TAB 4: HANYA MUNCUL UNTUK ADMIN KPPN (TIDAK ADA DI TAMPILAN SATKER) */}
+          {isAdminAuthenticated && (
+            <button
+              onClick={() => setActiveSubTab('catatanAdmin')}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-black border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+                activeSubTab === 'catatanAdmin'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-600/10 rounded-t-xl'
+                  : 'border-transparent text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-300'
+              }`}
+            >
+              <MessageSquareText className="w-4 h-4 text-indigo-600" />
+              <span>4. Riwayat Diskusi &amp; Catatan KPPN</span>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs">
+                Khusus Admin
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Modal Scrollable Body */}
@@ -1092,24 +1133,130 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
               </div>
             );
           })()}
+
+          {/* SUBTAB 4: RIWAYAT DISKUSI & NOTULA PEMBINAAN KPPN (KHUSUS ADMIN) */}
+          {activeSubTab === 'catatanAdmin' && isAdminAuthenticated && (
+            <CatatanDiskusiSatkerTab
+              satker={satker}
+              theme={theme}
+              isAdminAuthenticated={isAdminAuthenticated}
+              onAuthenticateAdmin={onAuthenticateAdmin}
+            />
+          )}
           </>
           )}
 
         </div>
 
         {/* Modal Footer */}
-        <div className={`p-4 border-t flex items-center justify-end gap-3 shrink-0 ${
+        <div className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 ${
           isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
         }`}>
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl transition-colors cursor-pointer"
-          >
-            Tutup
-          </button>
+          <div>
+            {!isAdminAuthenticated ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminPinError(null);
+                  setAdminPinInput('');
+                  setShowAdminPinModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5 text-slate-400" />
+                <span>Masuk Mode Admin KPPN (Buka Catatan Internal)</span>
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>Mode Administrator KPPN Aktif (Akses Tab Notula Terbuka)</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-xl transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
 
       </div>
+
+      {/* QUICK ADMIN PIN MODAL (IF UNLOCKING FROM INSIDE THIS MODAL) */}
+      {showAdminPinModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xs animate-fade-in">
+          <div className={`p-6 rounded-3xl border shadow-2xl max-w-sm w-full space-y-4 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black">Autentikasi Admin KPPN</h4>
+                  <p className="text-[11px] text-slate-400">Masukkan PIN Admin untuk melihat riwayat</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAdminPinModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAdminPinSubmit} className="space-y-3 pt-2">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">
+                  PIN Administrator:
+                </label>
+                <input
+                  type="password"
+                  value={adminPinInput}
+                  onChange={(e) => setAdminPinInput(e.target.value)}
+                  placeholder="Masukkan 6-digit PIN Admin..."
+                  className={`w-full text-xs font-mono rounded-xl px-3.5 py-2.5 border transition-all ${
+                    isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                  }`}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {adminPinError && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs rounded-xl flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{adminPinError}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPinModal(false)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Buka Akses Admin</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

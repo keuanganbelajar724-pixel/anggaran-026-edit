@@ -1945,5 +1945,51 @@ export interface PerhitunganIkpaExcelReference {
   };
 }
 
+// -------------------------------------------------------------
+// LOG & CATATAN DISKUSI KPPN DENGAN SATKER (KHUSUS ADMIN)
+// -------------------------------------------------------------
+export type JenisPertemuanDiskusi = 
+  | 'Tatap Muka di KPPN'
+  | 'Kunjungan Lapangan / Monev Satker'
+  | 'Konsultasi Online / Zoom'
+  | 'WhatsApp / Telepon'
+  | 'Sosialisasi / FGD'
+  | 'Lainnya';
+
+export type StatusTindakLanjutDiskusi = 
+  | 'Perlu Tindak Lanjut'
+  | 'Dalam Proses'
+  | 'Selesai'
+  | 'Monitoring Berkala';
+
+export interface CatatanDiskusiSatker {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  tanggal: string; // YYYY-MM-DD
+  waktu?: string; // HH:mm
+  jenisPertemuan: JenisPertemuanDiskusi;
+  petugasKPPN: string; // Misal: "Seksi MSKI / Joko Susilo"
+  perwakilanSatker: string; // Misal: "Pak Ahmad (PPK) & Bu Ratna (Bendahara)"
+  kontakSatker?: string; // No HP / WA
+  indikatorTerkait: string[]; // ['Deviasi Hal III DIPA', 'Capaian Output', ...]
+  topikDiskusi: string; // Judul / Pokok Masalah
+  poinPembahasan: string; // Uraian kendala & hasil diskusi
+  tindakLanjut: string; // Rencana aksi & komitmen penyelesaian
+  statusTindakLanjut: StatusTindakLanjutDiskusi;
+  targetSelesai?: string; // YYYY-MM-DD
+  catatanTambahan?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+export interface SatkerDiskusiPayload {
+  kodeSatker: string;
+  namaSatker?: string;
+  list: CatatanDiskusiSatker[];
+  updatedAt: string;
+}
+
 
 

@@ -82,6 +82,24 @@ export const getSatkerDefaultPassword = (
     return satker.passwordSatker.trim();
   }
 
+  // Cek apakah ada password kustom tersimpan di master satker (LocalStorage / Firestore cache)
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('kppn_master_satkers');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((m: any) => (m.kodeSatker || '').trim() === cleanKode);
+          if (match?.passwordSatker && match.passwordSatker.trim() !== '') {
+            return match.passwordSatker.trim();
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   // Khusus Satker 527272 (KPPN Semarang I / DJPb Eselon I 08)
   if (cleanKode === '527272') {
     return '527272_01508';
@@ -114,8 +132,24 @@ export const verifySatkerPassword = (
     return true;
   }
 
-  // 2. Password kustom yang telah diatur oleh admin / satker
-  if (satker.passwordSatker && cleanInput.toLowerCase() === satker.passwordSatker.trim().toLowerCase()) {
+  // 2. Password kustom yang telah diatur oleh admin / satker (cek object atau master satkers tersimpan)
+  let customPw = satker.passwordSatker?.trim();
+  if (!customPw && typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('kppn_master_satkers');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((m: any) => (m.kodeSatker || '').trim() === cleanKode);
+          if (match?.passwordSatker && match.passwordSatker.trim() !== '') {
+            customPw = match.passwordSatker.trim();
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (customPw && cleanInput.toLowerCase() === customPw.toLowerCase()) {
     return true;
   }
 
