@@ -40,7 +40,8 @@ import {
   EyeOff,
   Search,
   AlertCircle,
-  LogOut
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 import { SatkerIKPA, AppTheme, PerhitunganIkpaExcelReference } from '../../types';
 import { SimulationProject, DeviasiHal3Row, PenyerapanInput } from '../../models/ikpa';
@@ -49,6 +50,15 @@ import { buildDefault12MonthsKetepatan } from '../../calculations/capaianOutput'
 import { getWorkbookSampleProject } from '../../calculations/sampleWorkbookData';
 import { sanitizeProjectDates } from '../../utils/ikpaDateUtils';
 import { verifySatkerPassword, resolveKodeBA } from '../../utils/satkerSecurity';
+import {
+  saveSimulationToCloud,
+  fetchSimulationFromCloud,
+  subscribeSimulationFromCloud,
+  subscribeSyncState,
+  CloudSyncState,
+  fetchSatkerSimulationFromCloud,
+  saveSatkerSimulationToCloud
+} from '../../services/simulationCloudSync';
 import {
   getAllProjects,
   getProjectById,
@@ -287,6 +297,19 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   const [editedName, setEditedName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cloud Synchronization State (AI Studio ↔ Deployment)
+  const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>({
+    isConnected: true,
+    lastSyncedAt: null,
+    lastOrigin: null,
+    isSyncing: false
+  });
+
+  useEffect(() => {
+    const unsub = subscribeSyncState(setCloudSyncState);
+    return () => unsub();
+  }, []);
+
   // Modal States
   const [isKosongkanModalOpen, setIsKosongkanModalOpen] = useState(false);
   const [isCloudSyncModalOpen, setIsCloudSyncModalOpen] = useState(false);
@@ -313,8 +336,11 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     setTimeout(() => setNotification(null), 3500);
   };
 
-  // Load projects from IndexedDB / Storage on mount
+  // Load projects from IndexedDB / Storage on mount & synchronize with Cloud
   useEffect(() => {
+    let isMounted = true;
+    let unsubscribeCloudSnapshot: (() => void) | null = null;
+
     async function loadData() {
       try {
         const storedProjects = await getAllProjects();
@@ -394,29 +420,109 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
 
           setProjects(deduplicatedList);
           const activeId = getActiveProjectId();
-          const current = deduplicatedList.find(p => p.id === activeId) || deduplicatedList[0];
+          let current = deduplicatedList.find(p => p.id === activeId) || deduplicatedList[0];
           current.output = calculateIKPA(current);
           setActiveProject(current);
           const baseline = deduplicatedList.find(p => p.isBaseline) || deduplicatedList[0];
           baseline.output = calculateIKPA(baseline);
           setBaselineProject(baseline);
+
+          // Check Cloud Firestore for active simulation state (AI Studio ↔ Deployment synchronization)
+          fetchSimulationFromCloud().then(cloudRes => {
+            if (!isMounted) return;
+            if (cloudRes.project) {
+              const cloudProj = cloudRes.project;
+              const cloudScore = cloudProj.output?.finalScore ?? 0;
+              const localScore = current.output?.finalScore ?? 0;
+              const cloudTime = cloudRes.updatedAt ? new Date(cloudRes.updatedAt).getTime() : 0;
+              const localTime = current.updatedAt ? new Date(current.updatedAt).getTime() : 0;
+
+              // Adopt cloud state if:
+              // 1. Local is untouched zero (score <= 10) and cloud has actual data
+              // 2. Or cloud timestamp is newer and has calculation data
+              // 3. Or cloud has designated satker code and local doesn't
+              const shouldAdoptCloud =
+                (localScore <= 10.01 && cloudScore > 10.01) ||
+                (cloudTime > localTime && cloudScore > 0) ||
+                (cloudProj.metadata?.kodeSatker && !current.metadata?.kodeSatker);
+
+              if (shouldAdoptCloud) {
+                setActiveProject(cloudProj);
+                setProjects(prev => {
+                  const exists = prev.some(p => p.id === cloudProj.id);
+                  if (exists) {
+                    return prev.map(p => p.id === cloudProj.id ? cloudProj : p);
+                  }
+                  return [cloudProj, ...prev];
+                });
+                saveProject(cloudProj).catch(() => {});
+                showNotification('Data disinkronkan dari Cloud (AI Studio ↔ Deployment)', 'info');
+              } else if (localScore > 10.01) {
+                // Local in AI Studio already has user data (e.g. 87.46), push to Cloud immediately!
+                saveSimulationToCloud(current, true).catch(() => {});
+              }
+            } else if (current.output && current.output.finalScore > 10.01) {
+              // Cloud is empty, seed with current local data
+              saveSimulationToCloud(current, true).catch(() => {});
+            }
+          }).catch(err => {
+            console.warn('[CloudSync] Initial fetch error:', err);
+          });
         } else {
-          // Initialize with zero project (all inputs at 0)
-          const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)', true);
-          await saveProject(cleanZero);
-          setProjects([cleanZero]);
-          setActiveProject(cleanZero);
-          setBaselineProject(cleanZero);
-          setActiveProjectId(cleanZero.id);
+          // Local storage is empty (e.g. first load in Deployment). Check Cloud before creating zero project!
+          const cloudRes = await fetchSimulationFromCloud().catch(() => ({ project: null }));
+          if (cloudRes.project) {
+            const cloudProj = cloudRes.project;
+            await saveProject(cloudProj);
+            setProjects([cloudProj]);
+            setActiveProject(cloudProj);
+            setBaselineProject(cloudProj);
+            setActiveProjectId(cloudProj.id);
+            showNotification('Data simulasi berhasil dimuat dari Cloud (AI Studio ↔ Deployment)', 'success');
+          } else {
+            // Initialize with zero project (all inputs at 0)
+            const cleanZero = createEmptyProject('Simulasi Mandiri (Mulai dari 0)', true);
+            await saveProject(cleanZero);
+            setProjects([cleanZero]);
+            setActiveProject(cleanZero);
+            setBaselineProject(cleanZero);
+            setActiveProjectId(cleanZero.id);
+          }
         }
+
+        // Establish real-time Firestore listener for bidirectional updates
+        unsubscribeCloudSnapshot = subscribeSimulationFromCloud((remoteProject, meta) => {
+          if (!isMounted) return;
+          setActiveProject(remoteProject);
+          setProjects(prev => {
+            const exists = prev.some(p => p.id === remoteProject.id);
+            if (exists) {
+              return prev.map(p => p.id === remoteProject.id ? remoteProject : p);
+            }
+            return [remoteProject, ...prev];
+          });
+          // Cache locally without echoing
+          saveProject(remoteProject).catch(() => {});
+          const originLabel = (meta.origin && meta.origin.includes('dev')) ? 'Google AI Studio' : 'Deployment';
+          showNotification(`Penyelarasan Real-Time: Nilai diselaraskan dari ${originLabel}`, 'info');
+        });
+
       } catch (err) {
         console.error('Failed to load projects from storage:', err);
       }
     }
+
     loadData();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribeCloudSnapshot) {
+        unsubscribeCloudSnapshot();
+      }
+    };
   }, []);
 
-  // Handle Project update
+  // Handle Project update with local and Cloud synchronization
   const handleUpdateProject = (updated: SimulationProject) => {
     const sanitized = sanitizeProjectDates(updated);
     const recomputed: SimulationProject = {
@@ -426,12 +532,42 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     recomputed.output = calculateIKPA(recomputed);
     setActiveProject(recomputed);
 
-    // Save to IndexedDB
+    // 1. Save to IndexedDB / local storage
     saveProject(recomputed).then(() => {
       setProjects(prev => prev.map(p => p.id === recomputed.id ? recomputed : p));
     }).catch(err => {
       console.warn('Auto-save error:', err);
     });
+
+    // 2. Save to Firestore Cloud (debounced)
+    saveSimulationToCloud(recomputed, false).catch(err => {
+      console.warn('Cloud auto-save error:', err);
+    });
+  };
+
+  // Force manual cloud sync (Push & Pull)
+  const handleForceCloudSync = async () => {
+    try {
+      showNotification('Menyinkronkan data dengan Cloud Database...', 'info');
+      await saveSimulationToCloud(activeProject, true);
+      const cloudRes = await fetchSimulationFromCloud();
+      if (cloudRes.project) {
+        setActiveProject(cloudRes.project);
+        setProjects(prev => {
+          const exists = prev.some(p => p.id === cloudRes.project!.id);
+          if (exists) {
+            return prev.map(p => p.id === cloudRes.project!.id ? cloudRes.project! : p);
+          }
+          return [cloudRes.project!, ...prev];
+        });
+        showNotification('Sinkronisasi Sukses: AI Studio & Deployment selaras 100%!', 'success');
+      } else {
+        showNotification('Data simulasi berhasil disimpan ke Cloud Database.', 'success');
+      }
+    } catch (e) {
+      console.warn('Manual cloud sync error:', e);
+      showNotification('Gagal menyinkronkan ke cloud, periksa koneksi.', 'error');
+    }
   };
 
   // Switch active project
@@ -771,6 +907,16 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         onSelectSatker(currentAuthTargetSatker.kodeSatker);
       }
       showNotification(`Akses Simulasi Satker ${currentAuthTargetSatker.namaSatker} (${currentAuthTargetSatker.kodeSatker}) berhasil dibuka!`, 'success');
+
+      // Auto check if this Satker already has a cloud simulation state saved from AI Studio or previous session
+      fetchSatkerSimulationFromCloud(satkerKode).then(cloudSatkerProj => {
+        if (cloudSatkerProj && cloudSatkerProj.output && cloudSatkerProj.output.finalScore > 10.01) {
+          handleUpdateProject(cloudSatkerProj);
+          showNotification(`Data simulasi Satker ${satkerNama} berhasil disinkronkan dari Cloud!`, 'info');
+        }
+      }).catch(err => {
+        console.warn('Error checking cloud satker project:', err);
+      });
     } else {
       setAuthError('Password Satker tidak sesuai. Silakan masukkan password resmi Satker Anda atau hubungi Admin KPPN.');
     }
@@ -1200,6 +1346,27 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
               title="Duplikasi Skenario"
             >
               <Copy className="h-3.5 w-3.5 text-blue-600" /> Duplikasi
+            </button>
+
+            {/* Cloud Real-Time Sync Status (AI Studio ↔ Deployment) */}
+            <button
+              onClick={handleForceCloudSync}
+              disabled={cloudSyncState.isSyncing}
+              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all shadow-xs cursor-pointer ${
+                cloudSyncState.isConnected
+                  ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60'
+                  : 'border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 hover:bg-amber-100'
+              }`}
+              title="Sinkronisasi Cloud Real-Time antara Google AI Studio & Deployment (Klik untuk sinkronkan manual sekarang)"
+            >
+              <span className={`w-2 h-2 rounded-full ${cloudSyncState.isSyncing ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`} />
+              <Cloud className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>
+                {cloudSyncState.isSyncing
+                  ? 'Menyinkronkan...'
+                  : 'Cloud Sync: AI Studio ↔ Deployment'}
+              </span>
+              <RefreshCw className={`h-3 w-3 text-emerald-600 dark:text-emerald-400 ${cloudSyncState.isSyncing ? 'animate-spin' : ''}`} />
             </button>
 
             <button

@@ -8,6 +8,7 @@ import {
 } from '../models/ikpa';
 import { calculateIKPA } from '../calculations/ikpa';
 import { sanitizeProjectDates } from '../utils/ikpaDateUtils';
+import { saveSimulationToCloud } from '../services/simulationCloudSync';
 
 const DB_NAME = 'IKPA_SIMULATOR_DB';
 const DB_VERSION = 1;
@@ -136,6 +137,15 @@ export async function saveProject(project: SimulationProject): Promise<void> {
     all.push(updatedProject);
   }
   saveLocalStorageProjects(all);
+
+  // Synchronize to Firestore Cloud so dev and deployment instances stay in sync
+  try {
+    saveSimulationToCloud(updatedProject).catch(err => {
+      console.warn('Background cloud sync warning:', err);
+    });
+  } catch (err) {
+    console.warn('Cloud sync trigger error:', err);
+  }
 }
 
 export async function deleteProject(id: string): Promise<void> {

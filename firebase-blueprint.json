@@ -52,6 +52,20 @@
         "author": { "type": "string" }
       },
       "required": ["title", "content", "date"]
+    },
+    "simulationProject": {
+      "title": "IKPA Simulation Project",
+      "description": "Stores real-time multi-indicator simulation projects and active state shared across development and deployment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastModifiedBy": { "type": "string" },
+        "origin": { "type": "string" },
+        "projectData": { "type": "object" },
+        "activeProjectId": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -66,6 +80,14 @@
     "/announcements/{announcementId}": {
       "schema": { "$ref": "#/entities/announcements" },
       "description": "Public announcements and bulletin notices"
+    },
+    "/simulasi_projects/{projectId}": {
+      "schema": { "$ref": "#/entities/simulationProject" },
+      "description": "Real-time synchronized simulation projects across dev and deployment instances"
+    },
+    "/simulasi_state/{stateId}": {
+      "schema": { "$ref": "#/entities/simulationProject" },
+      "description": "Active simulation project state and active ID synchronization"
     }
   }
 }
