@@ -2650,6 +2650,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
             }}
             overallSummary={overallSummary}
             satkers={satkers}
+            records={records}
+            intressRecords={intressRecords}
+            intressSummary={myIntressSummary}
           />
 
           {/* ============================================================ */}
@@ -2692,7 +2695,9 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
               buletinConfig={buletinConfig}
               overallSummary={overallSummary}
               satkers={satkers}
-              themeStyles={themeStyles}
+              records={records}
+              intressRecords={intressRecords}
+              intressSummary={myIntressSummary}
               onUpdateBuletinConfig={(newConfig) => {
                 setBuletinConfig(newConfig);
                 safeLocalStorageSet(STORAGE_KEY_BULETIN_CFG, JSON.stringify(newConfig));

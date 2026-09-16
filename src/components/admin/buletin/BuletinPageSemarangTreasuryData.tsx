@@ -38,7 +38,9 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
 }) => {
   // HALAMAN 8: RAPOR SATKER PAGU BESAR (> RP 50 MILIAR) & SATKER STRATEGIS SEMARANG
   if (pageNumber === 8) {
-    const listSatkerBesar = buletinConfig.satkerPaguBesarTable || [];
+    const listSatkerBesar = (buletinConfig.satkerPaguBesarTable && buletinConfig.satkerPaguBesarTable.length > 0)
+      ? buletinConfig.satkerPaguBesarTable 
+      : (deepAnalysis?.satkerBesarList && deepAnalysis.satkerBesarList.length > 0 ? deepAnalysis.satkerBesarList : []);
 
     return (
       <div className="p-8 sm:p-10 space-y-6 flex-1 flex flex-col justify-between">
@@ -118,7 +120,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
 
   // HALAMAN 9: EVALUASI MENDALAM 8 INDIKATOR IKPA KPPN SEMARANG I
   if (pageNumber === 9) {
-    const ikpa = buletinConfig.evaluasiDelapanIkpa;
+    const ikpa = buletinConfig.evaluasiDelapanIkpa || deepAnalysis?.evaluasiDelapanIkpa;
 
     return (
       <div className="p-8 sm:p-10 space-y-6 flex-1 flex flex-col justify-between">
@@ -251,7 +253,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
 
   // HALAMAN 10: MONITORING PROYEK STRATEGIS BELANJA MODAL (AKUN 53)
   if (pageNumber === 10) {
-    const modal = buletinConfig.belanjaModalProyek;
+    const modal = buletinConfig.belanjaModalProyek || deepAnalysis?.belanjaModalProyek;
 
     return (
       <div className="p-8 sm:p-10 space-y-6 flex-1 flex flex-col justify-between">
@@ -325,7 +327,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
 
   // HALAMAN 11: MONITORING RETUR SP2D & KAMPANYE ZERO RETUR SAKTI
   if (pageNumber === 11) {
-    const retur = buletinConfig.monitoringReturSp2d;
+    const retur = buletinConfig.monitoringReturSp2d || deepAnalysis?.monitoringReturSp2d;
 
     return (
       <div className="p-8 sm:p-10 space-y-6 flex-1 flex flex-col justify-between">
@@ -396,7 +398,7 @@ export const BuletinPageSemarangTreasuryData: React.FC<BuletinPageSemarangTreasu
   }
 
   // HALAMAN 12: TRANSFORMASI DIGITAL: DIGIPAY SATU & KKP DOMESTIK
-  const digital = buletinConfig.leaderboardDigipayKkp;
+  const digital = buletinConfig.leaderboardDigipayKkp || deepAnalysis?.leaderboardDigipayKkp;
 
   return (
     <div className="p-8 sm:p-10 space-y-6 flex-1 flex flex-col justify-between">

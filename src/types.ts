@@ -232,6 +232,7 @@ export interface PengelolaanUPRecord {
   persentaseRevolving: number;
   frekuensiGUP: number;
   statusRevolving: 'Sangat Baik' | 'Optimal' | 'Lambat / Kritis' | 'Belum Revolving' | 'Lancar / Normal';
+  statusPeringatan?: string;
   tglTerakhirSP2D?: string;
   nomorSp2dTerakhir?: string;
   nilaiSp2dTerakhir?: number;
@@ -421,6 +422,10 @@ export interface IndikatorIKPA {
   pengelolaanUpTup: number; // Max 100
   dispensasiSpm: number; // Max 100
   capaianOutput: number; // Max 100
+  pengelolaanUPTUP?: number;
+  dispensasiSPM?: number;
+  dataKontrak?: number;
+  penyampaianLPJBendahara?: number;
 }
 
 export interface RiwayatBulananIKPA {
@@ -461,10 +466,15 @@ export interface SatkerIKPA {
   kodeKppn?: string; // 3 digit Kode KPPN, e.g. '026'
   namaSatker: string;
   kementerianLembaga: string;
+  kementerian?: string;
+  paguDipa?: number;
   unitEselon1?: string;
   paguAnggaran: number;
   realisasiAnggaran: number;
   persenPenyerapan: number;
+  pagu?: number;
+  persenRealisasi?: number;
+  nilaiIKPA?: number;
   
   // Status Capaian Output
   statusCapaianOutput: 'Sudah Terlaporkan' | 'Belum Terlaporkan' | 'Terlambat';
@@ -595,6 +605,10 @@ export interface PejabatSertifikasi {
   noSertifikat: string; // e.g. PNT-08581/026/912/2021, BNT-03762/185/518/2021 or "Belum Ada" / "Tidak Ada"
   tglSertifikat?: string; // e.g. 17-09-2021
   tglKadaluarsa?: string; // e.g. 17-09-2026
+  kodeSatker?: string;
+  namaPejabat?: string;
+  jabatan?: string;
+  statusPeringatan?: string;
   statusJabatan?: 'Aktif' | 'Non Aktif' | string; // Status jabatan: Aktif vs Non Aktif
   statusUsulan?: string; // e.g. 'Belum rekam usulan', 'Antrean Diklat', 'Proses Verifikasi', 'Dijadwalkan Uji Kompetensi', 'Belum Diusulkan', 'Di Kirim Ke Admin DSP', 'Sertifikat Kadaluarsa', 'Tidak Memenuhi Syarat', 'Tidak Lulus Ujian Komprehensif'
   status?: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Mendekati Kadaluarsa';
@@ -631,6 +645,46 @@ export interface JuknisBlangkoItem {
   linkDownload: string; // URL file / Drive / PDF
   fileFormat?: 'PDF' | 'DOCX' | 'XLSX' | 'ZIP' | 'LINK' | 'CSV';
   keterangan?: string;
+  isPinned?: boolean;
+  isActive?: boolean;
+  order?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DokumenPendukungSpmItem {
+  namaDokumen: string;
+  format?: 'PDF' | 'ADK' | 'TTE' | 'ASLI/FISIK';
+  wajib?: boolean;
+  keterangan?: string;
+}
+
+export type KategoriPembayaranSpm = 
+  | 'BELANJA_PEGAWAI'
+  | 'BELANJA_BARANG'
+  | 'BELANJA_MODAL'
+  | 'UANG_PERSEDIAAN_TUP'
+  | 'PPNPN'
+  | 'PERJALANAN_DINAS'
+  | 'RESTITUSI_PAJAK'
+  | 'PENGESAHAN_HIBAH_BLU'
+  | 'LAINNYA';
+
+export interface UraianSpmSaktiItem {
+  id: string;
+  kodeSpp: string; // e.g. "111", "211", "221", "231", "311", "313", "316", "321", etc.
+  jenisSpm: string; // e.g. "Non Gaji Kontraktual (LS Kontraktual)", "Gaji Induk PNS", "Uang Lembur", etc.
+  kategoriPembayaran: KategoriPembayaranSpm;
+  sifatPembayaran: string; // e.g. "Pembayaran Langsung (LS)", "Uang Persediaan (UP)", "GUP Tunai", "GUP KKP", "TUP", "Pengesahan"
+  jenisBelanja?: string; // e.g. "51 (Pegawai)", "52 (Barang)", "53 (Modal)", "82 (Kas UP)"
+  dasarHukum?: string; // e.g. "PMK 190/PMK.05/2012, PER-58/PB/2013, PMK 62/2023"
+  formatBakuUraian: string; // Format acuan baku standar SAKTI
+  contohUraian: string; // Contoh konkret siap salin
+  placeholderGuide?: string; // Penjelasan tag / tanda kurung siku [...]
+  karakterMaks?: number; // Batas karakter di SAKTI (default 255)
+  dokumenPendukung: DokumenPendukungSpmItem[];
+  keterangan?: string; // Kolom keterangan (default kosong, dapat diisi sendiri)
+  tipsKppn?: string; // Legacy fallback
   isPinned?: boolean;
   isActive?: boolean;
   order?: number;
@@ -1313,6 +1367,7 @@ export interface DashboardConfig {
   presensiPrintConfig?: PresensiPrintConfig;
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
+  uraianSpmList?: UraianSpmSaktiItem[];
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
   perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
 }
@@ -1507,6 +1562,7 @@ export interface RealisasiBelanjaSummary {
   totalSisa: number;
   totalBlokir: number;
   persenRealisasiTotal: number;
+  persentaseRealisasi?: number; // alias for persenRealisasiTotal
   totalSatkerCount: number;
   totalRows: number;
   breakdownJenisBelanja: {
@@ -1664,9 +1720,17 @@ export interface BuletinConfig {
   edisi: string; // e.g. "EDISI 2 | TW.II/2026"
   bulanTahun: string; // e.g. "Triwulan II 2026"
   namaBuletin?: string; // e.g. "WARTA SEMARANG SATU" / "BULETIN TUGU MUDA"
+  judulBuletin?: string; // alias for namaBuletin
+  kataPengantar?: string; // alias for sambutanKepala
   taglineBuletin?: string; // e.g. "Kiprah Perbendaharaan & Kinerja APBN Wilayah KPPN Semarang I"
   judulUtama: string; // e.g. "OPTIMALISASI PENYERAPAN BELANJA APBN & PENGUATAN TATA KELOLA KEUANGAN"
   subJudul: string; // e.g. "Kinerja Fiskal Berkualitas, Akselerasi Digitalisasi SAKTI, & Transformasi Layanan"
+  realisasiAkun?: {
+    belanjaPegawai?: { pagu: number; realisasi: number; persen: number };
+    belanjaBarang?: { pagu: number; realisasi: number; persen: number };
+    belanjaModal?: { pagu: number; realisasi: number; persen: number };
+    belanjaBansos?: { pagu: number; realisasi: number; persen: number };
+  };
   
   // Format / Layout Template Multi-Style
   layoutFormat?: 'executive_magazine' | 'canva_vibrant' | 'clean_treasury' | 'royal_indigo' | 'classic_newsletter';

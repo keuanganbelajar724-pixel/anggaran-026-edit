@@ -79,7 +79,7 @@ export const SintesaSatkerDetailModal: React.FC<SintesaSatkerDetailModalProps> =
 
   if (!satkerInfo) return null;
 
-  const firstRec = satkerInfo.records[0] || {};
+  const firstRec: Partial<RealisasiBelanjaRecord> = satkerInfo.records[0] || {};
   const eselonInfo = `${firstRec.eselonIKode ? `[${firstRec.eselonIKode}] ` : ''}${firstRec.eselonIUraian || 'Unit Eselon I'}`;
   const kewenanganInfo = `${firstRec.kewenanganKode ? `[${firstRec.kewenanganKode}] ` : ''}${firstRec.kewenanganUraian || satkerInfo.kewenanganUraian || 'Kantor Daerah'}`;
   const fungsiUtama = firstRec.fungsiUraian ? `${firstRec.fungsiKode ? `[${firstRec.fungsiKode}] ` : ''}${firstRec.fungsiUraian}` : null;

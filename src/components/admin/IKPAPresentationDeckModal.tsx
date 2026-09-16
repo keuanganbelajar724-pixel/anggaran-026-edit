@@ -79,6 +79,16 @@ import {
   RiskMatrixItem
 } from '../../data/presentationSlidesData';
 import { generateLocalFinancialAnalysis } from '../../utils/localAiAnalystEngine';
+import { 
+  RealisasiBelanjaRecord, 
+  MyIntressRecord, 
+  MyIntressSummary, 
+  MasterSatker 
+} from '../../types';
+import { getLargeDataset } from '../../utils/safeStorage';
+import { computeMyIntressSummary } from '../../utils/realisasiBelanjaProcessor';
+import { INITIAL_REALISASI_BELANJA } from '../../data/initialRealisasiBelanja';
+import { INITIAL_MY_INTRESS_DATA } from '../../data/initialMyIntressData';
 
 // 12 Pilihan Tema Visual
 export type PresentationTheme = 
@@ -134,14 +144,29 @@ interface IKPAPresentationDeckModalProps {
   dashboardConfig: DashboardConfig;
   isDark?: boolean;
   onAskGeminiForTopic?: (topicPrompt: string) => void;
+  records?: RealisasiBelanjaRecord[];
+  intressRecords?: MyIntressRecord[];
+  intressSummary?: MyIntressSummary | null;
+  masterSatkers?: MasterSatker[];
+  pengelolaanUpRecords?: any[];
+  transaksiKkpRecords?: any[];
+  transaksiDigipayRecords?: any[];
 }
 
 export const IKPAPresentationDeckModal: React.FC<IKPAPresentationDeckModalProps> = ({
   isOpen,
   onClose,
   satkers,
+  dashboardConfig,
   isDark = false,
-  onAskGeminiForTopic
+  onAskGeminiForTopic,
+  records: propRecords,
+  intressRecords: propIntressRecords,
+  intressSummary: propIntressSummary,
+  masterSatkers,
+  pengelolaanUpRecords,
+  transaksiKkpRecords,
+  transaksiDigipayRecords
 }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
   const [periodScope, setPeriodScope] = useState<PeriodScope>('TW1');
@@ -149,6 +174,51 @@ export const IKPAPresentationDeckModal: React.FC<IKPAPresentationDeckModalProps>
   const [selectedSlideIds, setSelectedSlideIds] = useState<number[]>(
     Array.from({ length: 50 }, (_, i) => i + 1)
   );
+
+  // Internal Fallback State for My InTress and Realisasi Belanja
+  const [internalIntressRecords, setInternalIntressRecords] = useState<MyIntressRecord[]>(() => {
+    if (propIntressRecords && propIntressRecords.length > 0) return propIntressRecords;
+    return INITIAL_MY_INTRESS_DATA || [];
+  });
+
+  const [internalRecords, setInternalRecords] = useState<RealisasiBelanjaRecord[]>(() => {
+    if (propRecords && propRecords.length > 0) return propRecords;
+    return INITIAL_REALISASI_BELANJA || [];
+  });
+
+  // Async load larger stored dataset from IndexedDB if not already passed via props
+  useEffect(() => {
+    if (!propIntressRecords || propIntressRecords.length === 0) {
+      getLargeDataset<MyIntressRecord[]>('kppn_my_intress_records').then(data => {
+        if (data && Array.isArray(data) && data.length > 0) {
+          setInternalIntressRecords(data);
+        }
+      }).catch(() => {});
+    } else {
+      setInternalIntressRecords(propIntressRecords);
+    }
+  }, [propIntressRecords]);
+
+  useEffect(() => {
+    if (!propRecords || propRecords.length === 0) {
+      getLargeDataset<RealisasiBelanjaRecord[]>('kppn_realisasi_belanja_records').then(data => {
+        if (data && Array.isArray(data) && data.length > 0) {
+          setInternalRecords(data);
+        }
+      }).catch(() => {});
+    } else {
+      setInternalRecords(propRecords);
+    }
+  }, [propRecords]);
+
+  // Compute effective intress summary
+  const effectiveIntressSummary = useMemo(() => {
+    if (propIntressSummary) return propIntressSummary;
+    if (internalIntressRecords.length > 0) {
+      return computeMyIntressSummary(internalIntressRecords);
+    }
+    return null;
+  }, [propIntressSummary, internalIntressRecords]);
 
   // Customization: Theme, Density Mode, Aspect Ratio & Export Format
   const [activeTheme, setActiveTheme] = useState<PresentationTheme>('midnight');
@@ -175,10 +245,28 @@ export const IKPAPresentationDeckModal: React.FC<IKPAPresentationDeckModalProps>
     return getClientStoredApiKey();
   });
 
-  // Generate 50 slides dynamically based on satker dataset & period
+  // Generate 50 slides dynamically based on satker dataset, period & deep treasury data
   const raw50Slides: DetailedSlideContent[] = useMemo(() => {
-    return generate50PresentationSlides(satkers, periodScope);
-  }, [satkers, periodScope]);
+    return generate50PresentationSlides(satkers, periodScope, {
+      records: internalRecords,
+      intressRecords: internalIntressRecords,
+      intressSummary: effectiveIntressSummary,
+      masterSatkers,
+      pengelolaanUpRecords,
+      transaksiKkpRecords,
+      transaksiDigipayRecords
+    });
+  }, [
+    satkers, 
+    periodScope, 
+    internalRecords, 
+    internalIntressRecords, 
+    effectiveIntressSummary, 
+    masterSatkers, 
+    pengelolaanUpRecords, 
+    transaksiKkpRecords, 
+    transaksiDigipayRecords
+  ]);
 
   // Merge raw slides with user/AI overrides
   const all50Slides: DetailedSlideContent[] = useMemo(() => {

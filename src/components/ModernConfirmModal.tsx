@@ -30,42 +30,45 @@ export interface ConfirmModalConfig {
 export type ConfirmModalState = ConfirmModalConfig;
 
 interface ModernConfirmModalProps {
-  modal: ConfirmModalConfig | null;
+  modal?: ConfirmModalConfig | null;
+  state?: ConfirmModalConfig | null;
   onClose: () => void;
   isDark?: boolean;
 }
 
 export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
   modal,
+  state,
   onClose,
   isDark = false,
 }) => {
+  const activeModal = modal || state;
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isSuccessState, setIsSuccessState] = useState<boolean>(false);
 
-  if (!modal || !modal.isOpen) return null;
+  if (!activeModal || !activeModal.isOpen) return null;
 
-  // Defensive extraction in case modal.title or modal.message is an object or improperly passed
-  const displayTitle: string = typeof modal.title === 'string' 
-    ? modal.title 
-    : (typeof (modal.title as any)?.title === 'string' 
-      ? (modal.title as any).title 
+  // Defensive extraction in case activeModal.title or activeModal.message is an object or improperly passed
+  const displayTitle: string = typeof activeModal.title === 'string' 
+    ? activeModal.title 
+    : (typeof (activeModal.title as any)?.title === 'string' 
+      ? (activeModal.title as any).title 
       : 'Konfirmasi Tindakan');
 
-  const displayMessage: string = typeof modal.message === 'string' 
-    ? modal.message 
-    : (typeof (modal.title as any)?.message === 'string' 
-      ? (modal.title as any).message 
+  const displayMessage: string = typeof activeModal.message === 'string' 
+    ? activeModal.message 
+    : (typeof (activeModal.title as any)?.message === 'string' 
+      ? (activeModal.title as any).message 
       : '');
 
-  const variant = modal.variant || (modal.title as any)?.type || (modal.title as any)?.variant || 'default';
-  const effectiveConfirmText = modal.confirmText || (modal.title as any)?.confirmText || 'Ya, Lanjutkan';
-  const effectiveCancelText = modal.cancelText || (modal.title as any)?.cancelText || 'Batal';
+  const variant = activeModal.variant || (activeModal.title as any)?.type || (activeModal.title as any)?.variant || 'default';
+  const effectiveConfirmText = activeModal.confirmText || (activeModal.title as any)?.confirmText || 'Ya, Lanjutkan';
+  const effectiveCancelText = activeModal.cancelText || (activeModal.title as any)?.cancelText || 'Batal';
 
   const handleExecute = async () => {
     try {
       setIsLoading(true);
-      const res = modal.onConfirm();
+      const res = activeModal.onConfirm();
       if (res instanceof Promise) {
         await res;
       }
@@ -83,8 +86,8 @@ export const ModernConfirmModal: React.FC<ModernConfirmModalProps> = ({
 
   const handleCancelAction = () => {
     if (isLoading) return;
-    if (modal.onCancel) {
-      modal.onCancel();
+    if (activeModal.onCancel) {
+      activeModal.onCancel();
     }
     onClose();
   };

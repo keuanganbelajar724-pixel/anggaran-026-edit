@@ -37,10 +37,13 @@ import {
   KnowledgeCategory,
   KnowledgeStep,
   AppTheme,
-  DashboardConfig
+  DashboardConfig,
+  UraianSpmSaktiItem
 } from '../../types';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../../data/initialJuknisData';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../../data/initialKnowledgeData';
+import { INITIAL_URAIAN_SPM_SAKTI_LIST } from '../../data/initialUraianSpmData';
+import { UraianSpmSaktiView } from '../UraianSpmSaktiView';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 import { useToast } from '../ToastNotification';
 import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
@@ -61,8 +64,86 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
   const isDark = theme === 'dark';
   const { showToast } = useToast();
 
-  // Active Admin Sub-Tab: 'juknis_table' (Direktori Blangko & Juknis) vs 'knowledge_articles' (Artikel & Petunjuk Interaktif)
-  const [activeSubTab, setActiveSubTab] = useState<'juknis_table' | 'knowledge_articles'>('juknis_table');
+  // Active Admin Sub-Tab: 'juknis_table' (Direktori Blangko & Juknis) vs 'knowledge_articles' (Artikel & Petunjuk Interaktif) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
+  const [activeSubTab, setActiveSubTab] = useState<'juknis_table' | 'knowledge_articles' | 'spm_format'>('juknis_table');
+
+  // =========================================================================
+  // SPM FORMAT DATA & SYNC STATE
+  // =========================================================================
+  const [spmList, setSpmList] = useState<UraianSpmSaktiItem[]>(() => {
+    try {
+      const isClearedV2 = localStorage.getItem('kppn_uraian_spm_cleared_docs_v2');
+      if (!isClearedV2) {
+        localStorage.setItem('kppn_uraian_spm_cleared_docs_v2', 'true');
+        safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(INITIAL_URAIAN_SPM_SAKTI_LIST));
+        return INITIAL_URAIAN_SPM_SAKTI_LIST;
+      }
+      const saved = localStorage.getItem('kppn_uraian_spm_items');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed parsing local SPM items', e);
+    }
+    if (dashboardConfig.uraianSpmList && Array.isArray(dashboardConfig.uraianSpmList) && dashboardConfig.uraianSpmList.length > 0) {
+      return dashboardConfig.uraianSpmList;
+    }
+    return INITIAL_URAIAN_SPM_SAKTI_LIST;
+  });
+
+  // Save SPM helper
+  const saveSpmList = (newList: UraianSpmSaktiItem[], customMessage?: string) => {
+    setSpmList(newList);
+    try {
+      safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(newList));
+    } catch (e) {
+      console.warn('Error saving SPM to localStorage', e);
+    }
+    onUpdateDashboardConfig({
+      ...dashboardConfig,
+      uraianSpmList: newList
+    });
+    try {
+      setDoc(doc(db, 'settings', 'uraian_spm_directory'), {
+        items: newList,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn('Firebase save SPM notice:', err));
+    } catch (e) {
+      console.warn('Firebase save SPM notice:', e);
+    }
+    showToast({
+      type: 'success',
+      title: 'Acuan SPM Diperbarui',
+      message: customMessage || `${newList.length} format acuan uraian SPM berhasil disimpan.`
+    });
+  };
+
+  // Firebase Realtime Listener for SPM
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'settings', 'uraian_spm_directory'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.items !== undefined && Array.isArray(data.items)) {
+            setSpmList(data.items);
+            try {
+              safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(data.items));
+            } catch (e) {
+              console.warn(e);
+            }
+          }
+        }
+      }, (err) => {
+        console.warn('Firebase SPM sync err:', err);
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn('Firebase error SPM:', e);
+    }
+  }, []);
 
   // =========================================================================
   // 1. STATE & SYNC UNTUK JUKNIS BLANGKO (TABEL DIREKTORI)
@@ -302,7 +383,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       message: 'Tindakan ini akan memuat seluruh daftar blangko dan juknis standar lengkap (DIGIT, MonSAKTI, TBS, Gaji Web, GPP Desktop, PPNPN, Digipay Satu, TTE SAKTI, dsb). Lanjutkan?',
       confirmText: 'Ya, Muat Preset Lengkap',
       cancelText: 'Batal',
-      variant: 'info',
+      variant: 'primary',
       iconType: 'sparkles',
       onConfirm: () => {
         saveJuknisList(INITIAL_JUKNIS_BLANGKO_LIST);
@@ -403,7 +484,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       message: 'Muat kembali artikel panduan standar resmi KPPN Semarang I? Data artikel yang ada saat ini akan digantikan dengan preset awal.',
       confirmText: 'Ya, Muat Preset',
       cancelText: 'Batal',
-      variant: 'info',
+      variant: 'primary',
       iconType: 'sparkles',
       onConfirm: () => {
         saveKnowledgeList(INITIAL_KNOWLEDGE_ITEMS);
@@ -562,18 +643,9 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       {/* Confirmation Modal */}
       {confirmModal && (
         <ModernConfirmModal
-          isOpen={confirmModal.isOpen}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmText}
-          cancelText={confirmModal.cancelText}
-          variant={confirmModal.variant}
-          iconType={confirmModal.iconType}
-          onConfirm={async () => {
-            await confirmModal.onConfirm();
-            setConfirmModal(null);
-          }}
-          onCancel={() => setConfirmModal(null)}
+          modal={confirmModal}
+          onClose={() => setConfirmModal(null)}
+          isDark={isDark}
         />
       )}
 
@@ -613,6 +685,14 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
                 Artikel Edukasi
               </span>
             </div>
+            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-center min-w-[100px]">
+              <span className="text-xl font-black text-emerald-300 font-mono block">
+                {spmList.length}
+              </span>
+              <span className="text-[10px] uppercase font-bold text-slate-200">
+                Format SPM
+              </span>
+            </div>
           </div>
         </div>
 
@@ -645,6 +725,21 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             <span>2. Artikel &amp; Petunjuk Interaktif (Knowledge Base)</span>
             <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {knowledgeList.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('spm_format')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+              activeSubTab === 'spm_format'
+                ? 'bg-cyan-400 text-slate-950 shadow-lg font-black ring-2 ring-white/50'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>3. Format Uraian SPM &amp; Dokumen Pendukung SAKTI</span>
+            <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+              {spmList.length}
             </span>
           </button>
         </div>
@@ -1276,6 +1371,21 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             </form>
           </div>
         </div>
+      )}
+
+      {/* =========================================================================
+          TAB 3: FORMAT URAIAN SPM PADA SAKTI & DOKUMEN PENDUKUNG (ADMIN VIEW)
+          ========================================================================= */}
+      {activeSubTab === 'spm_format' && (
+        <UraianSpmSaktiView
+          isAdmin={true}
+          theme={theme}
+          uraianList={spmList}
+          onSaveList={(newList, msg) => saveSpmList(newList, msg)}
+          onResetPreset={() => {
+            saveSpmList(INITIAL_URAIAN_SPM_SAKTI_LIST, 'Acuan standar baku uraian SPM resmi DJPb berhasil dimuat.');
+          }}
+        />
       )}
 
       {/* Modern Confirmation Modal for Delete & Reset Actions */}

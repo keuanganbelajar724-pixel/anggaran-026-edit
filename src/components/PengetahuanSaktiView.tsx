@@ -42,10 +42,13 @@ import {
   KnowledgeStep, 
   AppTheme, 
   DashboardConfig, 
-  JuknisBlangkoItem 
+  JuknisBlangkoItem,
+  UraianSpmSaktiItem
 } from '../types';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../data/initialKnowledgeData';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../data/initialJuknisData';
+import { INITIAL_URAIAN_SPM_SAKTI_LIST } from '../data/initialUraianSpmData';
+import { UraianSpmSaktiView } from './UraianSpmSaktiView';
 import { db, doc, onSnapshot, setDoc } from '../lib/firebase';
 import { PaginationControl } from './PaginationControl';
 
@@ -67,8 +70,81 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   const isDark = theme === 'dark';
   const { showToast } = useToast();
 
-  // Active Public View Mode: 'tabel_juknis' (Direktori Tabel Format/Blangko Kemenkeu) vs 'artikel_panduan' (Panduan Interaktif & Video)
-  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan'>('tabel_juknis');
+  // Active Public View Mode: 'tabel_juknis' (Direktori Tabel Format/Blangko Kemenkeu) vs 'artikel_panduan' (Panduan Interaktif & Video) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
+  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format'>('tabel_juknis');
+
+  // =========================================================================
+  // DATA URAIAN SPM SAKTI & DOKUMEN PENDUKUNG (REALTIME FIREBASE SYNC)
+  // =========================================================================
+  const [spmList, setSpmList] = useState<UraianSpmSaktiItem[]>(() => {
+    try {
+      const isClearedV2 = localStorage.getItem('kppn_uraian_spm_cleared_docs_v2');
+      if (!isClearedV2) {
+        localStorage.setItem('kppn_uraian_spm_cleared_docs_v2', 'true');
+        safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(INITIAL_URAIAN_SPM_SAKTI_LIST));
+        return INITIAL_URAIAN_SPM_SAKTI_LIST;
+      }
+      const saved = localStorage.getItem('kppn_uraian_spm_items');
+      if (saved !== null) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed parsing local SPM items', e);
+    }
+    if (dashboardConfig?.uraianSpmList && Array.isArray(dashboardConfig.uraianSpmList) && dashboardConfig.uraianSpmList.length > 0) {
+      return dashboardConfig.uraianSpmList;
+    }
+    return INITIAL_URAIAN_SPM_SAKTI_LIST;
+  });
+
+  // Sync Firebase for SPM
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'settings', 'uraian_spm_directory'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.items !== undefined && Array.isArray(data.items)) {
+            setSpmList(data.items);
+            try {
+              safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(data.items));
+            } catch (e) {
+              console.warn(e);
+            }
+          }
+        }
+      }, (err) => {
+        console.warn('Firebase sync SPM notice:', err);
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn('Firebase error setup SPM:', e);
+    }
+  }, []);
+
+  const saveSpmList = (newList: UraianSpmSaktiItem[], customMessage?: string) => {
+    setSpmList(newList);
+    try {
+      safeLocalStorageSet('kppn_uraian_spm_items', JSON.stringify(newList));
+    } catch (e) {
+      console.warn('Error saving SPM to localStorage', e);
+    }
+    try {
+      setDoc(doc(db, 'settings', 'uraian_spm_directory'), {
+        items: newList,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn('Firebase save SPM notice:', err));
+    } catch (e) {
+      console.warn('Firebase save SPM notice:', e);
+    }
+    showToast({
+      type: 'success',
+      title: 'Acuan SPM Diperbarui',
+      message: customMessage || `${newList.length} format acuan uraian SPM berhasil disimpan.`
+    });
+  };
 
   // =========================================================================
   // 1. DATA JUKNIS & BLANGKO RESMI (TABEL BLUEPRINT)
@@ -500,6 +576,21 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               <span>2. Panduan Langkah-demi-Langkah &amp; Video Edukasi</span>
               <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
                 {knowledgeList.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveViewMode('spm_format')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                activeViewMode === 'spm_format'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 text-emerald-300" />
+              <span>3. Format Uraian SPM &amp; Dokumen Pendukung SAKTI</span>
+              <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                {spmList.length}
               </span>
             </button>
           </div>
@@ -1075,6 +1166,17 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
             className="p-4 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
           />
         </div>
+      )}
+
+      {/* =========================================================================
+          VIEW MODE 3: FORMAT URAIAN SPM PADA SAKTI & DOKUMEN PENDUKUNG RESMI (DASHBOARD PUBLIK)
+          ========================================================================= */}
+      {activeViewMode === 'spm_format' && (
+        <UraianSpmSaktiView
+          isAdmin={false}
+          theme={theme}
+          uraianList={spmList}
+        />
       )}
 
       {/* Modal Add / Edit Knowledge Item */}

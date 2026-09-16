@@ -58,7 +58,7 @@ import {
   Bot,
   Plus
 } from 'lucide-react';
-import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA } from '../../types';
+import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA, RealisasiBelanjaRecord, MyIntressRecord, MyIntressSummary } from '../../types';
 import { formatRupiahShort, formatRupiahFull } from '../../utils/realisasiBelanjaProcessor';
 import { OFFICIAL_PRESET_IMAGES } from '../../data/buletinEditionPresets';
 import { generateDeepTreasuryAnalysis } from '../../utils/buletinTreasuryEngine';
@@ -97,6 +97,9 @@ interface BuletinMagazineLayoutProps {
   buletinConfig: BuletinConfig;
   overallSummary?: RealisasiBelanjaSummary | null;
   satkers?: SatkerIKPA[];
+  records?: RealisasiBelanjaRecord[];
+  intressRecords?: MyIntressRecord[];
+  intressSummary?: MyIntressSummary | null;
   onUpdateBuletinConfig?: (updated: BuletinConfig) => void;
   onEditField?: (fieldKey: string) => void;
 }
@@ -107,6 +110,9 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
   buletinConfig,
   overallSummary,
   satkers = [],
+  records = [],
+  intressRecords = [],
+  intressSummary = null,
   onUpdateBuletinConfig,
   onEditField
 }) => {
@@ -260,8 +266,14 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
 
   // Deep Treasury Analysis Engine calculation
   const deepAnalysis = useMemo(() => {
-    return generateDeepTreasuryAnalysis(overallSummary, satkers, buletinConfig.bulanTahun);
-  }, [overallSummary, satkers, buletinConfig.bulanTahun]);
+    return generateDeepTreasuryAnalysis(overallSummary, satkers, buletinConfig.bulanTahun, {
+      records,
+      intressRecords,
+      intressSummary,
+      summary: overallSummary,
+      satkers
+    });
+  }, [overallSummary, satkers, buletinConfig.bulanTahun, records, intressRecords, intressSummary]);
 
   // Realistic Web Audio synthesized paper flip acoustics
   const playPageTurnSound = () => {

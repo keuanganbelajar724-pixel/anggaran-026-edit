@@ -31,7 +31,7 @@ import {
   Clock,
   BookOpen
 } from 'lucide-react';
-import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA } from '../../types';
+import { BuletinConfig, RealisasiBelanjaSummary, SatkerIKPA, RealisasiBelanjaRecord, MyIntressRecord, MyIntressSummary } from '../../types';
 import { formatRupiahShort, formatRupiahFull } from '../../utils/realisasiBelanjaProcessor';
 import { useToast } from '../ToastNotification';
 import { BULETIN_MONTH_PRESETS, OFFICIAL_PRESET_IMAGES } from '../../data/buletinEditionPresets';
@@ -44,6 +44,9 @@ interface BuletinDataStudioEditorProps {
   onUpdateBuletinConfig: (updated: BuletinConfig) => void;
   overallSummary?: RealisasiBelanjaSummary | null;
   satkers?: SatkerIKPA[];
+  records?: RealisasiBelanjaRecord[];
+  intressRecords?: MyIntressRecord[];
+  intressSummary?: MyIntressSummary | null;
   onOpenSection?: (sectionKey: string) => void;
 }
 
@@ -51,7 +54,10 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
   buletinConfig,
   onUpdateBuletinConfig,
   overallSummary,
-  satkers = []
+  satkers = [],
+  records = [],
+  intressRecords = [],
+  intressSummary = null
 }) => {
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState<'edisi' | 'foto' | 'identitas' | 'anggaran' | 'semarang_data' | 'wawancara' | 'sarwasarwi' | 'pagelaran' | 'teropong' | 'integritas'>('edisi');
@@ -235,11 +241,34 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
 
   // 1-Click Auto Pull from Live Anggaran & Deep Analysis Engine
   const handleAutoPullAnggaranData = () => {
-    const deep = generateDeepTreasuryAnalysis(overallSummary, satkers, buletinConfig.bulanTahun);
+    const deep = generateDeepTreasuryAnalysis(overallSummary, satkers, buletinConfig.bulanTahun, {
+      records,
+      intressRecords,
+      intressSummary,
+      summary: overallSummary,
+      satkers
+    });
     const updated = { ...buletinConfig };
 
     updated.tajukRencana = deep.headlineSummary;
     updated.catatanAnalis = `${deep.analisisBppParagraphs[0]} ${deep.analisisJenisBelanja.belanjaBarang}`;
+
+    // Populate specialized treasury data from live synthesis
+    updated.satkerPaguBesarTable = deep.satkerBesarList;
+    updated.evaluasiDelapanIkpa = deep.evaluasiDelapanIkpa;
+    updated.belanjaModalProyek = deep.belanjaModalProyek;
+    updated.monitoringReturSp2d = deep.monitoringReturSp2d;
+    updated.leaderboardDigipayKkp = deep.leaderboardDigipayKkp;
+    if (deep.topSatkersData && deep.topSatkersData.length > 0) {
+      updated.wallOfFameSatker = deep.topSatkersData.map((s, idx) => ({
+        kode: s.kodeSatker,
+        nama: s.namaSatker,
+        predikat: 'SANGAT BAIK',
+        nilai: s.persen,
+        kategori: 'Realisasi Belanja APBN',
+        highlight: `Peringkat #${idx + 1} dengan realisasi ${s.persen.toFixed(1)}% (${formatRupiahShort(s.realisasi)})`
+      }));
+    }
 
     // Fill interview if top satker exists
     if (overallSummary && overallSummary.topSatkers.length > 0) {
@@ -272,7 +301,7 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
     onUpdateBuletinConfig(updated);
     addToast({
       title: 'Analisis Fiskal Mendalam Disinkronkan',
-      message: 'Narasi editorial, realisasi belanja, dan data wawancara satker terbaik telah dimutakhirkan otomatis dari OM-SPAN / SAKTI.',
+      message: 'Narasi editorial, seluruh data satker pagu besar, evaluasi 8 indikator IKPA, belanja modal, dan digitalisasi telah dimutakhirkan otomatis dari OM-SPAN / SAKTI.',
       type: 'success'
     });
   };

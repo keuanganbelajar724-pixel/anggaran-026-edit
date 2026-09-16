@@ -1819,6 +1819,10 @@ Sertakan mitigasi operasional dan treatment pembinaan untuk masing-masing kuadra
           satkers={satkers}
           dashboardConfig={dashboardConfig || ({} as any)}
           isDark={isDark}
+          masterSatkers={masterSatkers}
+          pengelolaanUpRecords={pengelolaanUpRecords}
+          transaksiKkpRecords={transaksiKkpRecords}
+          transaksiDigipayRecords={transaksiDigipayRecords}
           onAskGeminiForTopic={(topicPrompt) => {
             setIsPresentationDeckOpen(false);
             // Put prompt into console
