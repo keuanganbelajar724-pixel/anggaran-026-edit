@@ -3044,7 +3044,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }`}
         >
           <BookOpen className="w-4 h-4 text-cyan-500 shrink-0" />
-          <span>16. Juknis &amp; Pengetahuan SAKTI</span>
+          <span>16. Juknis dan Pengetahuan Perbendaharaan</span>
           <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
             Direktori &amp; Panduan
           </span>
@@ -3957,7 +3957,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'announcements': 'Pengumuman',
                       'materi-slide': 'Materi Slide',
                       'portal-link': 'Link Sosialisasi',
-                      'pengetahuan': 'Juknis & Pengetahuan Perbendaharaan',
+                      'pengetahuan': 'Juknis dan Pengetahuan Perbendaharaan',
                       'aduan': 'Lapor Aduan',
                       'presensi': 'Presensi Online'
                     };
@@ -4023,7 +4023,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'announcements': { label: 'Pengumuman & Surat', desc: 'Surat Edaran & pengumuman resmi KPPN', category: 'Informasi', badgeColor: 'bg-amber-100 text-amber-800' },
                     'materi-slide': { label: 'Materi Slide Presentation', desc: 'Galeri PowerPoint & Slide Show (No Download)', category: 'Materi', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'portal-link': { label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi', category: 'Sosialisasi', badgeColor: 'bg-teal-100 text-teal-800' },
-                    'pengetahuan': { label: 'Juknis & Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
+                    'pengetahuan': { label: 'Juknis dan Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
                     'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' }
                   };
@@ -4987,7 +4987,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 {/* 18. Juknis & Regulasi */}
                 <div className="bg-white p-3 rounded-xl border border-slate-200">
                   <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                    18. Juknis SAKTI &amp; Pengetahuan
+                    18. Juknis dan Pengetahuan Perbendaharaan
                   </label>
                   <input
                     type="text"
@@ -5798,10 +5798,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   </div>
                 </div>
 
-                {/* 18. Juknis SAKTI & Pengetahuan */}
+                {/* 18. Juknis dan Pengetahuan Perbendaharaan */}
                 <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="inline-block bg-blue-100 text-blue-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
-                    18. Pusat Pengetahuan &amp; Juknis SAKTI
+                    18. Juknis dan Pengetahuan Perbendaharaan
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>

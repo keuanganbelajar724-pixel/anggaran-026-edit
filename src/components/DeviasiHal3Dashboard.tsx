@@ -145,6 +145,44 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
   const [sortField, setSortField] = useState<'rpd' | 'realisasi' | 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'periodeAngka' | 'klasifikasi' | 'noRevisi' | 'tglPosting'>('persenDeviasi');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  // Pengaturan Periode Tayang Tampilan Satker (Bulan apa yang tampil untuk Satker)
+  const [satkerDisplayMonth, setSatkerDisplayMonth] = useState<string>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('kppn_deviasi_satker_month');
+      if (saved) return saved;
+    }
+    return '9'; // Default Bulan 9 as requested ("misalnya hanya bulan 9 saja misal")
+  });
+
+  const [satkerMonthStrictLock, setSatkerMonthStrictLock] = useState<boolean>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('kppn_deviasi_satker_month_lock');
+      if (saved !== null) return saved === 'true';
+    }
+    return true; // Default locked to selected month so satkers only see 1 row per satker
+  });
+
+  const [satkerSettingsNotice, setSatkerSettingsNotice] = useState<string | null>(null);
+
+  const handleSetSatkerDisplayMonth = (month: string) => {
+    setSatkerDisplayMonth(month);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('kppn_deviasi_satker_month', month);
+    }
+    const label = month === 'ALL' ? 'Semua Periode Bulan (01 - 12)' : `Bulan ${month.padStart(2, '0')} (${PERIODE_LIST.find(p => String(p.angka) === month)?.bulan || ''})`;
+    setSatkerSettingsNotice(`✅ Pengaturan Disimpan: Portal Satker kini menampilkan ${label}`);
+    setTimeout(() => setSatkerSettingsNotice(null), 4500);
+  };
+
+  const handleSetSatkerStrictLock = (lock: boolean) => {
+    setSatkerMonthStrictLock(lock);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('kppn_deviasi_satker_month_lock', String(lock));
+    }
+    setSatkerSettingsNotice(`✅ Mode Filter: ${lock ? 'Satker dikunci hanya melihat bulan terpilih (mencegah kebingungan)' : 'Satker bebas memilih filter periode bulan'}`);
+    setTimeout(() => setSatkerSettingsNotice(null), 4500);
+  };
+
   // Protected Admin/KPPN Unlock State for Radar Deviasi
   const [isLocallyUnlocked, setIsLocallyUnlocked] = useState<boolean>(() => {
     return isAdminAuthenticated || (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('kppn_admin_session') === 'true');
@@ -721,7 +759,10 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
           satkers={satkers}
           isDark={isDark}
           isAdminAuthenticated={false}
+          satkerDisplayMonth={satkerDisplayMonth}
+          satkerMonthStrictLock={satkerMonthStrictLock}
           onOpenAdminAuth={() => setShowAdminLoginModal(true)}
+          onSetSatkerDisplayMonth={handleSetSatkerDisplayMonth}
         />
         <AdminLoginModal
           isOpen={showAdminLoginModal}
@@ -803,7 +844,10 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
           satkers={satkers}
           isDark={isDark}
           isAdminAuthenticated={true}
+          satkerDisplayMonth={satkerDisplayMonth}
+          satkerMonthStrictLock={satkerMonthStrictLock}
           onSwitchToInternal={() => setPortalRole('INTERNAL_KPPN')}
+          onSetSatkerDisplayMonth={handleSetSatkerDisplayMonth}
         />
       ) : (
         <>
@@ -835,6 +879,113 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
             Ekspor Excel
           </button>
         </div>
+      </div>
+
+      {/* PANEL PENGATURAN PERIODE TAMPILAN SATKER (KHUSUS ADMIN KPPN) */}
+      <div className={`p-5 rounded-3xl border shadow-sm transition-all ${
+        isDark 
+          ? 'bg-slate-900 border-indigo-900/60' 
+          : 'bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white border-indigo-200'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-indigo-600 text-white shadow-xs">
+                <Calendar className="w-4 h-4" />
+              </span>
+              <h2 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <span>⚙️ Pengaturan Periode Tampilan Satker</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                  {satkerDisplayMonth === 'ALL' ? '🌐 Semua Bulan' : `⭐ Bulan ${satkerDisplayMonth.padStart(2, '0')} (${PERIODE_LIST.find(p => String(p.angka) === satkerDisplayMonth)?.bulan || ''})`}
+                </span>
+              </h2>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl leading-relaxed">
+              Tentukan periode bulan apa yang tampil di dashboard Satker (misal: <strong>hanya Bulan 09</strong>). 
+              Dengan membatasi tampilan ke 1 bulan aktif, setiap satker hanya melihat 1 baris evaluasi sehingga <strong>tidak bingung dengan tumpukan riwayat bulan lainnya</strong>.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setPortalRole('SATKER_PUBLIC')}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+              title="Langsung lihat bagaimana satker melihat halaman ini dengan pengaturan bulan saat ini"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Pratinjau Tampilan Satker</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bar Pilihan Bulan Cepat & Switch Kunci */}
+        <div className="mt-4 pt-3.5 border-t border-indigo-100 dark:border-indigo-950/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-1">
+              Pilih Bulan Tayang:
+            </span>
+            {['9', '8', '7', '6', '5', '4', '3', '2', '1'].map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => handleSetSatkerDisplayMonth(m)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  satkerDisplayMonth === m
+                    ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-400/50'
+                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                Bln {m.padStart(2, '0')}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => handleSetSatkerDisplayMonth('ALL')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                satkerDisplayMonth === 'ALL'
+                  ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 shadow-sm'
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+              }`}
+            >
+              Semua Bulan
+            </button>
+
+            {/* Dropdown Lengkap 1-12 */}
+            <select
+              value={satkerDisplayMonth}
+              onChange={(e) => handleSetSatkerDisplayMonth(e.target.value)}
+              className="ml-2 py-1.5 px-3 rounded-xl border border-indigo-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">Semua Periode (01 - 12)</option>
+              {PERIODE_LIST.map(p => (
+                <option key={p.angka} value={String(p.angka)}>
+                  {p.label} {String(p.angka) === '9' ? '⭐ (Bulan 09)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Toggle Kunci */}
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={satkerMonthStrictLock}
+                onChange={(e) => handleSetSatkerStrictLock(e.target.checked)}
+                className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+              />
+              <span>Kunci hanya bulan ini (satker tidak bisa ganti bulan agar tidak bingung)</span>
+            </label>
+          </div>
+        </div>
+
+        {satkerSettingsNotice && (
+          <div className="mt-3 p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in border border-emerald-300 dark:border-emerald-800">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{satkerSettingsNotice}</span>
+          </div>
+        )}
       </div>
 
       {/* 4 Summary Metric Cards */}

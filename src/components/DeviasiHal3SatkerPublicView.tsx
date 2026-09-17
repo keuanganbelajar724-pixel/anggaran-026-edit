@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Shield,
   Lock,
@@ -21,9 +21,10 @@ import {
   Info,
   X,
   Layers,
-  Percent,
+  Coins,
   SlidersHorizontal,
-  ArrowUpDown
+  ArrowUpDown,
+  Calendar
 } from 'lucide-react';
 import {
   BarChart,
@@ -47,19 +48,22 @@ interface DeviasiHal3SatkerPublicViewProps {
   satkers?: SatkerIKPA[];
   isDark?: boolean;
   isAdminAuthenticated?: boolean;
+  satkerDisplayMonth?: string;
+  satkerMonthStrictLock?: boolean;
   onOpenAdminAuth?: () => void;
   onSwitchToInternal?: () => void;
+  onSetSatkerDisplayMonth?: (month: string) => void;
 }
 
 type TabBelanjaMode = 'MATRIKS' | '51' | '52' | '53' | '57';
 type SeverityFilterType =
   | 'ALL'
-  | 'ALERT_ANY'        // Ada Akun Belanja > 10%
-  | 'ALERT_51'         // Belanja 51 > 10%
-  | 'ALERT_52'         // Belanja 52 > 10%
-  | 'ALERT_53'         // Belanja 53 > 10%
-  | 'ALERT_57'         // Belanja 57 > 10%
-  | 'SAFE';            // Seluruh Akun Aman (<= 5%)
+  | 'DEVIASI_ADA'      // Ada Deviasi Nominal (Rp > 0)
+  | 'DEVIASI_NIHIL'    // Nihil Deviasi (Rp 0 / Sesuai RPD)
+  | 'DEVIASI_51'       // Ada Deviasi 51 Pegawai (Rp > 0)
+  | 'DEVIASI_52'       // Ada Deviasi 52 Barang (Rp > 0)
+  | 'DEVIASI_53'       // Ada Deviasi 53 Modal (Rp > 0)
+  | 'DEVIASI_57';      // Ada Deviasi 57 Bansos (Rp > 0)
 
 export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewProps> = ({
   deviasiRecords = [],
@@ -67,31 +71,51 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   satkers = [],
   isDark = false,
   isAdminAuthenticated = false,
+  satkerDisplayMonth,
+  satkerMonthStrictLock,
   onOpenAdminAuth,
-  onSwitchToInternal
+  onSwitchToInternal,
+  onSetSatkerDisplayMonth
 }) => {
+  // Configured display month from props or localStorage (default to '9' as requested)
+  const initialConfiguredMonth = satkerDisplayMonth || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_deviasi_satker_month')) || '9';
+  const isStrictLocked = satkerMonthStrictLock !== undefined 
+    ? satkerMonthStrictLock 
+    : (typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_deviasi_satker_month_lock') !== 'false' : true);
+
   // State Filter & Search
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('ALL');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>(initialConfiguredMonth);
   const [selectedKl, setSelectedKl] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedSeverity, setSelectedSeverity] = useState<SeverityFilterType>('ALL');
   const [activeTab, setActiveTab] = useState<TabBelanjaMode>('MATRIKS');
-  const [sortField, setSortField] = useState<'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'namaSatker' | 'periodeAngka'>('persenDeviasi');
+  const [sortField, setSortField] = useState<'deviasiRp' | 'kodeSatker' | 'namaSatker' | 'periodeAngka'>('deviasiRp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
 
-  // Table Text Size / Display Density ('standard' or 'large')
-  const [tableTextSize, setTableTextSize] = useState<'standard' | 'large'>('large');
+  // Table Text Size / Display Density ('standard' or 'large') - Default is now 'standard' as requested!
+  const [tableTextSize, setTableTextSize] = useState<'standard' | 'large'>('standard');
 
   // Detail Modal
   const [selectedRecordDetail, setSelectedRecordDetail] = useState<DeviasiHal3Record | null>(null);
 
+  // Sync if prop satkerDisplayMonth changes
+  useEffect(() => {
+    if (satkerDisplayMonth) {
+      setSelectedPeriode(satkerDisplayMonth);
+      setCurrentPage(1);
+    }
+  }, [satkerDisplayMonth]);
+
+  // Effective period for filtering
+  const effectivePeriode = isStrictLocked && initialConfiguredMonth !== 'ALL' ? initialConfiguredMonth : selectedPeriode;
+
   // Format rupiah helper
   const formatRupiah = (num: number) => {
-    return 'Rp ' + (num || 0).toLocaleString('id-ID');
+    return 'Rp ' + Math.round(num || 0).toLocaleString('id-ID');
   };
 
   // Distinct K/L list
@@ -108,8 +132,8 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   // Filter Data
   const filteredRecords = useMemo(() => {
     return deviasiRecords.filter(r => {
-      // Periode Filter
-      if (selectedPeriode !== 'ALL' && String(r.periodeAngka) !== selectedPeriode) {
+      // Periode Filter: focus strictly on effective period
+      if (effectivePeriode !== 'ALL' && String(r.periodeAngka) !== effectivePeriode) {
         return false;
       }
 
@@ -118,25 +142,26 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
         return false;
       }
 
-      // Severity / Deviasi Filter
+      // Severity / Deviasi Nominal Filter
       if (selectedSeverity !== 'ALL') {
-        const p51 = r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
-        const p52 = r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
-        const p53 = r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
-        const p57 = r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
+        const d51 = r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
+        const d52 = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
+        const d53 = r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0;
+        const d57 = r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0;
+        const totalDev = r.deviasiNominalTotal || 0;
 
-        if (selectedSeverity === 'ALERT_ANY') {
-          if (p51 <= 10 && p52 <= 10 && p53 <= 10 && p57 <= 10) return false;
-        } else if (selectedSeverity === 'ALERT_51') {
-          if (p51 <= 10) return false;
-        } else if (selectedSeverity === 'ALERT_52') {
-          if (p52 <= 10) return false;
-        } else if (selectedSeverity === 'ALERT_53') {
-          if (p53 <= 10) return false;
-        } else if (selectedSeverity === 'ALERT_57') {
-          if (p57 <= 10) return false;
-        } else if (selectedSeverity === 'SAFE') {
-          if (p51 > 5 || p52 > 5 || p53 > 5 || p57 > 5) return false;
+        if (selectedSeverity === 'DEVIASI_ADA') {
+          if (totalDev <= 0) return false;
+        } else if (selectedSeverity === 'DEVIASI_NIHIL') {
+          if (totalDev > 0) return false;
+        } else if (selectedSeverity === 'DEVIASI_51') {
+          if (d51 <= 0) return false;
+        } else if (selectedSeverity === 'DEVIASI_52') {
+          if (d52 <= 0) return false;
+        } else if (selectedSeverity === 'DEVIASI_53') {
+          if (d53 <= 0) return false;
+        } else if (selectedSeverity === 'DEVIASI_57') {
+          if (d57 <= 0) return false;
         }
       }
 
@@ -152,7 +177,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
 
       return true;
     });
-  }, [deviasiRecords, selectedPeriode, selectedKl, selectedSeverity, searchTerm]);
+  }, [deviasiRecords, effectivePeriode, selectedKl, selectedSeverity, searchTerm]);
 
   // Sorting
   const sortedRecords = useMemo(() => {
@@ -161,24 +186,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
       let valA: any = 0;
       let valB: any = 0;
 
-      if (sortField === 'persenDeviasi') {
-        if (activeTab === '51') {
-          valA = a.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
-          valB = b.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
-        } else if (activeTab === '52') {
-          valA = a.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
-          valB = b.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
-        } else if (activeTab === '53') {
-          valA = a.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
-          valB = b.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
-        } else if (activeTab === '57') {
-          valA = a.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
-          valB = b.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
-        } else {
-          valA = a.persenDeviasiTotal || 0;
-          valB = b.persenDeviasiTotal || 0;
-        }
-      } else if (sortField === 'deviasiRp') {
+      if (sortField === 'deviasiRp') {
         if (activeTab === '51') {
           valA = a.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
           valB = b.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
@@ -221,114 +229,100 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
     return sortedRecords.slice(start, start + pageSize);
   }, [sortedRecords, currentPage, pageSize]);
 
-  // Calculate High-level Public Summary Metrics (ONLY Deviasi & % Deviasi, NO RPD/Realisasi totals!)
+  // Calculate High-level Public Summary Metrics (Murni Fokus Nominal Deviasi Rupiah)
   const publicMetrics = useMemo(() => {
     let totalDeviasiNominal = 0;
-    let sumPersenDeviasi = 0;
-    let countAman = 0;      // <= 5%
-    let countWaspada = 0;   // > 5% && <= 10%
-    let countKritis = 0;    // > 10%
+    let countNihil = 0;
+    let countAdaDeviasi = 0;
 
-    // Sub-accounts aggregates
-    let dev51 = 0, sumPersen51 = 0, count51 = 0;
-    let dev52 = 0, sumPersen52 = 0, count52 = 0;
-    let dev53 = 0, sumPersen53 = 0, count53 = 0;
-    let dev57 = 0, sumPersen57 = 0, count57 = 0;
+    // Sub-accounts aggregates nominal
+    let dev51 = 0;
+    let dev52 = 0;
+    let dev53 = 0;
+    let dev57 = 0;
 
     filteredRecords.forEach(r => {
-      totalDeviasiNominal += r.deviasiNominalTotal || 0;
-      const p = r.persenDeviasiTotal || 0;
-      sumPersenDeviasi += p;
+      const tot = r.deviasiNominalTotal || 0;
+      totalDeviasiNominal += tot;
 
-      if (p <= 5.0) countAman++;
-      else if (p <= 10.0) countWaspada++;
-      else countKritis++;
+      if (tot === 0) {
+        countNihil++;
+      } else {
+        countAdaDeviasi++;
+      }
 
       // 51
       const b51 = r.rincianJenisBelanja?.belanja51;
       if (b51) {
         dev51 += b51.deviasiNominal || 0;
-        sumPersen51 += b51.persenDeviasi || 0;
-        count51++;
       }
 
       // 52
       const b52 = r.rincianJenisBelanja?.belanja52;
       if (b52) {
         dev52 += b52.deviasiNominal || 0;
-        sumPersen52 += b52.persenDeviasi || 0;
-        count52++;
       }
 
       // 53
       const b53 = r.rincianJenisBelanja?.belanja53;
       if (b53) {
         dev53 += b53.deviasiNominal || 0;
-        sumPersen53 += b53.persenDeviasi || 0;
-        count53++;
       }
 
       // 57
       const b57 = r.rincianJenisBelanja?.belanja57;
       if (b57) {
         dev57 += b57.deviasiNominal || 0;
-        sumPersen57 += b57.persenDeviasi || 0;
-        count57++;
       }
     });
 
     const totalRows = filteredRecords.length;
-    const avgPersenDeviasi = totalRows > 0 ? sumPersenDeviasi / totalRows : 0;
-    const avg51 = count51 > 0 ? sumPersen51 / count51 : 0;
-    const avg52 = count52 > 0 ? sumPersen52 / count52 : 0;
-    const avg53 = count53 > 0 ? sumPersen53 / count53 : 0;
-    const avg57 = count57 > 0 ? sumPersen57 / count57 : 0;
 
     return {
       totalRows,
       totalDeviasiNominal,
-      avgPersenDeviasi,
-      countAman,
-      countWaspada,
-      countKritis,
-      belanja51: { dev: dev51, avgPersen: avg51 },
-      belanja52: { dev: dev52, avgPersen: avg52 },
-      belanja53: { dev: dev53, avgPersen: avg53 },
-      belanja57: { dev: dev57, avgPersen: avg57 }
+      countNihil,
+      countAdaDeviasi,
+      belanja51: { dev: dev51 },
+      belanja52: { dev: dev52 },
+      belanja53: { dev: dev53 },
+      belanja57: { dev: dev57 }
     };
   }, [filteredRecords]);
 
-  // Chart Data: Rata-rata % Deviasi per Jenis Belanja vs Batas Toleransi 5%
-  const chartDataPersen = useMemo(() => {
+  // Chart Data: Total Deviasi Nominal per Jenis Belanja (Juta Rupiah)
+  const chartDataNominal = useMemo(() => {
     return [
       {
         name: '51 Pegawai',
-        persen: Number(publicMetrics.belanja51.avgPersen.toFixed(2)),
-        toleransi: 5.0
+        deviasiJuta: Number(((publicMetrics.belanja51.dev || 0) / 1_000_000).toFixed(1)),
+        nominalRp: publicMetrics.belanja51.dev || 0,
+        fill: '#0284c7'
       },
       {
         name: '52 Barang',
-        persen: Number(publicMetrics.belanja52.avgPersen.toFixed(2)),
-        toleransi: 5.0
+        deviasiJuta: Number(((publicMetrics.belanja52.dev || 0) / 1_000_000).toFixed(1)),
+        nominalRp: publicMetrics.belanja52.dev || 0,
+        fill: '#d97706'
       },
       {
         name: '53 Modal',
-        persen: Number(publicMetrics.belanja53.avgPersen.toFixed(2)),
-        toleransi: 5.0
+        deviasiJuta: Number(((publicMetrics.belanja53.dev || 0) / 1_000_000).toFixed(1)),
+        nominalRp: publicMetrics.belanja53.dev || 0,
+        fill: '#7c3aed'
       },
       {
         name: '57 Bansos',
-        persen: Number(publicMetrics.belanja57.avgPersen.toFixed(2)),
-        toleransi: 5.0
+        deviasiJuta: Number(((publicMetrics.belanja57.dev || 0) / 1_000_000).toFixed(1)),
+        nominalRp: publicMetrics.belanja57.dev || 0,
+        fill: '#059669'
       }
     ];
   }, [publicMetrics]);
 
-  // Handle Safe Satker Export (Excludes RPD & Realisasi, Klasifikasi, Status, Revisi)
+  // Handle Safe Satker Export (Excludes RPD & Realisasi, Focuses purely on Nominal Deviasi)
   const handleExportSatker = () => {
     const dataToExport = filteredRecords.map((r, idx) => {
-      const pTotal = r.persenDeviasiTotal || 0;
-
       return {
         'No': idx + 1,
         'Kode Satker': r.kodeSatker,
@@ -336,24 +330,21 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
         'Kementerian / Lembaga': r.kementerianLembaga || '-',
         'Bulan': r.periodeAngka ? String(r.periodeAngka).padStart(2, '0') : '-',
         'Deviasi 51 Pegawai (Rp)': r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0,
-        '% Deviasi 51 Pegawai': `${(r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0).toFixed(2)}%`,
         'Deviasi 52 Barang (Rp)': r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0,
-        '% Deviasi 52 Barang': `${(r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0).toFixed(2)}%`,
         'Deviasi 53 Modal (Rp)': r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0,
-        '% Deviasi 53 Modal': `${(r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0).toFixed(2)}%`,
         'Deviasi 57 Bansos (Rp)': r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0,
-        '% Deviasi 57 Bansos': `${(r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0).toFixed(2)}%`,
-        'Rata-rata % Deviasi': `${pTotal.toFixed(2)}%`
+        'Total Deviasi (Rp)': r.deviasiNominalTotal || 0,
+        'Status': (r.deviasiNominalTotal || 0) === 0 ? 'Nihil / Sesuai RPD' : 'Terdapat Deviasi'
       };
     });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Deviasi Satker');
-    XLSX.writeFile(wb, `Monitoring_Deviasi_Hal3_Satker_${selectedPeriode === 'ALL' ? 'Semua_Periode' : `Periode_${selectedPeriode}`}.xlsx`);
+    XLSX.utils.book_append_sheet(wb, ws, 'Deviasi Nominal Satker');
+    XLSX.writeFile(wb, `Monitoring_Deviasi_Nominal_Satker_${selectedPeriode === 'ALL' ? 'Semua_Periode' : `Periode_${selectedPeriode}`}.xlsx`);
   };
 
-  const handleHeaderSort = (field: 'deviasiRp' | 'persenDeviasi' | 'kodeSatker' | 'namaSatker' | 'periodeAngka') => {
+  const handleHeaderSort = (field: 'deviasiRp' | 'kodeSatker' | 'namaSatker' | 'periodeAngka') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
     } else {
@@ -375,9 +366,15 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                 <Shield className="w-3.5 h-3.5" />
                 Portal Satker: Deviasi Halaman III DIPA (Aman &amp; Terlindungi)
               </span>
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                Periode: {selectedPeriode === 'ALL' ? 'Semua Periode' : `Bulan ${selectedPeriode}`}
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-300/70 dark:border-indigo-800">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                Periode: {effectivePeriode === 'ALL' ? 'Semua Periode' : `Bulan ${effectivePeriode.padStart(2, '0')} (${PERIODE_LIST.find(p => String(p.angka) === effectivePeriode)?.bulan || ''})`}
               </span>
+              {isStrictLocked && effectivePeriode !== 'ALL' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 border border-amber-300/60">
+                  🔒 Ditetapkan oleh Admin KPPN
+                </span>
+              )}
             </div>
 
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -426,91 +423,149 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
         </div>
       </div>
 
-      {/* 4 CARDS KEPATUHAN DEVIASI BULAN BERJALAN (MURNI DEVIASI & PERSEN) */}
+      {/* KHUSUS ADMIN SAAT TESTING/PRATINJAU TAMPILAN SATKER */}
+      {isAdminAuthenticated && (
+        <div className={`p-4 rounded-3xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+          isDark ? 'bg-indigo-950/40 border-indigo-800 text-indigo-200' : 'bg-indigo-50/90 border-indigo-200 text-indigo-900'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-2xl bg-indigo-600 text-white shadow-xs shrink-0">
+              <Eye className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+                  Pratinjau Admin: Tampilan Satker
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-200/80 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-200">
+                  Bulan {effectivePeriode === 'ALL' ? 'Semua' : effectivePeriode.padStart(2, '0')}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Satker saat ini melihat data: <strong className="text-slate-900 dark:text-white">{effectivePeriode === 'ALL' ? 'Semua Periode Bulan' : `Bulan ${effectivePeriode.padStart(2, '0')} (${PERIODE_LIST.find(p => String(p.angka) === effectivePeriode)?.bulan || ''})`}</strong>. {isStrictLocked ? '(Terkunci hanya bulan ini agar satker tidak bingung)' : '(Satker bebas pilih bulan)'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Set Periode Tayang:</span>
+            <select
+              value={effectivePeriode}
+              onChange={(e) => {
+                if (onSetSatkerDisplayMonth) {
+                  onSetSatkerDisplayMonth(e.target.value);
+                } else if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('kppn_deviasi_satker_month', e.target.value);
+                }
+                setSelectedPeriode(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="py-1.5 px-3 rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
+            >
+              <option value="ALL">Semua Periode (01-12)</option>
+              {PERIODE_LIST.map(p => (
+                <option key={p.angka} value={String(p.angka)}>
+                  {p.label} {String(p.angka) === '9' ? '⭐ (Bulan 09)' : ''}
+                </option>
+              ))}
+            </select>
+            {onSwitchToInternal && (
+              <button
+                type="button"
+                onClick={onSwitchToInternal}
+                className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                🏛️ Kembali ke Internal KPPN
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 4 CARDS KEPATUHAN DEVIASI NOMINAL BULAN BERJALAN */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Rata-rata % Deviasi */}
+        {/* Card 1: Total Deviasi Nominal */}
         <div className={`p-5 rounded-3xl border shadow-xs space-y-2 ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-              Rata-rata % Deviasi
+              Total Deviasi Nominal
             </span>
             <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
-              <Percent className="w-4 h-4" />
+              <Coins className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-slate-900 dark:text-white">
-            {publicMetrics.avgPersenDeviasi.toFixed(2)}%
+          <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 dark:text-white truncate">
+            {formatRupiah(publicMetrics.totalDeviasiNominal)}
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
-            <span>Toleransi batas normal DJPb:</span>
-            <strong className="text-emerald-600 dark:text-emerald-400 font-bold">≤ 5.00%</strong>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Total selisih nominal |RPD - Realisasi| seluruh satker
           </p>
         </div>
 
-        {/* Card 2: Satker Aman / Patuh (<= 5%) */}
+        {/* Card 2: Satker Tepat Sesuai RPD (Nihil Deviasi / Rp 0) */}
         <div className={`p-5 rounded-3xl border shadow-xs space-y-2 ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              Satker Patuh (≤ 5%)
+              Tepat Sesuai RPD (Nihil)
             </span>
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-            {publicMetrics.countAman} <span className="text-xs font-medium text-slate-500">Baris</span>
+            {publicMetrics.countNihil} <span className="text-xs font-medium text-slate-500">Satker</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {publicMetrics.totalRows > 0 ? ((publicMetrics.countAman / publicMetrics.totalRows) * 100).toFixed(1) : 0}% mematuhi target RPD Halaman III
+            {publicMetrics.totalRows > 0 ? ((publicMetrics.countNihil / publicMetrics.totalRows) * 100).toFixed(1) : 0}% satker nihil selisih (Deviasi Rp 0)
           </p>
         </div>
 
-        {/* Card 3: Satker Waspada (5.01% - 10%) */}
+        {/* Card 3: Satker Terdapat Deviasi Nominal */}
         <div className={`p-5 rounded-3xl border shadow-xs space-y-2 ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center justify-between">
             <span className="text-xs font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-              Waspada (5% - 10%)
+              Terdapat Deviasi
             </span>
             <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black font-mono text-amber-600 dark:text-amber-400">
-            {publicMetrics.countWaspada} <span className="text-xs font-medium text-slate-500">Baris</span>
+            {publicMetrics.countAdaDeviasi} <span className="text-xs font-medium text-slate-500">Satker</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {publicMetrics.totalRows > 0 ? ((publicMetrics.countWaspada / publicMetrics.totalRows) * 100).toFixed(1) : 0}% deviasi mendekati ambang batas
+            {publicMetrics.totalRows > 0 ? ((publicMetrics.countAdaDeviasi / publicMetrics.totalRows) * 100).toFixed(1) : 0}% satker memiliki deviasi nominal (&gt; Rp 0)
           </p>
         </div>
 
-        {/* Card 4: Satker Deviasi Kritis (> 10%) */}
+        {/* Card 4: Total Satker Dievaluasi */}
         <div className={`p-5 rounded-3xl border shadow-xs space-y-2 ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center justify-between">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-rose-600 dark:text-rose-400">
-              Deviasi Kritis (&gt; 10%)
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              Total Satker Evaluasi
             </span>
-            <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
-              <AlertCircle className="w-4 h-4" />
+            <div className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+              <Building2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-2xl font-black font-mono text-rose-600 dark:text-rose-400">
-            {publicMetrics.countKritis} <span className="text-xs font-medium text-slate-500">Baris</span>
+          <div className="text-2xl font-black font-mono text-slate-900 dark:text-white">
+            {publicMetrics.totalRows} <span className="text-xs font-medium text-slate-500">Satker</span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {publicMetrics.totalRows > 0 ? ((publicMetrics.countKritis / publicMetrics.totalRows) * 100).toFixed(1) : 0}% perlu penyesuaian revisi RPD
+            Periode Bulan {effectivePeriode === 'ALL' ? 'Semua Periode' : effectivePeriode.padStart(2, '0')}
           </p>
         </div>
       </div>
 
-      {/* VISUALISASI PERSEN DEVIASI PER JENIS BELANJA (TANPA NOMINAL RENCANA / REALISASI) */}
+      {/* VISUALISASI DEVIASI NOMINAL PER JENIS BELANJA (MURNI RUPIAH) */}
       <div className={`p-6 rounded-3xl border shadow-xs space-y-5 ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}>
@@ -518,18 +573,18 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           <div>
             <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              Tingkat Kepatuhan &amp; % Deviasi per Jenis Belanja
+              Deviasi Nominal per Jenis Belanja (Rupiah)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Perbandingan rata-rata deviasi persen pada akun 51, 52, 53, dan 57 terhadap batas toleransi 5.00% DJPb.
+              Rincian total selisih nominal |RPD - Realisasi| pada Akun 51 Pegawai, 52 Barang, 53 Modal, dan 57 Bansos.
             </p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-            Batas Maksimal Aman: 5.00%
+          <span className="text-xs font-bold px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+            Fokus Deviasi Nominal (Rp)
           </span>
         </div>
 
-        {/* 4 Mini Cards Jenis Belanja with Colorful Accents */}
+        {/* 4 Mini Cards Jenis Belanja with Colorful Accents & Large Numbers */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {/* 51 Pegawai - Sky Accent */}
           <div className={`p-4 rounded-2xl border transition-all ${
@@ -539,23 +594,18 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           }`}>
             <div className="flex items-center justify-between text-xs font-bold text-sky-800 dark:text-sky-300 mb-1.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-sky-500"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
                 51 Pegawai
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                publicMetrics.belanja51.avgPersen <= 5.0 
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }`}>
-                {publicMetrics.belanja51.avgPersen <= 5.0 ? '≤ 5% Patuh' : '> 5% Tinggi'}
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-sky-100 text-sky-900 dark:bg-sky-900 dark:text-sky-200 border border-sky-200 dark:border-sky-800">
+                Akun 51
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-sky-900 dark:text-sky-100">
-              {publicMetrics.belanja51.avgPersen.toFixed(2)}%
+            <div className="text-lg sm:text-xl font-black font-mono text-sky-900 dark:text-sky-100 truncate mt-1">
+              {formatRupiah(publicMetrics.belanja51.dev)}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-2 pt-2 border-t border-sky-200/60 dark:border-sky-800/40">
-              <span>Rata-rata Deviasi:</span>
-              <strong className="font-mono text-slate-700 dark:text-slate-300">{formatRupiah(publicMetrics.belanja51.dev)}</strong>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-sky-200/60 dark:border-sky-800/40">
+              Total Deviasi Belanja Pegawai
             </div>
           </div>
 
@@ -567,23 +617,18 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           }`}>
             <div className="flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300 mb-1.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                 52 Barang
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                publicMetrics.belanja52.avgPersen <= 5.0 
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }`}>
-                {publicMetrics.belanja52.avgPersen <= 5.0 ? '≤ 5% Patuh' : '> 5% Tinggi'}
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                Akun 52
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-amber-900 dark:text-amber-100">
-              {publicMetrics.belanja52.avgPersen.toFixed(2)}%
+            <div className="text-lg sm:text-xl font-black font-mono text-amber-900 dark:text-amber-100 truncate mt-1">
+              {formatRupiah(publicMetrics.belanja52.dev)}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-2 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
-              <span>Rata-rata Deviasi:</span>
-              <strong className="font-mono text-slate-700 dark:text-slate-300">{formatRupiah(publicMetrics.belanja52.dev)}</strong>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-amber-200/60 dark:border-amber-800/40">
+              Total Deviasi Belanja Barang
             </div>
           </div>
 
@@ -595,76 +640,66 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           }`}>
             <div className="flex items-center justify-between text-xs font-bold text-purple-800 dark:text-purple-300 mb-1.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
                 53 Modal
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                publicMetrics.belanja53.avgPersen <= 5.0 
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }`}>
-                {publicMetrics.belanja53.avgPersen <= 5.0 ? '≤ 5% Patuh' : '> 5% Tinggi'}
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-purple-100 text-purple-900 dark:bg-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800">
+                Akun 53
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-purple-900 dark:text-purple-100">
-              {publicMetrics.belanja53.avgPersen.toFixed(2)}%
+            <div className="text-lg sm:text-xl font-black font-mono text-purple-900 dark:text-purple-100 truncate mt-1">
+              {formatRupiah(publicMetrics.belanja53.dev)}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-2 pt-2 border-t border-purple-200/60 dark:border-purple-800/40">
-              <span>Rata-rata Deviasi:</span>
-              <strong className="font-mono text-slate-700 dark:text-slate-300">{formatRupiah(publicMetrics.belanja53.dev)}</strong>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-purple-200/60 dark:border-purple-800/40">
+              Total Deviasi Belanja Modal
             </div>
           </div>
 
-          {/* 57 Bansos - Teal Accent */}
+          {/* 57 Bansos - Emerald Accent */}
           <div className={`p-4 rounded-2xl border transition-all ${
             isDark 
-              ? 'bg-teal-950/20 border-teal-800/50 hover:border-teal-700' 
-              : 'bg-teal-50/70 border-teal-200 hover:border-teal-300'
+              ? 'bg-emerald-950/20 border-emerald-800/50 hover:border-emerald-700' 
+              : 'bg-emerald-50/70 border-emerald-200 hover:border-emerald-300'
           }`}>
-            <div className="flex items-center justify-between text-xs font-bold text-teal-800 dark:text-teal-300 mb-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300 mb-1.5">
               <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                 57 Bansos
               </span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
-                publicMetrics.belanja57.avgPersen <= 5.0 
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' 
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-              }`}>
-                {publicMetrics.belanja57.avgPersen <= 5.0 ? '≤ 5% Patuh' : '> 5% Tinggi'}
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800">
+                Akun 57
               </span>
             </div>
-            <div className="text-xl font-black font-mono text-teal-900 dark:text-teal-100">
-              {publicMetrics.belanja57.avgPersen.toFixed(2)}%
+            <div className="text-lg sm:text-xl font-black font-mono text-emerald-900 dark:text-emerald-100 truncate mt-1">
+              {formatRupiah(publicMetrics.belanja57.dev)}
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-400 flex justify-between mt-2 pt-2 border-t border-teal-200/60 dark:border-teal-800/40">
-              <span>Rata-rata Deviasi:</span>
-              <strong className="font-mono text-slate-700 dark:text-slate-300">{formatRupiah(publicMetrics.belanja57.dev)}</strong>
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-emerald-200/60 dark:border-emerald-800/40">
+              Total Deviasi Belanja Bansos
             </div>
           </div>
         </div>
 
-        {/* Bar Chart % Deviasi */}
+        {/* Bar Chart Deviasi Nominal (Juta Rupiah) */}
         <div className="h-56 pt-2">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartDataPersen} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+            <BarChart data={chartDataNominal} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} opacity={0.6} />
               <XAxis dataKey="name" stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} />
-              <YAxis stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} unit="%" />
+              <YAxis stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={11} tickLine={false} unit=" Jt" />
               <RechartsTooltip
-                formatter={(val: any) => [`${val}%`, '']}
+                formatter={(val: any, name: any, item: any) => [formatRupiah(item?.payload?.nominalRp || 0), 'Total Deviasi Nominal']}
                 contentStyle={{
                   backgroundColor: isDark ? '#0f172a' : '#ffffff',
                   borderColor: isDark ? '#334155' : '#e2e8f0',
                   borderRadius: '16px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  fontWeight: 'bold'
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />
-              <ReferenceLine y={5.0} stroke="#10b981" strokeDasharray="4 4" label={{ value: 'Batas 5%', fill: '#10b981', fontSize: 10, position: 'right' }} />
-              <Bar dataKey="persen" name="Rata-rata % Deviasi" radius={[6, 6, 0, 0]}>
-                {chartDataPersen.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.persen <= 5.0 ? '#10b981' : entry.persen <= 10.0 ? '#f59e0b' : '#f43f5e'} />
+              <Bar dataKey="deviasiJuta" name="Deviasi Nominal (Juta Rp)" radius={[8, 8, 0, 0]}>
+                {chartDataNominal.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Bar>
             </BarChart>
@@ -768,33 +803,50 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               className="w-full py-2.5 px-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="ALL">🔍 Semua Status Deviasi</option>
-              <option value="ALERT_ANY">🚨 Ada Akun Belanja &gt; 10%</option>
-              <option value="ALERT_51">🏢 Deviasi 51 Pegawai &gt; 10%</option>
-              <option value="ALERT_52">📦 Deviasi 52 Barang &gt; 10%</option>
-              <option value="ALERT_53">🏗️ Deviasi 53 Modal &gt; 10%</option>
-              <option value="ALERT_57">🤝 Deviasi 57 Bansos &gt; 10%</option>
-              <option value="SAFE">✅ Seluruh Akun Aman (≤ 5%)</option>
+              <option value="DEVIASI_ADA">⚠️ Terdapat Deviasi Nominal (&gt; Rp 0)</option>
+              <option value="DEVIASI_NIHIL">✅ Tepat Sesuai RPD (Nihil / Rp 0)</option>
+              <option value="DEVIASI_51">🏢 Deviasi 51 Pegawai (&gt; Rp 0)</option>
+              <option value="DEVIASI_52">📦 Deviasi 52 Barang (&gt; Rp 0)</option>
+              <option value="DEVIASI_53">🏗️ Deviasi 53 Modal (&gt; Rp 0)</option>
+              <option value="DEVIASI_57">🤝 Deviasi 57 Bansos (&gt; Rp 0)</option>
             </select>
           </div>
 
           {/* Filter Periode Bulan */}
-          <div>
-            <select
-              value={selectedPeriode}
-              onChange={(e) => {
-                setSelectedPeriode(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="w-full py-2.5 px-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="ALL">📅 Semua Periode Bulan</option>
-              {PERIODE_LIST.map(p => (
-                <option key={p.angka} value={String(p.angka)}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {isStrictLocked && initialConfiguredMonth !== 'ALL' ? (
+            <div className="relative">
+              <div className="w-full py-2 px-3 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/80 dark:bg-indigo-950/40 text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+                <div className="flex items-center gap-2 truncate">
+                  <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                  <div className="truncate">
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 block font-semibold leading-tight">Periode Evaluasi:</span>
+                    <span className="font-black">Bulan {initialConfiguredMonth.padStart(2, '0')} ({PERIODE_LIST.find(p => String(p.angka) === initialConfiguredMonth)?.bulan || ''})</span>
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-200/80 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-300 font-extrabold shrink-0 border border-indigo-300 dark:border-indigo-700">
+                  🔒 Ditetapkan
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <select
+                value={selectedPeriode}
+                onChange={(e) => {
+                  setSelectedPeriode(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full py-2.5 px-3 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="ALL">📅 Semua Periode Bulan</option>
+                {PERIODE_LIST.map(p => (
+                  <option key={p.angka} value={String(p.angka)}>
+                    {p.label} {String(p.angka) === initialConfiguredMonth ? '⭐ (Default)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Filter K/L */}
           <div>
@@ -815,7 +867,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
         </div>
       </div>
 
-      {/* TABEL MONITORING KHUSUS SATKER: MURNI DEVIASI & % DEVIASI (TANPA RENCANA & PENYERAPAN) */}
+      {/* TABEL MONITORING KHUSUS SATKER: MURNI DEVIASI NOMINAL (TANPA PERSENTASE MEMBINGUNGKAN) */}
       <div className={`rounded-3xl border shadow-md overflow-hidden ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}>
@@ -827,8 +879,8 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
               {activeTab === 'MATRIKS'
-                ? 'Matriks Deviasi Lengkap: Deviasi Nominal (Rp) & % Deviasi per Akun (51, 52, 53, 57). Angka Rencana dan Realisasi disembunyikan.'
-                : `Menampilkan Deviasi Nominal (Rp) dan % Deviasi untuk ${activeTab === '51' ? 'Belanja Pegawai (51)' : activeTab === '52' ? 'Belanja Barang (52)' : activeTab === '53' ? 'Belanja Modal (53)' : 'Belanja Bansos (57)'}.`}
+                ? 'Matriks Deviasi Lengkap: Menampilkan Deviasi Nominal (Rp) Akun 51 Pegawai, 52 Barang, 53 Modal, dan 57 Bansos. Kolom nominal ditampilkan besar dan jelas tanpa persentase membingungkan.'
+                : `Menampilkan Deviasi Nominal (Rp) untuk ${activeTab === '51' ? 'Belanja Pegawai (51)' : activeTab === '52' ? 'Belanja Barang (52)' : activeTab === '53' ? 'Belanja Modal (53)' : 'Belanja Bansos (57)'}. Kolom nominal luas dan mudah dipantau.`}
             </p>
           </div>
 
@@ -900,23 +952,20 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Status % Deviasi:</span>
+            <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Status Deviasi:</span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-black text-[11px] border border-emerald-300 dark:border-emerald-700 shadow-2xs">
-              🟢 ≤ 5.00% (Aman)
+              🟢 Sesuai RPD (Nihil / Rp 0)
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-black text-[11px] border border-amber-300 dark:border-amber-700 shadow-2xs">
-              🟡 5.01% - 15.00% (Sedang)
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 font-black text-[11px] border border-rose-300 dark:border-rose-700 shadow-2xs">
-              🔴 &gt; 15.00% (Tinggi)
+              ⚠️ Terdapat Deviasi (&gt; Rp 0)
             </span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           {activeTab === 'MATRIKS' ? (
-            /* MATRIKS LENGKAP KHUSUS SATKER: MURNI DEVIASI NOMINAL (RP) & % DEVIASI BERWARNA (TANPA KLASIFIKASI, STATUS, REVISI, RPD & REALISASI) */
-            <table className="w-full text-left min-w-[1100px]">
+            /* MATRIKS LENGKAP KHUSUS SATKER: MURNI FOKUS DEVIASI NOMINAL (RP) (TANPA PERSENTASE MEMBINGUNGKAN) */
+            <table className="w-full text-left min-w-[1050px]">
               <thead className="text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th rowSpan={2} className="py-3 px-3 text-center w-12 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
@@ -929,48 +978,34 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                     Bln
                   </th>
                   
-                  {/* Header Deviasi Nominal dengan Aksen Warna Tiap Akun */}
-                  <th colSpan={4} className="py-3 px-3 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-800 text-white border-r border-slate-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
-                    💰 DEVIASI NOMINAL (RUPIAH)
+                  {/* Header Deviasi Nominal 4 Akun */}
+                  <th colSpan={4} className="py-3.5 px-4 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-800 text-white border-r border-slate-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
+                    💰 DEVIASI NOMINAL PER JENIS BELANJA (RUPIAH)
                   </th>
 
-                  {/* Header % Deviasi dengan Aksen Warna Tiap Akun */}
-                  <th colSpan={4} className="py-3 px-3 text-center bg-gradient-to-r from-indigo-800 via-purple-800 to-violet-900 text-white border-r border-indigo-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
-                    📊 % DEVIASI PER JENIS BELANJA (TARGET ≤ 5.00%)
+                  {/* Total Deviasi Nominal */}
+                  <th rowSpan={2} className="py-3 px-4 text-right min-w-[190px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide border-r border-slate-700">
+                    TOTAL DEVIASI (RP)
                   </th>
 
-                  {/* Rata-rata % Deviasi */}
-                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[140px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide">
-                    RATA-RATA % DEVIASI
+                  {/* Status */}
+                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[150px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide">
+                    STATUS
                   </th>
                 </tr>
                 <tr className="border-t border-slate-200 dark:border-slate-700 text-xs">
-                  {/* Subheader Deviasi Rp per akun */}
-                  <th className="py-2.5 px-3 text-right bg-sky-200 text-sky-950 dark:bg-sky-900 dark:text-sky-100 font-black border-r border-sky-300 dark:border-sky-800">
+                  {/* Subheader Deviasi Rp per akun - Dibuat Lebar & Jelas */}
+                  <th className="py-2.5 px-4 text-right bg-sky-200 text-sky-950 dark:bg-sky-900 dark:text-sky-100 font-black border-r border-sky-300 dark:border-sky-800 min-w-[150px]">
                     51 Pegawai
                   </th>
-                  <th className="py-2.5 px-3 text-right bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100 font-black border-r border-amber-300 dark:border-amber-800">
+                  <th className="py-2.5 px-4 text-right bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100 font-black border-r border-amber-300 dark:border-amber-800 min-w-[150px]">
                     52 Barang
                   </th>
-                  <th className="py-2.5 px-3 text-right bg-purple-200 text-purple-950 dark:bg-purple-900 dark:text-purple-100 font-black border-r border-purple-300 dark:border-purple-800">
+                  <th className="py-2.5 px-4 text-right bg-purple-200 text-purple-950 dark:bg-purple-900 dark:text-purple-100 font-black border-r border-purple-300 dark:border-purple-800 min-w-[150px]">
                     53 Modal
                   </th>
-                  <th className="py-2.5 px-3 text-right bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100 font-black border-r-2 border-slate-400 dark:border-slate-600">
+                  <th className="py-2.5 px-4 text-right bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100 font-black border-r border-slate-400 dark:border-slate-600 min-w-[150px]">
                     57 Bansos
-                  </th>
-
-                  {/* Subheader % Deviasi per akun */}
-                  <th className="py-2.5 px-2 text-center bg-sky-300/90 text-sky-950 dark:bg-sky-800 dark:text-sky-50 font-black border-r border-sky-300 dark:border-sky-700">
-                    51
-                  </th>
-                  <th className="py-2.5 px-2 text-center bg-amber-300/90 text-amber-950 dark:bg-amber-800 dark:text-amber-50 font-black border-r border-amber-300 dark:border-amber-700">
-                    52
-                  </th>
-                  <th className="py-2.5 px-2 text-center bg-purple-300/90 text-purple-950 dark:bg-purple-800 dark:text-purple-50 font-black border-r border-purple-300 dark:border-purple-700">
-                    53
-                  </th>
-                  <th className="py-2.5 px-2 text-center bg-emerald-300/90 text-emerald-950 dark:bg-emerald-800 dark:text-emerald-50 font-black border-r-2 border-slate-400 dark:border-slate-600">
-                    57
                   </th>
                 </tr>
               </thead>
@@ -979,28 +1014,22 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               }`}>
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-16 text-center text-slate-400 text-sm font-medium">
+                    <td colSpan={9} className="py-16 text-center text-slate-400 text-sm font-medium">
                       Tidak ada data yang cocok dengan kriteria filter Anda.
                     </td>
                   </tr>
                 ) : (
                   paginatedRecords.map((r, idx) => {
                     const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
-                    const pTotal = r.persenDeviasiTotal || 0;
-                    const isAman = pTotal <= 5.0;
-                    const isWaspada = pTotal > 5.0 && pTotal <= 10.0;
+                    const totalDev = r.deviasiNominalTotal || 0;
+                    const isNihil = totalDev === 0;
 
                     const dev51 = r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
                     const dev52 = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
                     const dev53 = r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0;
                     const dev57 = r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0;
 
-                    const p51 = r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
-                    const p52 = r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
-                    const p53 = r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
-                    const p57 = r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
-
-                    const pyClass = tableTextSize === 'large' ? 'py-4' : 'py-2.5';
+                    const pyClass = tableTextSize === 'large' ? 'py-4' : 'py-3';
 
                     return (
                       <tr
@@ -1034,85 +1063,54 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                           </span>
                         </td>
 
-                        {/* Deviasi Nominal (Rp) dengan background warna lembut & font tebal terbaca jelas */}
-                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-sky-50/70 dark:bg-sky-950/25 border-r border-sky-200/80 dark:border-sky-900/40 ${
-                          dev51 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        {/* Deviasi Nominal (Rp) Akun 51, 52, 53, 57 - Font Besar & Luas */}
+                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-sky-50/70 dark:bg-sky-950/25 border-r border-sky-200/80 dark:border-sky-900/40 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                        } ${
+                          dev51 === 0 ? 'text-slate-400 font-normal' : 'text-sky-950 dark:text-sky-100 font-black'
                         }`}>
-                          {formatRupiah(dev51)}
+                          {dev51 === 0 ? 'Rp 0' : formatRupiah(dev51)}
                         </td>
-                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-amber-50/70 dark:bg-amber-950/25 border-r border-amber-200/80 dark:border-amber-900/40 ${
-                          dev52 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-amber-50/70 dark:bg-amber-950/25 border-r border-amber-200/80 dark:border-amber-900/40 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                        } ${
+                          dev52 === 0 ? 'text-slate-400 font-normal' : 'text-amber-950 dark:text-amber-100 font-black'
                         }`}>
-                          {formatRupiah(dev52)}
+                          {dev52 === 0 ? 'Rp 0' : formatRupiah(dev52)}
                         </td>
-                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-purple-50/70 dark:bg-purple-950/25 border-r border-purple-200/80 dark:border-purple-900/40 ${
-                          dev53 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-purple-50/70 dark:bg-purple-950/25 border-r border-purple-200/80 dark:border-purple-900/40 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                        } ${
+                          dev53 === 0 ? 'text-slate-400 font-normal' : 'text-purple-950 dark:text-purple-100 font-black'
                         }`}>
-                          {formatRupiah(dev53)}
+                          {dev53 === 0 ? 'Rp 0' : formatRupiah(dev53)}
                         </td>
-                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-emerald-50/70 dark:bg-emerald-950/25 border-r-2 border-slate-300 dark:border-slate-700 ${
-                          dev57 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-emerald-50/70 dark:bg-emerald-950/25 border-r border-slate-300 dark:border-slate-700 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                        } ${
+                          dev57 === 0 ? 'text-slate-400 font-normal' : 'text-emerald-950 dark:text-emerald-100 font-black'
                         }`}>
-                          {formatRupiah(dev57)}
+                          {dev57 === 0 ? 'Rp 0' : formatRupiah(dev57)}
                         </td>
 
-                        {/* % Deviasi dengan Pill Berwarna Indikator Jelas & Kontras Tinggi */}
-                        <td className={`${pyClass} px-2 text-center font-mono bg-sky-50/40 dark:bg-sky-950/15 border-r border-sky-200/60 dark:border-sky-900/30`}>
-                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
-                            p51 <= 5.0
-                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
-                              : p51 <= 15.0
-                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
-                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
-                          }`}>
-                            {p51.toFixed(2)}%
-                          </span>
-                        </td>
-                        <td className={`${pyClass} px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/15 border-r border-amber-200/60 dark:border-amber-900/30`}>
-                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
-                            p52 <= 5.0
-                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
-                              : p52 <= 15.0
-                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
-                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
-                          }`}>
-                            {p52.toFixed(2)}%
-                          </span>
-                        </td>
-                        <td className={`${pyClass} px-2 text-center font-mono bg-purple-50/40 dark:bg-purple-950/15 border-r border-purple-200/60 dark:border-purple-900/30`}>
-                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
-                            p53 <= 5.0
-                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
-                              : p53 <= 15.0
-                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
-                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
-                          }`}>
-                            {p53.toFixed(2)}%
-                          </span>
-                        </td>
-                        <td className={`${pyClass} px-2 text-center font-mono bg-emerald-50/40 dark:bg-emerald-950/15 border-r-2 border-slate-300 dark:border-slate-700`}>
-                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
-                            p57 <= 5.0
-                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
-                              : p57 <= 15.0
-                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
-                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
-                          }`}>
-                            {p57.toFixed(2)}%
-                          </span>
+                        {/* Total Deviasi Nominal (Rp) */}
+                        <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                        } ${
+                          isNihil ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
+                        }`}>
+                          {formatRupiah(totalDev)}
                         </td>
 
-                        {/* Rata-rata % Deviasi Total (Pill Menonjol & Sangat Terbaca) */}
+                        {/* Status Deviasi */}
                         <td className={`${pyClass} px-4 text-center bg-slate-50/80 dark:bg-slate-900/50`}>
-                          <span className={`inline-flex items-center justify-center gap-1.5 min-w-[95px] px-3.5 py-1.5 rounded-xl font-black font-mono shadow-xs ${
-                            isAman
-                              ? 'bg-emerald-600 text-white shadow-emerald-500/25'
-                              : isWaspada
-                              ? 'bg-amber-500 text-white shadow-amber-500/25'
-                              : 'bg-rose-600 text-white shadow-rose-500/25'
+                          <span className={`inline-flex items-center justify-center gap-1.5 min-w-[110px] px-3 py-1.5 rounded-xl font-bold text-xs shadow-2xs ${
+                            isNihil
+                              ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700'
+                              : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-700'
                           }`}>
-                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                            <span>{pTotal.toFixed(2)}%</span>
+                            <span className={`w-2 h-2 rounded-full ${isNihil ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                            <span>{isNihil ? 'Sesuai RPD' : 'Ada Deviasi'}</span>
                           </span>
                         </td>
                       </tr>
@@ -1122,7 +1120,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               </tbody>
             </table>
           ) : (
-            /* INDIVIDUAL TAB KHUSUS SATKER: HANYA DEVIASI NOMINAL & % DEVIASI BERWARNA (TANPA KLASIFIKASI, STATUS, REVISI, RPD & REALISASI) */
+            /* INDIVIDUAL TAB KHUSUS SATKER: MURNI DEVIASI NOMINAL (TANPA PERSENTASE) */
             <table className="w-full text-left min-w-[850px]">
               <thead className={`text-white font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 shadow-xs ${
                 activeTab === '51' ? 'bg-gradient-to-r from-sky-700 to-blue-800' :
@@ -1134,14 +1132,14 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                   <th className="py-3.5 px-3 text-center w-12 border-r border-white/20 text-xs font-black">No</th>
                   <th className="py-3.5 px-4 min-w-[300px] border-r border-white/20 text-xs sm:text-sm font-black">Satuan Kerja</th>
                   <th className="py-3.5 px-3 min-w-[100px] text-center border-r border-white/20 text-xs font-black">Periode</th>
-                  <th className="py-3.5 px-4 text-right min-w-[200px] border-r border-white/20 text-xs sm:text-sm font-black">
+                  <th className="py-3.5 px-4 text-right min-w-[240px] border-r border-white/20 text-xs sm:text-sm font-black">
                     💰 Deviasi Nominal Akun {activeTab} (Rp)
                   </th>
-                  <th className="py-3.5 px-4 text-center min-w-[150px] border-r border-white/20 text-xs sm:text-sm font-black">
-                    📊 % Deviasi Akun {activeTab}
+                  <th className="py-3.5 px-4 text-center min-w-[180px] border-r border-white/20 text-xs sm:text-sm font-black">
+                    🎯 Status Kepatuhan
                   </th>
-                  <th className="py-3.5 px-4 text-center min-w-[200px] text-xs sm:text-sm font-black">
-                    🎯 Capaian vs Toleransi DJPb (≤ 5%)
+                  <th className="py-3.5 px-4 min-w-[240px] text-xs sm:text-sm font-black">
+                    📋 Evaluasi Penyerapan vs RPD
                   </th>
                 </tr>
               </thead>
@@ -1159,24 +1157,18 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                     const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
 
                     let rowDev = 0;
-                    let rowPersen = 0;
 
                     if (activeTab === '51') {
                       rowDev = r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
-                      rowPersen = r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
                     } else if (activeTab === '52') {
                       rowDev = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
-                      rowPersen = r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
                     } else if (activeTab === '53') {
                       rowDev = r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0;
-                      rowPersen = r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
                     } else if (activeTab === '57') {
                       rowDev = r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0;
-                      rowPersen = r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
                     }
 
-                    const isAman = rowPersen <= 5.0;
-                    const isWaspada = rowPersen > 5.0 && rowPersen <= 15.0;
+                    const isNihil = rowDev === 0;
                     const pyClass = tableTextSize === 'large' ? 'py-4' : 'py-3';
 
                     return (
@@ -1211,7 +1203,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                           </span>
                         </td>
                         <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 ${
-                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-sm'
+                          tableTextSize === 'large' ? 'text-base sm:text-lg' : 'text-sm sm:text-base'
                         } ${
                           activeTab === '51' ? 'bg-sky-50/60 dark:bg-sky-950/20 text-sky-900 dark:text-sky-200' :
                           activeTab === '52' ? 'bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200' :
@@ -1219,40 +1211,28 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                           'bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200'
                         }`}>
                           {rowDev === 0 ? (
-                            <span className="text-slate-400 font-normal">Rp 0</span>
+                            <span className="text-slate-400 font-normal text-sm">Rp 0 (Sesuai RPD)</span>
                           ) : (
                             formatRupiah(rowDev)
                           )}
                         </td>
                         <td className={`${pyClass} px-4 text-center border-r border-slate-200 dark:border-slate-800`}>
-                          <span className={`inline-flex items-center justify-center min-w-[80px] px-3.5 py-1.5 rounded-xl font-mono font-black shadow-xs ${
-                            tableTextSize === 'large' ? 'text-xs sm:text-[13px]' : 'text-xs'
-                          } ${
-                            isAman
+                          <span className={`inline-flex items-center justify-center min-w-[130px] px-3 py-1.5 rounded-xl font-bold text-xs shadow-2xs ${
+                            isNihil
                               ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700'
-                              : isWaspada
-                              ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-400 dark:border-amber-700'
-                              : 'bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border border-rose-400 dark:border-rose-700'
+                              : 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-400 dark:border-amber-700'
                           }`}>
-                            {rowPersen.toFixed(2)}%
+                            {isNihil ? '✅ Tepat Sesuai RPD' : '⚠️ Ada Selisih RPD'}
                           </span>
                         </td>
-                        <td className={`${pyClass} px-4 text-center`}>
-                          <div className="flex flex-col items-center gap-1.5">
-                            <div className="w-full max-w-[160px] bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden shadow-inner">
-                              <div
-                                className={`h-full rounded-full transition-all ${
-                                  isAman ? 'bg-emerald-500' : isWaspada ? 'bg-amber-500' : 'bg-rose-500'
-                                }`}
-                                style={{ width: `${Math.min(100, (rowPersen / 15) * 100)}%` }}
-                              />
-                            </div>
-                            <span className={`text-xs font-black ${
-                              isAman ? 'text-emerald-700 dark:text-emerald-400' : isWaspada ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'
-                            }`}>
-                              {isAman ? '✅ Sesuai Target (≤ 5%)' : isWaspada ? '⚠️ Toleransi Tipis (5-15%)' : '🚨 Di Atas Batas (> 15%)'}
-                            </span>
-                          </div>
+                        <td className={`${pyClass} px-4`}>
+                          <span className={`text-xs font-semibold ${
+                            isNihil ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-600 dark:text-slate-300'
+                          }`}>
+                            {isNihil 
+                              ? 'Penyerapan anggaran tepat sesuai rencana penarikan dana bulanan.'
+                              : `Terdapat selisih ${formatRupiah(rowDev)} antara rencana dan realisasi.`}
+                          </span>
                         </td>
                       </tr>
                     );

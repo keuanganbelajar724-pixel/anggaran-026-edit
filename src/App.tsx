@@ -475,9 +475,9 @@ export default function App() {
       presensiTitle: 'Presensi Online Kegiatan Sosialisasi & Bimtek',
       presensiSubtitle: 'Pengisian daftar hadir digital bagi pejabat/pengelola keuangan Satker yang mengikuti kegiatan sosialisasi, FGD, dan bimbingan teknis perbendaharaan.',
 
-      pengetahuanBadge: 'Pusat Regulasi & Juknis Perbendaharaan',
-      pengetahuanTitle: 'Pusat Pengetahuan, Modul & Juknis SAKTI',
-      pengetahuanSubtitle: 'Kumpulan pedoman teknis aplikasi SAKTI, format blangko surat perbendaharaan, regulasi DJPb, dan SOP layanan KPPN.',
+      pengetahuanBadge: 'Pusat Juknis dan Pengetahuan Perbendaharaan',
+      pengetahuanTitle: 'Juknis dan Pengetahuan Perbendaharaan',
+      pengetahuanSubtitle: 'Kumpulan direktori format blangko resmi Kemenkeu, pedoman teknis aplikasi SAKTI, video edukasi, regulasi DJPb, serta acuan format uraian SPM Satker.',
 
       aduanBadge: 'Helpdesk & Layanan Pengaduan Satker KPPN Semarang I',
       aduanTitle: 'Kanal Layanan Konsultasi & Pengaduan Satker',

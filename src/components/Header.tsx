@@ -337,7 +337,7 @@ export const Header: React.FC<HeaderProps> = ({
     },
     {
       id: 'pengetahuan',
-      label: 'Juknis & Pengetahuan Perbendaharaan',
+      label: 'Juknis dan Pengetahuan Perbendaharaan',
       icon: <BookOpen className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Juknis</span>,
       activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
