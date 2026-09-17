@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SatkerIKPA, AppTheme } from '../types';
 import { ensureMonthlyHistory, analyzeSatkerPeriodicTrend, getSatkerDefaultPassword, extractKodeBA } from '../utils/analysisEngine';
 import { verifySatkerPassword } from '../utils/satkerSecurity';
@@ -42,9 +42,12 @@ import {
   Table2,
   CalendarRange,
   ArrowRight,
-  MessageSquareText
+  MessageSquareText,
+  Award
 } from 'lucide-react';
+import { PejabatSertifikasi } from '../types';
 import { CatatanDiskusiSatkerTab } from './admin/CatatanDiskusiSatkerTab';
+import { PejabatPerbendaharaanSatkerTab } from './PejabatPerbendaharaanSatkerTab';
 
 interface SatkerDetailModalProps {
   satker: SatkerIKPA | null;
@@ -55,6 +58,7 @@ interface SatkerDetailModalProps {
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
   onGoToAdminTab?: () => void;
+  pejabatList?: PejabatSertifikasi[];
   theme?: AppTheme;
 }
 
@@ -67,10 +71,11 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
   onAuthenticateAdmin,
   onLogoutAdmin,
   onGoToAdminTab,
+  pejabatList = [],
   theme = 'light'
 }) => {
   const isDark = theme === 'dark';
-  const [activeSubTab, setActiveSubTab] = useState<'chart' | 'overview' | 'comparison' | 'catatanAdmin'>('chart');
+  const [activeSubTab, setActiveSubTab] = useState<'chart' | 'overview' | 'comparison' | 'pejabat' | 'catatanAdmin'>('chart');
   const [selectedChartMetric, setSelectedChartMetric] = useState<
     'nilaiIKPA' | 'ALL' | 'revisiDipa' | 'deviasiHal3Dipa' | 'penyerapanAnggaran' | 
     'belanjaKontraktual' | 'penyelesaianTagihan' | 'pengelolaanUpTup' | 'dispensasiSpm' | 'capaianOutput'
@@ -111,6 +116,27 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
       setAdminPinError('PIN Administrator KPPN tidak valid.');
     }
   };
+
+  const satkerPejabatCount = useMemo(() => {
+    if (!satker || !pejabatList) return 0;
+    const kode = (satker.kodeSatker || '').trim();
+    const namaSatker = (satker.namaSatker || '').trim().toLowerCase();
+    const cleanNamaSatker = namaSatker.replace(/[^a-z0-9]/g, '');
+
+    return pejabatList.filter(p => {
+      const pKode = (p.kdSatker || p.kodeSatker || '').trim();
+      if (kode && pKode && pKode === kode) return true;
+      const pSatkerName = (p.nmSatker || p.satker || '').trim().toLowerCase();
+      const pCleanName = pSatkerName.replace(/[^a-z0-9]/g, '');
+      if (cleanNamaSatker && pCleanName) {
+        if (cleanNamaSatker === pCleanName) return true;
+        if (cleanNamaSatker.length > 5 && pCleanName.length > 5) {
+          if (cleanNamaSatker.includes(pCleanName) || pCleanName.includes(cleanNamaSatker)) return true;
+        }
+      }
+      return false;
+    }).length;
+  }, [satker, pejabatList]);
 
   if (!satker) return null;
 
@@ -217,7 +243,25 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
             <span>3. Perbandingan Tiap Indikator Antar Periode</span>
           </button>
 
-          {/* TAB 4: HANYA MUNCUL UNTUK ADMIN KPPN (TIDAK ADA DI TAMPILAN SATKER) */}
+          {/* TAB 4: DATA PEJABAT PERBENDAHARAAN SATKER (SIMASPATEN & IKPA) */}
+          <button
+            onClick={() => setActiveSubTab('pejabat')}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-black border-b-2 whitespace-nowrap transition-all cursor-pointer ${
+              activeSubTab === 'pejabat'
+                ? 'border-amber-500 text-amber-500 bg-amber-500/10 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-500" />
+            <span>4. Pejabat Perbendaharaan Satker</span>
+            {satkerPejabatCount > 0 && (
+              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 shadow-xs">
+                {satkerPejabatCount}
+              </span>
+            )}
+          </button>
+
+          {/* TAB 5: HANYA MUNCUL UNTUK ADMIN KPPN (TIDAK ADA DI TAMPILAN SATKER) */}
           {isAdminAuthenticated && (
             <button
               onClick={() => setActiveSubTab('catatanAdmin')}
@@ -228,7 +272,7 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
               }`}
             >
               <MessageSquareText className="w-4 h-4 text-indigo-600" />
-              <span>4. Riwayat Diskusi &amp; Catatan KPPN</span>
+              <span>5. Riwayat Diskusi &amp; Catatan KPPN</span>
               <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs">
                 Khusus Admin
               </span>
@@ -1134,7 +1178,18 @@ export const SatkerDetailModal: React.FC<SatkerDetailModalProps> = ({
             );
           })()}
 
-          {/* SUBTAB 4: RIWAYAT DISKUSI & NOTULA PEMBINAAN KPPN (KHUSUS ADMIN) */}
+          {/* SUBTAB 4: DATA PEJABAT PERBENDAHARAAN SATKER (SIMASPATEN & IKPA) */}
+          {activeSubTab === 'pejabat' && (
+            <PejabatPerbendaharaanSatkerTab
+              satker={satker}
+              pejabatList={pejabatList}
+              isAdminAuthenticated={isAdminAuthenticated}
+              onGoToAdminTab={onGoToAdminTab}
+              theme={theme}
+            />
+          )}
+
+          {/* SUBTAB 5: RIWAYAT DISKUSI & NOTULA PEMBINAAN KPPN (KHUSUS ADMIN) */}
           {activeSubTab === 'catatanAdmin' && isAdminAuthenticated && (
             <CatatanDiskusiSatkerTab
               satker={satker}

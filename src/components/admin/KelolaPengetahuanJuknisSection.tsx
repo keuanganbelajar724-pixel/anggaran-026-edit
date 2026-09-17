@@ -25,6 +25,10 @@ import {
   Tag,
   Clock,
   Eye,
+  EyeOff,
+  Sliders,
+  Settings,
+  Check,
   CheckSquare,
   Square,
   Upload,
@@ -38,7 +42,8 @@ import {
   KnowledgeStep,
   AppTheme,
   DashboardConfig,
-  UraianSpmSaktiItem
+  UraianSpmSaktiItem,
+  JuknisSubTabVisibility
 } from '../../types';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../../data/initialJuknisData';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../../data/initialKnowledgeData';
@@ -66,6 +71,82 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
 
   // Active Admin Sub-Tab: 'juknis_table' (Direktori Blangko & Juknis) vs 'knowledge_articles' (Artikel & Petunjuk Interaktif) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
   const [activeSubTab, setActiveSubTab] = useState<'juknis_table' | 'knowledge_articles' | 'spm_format'>('juknis_table');
+
+  // =========================================================================
+  // SUB-TAB VISIBILITY DI DASHBOARD SATKER (JUKNIS & PENGETAHUAN PERBENDAHARAAN)
+  // =========================================================================
+  const subTabVisibility: JuknisSubTabVisibility = dashboardConfig.juknisSubTabVisibility || {
+    showFormatJuknis: true,
+    showArtikelPanduan: true,
+    showUraianSpm: true
+  };
+
+  const handleUpdateVisibility = (newVis: JuknisSubTabVisibility, alertMsg?: string) => {
+    const updatedConfig: DashboardConfig = {
+      ...dashboardConfig,
+      juknisSubTabVisibility: newVis
+    };
+    onUpdateDashboardConfig(updatedConfig);
+    try {
+      safeLocalStorageSet('kppn_juknis_subtab_visibility', JSON.stringify(newVis));
+    } catch (e) {
+      console.warn(e);
+    }
+    try {
+      setDoc(doc(db, 'settings', 'juknis_visibility'), {
+        visibility: newVis,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn('Firebase sync juknis visibility notice:', err));
+    } catch (e) {
+      console.warn(e);
+    }
+    showToast({
+      type: 'success',
+      title: 'Tampilan Satker Diperbarui',
+      message: alertMsg || 'Pengaturan visibilitas sub-tab di dashboard satker berhasil disimpan.'
+    });
+  };
+
+  const handleToggleSubTab = (key: keyof JuknisSubTabVisibility) => {
+    const nextVal = !subTabVisibility[key];
+    if (!nextVal) {
+      // Prevent turning off all 3
+      const remainingActive = Object.entries(subTabVisibility).filter(([k, v]) => k === key ? false : Boolean(v)).length;
+      if (remainingActive === 0) {
+        showToast({
+          type: 'warning',
+          title: 'Minimal 1 Tab Harus Aktif',
+          message: 'Minimal harus ada 1 sub-tab yang aktif agar halaman dashboard satker tidak kosong!'
+        });
+        return;
+      }
+    }
+    const newVis: JuknisSubTabVisibility = {
+      ...subTabVisibility,
+      [key]: nextVal
+    };
+    const tabName = key === 'showFormatJuknis' ? 'Format & Juknis' : key === 'showArtikelPanduan' ? 'Artikel Edukasi' : 'Format Uraian SPM';
+    handleUpdateVisibility(newVis, `Sub-tab "${tabName}" sekarang ${nextVal ? 'DITAMPILKAN' : 'DISEMBUNYIKAN'} di dashboard satker.`);
+  };
+
+  const handleSetPresetVisibility = (preset: 'all' | 'juknis_only' | 'artikel_only' | 'spm_only') => {
+    let newVis: JuknisSubTabVisibility;
+    let desc = '';
+    if (preset === 'all') {
+      newVis = { showFormatJuknis: true, showArtikelPanduan: true, showUraianSpm: true };
+      desc = 'Ketiga sub-tab (Format/Juknis, Artikel Edukasi, dan Format SPM) sekarang DITAMPILKAN di dashboard satker.';
+    } else if (preset === 'juknis_only') {
+      newVis = { showFormatJuknis: true, showArtikelPanduan: false, showUraianSpm: false };
+      desc = 'Hanya sub-tab "1. Direktori Format & Juknis" yang DITAMPILKAN ke satker.';
+    } else if (preset === 'artikel_only') {
+      newVis = { showFormatJuknis: false, showArtikelPanduan: true, showUraianSpm: false };
+      desc = 'Hanya sub-tab "2. Artikel & Petunjuk Interaktif" yang DITAMPILKAN ke satker.';
+    } else {
+      newVis = { showFormatJuknis: false, showArtikelPanduan: false, showUraianSpm: true };
+      desc = 'Hanya sub-tab "3. Format Uraian SPM & Dokumen Pendukung" yang DITAMPILKAN ke satker.';
+    }
+    handleUpdateVisibility(newVis, desc);
+  };
 
   // =========================================================================
   // SPM FORMAT DATA & SYNC STATE
@@ -657,13 +738,13 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           <div className="space-y-1">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-black bg-white/10 text-cyan-200 border border-white/15">
               <BookOpen className="w-4 h-4 text-cyan-400" />
-              <span>MODUL ADMIN: KELOLA PENGETAHUAN &amp; JUKNIS SAKTI</span>
+              <span>MODUL ADMIN: KELOLA JUKNIS &amp; PENGETAHUAN PERBENDAHARAAN</span>
             </div>
             <h2 className="text-2xl font-black tracking-tight text-white">
-              Pusat Manajemen Direktori Format, Juknis &amp; Petunjuk SAKTI
+              Pusat Manajemen Juknis &amp; Pengetahuan Perbendaharaan
             </h2>
             <p className="text-xs sm:text-sm text-cyan-100/90 max-w-3xl leading-relaxed">
-              Kelola tabel kumpulan format/blangko resmi Kemenkeu (tata letak tabel biru berjenjang) dan artikel interaktif petunjuk teknis pelaksanaan anggaran.
+              Kelola pengaturan tampilan dashboard satker, tabel direktori format/blangko resmi Kemenkeu, artikel edukasi interaktif, serta format acuan uraian SPM &amp; dokumen pendukung SAKTI.
             </p>
           </div>
 
@@ -696,8 +777,8 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           </div>
         </div>
 
-        {/* Sub-Tabs Selector */}
-        <div className="flex flex-wrap items-center gap-2 mt-6 pt-4 border-t border-white/15">
+        {/* Sub-Tabs Selector with Live Satker Visibility Badges */}
+        <div className="flex flex-wrap items-center gap-2.5 mt-6 pt-4 border-t border-white/15">
           <button
             onClick={() => setActiveSubTab('juknis_table')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
@@ -711,6 +792,15 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {juknisList.length}
             </span>
+            {subTabVisibility.showFormatJuknis ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
+                Tampil di Satker
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-400/40 line-through">
+                Tersembunyi
+              </span>
+            )}
           </button>
 
           <button
@@ -726,6 +816,15 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {knowledgeList.length}
             </span>
+            {subTabVisibility.showArtikelPanduan ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
+                Tampil di Satker
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-400/40 line-through">
+                Tersembunyi
+              </span>
+            )}
           </button>
 
           <button
@@ -741,7 +840,289 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {spmList.length}
             </span>
+            {subTabVisibility.showUraianSpm ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
+                Tampil di Satker
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-400/40 line-through">
+                Tersembunyi
+              </span>
+            )}
           </button>
+        </div>
+      </div>
+
+      {/* =========================================================================
+          PANEL KONTROL ADMIN: SETTING TAMPILAN DASHBOARD SATKER
+          ========================================================================= */}
+      <div className={`p-5 sm:p-6 rounded-3xl border shadow-lg transition-all ${
+        isDark 
+          ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border-slate-800' 
+          : 'bg-gradient-to-br from-white via-sky-50/50 to-blue-50/60 border-sky-200'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white shadow-md">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Pengaturan Tampilan Sub-Tab di Dashboard Satker
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Tentukan sub-tab mana yang ingin ditampilkan ke satker mitra pada tab <b>"Juknis dan Pengetahuan Perbendaharaan"</b>. Anda dapat menampilkan 1 sub-tab saja, kombinasi 2 tab, maupun ketiga-tiganya.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Preset Buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase mr-1">
+              Preset Cepat:
+            </span>
+            <button
+              onClick={() => handleSetPresetVisibility('all')}
+              className="px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Tampilkan Semua (3 Tab)</span>
+            </button>
+            <button
+              onClick={() => handleSetPresetVisibility('juknis_only')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
+            >
+              Hanya Format &amp; Juknis
+            </button>
+            <button
+              onClick={() => handleSetPresetVisibility('artikel_only')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
+            >
+              Hanya Artikel Edukasi
+            </button>
+            <button
+              onClick={() => handleSetPresetVisibility('spm_only')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
+            >
+              Hanya Format SPM
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Interactive Toggle Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+          
+          {/* Card 1: Format & Juknis Resmi */}
+          <div className={`p-4 rounded-2xl border transition-all relative ${
+            subTabVisibility.showFormatJuknis
+              ? 'bg-cyan-500/10 border-cyan-400 dark:border-cyan-500/70 shadow-md shadow-cyan-500/10'
+              : 'bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-800 opacity-60'
+          }`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2.5 rounded-xl ${
+                  subTabVisibility.showFormatJuknis
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300">
+                      Sub-Tab #1
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono">
+                      {juknisList.length} Item
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                    Format &amp; Juknis Resmi
+                  </h4>
+                </div>
+              </div>
+
+              {/* Toggle Button */}
+              <button
+                onClick={() => handleToggleSubTab('showFormatJuknis')}
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs ${
+                  subTabVisibility.showFormatJuknis
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                }`}
+                title="Klik untuk mengubah status tampil ke satker"
+              >
+                {subTabVisibility.showFormatJuknis ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span>Aktif</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4 text-slate-500" />
+                    <span>Mati</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed font-medium">
+              Tabel tata letak biru berjenjang memuat blangko resmi Kemenkeu &amp; juknis aplikasi perbendaharaan (DIGIT, MonSAKTI, TBS, Gaji Web, PPNPN, TTE SAKTI, dsb).
+            </p>
+            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span className="text-slate-500 font-medium">Status Satker:</span>
+              <span className={`font-black ${subTabVisibility.showFormatJuknis ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                {subTabVisibility.showFormatJuknis ? '✅ Terlihat oleh Satker' : '❌ Disembunyikan'}
+              </span>
+            </div>
+          </div>
+
+          {/* Card 2: Artikel & Petunjuk Interaktif */}
+          <div className={`p-4 rounded-2xl border transition-all relative ${
+            subTabVisibility.showArtikelPanduan
+              ? 'bg-amber-500/10 border-amber-400 dark:border-amber-500/70 shadow-md shadow-amber-500/10'
+              : 'bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-800 opacity-60'
+          }`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2.5 rounded-xl ${
+                  subTabVisibility.showArtikelPanduan
+                    ? 'bg-amber-600 text-white shadow-sm'
+                    : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                      Sub-Tab #2
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono">
+                      {knowledgeList.length} Artikel
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                    Artikel &amp; Petunjuk Interaktif
+                  </h4>
+                </div>
+              </div>
+
+              {/* Toggle Button */}
+              <button
+                onClick={() => handleToggleSubTab('showArtikelPanduan')}
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs ${
+                  subTabVisibility.showArtikelPanduan
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                }`}
+                title="Klik untuk mengubah status tampil ke satker"
+              >
+                {subTabVisibility.showArtikelPanduan ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span>Aktif</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4 text-slate-500" />
+                    <span>Mati</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed font-medium">
+              Tutorial langkah-demi-langkah, embed video YouTube petunjuk teknis, FAQ perbendaharaan, dan panduan praktis pelaksanaan anggaran.
+            </p>
+            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span className="text-slate-500 font-medium">Status Satker:</span>
+              <span className={`font-black ${subTabVisibility.showArtikelPanduan ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                {subTabVisibility.showArtikelPanduan ? '✅ Terlihat oleh Satker' : '❌ Disembunyikan'}
+              </span>
+            </div>
+          </div>
+
+          {/* Card 3: Format Uraian SPM & Dokumen Pendukung */}
+          <div className={`p-4 rounded-2xl border transition-all relative ${
+            subTabVisibility.showUraianSpm
+              ? 'bg-emerald-500/10 border-emerald-400 dark:border-emerald-500/70 shadow-md shadow-emerald-500/10'
+              : 'bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-800 opacity-60'
+          }`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2.5 rounded-xl ${
+                  subTabVisibility.showUraianSpm
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                      Sub-Tab #3
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono">
+                      {spmList.length} Format SPM
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                    Format Uraian SPM &amp; Dokumen
+                  </h4>
+                </div>
+              </div>
+
+              {/* Toggle Button */}
+              <button
+                onClick={() => handleToggleSubTab('showUraianSpm')}
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs ${
+                  subTabVisibility.showUraianSpm
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                }`}
+                title="Klik untuk mengubah status tampil ke satker"
+              >
+                {subTabVisibility.showUraianSpm ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span>Aktif</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4 text-slate-500" />
+                    <span>Mati</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed font-medium">
+              Katalog format baku teks uraian SPM SAKTI, checklist syarat dokumen pendukung, dan tombol salin cepat template untuk satker.
+            </p>
+            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span className="text-slate-500 font-medium">Status Satker:</span>
+              <span className={`font-black ${subTabVisibility.showUraianSpm ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                {subTabVisibility.showUraianSpm ? '✅ Terlihat oleh Satker' : '❌ Disembunyikan'}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Live Summary Bar */}
+        <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-500 dark:text-slate-400">Ringkasan Tampilan Satker Saat Ini:</span>
+            <span className="font-extrabold text-blue-600 dark:text-cyan-400">
+              {Object.values(subTabVisibility).filter(Boolean).length === 3 
+                ? 'Semua 3 Sub-Tab Aktif' 
+                : Object.values(subTabVisibility).filter(Boolean).length === 1
+                ? `Hanya 1 Sub-Tab Aktif (${subTabVisibility.showFormatJuknis ? 'Format & Juknis' : subTabVisibility.showArtikelPanduan ? 'Artikel Edukasi' : 'Format Uraian SPM'})`
+                : '2 Sub-Tab Aktif'}
+            </span>
+          </div>
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+            *Pengaturan otomatis tersinkronisasi ke seluruh akun satker secara realtime.
+          </div>
         </div>
       </div>
 

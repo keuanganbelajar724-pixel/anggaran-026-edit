@@ -10,7 +10,7 @@ import {
   SPMPPPRecord,
   ExcelValidationPreview
 } from '../types';
-import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
+import { hitungTotalIKPA, getPredikatIKPA, INITIAL_SATKER_DATA } from '../data/initialSatkerData';
 import { evaluateDeadlineDate } from '../data/initialUPData';
 
 function cleanText(val: any): string {
@@ -1107,21 +1107,33 @@ export async function validateKarwasTUPExcelFile(
 function findSatkerByNameOrCode(rawKode: string, rawName: string, masterSatkers: MasterSatker[]): { kode: string; nama: string; kl?: string } {
   const cleanKode = normalizeKodeSatker(rawKode);
   if (cleanKode && cleanKode.length >= 5) {
-    const matched = masterSatkers.find(m => m.kodeSatker === cleanKode);
-    if (matched) return { kode: matched.kodeSatker, nama: matched.namaSatker, kl: matched.kementerianLembaga };
+    const matched = masterSatkers.find(m => m.kodeSatker === cleanKode) || INITIAL_SATKER_DATA.find(s => s.kodeSatker === cleanKode);
+    if (matched) return { kode: matched.kodeSatker, nama: matched.namaSatker, kl: (matched as any).kementerianLembaga };
+  }
+
+  // Check if rawName contains a 5-6 digit code (e.g. "694553" or "(694553)")
+  const codeInName = rawName.match(/\b\d{5,6}\b/);
+  if (codeInName) {
+    const code = codeInName[0];
+    const matched = masterSatkers.find(m => m.kodeSatker === code) || INITIAL_SATKER_DATA.find(s => s.kodeSatker === code);
+    if (matched) return { kode: matched.kodeSatker, nama: matched.namaSatker, kl: (matched as any).kementerianLembaga };
   }
 
   const normName = cleanText(rawName).toUpperCase().replace(/[^A-Z0-9]/g, '');
   if (normName) {
-    const directMatch = masterSatkers.find(m => m.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '') === normName);
-    if (directMatch) return { kode: directMatch.kodeSatker, nama: directMatch.namaSatker, kl: directMatch.kementerianLembaga };
+    const directMatch = masterSatkers.find(m => m.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '') === normName)
+      || INITIAL_SATKER_DATA.find(s => s.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '') === normName);
+    if (directMatch) return { kode: directMatch.kodeSatker, nama: directMatch.namaSatker, kl: (directMatch as any).kementerianLembaga };
 
     // Partial contains
     const partialMatch = masterSatkers.find(m => {
       const mNorm = m.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      return normName.includes(mNorm) || mNorm.includes(normName);
+      return (normName.length > 4 && mNorm.length > 4) && (normName.includes(mNorm) || mNorm.includes(normName));
+    }) || INITIAL_SATKER_DATA.find(s => {
+      const sNorm = s.namaSatker.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return (normName.length > 4 && sNorm.length > 4) && (normName.includes(sNorm) || sNorm.includes(normName));
     });
-    if (partialMatch) return { kode: partialMatch.kodeSatker, nama: partialMatch.namaSatker, kl: partialMatch.kementerianLembaga };
+    if (partialMatch) return { kode: partialMatch.kodeSatker, nama: partialMatch.namaSatker, kl: (partialMatch as any).kementerianLembaga };
   }
 
   // Fallback

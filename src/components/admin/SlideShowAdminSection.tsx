@@ -91,7 +91,7 @@ export const SlideShowAdminSection: React.FC<SlideShowAdminSectionProps> = ({
     { key: 'materi-slide', label: '10. Materi Slide Presentation' },
     { key: 'portal-link', label: '11. Link Sosialisasi' },
     { key: 'presensi', label: '12. Presensi Online' },
-    { key: 'pengetahuan', label: '13. Pengetahuan & Juknis' },
+    { key: 'pengetahuan', label: '13. Juknis & Pengetahuan Perbendaharaan' },
     { key: 'aduan', label: '14. Lapor Aduan Satker' }
   ];
 

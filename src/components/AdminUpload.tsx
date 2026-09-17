@@ -40,6 +40,7 @@ import { UploadKKPSection } from './admin/UploadKKPSection';
 import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { UploadDeviasiHal3Section } from './admin/UploadDeviasiHal3Section';
 import { UploadSPMPPPSection } from './admin/UploadSPMPPPSection';
+import { UploadPejabatIKPASection } from './admin/UploadPejabatIKPASection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
@@ -127,6 +128,7 @@ import {
   CheckSquare,
   Square,
   UserPlus,
+  UserCheck,
   Award,
   TrendingUp,
   Zap,
@@ -217,6 +219,9 @@ interface AdminUploadProps {
   spmPppRecords?: SPMPPPRecord[];
   onApplySPMPPP?: (records: SPMPPPRecord[]) => void;
   onClearSPMPPP?: () => void;
+  pejabatIKPAList?: PejabatSertifikasi[];
+  onApplyPejabatIKPAList?: (records: PejabatSertifikasi[], satkerPejabatMap?: Record<string, any>) => void;
+  onClearPejabatIKPA?: () => void;
   onClearMasterSatkers?: () => void;
   onForceCloudSync?: () => void;
   isCloudSyncing?: boolean;
@@ -382,6 +387,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   spmPppRecords = [],
   onApplySPMPPP,
   onClearSPMPPP,
+  pejabatIKPAList = [],
+  onApplyPejabatIKPAList,
+  onClearPejabatIKPA,
   onClearMasterSatkers,
   onForceCloudSync,
   isCloudSyncing = false,
@@ -394,8 +402,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3949,7 +3957,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'announcements': 'Pengumuman',
                       'materi-slide': 'Materi Slide',
                       'portal-link': 'Link Sosialisasi',
-                      'pengetahuan': 'Juknis SAKTI',
+                      'pengetahuan': 'Juknis & Pengetahuan Perbendaharaan',
                       'aduan': 'Lapor Aduan',
                       'presensi': 'Presensi Online'
                     };
@@ -4015,7 +4023,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'announcements': { label: 'Pengumuman & Surat', desc: 'Surat Edaran & pengumuman resmi KPPN', category: 'Informasi', badgeColor: 'bg-amber-100 text-amber-800' },
                     'materi-slide': { label: 'Materi Slide Presentation', desc: 'Galeri PowerPoint & Slide Show (No Download)', category: 'Materi', badgeColor: 'bg-indigo-100 text-indigo-800' },
                     'portal-link': { label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi', category: 'Sosialisasi', badgeColor: 'bg-teal-100 text-teal-800' },
-                    'pengetahuan': { label: 'Pengetahuan & Juknis', desc: 'Pusat Juknis & Regulasi SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
+                    'pengetahuan': { label: 'Juknis & Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
                     'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' }
                   };
@@ -10604,6 +10612,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {spmPppRecords.length} Tagihan PFK
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('pejabat-ikpa')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'pejabat-ikpa'
+                    ? 'bg-teal-50 dark:bg-teal-950/80 border-teal-500 ring-2 ring-teal-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-teal-800 dark:text-teal-300">
+                  <UserCheck className="w-5 h-5 text-teal-600 shrink-0" />
+                  <span>9. Pejabat Satker (IKPA)</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Database Pejabat Perbendaharaan Satker untuk update Tab IKPA &amp; Rincian Satker.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400">
+                  {pejabatIKPAList.length} Pejabat Terdaftar
+                </div>
+              </button>
             </div>
           </div>
 
@@ -10726,6 +10755,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               spmPppRecords={spmPppRecords}
               onApplySPMPPP={onApplySPMPPP || (() => {})}
               onClearSPMPPP={onClearSPMPPP || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'pejabat-ikpa' && (
+            <UploadPejabatIKPASection
+              isDark={isDark}
+              satkers={satkers}
+              masterSatkers={masterSatkers}
+              pejabatList={pejabatIKPAList}
+              onApplyPejabatList={onApplyPejabatIKPAList || (() => {})}
+              onClearPejabatData={onClearPejabatIKPA || (() => {})}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}

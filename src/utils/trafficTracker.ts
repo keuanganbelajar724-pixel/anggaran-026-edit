@@ -157,7 +157,7 @@ export function getTabReadableTitle(tabId: string): string {
     'materi-slide': 'Materi Paparan & Slide Show',
     'portal-link': 'Portal Link Sosialisasi',
     'presensi': 'Presensi Online Kegiatan',
-    'pengetahuan': 'Juknis & Pengetahuan SAKTI',
+    'pengetahuan': 'Juknis & Pengetahuan Perbendaharaan',
     'aduan': 'Layanan Aduan & Tiket Satker',
     'admin': 'Panel Kontrol Admin MSKI',
     'reminder': 'Generator Pesan Pengingat',

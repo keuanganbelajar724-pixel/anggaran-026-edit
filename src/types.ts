@@ -611,7 +611,7 @@ export interface PejabatSertifikasi {
   statusPeringatan?: string;
   statusJabatan?: 'Aktif' | 'Non Aktif' | string; // Status jabatan: Aktif vs Non Aktif
   statusUsulan?: string; // e.g. 'Belum rekam usulan', 'Antrean Diklat', 'Proses Verifikasi', 'Dijadwalkan Uji Kompetensi', 'Belum Diusulkan', 'Di Kirim Ke Admin DSP', 'Sertifikat Kadaluarsa', 'Tidak Memenuhi Syarat', 'Tidak Lulus Ujian Komprehensif'
-  status?: 'Aktif' | 'Kadaluarsa' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Mendekati Kadaluarsa';
+  status?: 'Aktif' | 'Tersertifikasi' | 'Kadaluarsa' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Mendekati Kadaluarsa';
   statusSertifikasi?: 'Tersertifikasi' | 'Belum Tersertifikasi' | 'Belum Perpanjangan' | 'Kadaluarsa';
   kategoriData?: 'BELUM_SERTIFIKAT' | 'BELUM_PERPANJANGAN' | 'TERSERTIFIKASI_AKTIF' | 'SEMUA';
   kppn?: string; // e.g. 'SEMARANG I'
@@ -1368,8 +1368,15 @@ export interface DashboardConfig {
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
   uraianSpmList?: UraianSpmSaktiItem[];
+  juknisSubTabVisibility?: JuknisSubTabVisibility;
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
   perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
+}
+
+export interface JuknisSubTabVisibility {
+  showFormatJuknis: boolean;     // 1. Direktori Format & Juknis Resmi (Tabel)
+  showArtikelPanduan: boolean;   // 2. Artikel & Petunjuk Interaktif (Knowledge Base)
+  showUraianSpm: boolean;        // 3. Format Uraian SPM & Dokumen Pendukung SAKTI
 }
 
 export type NavigationTab = 

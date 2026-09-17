@@ -65,6 +65,7 @@ export const UploadSertifikasiSection: React.FC<UploadSertifikasiSectionProps> =
   const [previewData, setPreviewData] = useState<any | null>(null);
   const [uploadMode, setUploadMode] = useState<'MERGE' | 'REPLACE_CATEGORY' | 'REPLACE_ALL'>('MERGE');
   const [searchPejabat, setSearchPejabat] = useState<string>('');
+  const [filterKategori, setFilterKategori] = useState<'ALL' | 'BELUM_SERTIFIKAT' | 'BELUM_PERPANJANGAN'>('ALL');
 
   const belumBersertifikatCount = pejabatList.filter(p => p.kategoriData === 'BELUM_SERTIFIKAT' || !p.noSertifikat || p.noSertifikat === 'Belum Ada' || p.noSertifikat === 'Tidak Ada').length;
   const belumPerpanjanganCount = pejabatList.filter(p => p.kategoriData === 'BELUM_PERPANJANGAN' || (p.noSertifikat && p.noSertifikat !== 'Belum Ada' && p.noSertifikat !== 'Tidak Ada')).length;
@@ -219,30 +220,54 @@ export const UploadSertifikasiSection: React.FC<UploadSertifikasiSectionProps> =
 
       {/* KPI Stats Pejabat */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-indigo-50/50 border-indigo-100'}`}>
-          <span className="text-slate-500 dark:text-slate-400 block font-semibold">Total Pejabat Terdata</span>
-          <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-1 block">
+        <button
+          type="button"
+          onClick={() => setFilterKategori('ALL')}
+          className={`p-3.5 rounded-2xl border text-left transition-all ${
+            filterKategori === 'ALL'
+              ? 'ring-2 ring-indigo-500 shadow-md ' + (isDark ? 'bg-indigo-950/70 border-indigo-500/60' : 'bg-indigo-50 border-indigo-300')
+              : isDark ? 'bg-slate-950/60 border-slate-800 hover:border-slate-700' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+          }`}
+        >
+          <span className="text-slate-500 dark:text-slate-400 block font-semibold text-[11px]">Total Pejabat</span>
+          <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 mt-1 block">
             {pejabatList.length} <span className="text-xs font-normal text-slate-400">Orang</span>
           </span>
-        </div>
+        </button>
 
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-rose-50/50 border-rose-100'}`}>
-          <span className="text-slate-500 dark:text-slate-400 block font-semibold">Belum Bersertifikat</span>
-          <span className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
+        <button
+          type="button"
+          onClick={() => setFilterKategori('BELUM_SERTIFIKAT')}
+          className={`p-3.5 rounded-2xl border text-left transition-all ${
+            filterKategori === 'BELUM_SERTIFIKAT'
+              ? 'ring-2 ring-rose-500 shadow-md ' + (isDark ? 'bg-rose-950/70 border-rose-500/60' : 'bg-rose-50 border-rose-300')
+              : isDark ? 'bg-slate-950/60 border-slate-800 hover:border-slate-700' : 'bg-rose-50/40 border-rose-100 hover:bg-rose-50'
+          }`}
+        >
+          <span className="text-rose-700 dark:text-rose-300 block font-semibold text-[11px]">Belum Bersertifikat</span>
+          <span className="text-xl font-black text-rose-600 dark:text-rose-400 mt-1 block">
             {belumBersertifikatCount} <span className="text-xs font-normal text-slate-400">Orang</span>
           </span>
-        </div>
+        </button>
 
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-amber-50/50 border-amber-100'}`}>
-          <span className="text-slate-500 dark:text-slate-400 block font-semibold">Belum Perpanjangan</span>
-          <span className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
+        <button
+          type="button"
+          onClick={() => setFilterKategori('BELUM_PERPANJANGAN')}
+          className={`p-3.5 rounded-2xl border text-left transition-all ${
+            filterKategori === 'BELUM_PERPANJANGAN'
+              ? 'ring-2 ring-amber-500 shadow-md ' + (isDark ? 'bg-amber-950/70 border-amber-500/60' : 'bg-amber-50 border-amber-300')
+              : isDark ? 'bg-slate-950/60 border-slate-800 hover:border-slate-700' : 'bg-amber-50/40 border-amber-100 hover:bg-amber-50'
+          }`}
+        >
+          <span className="text-amber-700 dark:text-amber-300 block font-semibold text-[11px]">Perlu Perpanjangan</span>
+          <span className="text-xl font-black text-amber-600 dark:text-amber-400 mt-1 block">
             {belumPerpanjanganCount} <span className="text-xs font-normal text-slate-400">Orang</span>
           </span>
-        </div>
+        </button>
 
-        <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-emerald-50/50 border-emerald-100'}`}>
-          <span className="text-slate-500 dark:text-slate-400 block font-semibold">Pejabat Aktif</span>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1 block">
+        <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-sky-50/50 border-sky-100'}`}>
+          <span className="text-slate-500 dark:text-slate-400 block font-semibold text-[11px]">Pejabat Aktif</span>
+          <span className="text-xl font-black text-sky-600 dark:text-sky-400 mt-1 block">
             {aktifCount} <span className="text-xs font-normal text-slate-400">Pejabat</span>
           </span>
         </div>
@@ -478,13 +503,19 @@ export const UploadSertifikasiSection: React.FC<UploadSertifikasiSectionProps> =
                   <th className="py-2.5 px-3">Nama Pejabat</th>
                   <th className="py-2.5 px-3">Jabatan</th>
                   <th className="py-2.5 px-3">NIP</th>
+                  <th className="py-2.5 px-3">Nomor Sertifikat</th>
+                  <th className="py-2.5 px-3">Kadaluarsa</th>
                   <th className="py-2.5 px-3">Status Usulan</th>
-                  <th className="py-2.5 px-3 text-center">Status / Sertifikat</th>
+                  <th className="py-2.5 px-3 text-center">Status Sertifikasi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {pejabatList
                   .filter(p => {
+                    // Category filter
+                    if (filterKategori === 'BELUM_SERTIFIKAT' && p.kategoriData !== 'BELUM_SERTIFIKAT' && p.statusSertifikasi !== 'Belum Tersertifikasi') return false;
+                    if (filterKategori === 'BELUM_PERPANJANGAN' && !p.isKadaluarsa && !p.isMendekatiKadaluarsa && p.kategoriData !== 'BELUM_PERPANJANGAN' && p.statusSertifikasi !== 'Kadaluarsa' && p.statusSertifikasi !== 'Belum Perpanjangan') return false;
+
                     if (!searchPejabat) return true;
                     const q = searchPejabat.toLowerCase();
                     return (
@@ -492,31 +523,66 @@ export const UploadSertifikasiSection: React.FC<UploadSertifikasiSectionProps> =
                       (p.kdSatker || '').includes(q) ||
                       (p.nip || '').includes(q) ||
                       (p.nmSatker || '').toLowerCase().includes(q) ||
-                      (p.nmJabatan || '').toLowerCase().includes(q)
+                      (p.nmJabatan || '').toLowerCase().includes(q) ||
+                      (p.noSertifikat || '').toLowerCase().includes(q)
                     );
                   })
-                  .map((p, idx) => (
-                    <tr key={p.id || idx}>
-                      <td className="py-2.5 px-3 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="py-2.5 px-3">
-                        <div className="font-bold text-slate-900 dark:text-slate-100">{p.nmSatker}</div>
-                        <div className="font-mono text-[11px] text-amber-600 dark:text-amber-400">{p.kdSatker}</div>
-                      </td>
-                      <td className="py-2.5 px-3 font-semibold">{p.nama}</td>
-                      <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400">{p.nmJabatan}</td>
-                      <td className="py-2.5 px-3 font-mono">{p.nip || '-'}</td>
-                      <td className="py-2.5 px-3">{p.statusUsulan || 'Belum rekam usulan'}</td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          p.kategoriData === 'BELUM_SERTIFIKAT' || !p.noSertifikat || p.noSertifikat === 'Belum Ada'
-                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200'
-                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
-                        }`}>
-                          {p.noSertifikat && p.noSertifikat !== 'Belum Ada' ? p.noSertifikat : 'Belum Bersertifikat'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  .map((p, idx) => {
+                    const isTersertifikasi = p.statusSertifikasi === 'Tersertifikasi' || p.kategoriData === 'TERSERTIFIKASI_AKTIF';
+                    const isPerluPerpanjangan = p.isKadaluarsa || p.isMendekatiKadaluarsa || p.statusSertifikasi === 'Kadaluarsa' || p.statusSertifikasi === 'Belum Perpanjangan' || p.kategoriData === 'BELUM_PERPANJANGAN';
+                    return (
+                      <tr key={p.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-2.5 px-3 font-mono text-slate-400">{idx + 1}</td>
+                        <td className="py-2.5 px-3">
+                          <div className="font-bold text-slate-900 dark:text-slate-100 line-clamp-1" title={p.nmSatker}>{p.nmSatker}</div>
+                          <div className="font-mono text-[11px] text-amber-600 dark:text-amber-400 font-semibold">{p.kdSatker}</div>
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-800 dark:text-slate-200">{p.nama}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-[11px]">
+                            {p.nmJabatan}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-slate-600 dark:text-slate-400">{p.nip || '-'}</td>
+                        <td className="py-2.5 px-3">
+                          {p.noSertifikat && p.noSertifikat !== 'Belum Ada' && p.noSertifikat !== '-' ? (
+                            <span className="font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded text-[11px]">
+                              {p.noSertifikat}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">Belum Ada</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">
+                          {p.tglKadaluarsa ? (
+                            <div>
+                              <span className="font-medium text-slate-700 dark:text-slate-300">{p.tglKadaluarsa}</span>
+                              {p.isKadaluarsa && (
+                                <span className="block text-[10px] text-rose-500 font-bold">Kadaluarsa</span>
+                              )}
+                              {p.isMendekatiKadaluarsa && (
+                                <span className="block text-[10px] text-amber-500 font-bold">Mendekati Expired</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-600 dark:text-slate-400 text-[11px]">{p.statusUsulan || '-'}</td>
+                        <td className="py-2.5 px-3 text-center">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isTersertifikasi
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800'
+                              : isPerluPerpanjangan
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-800'
+                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-200 border border-rose-300 dark:border-rose-800'
+                          }`}>
+                            {p.statusSertifikasi || (isTersertifikasi ? 'Tersertifikasi' : isPerluPerpanjangan ? 'Perlu Perpanjangan' : 'Belum Bersertifikat')}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>

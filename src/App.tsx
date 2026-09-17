@@ -512,6 +512,28 @@ export default function App() {
     }
   }, [pejabatSertifikasiList]);
 
+  // Pejabat Perbendaharaan Satker (Versi IKPA) State
+  const [pejabatPerbendaharaanSatkerList, setPejabatPerbendaharaanSatkerList] = useState<PejabatSertifikasi[]>(() => {
+    const saved = localStorage.getItem('kppn_pejabat_perbendaharaan_satker_data');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved pejabat perbendaharaan satker data:', e);
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(pejabatPerbendaharaanSatkerList));
+    } catch (e) {
+      console.warn('Error saving pejabat perbendaharaan satker data to localStorage:', e);
+    }
+  }, [pejabatPerbendaharaanSatkerList]);
+
   const [sertifikasiLastUpdate, setSertifikasiLastUpdate] = useState<string>('07 Agustus 2026 jam 13:45 WIB');
 
   // Master Data Satker State (Source of Truth untuk IKPA & Capaian Output)
@@ -1515,6 +1537,86 @@ export default function App() {
   const handleUpdatePejabatList = (newList: PejabatSertifikasi[]) => {
     setPejabatSertifikasiList(newList);
     syncPejabatToFirebase(newList);
+  };
+
+  const handleUpdatePejabatPerbendaharaanSatker = (
+    newList: PejabatSertifikasi[],
+    satkerPejabatMap?: Record<string, any>
+  ) => {
+    setPejabatPerbendaharaanSatkerList(newList);
+
+    // Update satkers & masterSatkers with new pejabat contacts in IKPA
+    if (satkerPejabatMap && Object.keys(satkerPejabatMap).length > 0) {
+      setSatkers(prevSatkers =>
+        prevSatkers.map(satker => {
+          const matchingUpdate = satkerPejabatMap[satker.kodeSatker];
+          if (matchingUpdate) {
+            return {
+              ...satker,
+              pejabatOperator: {
+                ...(satker.pejabatOperator || {}),
+                ...matchingUpdate
+              }
+            };
+          }
+          return satker;
+        })
+      );
+
+      setMasterSatkers(prevMaster =>
+        prevMaster.map(ms => {
+          const matchingUpdate = satkerPejabatMap[ms.kodeSatker];
+          if (matchingUpdate) {
+            return {
+              ...ms,
+              pejabatOperator: {
+                ...(ms.pejabatOperator || {}),
+                ...matchingUpdate
+              }
+            };
+          }
+          return ms;
+        })
+      );
+    } else if (newList.length > 0) {
+      // Build map from newList
+      const map: Record<string, any> = {};
+      newList.forEach(p => {
+        if (!p.kdSatker) return;
+        if (!map[p.kdSatker]) map[p.kdSatker] = {};
+        const contact = {
+          nama: p.nama,
+          nip: p.nip,
+          noHp: p.noHp !== '-' ? p.noHp : '',
+          email: p.email !== '-' ? p.email : ''
+        };
+        const jab = (p.nmJabatan || '').toLowerCase();
+        if (jab.includes('kpa') || jab.includes('kuasa')) map[p.kdSatker].kpa = contact;
+        else if (jab.includes('ppk') || jab.includes('pembuat komitmen')) map[p.kdSatker].ppk = contact;
+        else if (jab.includes('ppspm') || jab.includes('penandatangan') || jab.includes('penanda tangan')) map[p.kdSatker].ppspm = contact;
+        else if (jab.includes('bendahara')) map[p.kdSatker].bendahara = contact;
+        else if (jab.includes('komitmen')) map[p.kdSatker].operatorKomitmen = contact;
+        else if (jab.includes('pembayaran')) map[p.kdSatker].operatorPembayaran = contact;
+        else if (jab.includes('pelaporan') || jab.includes('akuntansi')) map[p.kdSatker].operatorPelaporan = contact;
+        else if (jab.includes('gaji')) map[p.kdSatker].operatorGaji = contact;
+      });
+
+      setSatkers(prevSatkers =>
+        prevSatkers.map(satker => {
+          const matchingUpdate = map[satker.kodeSatker];
+          if (matchingUpdate) {
+            return {
+              ...satker,
+              pejabatOperator: {
+                ...(satker.pejabatOperator || {}),
+                ...matchingUpdate
+              }
+            };
+          }
+          return satker;
+        })
+      );
+    }
   };
 
   const handleUpdateAdminPin = (newPin: string) => {
@@ -2813,6 +2915,9 @@ export default function App() {
                   spmPppRecords={spmPppList}
                   onApplySPMPPP={handleUpdateSPMPPP}
                   onClearSPMPPP={() => handleUpdateSPMPPP([])}
+                  pejabatIKPAList={pejabatPerbendaharaanSatkerList}
+                  onApplyPejabatIKPAList={handleUpdatePejabatPerbendaharaanSatker}
+                  onClearPejabatIKPA={() => handleUpdatePejabatPerbendaharaanSatker([])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}
@@ -2931,6 +3036,7 @@ export default function App() {
         isAdminAuthenticated={isAdminAuthenticated}
         onAuthenticateAdmin={handleAuthenticateAdmin}
         onLogoutAdmin={handleLogoutAdmin}
+        pejabatList={pejabatPerbendaharaanSatkerList.length > 0 ? pejabatPerbendaharaanSatkerList : pejabatSertifikasiList}
         onGoToAdminTab={() => {
           setSelectedSatkerForDetail(null);
           setActiveTab('admin');

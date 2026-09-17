@@ -34,7 +34,10 @@ import {
   FolderOpen,
   Calendar,
   Check,
-  FolderArchive
+  FolderArchive,
+  Sliders,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   KnowledgeItem, 
@@ -43,7 +46,8 @@ import {
   AppTheme, 
   DashboardConfig, 
   JuknisBlangkoItem,
-  UraianSpmSaktiItem
+  UraianSpmSaktiItem,
+  JuknisSubTabVisibility
 } from '../types';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../data/initialKnowledgeData';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../data/initialJuknisData';
@@ -72,6 +76,68 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
 
   // Active Public View Mode: 'tabel_juknis' (Direktori Tabel Format/Blangko Kemenkeu) vs 'artikel_panduan' (Panduan Interaktif & Video) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
   const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format'>('tabel_juknis');
+
+  // =========================================================================
+  // SUB-TAB VISIBILITY DI DASHBOARD SATKER (REALTIME SYNC)
+  // =========================================================================
+  const [realtimeVisibility, setRealtimeVisibility] = useState<JuknisSubTabVisibility>(() => {
+    if (dashboardConfig?.juknisSubTabVisibility) {
+      return dashboardConfig.juknisSubTabVisibility;
+    }
+    try {
+      const saved = localStorage.getItem('kppn_juknis_subtab_visibility');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn(e);
+    }
+    return {
+      showFormatJuknis: true,
+      showArtikelPanduan: true,
+      showUraianSpm: true
+    };
+  });
+
+  // Sync Firebase for Juknis Visibility
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, 'settings', 'juknis_visibility'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data?.visibility) {
+            setRealtimeVisibility(data.visibility);
+          }
+        }
+      }, (err) => console.warn('Realtime juknis visibility sync notice:', err));
+      return () => unsub();
+    } catch (e) {
+      console.warn(e);
+    }
+  }, []);
+
+  // Update when dashboardConfig prop changes
+  useEffect(() => {
+    if (dashboardConfig?.juknisSubTabVisibility) {
+      setRealtimeVisibility(dashboardConfig.juknisSubTabVisibility);
+    }
+  }, [dashboardConfig?.juknisSubTabVisibility]);
+
+  // Ensure active view mode is always one of the enabled tabs
+  useEffect(() => {
+    const isJuknisEnabled = realtimeVisibility.showFormatJuknis !== false;
+    const isArtikelEnabled = realtimeVisibility.showArtikelPanduan !== false;
+    const isSpmEnabled = realtimeVisibility.showUraianSpm !== false;
+
+    if (activeViewMode === 'tabel_juknis' && !isJuknisEnabled) {
+      if (isArtikelEnabled) setActiveViewMode('artikel_panduan');
+      else if (isSpmEnabled) setActiveViewMode('spm_format');
+    } else if (activeViewMode === 'artikel_panduan' && !isArtikelEnabled) {
+      if (isJuknisEnabled) setActiveViewMode('tabel_juknis');
+      else if (isSpmEnabled) setActiveViewMode('spm_format');
+    } else if (activeViewMode === 'spm_format' && !isSpmEnabled) {
+      if (isJuknisEnabled) setActiveViewMode('tabel_juknis');
+      else if (isArtikelEnabled) setActiveViewMode('artikel_panduan');
+    }
+  }, [realtimeVisibility, activeViewMode]);
 
   // =========================================================================
   // DATA URAIAN SPM SAKTI & DOKUMEN PENDUKUNG (REALTIME FIREBASE SYNC)
@@ -512,7 +578,7 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-950 dark:bg-blue-600/20 dark:text-blue-300 border border-blue-300 dark:border-blue-800/80 px-3.5 py-1.5 rounded-full text-xs font-black tracking-wide">
               <BookOpen className="w-4 h-4 text-blue-700 dark:text-blue-400" />
-              <span>PUSAT PENGETAHUAN &amp; JUKNIS SAKTI KPPN SEMARANG I</span>
+              <span>PUSAT JUKNIS &amp; PENGETAHUAN PERBENDAHARAAN KPPN SEMARANG I</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -521,8 +587,8 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
                   onClick={() => onNavigateToAdminTab('pengetahuan-admin')}
                   className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer border border-slate-700"
                 >
-                  <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                  <span>⚙️ Masuk Menu Admin Juknis</span>
+                  <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>⚙️ Atur Tampilan Tab &amp; Juknis</span>
                 </button>
               )}
 
@@ -540,59 +606,73 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
 
           <div>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-950 dark:text-white tracking-tight">
-              Juknis Aplikasi SAKTI &amp; Direktori Format Blangko Resmi
+              Juknis dan Pengetahuan Perbendaharaan
             </h2>
             <p className="text-slate-900 dark:text-slate-200 text-xs sm:text-sm mt-1 max-w-3xl leading-relaxed font-bold">
-              Kumpulan petunjuk teknis operasional, modul aplikasi perbendaharaan (DIGIT, MonSAKTI, TBS, Gaji Web, GPP Desktop, PPNPN, Digipay Satu, TTE SAKTI), blangko resmi, serta tutorial interaktif untuk Satker Mitra KPPN Semarang I.
+              Kumpulan petunjuk teknis operasional, modul aplikasi perbendaharaan (DIGIT, MonSAKTI, TBS, Gaji Web, GPP Desktop, PPNPN, Digipay Satu, TTE SAKTI), blangko resmi, panduan interaktif, serta format acuan uraian SPM untuk Satker Mitra KPPN Semarang I.
             </p>
           </div>
 
-          {/* Tab Switcher: Direktori Format (Tabel) vs Tutorial & Pengetahuan Interaktif */}
+          {/* Tab Switcher: Filtered by Admin Visibility Configuration */}
           <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-300 dark:border-slate-800">
-            <button
-              onClick={() => setActiveViewMode('tabel_juknis')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
-                activeViewMode === 'tabel_juknis'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
-                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
-              }`}
-            >
-              <FileSpreadsheet className="w-4 h-4 text-cyan-300" />
-              <span>1. Kumpulan Format &amp; Direktori Juknis (Tabel Resmi)</span>
-              <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
-                {juknisList.length}
-              </span>
-            </button>
+            {realtimeVisibility.showFormatJuknis !== false && (
+              <button
+                onClick={() => setActiveViewMode('tabel_juknis')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                  activeViewMode === 'tabel_juknis'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <FileSpreadsheet className="w-4 h-4 text-cyan-300" />
+                <span>1. Kumpulan Format &amp; Direktori Juknis (Tabel Resmi)</span>
+                <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {juknisList.length}
+                </span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveViewMode('artikel_panduan')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
-                activeViewMode === 'artikel_panduan'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
-                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
-              }`}
-            >
-              <FileText className="w-4 h-4 text-amber-300" />
-              <span>2. Panduan Langkah-demi-Langkah &amp; Video Edukasi</span>
-              <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
-                {knowledgeList.length}
-              </span>
-            </button>
+            {realtimeVisibility.showArtikelPanduan !== false && (
+              <button
+                onClick={() => setActiveViewMode('artikel_panduan')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                  activeViewMode === 'artikel_panduan'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <FileText className="w-4 h-4 text-amber-300" />
+                <span>2. Panduan Langkah-demi-Langkah &amp; Video Edukasi</span>
+                <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {knowledgeList.length}
+                </span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveViewMode('spm_format')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
-                activeViewMode === 'spm_format'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
-                  : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
-              }`}
-            >
-              <BookOpen className="w-4 h-4 text-emerald-300" />
-              <span>3. Format Uraian SPM &amp; Dokumen Pendukung SAKTI</span>
-              <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
-                {spmList.length}
-              </span>
-            </button>
+            {realtimeVisibility.showUraianSpm !== false && (
+              <button
+                onClick={() => setActiveViewMode('spm_format')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                  activeViewMode === 'spm_format'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <BookOpen className="w-4 h-4 text-emerald-300" />
+                <span>3. Format Uraian SPM &amp; Dokumen Pendukung SAKTI</span>
+                <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {spmList.length}
+                </span>
+              </button>
+            )}
+
+            {/* Single View Indicator if only 1 tab is visible */}
+            {Object.values(realtimeVisibility).filter(Boolean).length === 1 && (
+              <div className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-400/30 text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Mode Tampilan Dikonfigurasi Admin: <b>{activeViewMode === 'tabel_juknis' ? 'Format & Juknis' : activeViewMode === 'artikel_panduan' ? 'Artikel Edukasi' : 'Format Uraian SPM'}</b></span>
+              </div>
+            )}
           </div>
         </div>
       </div>
