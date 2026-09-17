@@ -83,6 +83,9 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(15);
 
+  // Table Text Size / Display Density ('standard' or 'large')
+  const [tableTextSize, setTableTextSize] = useState<'standard' | 'large'>('large');
+
   // Detail Modal
   const [selectedRecordDetail, setSelectedRecordDetail] = useState<DeviasiHal3Record | null>(null);
 
@@ -813,84 +816,170 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
       </div>
 
       {/* TABEL MONITORING KHUSUS SATKER: MURNI DEVIASI & % DEVIASI (TANPA RENCANA & PENYERAPAN) */}
-      <div className={`rounded-3xl border shadow-xs overflow-hidden ${
+      <div className={`rounded-3xl border shadow-md overflow-hidden ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
       }`}>
-        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-slate-50 via-white to-blue-50/30 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
           <div>
-            <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Tabel Kepatuhan Deviasi Halaman III DIPA Satker
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
               {activeTab === 'MATRIKS'
                 ? 'Matriks Deviasi Lengkap: Deviasi Nominal (Rp) & % Deviasi per Akun (51, 52, 53, 57). Angka Rencana dan Realisasi disembunyikan.'
                 : `Menampilkan Deviasi Nominal (Rp) dan % Deviasi untuk ${activeTab === '51' ? 'Belanja Pegawai (51)' : activeTab === '52' ? 'Belanja Barang (52)' : activeTab === '53' ? 'Belanja Modal (53)' : 'Belanja Bansos (57)'}.`}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 font-medium">Tampilkan:</span>
-            <select
-              value={pageSize}
-              onChange={(e) => {
-                setPageSize(Number(e.target.value));
-                setCurrentPage(1);
-              }}
-              className="py-1 px-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
-            >
-              <option value={10}>10 Baris</option>
-              <option value={15}>15 Baris</option>
-              <option value={25}>25 Baris</option>
-              <option value={50}>50 Baris</option>
-              <option value={-1}>Semua ({filteredRecords.length})</option>
-            </select>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Toggle Ukuran Teks / Kepadatan Tabel */}
+            <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <button
+                type="button"
+                onClick={() => setTableTextSize('standard')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  tableTextSize === 'standard'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+                title="Tampilan teks ukuran standar"
+              >
+                Standar
+              </button>
+              <button
+                type="button"
+                onClick={() => setTableTextSize('large')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  tableTextSize === 'large'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                }`}
+                title="Tampilan teks lebih besar, longgar dan mudah dibaca satker"
+              >
+                <span>🔍 Nyaman (Besar)</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">Baris:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="py-1 px-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer shadow-xs"
+              >
+                <option value={10}>10 Baris</option>
+                <option value={15}>15 Baris</option>
+                <option value={25}>25 Baris</option>
+                <option value={50}>50 Baris</option>
+                <option value={-1}>Semua ({filteredRecords.length})</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* PANDUAN WARNA & INDIKATOR TARGET (MEMUDAHKAN PEMAHAMAN SATKER) */}
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700/80 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Aksen Akun:</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-sky-100 text-sky-950 dark:bg-sky-950 dark:text-sky-300 font-bold text-[11px] border border-sky-300 dark:border-sky-800">
+              <span className="w-2 h-2 rounded-full bg-sky-600"></span> 51 Pegawai
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-300 font-bold text-[11px] border border-amber-300 dark:border-amber-800">
+              <span className="w-2 h-2 rounded-full bg-amber-600"></span> 52 Barang
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-950 dark:bg-purple-950 dark:text-purple-300 font-bold text-[11px] border border-purple-300 dark:border-purple-800">
+              <span className="w-2 h-2 rounded-full bg-purple-600"></span> 53 Modal
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[11px] border border-emerald-300 dark:border-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span> 57 Bansos
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Status % Deviasi:</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-black text-[11px] border border-emerald-300 dark:border-emerald-700 shadow-2xs">
+              🟢 ≤ 5.00% (Aman)
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-black text-[11px] border border-amber-300 dark:border-amber-700 shadow-2xs">
+              🟡 5.01% - 15.00% (Sedang)
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-300 font-black text-[11px] border border-rose-300 dark:border-rose-700 shadow-2xs">
+              🔴 &gt; 15.00% (Tinggi)
+            </span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           {activeTab === 'MATRIKS' ? (
             /* MATRIKS LENGKAP KHUSUS SATKER: MURNI DEVIASI NOMINAL (RP) & % DEVIASI BERWARNA (TANPA KLASIFIKASI, STATUS, REVISI, RPD & REALISASI) */
-            <table className="w-full text-left text-xs min-w-[1050px]">
-              <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+            <table className="w-full text-left min-w-[1100px]">
+              <thead className="text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-10 border-r border-slate-200 dark:border-slate-700">No</th>
-                  <th rowSpan={2} className="py-3 px-3 min-w-[260px] border-r border-slate-200 dark:border-slate-700">Satuan Kerja</th>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-16 border-r border-slate-200 dark:border-slate-700">Bln</th>
+                  <th rowSpan={2} className="py-3 px-3 text-center w-12 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
+                    No
+                  </th>
+                  <th rowSpan={2} className="py-3 px-4 min-w-[280px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-black">
+                    Satuan Kerja
+                  </th>
+                  <th rowSpan={2} className="py-3 px-2 text-center w-16 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
+                    Bln
+                  </th>
                   
                   {/* Header Deviasi Nominal dengan Aksen Warna Tiap Akun */}
-                  <th colSpan={4} className="py-2.5 px-2 text-center bg-slate-200/80 dark:bg-slate-700/80 border-r border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200">
-                    💰 Deviasi Nominal (Rp)
+                  <th colSpan={4} className="py-3 px-3 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-800 text-white border-r border-slate-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
+                    💰 DEVIASI NOMINAL (RUPIAH)
                   </th>
 
                   {/* Header % Deviasi dengan Aksen Warna Tiap Akun */}
-                  <th colSpan={4} className="py-2.5 px-2 text-center bg-indigo-50 dark:bg-indigo-950/50 border-r border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200">
-                    📊 % Deviasi per Jenis Belanja (Target ≤ 5.00%)
+                  <th colSpan={4} className="py-3 px-3 text-center bg-gradient-to-r from-indigo-800 via-purple-800 to-violet-900 text-white border-r border-indigo-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
+                    📊 % DEVIASI PER JENIS BELANJA (TARGET ≤ 5.00%)
                   </th>
 
                   {/* Rata-rata % Deviasi */}
-                  <th rowSpan={2} className="py-3 px-3 text-center min-w-[130px] bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100">
-                    Rata-rata % Deviasi
+                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[140px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide">
+                    RATA-RATA % DEVIASI
                   </th>
                 </tr>
-                <tr className="border-t border-slate-200 dark:border-slate-700 text-[9px] font-mono">
+                <tr className="border-t border-slate-200 dark:border-slate-700 text-xs">
                   {/* Subheader Deviasi Rp per akun */}
-                  <th className="py-2 px-2 text-right bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 border-r border-slate-200/60 dark:border-slate-700">51 Pegawai</th>
-                  <th className="py-2 px-2 text-right bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-r border-slate-200/60 dark:border-slate-700">52 Barang</th>
-                  <th className="py-2 px-2 text-right bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-r border-slate-200/60 dark:border-slate-700">53 Modal</th>
-                  <th className="py-2 px-2 text-right bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-r border-slate-300 dark:border-slate-600">57 Bansos</th>
+                  <th className="py-2.5 px-3 text-right bg-sky-200 text-sky-950 dark:bg-sky-900 dark:text-sky-100 font-black border-r border-sky-300 dark:border-sky-800">
+                    51 Pegawai
+                  </th>
+                  <th className="py-2.5 px-3 text-right bg-amber-200 text-amber-950 dark:bg-amber-900 dark:text-amber-100 font-black border-r border-amber-300 dark:border-amber-800">
+                    52 Barang
+                  </th>
+                  <th className="py-2.5 px-3 text-right bg-purple-200 text-purple-950 dark:bg-purple-900 dark:text-purple-100 font-black border-r border-purple-300 dark:border-purple-800">
+                    53 Modal
+                  </th>
+                  <th className="py-2.5 px-3 text-right bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100 font-black border-r-2 border-slate-400 dark:border-slate-600">
+                    57 Bansos
+                  </th>
 
                   {/* Subheader % Deviasi per akun */}
-                  <th className="py-2 px-2 text-center bg-sky-100/50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 border-r border-slate-200/60 dark:border-slate-700">51</th>
-                  <th className="py-2 px-2 text-center bg-amber-100/50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-r border-slate-200/60 dark:border-slate-700">52</th>
-                  <th className="py-2 px-2 text-center bg-purple-100/50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-r border-slate-200/60 dark:border-slate-700">53</th>
-                  <th className="py-2 px-2 text-center bg-teal-100/50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 border-r border-indigo-200 dark:border-indigo-800">57</th>
+                  <th className="py-2.5 px-2 text-center bg-sky-300/90 text-sky-950 dark:bg-sky-800 dark:text-sky-50 font-black border-r border-sky-300 dark:border-sky-700">
+                    51
+                  </th>
+                  <th className="py-2.5 px-2 text-center bg-amber-300/90 text-amber-950 dark:bg-amber-800 dark:text-amber-50 font-black border-r border-amber-300 dark:border-amber-700">
+                    52
+                  </th>
+                  <th className="py-2.5 px-2 text-center bg-purple-300/90 text-purple-950 dark:bg-purple-800 dark:text-purple-50 font-black border-r border-purple-300 dark:border-purple-700">
+                    53
+                  </th>
+                  <th className="py-2.5 px-2 text-center bg-emerald-300/90 text-emerald-950 dark:bg-emerald-800 dark:text-emerald-50 font-black border-r-2 border-slate-400 dark:border-slate-600">
+                    57
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-[11px]">
+              <tbody className={`divide-y divide-slate-200 dark:divide-slate-800 ${
+                tableTextSize === 'large' ? 'text-xs sm:text-[13px]' : 'text-xs'
+              }`}>
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="py-12 text-center text-slate-400">
+                    <td colSpan={12} className="py-16 text-center text-slate-400 text-sm font-medium">
                       Tidak ada data yang cocok dengan kriteria filter Anda.
                     </td>
                   </tr>
@@ -901,114 +990,129 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                     const isAman = pTotal <= 5.0;
                     const isWaspada = pTotal > 5.0 && pTotal <= 10.0;
 
+                    const dev51 = r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
+                    const dev52 = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
+                    const dev53 = r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0;
+                    const dev57 = r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0;
+
                     const p51 = r.rincianJenisBelanja?.belanja51?.persenDeviasi || 0;
                     const p52 = r.rincianJenisBelanja?.belanja52?.persenDeviasi || 0;
                     const p53 = r.rincianJenisBelanja?.belanja53?.persenDeviasi || 0;
                     const p57 = r.rincianJenisBelanja?.belanja57?.persenDeviasi || 0;
 
+                    const pyClass = tableTextSize === 'large' ? 'py-4' : 'py-2.5';
+
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/60 cursor-pointer transition-all group"
+                        className="hover:bg-blue-50/70 dark:hover:bg-slate-800/80 cursor-pointer transition-all group"
                         onClick={() => setSelectedRecordDetail(r)}
                       >
-                        <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                        <td className={`${pyClass} px-3 text-center font-mono font-bold text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800`}>
                           {globalIdx}
                         </td>
-                        <td className="py-2.5 px-3 border-r border-slate-200 dark:border-slate-800">
-                          <div className="font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <td className={`${pyClass} px-4 border-r border-slate-200 dark:border-slate-800`}>
+                          <div className={`font-black text-slate-900 dark:text-white leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
+                            tableTextSize === 'large' ? 'text-sm' : 'text-xs'
+                          }`}>
                             {r.namaSatker}
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-xs font-mono font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                               {r.kodeSatker}
                             </span>
                             {r.kementerianLembaga && (
-                              <span className="text-[10px] text-slate-400 truncate max-w-[170px]">
+                              <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[220px] font-medium">
                                 {r.kementerianLembaga}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-2.5 px-2 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px]">
+                        <td className={`${pyClass} px-2 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800`}>
+                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono font-black text-xs">
                             {String(r.periodeAngka || 1).padStart(2, '0')}
                           </span>
                         </td>
 
-                        {/* Deviasi Nominal (Rp) dengan background warna lembut */}
-                        <td className="py-2.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200 bg-sky-50/30 dark:bg-sky-950/10 border-r border-slate-200/60 dark:border-slate-800">
-                          {formatRupiah(r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0)}
+                        {/* Deviasi Nominal (Rp) dengan background warna lembut & font tebal terbaca jelas */}
+                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-sky-50/70 dark:bg-sky-950/25 border-r border-sky-200/80 dark:border-sky-900/40 ${
+                          dev51 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        }`}>
+                          {formatRupiah(dev51)}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200 bg-amber-50/30 dark:bg-amber-950/10 border-r border-slate-200/60 dark:border-slate-800">
-                          {formatRupiah(r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0)}
+                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-amber-50/70 dark:bg-amber-950/25 border-r border-amber-200/80 dark:border-amber-900/40 ${
+                          dev52 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        }`}>
+                          {formatRupiah(dev52)}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200 bg-purple-50/30 dark:bg-purple-950/10 border-r border-slate-200/60 dark:border-slate-800">
-                          {formatRupiah(r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0)}
+                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-purple-50/70 dark:bg-purple-950/25 border-r border-purple-200/80 dark:border-purple-900/40 ${
+                          dev53 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        }`}>
+                          {formatRupiah(dev53)}
                         </td>
-                        <td className="py-2.5 px-2 text-right font-mono text-slate-800 dark:text-slate-200 bg-teal-50/30 dark:bg-teal-950/10 border-r border-slate-300 dark:border-slate-700">
-                          {formatRupiah(r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0)}
+                        <td className={`${pyClass} px-3.5 text-right font-mono font-bold bg-emerald-50/70 dark:bg-emerald-950/25 border-r-2 border-slate-300 dark:border-slate-700 ${
+                          dev57 === 0 ? 'text-slate-400 font-normal' : 'text-slate-900 dark:text-slate-100'
+                        }`}>
+                          {formatRupiah(dev57)}
                         </td>
 
-                        {/* % Deviasi dengan Pill Berwarna Indikator */}
-                        <td className="py-2.5 px-2 text-center font-mono border-r border-slate-200/60 dark:border-slate-800">
-                          <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                        {/* % Deviasi dengan Pill Berwarna Indikator Jelas & Kontras Tinggi */}
+                        <td className={`${pyClass} px-2 text-center font-mono bg-sky-50/40 dark:bg-sky-950/15 border-r border-sky-200/60 dark:border-sky-900/30`}>
+                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
                             p51 <= 5.0
-                              ? 'text-emerald-800 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800'
-                              : p51 <= 10.0
-                              ? 'text-amber-800 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800'
-                              : 'text-rose-800 bg-rose-100 dark:text-rose-300 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800'
+                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
+                              : p51 <= 15.0
+                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
+                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
                           }`}>
                             {p51.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="py-2.5 px-2 text-center font-mono border-r border-slate-200/60 dark:border-slate-800">
-                          <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                        <td className={`${pyClass} px-2 text-center font-mono bg-amber-50/40 dark:bg-amber-950/15 border-r border-amber-200/60 dark:border-amber-900/30`}>
+                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
                             p52 <= 5.0
-                              ? 'text-emerald-800 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800'
-                              : p52 <= 10.0
-                              ? 'text-amber-800 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800'
-                              : 'text-rose-800 bg-rose-100 dark:text-rose-300 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800'
+                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
+                              : p52 <= 15.0
+                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
+                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
                           }`}>
                             {p52.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="py-2.5 px-2 text-center font-mono border-r border-slate-200/60 dark:border-slate-800">
-                          <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                        <td className={`${pyClass} px-2 text-center font-mono bg-purple-50/40 dark:bg-purple-950/15 border-r border-purple-200/60 dark:border-purple-900/30`}>
+                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
                             p53 <= 5.0
-                              ? 'text-emerald-800 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800'
-                              : p53 <= 10.0
-                              ? 'text-amber-800 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800'
-                              : 'text-rose-800 bg-rose-100 dark:text-rose-300 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800'
+                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
+                              : p53 <= 15.0
+                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
+                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
                           }`}>
                             {p53.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="py-2.5 px-2 text-center font-mono border-r border-indigo-200 dark:border-indigo-800">
-                          <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                        <td className={`${pyClass} px-2 text-center font-mono bg-emerald-50/40 dark:bg-emerald-950/15 border-r-2 border-slate-300 dark:border-slate-700`}>
+                          <span className={`inline-block min-w-[66px] px-2.5 py-1 rounded-xl font-black text-xs shadow-2xs ${
                             p57 <= 5.0
-                              ? 'text-emerald-800 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800'
-                              : p57 <= 10.0
-                              ? 'text-amber-800 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-800'
-                              : 'text-rose-800 bg-rose-100 dark:text-rose-300 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-800'
+                              ? 'text-emerald-900 bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-950 border border-emerald-400 dark:border-emerald-700'
+                              : p57 <= 15.0
+                              ? 'text-amber-900 bg-amber-100 dark:text-amber-300 dark:bg-amber-950 border border-amber-400 dark:border-amber-700'
+                              : 'text-rose-900 bg-rose-100 dark:text-rose-300 dark:bg-rose-950 border border-rose-400 dark:border-rose-700'
                           }`}>
                             {p57.toFixed(2)}%
                           </span>
                         </td>
 
-                        {/* Rata-rata % Deviasi Total */}
-                        <td className="py-2.5 px-3 text-center">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black font-mono shadow-xs ${
+                        {/* Rata-rata % Deviasi Total (Pill Menonjol & Sangat Terbaca) */}
+                        <td className={`${pyClass} px-4 text-center bg-slate-50/80 dark:bg-slate-900/50`}>
+                          <span className={`inline-flex items-center justify-center gap-1.5 min-w-[95px] px-3.5 py-1.5 rounded-xl font-black font-mono shadow-xs ${
                             isAman
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                              ? 'bg-emerald-600 text-white shadow-emerald-500/25'
                               : isWaspada
-                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
-                              : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                              ? 'bg-amber-500 text-white shadow-amber-500/25'
+                              : 'bg-rose-600 text-white shadow-rose-500/25'
                           }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              isAman ? 'bg-emerald-500' : isWaspada ? 'bg-amber-500' : 'bg-rose-500'
-                            }`} />
-                            {pTotal.toFixed(2)}%
+                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                            <span>{pTotal.toFixed(2)}%</span>
                           </span>
                         </td>
                       </tr>
@@ -1019,32 +1123,34 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
             </table>
           ) : (
             /* INDIVIDUAL TAB KHUSUS SATKER: HANYA DEVIASI NOMINAL & % DEVIASI BERWARNA (TANPA KLASIFIKASI, STATUS, REVISI, RPD & REALISASI) */
-            <table className="w-full text-left text-xs min-w-[750px]">
-              <thead className={`text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 ${
-                activeTab === '51' ? 'bg-sky-50/80 dark:bg-sky-950/40' :
-                activeTab === '52' ? 'bg-amber-50/80 dark:bg-amber-950/40' :
-                activeTab === '53' ? 'bg-purple-50/80 dark:bg-purple-950/40' :
-                'bg-teal-50/80 dark:bg-teal-950/40'
+            <table className="w-full text-left min-w-[850px]">
+              <thead className={`text-white font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 shadow-xs ${
+                activeTab === '51' ? 'bg-gradient-to-r from-sky-700 to-blue-800' :
+                activeTab === '52' ? 'bg-gradient-to-r from-amber-600 to-orange-700' :
+                activeTab === '53' ? 'bg-gradient-to-r from-purple-700 to-indigo-800' :
+                'bg-gradient-to-r from-emerald-600 to-teal-800'
               }`}>
                 <tr>
-                  <th className="py-3.5 px-3 text-center w-12 border-r border-slate-200 dark:border-slate-700">No</th>
-                  <th className="py-3.5 px-4 min-w-[280px] border-r border-slate-200 dark:border-slate-700">Satuan Kerja</th>
-                  <th className="py-3.5 px-3 min-w-[90px] text-center border-r border-slate-200 dark:border-slate-700">Periode</th>
-                  <th className="py-3.5 px-4 text-right min-w-[180px] border-r border-slate-200 dark:border-slate-700">
-                    Deviasi Nominal Akun {activeTab} (Rp)
+                  <th className="py-3.5 px-3 text-center w-12 border-r border-white/20 text-xs font-black">No</th>
+                  <th className="py-3.5 px-4 min-w-[300px] border-r border-white/20 text-xs sm:text-sm font-black">Satuan Kerja</th>
+                  <th className="py-3.5 px-3 min-w-[100px] text-center border-r border-white/20 text-xs font-black">Periode</th>
+                  <th className="py-3.5 px-4 text-right min-w-[200px] border-r border-white/20 text-xs sm:text-sm font-black">
+                    💰 Deviasi Nominal Akun {activeTab} (Rp)
                   </th>
-                  <th className="py-3.5 px-4 text-center min-w-[140px] border-r border-slate-200 dark:border-slate-700">
-                    % Deviasi Akun {activeTab}
+                  <th className="py-3.5 px-4 text-center min-w-[150px] border-r border-white/20 text-xs sm:text-sm font-black">
+                    📊 % Deviasi Akun {activeTab}
                   </th>
-                  <th className="py-3.5 px-4 text-center min-w-[180px]">
-                    Capaian vs Toleransi DJPb (≤ 5%)
+                  <th className="py-3.5 px-4 text-center min-w-[200px] text-xs sm:text-sm font-black">
+                    🎯 Capaian vs Toleransi DJPb (≤ 5%)
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className={`divide-y divide-slate-200 dark:divide-slate-800 ${
+                tableTextSize === 'large' ? 'text-xs sm:text-[13px]' : 'text-xs'
+              }`}>
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
+                    <td colSpan={6} className="py-16 text-center text-slate-400 text-sm font-medium">
                       Tidak ada data yang cocok dengan kriteria filter Anda.
                     </td>
                   </tr>
@@ -1070,59 +1176,70 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                     }
 
                     const isAman = rowPersen <= 5.0;
-                    const isWaspada = rowPersen > 5.0 && rowPersen <= 10.0;
+                    const isWaspada = rowPersen > 5.0 && rowPersen <= 15.0;
+                    const pyClass = tableTextSize === 'large' ? 'py-4' : 'py-3';
 
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all group"
+                        className="hover:bg-blue-50/70 dark:hover:bg-slate-800/70 cursor-pointer transition-all group"
                         onClick={() => setSelectedRecordDetail(r)}
                       >
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-400 border-r border-slate-200 dark:border-slate-800">
+                        <td className={`${pyClass} px-3 text-center font-mono font-bold text-slate-500 dark:text-slate-400 border-r border-slate-200 dark:border-slate-800`}>
                           {globalIdx}
                         </td>
-                        <td className="py-3.5 px-4 border-r border-slate-200 dark:border-slate-800">
-                          <div className="font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        <td className={`${pyClass} px-4 border-r border-slate-200 dark:border-slate-800`}>
+                          <div className={`font-black text-slate-900 dark:text-white leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
+                            tableTextSize === 'large' ? 'text-sm' : 'text-xs'
+                          }`}>
                             {r.namaSatker}
                           </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[11px] font-mono font-bold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs font-mono font-black px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                               {r.kodeSatker}
                             </span>
                             {r.kementerianLembaga && (
-                              <span className="text-[11px] text-slate-400 truncate max-w-[200px]">
+                              <span className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[240px] font-medium">
                                 {r.kementerianLembaga}
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-xs">
+                        <td className={`${pyClass} px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800`}>
+                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono font-black text-xs">
                             Bulan {String(r.periodeAngka || 1).padStart(2, '0')}
                           </span>
                         </td>
-                        <td className={`py-3.5 px-4 text-right font-mono font-bold text-sm border-r border-slate-200 dark:border-slate-800 ${
-                          activeTab === '51' ? 'text-sky-700 dark:text-sky-300' :
-                          activeTab === '52' ? 'text-amber-700 dark:text-amber-300' :
-                          activeTab === '53' ? 'text-purple-700 dark:text-purple-300' :
-                          'text-teal-700 dark:text-teal-300'
+                        <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 ${
+                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-sm'
+                        } ${
+                          activeTab === '51' ? 'bg-sky-50/60 dark:bg-sky-950/20 text-sky-900 dark:text-sky-200' :
+                          activeTab === '52' ? 'bg-amber-50/60 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200' :
+                          activeTab === '53' ? 'bg-purple-50/60 dark:bg-purple-950/20 text-purple-900 dark:text-purple-200' :
+                          'bg-emerald-50/60 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200'
                         }`}>
-                          {formatRupiah(rowDev)}
+                          {rowDev === 0 ? (
+                            <span className="text-slate-400 font-normal">Rp 0</span>
+                          ) : (
+                            formatRupiah(rowDev)
+                          )}
                         </td>
-                        <td className="py-3.5 px-4 text-center border-r border-slate-200 dark:border-slate-800">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-mono font-black border shadow-xs ${
+                        <td className={`${pyClass} px-4 text-center border-r border-slate-200 dark:border-slate-800`}>
+                          <span className={`inline-flex items-center justify-center min-w-[80px] px-3.5 py-1.5 rounded-xl font-mono font-black shadow-xs ${
+                            tableTextSize === 'large' ? 'text-xs sm:text-[13px]' : 'text-xs'
+                          } ${
                             isAman
-                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                              ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-900 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700'
                               : isWaspada
-                              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                              : 'bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700'
+                              ? 'bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-400 dark:border-amber-700'
+                              : 'bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border border-rose-400 dark:border-rose-700'
                           }`}>
                             {rowPersen.toFixed(2)}%
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-center">
+                        <td className={`${pyClass} px-4 text-center`}>
                           <div className="flex flex-col items-center gap-1.5">
-                            <div className="w-full max-w-[140px] bg-slate-200 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
+                            <div className="w-full max-w-[160px] bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden shadow-inner">
                               <div
                                 className={`h-full rounded-full transition-all ${
                                   isAman ? 'bg-emerald-500' : isWaspada ? 'bg-amber-500' : 'bg-rose-500'
@@ -1130,10 +1247,10 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                                 style={{ width: `${Math.min(100, (rowPersen / 15) * 100)}%` }}
                               />
                             </div>
-                            <span className={`text-[10px] font-bold ${
-                              isAman ? 'text-emerald-600 dark:text-emerald-400' : isWaspada ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                            <span className={`text-xs font-black ${
+                              isAman ? 'text-emerald-700 dark:text-emerald-400' : isWaspada ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'
                             }`}>
-                              {isAman ? '✅ Sesuai Target (≤ 5%)' : isWaspada ? '⚠️ Toleransi Tipis' : '🚨 Di Atas Batas (> 10%)'}
+                              {isAman ? '✅ Sesuai Target (≤ 5%)' : isWaspada ? '⚠️ Toleransi Tipis (5-15%)' : '🚨 Di Atas Batas (> 15%)'}
                             </span>
                           </div>
                         </td>
