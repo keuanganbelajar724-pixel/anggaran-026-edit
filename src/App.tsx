@@ -984,8 +984,9 @@ export default function App() {
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
-            setDeviasiHal3List(data.list);
-            safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(data.list));
+            const hydrated = hydrateDeviasiHal3FromFirestore(data.list);
+            setDeviasiHal3List(hydrated);
+            safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(hydrated));
           }
         }
       }).catch(err => console.warn("Initial Firestore Deviasi Hal III fetch notice:", err));
@@ -1834,7 +1835,10 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hydrated = hydrateDeviasiHal3FromFirestore(parsed);
+          if (hydrated.length > 0) return hydrated;
+        }
       } catch (e) {
         console.warn('Error parsing saved Deviasi Hal III data:', e);
       }
@@ -2167,6 +2171,17 @@ export default function App() {
         if (Array.isArray(data.list)) {
           setSpmPppList(data.list);
           safeLocalStorageSet('kppn_spm_ppp', JSON.stringify(data.list));
+        }
+      }
+
+      // 10. Fetch Deviasi Hal III
+      const deviasiSnap = await getDoc(doc(db, 'data', 'deviasi_hal3'));
+      if (deviasiSnap.exists()) {
+        const data = deviasiSnap.data();
+        if (Array.isArray(data.list) && data.list.length > 0) {
+          const hydrated = hydrateDeviasiHal3FromFirestore(data.list);
+          setDeviasiHal3List(hydrated);
+          safeLocalStorageSet('kppn_deviasi_hal3', JSON.stringify(hydrated));
         }
       }
 

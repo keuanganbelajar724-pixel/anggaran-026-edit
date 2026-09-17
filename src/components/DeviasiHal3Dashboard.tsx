@@ -46,7 +46,8 @@ import {
   Legend
 } from 'recharts';
 import { DeviasiHal3Record, MasterSatker, SatkerIKPA } from '../types';
-import { PERIODE_LIST } from '../data/initialDeviasiHal3Data';
+import { PERIODE_LIST, INITIAL_DEVIASI_HAL3_DATA } from '../data/initialDeviasiHal3Data';
+import { hydrateDeviasiHal3FromFirestore } from '../utils/firebaseStorageOptimizer';
 import { exportDeviasiHal3ToExcel } from '../utils/deviasiHal3ExcelProcessor';
 import { DeviasiHal3SatkerPublicView } from './DeviasiHal3SatkerPublicView';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -75,7 +76,7 @@ export type SeverityFilterType =
   | 'SAFE';            // Seluruh Akun Aktif Terkendali (<= 5%)
 
 export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
-  deviasiRecords,
+  deviasiRecords: rawDeviasiRecords,
   masterSatkers = [],
   satkers = [],
   isDark = false,
@@ -85,6 +86,19 @@ export const DeviasiHal3Dashboard: React.FC<DeviasiHal3DashboardProps> = ({
   onLogoutAdmin,
   onGoToAdmin
 }) => {
+  // Ensure robust records: fallback to initial if empty, hydrate if compacted
+  const deviasiRecords = useMemo(() => {
+    const list = Array.isArray(rawDeviasiRecords) && rawDeviasiRecords.length > 0
+      ? rawDeviasiRecords
+      : INITIAL_DEVIASI_HAL3_DATA;
+    
+    const isCompacted = list.some((r: any) => (r.k && !r.kodeSatker) || (r.p !== undefined && r.periodeAngka === undefined));
+    if (isCompacted) {
+      return hydrateDeviasiHal3FromFirestore(list);
+    }
+    return list;
+  }, [rawDeviasiRecords]);
+
   // Portal Role: INTERNAL_KPPN (Admin only) vs SATKER_PUBLIC (Restricted, safe, non-nominal)
   const [portalRole, setPortalRole] = useState<'INTERNAL_KPPN' | 'SATKER_PUBLIC'>(() => {
     return isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC';

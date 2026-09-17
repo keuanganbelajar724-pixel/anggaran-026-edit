@@ -39,7 +39,8 @@ import {
   Cell
 } from 'recharts';
 import { DeviasiHal3Record, MasterSatker, SatkerIKPA } from '../types';
-import { PERIODE_LIST } from '../data/initialDeviasiHal3Data';
+import { PERIODE_LIST, INITIAL_DEVIASI_HAL3_DATA } from '../data/initialDeviasiHal3Data';
+import { hydrateDeviasiHal3FromFirestore } from '../utils/firebaseStorageOptimizer';
 import * as XLSX from 'xlsx';
 
 interface DeviasiHal3SatkerPublicViewProps {
@@ -66,7 +67,7 @@ type SeverityFilterType =
   | 'DEVIASI_57';      // Ada Deviasi 57 Bansos (Rp > 0)
 
 export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewProps> = ({
-  deviasiRecords = [],
+  deviasiRecords: rawDeviasiRecords = [],
   masterSatkers = [],
   satkers = [],
   isDark = false,
@@ -77,6 +78,19 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   onSwitchToInternal,
   onSetSatkerDisplayMonth
 }) => {
+  // Ensure robust records: fallback to initial if empty, hydrate if compacted
+  const deviasiRecords = useMemo(() => {
+    const list = Array.isArray(rawDeviasiRecords) && rawDeviasiRecords.length > 0
+      ? rawDeviasiRecords
+      : INITIAL_DEVIASI_HAL3_DATA;
+    
+    const isCompacted = list.some((r: any) => (r.k && !r.kodeSatker) || (r.p !== undefined && r.periodeAngka === undefined));
+    if (isCompacted) {
+      return hydrateDeviasiHal3FromFirestore(list);
+    }
+    return list;
+  }, [rawDeviasiRecords]);
+
   // Configured display month from props or localStorage (default to '9' as requested)
   const initialConfiguredMonth = satkerDisplayMonth || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_deviasi_satker_month')) || '9';
   const isStrictLocked = satkerMonthStrictLock !== undefined 

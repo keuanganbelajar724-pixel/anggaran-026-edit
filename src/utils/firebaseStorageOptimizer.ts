@@ -518,6 +518,7 @@ export function compactDeviasiHal3ForFirestore(records: DeviasiHal3Record[]): an
       if (b57 && (b57[0] > 0 || b57[1] > 0 || b57[2] > 0)) item.b57 = b57;
 
       if (r.kodeKppn && r.kodeKppn !== '026') item.kppn = r.kodeKppn;
+      if (r.kementerianLembaga) item.kem = r.kementerianLembaga;
       if (r.kodeEselon1) item.es = r.kodeEselon1;
       if (r.tanggalPosting) item.w = r.tanggalPosting;
       if (r.noRevisiTerakhir !== undefined && r.noRevisiTerakhir !== '') item.rev = String(r.noRevisiTerakhir);
@@ -536,16 +537,16 @@ export function hydrateDeviasiHal3FromFirestore(rawList: any[]): DeviasiHal3Reco
   return rawList
     .filter(r => r && (r.k || r.kodeSatker || r.n || r.namaSatker))
     .map((r, idx) => {
-      const kodeSatker = String(r.k || r.kodeSatker || '').trim();
-      const namaSatker = String(r.n || r.namaSatker || `Satker ${kodeSatker}`).trim();
-      const periodeAngka = Number(r.p || r.periodeAngka || 8);
-      const periodeBulan = String(r.b || r.periodeBulan || PERIODE_BULAN_MAP[periodeAngka] || 'Agustus');
-      const periodeFormatted = `Periode ${String(periodeAngka).padStart(2, '0')} (${periodeBulan})`;
+      const kodeSatker = String(r.kodeSatker || r.k || '').trim();
+      const namaSatker = String(r.namaSatker || r.n || `Satker ${kodeSatker}`).trim();
+      const periodeAngka = Number(r.periodeAngka !== undefined ? r.periodeAngka : (r.p !== undefined ? r.p : 8));
+      const periodeBulan = String(r.periodeBulan || r.b || PERIODE_BULAN_MAP[periodeAngka] || 'Agustus');
+      const periodeFormatted = r.periodeFormatted || `Periode ${String(periodeAngka).padStart(2, '0')} (${periodeBulan})`;
 
-      const rpdTotal = Number(r.rt !== undefined ? r.rt : r.rpdTotal) || 0;
-      const realisasiTotal = Number(r.at !== undefined ? r.at : r.realisasiTotal) || 0;
-      const deviasiNominalTotal = Number(r.dt !== undefined ? r.dt : r.deviasiNominalTotal) || 0;
-      const persenDeviasiTotal = Number(r.pt !== undefined ? r.pt : r.persenDeviasiTotal) || 0;
+      const rpdTotal = Number(r.rpdTotal !== undefined ? r.rpdTotal : (r.rt !== undefined ? r.rt : 0)) || 0;
+      const realisasiTotal = Number(r.realisasiTotal !== undefined ? r.realisasiTotal : (r.at !== undefined ? r.at : 0)) || 0;
+      const deviasiNominalTotal = Number(r.deviasiNominalTotal !== undefined ? r.deviasiNominalTotal : (r.dt !== undefined ? r.dt : 0)) || 0;
+      const persenDeviasiTotal = Number(r.persenDeviasiTotal !== undefined ? r.persenDeviasiTotal : (r.pt !== undefined ? r.pt : 0)) || 0;
 
       // Parse 51, 52, 53, 57 details
       const extractDetail = (compactArr: any, fullObj: any, akun: string, label: string): DeviasiJenisBelanjaDetail => {
@@ -588,7 +589,7 @@ export function hydrateDeviasiHal3FromFirestore(rawList: any[]): DeviasiHal3Reco
         id: String(r.id || `deviasi-${kodeSatker}-${periodeAngka}-${idx}`),
         kodeSatker,
         namaSatker,
-        kementerianLembaga: String(r.kementerianLembaga || 'Kementerian/Lembaga Mitra'),
+        kementerianLembaga: String(r.kem || r.kementerianLembaga || 'Kementerian/Lembaga Mitra'),
         kodeKppn: String(r.kppn || r.kodeKppn || '026'),
         kodeEselon1: String(r.es || r.kodeEselon1 || ''),
         periodeAngka,
@@ -624,7 +625,7 @@ export function hydrateDeviasiHal3FromFirestore(rawList: any[]): DeviasiHal3Reco
  * Merges Deviasi Hal III lists safely anti-downgrade (Server is authoritative)
  */
 export function mergeDeviasiHal3AntiDowngrade(serverRawList: any[], localList: DeviasiHal3Record[]): DeviasiHal3Record[] {
-  if (Array.isArray(serverRawList)) {
+  if (Array.isArray(serverRawList) && serverRawList.length > 0) {
     return hydrateDeviasiHal3FromFirestore(serverRawList);
   }
   return Array.isArray(localList) ? localList : [];
