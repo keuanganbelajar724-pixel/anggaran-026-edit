@@ -24,7 +24,9 @@ import {
   Coins,
   SlidersHorizontal,
   ArrowUpDown,
-  Calendar
+  Calendar,
+  Printer,
+  FileText
 } from 'lucide-react';
 import {
   BarChart,
@@ -41,6 +43,7 @@ import {
 import { DeviasiHal3Record, MasterSatker, SatkerIKPA } from '../types';
 import { PERIODE_LIST, INITIAL_DEVIASI_HAL3_DATA } from '../data/initialDeviasiHal3Data';
 import { hydrateDeviasiHal3FromFirestore } from '../utils/firebaseStorageOptimizer';
+import { exportDeviasiHal3ToPDF } from '../utils/exportUtils';
 import * as XLSX from 'xlsx';
 
 interface DeviasiHal3SatkerPublicViewProps {
@@ -112,6 +115,12 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
 
   // Table Text Size / Display Density ('standard' or 'large') - Default is now 'standard' as requested!
   const [tableTextSize, setTableTextSize] = useState<'standard' | 'large'>('standard');
+
+  // Option to toggle Total Deviasi Column in view
+  const [showTotalDeviasiColumn, setShowTotalDeviasiColumn] = useState<boolean>(true);
+
+  // PDF Generation State
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
   // Detail Modal
   const [selectedRecordDetail, setSelectedRecordDetail] = useState<DeviasiHal3Record | null>(null);
@@ -358,6 +367,27 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
     XLSX.writeFile(wb, `Monitoring_Deviasi_Nominal_Satker_${selectedPeriode === 'ALL' ? 'Semua_Periode' : `Periode_${selectedPeriode}`}.xlsx`);
   };
 
+  // Handle Export PDF untuk semua halaman satker (Tanpa Total Deviasi, dengan petunjuk resmi My Intress)
+  const handleExportPDF = () => {
+    setIsGeneratingPdf(true);
+    try {
+      const periodeObj = PERIODE_LIST.find(p => String(p.angka) === effectivePeriode);
+      const periodeLabel = effectivePeriode === 'ALL'
+        ? 'Semua Periode'
+        : `Bulan ${effectivePeriode.padStart(2, '0')} (${periodeObj?.bulan || ''})`;
+
+      exportDeviasiHal3ToPDF(filteredRecords, {
+        periodeLabel,
+        klLabel: selectedKl,
+        filename: `Tabel_Kepatuhan_Deviasi_Hal_III_DIPA_Satker_${effectivePeriode === 'ALL' ? 'Semua_Bulan' : `Bulan_${effectivePeriode}`}.pdf`
+      });
+    } catch (err) {
+      console.error('Gagal membuat PDF Deviasi:', err);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleHeaderSort = (field: 'deviasiRp' | 'kodeSatker' | 'namaSatker' | 'periodeAngka') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc');
@@ -401,6 +431,17 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={isGeneratingPdf}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+              title="Cetak / Unduh dokumen PDF semua halaman untuk Satker (Tanpa kolom total deviasi, dilengkapi petunjuk My Intress)"
+            >
+              <Printer className="w-4 h-4" />
+              <span>{isGeneratingPdf ? 'Menyiapkan PDF...' : 'Cetak / Unduh PDF (Semua Halaman)'}</span>
+            </button>
+
             <button
               type="button"
               onClick={handleExportSatker}
@@ -881,6 +922,43 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
         </div>
       </div>
 
+      {/* BANNER INSTRUKSI RESMI MY INTRESS (PERSYARATAN UTAMA SATKER) */}
+      <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3.5 transition-all ${
+        isDark ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' : 'bg-amber-50/90 border-amber-200/90 text-amber-950'
+      }`}>
+        <div className="flex items-start gap-3.5">
+          <div className="p-2.5 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 shrink-0 shadow-2xs mt-0.5">
+            <Info className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-[11px] uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-amber-200/80 dark:bg-amber-900/90 text-amber-900 dark:text-amber-200">
+                📢 Petunjuk Satuan Kerja
+              </span>
+              <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                KPPN Tipe A1 Semarang I
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm font-medium leading-relaxed">
+              Silakan cek <strong className="font-black text-amber-950 dark:text-amber-100">My Intress</strong>: <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 inline-block my-0.5">Menu Tematik &gt; Indikator Pelaksanaan Anggaran &gt; Monitoring Deviasi Halaman III DIPA</span> untuk melakukan cek deviasi lebih atau kurang dalam deviasinya.
+            </p>
+          </div>
+        </div>
+
+        <div className="shrink-0 flex items-center gap-2 self-end md:self-center">
+          <button
+            type="button"
+            onClick={handleExportPDF}
+            disabled={isGeneratingPdf}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
+            title="Cetak/Unduh dokumen PDF semua halaman untuk dikirim ke Satker"
+          >
+            <Printer className="w-4 h-4" />
+            <span>{isGeneratingPdf ? 'Menyiapkan...' : 'Cetak PDF Satker'}</span>
+          </button>
+        </div>
+      </div>
+
       {/* TABEL MONITORING KHUSUS SATKER: MURNI DEVIASI NOMINAL (TANPA PERSENTASE MEMBINGUNGKAN) */}
       <div className={`rounded-3xl border shadow-md overflow-hidden ${
         isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
@@ -899,6 +977,34 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Tombol Cetak / Unduh PDF (Semua Halaman) */}
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={isGeneratingPdf}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+              title="Cetak/Unduh dokumen PDF semua halaman tanpa kolom total deviasi (siap dikirim ke satker)"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{isGeneratingPdf ? 'Memproses...' : 'Cetak PDF'}</span>
+            </button>
+
+            {/* Toggle Kolom Total Deviasi (Sesuai preferensi user: tidak perlu ada total deviasi) */}
+            {activeTab === 'MATRIKS' && (
+              <button
+                type="button"
+                onClick={() => setShowTotalDeviasiColumn(!showTotalDeviasiColumn)}
+                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                  showTotalDeviasiColumn
+                    ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    : 'bg-indigo-100 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200'
+                }`}
+                title="Tampilkan atau sembunyikan kolom Total Deviasi pada layar"
+              >
+                <span>{showTotalDeviasiColumn ? 'Kolom Total: Tampil' : 'Kolom Total: Sembunyi'}</span>
+              </button>
+            )}
+
             {/* Toggle Ukuran Teks / Kepadatan Tabel */}
             <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
               <button
@@ -997,10 +1103,12 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                     💰 DEVIASI NOMINAL PER JENIS BELANJA (RUPIAH)
                   </th>
 
-                  {/* Total Deviasi Nominal */}
-                  <th rowSpan={2} className="py-3 px-4 text-right min-w-[190px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide border-r border-slate-700">
-                    TOTAL DEVIASI (RP)
-                  </th>
+                  {/* Total Deviasi Nominal - Bisa Ditampilkan/Disembunyikan */}
+                  {showTotalDeviasiColumn && (
+                    <th rowSpan={2} className="py-3 px-4 text-right min-w-[190px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide border-r border-slate-700">
+                      TOTAL DEVIASI (RP)
+                    </th>
+                  )}
 
                   {/* Status */}
                   <th rowSpan={2} className="py-3 px-4 text-center min-w-[150px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide">
@@ -1028,7 +1136,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               }`}>
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-16 text-center text-slate-400 text-sm font-medium">
+                    <td colSpan={showTotalDeviasiColumn ? 9 : 8} className="py-16 text-center text-slate-400 text-sm font-medium">
                       Tidak ada data yang cocok dengan kriteria filter Anda.
                     </td>
                   </tr>
@@ -1107,14 +1215,16 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                           {dev57 === 0 ? 'Rp 0' : formatRupiah(dev57)}
                         </td>
 
-                        {/* Total Deviasi Nominal (Rp) */}
-                        <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 ${
-                          tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
-                        } ${
-                          isNihil ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
-                        }`}>
-                          {formatRupiah(totalDev)}
-                        </td>
+                        {/* Total Deviasi Nominal (Rp) - Ditampilkan jika opsi aktif */}
+                        {showTotalDeviasiColumn && (
+                          <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 ${
+                            tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
+                          } ${
+                            isNihil ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
+                          }`}>
+                            {formatRupiah(totalDev)}
+                          </td>
+                        )}
 
                         {/* Status Deviasi */}
                         <td className={`${pyClass} px-4 text-center bg-slate-50/80 dark:bg-slate-900/50`}>
