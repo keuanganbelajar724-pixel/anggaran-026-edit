@@ -146,6 +146,79 @@ async function startServer() {
     }
   });
 
+  // Dedicated Pejabat Perbendaharaan Satker endpoints for robust cross-environment sync
+  let inMemoryPejabatPerbendaharaan: any[] = [];
+  try {
+    const pejabatPath = path.join(process.cwd(), 'pejabat_perbendaharaan_generated.json');
+    if (fs.existsSync(pejabatPath)) {
+      inMemoryPejabatPerbendaharaan = JSON.parse(fs.readFileSync(pejabatPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not load pejabat_perbendaharaan_generated.json on server start:', e);
+  }
+
+  app.get('/api/data/pejabat_perbendaharaan', (_req, res) => {
+    res.json({
+      status: 'ok',
+      count: inMemoryPejabatPerbendaharaan.length,
+      list: inMemoryPejabatPerbendaharaan,
+    });
+  });
+
+  app.post('/api/data/pejabat_perbendaharaan', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list)) {
+        inMemoryPejabatPerbendaharaan = list;
+        const pejabatPath = path.join(process.cwd(), 'pejabat_perbendaharaan_generated.json');
+        fs.writeFile(pejabatPath, JSON.stringify(list, null, 2), (err) => {
+          if (err) console.warn('Server disk backup pejabat notice:', err);
+        });
+        return res.json({ status: 'ok', saved: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid list payload' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // Dedicated Master Satkers endpoints
+  let inMemoryMasterSatkers: any[] = [];
+  try {
+    const masterPath = path.join(process.cwd(), 'master_satkers_generated.json');
+    if (fs.existsSync(masterPath)) {
+      const parsed = JSON.parse(fs.readFileSync(masterPath, 'utf8'));
+      inMemoryMasterSatkers = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.list) ? parsed.list : []);
+    }
+  } catch (e) {
+    console.warn('Could not load master_satkers_generated.json on server start:', e);
+  }
+
+  app.get('/api/data/master_satkers', (_req, res) => {
+    res.json({
+      status: 'ok',
+      count: inMemoryMasterSatkers.length,
+      list: inMemoryMasterSatkers,
+    });
+  });
+
+  app.post('/api/data/master_satkers', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list)) {
+        inMemoryMasterSatkers = list;
+        const masterPath = path.join(process.cwd(), 'master_satkers_generated.json');
+        fs.writeFile(masterPath, JSON.stringify(list, null, 2), (err) => {
+          if (err) console.warn('Server disk backup master notice:', err);
+        });
+        return res.json({ status: 'ok', saved: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid list payload' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
   // Proxy image endpoint to safely serve Google Drive / external banner images without Referrer / iframe blocking
   app.get('/api/proxy-image', async (req, res) => {
     const rawUrl = req.query.url as string;

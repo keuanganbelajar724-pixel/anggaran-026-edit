@@ -22,9 +22,12 @@ import {
   compactDeviasiHal3ForFirestore,
   hydrateDeviasiHal3FromFirestore,
   mergeDeviasiHal3AntiDowngrade,
+  compactPejabatForFirestore,
+  hydratePejabatFromFirestore,
   cleanContactValue,
   cleanPicName
 } from './utils/firebaseStorageOptimizer';
+import { INITIAL_PEJABAT_PERBENDAHARAAN_SATKER } from './data/initialPejabatPerbendaharaanData';
 import {
   sanitizeInput,
   createAdminSession,
@@ -143,27 +146,27 @@ const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
 ];
 
 export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
-  'dashboard': false,
+  'dashboard': true,
   'realisasi-anggaran': true,
   'capaian-output': true,
-  'diagnostik-caput': false,
+  'diagnostik-caput': true,
   'deviasi-hal3': true,
-  'spm-ppp': false,
-  'pengelolaan-up': false,
-  'transaksi-kkp': false,
-  'transaksi-digipay': false,
-  'kelola-satker': false,
-  'redflags': false,
-  'sertifikasi': false,
-  'per5-analisis': false,
-  'pengetahuan': false,
-  'announcements': false,
-  'materi-slide': false,
-  'portal-link': false,
-  'presensi': false,
-  'aduan': false,
-  'reminder': false,
-  'guide': false,
+  'spm-ppp': true,
+  'pengelolaan-up': true,
+  'transaksi-kkp': true,
+  'transaksi-digipay': true,
+  'kelola-satker': true,
+  'redflags': true,
+  'sertifikasi': true,
+  'per5-analisis': true,
+  'pengetahuan': true,
+  'announcements': true,
+  'materi-slide': true,
+  'portal-link': true,
+  'presensi': true,
+  'aduan': true,
+  'reminder': true,
+  'guide': true,
 };
 
 export default function App() {
@@ -227,7 +230,7 @@ export default function App() {
         }
       }
     } catch (e) {}
-    return 'capaian-output';
+    return 'dashboard';
   });
 
   useEffect(() => {
@@ -518,12 +521,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       } catch (e) {
         console.warn('Error parsing saved pejabat perbendaharaan satker data:', e);
       }
     }
-    return [];
+    return Array.isArray(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER) && INITIAL_PEJABAT_PERBENDAHARAAN_SATKER.length > 0
+      ? INITIAL_PEJABAT_PERBENDAHARAAN_SATKER
+      : [];
   });
 
   useEffect(() => {
@@ -855,13 +860,22 @@ export default function App() {
             }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
           }
 
-          // If satkers is empty, reconstruct from historical archives
+          // If satkers is empty or has no IKPA satkers, reconstruct from historical archives or initial baseline
           setSatkers(curr => {
-            if (curr.length === 0 && combined.length > 0) {
-              const reconstructed = mergeHistoricalUploadsToSatkers(combined);
-              if (reconstructed.length > 0) {
-                safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
-                return reconstructed;
+            const hasIKPA = curr.some(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (Number(s.nilaiTotalIKPA) > 0 || Number(s.paguAnggaran) > 0)));
+            if (curr.length === 0 || !hasIKPA) {
+              if (combined.length > 0) {
+                const reconstructed = mergeHistoricalUploadsToSatkers(combined);
+                if (reconstructed.length > 0) {
+                  const merged = mergeSatkersAntiDowngrade(reconstructed, curr);
+                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                  return merged;
+                }
+              }
+              if (Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0) {
+                const merged = mergeSatkersAntiDowngrade(INITIAL_SATKER_DATA, curr);
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                return merged;
               }
             }
             return curr;
@@ -903,31 +917,51 @@ export default function App() {
         });
       }).catch(err => console.warn("Initial Firestore master satkers fetch notice:", err));
 
+      const fetchPejabatPerbendaharaan = getDoc(doc(db, 'data', 'pejabat_perbendaharaan')).then(snap => {
+        if (!isMounted) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            const hydrated = hydratePejabatFromFirestore(data.list);
+            setPejabatPerbendaharaanSatkerList(hydrated);
+            safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(hydrated));
+            return;
+          }
+        }
+        // Fallback to server API
+        fetch('/api/data/pejabat_perbendaharaan')
+          .then(res => res.json())
+          .then(apiData => {
+            if (!isMounted) return;
+            if (apiData && Array.isArray(apiData.list) && apiData.list.length > 0) {
+              const hydrated = hydratePejabatFromFirestore(apiData.list);
+              setPejabatPerbendaharaanSatkerList(hydrated);
+              safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(hydrated));
+            } else if (Array.isArray(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER) && INITIAL_PEJABAT_PERBENDAHARAAN_SATKER.length > 0) {
+              setPejabatPerbendaharaanSatkerList(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER);
+              safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER));
+              syncPejabatPerbendaharaanToFirebase(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER);
+            }
+          })
+          .catch(e => {
+            console.warn('API pejabat perbendaharaan fallback notice:', e);
+            if (Array.isArray(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER) && INITIAL_PEJABAT_PERBENDAHARAAN_SATKER.length > 0) {
+              setPejabatPerbendaharaanSatkerList(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER);
+              safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(INITIAL_PEJABAT_PERBENDAHARAAN_SATKER));
+            }
+          });
+      }).catch(err => console.warn("Initial Firestore Pejabat Perbendaharaan fetch notice:", err));
+
       Promise.allSettled([
         fetchSettings, 
         fetchSatkers, 
         fetchHistoricalUploads, 
         fetchMasterSatkers, 
+        fetchPejabatPerbendaharaan,
         fetchGeminiConfig
       ]).then(() => {
         if (!isMounted) return;
         clearTimeout(syncTimeout);
-
-        // Smart route: if landing on default 'dashboard' tab and current active satkers only contains Capaian Output
-        // (0 IKPA satker, but > 0 Capaian Output satkers), automatically navigate to 'capaian-output'
-        try {
-          const hasExplicitHashOrParam = typeof window !== 'undefined' && (window.location.hash || window.location.search);
-          const savedTab = typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_active_tab') : null;
-
-          if (!hasExplicitHashOrParam && (!savedTab || savedTab === 'dashboard')) {
-            const currentSatkers = satkers;
-            const ikpaCount = currentSatkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0))).length;
-            const caputCount = currentSatkers.filter(s => s.hasCapaianOutputData === true).length;
-            if (ikpaCount === 0 && caputCount > 0) {
-              setActiveTab('capaian-output');
-            }
-          }
-        } catch (e) {}
 
         setIsInitialSyncing(false);
       });
@@ -1156,6 +1190,20 @@ export default function App() {
         console.warn("Firebase Pejabat listener notice:", error);
       });
 
+      // 4b. Realtime Pejabat Perbendaharaan Satker Data (Bidirectional between Google AI & Production)
+      const unsubPejabatPerbendaharaan = onSnapshot(doc(db, 'data', 'pejabat_perbendaharaan'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            const hydrated = hydratePejabatFromFirestore(data.list);
+            setPejabatPerbendaharaanSatkerList(hydrated);
+            safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(hydrated));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Pejabat Perbendaharaan listener notice:", error);
+      });
+
       // 5. Realtime Presensi Peserta Data
       const unsubPresensi = onSnapshot(doc(db, 'data', 'presensi_peserta'), (docSnap) => {
         if (docSnap.exists()) {
@@ -1310,6 +1358,7 @@ export default function App() {
         unsubHistorical();
         unsubSatkers();
         unsubPejabat();
+        unsubPejabatPerbendaharaan();
         unsubPresensi();
         unsubMaster();
         unsubUP();
@@ -1358,6 +1407,23 @@ export default function App() {
         .catch(err => console.warn("Error syncing pejabat to Firebase:", err));
     } catch (e) {
       console.warn("Error syncing pejabat to Firebase:", e);
+    }
+  };
+
+  const syncPejabatPerbendaharaanToFirebase = (newList: PejabatSertifikasi[]) => {
+    try {
+      const compacted = compactPejabatForFirestore(newList);
+      setDoc(doc(db, 'data', 'pejabat_perbendaharaan'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true })
+        .catch(err => console.warn("Error syncing pejabat perbendaharaan to Firebase:", err));
+
+      // Dual-sync to server-side backup API
+      fetch('/api/data/pejabat_perbendaharaan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ list: compacted }),
+      }).catch(err => console.warn("Error syncing pejabat perbendaharaan to server API:", err));
+    } catch (e) {
+      console.warn("Error syncing pejabat perbendaharaan to Firebase:", e);
     }
   };
 
@@ -1545,51 +1611,20 @@ export default function App() {
     satkerPejabatMap?: Record<string, any>
   ) => {
     setPejabatPerbendaharaanSatkerList(newList);
+    safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(newList));
+    syncPejabatPerbendaharaanToFirebase(newList);
 
-    // Update satkers & masterSatkers with new pejabat contacts in IKPA
-    if (satkerPejabatMap && Object.keys(satkerPejabatMap).length > 0) {
-      setSatkers(prevSatkers =>
-        prevSatkers.map(satker => {
-          const matchingUpdate = satkerPejabatMap[satker.kodeSatker];
-          if (matchingUpdate) {
-            return {
-              ...satker,
-              pejabatOperator: {
-                ...(satker.pejabatOperator || {}),
-                ...matchingUpdate
-              }
-            };
-          }
-          return satker;
-        })
-      );
-
-      setMasterSatkers(prevMaster =>
-        prevMaster.map(ms => {
-          const matchingUpdate = satkerPejabatMap[ms.kodeSatker];
-          if (matchingUpdate) {
-            return {
-              ...ms,
-              pejabatOperator: {
-                ...(ms.pejabatOperator || {}),
-                ...matchingUpdate
-              }
-            };
-          }
-          return ms;
-        })
-      );
-    } else if (newList.length > 0) {
-      // Build map from newList
-      const map: Record<string, any> = {};
+    // Build contacts map
+    const map: Record<string, any> = { ...(satkerPejabatMap || {}) };
+    if (newList.length > 0) {
       newList.forEach(p => {
         if (!p.kdSatker) return;
         if (!map[p.kdSatker]) map[p.kdSatker] = {};
         const contact = {
           nama: p.nama,
           nip: p.nip,
-          noHp: p.noHp !== '-' ? p.noHp : '',
-          email: p.email !== '-' ? p.email : ''
+          noHp: p.noHp && p.noHp !== '-' ? p.noHp : '',
+          email: p.email && p.email !== '-' ? p.email : ''
         };
         const jab = (p.nmJabatan || '').toLowerCase();
         if (jab.includes('kpa') || jab.includes('kuasa')) map[p.kdSatker].kpa = contact;
@@ -1601,9 +1636,12 @@ export default function App() {
         else if (jab.includes('pelaporan') || jab.includes('akuntansi')) map[p.kdSatker].operatorPelaporan = contact;
         else if (jab.includes('gaji')) map[p.kdSatker].operatorGaji = contact;
       });
+    }
 
-      setSatkers(prevSatkers =>
-        prevSatkers.map(satker => {
+    // Update satkers & masterSatkers with new pejabat contacts in IKPA
+    if (Object.keys(map).length > 0) {
+      setSatkers(prevSatkers => {
+        const updatedSatkers = prevSatkers.map(satker => {
           const matchingUpdate = map[satker.kodeSatker];
           if (matchingUpdate) {
             return {
@@ -1615,8 +1653,31 @@ export default function App() {
             };
           }
           return satker;
-        })
-      );
+        });
+        safeLocalStorageSet('kppn_satker_data', JSON.stringify(updatedSatkers));
+        syncSatkersToFirebase(updatedSatkers);
+        return updatedSatkers;
+      });
+
+      setMasterSatkers(prevMaster => {
+        const updatedMaster = prevMaster.map(ms => {
+          const matchingUpdate = map[ms.kodeSatker];
+          if (matchingUpdate) {
+            return {
+              ...ms,
+              pejabatOperator: {
+                ...(ms.pejabatOperator || {}),
+                ...matchingUpdate
+              },
+              updatedAt: new Date().toISOString()
+            };
+          }
+          return ms;
+        });
+        safeLocalStorageSet('kppn_master_satkers', JSON.stringify(updatedMaster));
+        syncMasterSatkersToFirebase(updatedMaster);
+        return updatedMaster;
+      });
     }
   };
 

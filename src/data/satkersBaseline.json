@@ -13497,6 +13497,26 @@
         "pengelolaanUpTup": 0,
         "dispensasiSpm": 0
       }
-    ]
+    ],
+    "pejabatOperator": {
+      "ppk": {
+        "nama": "GUPITA SARI PANDAWA PUTRI",
+        "nip": "198611092011012019",
+        "noHp": "08132890123",
+        "email": "gupita.sari@jatengprov.go.id"
+      },
+      "bendahara": {
+        "nama": "MARIA WIDYA NATALI",
+        "nip": "198607312010012022",
+        "noHp": "08122567890",
+        "email": "maria.widya@jatengprov.go.id"
+      },
+      "ppspm": {
+        "nama": "BAMBANG PRIYAMBODO",
+        "nip": "197905142006041011",
+        "noHp": "08129034567",
+        "email": "bambang.p@jatengprov.go.id"
+      }
+    }
   }
 ]

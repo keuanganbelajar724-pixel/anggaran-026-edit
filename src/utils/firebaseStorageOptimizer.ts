@@ -1,4 +1,4 @@
-import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, DeviasiJenisBelanjaDetail } from '../types';
+import { SatkerIKPA, ExcelUploadHistory, PengelolaanUPRecord, MasterSatker, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, DeviasiJenisBelanjaDetail, PejabatSertifikasi } from '../types';
 
 const MONTHS_ORDER = [
   'januari', 'februari', 'maret', 'april', 'mei', 'juni',
@@ -76,6 +76,7 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
       passwordSatker: s.passwordSatker || '',
       alamatSatker: s.alamatSatker || '',
       periodeUpdate: s.periodeUpdate || '',
+      pejabatOperator: s.pejabatOperator || undefined,
       riwayatBulanan: Array.isArray(s.riwayatBulanan)
         ? s.riwayatBulanan.map(r => ({
             bulan: r.bulan,
@@ -143,8 +144,9 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
  * Server data is authoritative for satkers list and current indicators, while preserving extended contact & history.
  */
 export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: SatkerIKPA[]): SatkerIKPA[] {
-  if (!Array.isArray(serverList)) return localList || [];
-  if (serverList.length === 0) return [];
+  if (!Array.isArray(serverList) || serverList.length === 0) {
+    return Array.isArray(localList) && localList.length > 0 ? localList : [];
+  }
 
   const localSatkerMap = new Map<string, SatkerIKPA>();
   if (Array.isArray(localList)) {
@@ -155,8 +157,8 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     });
   }
 
-  // Iterate over serverList (server is authoritative source for which satkers exist)
-  return serverList.map(serverS => {
+  // Iterate over serverList
+  const mergedFrom = serverList.map(serverS => {
     const kode = serverS.kodeSatker?.trim();
     if (!kode) return serverS;
 
@@ -182,19 +184,57 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
       return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
     });
 
+    const hasServerIKPA = serverS.hasIKPAData === true || (serverS.hasIKPAData !== false && (Number(serverS.nilaiTotalIKPA) > 0 || Number(serverS.paguAnggaran) > 0));
+    const hasLocalIKPA = localS.hasIKPAData === true || (localS.hasIKPAData !== false && (Number(localS.nilaiTotalIKPA) > 0 || Number(localS.paguAnggaran) > 0));
+
+    const effectiveNilaiIKPA = (hasServerIKPA && Number(serverS.nilaiTotalIKPA) > 0)
+      ? serverS.nilaiTotalIKPA
+      : (hasLocalIKPA ? localS.nilaiTotalIKPA : (serverS.nilaiTotalIKPA ?? 0));
+
+    const effectiveIndikator = (hasServerIKPA && serverS.indikator)
+      ? { ...localS.indikator, ...serverS.indikator }
+      : (localS.indikator || serverS.indikator);
+
+    const effectivePagu = (Number(serverS.paguAnggaran) > 0)
+      ? serverS.paguAnggaran
+      : (Number(localS.paguAnggaran) > 0 ? localS.paguAnggaran : 0);
+
+    const effectiveRealisasi = (Number(serverS.realisasiAnggaran) > 0)
+      ? serverS.realisasiAnggaran
+      : (Number(localS.realisasiAnggaran) > 0 ? localS.realisasiAnggaran : 0);
+
     return {
       ...localS,
       ...serverS,
+      nilaiTotalIKPA: effectiveNilaiIKPA,
+      indikator: effectiveIndikator,
+      paguAnggaran: effectivePagu,
+      realisasiAnggaran: effectiveRealisasi,
       riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (serverS.riwayatBulanan || localS.riwayatBulanan || []),
       namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
       noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
       emailPic: serverS.emailPic || localS.emailPic || '',
       passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
       alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
-      hasIKPAData: serverS.hasIKPAData !== undefined ? serverS.hasIKPAData : localS.hasIKPAData,
-      hasCapaianOutputData: serverS.hasCapaianOutputData !== undefined ? serverS.hasCapaianOutputData : localS.hasCapaianOutputData
+      pejabatOperator: serverS.pejabatOperator || localS.pejabatOperator || undefined,
+      hasIKPAData: hasServerIKPA || hasLocalIKPA,
+      hasCapaianOutputData: Boolean(serverS.hasCapaianOutputData || localS.hasCapaianOutputData)
     };
   });
+
+  // Preserve local satkers that might not be in the server batch (e.g. if server had partial upload)
+  const serverKodeSet = new Set(serverList.map(s => s.kodeSatker?.trim()).filter(Boolean));
+  const remainingLocal: SatkerIKPA[] = [];
+  if (Array.isArray(localList)) {
+    localList.forEach(localS => {
+      const kode = localS?.kodeSatker?.trim();
+      if (kode && !serverKodeSet.has(kode)) {
+        remainingLocal.push(localS);
+      }
+    });
+  }
+
+  return [...mergedFrom, ...remainingLocal];
 }
 
 export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[]): any[] {
@@ -630,6 +670,67 @@ export function mergeDeviasiHal3AntiDowngrade(serverRawList: any[], localList: D
   }
   return Array.isArray(localList) ? localList : [];
 }
+
+/**
+ * Compacts Pejabat Perbendaharaan Satker list for Firestore storage under 1MB
+ */
+export function compactPejabatForFirestore(pejabat: PejabatSertifikasi[]): any[] {
+  if (!Array.isArray(pejabat)) return [];
+  return pejabat.map(p => ({
+    id: p.id,
+    nomor: p.nomor || 0,
+    kdSatker: (p.kdSatker || (p as any).kodeSatker || '').trim(),
+    nmSatker: (p.nmSatker || (p as any).namaSatker || '').trim(),
+    nip: (p.nip || '').trim(),
+    nama: (p.nama || '').trim(),
+    nmJabatan: (p.nmJabatan || '').trim(),
+    statusJabatan: p.statusJabatan || 'Aktif',
+    noSertifikat: p.noSertifikat || '',
+    tglSertifikat: p.tglSertifikat || '',
+    tglKadaluarsa: p.tglKadaluarsa || '',
+    statusSertifikasi: p.statusSertifikasi || 'Belum Tersertifikasi',
+    statusUsulan: p.statusUsulan || '',
+    status: p.status || 'Aktif',
+    kategoriData: p.kategoriData || 'BELUM_SERTIFIKAT',
+    noHp: cleanContactValue(p.noHp),
+    email: p.email || '',
+    sisaHariMasaBerlaku: p.sisaHariMasaBerlaku || 0,
+    isKadaluarsa: !!p.isKadaluarsa,
+    isMendekatiKadaluarsa: !!p.isMendekatiKadaluarsa,
+    keterangan: p.keterangan || ''
+  }));
+}
+
+/**
+ * Hydrates Pejabat Perbendaharaan Satker from Firestore
+ */
+export function hydratePejabatFromFirestore(rawList: any[]): PejabatSertifikasi[] {
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map((p, idx) => ({
+    id: p.id || `pejabat-${p.kdSatker || idx}-${Date.now()}`,
+    nomor: p.nomor || idx + 1,
+    kdSatker: String(p.kdSatker || p.kodeSatker || '').trim(),
+    nmSatker: String(p.nmSatker || p.namaSatker || '').trim(),
+    nip: String(p.nip || '-').trim(),
+    nama: String(p.nama || '').trim(),
+    nmJabatan: String(p.nmJabatan || 'Pejabat Perbendaharaan').trim(),
+    statusJabatan: p.statusJabatan || 'Aktif',
+    noSertifikat: p.noSertifikat || 'Belum Ada',
+    tglSertifikat: p.tglSertifikat || '-',
+    tglKadaluarsa: p.tglKadaluarsa || '-',
+    statusSertifikasi: p.statusSertifikasi || 'Belum Tersertifikasi',
+    statusUsulan: p.statusUsulan || 'Tersedia',
+    status: p.status || 'Aktif',
+    kategoriData: p.kategoriData || 'BELUM_SERTIFIKAT',
+    noHp: p.noHp || '-',
+    email: p.email || '-',
+    sisaHariMasaBerlaku: p.sisaHariMasaBerlaku || 0,
+    isKadaluarsa: !!p.isKadaluarsa,
+    isMendekatiKadaluarsa: !!p.isMendekatiKadaluarsa,
+    keterangan: p.keterangan || ''
+  }));
+}
+
 
 
 

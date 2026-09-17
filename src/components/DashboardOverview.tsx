@@ -194,7 +194,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const satkersWithIKPA = React.useMemo(() => {
     return satkers.filter(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)));
   }, [satkers]);
-  const hasAnyIKPA = satkersWithIKPA.length > 0 && !dashboardConfig?.hideIKPAWhenOnlyCapaianOutput;
+  const hasAnyIKPA = satkersWithIKPA.length > 0;
 
   // Extract all uploaded months from satkers history (hanya bulan data IKPA, bukan Capaian Output)
   const availableUploadedMonths = React.useMemo(() => {
