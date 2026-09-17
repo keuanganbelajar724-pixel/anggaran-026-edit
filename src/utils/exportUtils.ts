@@ -209,32 +209,32 @@ export function exportDeviasiHal3ToPDF(
   doc.setFillColor(255, 251, 235); // amber-50/yellow-50
   doc.setDrawColor(245, 158, 11);  // amber-500
   doc.setLineWidth(0.4);
-  doc.roundedRect(12, 30.5, 273, 11, 1.8, 1.8, 'FD');
+  doc.roundedRect(12, 30.5, 273, 11.5, 1.8, 1.8, 'FD');
 
   // Badge Tag "PETUNJUK SATKER"
   doc.setFillColor(217, 119, 6); // amber-600
-  doc.roundedRect(15, 32.2, 31, 4.2, 1, 1, 'F');
+  doc.roundedRect(15, 32.2, 28, 4.2, 1, 1, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('PETUNJUK SATKER', 30.5, 35.2, { align: 'center' });
+  doc.text('PETUNJUK SATKER', 29, 35.2, { align: 'center' });
 
   // Breadcrumb path & instruction
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.8);
+  doc.setFontSize(7.5);
   doc.setTextColor(120, 53, 15); // amber-950
-  doc.text('Silakan cek My Intress:', 49, 35.3);
+  doc.text('Silakan cek My Intress:', 46, 35.2);
 
   // Path highlight
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 138); // blue path
-  doc.text('Menu Tematik  >  Indikator Pelaksanaan Anggaran  >  Monitoring Deviasi Halaman III DIPA', 83, 35.3);
+  doc.text('Tematik  >  Indikator Kinerja Pelaksanaan Anggaran  >  Indikator Kinerja Pelaksanaan Anggaran Satker  >  klik nilai Halaman III DIPA', 78, 35.2);
 
   // Subtitle note
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
+  doc.setFontSize(7.1);
   doc.setTextColor(146, 64, 14);
-  doc.text('Catatan: Matriks di bawah ini murni menampilkan nominal selisih/deviasi Rupiah per jenis belanja tanpa menyajikan angka RPD dan Realisasi.', 15, 39.5);
+  doc.text('untuk melakukan cek kesesuaian RPD (Matriks di bawah ini menyajikan nominal selisih/deviasi Rupiah per jenis belanja tanpa menyajikan angka RPD dan Realisasi).', 15, 39.8);
 
   // --- 5. TABLE SETUP WITH 2-TIER HEADER ---
   // Row 1 & Row 2 headers
@@ -381,7 +381,7 @@ export function exportDeviasiHal3ToPDF(
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(6.8);
         doc.setTextColor(146, 64, 14);
-        doc.text('Petunjuk: Cek My Intress > Menu Tematik > Indikator Pelaksanaan Anggaran > Monitoring Deviasi Halaman III DIPA', 12, 13.5);
+        doc.text('Petunjuk My Intress: Tematik > Indikator Kinerja Pelaksanaan Anggaran > Satker > klik nilai Hal III DIPA', 12, 13.5);
 
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.2);

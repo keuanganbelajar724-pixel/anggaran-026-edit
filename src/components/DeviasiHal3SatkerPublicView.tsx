@@ -940,7 +940,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               </span>
             </div>
             <p className="text-xs sm:text-sm font-medium leading-relaxed">
-              Silakan cek <strong className="font-black text-amber-950 dark:text-amber-100">My Intress</strong>: <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 inline-block my-0.5">Menu Tematik &gt; Indikator Pelaksanaan Anggaran &gt; Monitoring Deviasi Halaman III DIPA</span> untuk melakukan cek deviasi lebih atau kurang dalam deviasinya.
+              Silakan cek <strong className="font-black text-amber-950 dark:text-amber-100">My Intress</strong>: <span className="font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 rounded-lg border border-indigo-200 dark:border-indigo-800 inline-block my-0.5">Tematik → Indikator kinerja pelaksanaan anggaran → Indikator kinerja pelaksanaan anggaran satker &gt; klik nilai Halaman III DIPA</span> untuk melakukan cek kesesuaian RPD.
             </p>
           </div>
         </div>
