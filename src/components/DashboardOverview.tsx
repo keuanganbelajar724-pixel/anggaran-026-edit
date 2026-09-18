@@ -49,6 +49,7 @@ import {
   KeyRound,
   Shield,
   ShieldCheck,
+  RotateCcw,
   X
 } from 'lucide-react';
 
@@ -82,6 +83,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onSetIsAdminAuthenticated
 }) => {
   const [filterPredikat, setFilterPredikat] = useState<string>('ALL');
+  const [searchSatker, setSearchSatker] = useState<string>('');
+  const [filterSatkerKode, setFilterSatkerKode] = useState<string>('ALL');
   const [filterIssue, setFilterIssue] = useState<string>(() => {
     return (dashboardConfig?.defaultFilter && dashboardConfig.defaultFilter !== 'BELUM_OUTPUT') 
       ? dashboardConfig.defaultFilter 
@@ -295,8 +298,37 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   const satkerKurang = hasAnyIKPA ? effectiveSatkers.filter(s => (s.nilaiTotalIKPA || 0) < 70.0) : [];
   const satkerPenyerapanRendah = hasAnyIKPA ? effectiveSatkers.filter(s => (s.indikator?.penyerapanAnggaran || 0) < 85) : [];
 
+  // Daftar Opsi Satker Unik untuk Filter Dropdown Satker
+  const satkerOptions = React.useMemo(() => {
+    const map = new Map<string, string>();
+    effectiveSatkers.forEach(s => {
+      if (s.kodeSatker && !map.has(s.kodeSatker)) {
+        map.set(s.kodeSatker, s.namaSatker);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([kode, nama]) => ({ kode, nama }))
+      .sort((a, b) => a.nama.localeCompare(b.nama, 'id'));
+  }, [effectiveSatkers]);
+
   // Filter & Sort Logic for IKPA Satkers
   const filteredSatkers = effectiveSatkers.filter(s => {
+    // 1. Filter Dropdown Satker Spesifik
+    if (filterSatkerKode !== 'ALL' && s.kodeSatker !== filterSatkerKode) {
+      return false;
+    }
+
+    // 2. Filter Input Pencarian Satker (Nama Satker, Kode 6 Digit, K/L, atau Eselon I)
+    if (searchSatker.trim() !== '') {
+      const q = searchSatker.toLowerCase().trim();
+      const match = 
+        (s.namaSatker && s.namaSatker.toLowerCase().includes(q)) ||
+        (s.kodeSatker && s.kodeSatker.includes(q)) ||
+        (s.kementerianLembaga && s.kementerianLembaga.toLowerCase().includes(q)) ||
+        (s.unitEselon1 && s.unitEselon1.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+
     const ikpaVal = Number.isFinite(s.nilaiTotalIKPA) ? Number(s.nilaiTotalIKPA) : 0;
     // Filter Predikat Dropdown
     if (filterPredikat !== 'ALL') {
@@ -341,7 +373,20 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // Reset page when filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterPredikat, filterIssue, selectedMonthPeriod, effectiveSatkers.length]);
+  }, [filterPredikat, filterIssue, selectedMonthPeriod, searchSatker, filterSatkerKode, effectiveSatkers.length]);
+
+  const hasAnyFilterActive = 
+    searchSatker.trim() !== '' || 
+    filterSatkerKode !== 'ALL' || 
+    filterPredikat !== 'ALL' || 
+    filterIssue !== 'ALL';
+
+  const handleResetAllFilters = () => {
+    setSearchSatker('');
+    setFilterSatkerKode('ALL');
+    setFilterPredikat('ALL');
+    setFilterIssue('ALL');
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredSatkers.length / (pageSize > 0 ? pageSize : filteredSatkers.length || 1)));
   const paginatedSatkers = pageSize === -1 
@@ -1363,102 +1408,218 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       }`}>
         
         {/* Table Filters & Export Header */}
-        <div className={`p-5 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${
-          isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50/50 border-slate-200'
-        }`}>
-          <div>
-            <h3 className={`text-base font-extrabold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              <Building2 className="w-5 h-5 text-emerald-500" />
-              <span>{hasAnyIKPA ? 'Daftar Nilai IKPA Satker Mitra KPPN Semarang I' : 'Daftar Monitoring Capaian Output Satker Mitra KPPN Semarang I'}</span>
-            </h3>
-            <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} mt-0.5`}>
-              <span className="font-semibold text-emerald-600 dark:text-emerald-400">Periode: {currentDisplayPeriodLabel}</span> | Menampilkan {filteredSatkers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, filteredSatkers.length)} dari total {filteredSatkers.length} Satker ({hasAnyIKPA ? 'Fokus Nilai & Indikator IKPA' : 'Fokus Pelaporan Capaian Output SAKTI'})
-            </p>
-          </div>
+        <div className={`border-b ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50/50 border-slate-200'}`}>
+          {/* Baris 1: Judul Tabel & Tombol Ekspor */}
+          <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div>
+              <h3 className={`text-base font-extrabold flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <Building2 className="w-5 h-5 text-emerald-500" />
+                <span>{hasAnyIKPA ? 'Daftar Nilai IKPA Satker Mitra KPPN Semarang I' : 'Daftar Monitoring Capaian Output Satker Mitra KPPN Semarang I'}</span>
+              </h3>
+              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} mt-1 flex flex-wrap items-center gap-1.5`}>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">Periode: {currentDisplayPeriodLabel}</span>
+                <span>•</span>
+                <span>Menampilkan {filteredSatkers.length > 0 ? (currentPage - 1) * pageSize + 1 : 0} - {Math.min(currentPage * pageSize, filteredSatkers.length)} dari total {filteredSatkers.length} Satker</span>
+                <span>({hasAnyIKPA ? 'Fokus Nilai & Indikator IKPA' : 'Fokus Pelaporan Capaian Output SAKTI'})</span>
+                {hasAnyFilterActive && (
+                  <span className="ml-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-900 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 inline-flex items-center gap-1">
+                    <span>Filter Aktif</span>
+                    {filterSatkerKode !== 'ALL' && <span>(Satker: {filterSatkerKode})</span>}
+                    {searchSatker.trim() && <span>("{searchSatker}")</span>}
+                  </span>
+                )}
+              </p>
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
             {/* Export Buttons */}
-            <div className="flex items-center gap-1.5 mr-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => exportSatkersToExcel(filteredSatkers)}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Ekspor seluruh data IKPA ke file Excel (.xlsx)"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Ekspor seluruh data IKPA yang terfilter ke file Excel (.xlsx)"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
                 <span>Export Excel</span>
               </button>
 
               <button
-                onClick={() => exportSatkersToPDF(filteredSatkers, 'Laporan Monitoring Nilai IKPA KPPN Semarang I')}
-                className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                title="Ekspor seluruh data IKPA ke file PDF (.pdf)"
+                onClick={() =>
+                  exportSatkersToPDF(filteredSatkers, {
+                    title: hasAnyIKPA
+                      ? 'LAPORAN MONITORING NILAI IKPA SATUAN KERJA'
+                      : 'LAPORAN MONITORING CAPAIAN OUTPUT SATKER',
+                    subtitle:
+                      'EVALUASI 8 INDIKATOR KINERJA PELAKSANAAN ANGGARAN (PER-5/PB/2024)',
+                    periodeLabel: currentDisplayPeriodLabel,
+                    filterLabel: hasAnyFilterActive
+                      ? `Filter Aktif (${filteredSatkers.length} Satker)`
+                      : `Semua Satker (${filteredSatkers.length} Satker)`
+                  })
+                }
+                className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                title="Ekspor seluruh data IKPA yang terfilter ke file PDF (.pdf)"
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Export PDF</span>
               </button>
             </div>
+          </div>
 
-            {/* Period Filter Dropdown in Table Toolbar */}
-            <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
-              isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
-            }`}>
-              <CalendarRange className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
-              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Periode:</span>
-              <select
-                value={selectedMonthPeriod}
-                onChange={(e) => setSelectedMonthPeriod(e.target.value)}
-                className={`bg-transparent font-bold focus:outline-none cursor-pointer ${
-                  isDark ? 'text-emerald-400 bg-slate-900' : 'text-emerald-700'
-                }`}
-              >
-                <option value="LATEST" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⭐ Terbaru ({latestMonthName} 2026)</option>
-                {availableUploadedMonths.map(m => (
-                  <option key={m} value={m} className={isDark ? 'bg-slate-900 text-slate-100' : ''}>s.d. {m} 2026</option>
-                ))}
-              </select>
+          {/* Baris 2: Filter Toolbar Lengkap (Pencarian Satker, Dropdown Satker, Periode, Predikat, Kategori) */}
+          <div className="p-3 sm:px-5 sm:py-3.5 flex flex-wrap items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/40">
+            {/* Sisi Kiri: Filter & Pencarian Satker */}
+            <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+              {/* Input Pencarian Cepat Satker */}
+              <div className="relative flex-1 min-w-[220px] max-w-md">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchSatker}
+                  onChange={(e) => setSearchSatker(e.target.value)}
+                  placeholder="Cari satker (nama atau 6 digit kode)..."
+                  className={`w-full pl-9 pr-8 py-2 rounded-xl text-xs font-medium border shadow-2xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${
+                    isDark
+                      ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-500 focus:border-indigo-500'
+                      : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500'
+                  }`}
+                />
+                {searchSatker && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchSatker('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5"
+                    title="Hapus kata kunci pencarian"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown Pemilih Satker Spesifik */}
+              <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
+                filterSatkerKode !== 'ALL'
+                  ? (isDark ? 'bg-indigo-950/60 border-indigo-700 text-indigo-300' : 'bg-indigo-50 border-indigo-300 text-indigo-900')
+                  : (isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-600')
+              }`}>
+                <Building2 className={`w-3.5 h-3.5 ${
+                  filterSatkerKode !== 'ALL'
+                    ? (isDark ? 'text-indigo-400' : 'text-indigo-600')
+                    : 'text-slate-400'
+                }`} />
+                <span className={`font-semibold shrink-0 ${
+                  filterSatkerKode !== 'ALL'
+                    ? (isDark ? 'text-indigo-300' : 'text-indigo-800')
+                    : (isDark ? 'text-slate-300' : 'text-slate-700')
+                }`}>Pilih Satker:</span>
+                <select
+                  value={filterSatkerKode}
+                  onChange={(e) => setFilterSatkerKode(e.target.value)}
+                  className={`bg-transparent font-medium focus:outline-none cursor-pointer max-w-[190px] sm:max-w-[260px] truncate ${
+                    filterSatkerKode !== 'ALL'
+                      ? (isDark ? 'text-indigo-200 font-bold bg-slate-900' : 'text-indigo-900 font-bold')
+                      : (isDark ? 'text-slate-200 bg-slate-900' : 'text-slate-800')
+                  }`}
+                  title="Pilih satu Satker spesifik dari seluruh daftar satker mitra"
+                >
+                  <option value="ALL" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>
+                    Semua Satker ({satkerOptions.length} Satker)
+                  </option>
+                  {satkerOptions.map((opt) => (
+                    <option key={opt.kode} value={opt.kode} className={isDark ? 'bg-slate-900 text-slate-100' : ''}>
+                      [{opt.kode}] {opt.nama}
+                    </option>
+                  ))}
+                </select>
+                {filterSatkerKode !== 'ALL' && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterSatkerKode('ALL')}
+                    className="text-slate-400 hover:text-rose-500 p-0.5 ml-0.5"
+                    title="Reset pilihan satker ke Semua Satker"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Quick Filter Controls */}
-            <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
-              isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
-            }`}>
-              <Filter className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`} />
-              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Predikat:</span>
-              <select
-                value={filterPredikat}
-                onChange={(e) => setFilterPredikat(e.target.value)}
-                className={`bg-transparent font-medium focus:outline-none cursor-pointer ${
-                  isDark ? 'text-slate-100 bg-slate-900' : 'text-slate-800'
-                }`}
-              >
-                <option value="ALL" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Semua Predikat</option>
-                <option value="Sangat Baik" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Sangat Baik (≥ 95.00)</option>
-                <option value="Baik" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Baik (89.00 - 94.99)</option>
-                <option value="Cukup" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Cukup (70.00 - 88.99)</option>
-                <option value="Kurang" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Kurang (&lt; 70.00)</option>
-              </select>
-            </div>
+            {/* Sisi Kanan: Filter Periode, Predikat, Kategori, & Reset */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Period Filter Dropdown in Table Toolbar */}
+              <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
+                isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
+              }`}>
+                <CalendarRange className={`w-3.5 h-3.5 ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Periode:</span>
+                <select
+                  value={selectedMonthPeriod}
+                  onChange={(e) => setSelectedMonthPeriod(e.target.value)}
+                  className={`bg-transparent font-bold focus:outline-none cursor-pointer ${
+                    isDark ? 'text-emerald-400 bg-slate-900' : 'text-emerald-700'
+                  }`}
+                >
+                  <option value="LATEST" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⭐ Terbaru ({latestMonthName} 2026)</option>
+                  {availableUploadedMonths.map(m => (
+                    <option key={m} value={m} className={isDark ? 'bg-slate-900 text-slate-100' : ''}>s.d. {m} 2026</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
-              isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
-            }`}>
-              <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Filter Kategori IKPA:</span>
-              <select
-                value={filterIssue}
-                onChange={(e) => setFilterIssue(e.target.value)}
-                className={`bg-transparent font-medium focus:outline-none cursor-pointer ${
-                  isDark ? 'text-slate-100 bg-slate-900' : 'text-slate-800'
-                }`}
-              >
-                <option value="ALL" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Semua Satker IKPA</option>
-                <option value="IKPA_SANGAT_BAIK" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⭐ Sangat Baik (≥ 95.00)</option>
-                <option value="IKPA_BAIK" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🟢 Baik (89.00 - 94.99)</option>
-                <option value="IKPA_CUKUP" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🟡 Cukup (70.00 - 88.99)</option>
-                <option value="IKPA_KURANG" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🔴 Kurang (&lt; 70.00)</option>
-                <option value="PENYERAPAN_RENDAH" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>📉 Penyerapan Anggaran &lt; 85%</option>
-                <option value="DEVIASI_TINGGI" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>📊 Deviasi Hal III DIPA &lt; 85%</option>
-                <option value="DISPENSASI_SPM" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⚠️ Ada Dispensasi SPM</option>
-              </select>
+              {/* Quick Filter Controls */}
+              <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
+                isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
+              }`}>
+                <Filter className={`w-3.5 h-3.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`} />
+                <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Predikat:</span>
+                <select
+                  value={filterPredikat}
+                  onChange={(e) => setFilterPredikat(e.target.value)}
+                  className={`bg-transparent font-medium focus:outline-none cursor-pointer ${
+                    isDark ? 'text-slate-100 bg-slate-900' : 'text-slate-800'
+                  }`}
+                >
+                  <option value="ALL" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Semua Predikat</option>
+                  <option value="Sangat Baik" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Sangat Baik (≥ 95.00)</option>
+                  <option value="Baik" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Baik (89.00 - 94.99)</option>
+                  <option value="Cukup" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Cukup (70.00 - 88.99)</option>
+                  <option value="Kurang" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Kurang (&lt; 70.00)</option>
+                </select>
+              </div>
+
+              <div className={`flex items-center gap-1.5 text-xs rounded-xl px-3 py-1.5 border shadow-2xs ${
+                isDark ? 'bg-slate-900 border-slate-700 text-slate-300' : 'bg-white border-slate-200 text-slate-500'
+              }`}>
+                <span className={`font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Filter Kategori IKPA:</span>
+                <select
+                  value={filterIssue}
+                  onChange={(e) => setFilterIssue(e.target.value)}
+                  className={`bg-transparent font-medium focus:outline-none cursor-pointer ${
+                    isDark ? 'text-slate-100 bg-slate-900' : 'text-slate-800'
+                  }`}
+                >
+                  <option value="ALL" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>Semua Satker IKPA</option>
+                  <option value="IKPA_SANGAT_BAIK" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⭐ Sangat Baik (≥ 95.00)</option>
+                  <option value="IKPA_BAIK" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🟢 Baik (89.00 - 94.99)</option>
+                  <option value="IKPA_CUKUP" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🟡 Cukup (70.00 - 88.99)</option>
+                  <option value="IKPA_KURANG" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>🔴 Kurang (&lt; 70.00)</option>
+                  <option value="PENYERAPAN_RENDAH" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>📉 Penyerapan Anggaran &lt; 85%</option>
+                  <option value="DEVIASI_TINGGI" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>📊 Deviasi Hal III DIPA &lt; 85%</option>
+                  <option value="DISPENSASI_SPM" className={isDark ? 'bg-slate-900 text-slate-100' : ''}>⚠️ Ada Dispensasi SPM</option>
+                </select>
+              </div>
+
+              {/* Reset Filter Button */}
+              {hasAnyFilterActive && (
+                <button
+                  type="button"
+                  onClick={handleResetAllFilters}
+                  className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-all flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="Reset seluruh filter dan pencarian"
+                >
+                  <RotateCcw className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                  <span>Reset Filter</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1495,7 +1656,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                           ? 'Seluruh data dummy telah dikosongkan. Silakan unggah file Excel IKPA asli Anda.'
                           : 'Coba ubah kata kunci pencarian atau sesuaikan filter predikat/masalah.'}
                       </p>
-                      {satkers.length === 0 && (
+                      {satkers.length === 0 ? (
                         <button
                           onClick={onGoToUpload}
                           className="mt-2 inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-md cursor-pointer transition-all"
@@ -1503,7 +1664,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                           <FileCheck className="w-4 h-4" />
                           <span>Upload File Excel Sekarang</span>
                         </button>
-                      )}
+                      ) : hasAnyFilterActive ? (
+                        <button
+                          onClick={handleResetAllFilters}
+                          className="mt-2 inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Reset Semua Filter &amp; Pencarian Satker</span>
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
@@ -1703,9 +1872,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Mobile Card View (Visible on small screens) */}
         <div className={`block md:hidden divide-y ${isDark ? 'divide-slate-800' : 'divide-slate-200'}`}>
           {filteredSatkers.length === 0 ? (
-            <div className="py-10 px-4 text-center text-slate-500">
+            <div className="py-10 px-4 text-center text-slate-500 space-y-2">
               <p className="font-semibold text-sm">Tidak ada Satker yang sesuai dengan filter.</p>
-              <p className="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau reset filter.</p>
+              <p className="text-xs text-slate-400">Coba ubah kata kunci pencarian atau reset filter.</p>
+              {hasAnyFilterActive && (
+                <button
+                  onClick={handleResetAllFilters}
+                  className="mt-2 inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow-xs cursor-pointer transition-all"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Filter Satker</span>
+                </button>
+              )}
             </div>
           ) : (
             paginatedSatkers.map((satker, idx) => {

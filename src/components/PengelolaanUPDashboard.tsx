@@ -10,7 +10,9 @@ import {
   FileSpreadsheet,
   AlertTriangle,
   CheckCircle2,
-  Info
+  Info,
+  Printer,
+  FileDown
 } from 'lucide-react';
 import { PengelolaanUPRecord, MasterSatker } from '../types';
 import {
@@ -18,6 +20,7 @@ import {
   parseDashboardReferenceDate,
   evaluateUPRecordStatus
 } from '../data/initialUPData';
+import { exportPengelolaanUPToPDF, exportPengelolaanUPToExcel } from '../utils/exportUtils';
 import { PaginationControl } from './PaginationControl';
 
 interface PengelolaanUPDashboardProps {
@@ -221,6 +224,87 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
     return displayedRecords.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   }, [displayedRecords, currentPage, pageSize]);
 
+  // Satker yang jatuh tempo dalam kurun < 1 minggu (<= 7 hari) atau yang sudah telat
+  const satkersKurun1Minggu = useMemo(() => {
+    return scopedRecords.filter(item => {
+      const evalData = evaluatedMap.get(item.id || item.kodeSatker);
+      const up = evalData?.up;
+      const tup = evalData?.tup;
+      const hasUP = up && up.rawDeadline !== '-' && up.rawDeadline !== '';
+      const hasTUP = tup && tup.rawDeadline !== '-' && tup.rawDeadline !== '';
+      return (hasUP && up.isDalam1Minggu) || (hasTUP && tup.isDalam1Minggu);
+    });
+  }, [scopedRecords, evaluatedMap]);
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPdfKurun1Minggu = () => {
+    if (satkersKurun1Minggu.length === 0) {
+      alert('Tidak ada satker yang berada dalam kurun waktu 1 minggu atau telat.');
+      return;
+    }
+    setIsExporting(true);
+    try {
+      const updateStr = dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard || '';
+      exportPengelolaanUPToPDF(satkersKurun1Minggu, {
+        referenceDate,
+        title: 'LAPORAN MONITORING BATAS WAKTU UP & TUP SATUAN KERJA',
+        subtitle: 'DAFTAR SATKER DENGAN PERINGATAN JATUH TEMPO (KURUN < 1 MINGGU & TELAT)',
+        filterLabel: `Kurun < 1 Minggu & Telat (${satkersKurun1Minggu.length} Satker)`,
+        updateDateStr: updateStr,
+        filename: `Laporan_UP_TUP_Kurun_1_Minggu_KPPN_Semarang_I_${referenceDate.toISOString().slice(0, 10)}.pdf`
+      });
+    } catch (err) {
+      console.error('Gagal mencetak PDF Kurun 1 Minggu:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportPdfCurrent = () => {
+    if (displayedRecords.length === 0) return;
+    setIsExporting(true);
+    try {
+      const updateStr = dashboardConfig?.updateDates?.pengelolaanUp || dashboardConfig?.updateDates?.dashboard || '';
+      const filterLabel = activeFilter === '1_MINGGU'
+        ? `Kurun < 1 Minggu & Telat (${displayedRecords.length} Satker)`
+        : activeFilter === 'TELAT'
+        ? `Satker Telat (${displayedRecords.length} Satker)`
+        : activeFilter === 'HARI_INI'
+        ? `Jatuh Tempo Hari Ini (${displayedRecords.length} Satker)`
+        : activeFilter === 'UP_ONLY'
+        ? `Batas Waktu UP (${displayedRecords.length} Satker)`
+        : activeFilter === 'TUP_ONLY'
+        ? `Batas Waktu TUP (${displayedRecords.length} Satker)`
+        : `Seluruh Satker Terfilter (${displayedRecords.length} Satker)`;
+
+      exportPengelolaanUPToPDF(displayedRecords, {
+        referenceDate,
+        title: 'LAPORAN MONITORING BATAS WAKTU UP & TUP SATUAN KERJA',
+        subtitle: activeFilter === '1_MINGGU'
+          ? 'DAFTAR SATKER PERINGATAN JATUH TEMPO (KURUN < 1 MINGGU & TELAT)'
+          : `LAPORAN DATA PENGELOLAAN UP & TUP - ${filterLabel.toUpperCase()}`,
+        filterLabel,
+        updateDateStr: updateStr,
+        filename: `Laporan_UP_TUP_${activeFilter}_KPPN_Semarang_I_${referenceDate.toISOString().slice(0, 10)}.pdf`
+      });
+    } catch (err) {
+      console.error('Gagal mencetak PDF:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcel = () => {
+    const listToExport = activeFilter === '1_MINGGU' ? satkersKurun1Minggu : displayedRecords;
+    if (listToExport.length === 0) return;
+    exportPengelolaanUPToExcel(
+      listToExport,
+      referenceDate,
+      `Monitoring_UP_TUP_${activeFilter === '1_MINGGU' ? 'Kurun_1_Minggu' : 'Data'}_${referenceDate.toISOString().slice(0, 10)}.xlsx`
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -250,15 +334,27 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             </p>
           </div>
 
-          {(userRole === 'ADMIN' || isAdminAuthenticated) && onGoToAdmin && (
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
-              onClick={onGoToAdmin}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black px-5 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all cursor-pointer text-sm shrink-0"
+              onClick={handleExportPdfKurun1Minggu}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 hover:from-amber-400 hover:via-orange-400 hover:to-rose-500 text-white font-black px-4 sm:px-5 py-3 rounded-2xl shadow-lg hover:shadow-amber-500/25 transition-all cursor-pointer text-xs sm:text-sm"
+              title="Cetak Laporan PDF Satker dengan batas waktu kurang dari 1 minggu & telat"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Kelola / Upload UP &amp; TUP</span>
+              <Printer className="w-4 h-4" />
+              <span>Cetak PDF Kurun &lt; 1 Minggu ({stats.satuMinggu})</span>
             </button>
-          )}
+
+            {(userRole === 'ADMIN' || isAdminAuthenticated) && onGoToAdmin && (
+              <button
+                onClick={onGoToAdmin}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white font-black px-5 py-3 rounded-2xl shadow-lg hover:shadow-purple-500/25 transition-all cursor-pointer text-xs sm:text-sm shrink-0"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Kelola / Upload UP &amp; TUP</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -336,23 +432,40 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
             setActiveFilter('1_MINGGU');
             setCurrentPage(1);
           }}
-          className={`border rounded-2xl p-5 shadow-sm space-y-2 cursor-pointer transition-all ${
+          className={`border rounded-2xl p-5 shadow-sm space-y-3 cursor-pointer transition-all flex flex-col justify-between ${
             activeFilter === '1_MINGGU'
               ? 'bg-amber-500/10 border-amber-500 ring-2 ring-amber-500/30'
               : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-amber-300'
           }`}
         >
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Kurun 1 Minggu &amp; Telat</span>
-            <Clock className="w-4 h-4 text-amber-500" />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Kurun 1 Minggu &amp; Telat</span>
+              <Clock className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
+              {stats.satuMinggu} <span className="text-xs font-semibold text-slate-400">Satker</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+              {stats.countTelat > 0 && <span className="text-rose-600">⚠️ {stats.countTelat} Telat</span>}
+              {stats.countHariIni > 0 && <span>• ⚡ {stats.countHariIni} Hari Ini</span>}
+              <span>• ⏱️ {stats.countMendekati} &le; 7 Hari</span>
+            </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
-            {stats.satuMinggu} <span className="text-xs font-semibold text-slate-400">Satker</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
-            {stats.countTelat > 0 && <span className="text-rose-600">⚠️ {stats.countTelat} Telat</span>}
-            {stats.countHariIni > 0 && <span>• ⚡ {stats.countHariIni} Hari Ini</span>}
-            <span>• ⏱️ {stats.countMendekati} &le; 7 Hari</span>
+
+          <div className="pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExportPdfKurun1Minggu();
+              }}
+              disabled={isExporting}
+              className="w-full inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white font-black text-xs py-2 px-3 rounded-xl shadow-xs transition-all cursor-pointer"
+              title="Cetak PDF Kurun < 1 Minggu"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak PDF ({stats.satuMinggu} Satker)</span>
+            </button>
           </div>
         </div>
       </div>
@@ -541,6 +654,46 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
           </div>
         </div>
 
+        {/* Action & Export Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gradient-to-r from-slate-50 via-purple-50/20 to-slate-50 dark:from-slate-950/70 dark:via-purple-950/20 dark:to-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-2xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExportPdfKurun1Minggu}
+              disabled={isExporting}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-black text-xs px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer"
+              title="Cetak Dokumen PDF Satker dengan batas waktu kurang dari 1 minggu & telat"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Cetak PDF Kurun &lt; 1 Minggu ({satkersKurun1Minggu.length} Satker)</span>
+            </button>
+
+            <button
+              onClick={handleExportPdfCurrent}
+              disabled={isExporting || displayedRecords.length === 0}
+              className="inline-flex items-center gap-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-800 dark:text-slate-200 font-bold text-xs px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
+              title="Cetak PDF Sesuai Data Tabel Yang Sedang Ditampilkan"
+            >
+              <FileDown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+              <span>Cetak PDF Tabel ({displayedRecords.length})</span>
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              disabled={displayedRecords.length === 0}
+              className="inline-flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs px-3.5 py-2 rounded-xl border border-emerald-200 dark:border-emerald-800 transition-all cursor-pointer"
+              title="Download Data Monitoring UP & TUP ke file Excel (.xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Export Excel</span>
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+            <span>Format PDF: <strong>A4 Landscape Standar Ditjen Perbendaharaan (DJPb)</strong></span>
+          </div>
+        </div>
+
         {/* Legend Indicator & Explanation */}
         <div className="p-3 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-3">
@@ -577,20 +730,32 @@ export const PengelolaanUPDashboard: React.FC<PengelolaanUPDashboardProps> = ({
 
         {/* Informational Filter Tag */}
         {activeFilter === '1_MINGGU' && (
-          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+          <div className="p-3.5 bg-gradient-to-r from-amber-50 via-amber-100/40 to-amber-50 dark:from-amber-950/40 dark:via-amber-900/30 dark:to-amber-950/40 border border-amber-300 dark:border-amber-800 rounded-2xl text-xs text-amber-950 dark:text-amber-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                <Sparkles className="w-4 h-4 shrink-0" />
+              </div>
               <span>Menampilkan satker yang memiliki batas waktu dalam <strong>kurun waktu 1 minggu (&le; 7 hari)</strong> dan satker yang <strong>sudah jatuh tempo/telat</strong> (UP &gt; 0%).</span>
             </div>
-            <button
-              onClick={() => {
-                setActiveFilter('ALL');
-                setCurrentPage(1);
-              }}
-              className="text-amber-700 dark:text-amber-300 font-bold underline text-[11px] cursor-pointer"
-            >
-              Tampilkan Semua Satker
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleExportPdfKurun1Minggu}
+                disabled={isExporting}
+                className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-black text-xs px-3.5 py-1.5 rounded-xl shadow-xs cursor-pointer transition-all"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Cetak PDF Laporan Ini</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveFilter('ALL');
+                  setCurrentPage(1);
+                }}
+                className="text-amber-800 dark:text-amber-300 font-bold underline text-[11px] cursor-pointer px-2 py-1"
+              >
+                Tampilkan Semua Satker
+              </button>
+            </div>
           </div>
         )}
 
