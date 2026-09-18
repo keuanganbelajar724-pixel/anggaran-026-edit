@@ -738,9 +738,11 @@ export const IkpaAnomalyTrendSection: React.FC<IkpaAnomalyTrendSectionProps> = (
                 const isUrgentDanger = rec.urgency === 'DARURAT';
                 const isHighPriority = rec.urgency === 'PRIORITAS_TINGGI';
 
+                const rowKey = rec.satker?.id ? `anomaly-${rec.satker.id}` : (rec.satker?.kodeSatker ? `anomaly-${rec.satker.kodeSatker}` : `anomaly-row-${idx}`);
+
                 return (
                   <tr
-                    key={rec.satker.id}
+                    key={rowKey}
                     className={`transition-colors ${
                       isDark ? 'hover:bg-slate-850' : 'hover:bg-slate-50/80'
                     } ${

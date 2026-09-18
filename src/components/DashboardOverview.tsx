@@ -246,9 +246,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   // Dynamically map satker data strictly based on the selected period month
   const effectiveSatkers = React.useMemo(() => {
     const targetMonth = (activeMonthPeriod || latestMonthName).toLowerCase();
-    return satkersWithIKPA.map(s => {
+    return satkersWithIKPA.map((s, sIdx) => {
+      const satkerId = s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${sIdx}`);
       const hist = s.riwayatBulanan?.find(r => r && r.bulan && r.bulan.toLowerCase().includes(targetMonth));
-      if (!hist) return s;
+      if (!hist) return { ...s, id: satkerId };
       const cur = s.indikator;
       const histIKPA = typeof hist.nilaiIKPA === 'number' && hist.nilaiIKPA > 0 ? hist.nilaiIKPA : s.nilaiTotalIKPA;
       let histPredikat = s.predikat;
@@ -259,6 +260,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
       return {
         ...s,
+        id: satkerId,
         nilaiTotalIKPA: histIKPA,
         predikat: histPredikat,
         indikator: {
@@ -1281,10 +1283,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                         const rowNo = (indicatorPage - 1) * indPageSize + idx + 1;
                         const val = satker.indicatorValue;
                         const isRed = val < 70;
+                        const rowKey = satker.id ? `ind-${satker.id}` : (satker.kodeSatker ? `ind-${satker.kodeSatker}` : `ind-${idx}`);
 
                         return (
                           <tr 
-                            key={satker.id} 
+                            key={rowKey} 
                             className={`transition-colors ${
                               isDark ? 'hover:bg-slate-900/60' : 'hover:bg-white'
                             } ${isRed ? (isDark ? 'bg-rose-950/20' : 'bg-rose-50/40') : ''}`}
@@ -1681,10 +1684,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                   const isRedFlag = satker.nilaiTotalIKPA < 87.5;
                   const rowNumber = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
                   const ind = satker.indikator;
+                  const rowKey = satker.id ? `table-${satker.id}` : (satker.kodeSatker ? `table-${satker.kodeSatker}` : `row-${idx}`);
                   
                   return (
                     <tr 
-                      key={satker.id} 
+                      key={rowKey} 
                       className={`transition-colors ${
                         isDark ? 'hover:bg-slate-800/60' : 'hover:bg-slate-50'
                       } ${
@@ -1889,8 +1893,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             paginatedSatkers.map((satker, idx) => {
               const isRedFlag = (satker.nilaiTotalIKPA || 0) < 87.5;
               const ind = satker.indikator || ({} as any);
+              const cardKey = satker.id ? `card-${satker.id}` : (satker.kodeSatker ? `card-${satker.kodeSatker}` : `card-${idx}`);
               return (
-                <div key={satker.id} className={`p-4 space-y-3 ${
+                <div key={cardKey} className={`p-4 space-y-3 ${
                   isRedFlag 
                     ? (isDark ? 'bg-rose-950/20' : 'bg-rose-50/20') 
                     : (isDark ? 'bg-slate-900' : 'bg-white')

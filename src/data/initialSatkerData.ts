@@ -7,8 +7,9 @@ const baselineArray: any[] = Array.isArray(rawSatkersBaseline)
     ? (rawSatkersBaseline as any).default
     : [];
 
-export const INITIAL_SATKER_DATA: SatkerIKPA[] = baselineArray.map((s: any) => ({
+export const INITIAL_SATKER_DATA: SatkerIKPA[] = baselineArray.map((s: any, idx: number) => ({
   ...s,
+  id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${idx}`),
   hasIKPAData: typeof s.hasIKPAData === 'boolean' ? s.hasIKPAData : true,
   hasCapaianOutputData: typeof s.hasCapaianOutputData === 'boolean' ? s.hasCapaianOutputData : true,
 })) as SatkerIKPA[];

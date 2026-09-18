@@ -47,6 +47,20 @@ export interface ExportSatkersPdfOptions {
   filename?: string;
 }
 
+export interface ExportCapaianOutputPdfOptions {
+  title?: string;
+  subtitle?: string;
+  periodeLabel?: string;
+  filterLabel?: string;
+  filename?: string;
+  totalSatkerAll?: number;
+  satkerSudahCount?: number;
+  satkerBelumCount?: number;
+  pejabatNama?: string;
+  pejabatNip?: string;
+  pejabatJabatan?: string;
+}
+
 /**
  * Menggambar Emblem / Lencana Resmi Kementerian Keuangan & DJPb secara Vektor
  */
@@ -727,6 +741,578 @@ export function exportSatkersToPDF(
     options.filename ||
     `Laporan_Monitoring_IKPA_Satker_${cleanPeriode}_${printDate.toISOString().slice(0, 10)}.pdf`;
   doc.save(safeFilename);
+}
+
+/**
+ * Export Monitoring Capaian Output SAKTI Data to PDF (.pdf)
+ * Standar Eksekutif Ditjen Perbendaharaan (DJPb - Kemenkeu):
+ * - Orientasi A4 Landscape elegan dan proporsional (297 mm x 210 mm)
+ * - Kop resmi Kementerian Keuangan & KPPN Tipe A1 Semarang I dengan emblem vektor
+ * - Kartu ringkasan KPI eksekutif (Total Satker, Sudah Menyampaikan, Belum Menyampaikan, Tingkat Kepatuhan, Satker Ditampilkan)
+ * - Tabel komprehensif memuat Kode, Nama Satker, K/L, Skor Caput SAKTI, Status Penyampaian, Kontak PIC, dan Tindak Lanjut
+ * - Penyorotan otomatis satker Belum Menyampaikan (0% / Belum Terlaporkan) dengan warna merah tegas
+ * - Penanganan otomatis status NIHIL jika seluruh satker sudah 100% menyampaikan
+ * - Running header & footer dinamis dengan penomoran resmi
+ * - Lembar Pengesahan / Tanda Tangan resmi Pejabat Pengawas di halaman akhir
+ */
+export function exportCapaianOutputToPDF(
+  satkers: SatkerIKPA[],
+  options: ExportCapaianOutputPdfOptions = {}
+) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const totalPagesExp = '{total_pages_count_string}';
+
+  const printDate = new Date();
+  const printDateStr = printDate.toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+  const printTimeStr =
+    printDate.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit'
+    }) + ' WIB';
+
+  const docTitle = options.title || 'LAPORAN MONITORING PENYAMPAIAN CAPAIAN OUTPUT SAKTI';
+  const docSubtitle =
+    options.subtitle || 'PENGAWASAN PENGIRIMAN & KONFIRMASI DATA CAPAIAN OUTPUT SATUAN KERJA (PER-5/PB/2024)';
+  const periodeText = options.periodeLabel || 's.d. Periode Berkenaan 2026';
+  const filterBadge = options.filterLabel || `Daftar Satker (${satkers.length} Satker)`;
+
+  // Statistik Eksekutif
+  const totalAll = options.totalSatkerAll ?? (satkers.length || 127);
+  const isBelumFn = (s: SatkerIKPA) =>
+    s.statusCapaianOutput === 'Belum Terlaporkan' || (s.indikator?.capaianOutput ?? 0) === 0;
+
+  const belumCount =
+    options.satkerBelumCount ?? satkers.filter((s) => isBelumFn(s)).length;
+  const sudahCount = options.satkerSudahCount ?? Math.max(0, totalAll - belumCount);
+  const percentSudah =
+    totalAll > 0 ? ((sudahCount / totalAll) * 100).toFixed(1) : '100.0';
+  const percentBelum =
+    totalAll > 0 ? ((belumCount / totalAll) * 100).toFixed(1) : '0.0';
+
+  // --- 1. ACCENT TOP BAR (Navy + Gold Kemenkeu) ---
+  doc.setFillColor(15, 47, 87); // Deep Navy Kemenkeu #0F2F57
+  doc.rect(0, 0, 297, 3.2, 'F');
+  doc.setFillColor(212, 175, 55); // Kemenkeu Gold #D4AF37
+  doc.rect(0, 3.2, 297, 1, 'F');
+
+  // --- 2. HEADER KOP INSTANSI RESMI KEMENKEU DENGAN EMBLEM VEKTOR ---
+  drawKemenkeuEmblem(doc, 10, 6.5, 14.5);
+
+  const kopTextX = 27.5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(15, 47, 87);
+  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', kopTextX, 9.8);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(30, 64, 175);
+  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN', kopTextX, 13.8);
+
+  doc.setFontSize(7.2);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text('KANTOR WILAYAH PROVINSI JAWA TENGAH', kopTextX, 17.2);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(15, 23, 42);
+  doc.text('KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I (KPPN 026)', kopTextX, 20.8);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text(
+    'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 | Telepon (024) 8412850 | Laman: djpb.kemenkeu.go.id/kppn/semarang1',
+    kopTextX,
+    24
+  );
+
+  // Garis Ganda Pembatas Kop Surat
+  doc.setDrawColor(15, 47, 87);
+  doc.setLineWidth(0.65);
+  doc.line(10, 26, 287, 26);
+
+  doc.setDrawColor(212, 175, 55);
+  doc.setLineWidth(0.3);
+  doc.line(10, 27.1, 287, 27.1);
+
+  // --- 3. JUDUL LAPORAN & SUBTITLE ---
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(15, 47, 87);
+  doc.text(docTitle, 10, 32.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.2);
+  doc.setTextColor(30, 64, 175);
+  doc.text(docSubtitle, 10, 36.8);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    `Periode: ${periodeText}   |   Waktu Unduh: ${printDateStr}, ${printTimeStr}   |   Filter: ${filterBadge}   |   Sumber Data: Aplikasi SAKTI & OMSPAN`,
+    10,
+    41
+  );
+
+  // --- 4. EXECUTIVE SUMMARY METRIC CARDS (5 Cards) ---
+  const cardY = 43.5;
+  const cardH = 11.5;
+  const cardW = 53;
+  const gap = 3;
+
+  // Card 1: Total Satker Terdaftar
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(203, 213, 225);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(10, cardY, cardW, cardH, 1.5, 1.5, 'FD');
+  doc.setFillColor(15, 47, 87);
+  doc.rect(10, cardY, cardW, 1.2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(100, 116, 139);
+  doc.text('TOTAL SATKER TERDAFTAR', 13, cardY + 4.2);
+  doc.setFontSize(10);
+  doc.setTextColor(15, 47, 87);
+  doc.text(`${totalAll} Satker`, 13, cardY + 8.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(71, 85, 105);
+  doc.text('KPPN Tipe A1 Semarang I (026)', 13, cardY + 10.5);
+
+  // Card 2: Sudah Menyampaikan
+  const c2X = 10 + (cardW + gap);
+  doc.setFillColor(236, 253, 245);
+  doc.setDrawColor(167, 243, 208);
+  doc.roundedRect(c2X, cardY, cardW, cardH, 1.5, 1.5, 'FD');
+  doc.setFillColor(5, 150, 105);
+  doc.rect(c2X, cardY, cardW, 1.2, 'F');
+  doc.circle(c2X + 4, cardY + 3.8, 1, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(4, 120, 87);
+  doc.text('SUDAH MENYAMPAIKAN (>0%)', c2X + 6.5, cardY + 4.2);
+  doc.setFontSize(10);
+  doc.setTextColor(4, 120, 87);
+  doc.text(`${sudahCount} Satker`, c2X + 6.5, cardY + 8.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(5, 150, 105);
+  doc.text(`Terkonfirmasi valid (${percentSudah}%)`, c2X + 6.5, cardY + 10.5);
+
+  // Card 3: Belum Menyampaikan (Merah Rose)
+  const c3X = 10 + (cardW + gap) * 2;
+  doc.setFillColor(belumCount > 0 ? 254 : 248, belumCount > 0 ? 242 : 250, belumCount > 0 ? 242 : 252);
+  doc.setDrawColor(belumCount > 0 ? 254 : 203, belumCount > 0 ? 202 : 213, belumCount > 0 ? 202 : 225);
+  doc.roundedRect(c3X, cardY, cardW, cardH, 1.5, 1.5, 'FD');
+  doc.setFillColor(belumCount > 0 ? 220 : 100, belumCount > 0 ? 38 : 116, belumCount > 0 ? 38 : 139);
+  doc.rect(c3X, cardY, cardW, 1.2, 'F');
+  doc.circle(c3X + 4, cardY + 3.8, 1, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(belumCount > 0 ? 185 : 100, belumCount > 0 ? 28 : 116, belumCount > 0 ? 28 : 139);
+  doc.text('BELUM MENYAMPAIKAN (0% DATA)', c3X + 6.5, cardY + 4.2);
+  doc.setFontSize(10);
+  doc.setTextColor(belumCount > 0 ? 185 : 15, belumCount > 0 ? 28 : 47, belumCount > 0 ? 28 : 87);
+  doc.text(`${belumCount} Satker`, c3X + 6.5, cardY + 8.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(belumCount > 0 ? 220 : 71, belumCount > 0 ? 38 : 85, belumCount > 0 ? 38 : 105);
+  doc.text(
+    belumCount > 0 ? `Risiko Penurunan IKPA (${percentBelum}%)` : 'Tertib Pelaporan (Nihil Menunggak)',
+    c3X + 6.5,
+    cardY + 10.5
+  );
+
+  // Card 4: Persentase Kepatuhan Wilayah
+  const c4X = 10 + (cardW + gap) * 3;
+  doc.setFillColor(239, 246, 255);
+  doc.setDrawColor(191, 219, 254);
+  doc.roundedRect(c4X, cardY, cardW, cardH, 1.5, 1.5, 'FD');
+  doc.setFillColor(37, 99, 235);
+  doc.rect(c4X, cardY, cardW, 1.2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(29, 78, 216);
+  doc.text('TINGKAT KEPATUHAN WILAYAH', c4X + 3, cardY + 4.2);
+  doc.setFontSize(10);
+  doc.setTextColor(29, 78, 216);
+  doc.text(`${percentSudah}%`, c4X + 3, cardY + 8.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(37, 99, 235);
+  doc.text(`Target KPPN: 100.0% s.d. cut-off`, c4X + 3, cardY + 10.5);
+
+  // Card 5: Cakupan Laporan
+  const c5X = 10 + (cardW + gap) * 4;
+  const c5W = 287 - c5X;
+  doc.setFillColor(241, 245, 249);
+  doc.setDrawColor(203, 213, 225);
+  doc.roundedRect(c5X, cardY, c5W, cardH, 1.5, 1.5, 'FD');
+  doc.setFillColor(71, 85, 105);
+  doc.rect(c5X, cardY, c5W, 1.2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.2);
+  doc.setTextColor(15, 23, 42);
+  doc.text('SATKER DALAM LAPORAN', c5X + 3, cardY + 4.2);
+  doc.setFontSize(10);
+  doc.setTextColor(15, 23, 42);
+  doc.text(`${satkers.length} Satker`, c5X + 3, cardY + 8.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(5.8);
+  doc.setTextColor(51, 65, 85);
+  doc.text(`Standar Acuan: PER-5/PB/2024`, c5X + 3, cardY + 10.5);
+
+  // --- 5. TABLE HEADER & DATA ---
+  const tableHead: any = [
+    [
+      { content: 'NO', styles: { valign: 'middle', halign: 'center' } },
+      { content: 'KODE', styles: { valign: 'middle', halign: 'center' } },
+      { content: 'NAMA SATUAN KERJA & KEMENTERIAN / LEMBAGA', styles: { valign: 'middle', halign: 'left' } },
+      { content: 'CAPUT (%)', styles: { valign: 'middle', halign: 'center' } },
+      { content: 'STATUS PENYAMPAIAN', styles: { valign: 'middle', halign: 'center' } },
+      { content: 'TOTAL IKPA', styles: { valign: 'middle', halign: 'center' } },
+      { content: 'PIC / KONTAK SATKER', styles: { valign: 'middle', halign: 'left' } },
+      { content: 'RISIKO IKPA & TINDAK LANJUT SEGERA', styles: { valign: 'middle', halign: 'left' } }
+    ]
+  ];
+
+  let tableRows: any[] = [];
+
+  if (satkers.length === 0) {
+    tableRows = [
+      [
+        {
+          content: `NIHIL TUNGGAKAN - Seluruh ${totalAll} Satker KPPN Tipe A1 Semarang I telah menyampaikan data Capaian Output SAKTI (Tingkat Kepatuhan 100.0%). Tidak terdapat satker yang berstatus Belum Menyampaikan.`,
+          colSpan: 8,
+          styles: {
+            halign: 'center',
+            valign: 'middle',
+            fillColor: [236, 253, 245],
+            textColor: [4, 120, 87],
+            fontStyle: 'bold',
+            minCellHeight: 16
+          }
+        }
+      ]
+    ];
+  } else {
+    tableRows = satkers.map((s, index) => {
+      const caputVal = s.indikator?.capaianOutput ?? 0;
+      const isBelum = isBelumFn(s);
+
+      const satkerText = `${s.namaSatker}${s.kementerianLembaga ? '\n' + s.kementerianLembaga : ''}`;
+      const statusText = isBelum ? '[ BELUM MENYAMPAIKAN ]' : '[ SUDAH MENYAMPAIKAN ]';
+      const ikpaText = typeof s.nilaiTotalIKPA === 'number' && s.nilaiTotalIKPA > 0 ? s.nilaiTotalIKPA.toFixed(2) : '-';
+      const picText = s.namaPic ? `${s.namaPic}${s.noHpPic ? '\nHP: ' + s.noHpPic : ''}` : '-';
+
+      let tindakLanjut = 'Data telah terkonfirmasi valid pada aplikasi SAKTI.';
+      if (isBelum) {
+        tindakLanjut =
+          'PERINGATAN KRITIS: Segera input data capaian output pada modul Komitmen SAKTI & konfirmasi ke KPPN! Berisiko nilai 0 pada Indikator Capaian Output IKPA (bobot 25%).';
+      } else if (caputVal < 90) {
+        tindakLanjut = `Evaluasi capaian output (${caputVal.toFixed(1)}%). Pastikan seluruh target RO terkonfirmasi akurat.`;
+      }
+
+      return [
+        index + 1,
+        s.kodeSatker,
+        satkerText,
+        `${caputVal.toFixed(2)}%`,
+        statusText,
+        ikpaText,
+        picText,
+        tindakLanjut
+      ];
+    });
+  }
+
+  autoTable(doc, {
+    head: tableHead,
+    body: tableRows,
+    startY: cardY + cardH + 3.5,
+    margin: { left: 10, right: 10, top: 19, bottom: 14 },
+    theme: 'grid',
+    showHead: 'everyPage',
+    styles: {
+      fontSize: 6.8,
+      cellPadding: 2,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      valign: 'middle',
+      textColor: [15, 23, 42],
+      overflow: 'linebreak'
+    },
+    headStyles: {
+      fillColor: [15, 47, 87],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 6.8,
+      halign: 'center',
+      valign: 'middle',
+      lineWidth: 0.3,
+      lineColor: [30, 58, 138]
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+      2: { cellWidth: 70, halign: 'left' },
+      3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+      4: { cellWidth: 38, halign: 'center', fontStyle: 'bold' },
+      5: { cellWidth: 18, halign: 'center' },
+      6: { cellWidth: 38, halign: 'left' },
+      7: { cellWidth: 67, halign: 'left' }
+    },
+    didParseCell: function (data) {
+      if (data.section === 'body' && satkers.length > 0) {
+        const s = satkers[data.row.index];
+        if (!s) return;
+        const isBelum = isBelumFn(s);
+
+        // Highlight entire row slightly if Belum Menyampaikan
+        if (isBelum) {
+          data.cell.styles.fillColor = [254, 242, 242]; // red-50
+        }
+
+        // Column 3: CAPUT (%)
+        if (data.column.index === 3) {
+          if (isBelum) {
+            data.cell.styles.textColor = [185, 28, 28]; // red-700
+            data.cell.styles.fillColor = [254, 226, 226]; // red-100
+          } else {
+            data.cell.styles.textColor = [4, 120, 87]; // emerald-700
+          }
+        }
+
+        // Column 4: Status Penyampaian
+        if (data.column.index === 4) {
+          if (isBelum) {
+            data.cell.styles.textColor = [185, 28, 28]; // red-700
+            data.cell.styles.fillColor = [254, 202, 202]; // red-200
+          } else {
+            data.cell.styles.textColor = [4, 120, 87]; // emerald-700
+            data.cell.styles.fillColor = [209, 250, 229]; // emerald-100
+          }
+        }
+
+        // Column 7: Tindak Lanjut
+        if (data.column.index === 7 && isBelum) {
+          data.cell.styles.textColor = [153, 27, 27]; // red-800
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
+    didDrawPage: function (data) {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Top accent bar
+      doc.setFillColor(15, 47, 87);
+      doc.rect(0, 0, pageWidth, 2.5, 'F');
+      doc.setFillColor(212, 175, 55);
+      doc.rect(0, 2.5, pageWidth, 0.8, 'F');
+
+      // Running header for pages > 1
+      if (data.pageNumber > 1) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(15, 47, 87);
+        doc.text(
+          `KEMENTERIAN KEUANGAN RI - KPPN TIPE A1 SEMARANG I  |  LAPORAN MONITORING CAPAIAN OUTPUT SAKTI`,
+          10,
+          9.5
+        );
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.8);
+        doc.setTextColor(180, 83, 9);
+        doc.text(
+          `Periode: ${periodeText}  •  Kategori: ${filterBadge}  •  Aplikasi SAKTI Kemenkeu`,
+          10,
+          13.8
+        );
+
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.25);
+        doc.line(10, 15.5, 287, 15.5);
+      }
+
+      // Footer line
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.3);
+      doc.line(10, pageHeight - 9, 287, pageHeight - 9);
+
+      // Running footer text
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.8);
+      doc.setTextColor(15, 47, 87);
+      doc.text('KPPN TIPE A1 SEMARANG I (026)', 10, pageHeight - 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        ' •  Seksi Manajemen Satker & Kepatuhan Internal (MSKI)  •  Pengawasan Capaian Output SAKTI',
+        50,
+        pageHeight - 5
+      );
+
+      // Page numbering
+      const pageStr = `Halaman ${data.pageNumber} dari ${totalPagesExp}`;
+      doc.text(pageStr, 287, pageHeight - 5, { align: 'right' });
+    }
+  });
+
+  // --- 6. LEMBAR PENGESAHAN / TANDA TANGAN RESMI KEMENKEU DI AKHIR LAPORAN ---
+  const finalTableY = (doc as any).lastAutoTable
+    ? (doc as any).lastAutoTable.finalY
+    : 140;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const signatureHeight = 36;
+
+  if (pageHeight - finalTableY < signatureHeight + 16) {
+    doc.addPage();
+  }
+
+  const sigStartY =
+    pageHeight - finalTableY >= signatureHeight + 16 ? finalTableY + 6 : 24;
+
+  // Sisi Kiri: Boks Catatan Dinas & Dasar Hukum
+  doc.setFillColor(248, 250, 252);
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(10, sigStartY, 140, signatureHeight - 3, 1.5, 1.5, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.8);
+  doc.setTextColor(15, 47, 87);
+  doc.text('CATATAN PENGAWASAN CAPAIAN OUTPUT SAKTI (PER-5/PB/2024):', 13, sigStartY + 4.5);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.2);
+  doc.setTextColor(71, 85, 105);
+  doc.text(
+    '1. Satker wajib melakukan pengisian Rincian Output (RO) dan konfirmasi Capaian Output',
+    13,
+    sigStartY + 8.5
+  );
+  doc.text(
+    '   pada modul Komitmen SAKTI paling lambat 5 (lima) hari kerja setelah bulan berkenaan berakhir.',
+    13,
+    sigStartY + 11.8
+  );
+  doc.text(
+    '2. Satker yang belum menyampaikan data Capaian Output (skor 0%) berisiko kehilangan poin',
+    13,
+    sigStartY + 15.5
+  );
+  doc.text(
+    '   maksimal pada Indikator Capaian Output yang memiliki bobot 25% dalam penilaian IKPA.',
+    13,
+    sigStartY + 18.8
+  );
+  doc.text(
+    '3. Seksi MSKI KPPN Semarang I menerbitkan notifikasi percepatan dan asistensi teknis SAKTI',
+    13,
+    sigStartY + 22.5
+  );
+  doc.text(
+    '   bagi satuan kerja yang belum menyampaikan data guna menjaga performa IKPA KPPN 026.',
+    13,
+    sigStartY + 25.8
+  );
+
+  // Sisi Kanan: Format Pengesahan Dinas
+  const sigX = 205;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`Semarang, ${printDateStr}`, sigX, sigStartY + 3.5);
+
+  doc.text('a.n. Kepala Kantor Pelayanan Perbendaharaan Negara', sigX, sigStartY + 7.5);
+  doc.text('Tipe A1 Semarang I', sigX, sigStartY + 11);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(
+    options.pejabatJabatan || 'Kepala Seksi Manajemen Satker dan Kepatuhan Internal,',
+    sigX,
+    sigStartY + 15
+  );
+
+  // Ruang Tanda Tangan
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+  const namaPejabat = options.pejabatNama || 'SUHARTONO, S.E., M.M.';
+  const nipPejabat = options.pejabatNip || 'NIP 19780512 200212 1 001';
+  doc.text(namaPejabat, sigX, sigStartY + 28);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text(nipPejabat, sigX, sigStartY + 31.5);
+
+  // Garis penutup tanda tangan
+  doc.setDrawColor(15, 47, 87);
+  doc.setLineWidth(0.25);
+  doc.line(sigX, sigStartY + 28.5, sigX + 65, sigStartY + 28.5);
+
+  if (typeof (doc as any).putTotalPages === 'function') {
+    (doc as any).putTotalPages(totalPagesExp);
+  }
+
+  const cleanPeriode = (periodeText || 'Caput_SAKTI').replace(/[^a-zA-Z0-9]/g, '_');
+  const isBelumOnly = filterBadge.toLowerCase().includes('belum');
+  const defaultPrefix = isBelumOnly
+    ? 'Laporan_Satker_Belum_Menyampaikan_Capaian_Output'
+    : 'Laporan_Monitoring_Capaian_Output_SAKTI';
+  const safeFilename =
+    options.filename || `${defaultPrefix}_${cleanPeriode}_${printDate.toISOString().slice(0, 10)}.pdf`;
+  doc.save(safeFilename);
+}
+
+/**
+ * Export Capaian Output SAKTI to Excel (.xlsx)
+ */
+export function exportCapaianOutputToExcel(
+  satkers: SatkerIKPA[],
+  filename = 'Data_Monitoring_Capaian_Output_SAKTI_KPPN_Semarang_I.xlsx'
+) {
+  const isBelumFn = (s: SatkerIKPA) =>
+    s.statusCapaianOutput === 'Belum Terlaporkan' || (s.indikator?.capaianOutput ?? 0) === 0;
+
+  const excelData = satkers.map((s, index) => {
+    const isBelum = isBelumFn(s);
+    return {
+      'No': index + 1,
+      'Kode Satker': s.kodeSatker,
+      'Nama Satker': s.namaSatker,
+      'Kementerian/Lembaga': s.kementerianLembaga || '-',
+      'Nilai Capaian Output (%)': Number((s.indikator?.capaianOutput ?? 0).toFixed(2)),
+      'Status Penyampaian': isBelum ? 'Belum Menyampaikan (0% / Belum Terlaporkan)' : 'Sudah Menyampaikan',
+      'Nilai Total IKPA': Number(s.nilaiTotalIKPA.toFixed(2)),
+      'Predikat IKPA': s.predikat,
+      'Nama PIC': s.namaPic || '-',
+      'Kontak PIC': s.noHpPic || '-',
+      'Tindak Lanjut': isBelum
+        ? 'Segera input data SAKTI & konfirmasi KPPN'
+        : 'Data telah terkonfirmasi valid pada aplikasi SAKTI'
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Capaian Output SAKTI');
+  XLSX.writeFile(workbook, filename);
 }
 
 /**

@@ -21,9 +21,13 @@ import {
   Layers,
   Check,
   FolderArchive,
-  Activity
+  Activity,
+  Printer,
+  FileDown,
+  Download
 } from 'lucide-react';
 import { PaginationControl } from './PaginationControl';
+import { exportCapaianOutputToPDF, exportCapaianOutputToExcel } from '../utils/exportUtils';
 
 interface CapaianOutputDashboardProps {
   satkers: SatkerIKPA[];
@@ -125,6 +129,53 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     : filteredSatkers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const isDark = theme === 'dark';
+
+  const currentPeriodLabel = selectedArchive 
+    ? selectedArchive.periode 
+    : (dashboardConfig?.updateDates?.capaianOutput || (activeCaputArchive ? `Periode ${activeCaputArchive.periode}` : 'Periode Agustus 2026'));
+
+  const handleExportPdfBelum = () => {
+    exportCapaianOutputToPDF(satkerBelum, {
+      title: 'LAPORAN SATUAN KERJA BELUM MENYAMPAIKAN CAPAIAN OUTPUT SAKTI',
+      subtitle: 'DAFTAR PENGAWASAN & PENERTIBAN KONFIRMASI CAPAIAN OUTPUT (PER-5/PB/2024)',
+      periodeLabel: currentPeriodLabel,
+      filterLabel: `Khusus Satker Belum Menyampaikan (${satkerBelum.length} Satker)`,
+      totalSatkerAll: totalSatker,
+      satkerSudahCount: satkerSudah.length,
+      satkerBelumCount: satkerBelum.length,
+      filename: `Laporan_Satker_Belum_Menyampaikan_Capaian_Output_${currentPeriodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+    });
+  };
+
+  const handleExportPdfFiltered = () => {
+    const isBelumFilter = filterStatus === 'BELUM';
+    const isSudahFilter = filterStatus === 'SUDAH';
+    const filterText = isBelumFilter 
+      ? `Khusus Belum Menyampaikan (${filteredSatkers.length} Satker)` 
+      : isSudahFilter 
+        ? `Khusus Sudah Menyampaikan (${filteredSatkers.length} Satker)` 
+        : `Seluruh Satker (${filteredSatkers.length} Satker)`;
+
+    exportCapaianOutputToPDF(filteredSatkers, {
+      title: isBelumFilter
+        ? 'LAPORAN SATUAN KERJA BELUM MENYAMPAIKAN CAPAIAN OUTPUT SAKTI'
+        : 'LAPORAN MONITORING PENYAMPAIAN CAPAIAN OUTPUT SAKTI',
+      subtitle: 'PENGAWASAN PENGIRIMAN & KONFIRMASI DATA CAPAIAN OUTPUT SATUAN KERJA (PER-5/PB/2024)',
+      periodeLabel: currentPeriodLabel,
+      filterLabel: filterText,
+      totalSatkerAll: totalSatker,
+      satkerSudahCount: satkerSudah.length,
+      satkerBelumCount: satkerBelum.length
+    });
+  };
+
+  const handleExportExcel = () => {
+    const safePeriode = currentPeriodLabel.replace(/[^a-zA-Z0-9]/g, '_');
+    exportCapaianOutputToExcel(
+      filteredSatkers, 
+      `Data_Capaian_Output_${filterStatus.toLowerCase()}_${safePeriode}.xlsx`
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -357,9 +408,23 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
             <span className="text-3xl font-black text-rose-600">{satkerBelum.length}</span>
             <span className="text-xs font-bold text-rose-600">({percentBelum}%)</span>
           </div>
-          <div className="mt-3 text-xs text-rose-700 dark:text-rose-400 border-t border-rose-100 dark:border-rose-900/50 pt-2 flex justify-between font-semibold">
-            <span>Risiko IKPA:</span>
-            <span className="bg-rose-200 dark:bg-rose-950 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded text-[10px]">Teguran WA</span>
+          <div className="mt-3 text-xs text-rose-700 dark:text-rose-400 border-t border-rose-100 dark:border-rose-900/50 pt-2 flex justify-between items-center font-semibold">
+            <div className="flex items-center gap-1.5">
+              <span>Risiko:</span>
+              <span className="bg-rose-200 dark:bg-rose-950 text-rose-900 dark:text-rose-200 px-1.5 py-0.5 rounded text-[10px]">Teguran WA</span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleExportPdfBelum();
+              }}
+              title="Cetak Dokumen PDF Satker Belum Menyampaikan"
+              className="inline-flex items-center gap-1 bg-rose-600 hover:bg-rose-700 text-white font-bold px-2 py-1 rounded-lg text-[10px] shadow-xs cursor-pointer transition-all active:scale-95"
+            >
+              <Printer className="w-3 h-3" />
+              <span>Cetak PDF</span>
+            </button>
           </div>
         </div>
 
@@ -385,7 +450,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
           />
         </div>
 
-        {/* Category Filters */}
+        {/* Category Filters & Export Actions */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {/* Status Buttons */}
           <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
@@ -409,7 +474,7 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
                 filterStatus === 'BELUM' ? 'bg-rose-600 text-white shadow-xs' : 'text-rose-600 hover:bg-rose-50'
               }`}
             >
-              🔴 Belum Menyampaikan ({satkerBelum.length})
+              🔴 Belum ({satkerBelum.length})
             </button>
             <button
               onClick={() => {
@@ -421,6 +486,42 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               }`}
             >
               🟢 Sudah ({satkerSudah.length})
+            </button>
+          </div>
+
+          {/* Quick PDF & Excel Buttons in Filter Toolbar */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleExportPdfBelum}
+              title="Cetak PDF Khusus Satker Belum Menyampaikan Capaian Output SAKTI"
+              className={`px-3 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 ${
+                satkerBelum.length > 0
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-300 dark:ring-rose-900'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 hover:bg-rose-100'
+              }`}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak Belum ({satkerBelum.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportPdfFiltered}
+              title="Cetak PDF Data Terfilter Saat Ini"
+              className="px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 bg-sky-600 hover:bg-sky-500 text-white"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>Cetak PDF</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              title="Unduh Data Format Excel (.xlsx)"
+              className="p-2 rounded-xl text-xs font-bold flex items-center justify-center transition-all shadow-xs cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              <Download className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -440,6 +541,36 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               Menampilkan {filteredSatkers.length} dari total {satkers.length} Satker KPPN Semarang I (026).
             </p>
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleExportPdfBelum}
+              title="Cetak Laporan PDF Satker Belum Menyampaikan Capaian Output"
+              className="px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 bg-rose-600 hover:bg-rose-500 text-white"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Cetak PDF Belum ({satkerBelum.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdfFiltered}
+              title="Cetak Laporan PDF Data Capaian Output"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 bg-sky-600 hover:bg-sky-500 text-white"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              <span>Cetak PDF ({filteredSatkers.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              title="Unduh Data Excel (.xlsx)"
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 bg-emerald-600 hover:bg-emerald-500 text-white"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Excel</span>
+            </button>
+          </div>
         </div>
 
         {/* Main Table (Desktop View) */}
@@ -456,16 +587,40 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
               {filteredSatkers.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="py-16 text-center">
-                    <div className="max-w-md mx-auto space-y-2">
-                      <Info className="w-10 h-10 mx-auto text-slate-400" />
-                      <p className={`font-extrabold text-base ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                        {satkers.length === 0 ? 'Belum Ada Data Satker (0 Satker)' : 'Tidak Ada Data Satker'}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {satkers.length === 0
-                          ? 'Silakan unggah file Excel Capaian Output SAKTI Anda di menu Admin & Upload Excel.'
-                          : 'Tidak ada Satker yang sesuai dengan kriteria filter saat ini.'}
-                      </p>
+                    <div className="max-w-md mx-auto space-y-3">
+                      {filterStatus === 'BELUM' && satkerBelum.length === 0 ? (
+                        <>
+                          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
+                            <CheckCircle2 className="w-7 h-7" />
+                          </div>
+                          <p className={`font-extrabold text-base ${isDark ? 'text-emerald-300' : 'text-emerald-800'}`}>
+                            Kabar Baik! Seluruh Satker (100%) Telah Menyampaikan Capaian Output
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                            Tidak terdapat satker yang berstatus Belum Menyampaikan (0%). Anda tetap dapat mengunduh Berita Acara / Laporan Resmi Kepatuhan 100% DJPb via tombol di bawah.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleExportPdfBelum}
+                            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
+                          >
+                            <Printer className="w-4 h-4" />
+                            <span>Cetak Laporan Kepatuhan 100% (PDF)</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <Info className="w-10 h-10 mx-auto text-slate-400" />
+                          <p className={`font-extrabold text-base ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                            {satkers.length === 0 ? 'Belum Ada Data Satker (0 Satker)' : 'Tidak Ada Data Satker'}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {satkers.length === 0
+                              ? 'Silakan unggah file Excel Capaian Output SAKTI Anda di menu Admin & Upload Excel.'
+                              : 'Tidak ada Satker yang sesuai dengan kriteria filter saat ini.'}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -178,8 +178,9 @@ export default function App() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed
             .filter((s: SatkerIKPA) => s && (s.kodeSatker || s.namaSatker))
-            .map((s: SatkerIKPA) => ({
+            .map((s: SatkerIKPA, idx: number) => ({
               ...s,
+              id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${idx}`),
               namaPic: cleanPicName(s.namaPic, s.kodeSatker),
               noHpPic: cleanContactValue(s.noHpPic)
             }));
@@ -2044,11 +2045,13 @@ export default function App() {
         }
         return true;
       })
-      .map(s => {
+      .map((s, idx) => {
         const master = masterSatkerMap.get(s.kodeSatker.trim());
+        const satkerId = s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${idx}`);
         if (master) {
           return {
             ...s,
+            id: satkerId,
             namaSatker: master.namaSatker || s.namaSatker,
             kementerianLembaga: master.kementerianLembaga || s.kementerianLembaga,
             unitEselon1: master.unitEselon1 || s.unitEselon1,
@@ -2059,7 +2062,10 @@ export default function App() {
             isActive: master.isActive
           };
         }
-        return s;
+        return {
+          ...s,
+          id: satkerId
+        };
       });
   }, [satkers, masterSatkerMap]);
 
