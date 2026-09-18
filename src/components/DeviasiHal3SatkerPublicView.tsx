@@ -116,9 +116,6 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   // Table Text Size / Display Density ('standard' or 'large') - Default is now 'standard' as requested!
   const [tableTextSize, setTableTextSize] = useState<'standard' | 'large'>('standard');
 
-  // Option to toggle Total Deviasi Column in view
-  const [showTotalDeviasiColumn, setShowTotalDeviasiColumn] = useState<boolean>(true);
-
   // PDF Generation State
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
@@ -139,6 +136,12 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
   // Format rupiah helper
   const formatRupiah = (num: number) => {
     return 'Rp ' + Math.round(num || 0).toLocaleString('id-ID');
+  };
+
+  // Helper nama bulan Indonesia
+  const getNamaBulan = (p: number | string | undefined): string => {
+    const num = Number(p) || 9;
+    return PERIODE_LIST.find(item => item.angka === num)?.bulan || `Bulan ${num}`;
   };
 
   // Distinct K/L list
@@ -372,9 +375,10 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
     setIsGeneratingPdf(true);
     try {
       const periodeObj = PERIODE_LIST.find(p => String(p.angka) === effectivePeriode);
+      const namaBln = periodeObj?.bulan || getNamaBulan(effectivePeriode);
       const periodeLabel = effectivePeriode === 'ALL'
         ? 'Semua Periode'
-        : `Bulan ${effectivePeriode.padStart(2, '0')} (${periodeObj?.bulan || ''})`;
+        : `Bulan ${namaBln} (${effectivePeriode.padStart(2, '0')})`;
 
       exportDeviasiHal3ToPDF(filteredRecords, {
         periodeLabel,
@@ -969,10 +973,14 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               <FileSpreadsheet className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Tabel Kepatuhan Deviasi Halaman III DIPA Satker
             </h3>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5 font-medium">
-              {activeTab === 'MATRIKS'
-                ? 'Matriks Deviasi Lengkap: Menampilkan Deviasi Nominal (Rp) Akun 51 Pegawai, 52 Barang, 53 Modal, dan 57 Bansos. Kolom nominal ditampilkan besar dan jelas tanpa persentase membingungkan.'
-                : `Menampilkan Deviasi Nominal (Rp) untuk ${activeTab === '51' ? 'Belanja Pegawai (51)' : activeTab === '52' ? 'Belanja Barang (52)' : activeTab === '53' ? 'Belanja Modal (53)' : 'Belanja Bansos (57)'}. Kolom nominal luas dan mudah dipantau.`}
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">
+              Periode Evaluasi Deviasi:{' '}
+              <span className="font-black text-indigo-700 dark:text-indigo-300 underline decoration-2 decoration-indigo-600 dark:decoration-indigo-400 underline-offset-4 text-xs sm:text-sm">
+                Bulan {getNamaBulan(effectivePeriode)}
+              </span>
+              <span className="ml-1 text-slate-500 font-semibold">
+                — Matriks Deviasi Nominal (Rp) Akun 51 Pegawai, 52 Barang, 53 Modal, dan 57 Bansos.
+              </span>
             </p>
           </div>
 
@@ -983,27 +991,11 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               onClick={handleExportPDF}
               disabled={isGeneratingPdf}
               className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-all flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
-              title="Cetak/Unduh dokumen PDF semua halaman tanpa kolom total deviasi (siap dikirim ke satker)"
+              title="Cetak/Unduh dokumen PDF semua halaman resmi (siap dikirim ke satker)"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{isGeneratingPdf ? 'Memproses...' : 'Cetak PDF'}</span>
             </button>
-
-            {/* Toggle Kolom Total Deviasi (Sesuai preferensi user: tidak perlu ada total deviasi) */}
-            {activeTab === 'MATRIKS' && (
-              <button
-                type="button"
-                onClick={() => setShowTotalDeviasiColumn(!showTotalDeviasiColumn)}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
-                  showTotalDeviasiColumn
-                    ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                    : 'bg-indigo-100 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200'
-                }`}
-                title="Tampilkan atau sembunyikan kolom Total Deviasi pada layar"
-              >
-                <span>{showTotalDeviasiColumn ? 'Kolom Total: Tampil' : 'Kolom Total: Sembunyi'}</span>
-              </button>
-            )}
 
             {/* Toggle Ukuran Teks / Kepadatan Tabel */}
             <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
@@ -1053,7 +1045,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
           </div>
         </div>
 
-        {/* PANDUAN WARNA & INDIKATOR TARGET (MEMUDAHKAN PEMAHAMAN SATKER) */}
+        {/* PANDUAN WARNA & INDIKATOR PERIODE DEVIASI (DIGARISBAWAHI & TEBAL) */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-2.5 bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700/80 text-xs">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Aksen Akun:</span>
@@ -1071,21 +1063,21 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="font-extrabold text-slate-700 dark:text-slate-300 text-[11px] uppercase tracking-wider">Status Deviasi:</span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 font-black text-[11px] border border-emerald-300 dark:border-emerald-700 shadow-2xs">
-              🟢 Sesuai RPD (Nihil / Rp 0)
-            </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300 font-black text-[11px] border border-amber-300 dark:border-amber-700 shadow-2xs">
-              ⚠️ Terdapat Deviasi (&gt; Rp 0)
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Periode Data:</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 text-indigo-950 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-800 font-black text-xs shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+              <span className="underline decoration-2 decoration-indigo-600 dark:decoration-indigo-400 underline-offset-2">
+                Bulan {getNamaBulan(effectivePeriode)}
+              </span>
             </span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           {activeTab === 'MATRIKS' ? (
-            /* MATRIKS LENGKAP KHUSUS SATKER: MURNI FOKUS DEVIASI NOMINAL (RP) (TANPA PERSENTASE MEMBINGUNGKAN) */
-            <table className="w-full text-left min-w-[1050px]">
+            /* MATRIKS LENGKAP KHUSUS SATKER: MURNI FOKUS DEVIASI NOMINAL (RP) PER JENIS BELANJA */
+            <table className="w-full text-left min-w-[980px]">
               <thead className="text-slate-700 dark:text-slate-300 font-extrabold uppercase tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th rowSpan={2} className="py-3 px-3 text-center w-12 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
@@ -1094,25 +1086,13 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                   <th rowSpan={2} className="py-3 px-4 min-w-[280px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700 text-xs sm:text-sm font-black">
                     Satuan Kerja
                   </th>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-16 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
-                    Bln
+                  <th rowSpan={2} className="py-3 px-3 text-center min-w-[170px] bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-r border-slate-200 dark:border-slate-700 text-xs font-black">
+                    Bulan Deviasi
                   </th>
                   
                   {/* Header Deviasi Nominal 4 Akun */}
-                  <th colSpan={4} className="py-3.5 px-4 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-800 text-white border-r border-slate-600 text-xs sm:text-sm font-black tracking-wide shadow-xs">
+                  <th colSpan={4} className="py-3.5 px-4 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-800 text-white text-xs sm:text-sm font-black tracking-wide shadow-xs">
                     💰 DEVIASI NOMINAL PER JENIS BELANJA (RUPIAH)
-                  </th>
-
-                  {/* Total Deviasi Nominal - Bisa Ditampilkan/Disembunyikan */}
-                  {showTotalDeviasiColumn && (
-                    <th rowSpan={2} className="py-3 px-4 text-right min-w-[190px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide border-r border-slate-700">
-                      TOTAL DEVIASI (RP)
-                    </th>
-                  )}
-
-                  {/* Status */}
-                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[150px] bg-slate-800 dark:bg-slate-950 text-white font-black text-xs sm:text-sm tracking-wide">
-                    STATUS
                   </th>
                 </tr>
                 <tr className="border-t border-slate-200 dark:border-slate-700 text-xs">
@@ -1126,7 +1106,7 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                   <th className="py-2.5 px-4 text-right bg-purple-200 text-purple-950 dark:bg-purple-900 dark:text-purple-100 font-black border-r border-purple-300 dark:border-purple-800 min-w-[150px]">
                     53 Modal
                   </th>
-                  <th className="py-2.5 px-4 text-right bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100 font-black border-r border-slate-400 dark:border-slate-600 min-w-[150px]">
+                  <th className="py-2.5 px-4 text-right bg-emerald-200 text-emerald-950 dark:bg-emerald-900 dark:text-emerald-100 font-black min-w-[150px]">
                     57 Bansos
                   </th>
                 </tr>
@@ -1136,15 +1116,13 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
               }`}>
                 {paginatedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={showTotalDeviasiColumn ? 9 : 8} className="py-16 text-center text-slate-400 text-sm font-medium">
+                    <td colSpan={7} className="py-16 text-center text-slate-400 text-sm font-medium">
                       Tidak ada data yang cocok dengan kriteria filter Anda.
                     </td>
                   </tr>
                 ) : (
                   paginatedRecords.map((r, idx) => {
                     const globalIdx = (currentPage - 1) * (pageSize > 0 ? pageSize : 0) + idx + 1;
-                    const totalDev = r.deviasiNominalTotal || 0;
-                    const isNihil = totalDev === 0;
 
                     const dev51 = r.rincianJenisBelanja?.belanja51?.deviasiNominal || 0;
                     const dev52 = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
@@ -1179,9 +1157,16 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                             )}
                           </div>
                         </td>
-                        <td className={`${pyClass} px-2 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800`}>
-                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono font-black text-xs">
-                            {String(r.periodeAngka || 1).padStart(2, '0')}
+                        
+                        {/* Kolom Periode Bulan - Tebal & Digarisbawahi Sesuai Permintaan */}
+                        <td className={`${pyClass} px-3 text-center border-r border-slate-200 dark:border-slate-800 whitespace-nowrap bg-slate-50/60 dark:bg-slate-900/40`}>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 text-indigo-950 dark:text-indigo-200 shadow-2xs">
+                            <span className="font-black text-xs sm:text-[13px] underline decoration-2 decoration-indigo-600 dark:decoration-indigo-400 underline-offset-2">
+                              Bulan {getNamaBulan(r.periodeAngka)}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-500 font-bold">
+                              ({String(r.periodeAngka || 1).padStart(2, '0')})
+                            </span>
                           </span>
                         </td>
 
@@ -1207,35 +1192,12 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                         }`}>
                           {dev53 === 0 ? 'Rp 0' : formatRupiah(dev53)}
                         </td>
-                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-emerald-50/70 dark:bg-emerald-950/25 border-r border-slate-300 dark:border-slate-700 ${
+                        <td className={`${pyClass} px-4 text-right font-mono font-bold bg-emerald-50/70 dark:bg-emerald-950/25 ${
                           tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
                         } ${
                           dev57 === 0 ? 'text-slate-400 font-normal' : 'text-emerald-950 dark:text-emerald-100 font-black'
                         }`}>
                           {dev57 === 0 ? 'Rp 0' : formatRupiah(dev57)}
-                        </td>
-
-                        {/* Total Deviasi Nominal (Rp) - Ditampilkan jika opsi aktif */}
-                        {showTotalDeviasiColumn && (
-                          <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 ${
-                            tableTextSize === 'large' ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
-                          } ${
-                            isNihil ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white'
-                          }`}>
-                            {formatRupiah(totalDev)}
-                          </td>
-                        )}
-
-                        {/* Status Deviasi */}
-                        <td className={`${pyClass} px-4 text-center bg-slate-50/80 dark:bg-slate-900/50`}>
-                          <span className={`inline-flex items-center justify-center gap-1.5 min-w-[110px] px-3 py-1.5 rounded-xl font-bold text-xs shadow-2xs ${
-                            isNihil
-                              ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border border-emerald-400 dark:border-emerald-700'
-                              : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-400 dark:border-amber-700'
-                          }`}>
-                            <span className={`w-2 h-2 rounded-full ${isNihil ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                            <span>{isNihil ? 'Sesuai RPD' : 'Ada Deviasi'}</span>
-                          </span>
                         </td>
                       </tr>
                     );
@@ -1321,9 +1283,14 @@ export const DeviasiHal3SatkerPublicView: React.FC<DeviasiHal3SatkerPublicViewPr
                             )}
                           </div>
                         </td>
-                        <td className={`${pyClass} px-3 text-center font-mono font-bold text-slate-700 dark:text-slate-300 border-r border-slate-200 dark:border-slate-800`}>
-                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono font-black text-xs">
-                            Bulan {String(r.periodeAngka || 1).padStart(2, '0')}
+                        <td className={`${pyClass} px-3 text-center border-r border-slate-200 dark:border-slate-800 whitespace-nowrap`}>
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800 text-indigo-950 dark:text-indigo-200 shadow-2xs">
+                            <span className="font-black text-xs underline decoration-2 decoration-indigo-600 dark:decoration-indigo-400 underline-offset-2">
+                              Bulan {getNamaBulan(r.periodeAngka)}
+                            </span>
+                            <span className="font-mono text-[10px] text-slate-500 font-bold">
+                              ({String(r.periodeAngka || 1).padStart(2, '0')})
+                            </span>
                           </span>
                         </td>
                         <td className={`${pyClass} px-4 text-right font-mono font-black border-r border-slate-200 dark:border-slate-800 ${

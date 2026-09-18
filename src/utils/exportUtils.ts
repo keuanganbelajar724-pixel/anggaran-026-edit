@@ -163,7 +163,17 @@ export function exportDeviasiHal3ToPDF(
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const totalPagesExp = '{total_pages_count_string}';
 
-  const periodeText = options?.periodeLabel || 'Semua Periode';
+  const getNamaBulanPdf = (p: number | string | undefined): string => {
+    const num = Number(p) || 9;
+    const names: { [k: number]: string } = {
+      1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April',
+      5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
+      9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
+    };
+    return names[num] || `Bulan ${num}`;
+  };
+
+  const periodeText = options?.periodeLabel || 'Bulan September (09)';
   const klText = options?.klLabel && options.klLabel !== 'ALL' ? ` | K/L: ${options.klLabel}` : '';
   const printDateStr = new Date().toLocaleDateString('id-ID', {
     day: 'numeric',
@@ -236,14 +246,13 @@ export function exportDeviasiHal3ToPDF(
   doc.setTextColor(146, 64, 14);
   doc.text('untuk melakukan cek kesesuaian RPD (Matriks di bawah ini menyajikan nominal selisih/deviasi Rupiah per jenis belanja tanpa menyajikan angka RPD dan Realisasi).', 15, 39.8);
 
-  // --- 5. TABLE SETUP WITH 2-TIER HEADER ---
+  // --- 5. TABLE SETUP WITH 2-TIER HEADER (TANPA STATUS & TANPA TOTAL DEVIASI) ---
   // Row 1 & Row 2 headers
   const headRow1 = [
     { content: 'NO', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fillColor: [30, 41, 59] } },
     { content: 'SATUAN KERJA', rowSpan: 2, styles: { halign: 'left', valign: 'middle', fillColor: [30, 41, 59] } },
-    { content: 'BLN', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fillColor: [30, 41, 59] } },
-    { content: 'RINCIAN DEVIASI NOMINAL PER JENIS BELANJA (RUPIAH)', colSpan: 4, styles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], fontStyle: 'bold' } },
-    { content: 'STATUS', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fillColor: [30, 41, 59] } }
+    { content: 'BULAN DEVIASI', rowSpan: 2, styles: { halign: 'center', valign: 'middle', fillColor: [30, 41, 59] } },
+    { content: 'RINCIAN DEVIASI NOMINAL PER JENIS BELANJA (RUPIAH)', colSpan: 4, styles: { halign: 'center', valign: 'middle', fillColor: [30, 58, 138], fontStyle: 'bold' } }
   ];
 
   const headRow2 = [
@@ -258,10 +267,10 @@ export function exportDeviasiHal3ToPDF(
     const dev52 = r.rincianJenisBelanja?.belanja52?.deviasiNominal || 0;
     const dev53 = r.rincianJenisBelanja?.belanja53?.deviasiNominal || 0;
     const dev57 = r.rincianJenisBelanja?.belanja57?.deviasiNominal || 0;
-    const isNihil = (r.deviasiNominalTotal || 0) === 0 && (dev51 + dev52 + dev53 + dev57 === 0);
 
     const satkerLabel = `${r.namaSatker}\n[${r.kodeSatker}]${r.kementerianLembaga ? ' ' + r.kementerianLembaga : ''}`;
-    const bln = String(r.periodeAngka || 1).padStart(2, '0');
+    const bulanNama = getNamaBulanPdf(r.periodeAngka);
+    const bln = `Bulan ${bulanNama}\n(${String(r.periodeAngka || 1).padStart(2, '0')})`;
 
     return [
       index + 1,
@@ -270,8 +279,7 @@ export function exportDeviasiHal3ToPDF(
       formatRp(dev51),
       formatRp(dev52),
       formatRp(dev53),
-      formatRp(dev57),
-      isNihil ? 'Sesuai RPD' : 'Ada Deviasi'
+      formatRp(dev57)
     ];
   });
 
@@ -302,13 +310,12 @@ export function exportDeviasiHal3ToPDF(
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { halign: 'left', cellWidth: 86, fontStyle: 'bold' },
-      2: { halign: 'center', cellWidth: 11 },
-      3: { halign: 'right', cellWidth: 40 },
-      4: { halign: 'right', cellWidth: 40 },
-      5: { halign: 'right', cellWidth: 40 },
-      6: { halign: 'right', cellWidth: 24 },
-      7: { halign: 'center', cellWidth: 22, fontStyle: 'bold' }
+      1: { halign: 'left', cellWidth: 97, fontStyle: 'bold' },
+      2: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
+      3: { halign: 'right', cellWidth: 35 },
+      4: { halign: 'right', cellWidth: 35 },
+      5: { halign: 'right', cellWidth: 35 },
+      6: { halign: 'right', cellWidth: 35 }
     },
     didParseCell: function(data) {
       if (data.section === 'body') {
@@ -348,15 +355,6 @@ export function exportDeviasiHal3ToPDF(
             data.cell.styles.fontStyle = 'bold';
           } else {
             data.cell.styles.textColor = [148, 163, 184];
-          }
-        } else if (data.column.index === 7) {
-          const isNihil = (rowRecord.deviasiNominalTotal || 0) === 0;
-          if (isNihil) {
-            data.cell.styles.textColor = [21, 128, 61]; // green-700
-            data.cell.styles.fillColor = [240, 253, 244]; // green-50
-          } else {
-            data.cell.styles.textColor = [180, 83, 9]; // amber-700
-            data.cell.styles.fillColor = [254, 243, 199]; // amber-100
           }
         }
       }
