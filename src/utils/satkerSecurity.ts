@@ -69,6 +69,71 @@ export const resolveKodeBA = (satker: {
 };
 
 /**
+ * Mendapatkan nama resmi Kementerian / Lembaga berdasarkan Kode BA 3-digit
+ */
+export const getKementerianLembagaFromBA = (kodeBa: string): string => {
+  const ba = (kodeBa || '').trim();
+  switch (ba) {
+    case '001': return 'Majelis Permusyawaratan Rakyat (MPR)';
+    case '002': return 'Dewan Perwakilan Rakyat (DPR)';
+    case '004': return 'Dewan Perwakilan Daerah (DPD)';
+    case '005': return 'Mahkamah Agung / BPK';
+    case '006': return 'Kejaksaan Agung RI';
+    case '012': return 'Kementerian Pertahanan';
+    case '013': return 'Kementerian Hukum dan HAM';
+    case '015':
+    case '01508': return 'Kementerian Keuangan';
+    case '018': return 'Kementerian Pertanian';
+    case '019': return 'Kementerian Perindustrian';
+    case '020': return 'Kementerian Energi dan Sumber Daya Mineral';
+    case '022': return 'Kementerian Perhubungan';
+    case '023': return 'Kementerian Pendidikan, Kebudayaan, Riset, dan Teknologi';
+    case '024': return 'Kementerian Kesehatan';
+    case '025': return 'Kementerian Agama';
+    case '026': return 'Kementerian Ketenagakerjaan';
+    case '027': return 'Kementerian Sosial';
+    case '029': return 'Kementerian Lingkungan Hidup dan Kehutanan';
+    case '032': return 'Kementerian Kelautan dan Perikanan';
+    case '033': return 'Kementerian Pekerjaan Umum dan Perumahan Rakyat';
+    case '035': return 'Badan Meteorologi, Klimatologi, dan Geofisika (BMKG)';
+    case '043': return 'Badan Pengawas Tenaga Nuklir (BAPETEN)';
+    case '054': return 'Badan Pusat Statistik (BPS)';
+    case '056': return 'Kementerian ATR / Badan Pertanahan Nasional';
+    case '059': return 'Kementerian Komunikasi dan Informatika';
+    case '060': return 'Kepolisian Negara Republik Indonesia (POLRI)';
+    case '063': return 'Badan Pengawas Obat dan Makanan (BPOM)';
+    case '066': return 'Badan Narkotika Nasional (BNN)';
+    case '067': return 'Kementerian Desa, PDT, dan Transmigrasi';
+    case '076': return 'Komisi Pemilihan Umum (KPU)';
+    case '082': return 'Komisi Pemberantasan Korupsi (KPK)';
+    case '104': return 'Badan SAR Nasional (BASARNAS)';
+    case '115': return 'Badan Pengawas Pemilu (BAWASLU)';
+    default: return 'Kementerian / Lembaga Mitra';
+  }
+};
+
+/**
+ * Menyelesaikan nama Kementerian / Lembaga secara cerdas untuk Satker
+ */
+export const resolveSatkerKementerian = (satker: {
+  kementerianLembaga?: string;
+  kodeBa?: string;
+  kodeSatker?: string;
+  namaSatker?: string;
+}): string => {
+  if (
+    satker.kementerianLembaga &&
+    satker.kementerianLembaga.trim() !== '' &&
+    satker.kementerianLembaga !== '-' &&
+    satker.kementerianLembaga !== 'Kementerian / Lembaga Mitra'
+  ) {
+    return satker.kementerianLembaga.trim();
+  }
+  const ba = resolveKodeBA(satker);
+  return getKementerianLembagaFromBA(ba);
+};
+
+/**
  * Format Password Default Satker:
  * - Khusus KPPN Semarang I (527272): 527272_01508 (BA 015 DJPb Eselon I 08)
  * - Jika ada Kode BA: [KodeSatker]_[KodeBA] (contoh: 890594_023)

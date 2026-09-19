@@ -77,6 +77,24 @@
         "list": { "type": "array" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "pendaftaranUserSakti": {
+      "title": "Pendaftaran Pengguna SAKTI",
+      "description": "Stores registration drafts and submissions of SAKTI users per satker",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kodeSatker": { "type": "string" },
+        "namaSatker": { "type": "string" },
+        "levelSatker": { "type": "string" },
+        "isBLU": { "type": "boolean" },
+        "users": { "type": "array" },
+        "status": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "exportedAt": { "type": "string" }
+      },
+      "required": ["kodeSatker", "namaSatker", "users"]
     }
   },
   "firestore": {
@@ -103,6 +121,10 @@
     "/catatan_diskusi_satker/{kodeSatker}": {
       "schema": { "$ref": "#/entities/catatanDiskusiSatker" },
       "description": "Private KPPN-Satker consultation records and action item tracking"
+    },
+    "/pendaftaran_user_sakti/{draftId}": {
+      "schema": { "$ref": "#/entities/pendaftaranUserSakti" },
+      "description": "SAKTI user registration drafts and submission records"
     }
   }
 }

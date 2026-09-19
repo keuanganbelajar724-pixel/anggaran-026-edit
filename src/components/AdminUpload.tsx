@@ -3836,6 +3836,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'materi-slide': true,
                         'portal-link': true,
                         'presensi': true,
+                        'pendaftaran-user-sakti': true,
                         'aduan': true,
                         'reminder': true,
                         'guide': false
@@ -3877,6 +3878,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'materi-slide': false,
                         'portal-link': false,
                         'presensi': false,
+                        'pendaftaran-user-sakti': false,
                         'aduan': false,
                         'reminder': false,
                         'guide': false
@@ -3959,7 +3961,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'portal-link': 'Link Sosialisasi',
                       'pengetahuan': 'Juknis dan Pengetahuan Perbendaharaan',
                       'aduan': 'Lapor Aduan',
-                      'presensi': 'Presensi Online'
+                      'presensi': 'Presensi Online',
+                      'pendaftaran-user-sakti': 'Pendaftaran User SAKTI'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -3980,7 +3983,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'portal-link',
                       'pengetahuan',
                       'aduan',
-                      'presensi'
+                      'presensi',
+                      'pendaftaran-user-sakti'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4025,7 +4029,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'portal-link': { label: 'Link Sosialisasi', desc: 'Portal Link Sosialisasi, Zoom & Materi', category: 'Sosialisasi', badgeColor: 'bg-teal-100 text-teal-800' },
                     'pengetahuan': { label: 'Juknis dan Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
-                    'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' }
+                    'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' },
+                    'pendaftaran-user-sakti': { label: 'Pendaftaran User SAKTI', desc: 'Registrasi & pemutakhiran role user SAKTI resmi (Ekspor Excel & PDF)', category: 'SAKTI', badgeColor: 'bg-teal-100 text-teal-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4046,7 +4051,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'portal-link',
                     'pengetahuan',
                     'aduan',
-                    'presensi'
+                    'presensi',
+                    'pendaftaran-user-sakti'
                   ];
 
                   // Build unified order without guide

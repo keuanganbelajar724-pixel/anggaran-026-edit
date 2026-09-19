@@ -446,6 +446,10 @@ export interface PejabatRoleInfo {
   nip?: string;
   noHp?: string;
   email?: string;
+  skJabatan?: string;
+  tglSk?: string;
+  jabatan?: string;
+  pangkatGolongan?: string;
 }
 
 export interface PejabatDanOperator {
@@ -1032,6 +1036,7 @@ export interface MenuVisibilityConfig {
   'presensi'?: boolean;
   'pengetahuan': boolean;
   'aduan'?: boolean;
+  'pendaftaran-user-sakti'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1399,6 +1404,7 @@ export type NavigationTab =
   | 'presensi'
   | 'pengetahuan'
   | 'aduan'
+  | 'pendaftaran-user-sakti'
   | 'admin' 
   | 'reminder' 
   | 'guide';
@@ -2061,6 +2067,262 @@ export interface SatkerDiskusiPayload {
   list: CatatanDiskusiSatker[];
   updatedAt: string;
 }
+
+// -------------------------------------------------------------
+// PENDAFTARAN USER SAKTI (MODUL FORMULIR REGISTRASI RESMI)
+// -------------------------------------------------------------
+export type PeranJabatanSakti = 'Approval' | 'Validator' | 'Operator' | 'Admin';
+
+export interface UserSaktiRecord {
+  id: string;
+  namaLengkap: string;
+  nip: string; // 18 digit angka
+  pangkatGolongan?: string; // e.g. "Penata Muda / III/a"
+  jabatan?: string; // Jabatan kedinasan / definitif di satker
+  npwp?: string; // 15 atau 16 digit
+  nik?: string; // 16 digit
+  email: string;
+  noHp: string;
+  roles: string[]; // Master role codes (ROLE SAKTI)
+  peranJabatan?: PeranJabatanSakti; // Approval | Validator | Operator | Admin
+  jabatanPerbendaharaan?: string; // KPA | PPK | PPSPM | Bendahara Pengeluaran | Operator Anggaran | Administrator | etc.
+  nomorSk: string;
+  tanggalSk: string; // YYYY-MM-DD
+  keterangan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type PendaftaranSaktiStatus = 'DRAFT' | 'VALID' | 'EXPORTED' | 'SELESAI';
+
+export interface PendaftaranUserSaktiDraft {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  isBLU: boolean;
+  judulPengajuan?: string;
+  catatanInternal?: string;
+  users: UserSaktiRecord[];
+  status: PendaftaranSaktiStatus;
+  namaKpa?: string;
+  nipKpa?: string;
+  tempatPenetapan?: string; // misal: "Semarang"
+  tanggalPenetapan?: string; // YYYY-MM-DD
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  exportedAt?: string;
+}
+
+export interface ValidationIssue {
+  userId?: string;
+  field?: string;
+  userName?: string;
+  severity: 'ERROR' | 'WARNING';
+  message: string;
+}
+
+export interface PendaftaranValidationResult {
+  isValid: boolean;
+  totalUsers: number;
+  totalRoles: number;
+  issues: ValidationIssue[];
+}
+
+// -------------------------------------------------------------
+// GENERATE SK PENETAPAN USER SAKTI TINGKAT SATUAN KERJA
+// -------------------------------------------------------------
+export interface SkMenimbangItem {
+  id: string;
+  huruf: string;
+  text: string;
+}
+
+export interface SkMengingatItem {
+  id: string;
+  nomor: number;
+  text: string;
+}
+
+export interface SkDiktumItem {
+  id: string;
+  label: string; // PERTAMA, KEDUA, KETIGA, KEEMPAT
+  text: string;
+  isCustomizable?: boolean;
+}
+
+export interface SkPejabatPenandatangan {
+  namaPejabat: string;
+  nipPejabat: string;
+  jabatan: string; // e.g. "Kuasa Pengguna Anggaran"
+  pangkatGolongan?: string;
+  unitKerja?: string;
+}
+
+export interface SkAuditLog {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'EXPORT_WORD' | 'EXPORT_PDF';
+  user: string;
+  timestamp: string;
+  details?: string;
+}
+
+export interface SkSaktiDraft {
+  id: string;
+  satkerId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  nomorSk: string;
+  tahunAnggaran: string;
+  tanggalSk: string;
+  tempatPenetapan: string;
+  tentang: string;
+  kopSurat: {
+    kementerian: string;
+    eselon1: string;
+    satkerUnit: string;
+    alamatKontak: string;
+  };
+  menimbang: SkMenimbangItem[];
+  mengingat: SkMengingatItem[];
+  judulMemutuskan: string;
+  menetapkan: string;
+  diktum: SkDiktumItem[];
+  pejabat: SkPejabatPenandatangan;
+  selectedUserIds: string[]; // List ID user yang masuk ke lampiran
+  hideInstructionPage: boolean; // default true for final document
+  templateVersion: string; // e.g. "1.0"
+  status: 'DRAFT' | 'READY' | 'EXPORTED';
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  exportedAt?: string;
+  exportHistory?: SkAuditLog[];
+}
+
+export interface MasterSkTemplate {
+  id: string;
+  namaTemplate: string;
+  versi: string;
+  status: 'ACTIVE' | 'ARCHIVED';
+  tanggal: string;
+  deskripsi: string;
+  isOfficial: boolean;
+}
+
+// -------------------------------------------------------------
+// PERUBAHAN USER SAKTI (SEMULA -> MENJADI)
+// -------------------------------------------------------------
+export interface PerubahanUserData {
+  kodeSatker: string;
+  roles: string[]; // Master role codes e.g. ['SATKER_OPERATOR_ANGGARAN']
+  nama: string;
+  nip: string;
+  npwp: string;
+  nik: string;
+  email: string;
+  noHp: string;
+  nomorSk: string;
+  tanggalSk: string;
+  keterangan: string;
+}
+
+export interface PerubahanUserFieldChange {
+  field: keyof PerubahanUserData;
+  label: string;
+  from: string;
+  to: string;
+}
+
+export interface PerubahanUserDiffSummary {
+  hasChanges: boolean;
+  rolesAdded: string[];
+  rolesRemoved: string[];
+  rolesUnchanged: string[];
+  fieldChanges: PerubahanUserFieldChange[];
+}
+
+export interface PerubahanUserAuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  detail: string;
+  user?: string;
+}
+
+export interface PerubahanUserHistoryItem {
+  id: string;
+  satkerId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker?: string;
+  userId: string;
+  userSaktiId?: string;
+  semula: PerubahanUserData;
+  menjadi: PerubahanUserData;
+  diffSummary: PerubahanUserDiffSummary;
+  keterangan: string;
+  status: 'DRAFT' | 'DIAJUKAN' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
+  tanggalPengajuan: string;
+  nomorDokumen?: string;
+  pejabatPenandatangan?: {
+    nama: string;
+    nip: string;
+    jabatan: string;
+  };
+  auditLogs?: PerubahanUserAuditLog[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// -------------------------------------------------------------
+// PENDAFTARAN EMAIL KEDINASAN PEGAWAI KEMENKEU
+// -------------------------------------------------------------
+export interface PegawaiEmailRecord {
+  id: string;
+  kodeKppn: string;
+  kodeSatker: string;
+  nama: string;
+  nip: string;
+  nik: string;
+  status: 1 | 2 | 3 | 4 | 5; // 1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K
+  statusLabel?: string;
+  jabatan?: string;
+  keterangan?: string;
+}
+
+export interface PejabatEmailPenandatangan {
+  nama: string;
+  nip: string;
+  jabatan: string;
+}
+
+export interface PendaftaranEmailDraft {
+  id: string;
+  kodeKppn: string;
+  kodeSatker: string;
+  namaSatker: string;
+  pegawaiList: PegawaiEmailRecord[];
+  pejabat: PejabatEmailPenandatangan;
+  status: 'DRAFT' | 'SELESAI';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PendaftaranEmailHistoryItem {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  totalPegawai: number;
+  pejabat: PejabatEmailPenandatangan;
+  tanggal: string;
+  draftData: PendaftaranEmailDraft;
+  exportedAt?: string;
+}
+
 
 
 

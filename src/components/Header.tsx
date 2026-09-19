@@ -355,6 +355,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <ClipboardCheck className="w-4 h-4 text-teal-300" />,
       badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Absen</span>,
       activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
+    },
+    {
+      id: 'pendaftaran-user-sakti',
+      label: '📝 Pendaftaran User SAKTI',
+      icon: <FileSpreadsheet className="w-4 h-4 text-teal-300" />,
+      badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">User SAKTI</span>,
+      activeColor: 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     }
   ];
 

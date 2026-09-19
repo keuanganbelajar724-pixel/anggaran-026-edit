@@ -57,6 +57,8 @@ import { PengumumanTab } from './components/PengumumanTab';
 import { MateriSlideTab } from './components/MateriSlideTab';
 import { SocializationPortalView } from './components/SocializationPortalView';
 import { PresensiOnlineView, INITIAL_DEFAULT_KEGIATAN } from './components/PresensiOnlineView';
+import { PendaftaranUserSaktiView } from './components/PendaftaranUserSaktiView';
+import { resolveKodeBA, resolveSatkerKementerian } from './utils/satkerSecurity';
 import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
@@ -164,6 +166,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'materi-slide': true,
   'portal-link': true,
   'presensi': true,
+  'pendaftaran-user-sakti': true,
   'aduan': true,
   'reminder': true,
   'guide': true,
@@ -555,20 +558,26 @@ export default function App() {
     }
     // Baseline fallback: derive initial master satkers from INITIAL_SATKER_DATA so count is never 0
     if (Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0) {
-      return INITIAL_SATKER_DATA.map(s => ({
-        id: s.id || `satker-${s.kodeSatker}`,
-        kodeSatker: s.kodeSatker,
-        namaSatker: s.namaSatker,
-        kementerianLembaga: s.kementerianLembaga || '-',
-        unitEselon1: s.unitEselon1 || '',
-        namaPic: s.namaPic || '',
-        noHpPic: s.noHpPic || '',
-        emailPic: s.emailPic || '',
-        passwordSatker: s.passwordSatker || '',
-        alamatSatker: s.alamatSatker || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
+      return INITIAL_SATKER_DATA.map(s => {
+        const ba = resolveKodeBA(s);
+        const kl = resolveSatkerKementerian({ ...s, kodeBa: ba });
+        return {
+          id: s.id || `satker-${s.kodeSatker}`,
+          kodeSatker: s.kodeSatker,
+          namaSatker: s.namaSatker,
+          kodeBa: ba,
+          kementerianLembaga: kl,
+          isActive: true,
+          unitEselon1: s.unitEselon1 || '',
+          namaPic: s.namaPic || '',
+          noHpPic: s.noHpPic || '',
+          emailPic: s.emailPic || '',
+          passwordSatker: s.passwordSatker || '',
+          alamatSatker: s.alamatSatker || '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+      });
     }
     return [];
   });
@@ -2963,6 +2972,16 @@ export default function App() {
                   onSaveKegiatan={handleSavePresensiKegiatan}
                   onDeleteKegiatan={handleDeletePresensiKegiatan}
                   onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab Pendaftaran User SAKTI Resmi Satker */}
+              {activeTab === 'pendaftaran-user-sakti' && (
+                <PendaftaranUserSaktiView
+                  satkers={satkers}
+                  masterSatkers={masterSatkers}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  isDark={theme === 'dark'}
                 />
               )}
 
