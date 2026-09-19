@@ -2295,9 +2295,9 @@ export interface PegawaiEmailRecord {
   id: string;
   kodeKppn: string;
   kodeSatker: string;
-  nama: string;
+  nama?: string;
   namaPegawai?: string;
-  nip: string;
+  nip?: string;
   nipNrp?: string;
   nik: string;
   status: EmployeeStatusCode; // 1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K

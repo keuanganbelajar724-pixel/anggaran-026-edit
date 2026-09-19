@@ -53,11 +53,45 @@ export interface IkpaSummaryForPDF {
 
 /**
  * Generates official PDF document for SAKTI user registration
+ * Mirrored 1:1 with the official Excel screenshot:
+ * - Centered title 'Formulir Pendaftaran Pengguna Aplikasi SAKTI'
+ * - Kode Satker, Nama Satker, Level Satker
+ * - Royal Blue header bar (#2F5597), white bold text
+ * - Crisp black table cell borders
+ * - Peach/Yellow row highlight for BLU roles
+ * - Left box: Framed Statement of Responsibility (Pernyataan 1, 2, 3)
+ * - Right box: Kuasa Pengguna Anggaran (KPA) Signature
+ * - Keterangan & Dikirimkan HAI notes
  */
 export function exportPendaftaranSaktiToPDF(
   draft: PendaftaranUserSaktiDraft,
   ikpaInfo?: IkpaSummaryForPDF
 ): void {
+  if (!draft.users || draft.users.length === 0) {
+    throw new Error('Tidak dapat mencetak formulir: Belum ada data pengguna SAKTI yang ditambahkan.');
+  }
+
+  const invalidUsers = draft.users.filter(u => {
+    const cleanNik = (u.nik || '').replace(/\D/g, '');
+    const cleanNpwp = (u.npwp || '').replace(/\D/g, '');
+    return !cleanNik || cleanNik.length !== 16 || !cleanNpwp || (cleanNpwp.length !== 15 && cleanNpwp.length !== 16);
+  });
+
+  if (invalidUsers.length > 0) {
+    const errorDetails = invalidUsers.map(u => {
+      const cleanNik = (u.nik || '').replace(/\D/g, '');
+      const cleanNpwp = (u.npwp || '').replace(/\D/g, '');
+      const issues: string[] = [];
+      if (!cleanNik) issues.push('NIK belum diisi');
+      else if (cleanNik.length !== 16) issues.push(`NIK (${cleanNik.length} digit, wajib 16 digit)`);
+      if (!cleanNpwp) issues.push('NPWP belum diisi');
+      else if (cleanNpwp.length !== 15 && cleanNpwp.length !== 16) issues.push(`NPWP (${cleanNpwp.length} digit, wajib 15/16 digit)`);
+      return `• ${u.namaLengkap}: ${issues.join(', ')}`;
+    }).join('\n');
+
+    throw new Error(`Pencetakan PDF Ditolak: Data NIK dan NPWP wajib diisi lengkap untuk seluruh pengguna:\n${errorDetails}`);
+  }
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -66,163 +100,238 @@ export function exportPendaftaranSaktiToPDF(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 10;
+  const contentWidth = pageWidth - (margin * 2);
 
-  // Header Banner / Garuda & KPPN identity
-  doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(margin, margin, pageWidth - (margin * 2), 20, 'F');
-
-  doc.setTextColor(255, 255, 255);
+  // 1. Judul Formulir (Tengah, Huruf Besar, Tebal)
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', margin + 6, margin + 7);
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Formulir Pendaftaran Pengguna Aplikasi SAKTI', pageWidth / 2, margin + 6, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(203, 213, 225); // slate-300
-  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN • KPPN SEMARANG I (026)', margin + 6, margin + 12);
-  doc.text('FORMULIR RESMI PENDAFTARAN / PEMUTAKHIRAN PENGGUNA APLIKASI SAKTI', margin + 6, margin + 17);
-
-  // Satker Information Card
-  const hasIkpa = ikpaInfo && typeof ikpaInfo.totalNilai === 'number';
-  const cardHeight = hasIkpa ? 24 : 18;
-  doc.setDrawColor(226, 232, 240);
-  doc.setFillColor(248, 250, 252);
-  doc.roundedRect(margin, margin + 23, pageWidth - (margin * 2), cardHeight, 2, 2, 'FD');
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 41, 59);
-  doc.text('INFORMASI SATUAN KERJA (SATKER):', margin + 4, margin + 28);
-
-  doc.setFont('helvetica', 'normal');
+  // 2. Metadata Satker (Seperti Baris 3-5 di Excel)
   doc.setFontSize(8.5);
-  doc.text(`Kode Satker : `, margin + 4, margin + 34);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+
+  const metaY = margin + 13;
+  doc.text('Kode Satker', margin, metaY);
+  doc.text(':', margin + 22, metaY);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${draft.kodeSatker}`, margin + 24, margin + 34);
+  doc.text(draft.kodeSatker || '-', margin + 25, metaY);
 
   doc.setFont('helvetica', 'normal');
-  doc.text(`Nama Satker : `, margin + 55, margin + 34);
+  doc.text('Nama Satker', margin, metaY + 4.5);
+  doc.text(':', margin + 22, metaY + 4.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${draft.namaSatker}`, margin + 76, margin + 34);
+  doc.text(draft.namaSatker || '-', margin + 25, metaY + 4.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.text(`Level Satker : `, margin + 185, margin + 34);
+  doc.text('Level Satker', margin, metaY + 9);
+  doc.text(':', margin + 22, metaY + 9);
   doc.setFont('helvetica', 'bold');
-  doc.text(`${draft.levelSatker} ${draft.isBLU ? '(Satker BLU)' : ''}`, margin + 204, margin + 34);
+  doc.text(`${draft.levelSatker || 'Satker Daerah (KD)'} ${draft.isBLU ? '(Satker BLU)' : ''}`, margin + 25, metaY + 9);
 
-  if (hasIkpa) {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(15, 118, 110); // teal-700
-    doc.text('Status Capaian IKPA KPPN 026 :', margin + 4, margin + 41);
+  // 3. Tabel Data Pengguna SAKTI (10 Kolom Identik Excel)
+  const cleanKodeSatker = draft.kodeSatker.trim();
+  const tableData: any[] = [];
 
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(51, 65, 85);
-    const ikpaStr = `Nilai Akhir: ${ikpaInfo.totalNilai?.toFixed(2)} (${ikpaInfo.predikat || 'Sangat Baik'}) | Peringkat KPPN: #${ikpaInfo.rank || '-'} | Capaian Output: ${ikpaInfo.capaianOutput !== undefined ? ikpaInfo.capaianOutput.toFixed(1) + '%' : '-'} | Penyerapan: ${ikpaInfo.penyerapanAnggaran !== undefined ? ikpaInfo.penyerapanAnggaran.toFixed(1) + '%' : '-'}`;
-    doc.text(ikpaStr, margin + 50, margin + 41);
+  if (draft.users.length === 0) {
+    tableData.push([
+      cleanKodeSatker,
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-',
+      '-'
+    ]);
+  } else {
+    draft.users.forEach(u => {
+      const rolesStr = formatRolesForExcel(u.roles || []);
+      const cleanPhone = normalizePhoneNumber(u.noHp || '');
+      const cleanNIP = (u.nip || '').replace(/\D/g, '');
+      const cleanNIK = (u.nik || '').replace(/\D/g, '');
+      const cleanNPWP = (u.npwp || '').trim();
+
+      tableData.push([
+        cleanKodeSatker,
+        rolesStr,
+        u.namaLengkap?.trim() || '-',
+        cleanNIP || '-',
+        cleanNPWP || '-',
+        cleanNIK || '-',
+        u.email?.trim() || '-',
+        cleanPhone || '-',
+        u.nomorSk?.trim() || '-',
+        u.tanggalSk?.trim() || '-'
+      ]);
+    });
   }
 
-  // Table Body
-  const tableData = draft.users.map((user, idx) => {
-    const roleString = formatRolesForExcel(user.roles || []);
-    const cleanPhone = normalizePhoneNumber(user.noHp || '');
-    const cleanNIP = (user.nip || '').replace(/\D/g, '');
-    const cleanNIK = (user.nik || '').replace(/\D/g, '');
-    const cleanNPWP = (user.npwp || '').trim();
-
-    return [
-      (idx + 1).toString(),
-      `${user.namaLengkap}\nNIP. ${cleanNIP || '-'}`,
-      `NIK: ${cleanNIK || '-'}\nNPWP: ${cleanNPWP || '-'}`,
-      `E-mail:\n${user.email || '-'}\nHP/WA:\n${cleanPhone || '-'}`,
-      roleString,
-      `No: ${user.nomorSk || '-'}\nTgl: ${user.tanggalSk || '-'}`
-    ];
-  });
+  // Row dst placeholder
+  tableData.push(['dst', '', '', '', '', '', '', '', '', '']);
 
   autoTable(doc, {
-    startY: margin + (hasIkpa ? 51 : 44),
-    margin: { left: margin, right: margin, bottom: 42 },
+    startY: metaY + 13,
+    margin: { left: margin, right: margin },
     head: [[
-      'No',
-      'Nama & NIP Pegawai',
-      'NIK & NPWP',
-      'Kontak Aktif',
-      'Peran / Role SAKTI (Resmi)',
-      'Dasar SK Pengangkatan'
+      'Kode Satker',
+      'Peran',
+      'Nama',
+      'NIP',
+      'NPWP',
+      'NIK',
+      'E-mail',
+      'No. HP',
+      'Nomor SK',
+      'Tanggal SK'
     ]],
     body: tableData,
-    theme: 'grid',
+    theme: 'plain',
     headStyles: {
-      fillColor: [30, 41, 59], // Slate 800
+      fillColor: [47, 85, 151], // Royal Blue #2F5597
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 8,
+      fontSize: 7.5,
       halign: 'center',
       valign: 'middle',
-      cellPadding: 2.5
+      cellPadding: 2,
+      lineWidth: 0.2,
+      lineColor: [0, 0, 0]
     },
     styles: {
-      fontSize: 7.5,
-      textColor: [30, 41, 59],
-      cellPadding: 2.2,
-      lineColor: [203, 213, 225],
+      fontSize: 7,
+      textColor: [0, 0, 0],
+      cellPadding: 1.8,
       lineWidth: 0.2,
-      valign: 'top',
+      lineColor: [0, 0, 0],
+      valign: 'middle',
       overflow: 'linebreak'
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 46 },
-      2: { cellWidth: 38 },
-      3: { cellWidth: 44 },
-      4: { cellWidth: 85 },
-      5: { cellWidth: 50 }
+      0: { cellWidth: 18, halign: 'center' },
+      1: { cellWidth: 54, halign: 'left' },
+      2: { cellWidth: 32, halign: 'left' },
+      3: { cellWidth: 24, halign: 'center' },
+      4: { cellWidth: 22, halign: 'center' },
+      5: { cellWidth: 22, halign: 'center' },
+      6: { cellWidth: 32, halign: 'left' },
+      7: { cellWidth: 22, halign: 'center' },
+      8: { cellWidth: 24, halign: 'left' },
+      9: { cellWidth: 17, halign: 'center' }
     },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252]
-    },
-    didDrawPage: (data) => {
-      // Footer page numbering
-      const str = `Halaman ${doc.internal.pages.length - 1} • Dicetak melalui ANGKASA KPPN Semarang I`;
-      doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184);
-      doc.text(str, margin, pageHeight - 6);
-
-      const timestamp = `Waktu Cetak: ${new Date().toLocaleString('id-ID')}`;
-      doc.text(timestamp, pageWidth - margin - doc.getTextWidth(timestamp), pageHeight - 6);
+    didParseCell: (data) => {
+      // Italic for 'dst' row
+      if (data.row.index === tableData.length - 1 && data.section === 'body') {
+        data.cell.styles.fontStyle = 'italic';
+      }
+      // Check if user row has BLU role and apply soft peach/yellow highlight
+      if (data.section === 'body' && data.row.index < draft.users.length) {
+        const u = draft.users[data.row.index];
+        const isBlu = (u?.roles || []).some(r => r.toUpperCase().includes('BLU') || r === 'SATKER_VALIDATOR_ANGGARAN');
+        if (isBlu) {
+          data.cell.styles.fillColor = [255, 242, 204]; // #FFF2CC
+        }
+      }
     }
   });
 
-  // Signature Block on final page
-  const finalY = (doc as any).lastAutoTable.finalY || margin + 50;
-  const sigRequiredSpace = 36;
-  let sigY = finalY + 8;
+  // 4. Bagian Bawah: Kotak Pernyataan (Kiri) & Tanda Tangan KPA (Kanan)
+  const lastY = (doc as any).lastAutoTable.finalY || 80;
+  let blockY = lastY + 5;
 
-  // Add new page if not enough space for signature
-  if (sigY + sigRequiredSpace > pageHeight - margin) {
+  // Cek apakah halaman cukup untuk kotak pernyataan & TTD (butuh ~56mm)
+  if (blockY + 56 > pageHeight - margin) {
     doc.addPage();
-    sigY = margin + 10;
+    blockY = margin + 10;
   }
 
-  const tempat = draft.tempatPenetapan || 'Semarang';
-  const tglStr = formatIndonesianDate(draft.tanggalPenetapan);
-  const sigX = pageWidth - margin - 80;
+  // 4A. Kotak Pernyataan Tanggung Jawab (Kiri, berbingkai garis hitam)
+  const boxWidth = 158;
+  const boxHeight = 28;
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.25);
+  doc.rect(margin, blockY, boxWidth, boxHeight);
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(6.2);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(30, 41, 59);
-  doc.text(`${tempat}, ${tglStr}`, sigX, sigY);
-  doc.text('Kuasa Pengguna Anggaran (KPA),', sigX, sigY + 5);
+  doc.setTextColor(0, 0, 0);
+
+  const statementText = 
+    "1. Saya menyatakan bahwa seluruh data yang diisi pada formulir ini adalah BENAR dan saya mengisinya dalam keadaan sehat, tanpa paksaan dari siapapun atau tanpa ada tekanan dari pihak manapun. Apabila terbukti diketahui sebaliknya di kemudian hari, maka saya bersedia menerima tuntutan di kemudian hari sesuai dengan ketentuan yang berlaku.\n\n" +
+    "2. Semua informasi yang dicantumkan pada formulir ini adalah BENAR dan SAH, serta membebaskan KPPN dari segala tuntutan pihak ketiga baik perdata maupun pidana, sehubungan dengan kesalahan/ketidakbenaran dalam pemberian informasi.\n\n" +
+    "3. Bilamana kemudian hari terdapat tuntutan atas transaksi pengeluaran negara atas beban APBN yang berasal dari data elektonik yang saya terbitkan, maka saya bertanggung jawab penuh atas segala risiko yang timbul.";
+
+  doc.text(statementText, margin + 2.5, blockY + 4, {
+    maxWidth: boxWidth - 5,
+    lineHeightFactor: 1.25
+  });
+
+  // 4B. Tanda Tangan KPA di Sebelah Kanan (H:J)
+  const kota = draft.tempatPenetapan?.trim() || 'Jakarta';
+  const rawDate = draft.tanggalPenetapan || new Date().toISOString().split('T')[0];
+  const tglStr = formatIndonesianDate(rawDate);
+
+  let namaKpa = draft.namaKpa?.trim() || '';
+  let nipKpa = draft.nipKpa?.trim() || '';
+  if (!namaKpa || !nipKpa) {
+    const kpaUser = draft.users.find(u =>
+      (u.roles || []).some(r => r.toUpperCase().includes('KPA')) ||
+      (u.peranJabatan || '').toUpperCase().includes('KPA') ||
+      (u.jabatanPerbendaharaan || '').toUpperCase().includes('KPA')
+    );
+    if (kpaUser) {
+      if (!namaKpa) namaKpa = kpaUser.namaLengkap;
+      if (!nipKpa) nipKpa = kpaUser.nip;
+    }
+  }
+  if (!namaKpa) namaKpa = 'Nama KPA';
+  if (!nipKpa) nipKpa = '1990xxxx';
+
+  const sigX = margin + 175;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${kota},    ${tglStr}`, sigX, blockY + 4);
 
   doc.setFont('helvetica', 'bold');
-  doc.text(draft.namaKpa || '( ...................................................... )', sigX, sigY + 24);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`NIP. ${draft.nipKpa || '...................................................'}`, sigX, sigY + 29);
+  doc.text('Kuasa Pengguna Anggaran', sigX, blockY + 9);
 
-  // Trigger download
+  doc.text(namaKpa, sigX, blockY + 22);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`NIP ${nipKpa.replace(/\D/g, '') || nipKpa}`, sigX, blockY + 26);
+
+  // 5. Bagian Keterangan & Dikirimkan HAI
+  const notesY = blockY + boxHeight + 4;
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Keterangan', margin, notesY);
+
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text('*NPWP diisi angka tanpa pemisah simbol', margin, notesY + 3.5);
+  doc.text('*E-mail diisi dengan e-mail resmi Kedinasan', margin, notesY + 7);
+  doc.text('*Tanggal SK diisi dengan format dd-mm-yyyy', margin, notesY + 10.5);
+
+  doc.text('*Untuk contoh pengisian peran lengkap, silakan kunjungi ', margin, notesY + 14);
+  doc.setTextColor(5, 99, 193); // Blue link
+  doc.text('bit.ly/rolesakti', margin + 60, notesY + 14);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.text('Dikirimkan HAI berupa :', margin, notesY + 19);
+
+  doc.setFont('helvetica', 'normal');
+  doc.text('* file PDF bertandatangan KPA', margin, notesY + 22.5);
+  doc.text('* file excel sebagai lampiran', margin, notesY + 26);
+  doc.text('* file SK Penetapan Pengguna SAKTI oleh KPA sebagai lampiran', margin, notesY + 29.5);
+
+  // Trigger download PDF
   const dateStr = getFormattedDateForFilename();
-  const filename = `Form-Pendaftaran-User-SAKTI-${draft.kodeSatker}-${dateStr}.pdf`;
+  const filename = `Form-Pendaftaran-User-SAKTI-${cleanKodeSatker}-${dateStr}.pdf`;
   doc.save(filename);
 }

@@ -321,7 +321,7 @@ export const PegawaiEmailModal: React.FC<PegawaiEmailModalProps> = ({
                 Pilihan aktif:
               </span>
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-300 dark:border-teal-800">
-                {EMPLOYEE_STATUS_LIST.find(s => s.code === status)?.name} (Kode Excel: {status})
+                {EMPLOYEE_STATUS_LIST.find(s => s.code === status)?.label} (Kode Excel: {status})
               </span>
             </div>
           </div>

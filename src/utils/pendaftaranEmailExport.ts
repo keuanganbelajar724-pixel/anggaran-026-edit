@@ -32,7 +32,7 @@ export async function exportPendaftaranEmailToExcel(
     );
   } else {
     await exportPendaftaranEmailViaTemplate(
-      kodeKppnOrDraft,
+      typeof kodeKppnOrDraft === 'string' ? kodeKppnOrDraft : '136',
       kodeSatker || '',
       namaSatker || '',
       pegawaiList || []
@@ -44,12 +44,40 @@ export async function exportPendaftaranEmailToExcel(
  * Export formal printable PDF document for email registration
  */
 export function exportPendaftaranEmailToPDF(
-  kodeKppn: string,
-  kodeSatker: string,
-  namaSatker: string,
-  pegawaiList: PegawaiEmailRecord[],
-  pejabat: PejabatEmailPenandatangan
+  kodeKppnOrDraft: string | { kodeKppn: string; kodeSatker: string; namaSatker: string; pegawaiList: PegawaiEmailRecord[]; pejabat?: PejabatEmailPenandatangan },
+  kodeSatkerArg?: string,
+  namaSatkerArg?: string,
+  pegawaiListArg?: PegawaiEmailRecord[],
+  pejabatArg?: PejabatEmailPenandatangan
 ): void {
+  let kodeKppn = '136';
+  let kodeSatker = '';
+  let namaSatker = '';
+  let pegawaiList: PegawaiEmailRecord[] = [];
+  let pejabat: PejabatEmailPenandatangan = {
+    nama: '',
+    nip: '',
+    jabatan: 'Kuasa Pengguna Anggaran'
+  };
+
+  if (typeof kodeKppnOrDraft === 'object' && kodeKppnOrDraft !== null) {
+    kodeKppn = kodeKppnOrDraft.kodeKppn || '136';
+    kodeSatker = kodeKppnOrDraft.kodeSatker || '';
+    namaSatker = kodeKppnOrDraft.namaSatker || '';
+    pegawaiList = kodeKppnOrDraft.pegawaiList || [];
+    if (kodeKppnOrDraft.pejabat) {
+      pejabat = kodeKppnOrDraft.pejabat;
+    }
+  } else {
+    kodeKppn = kodeKppnOrDraft || '136';
+    kodeSatker = kodeSatkerArg || '';
+    namaSatker = namaSatkerArg || '';
+    pegawaiList = pegawaiListArg || [];
+    if (pejabatArg) {
+      pejabat = pejabatArg;
+    }
+  }
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -175,7 +203,7 @@ export const OFFICIAL_EMAIL_EXCEL_HEADERS = [
   'Status (1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K)'
 ];
 
-export function downloadPendaftaranEmailTemplate(): void {
+export function downloadPendaftaranEmailTemplate(kodeKppn?: string, kodeSatker?: string): void {
   const link = document.createElement('a');
   link.href = '/templates/format1 (57).xlsx';
   link.download = 'format1 (57).xlsx';

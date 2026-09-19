@@ -94,26 +94,26 @@ export const PreviewEmailExcelModal: React.FC<PreviewEmailExcelModalProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {/* Row 1 Header Row in Excel */}
-              <tr className="bg-slate-50 dark:bg-slate-800/40 font-bold text-slate-600 dark:text-slate-400">
-                <td className="py-2 px-3 text-center text-[10px] text-slate-400 border-r border-slate-200 dark:border-slate-800">
+              <tr className="bg-[#2F5597] text-white font-bold">
+                <td className="py-2.5 px-3 text-center text-[10px] text-white/80 border-r border-slate-900">
                   1
                 </td>
-                <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                <td className="py-2.5 px-3 border-r border-slate-900 text-center">
                   Kode KPPN
                 </td>
-                <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                <td className="py-2.5 px-3 border-r border-slate-900 text-center">
                   Kode Satker
                 </td>
-                <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                <td className="py-2.5 px-3 border-r border-slate-900">
                   Nama Pegawai
                 </td>
-                <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                <td className="py-2.5 px-3 border-r border-slate-900 text-center">
                   NIP / NRP
                 </td>
-                <td className="py-2 px-3 border-r border-slate-200 dark:border-slate-800">
+                <td className="py-2.5 px-3 border-r border-slate-900 text-center">
                   NIK
                 </td>
-                <td className="py-2 px-3">
+                <td className="py-2.5 px-3 text-center">
                   Status (1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K)
                 </td>
               </tr>

@@ -483,10 +483,15 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
   // Export to Excel Handler (Supports historical exports or active draft)
   const handleExportExcel = async (draftToExport?: PendaftaranUserSaktiDraft) => {
     const target = draftToExport || draft;
-    const targetValidation = draftToExport ? validatePendaftaranDraft(target) : validationResult;
+    if (!target.users || target.users.length === 0) {
+      alert('Tidak dapat mengekspor atau mencetak formulir: Belum ada data pengguna yang ditambahkan.');
+      return;
+    }
 
-    if (!targetValidation.isValid && !draftToExport) {
+    const targetValidation = validatePendaftaranDraft(target);
+    if (!targetValidation.isValid) {
       setIsValidModalOpen(true);
+      alert('Pencetakan/Ekspor Ditolak: Seluruh pengguna wajib melengkapi data NIK (16 digit) dan NPWP (15 atau 16 digit angka tanpa simbol) sebelum formulir dapat diekspor.');
       return;
     }
 
@@ -521,10 +526,15 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
   // Export to PDF Handler
   const handleExportPDF = (draftToExport?: PendaftaranUserSaktiDraft) => {
     const target = draftToExport || draft;
-    const targetValidation = draftToExport ? validatePendaftaranDraft(target) : validationResult;
+    if (!target.users || target.users.length === 0) {
+      alert('Tidak dapat mengekspor atau mencetak formulir: Belum ada data pengguna yang ditambahkan.');
+      return;
+    }
 
-    if (!targetValidation.isValid && !draftToExport) {
+    const targetValidation = validatePendaftaranDraft(target);
+    if (!targetValidation.isValid) {
       setIsValidModalOpen(true);
+      alert('Pencetakan/Ekspor Ditolak: Seluruh pengguna wajib melengkapi data NIK (16 digit) dan NPWP (15 atau 16 digit angka tanpa simbol) sebelum formulir dapat dicetak.');
       return;
     }
 
@@ -553,6 +563,7 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
 
       setSaveToast('✓ Dokumen PDF resmi berhasil diunduh dan dicatat di riwayat');
     } catch (err: any) {
+      alert(`Gagal mencetak PDF: ${err?.message || err}`);
       setSaveToast(`Gagal mengekspor PDF: ${err?.message || err}`);
     }
   };

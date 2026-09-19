@@ -75,32 +75,44 @@ export function validateUserRecord(user: UserSaktiRecord, isBLU: boolean, existi
     }
   }
 
-  // 3. NIK (opsional, tapi jika diisi harus 16 digit)
-  if (user.nik && user.nik.trim().length > 0) {
-    const cleanNIK = user.nik.replace(/\D/g, '');
-    if (cleanNIK.length !== 16) {
-      issues.push({
-        userId: user.id,
-        field: 'nik',
-        userName: uName,
-        severity: 'ERROR',
-        message: `NIK harus terdiri dari 16 digit angka (saat ini ${cleanNIK.length} digit).`
-      });
-    }
+  // 3. NIK (Wajib diisi 16 digit angka KTP)
+  const cleanNIK = (user.nik || '').replace(/\D/g, '');
+  if (!cleanNIK) {
+    issues.push({
+      userId: user.id,
+      field: 'nik',
+      userName: uName,
+      severity: 'ERROR',
+      message: 'NIK wajib diisi (16 digit angka KTP).'
+    });
+  } else if (cleanNIK.length !== 16) {
+    issues.push({
+      userId: user.id,
+      field: 'nik',
+      userName: uName,
+      severity: 'ERROR',
+      message: `NIK harus terdiri dari 16 digit angka (saat ini ${cleanNIK.length} digit).`
+    });
   }
 
-  // 4. NPWP (opsional / jika diisi 15 atau 16 digit angka)
-  if (user.npwp && user.npwp.trim().length > 0) {
-    const cleanNPWP = user.npwp.replace(/\D/g, '');
-    if (cleanNPWP.length !== 15 && cleanNPWP.length !== 16) {
-      issues.push({
-        userId: user.id,
-        field: 'npwp',
-        userName: uName,
-        severity: 'WARNING',
-        message: `Format NPWP disarankan 15 atau 16 digit angka.`
-      });
-    }
+  // 4. NPWP (Wajib diisi 15 atau 16 digit angka tanpa simbol)
+  const cleanNPWP = (user.npwp || '').replace(/\D/g, '');
+  if (!cleanNPWP) {
+    issues.push({
+      userId: user.id,
+      field: 'npwp',
+      userName: uName,
+      severity: 'ERROR',
+      message: 'NPWP wajib diisi (15 atau 16 digit angka tanpa pemisah simbol).'
+    });
+  } else if (cleanNPWP.length !== 15 && cleanNPWP.length !== 16) {
+    issues.push({
+      userId: user.id,
+      field: 'npwp',
+      userName: uName,
+      severity: 'ERROR',
+      message: `Format NPWP harus 15 atau 16 digit angka tanpa simbol (saat ini ${cleanNPWP.length} digit).`
+    });
   }
 
   // 5. Email (valid format)

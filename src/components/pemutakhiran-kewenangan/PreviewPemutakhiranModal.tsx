@@ -92,21 +92,21 @@ export const PreviewPemutakhiranModal: React.FC<PreviewPemutakhiranModalProps> =
 
             {/* Main Table (Row 7+) */}
             <div className="overflow-x-auto mb-6">
-              <table className="w-full border-collapse border border-slate-400 text-left text-[11px]">
+              <table className="w-full border-collapse border border-slate-900 text-left text-[11px]">
                 <thead>
-                  <tr className="bg-slate-800 text-white">
-                    <th className="border border-slate-600 px-2.5 py-1.5 text-center font-bold">Kode Satker</th>
-                    <th className="border border-slate-600 px-2.5 py-1.5 text-center font-bold">Tipe</th>
-                    <th className="border border-slate-600 px-2.5 py-1.5 text-center font-bold">Peran</th>
-                    <th className="border border-slate-600 px-3 py-1.5 font-bold">Nama</th>
-                    <th className="border border-slate-600 px-3 py-1.5 text-center font-bold">NIK</th>
-                    <th className="border border-slate-600 px-3 py-1.5 font-bold">Peran</th>
+                  <tr className="bg-[#2F5597] text-white">
+                    <th className="border border-slate-900 px-2.5 py-2 text-center font-bold">Kode Satker</th>
+                    <th className="border border-slate-900 px-2.5 py-2 text-center font-bold">Tipe</th>
+                    <th className="border border-slate-900 px-2.5 py-2 text-center font-bold">Peran</th>
+                    <th className="border border-slate-900 px-3 py-2 font-bold">Nama</th>
+                    <th className="border border-slate-900 px-3 py-2 text-center font-bold">NIK</th>
+                    <th className="border border-slate-900 px-3 py-2 font-bold">Peran</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(draft.users || []).length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-6 text-slate-400 italic">
+                      <td colSpan={6} className="text-center py-6 text-slate-400 italic border border-slate-900">
                         Belum ada pengguna yang dipilih untuk dimutakhirkan.
                       </td>
                     </tr>
@@ -116,22 +116,22 @@ export const PreviewPemutakhiranModal: React.FC<PreviewPemutakhiranModalProps> =
                       const rolesStr = formatRolesForExcel(rolesList);
                       return (
                         <tr key={u.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                          <td className="border border-slate-300 px-2 py-1.5 text-center font-mono text-slate-600">
+                          <td className="border border-slate-900 px-2 py-1.5 text-center font-mono text-slate-600">
                             =$B$3 ({draft.kodeSatker})
                           </td>
-                          <td className="border border-slate-300 px-2 py-1.5 text-center font-semibold text-slate-700">
+                          <td className="border border-slate-900 px-2 py-1.5 text-center font-semibold text-slate-700">
                             {u.tipe || 'SATKER'}
                           </td>
-                          <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-indigo-700">
+                          <td className="border border-slate-900 px-2 py-1.5 text-center font-bold text-indigo-700">
                             {u.peranKategori || 'OPERATOR'}
                           </td>
-                          <td className="border border-slate-300 px-2.5 py-1.5 font-bold text-slate-900">
+                          <td className="border border-slate-900 px-2.5 py-1.5 font-bold text-slate-900">
                             {u.nama || '-'}
                           </td>
-                          <td className="border border-slate-300 px-2 py-1.5 text-center font-mono text-slate-800">
+                          <td className="border border-slate-900 px-2 py-1.5 text-center font-mono text-slate-800">
                             {u.nik || '-'}
                           </td>
-                          <td className="border border-slate-300 px-2.5 py-1.5 text-slate-800 leading-relaxed">
+                          <td className="border border-slate-900 px-2.5 py-1.5 text-slate-800 leading-relaxed">
                             {rolesStr || '-'}
                           </td>
                         </tr>

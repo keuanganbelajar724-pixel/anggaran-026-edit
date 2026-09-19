@@ -243,6 +243,26 @@ export const UserSaktiModal: React.FC<UserSaktiModalProps> = ({
       return;
     }
 
+    const cleanNIK = (formData.nik || '').replace(/\D/g, '');
+    if (!cleanNIK) {
+      alert('NIK (16 digit angka KTP) wajib diisi.');
+      return;
+    }
+    if (cleanNIK.length !== 16) {
+      alert(`NIK harus 16 digit angka (saat ini ${cleanNIK.length} digit).`);
+      return;
+    }
+
+    const cleanNPWP = (formData.npwp || '').replace(/\D/g, '');
+    if (!cleanNPWP) {
+      alert('NPWP (15 atau 16 digit angka tanpa simbol) wajib diisi.');
+      return;
+    }
+    if (cleanNPWP.length !== 15 && cleanNPWP.length !== 16) {
+      alert(`NPWP harus terdiri dari 15 atau 16 digit angka tanpa pemisah simbol (saat ini ${cleanNPWP.length} digit).`);
+      return;
+    }
+
     if (!formData.email.trim() || !formData.email.includes('@')) {
       alert('Alamat email aktif wajib diisi dengan format yang benar.');
       return;
@@ -433,33 +453,57 @@ export const UserSaktiModal: React.FC<UserSaktiModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    NIK (16 Digit KTP)
+                    NIK (16 Digit KTP) <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className={`text-[10px] font-mono font-bold ${
+                    (formData.nik || '').length === 16 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                  }`}>
                     {(formData.nik || '').length}/16
                   </span>
                 </div>
                 <input
                   type="text"
+                  required
                   maxLength={16}
                   placeholder="3374012304850001"
                   value={formData.nik || ''}
                   onChange={e => setFormData({ ...formData, nik: e.target.value.replace(/\D/g, '').slice(0, 16) })}
-                  className="w-full text-xs sm:text-sm font-mono px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                  className={`w-full text-xs sm:text-sm font-mono px-3 py-2 rounded-xl border ${
+                    (formData.nik || '').length === 16
+                      ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20'
+                      : submitAttempted && (formData.nik || '').length !== 16
+                        ? 'border-rose-400 bg-rose-50/40'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800'
+                  } text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all`}
                 />
               </div>
 
               {/* NPWP */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  NPWP (15 / 16 Digit)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    NPWP (15 / 16 Digit) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className={`text-[10px] font-mono font-bold ${
+                    (formData.npwp || '').length === 15 || (formData.npwp || '').length === 16 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                  }`}>
+                    {(formData.npwp || '').length}/16
+                  </span>
+                </div>
                 <input
                   type="text"
+                  required
+                  maxLength={16}
                   placeholder="012345678026000"
                   value={formData.npwp || ''}
-                  onChange={e => setFormData({ ...formData, npwp: e.target.value.trim() })}
-                  className="w-full text-xs sm:text-sm font-mono px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all"
+                  onChange={e => setFormData({ ...formData, npwp: e.target.value.replace(/\D/g, '').slice(0, 16) })}
+                  className={`w-full text-xs sm:text-sm font-mono px-3 py-2 rounded-xl border ${
+                    (formData.npwp || '').length === 15 || (formData.npwp || '').length === 16
+                      ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20'
+                      : submitAttempted && (formData.npwp || '').length !== 15 && (formData.npwp || '').length !== 16
+                        ? 'border-rose-400 bg-rose-50/40'
+                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800'
+                  } text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 outline-none transition-all`}
                 />
               </div>
 
