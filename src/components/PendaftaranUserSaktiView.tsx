@@ -50,7 +50,8 @@ import {
   fetchSaktiDraftFromFirestore, 
   saveSaktiHistoryToFirestore, 
   fetchSaktiHistoryFromFirestore,
-  resolveLatestDraft 
+  resolveLatestDraft,
+  subscribeSaktiDraftFromFirestore
 } from '../utils/saktiFirestoreSync';
 import { useSatkerInactivityTimeout } from '../hooks/useSatkerInactivityTimeout';
 import { SatkerSessionTimerBadge, SatkerSessionExpiredModal } from './satker/SatkerSessionSecurityControls';
@@ -182,16 +183,30 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
   }, [completeSatkerList, selectedSatkerKode]);
 
   // 3. Password Gatekeeper & Active Satker Session State
-  // Strictly isolates satker sessions: changing satker locks access and requires password verification
+  // KEAMANAN TINGGI: Sesi Satker hanya disimpan di memori runtime (React State).
+  // Setiap REFRESH halaman atau setiap GANTI SATKER otomatis LOG OUT & TERKUNCI kembali
+  // demi melindungi kerahasiaan data pengguna SAKTI Satker.
   const STORAGE_ACTIVE_UNLOCKED_SATKER = 'sakti_active_unlocked_satker';
-  const [activeUnlockedSatkerKode, setActiveUnlockedSatkerKode] = useState<string | null>(() => {
+  const [activeUnlockedSatkerKode, setActiveUnlockedSatkerKode] = useState<string | null>(null);
+
+  // Pastikan sesi penyimpanan browser lama dibersihkan saat halaman dimuat / di-refresh
+  useEffect(() => {
     if (typeof sessionStorage !== 'undefined') {
       try {
-        return sessionStorage.getItem(STORAGE_ACTIVE_UNLOCKED_SATKER);
+        sessionStorage.removeItem(STORAGE_ACTIVE_UNLOCKED_SATKER);
       } catch (e) {}
     }
-    return null;
-  });
+  }, []);
+
+  // Setiap kali Satker berganti, otomatis log out & kunci kembali sesi sebelumnya
+  useEffect(() => {
+    setActiveUnlockedSatkerKode(null);
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_ACTIVE_UNLOCKED_SATKER);
+      } catch (e) {}
+    }
+  }, [selectedSatkerKode]);
 
   const isCurrentSatkerUnlocked = useMemo(() => {
     if (isAdminAuthenticated) return true;
@@ -200,11 +215,6 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
 
   const handleUnlockSuccess = () => {
     setActiveUnlockedSatkerKode(currentSatker.kodeSatker);
-    if (typeof sessionStorage !== 'undefined') {
-      try {
-        sessionStorage.setItem(STORAGE_ACTIVE_UNLOCKED_SATKER, currentSatker.kodeSatker);
-      } catch (e) {}
-    }
     setSaveToast(`✓ Akses internal Satker ${currentSatker.kodeSatker} berhasil dibuka`);
   };
 
@@ -321,6 +331,27 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
             } catch (e) {}
           }
         } else if (resolved && resolved.source === 'local') {
+          // Only save local to cloud if local actually has content/users
+          if (currentLocalDraft.users && currentLocalDraft.users.length > 0) {
+            await saveSaktiDraftToFirestore(currentLocalDraft);
+          }
+        }
+      } else if (!cloudDraft && !forcePush) {
+        // Fallback: If cloud has no active draft, check if cloudHistory has records for this Satker with users
+        if (Array.isArray(cloudHistory) && cloudHistory.length > 0) {
+          const matchingHist = cloudHistory.find(h => h.kodeSatker === targetKode && h.users && h.users.length > 0);
+          if (matchingHist) {
+            setDraft(matchingHist);
+            if (typeof localStorage !== 'undefined') {
+              try {
+                localStorage.setItem(getDraftStorageKey(matchingHist.kodeSatker), JSON.stringify(matchingHist));
+              } catch (e) {}
+            }
+            await saveSaktiDraftToFirestore(matchingHist);
+          } else if (currentLocalDraft.users && currentLocalDraft.users.length > 0) {
+            await saveSaktiDraftToFirestore(currentLocalDraft);
+          }
+        } else if (currentLocalDraft.users && currentLocalDraft.users.length > 0) {
           await saveSaktiDraftToFirestore(currentLocalDraft);
         }
       } else if (forcePush || (currentLocalDraft.users && currentLocalDraft.users.length > 0)) {
@@ -413,17 +444,55 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     syncWithCloud(currentSatker.kodeSatker, activeLocalDraft, historyDrafts);
   }, [currentSatker.kodeSatker, currentSatker.namaSatker]);
 
+  // Real-time listener: receive updates immediately when saved from other browser tabs / Google AI Studio / Deployment
+  useEffect(() => {
+    const unsubscribe = subscribeSaktiDraftFromFirestore(currentSatker.kodeSatker, (remoteDraft) => {
+      if (!remoteDraft || remoteDraft.kodeSatker !== currentSatker.kodeSatker) return;
+      setDraft(prevLocalDraft => {
+        const resolved = resolveLatestDraft(prevLocalDraft, remoteDraft);
+        if (resolved && resolved.source === 'cloud') {
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(getDraftStorageKey(remoteDraft.kodeSatker), JSON.stringify(remoteDraft));
+            } catch (e) {}
+          }
+          return resolved.draft;
+        }
+        return prevLocalDraft;
+      });
+      setCloudSyncStatus('synced');
+      setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentSatker.kodeSatker]);
+
   // Count of history records for active satker
   const currentSatkerHistory = useMemo(() => {
     return historyDrafts.filter(h => h.kodeSatker === currentSatker.kodeSatker);
   }, [historyDrafts, currentSatker.kodeSatker]);
 
-  // Auto-save draft to localStorage whenever it changes
+  // Auto-save draft to localStorage and debounced auto-sync to Cloud Firestore whenever draft has content
   useEffect(() => {
     if (typeof localStorage !== 'undefined') {
       try {
         localStorage.setItem(getDraftStorageKey(draft.kodeSatker), JSON.stringify(draft));
       } catch (e) {}
+    }
+
+    // Automatically sync to Cloud Firestore if draft contains users (avoid pushing empty templates)
+    if (draft.users && draft.users.length > 0) {
+      const timer = setTimeout(() => {
+        saveSaktiDraftToFirestore(draft).then(() => {
+          setCloudSyncStatus('synced');
+          setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+        }).catch((err) => {
+          console.warn('Auto cloud sync notice:', err);
+        });
+      }, 1200);
+      return () => clearTimeout(timer);
     }
   }, [draft]);
 
@@ -466,14 +535,12 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('kppn_current_satker', nextKode);
     }
-    // Strict privacy enforcement: switching to another satker requires verifying its password
-    if (activeUnlockedSatkerKode !== nextKode) {
-      setActiveUnlockedSatkerKode(null);
-      if (typeof sessionStorage !== 'undefined') {
-        try {
-          sessionStorage.removeItem(STORAGE_ACTIVE_UNLOCKED_SATKER);
-        } catch (e) {}
-      }
+    // Strict privacy enforcement: ALWAYS log out and lock access whenever switching or selecting satker
+    setActiveUnlockedSatkerKode(null);
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(STORAGE_ACTIVE_UNLOCKED_SATKER);
+      } catch (e) {}
     }
     setIsSatkerSelectorOpen(false);
   };

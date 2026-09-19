@@ -92,7 +92,7 @@ export async function fetchSaktiHistoryFromFirestore(): Promise<PendaftaranUserS
 
 /**
  * Smart merge between Local Draft and Cloud Draft:
- * Prefers the one with the later updatedAt timestamp.
+ * Protects against accidental overwrites by empty local templates.
  */
 export function resolveLatestDraft(
   localDraft: PendaftaranUserSaktiDraft | null,
@@ -102,6 +102,21 @@ export function resolveLatestDraft(
   if (!localDraft && cloudDraft) return { draft: cloudDraft, source: 'cloud' };
   if (localDraft && !cloudDraft) return { draft: localDraft, source: 'local' };
 
+  const localUsersCount = localDraft?.users?.length || 0;
+  const cloudUsersCount = cloudDraft?.users?.length || 0;
+
+  // RULE 1: If Cloud Draft has user records and Local Draft has 0 users (e.g. freshly opened browser/deployment session),
+  // CLOUD MUST ALWAYS PREVAIL! Never allow an empty template to overwrite real cloud data.
+  if (cloudUsersCount > 0 && localUsersCount === 0) {
+    return { draft: cloudDraft!, source: 'cloud' };
+  }
+
+  // RULE 2: If Local Draft has user records and Cloud Draft has 0 users, Local Draft wins and will be synced to Cloud.
+  if (localUsersCount > 0 && cloudUsersCount === 0) {
+    return { draft: localDraft!, source: 'local' };
+  }
+
+  // RULE 3: If both have users (or both are empty), compare timestamps
   const localTime = new Date(localDraft!.updatedAt || localDraft!.createdAt || 0).getTime();
   const cloudTime = new Date(cloudDraft!.updatedAt || cloudDraft!.createdAt || 0).getTime();
 
@@ -111,13 +126,41 @@ export function resolveLatestDraft(
     return { draft: localDraft!, source: 'local' };
   }
 
-  // If equal, prefer the one with users if one has users and the other is empty
-  const localUsersCount = localDraft!.users?.length || 0;
-  const cloudUsersCount = cloudDraft!.users?.length || 0;
-
-  if (cloudUsersCount > localUsersCount) {
+  // If timestamps are equal, choose the one with more user records
+  if (cloudUsersCount >= localUsersCount) {
     return { draft: cloudDraft!, source: 'cloud' };
   }
 
   return { draft: localDraft!, source: 'equal' };
+}
+
+/**
+ * Subscribe to real-time updates for a Satker draft from Cloud Firestore
+ */
+export function subscribeSaktiDraftFromFirestore(
+  kodeSatker: string,
+  onUpdate: (draft: PendaftaranUserSaktiDraft) => void
+): () => void {
+  if (!kodeSatker) return () => {};
+  try {
+    const docRef = doc(db, SAKTI_DRAFT_COLLECTION, kodeSatker);
+    const unsubscribe = onSnapshot(
+      docRef,
+      (snap) => {
+        if (snap && snap.exists()) {
+          const data = snap.data() as PendaftaranUserSaktiDraft;
+          if (data && data.kodeSatker === kodeSatker) {
+            onUpdate(data);
+          }
+        }
+      },
+      (err) => {
+        console.warn('[saktiFirestoreSync] onSnapshot listener notice:', err);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn('[saktiFirestoreSync] subscribe notice:', err);
+    return () => {};
+  }
 }

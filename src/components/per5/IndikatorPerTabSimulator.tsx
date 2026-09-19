@@ -151,6 +151,12 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
   useEffect(() => {
     if (isAdminAuthenticated && selectedSatkerId) {
       setUnlockedSatkerKode(selectedSatkerId);
+    } else if (!isAdminAuthenticated && selectedSatkerId && selectedSatkerId !== unlockedSatkerKode) {
+      // Keamanan Satker: setiap pergantian satker otomatis mengunci & logout sesi sebelumnya
+      setUnlockedSatkerKode('');
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('kppn_unlocked_simulasi_satker');
+      }
     }
   }, [isAdminAuthenticated, selectedSatkerId]);
 
