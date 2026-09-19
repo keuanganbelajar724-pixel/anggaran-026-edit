@@ -7,6 +7,7 @@ import {
   memoryLocalCache,
   doc, 
   getDoc as rawGetDoc, 
+  getDocs as rawGetDocs,
   setDoc as rawSetDoc, 
   onSnapshot as rawOnSnapshot, 
   collection, 
@@ -239,6 +240,21 @@ export function onSnapshot(...args: any[]): () => void {
       console.warn('Firestore onSnapshot notice:', err?.message || err);
     }
     return () => {};
+  }
+}
+
+export async function getDocs(queryOrCollection: any): Promise<any> {
+  try {
+    const snap = await rawGetDocs(queryOrCollection);
+    trackFirestoreRead(queryOrCollection?.path || 'query_docs', snap?.size || 1);
+    return snap;
+  } catch (err: any) {
+    if (isQuotaError(err)) {
+      reportFirestoreQuotaExhaustion(5);
+    } else {
+      console.warn('Firestore getDocs notice:', err?.message || err);
+    }
+    return { empty: true, docs: [], size: 0, forEach: () => {} };
   }
 }
 

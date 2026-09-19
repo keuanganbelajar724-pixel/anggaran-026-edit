@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Building2,
   Phone,
@@ -36,13 +36,21 @@ import {
   Coins,
   FileText,
   BadgeCheck,
-  HelpCircle
+  HelpCircle,
+  Info,
+  Copy,
+  PhoneCall
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo } from '../types';
+import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo, UserSaktiRecord } from '../types';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { getSatkerDefaultPassword, verifySatkerPassword, resolveKodeBA } from '../utils/satkerSecurity';
 import { PaginationControl } from './PaginationControl';
+import { 
+  subscribeAllSaktiUserContacts, 
+  formatWhatsAppUrl, 
+  formatTelUrl 
+} from '../utils/saktiUserContactSync';
 
 interface KelolaDataSatkerDashboardProps {
   masterSatkers: MasterSatker[];
@@ -110,6 +118,31 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     satker: null,
     passwordValue: ''
   });
+
+  // Real-time SAKTI registered users synced from Pendaftaran User SAKTI
+  const [saktiUsersMap, setSaktiUsersMap] = useState<Record<string, UserSaktiRecord[]>>({});
+  const [copyFeedbackToast, setCopyFeedbackToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAllSaktiUserContacts((map) => {
+      setSaktiUsersMap(map);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (copyFeedbackToast) {
+      const timer = setTimeout(() => setCopyFeedbackToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [copyFeedbackToast]);
+
+  const modalSaktiUsers = useMemo(() => {
+    if (!selectedSatkerForPejabat?.kodeSatker) return [];
+    return saktiUsersMap[selectedSatkerForPejabat.kodeSatker] || [];
+  }, [selectedSatkerForPejabat?.kodeSatker, saktiUsersMap]);
 
   // Pejabat & Operator Form State
   const [pejabatFormData, setPejabatFormData] = useState<{
@@ -211,7 +244,14 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         (m.pejabatOperator?.kpa?.nama && m.pejabatOperator.kpa.nama.toLowerCase().includes(q)) ||
         (m.pejabatOperator?.ppk?.nama && m.pejabatOperator.ppk.nama.toLowerCase().includes(q)) ||
         (m.pejabatOperator?.ppspm?.nama && m.pejabatOperator.ppspm.nama.toLowerCase().includes(q)) ||
-        (m.pejabatOperator?.bendahara?.nama && m.pejabatOperator.bendahara.nama.toLowerCase().includes(q));
+        (m.pejabatOperator?.bendahara?.nama && m.pejabatOperator.bendahara.nama.toLowerCase().includes(q)) ||
+        (saktiUsersMap[m.kodeSatker]?.some(u => 
+          (u.namaLengkap && u.namaLengkap.toLowerCase().includes(q)) || 
+          (u.noHp && u.noHp.includes(q)) ||
+          (u.nip && u.nip.includes(q)) ||
+          (u.jabatan && u.jabatan.toLowerCase().includes(q)) ||
+          (u.jabatanPerbendaharaan && u.jabatanPerbendaharaan.toLowerCase().includes(q))
+        ));
 
       if (!matchSearch) return false;
 
@@ -434,6 +474,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     const exportData = masterSatkers.map((m, idx) => {
       const p = m.pejabatOperator || {};
       const defaultPw = getSatkerDefaultPassword(m);
+      const saktiUsers = saktiUsersMap[m.kodeSatker] || [];
+      const saktiContactsSummary = saktiUsers.length > 0
+        ? saktiUsers.map(u => `${u.namaLengkap} (${u.jabatanPerbendaharaan || u.peranJabatan || 'User SAKTI'}: ${u.noHp || '-'})`).join('; ')
+        : '-';
 
       return {
         'No': idx + 1,
@@ -443,6 +487,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         'Kode BA': m.kodeBa || resolveKodeBA(m),
         'Status Satker': m.isActive ? 'AKTIF' : 'NONAKTIF',
         'Password Akses Satker': m.passwordSatker || defaultPw,
+        'Kontak Tambahan (Pendaftaran SAKTI)': saktiContactsSummary,
         'KPA (Nama)': p.kpa?.nama || '-',
         'KPA (No HP)': p.kpa?.noHp || '-',
         'PPK (Nama)': p.ppk?.nama || '-',
@@ -1363,6 +1408,12 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 <th className="py-3.5 px-4 min-w-[200px]">Nama Satker &amp; K/L</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
                 <th className="py-3.5 px-4 min-w-[280px]">Rincian Kontak 8 Pejabat &amp; Operator</th>
+                <th className="py-3.5 px-4 min-w-[250px]">
+                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Kontak Tambahan (Pendaftaran SAKTI)</span>
+                  </div>
+                </th>
                 <th className="py-3.5 px-4 text-center">Password Satker</th>
                 <th className="py-3.5 px-4 text-center">Aksi</th>
               </tr>
@@ -1370,7 +1421,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredSatkers.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdminAuthenticated ? 7 : 6} className="py-16 text-center text-slate-400">
+                  <td colSpan={isAdminAuthenticated ? 8 : 7} className="py-16 text-center text-slate-400">
                     <Building2 className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
                     <p className="font-bold text-sm">Tidak ada Satker yang sesuai kriteria pencarian</p>
                     <p className="text-xs mt-1">Coba ubah kata kunci atau reset filter.</p>
@@ -1503,6 +1554,86 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             </div>
                           )}
                         </div>
+                      </td>
+
+                      {/* Kontak Tambahan dari Pendaftaran SAKTI (Opsi Cadangan KPPN) */}
+                      <td className="py-3.5 px-4 min-w-[250px]">
+                        {(() => {
+                          const saktiUsers = saktiUsersMap[satker.kodeSatker] || [];
+                          if (saktiUsers.length === 0) {
+                            return (
+                              <div className="text-slate-400 dark:text-slate-500 text-[11px] italic flex items-center gap-1">
+                                <span>-</span>
+                                <span className="text-[10px]">(Belum ada pendaftaran SAKTI)</span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  {saktiUsers.length} User SAKTI
+                                </span>
+                                {filledCount === 0 && !satker.noHpPic && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                                    Opsi Kontak KPPN
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="space-y-1">
+                                {saktiUsers.slice(0, 2).map((usr) => {
+                                  const waUrl = formatWhatsAppUrl(usr.noHp, `Halo Bapak/Ibu ${usr.namaLengkap}, kami dari KPPN Semarang I terkait koordinasi Satker ${satker.kodeSatker} - ${satker.namaSatker}`);
+                                  const telUrl = formatTelUrl(usr.noHp);
+
+                                  return (
+                                    <div key={usr.id} className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-[11px]">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                          {usr.namaLengkap}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                          {usr.jabatanPerbendaharaan || usr.peranJabatan || (usr.roles && usr.roles.length > 0 ? usr.roles[0] : 'Operator SAKTI')}
+                                        </div>
+                                      </div>
+                                      {usr.noHp ? (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <a
+                                            href={waUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                                            title={`Kirim pesan WhatsApp ke ${usr.namaLengkap} (${usr.noHp})`}
+                                          >
+                                            <MessageSquare className="w-2.5 h-2.5" />
+                                            <span>{usr.noHp}</span>
+                                          </a>
+                                          <a
+                                            href={telUrl}
+                                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                                            title="Panggil nomor telepon"
+                                          >
+                                            <Phone className="w-2.5 h-2.5" />
+                                          </a>
+                                        </div>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400 italic shrink-0">No HP -</span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {saktiUsers.length > 2 && (
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold pl-1">
+                                    +{saktiUsers.length - 2} kontak lainnya (buka rincian)
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Password Satker Info */}
@@ -1945,12 +2076,176 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                     </div>
                   </div>
 
-                  {/* Section C: Kontak Utama Satker & Pengaturan Password Satker */}
+                  {/* Section C: Kontak Tambahan dari Pendaftaran User SAKTI (Opsi Kontak KPPN) */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <h4 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">
+                          C. Kontak Tambahan Dari Pendaftaran User SAKTI (Data KPPN)
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                        {modalSaktiUsers.length} Kontak Terdaftar
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl text-[11px] text-emerald-900 dark:text-emerald-200 flex items-start gap-2.5">
+                      <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-bold">Kolom Tambahan Kontak Cadangan KPPN:</p>
+                        <p className="text-slate-600 dark:text-slate-400 text-[10px] leading-relaxed">
+                          Kolom ini disinkronkan otomatis dari menu <strong>Pendaftaran User SAKTI</strong> untuk Satker <strong>{selectedSatkerForPejabat?.kodeSatker}</strong>. Apabila Satker belum mengisi kolom permanen (KPA, PPK, PPSPM, Bendahara, Operator) di atas, KPPN memiliki opsi menghubungi kontak dari pendaftaran user di bawah ini. Perubahan data atau penghapusan di Pendaftaran SAKTI akan otomatis terhubung realtime di kolom ini.
+                        </p>
+                      </div>
+                    </div>
+
+                    {copyFeedbackToast && (
+                      <div className="p-2.5 bg-emerald-500 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow-md animate-in fade-in slide-in-from-top-1">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>{copyFeedbackToast}</span>
+                      </div>
+                    )}
+
+                    {modalSaktiUsers.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                        {modalSaktiUsers.map((usr, uIdx) => {
+                          const waUrl = formatWhatsAppUrl(usr.noHp, `Halo Bapak/Ibu ${usr.namaLengkap}, kami dari KPPN Semarang I terkait koordinasi Satker ${selectedSatkerForPejabat?.kodeSatker} - ${selectedSatkerForPejabat?.namaSatker}`);
+                          const telUrl = formatTelUrl(usr.noHp);
+
+                          return (
+                            <div 
+                              key={usr.id || uIdx}
+                              className={`p-4 rounded-2xl border space-y-3 transition-all ${
+                                isDark ? 'bg-slate-950/70 border-slate-800 hover:border-slate-700' : 'bg-slate-50/80 border-slate-200 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 block">
+                                    Pengguna SAKTI #{uIdx + 1}
+                                  </span>
+                                  <h5 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                                    {usr.namaLengkap}
+                                  </h5>
+                                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                    {usr.jabatanPerbendaharaan || usr.peranJabatan || usr.jabatan || 'Pejabat/Operator SAKTI'}
+                                    {usr.nip ? ` • NIP: ${usr.nip}` : ''}
+                                  </p>
+                                </div>
+                                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                                  {usr.roles && usr.roles.length > 0 ? `${usr.roles.length} Role` : 'SAKTI'}
+                                </span>
+                              </div>
+
+                              {usr.roles && usr.roles.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {usr.roles.slice(0, 4).map((r, rIdx) => (
+                                    <span key={rIdx} className="text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                      {r}
+                                    </span>
+                                  ))}
+                                  {usr.roles.length > 4 && (
+                                    <span className="text-[9px] text-slate-400 px-1 py-0.5">
+                                      +{usr.roles.length - 4} lagi
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="pt-2 border-t border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2">
+                                <div>
+                                  <span className="text-[9px] text-slate-400 block">Nomor WhatsApp / HP:</span>
+                                  <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                                    {usr.noHp || '-'}
+                                  </span>
+                                </div>
+
+                                {usr.noHp ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer"
+                                      title="Kirim pesan WhatsApp"
+                                    >
+                                      <MessageSquare className="w-3 h-3" />
+                                      <span>WhatsApp</span>
+                                    </a>
+                                    <a
+                                      href={telUrl}
+                                      className="inline-flex items-center gap-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] p-1.5 rounded-lg transition-colors cursor-pointer"
+                                      title="Hubungi Telepon"
+                                    >
+                                      <Phone className="w-3 h-3" />
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 italic">Tidak ada nomor</span>
+                                )}
+                              </div>
+
+                              {/* Quick Apply to Permanent Fields above */}
+                              <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                                <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                                  Terapkan Kontak Ini ke Form Permanen:
+                                </span>
+                                <div className="flex flex-wrap gap-1">
+                                  {[
+                                    { key: 'kpa', label: 'KPA' },
+                                    { key: 'ppk', label: 'PPK' },
+                                    { key: 'ppspm', label: 'PPSPM' },
+                                    { key: 'bendahara', label: 'Bendahara' },
+                                    { key: 'operatorPembayaran', label: 'Op. Bayar' },
+                                    { key: 'operatorKomitmen', label: 'Op. Komitmen' }
+                                  ].map((target) => (
+                                    <button
+                                      key={target.key}
+                                      type="button"
+                                      onClick={() => {
+                                        setPejabatFormData(prev => ({
+                                          ...prev,
+                                          [target.key]: {
+                                            nama: usr.namaLengkap,
+                                            noHp: usr.noHp || '',
+                                            nip: usr.nip || '',
+                                            email: usr.email || ''
+                                          }
+                                        }));
+                                        setCopyFeedbackToast(`Kontak "${usr.namaLengkap}" berhasil disalin ke kolom permanen ${target.label}`);
+                                      }}
+                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200/80 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-slate-800 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                      title={`Salin data ${usr.namaLengkap} ke kolom permanen ${target.label}`}
+                                    >
+                                      + {target.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className={`p-5 rounded-2xl border text-center space-y-2 ${
+                        isDark ? 'bg-slate-950/40 border-slate-800 text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+                      }`}>
+                        <Users className="w-8 h-8 mx-auto text-slate-400 opacity-60" />
+                        <p className="font-bold text-xs">Belum ada pengguna terdaftar di Pendaftaran User SAKTI untuk Satker ini</p>
+                        <p className="text-[11px] max-w-md mx-auto">
+                          Setelah data user atau nomor handphone diinput di menu Pendaftaran User SAKTI, kontak akan otomatis muncul pada kolom tambahan ini sebagai opsi cadangan untuk KPPN.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Section D: Kontak Utama Satker & Pengaturan Password Satker */}
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
                       <Shield className="w-4 h-4 text-amber-500" />
                       <h4 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider">
-                        C. Kontak Resmi Satker &amp; Keamanan Password
+                        D. Kontak Resmi Satker &amp; Keamanan Password
                       </h4>
                     </div>
 

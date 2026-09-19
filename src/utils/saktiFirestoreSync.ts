@@ -4,8 +4,8 @@ import { PendaftaranUserSaktiDraft } from '../types';
 /**
  * Collection paths for SAKTI user management in Firestore
  */
-const SAKTI_DRAFT_COLLECTION = 'sakti_pendaftaran_drafts';
-const SAKTI_HISTORY_COLLECTION = 'sakti_pendaftaran_history';
+export const SAKTI_DRAFT_COLLECTION = 'sakti_pendaftaran_drafts';
+export const SAKTI_HISTORY_COLLECTION = 'sakti_pendaftaran_history';
 
 /**
  * Helper to get local storage keys

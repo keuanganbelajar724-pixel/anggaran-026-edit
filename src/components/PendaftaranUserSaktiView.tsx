@@ -53,6 +53,7 @@ import {
   resolveLatestDraft,
   subscribeSaktiDraftFromFirestore
 } from '../utils/saktiFirestoreSync';
+import { dispatchSaktiUsersChanged } from '../utils/saktiUserContactSync';
 import { useSatkerInactivityTimeout } from '../hooks/useSatkerInactivityTimeout';
 import { SatkerSessionTimerBadge, SatkerSessionExpiredModal } from './satker/SatkerSessionSecurityControls';
 import INITIAL_SATKER_DATA from '../data/satkersBaseline.json';
@@ -482,18 +483,19 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
       } catch (e) {}
     }
 
-    // Automatically sync to Cloud Firestore if draft contains users (avoid pushing empty templates)
-    if (draft.users && draft.users.length > 0) {
-      const timer = setTimeout(() => {
-        saveSaktiDraftToFirestore(draft).then(() => {
-          setCloudSyncStatus('synced');
-          setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-        }).catch((err) => {
-          console.warn('Auto cloud sync notice:', err);
-        });
-      }, 1200);
-      return () => clearTimeout(timer);
-    }
+    // Notify all active modules (e.g. Kelola Data Satker) immediately
+    dispatchSaktiUsersChanged(draft.kodeSatker, draft.users || []);
+
+    // Automatically sync to Cloud Firestore
+    const timer = setTimeout(() => {
+      saveSaktiDraftToFirestore(draft).then(() => {
+        setCloudSyncStatus('synced');
+        setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+      }).catch((err) => {
+        console.warn('Auto cloud sync notice:', err);
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
   }, [draft]);
 
   // UI Navigation & Modals State
@@ -581,21 +583,24 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     const targetId = userToDelete.id;
     const targetName = userToDelete.namaLengkap;
 
-    setDraft(prev => {
-      const updatedUsers = prev.users.filter(u => u.id !== targetId);
-      const updatedDraft: PendaftaranUserSaktiDraft = {
-        ...prev,
-        users: updatedUsers,
-        updatedAt: new Date().toISOString()
-      };
-      if (typeof localStorage !== 'undefined') {
-        try {
-          localStorage.setItem(getDraftStorageKey(updatedDraft.kodeSatker), JSON.stringify(updatedDraft));
-        } catch (e) {}
-      }
-      return updatedDraft;
-    });
+    const updatedUsers = draft.users.filter(u => u.id !== targetId);
+    const updatedDraft: PendaftaranUserSaktiDraft = {
+      ...draft,
+      users: updatedUsers,
+      updatedAt: new Date().toISOString()
+    };
 
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(getDraftStorageKey(updatedDraft.kodeSatker), JSON.stringify(updatedDraft));
+      } catch (e) {}
+    }
+
+    // Instant notification & Cloud sync on delete
+    dispatchSaktiUsersChanged(updatedDraft.kodeSatker, updatedUsers);
+    saveSaktiDraftToFirestore(updatedDraft).catch(() => {});
+
+    setDraft(updatedDraft);
     setUserToDelete(null);
     setSaveToast(`Data pengguna "${targetName}" berhasil dihapus`);
   };
