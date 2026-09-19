@@ -27,7 +27,8 @@ import {
   MASTER_ROLE_MAP,
   PERAN_JABATAN_OPTIONS,
   DEFAULT_JABATAN_PERBENDAHARAAN_OPTIONS,
-  inferPeranAndJabatanFromRoles
+  inferPeranAndJabatanFromRoles,
+  normalizeRoleCode
 } from '../../data/masterRoleSakti';
 import { normalizePhoneNumber, formatNIPDisplay } from '../../utils/pendaftaranSaktiValidation';
 
@@ -132,28 +133,51 @@ export const UserSaktiModal: React.FC<UserSaktiModalProps> = ({
     }
   };
 
+  // Dedicated Remove Role handler (always succeeds, even for aliases or legacy codes)
+  const handleRemoveRole = (roleCode: string) => {
+    const normalizedCode = normalizeRoleCode(roleCode) || roleCode;
+    setFormData(prev => {
+      const currentRoles = prev.roles || [];
+      const nextRoles = currentRoles.filter(
+        r => r !== roleCode && r !== normalizedCode && normalizeRoleCode(r) !== normalizedCode
+      );
+      return {
+        ...prev,
+        roles: nextRoles
+      };
+    });
+  };
+
   // Toggle role selection with smart suggestion for Peran Jabatan & Jabatan Perbendaharaan
   const handleToggleRole = (roleCode: string) => {
-    const roleMeta = MASTER_ROLE_MAP.get(roleCode);
-    if (!roleMeta) return;
+    const normalizedCode = normalizeRoleCode(roleCode) || roleCode;
+    const currentRoles = formData.roles || [];
+    const isSelected = currentRoles.some(
+      r => r === roleCode || r === normalizedCode || normalizeRoleCode(r) === normalizedCode
+    );
+
+    // If currently selected, clicking removes it directly and reliably
+    if (isSelected) {
+      handleRemoveRole(roleCode);
+      return;
+    }
+
+    const roleMeta = MASTER_ROLE_MAP.get(normalizedCode) || MASTER_ROLE_MAP.get(roleCode);
 
     // Guard BLU role if satker is not BLU
-    if (!isBLU && roleMeta.specialRequirement === 'BLU_ONLY') {
+    if (roleMeta && !isBLU && roleMeta.specialRequirement === 'BLU_ONLY') {
       alert(`Role "${roleMeta.roleName}" hanya diperuntukkan bagi Satker BLU (Badan Layanan Umum).`);
       return;
     }
 
     setFormData(prev => {
-      const currentRoles = prev.roles || [];
-      const isSelected = currentRoles.includes(roleCode);
-      const nextRoles = isSelected
-        ? currentRoles.filter(r => r !== roleCode)
-        : [...currentRoles, roleCode];
+      const prevRoles = prev.roles || [];
+      const nextRoles = [...prevRoles, normalizedCode];
 
       // Auto-suggest Peran Jabatan & Jabatan Perbendaharaan if not customized yet or when adding first roles
       let nextPeran = prev.peranJabatan;
       let nextJabatanPerb = prev.jabatanPerbendaharaan;
-      if (!isSelected && nextRoles.length > 0) {
+      if (nextRoles.length > 0) {
         const inferred = inferPeranAndJabatanFromRoles(nextRoles);
         // If current is still default or empty, adopt inferred
         if (!nextPeran || nextPeran === 'Operator') {
@@ -646,20 +670,25 @@ export const UserSaktiModal: React.FC<UserSaktiModalProps> = ({
               <div className="mb-3 flex flex-wrap items-center gap-1.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                 <span className="text-[11px] font-bold text-slate-500 mr-1">Terpilih:</span>
                 {sortedSelectedRoles.map(code => {
-                  const meta = MASTER_ROLE_MAP.get(code);
+                  const meta = MASTER_ROLE_MAP.get(code) || MASTER_ROLE_MAP.get(normalizeRoleCode(code));
                   return (
                     <span
                       key={code}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold pl-2.5 pr-1.5 py-0.5 rounded-lg bg-teal-600 text-white shadow-xs"
+                      className="inline-flex items-center gap-1.5 text-[11px] font-bold pl-2.5 pr-1 py-1 rounded-lg bg-teal-600 text-white shadow-xs group"
                     >
                       <span>{meta?.roleName || code}</span>
                       <button
                         type="button"
-                        onClick={() => handleToggleRole(code)}
-                        className="w-4 h-4 rounded hover:bg-teal-700 flex items-center justify-center cursor-pointer"
-                        title="Hapus Role"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemoveRole(code);
+                        }}
+                        className="w-5 h-5 rounded hover:bg-teal-700 active:bg-rose-600 flex items-center justify-center cursor-pointer transition-colors text-teal-100 hover:text-white hover:bg-rose-500/80"
+                        title={`Hapus role ${meta?.roleName || code}`}
+                        aria-label={`Hapus ${code}`}
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5 stroke-[2.5]" />
                       </button>
                     </span>
                   );
@@ -716,7 +745,9 @@ export const UserSaktiModal: React.FC<UserSaktiModalProps> = ({
             {/* Roles Selection Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
               {filteredRoles.map(role => {
-                const isSelected = (formData.roles || []).includes(role.roleCode);
+                const isSelected = (formData.roles || []).some(
+                  r => r === role.roleCode || normalizeRoleCode(r) === role.roleCode
+                );
                 const isBluDisabled = !isBLU && role.specialRequirement === 'BLU_ONLY';
 
                 return (

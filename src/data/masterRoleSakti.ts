@@ -283,10 +283,51 @@ export const MASTER_ROLE_SAKTI_LIST: MasterRoleSakti[] = [
   }
 ];
 
-// Master lookup map for fast O(1) query
-export const MASTER_ROLE_MAP = new Map<string, MasterRoleSakti>(
-  MASTER_ROLE_SAKTI_LIST.map(r => [r.roleCode, r])
-);
+// Legacy/short role code aliases to canonical official master role codes
+export const ROLE_ALIAS_MAP: Record<string, string> = {
+  'ADM': 'SATKER_ADMIN',
+  'ADMIN': 'SATKER_ADMIN',
+  'KPA': 'SATKER_KPA',
+  'PPK': 'SATKER_PPK',
+  'PPSPM': 'SATKER_PPSPM',
+  'KOM': 'SATKER_OPERATOR_KOMITMEN',
+  'BYR': 'SATKER_OPERATOR_PEMBAYARAN',
+  'BNG': 'SATKER_BENDAHARA_PENGELUARAN',
+  'BENDAHARA': 'SATKER_BENDAHARA_PENGELUARAN',
+  'GAJI': 'SATKER_OPERATOR_GAJI',
+  'GLP': 'SATKER_OPERATOR_GLP',
+  'ANGGARAN': 'SATKER_OPERATOR_ANGGARAN',
+  'ASET': 'SATKER_OPERATOR_ASET',
+  'PERSEDIAAN': 'SATKER_OPERATOR_PERSEDIAAN',
+  'PIUTANG': 'SATKER_OPERATOR_PIUTANG',
+  'PNBP': 'SATKER_OPERATOR_PNBP',
+};
+
+/**
+ * Normalizes raw or legacy role codes to canonical master role codes.
+ */
+export function normalizeRoleCode(rawCode: string): string {
+  if (!rawCode) return '';
+  const trimmed = rawCode.trim();
+  if (MASTER_ROLE_SAKTI_LIST.some(r => r.roleCode === trimmed)) return trimmed;
+  const upper = trimmed.toUpperCase();
+  if (ROLE_ALIAS_MAP[upper]) return ROLE_ALIAS_MAP[upper];
+  const found = MASTER_ROLE_SAKTI_LIST.find(r => r.roleCode.toUpperCase() === upper);
+  if (found) return found.roleCode;
+  return trimmed;
+}
+
+// Master lookup map for fast O(1) query (includes canonical codes and common aliases)
+export const MASTER_ROLE_MAP = new Map<string, MasterRoleSakti>();
+MASTER_ROLE_SAKTI_LIST.forEach(r => {
+  MASTER_ROLE_MAP.set(r.roleCode, r);
+});
+Object.entries(ROLE_ALIAS_MAP).forEach(([alias, targetCode]) => {
+  const target = MASTER_ROLE_MAP.get(targetCode);
+  if (target && !MASTER_ROLE_MAP.has(alias)) {
+    MASTER_ROLE_MAP.set(alias, target);
+  }
+});
 
 // Level Satker official reference options
 export const LEVEL_SATKER_OPTIONS = [
@@ -303,7 +344,9 @@ export const LEVEL_SATKER_OPTIONS = [
  */
 export function sortRolesByMasterOrder(roleCodes: string[]): string[] {
   if (!roleCodes || !Array.isArray(roleCodes)) return [];
-  const uniqueCodes = Array.from(new Set(roleCodes.filter(Boolean)));
+  // Normalize each code so aliases like ADM become SATKER_ADMIN and deduplicate
+  const normalized = roleCodes.map(r => normalizeRoleCode(r) || r).filter(Boolean);
+  const uniqueCodes = Array.from(new Set(normalized));
   return uniqueCodes.sort((a, b) => {
     const orderA = MASTER_ROLE_MAP.get(a)?.orderIndex ?? 999;
     const orderB = MASTER_ROLE_MAP.get(b)?.orderIndex ?? 999;

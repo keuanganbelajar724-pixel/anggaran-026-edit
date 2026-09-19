@@ -55,6 +55,8 @@ import { RiwayatPembentukanUserView } from './pendaftaran-sakti/RiwayatPembentuk
 import { ImportKelolaSatkerModal } from './pendaftaran-sakti/ImportKelolaSatkerModal';
 import { GenerateSkSaktiView } from './pendaftaran-sakti/GenerateSkSaktiView';
 import { PerubahanUserSaktiTab } from './perubahan-user-sakti/PerubahanUserSaktiTab';
+import { PemutakhiranKewenanganTab } from './pemutakhiran-kewenangan/PemutakhiranKewenanganTab';
+import { PemutakhiranDataPenggunaTab } from './pemutakhiran-data-pengguna/PemutakhiranDataPenggunaTab';
 import { PendaftaranEmailTab } from './pendaftaran-email/PendaftaranEmailTab';
 import { db, setDoc } from '../lib/firebase';
 import { doc } from 'firebase/firestore';
@@ -206,8 +208,8 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     setSaveToast(`Akses Satker ${currentSatker.kodeSatker} dikunci kembali`);
   };
 
-  // 4. Workspace View Mode: Form vs Perubahan vs Generate SK vs Email vs Riwayat
-  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'FORM' | 'PERUBAHAN' | 'GENERATE_SK' | 'EMAIL' | 'RIWAYAT'>('FORM');
+  // 4. Workspace View Mode: Form vs Perubahan vs Pemutakhiran vs Pemutakhiran Data vs Generate SK vs Email vs Riwayat
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'FORM' | 'PERUBAHAN' | 'PEMUTAKHIRAN' | 'PEMUTAKHIRAN_DATA' | 'GENERATE_SK' | 'EMAIL' | 'RIWAYAT'>('FORM');
 
   // 5. Draft State (Per Satker Storage)
   const getDraftStorageKey = (kode: string) => `sakti_pendaftaran_draft_${kode}`;
@@ -321,6 +323,9 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
   const [isSatkerSelectorOpen, setIsSatkerSelectorOpen] = useState<boolean>(false);
   const [isImportKelolaModalOpen, setIsImportKelolaModalOpen] = useState<boolean>(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserSaktiRecord | null>(null);
+  const [historyToDeleteId, setHistoryToDeleteId] = useState<string | null>(null);
+  const [isConfirmNewFormOpen, setIsConfirmNewFormOpen] = useState<boolean>(false);
 
   // Validation Result
   const validationResult: PendaftaranValidationResult = useMemo(() => {
@@ -381,18 +386,37 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     setSaveToast('Pengguna berhasil disimpan ke dalam daftar');
   };
 
-  // Delete User Handler
+  // Delete User Handler - prompts confirmation modal
   const handleDeleteUser = (userId: string) => {
     const target = draft.users.find(u => u.id === userId);
-    if (!window.confirm(`Hapus data pengguna "${target?.namaLengkap || 'ini'}"?`)) {
-      return;
+    if (target) {
+      setUserToDelete(target);
     }
-    setDraft(prev => ({
-      ...prev,
-      users: prev.users.filter(u => u.id !== userId),
-      updatedAt: new Date().toISOString()
-    }));
-    setSaveToast('Data pengguna telah dihapus');
+  };
+
+  // Perform actual user deletion after confirmation
+  const handleConfirmDeleteUser = () => {
+    if (!userToDelete) return;
+    const targetId = userToDelete.id;
+    const targetName = userToDelete.namaLengkap;
+
+    setDraft(prev => {
+      const updatedUsers = prev.users.filter(u => u.id !== targetId);
+      const updatedDraft: PendaftaranUserSaktiDraft = {
+        ...prev,
+        users: updatedUsers,
+        updatedAt: new Date().toISOString()
+      };
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(getDraftStorageKey(updatedDraft.kodeSatker), JSON.stringify(updatedDraft));
+        } catch (e) {}
+      }
+      return updatedDraft;
+    });
+
+    setUserToDelete(null);
+    setSaveToast(`Data pengguna "${targetName}" berhasil dihapus`);
   };
 
   // Save Draft (Local + Satker History + Cloud Firestore)
@@ -529,16 +553,13 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
 
       setSaveToast('✓ Dokumen PDF resmi berhasil diunduh dan dicatat di riwayat');
     } catch (err: any) {
-      alert(`Gagal mengekspor PDF: ${err?.message || err}`);
+      setSaveToast(`Gagal mengekspor PDF: ${err?.message || err}`);
     }
   };
 
-  // Create Fresh New Form
-  const handleCreateNewForm = () => {
+  // Execute Create Fresh New Form
+  const executeCreateNewForm = () => {
     if (draft.users.length > 0) {
-      if (!window.confirm('Buat formulir baru? Formulir saat ini akan disimpan ke riwayat arsip Satker.')) {
-        return;
-      }
       handleSaveDraft();
     }
 
@@ -562,7 +583,17 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     setDraft(newDraft);
     setWizardStep(1);
     setActiveWorkspaceTab('FORM');
+    setIsConfirmNewFormOpen(false);
     setSaveToast('Formulir baru siap diisi');
+  };
+
+  // Create Fresh New Form trigger
+  const handleCreateNewForm = () => {
+    if (draft.users.length > 0) {
+      setIsConfirmNewFormOpen(true);
+      return;
+    }
+    executeCreateNewForm();
   };
 
   // Load draft from history to active editor
@@ -572,16 +603,22 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     setSaveToast(`Memuat data "${historicalDraft.judulPengajuan || 'Pendaftaran SAKTI'}" ke formulir aktif`);
   };
 
-  // Delete draft from history
+  // Delete draft from history - triggers modal
   const handleDeleteHistory = (draftId: string) => {
-    if (!window.confirm('Hapus catatan riwayat pendaftaran ini?')) return;
+    setHistoryToDeleteId(draftId);
+  };
+
+  // Confirm delete draft from history
+  const handleConfirmDeleteHistory = () => {
+    if (!historyToDeleteId) return;
     setHistoryDrafts(prev => {
-      const next = prev.filter(h => h.id !== draftId);
+      const next = prev.filter(h => h.id !== historyToDeleteId);
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(next));
       }
       return next;
     });
+    setHistoryToDeleteId(null);
     setSaveToast('Catatan riwayat berhasil dihapus');
   };
 
@@ -794,12 +831,42 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-300" />
               <span>🔄 Perubahan User</span>
-              <span className="text-[9px] px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 font-black border border-amber-400/30">
+            </button>
+
+            {/* Tab 3: Pemutakhiran Kewenangan */}
+            <button
+              type="button"
+              onClick={() => setActiveWorkspaceTab('PEMUTAKHIRAN')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeWorkspaceTab === 'PEMUTAKHIRAN'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Formulir Pemutakhiran Kewenangan Pengguna SAKTI (Master Template Asli)"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-300" />
+              <span>🔐 Pemutakhiran Kewenangan</span>
+            </button>
+
+            {/* Tab 4: Pemutakhiran Data Pengguna */}
+            <button
+              type="button"
+              onClick={() => setActiveWorkspaceTab('PEMUTAKHIRAN_DATA')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeWorkspaceTab === 'PEMUTAKHIRAN_DATA'
+                  ? 'bg-teal-600 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Formulir Pemutakhiran Data Pengguna SAKTI (Master Template 10 Kolom)"
+            >
+              <Users className="w-3.5 h-3.5 text-teal-300" />
+              <span>👤 Pemutakhiran Data</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-teal-400/20 text-teal-300 font-black border border-teal-400/30">
                 BARU
               </span>
             </button>
 
-            {/* Tab 3: Generate SK SAKTI */}
+            {/* Tab 5: Generate SK SAKTI */}
             <button
               type="button"
               onClick={() => setActiveWorkspaceTab('GENERATE_SK')}
@@ -863,6 +930,33 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
           kpaName={draft.namaKpa}
           kpaNip={draft.nipKpa}
           userName={isAdminAuthenticated ? 'Admin KPPN' : currentSatker.namaSatker}
+        />
+      ) : activeWorkspaceTab === 'PEMUTAKHIRAN' ? (
+        /* TAB 3: PEMUTAKHIRAN KEWENANGAN SAKTI VIEW */
+        <PemutakhiranKewenanganTab
+          satker={currentSatker}
+          existingUsers={draft.users}
+          levelSatker={draft.levelSatker}
+          kpaName={draft.namaKpa}
+          kpaNip={draft.nipKpa}
+          userName={isAdminAuthenticated ? 'Admin KPPN' : currentSatker.namaSatker}
+        />
+      ) : activeWorkspaceTab === 'PEMUTAKHIRAN_DATA' ? (
+        /* TAB 4: PEMUTAKHIRAN DATA PENGGUNA SAKTI VIEW */
+        <PemutakhiranDataPenggunaTab
+          satker={currentSatker}
+          existingUsers={draft.users}
+          levelSatker={draft.levelSatker}
+          kpaName={draft.namaKpa}
+          kpaNip={draft.nipKpa}
+          userName={isAdminAuthenticated ? 'Admin KPPN' : currentSatker.namaSatker}
+          onSaveUserToMaster={(updatedUser) => {
+            setDraft(prev => ({
+              ...prev,
+              users: prev.users.map(u => u.id === updatedUser.id ? updatedUser : u),
+              updatedAt: new Date().toISOString()
+            }));
+          }}
         />
       ) : activeWorkspaceTab === 'EMAIL' ? (
         /* TAB 4: PENDAFTARAN EMAIL VIEW */
@@ -1607,6 +1701,154 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
         satker={currentSatker}
         onImportUsers={handleImportUsersFromKelolaSatker}
       />
+
+      {/* In-App Confirmation Modal: Hapus Pengguna SAKTI */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  Hapus Data Pengguna?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus data pegawai ini dari daftar formulir pendaftaran SAKTI?
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-bold text-slate-900 dark:text-white text-sm truncate">
+                  {userToDelete.namaLengkap}
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 shrink-0">
+                  {userToDelete.peranJabatan || 'Operator'}
+                </span>
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 font-mono text-[11px]">
+                NIP. {userToDelete.nip || '-'}
+              </p>
+              {userToDelete.email && (
+                <p className="text-slate-500 dark:text-slate-400 text-[11px] truncate">
+                  Email: {userToDelete.email}
+                </p>
+              )}
+              {userToDelete.roles && userToDelete.roles.length > 0 && (
+                <div className="pt-1 flex flex-wrap gap-1">
+                  {userToDelete.roles.map(r => (
+                    <span 
+                      key={r} 
+                      className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
+                    >
+                      {MASTER_ROLE_MAP[r]?.roleName || r}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ya, Hapus Pengguna</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Confirmation Modal: Hapus Arsip Riwayat */}
+      {historyToDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  Hapus Arsip Riwayat?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Apakah Anda yakin ingin menghapus catatan arsip riwayat pendaftaran ini dari basis data lokal Satker?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setHistoryToDeleteId(null)}
+                className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteHistory}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Ya, Hapus Riwayat</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Confirmation Modal: Buat Formulir Baru */}
+      {isConfirmNewFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-teal-100 dark:bg-teal-950/80 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                <Plus className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  Buat Formulir Baru?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Formulir saat ini ({draft.users.length} pengguna) akan otomatis disimpan ke dalam arsip riwayat Satker sebelum formulir baru dikosongkan.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmNewFormOpen(false)}
+                className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeCreateNewForm}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/20 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Ya, Buat Formulir Baru</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

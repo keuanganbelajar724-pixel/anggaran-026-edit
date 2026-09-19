@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { MasterSatker, UserSaktiRecord, PejabatRoleInfo } from '../../types';
 import { formatNIPDisplay } from '../../utils/pendaftaranSaktiValidation';
+import { normalizeRoleCode, MASTER_ROLE_MAP } from '../../data/masterRoleSakti';
 
 interface ImportKelolaSatkerModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.kpa?.nama) {
     candidates.push({
       roleTitle: 'Kuasa Pengguna Anggaran (KPA)',
-      mappedSaktiRoles: ['KPA'],
+      mappedSaktiRoles: ['SATKER_KPA'],
       officer: po.kpa
     });
   }
@@ -52,7 +53,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.ppk?.nama) {
     candidates.push({
       roleTitle: 'Pejabat Pembuat Komitmen (PPK)',
-      mappedSaktiRoles: ['KOM'],
+      mappedSaktiRoles: ['SATKER_PPK'],
       officer: po.ppk
     });
   }
@@ -60,7 +61,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.ppspm?.nama) {
     candidates.push({
       roleTitle: 'Pejabat Penandatangan SPM (PPSPM)',
-      mappedSaktiRoles: ['BYR'],
+      mappedSaktiRoles: ['SATKER_PPSPM'],
       officer: po.ppspm
     });
   }
@@ -68,7 +69,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.bendahara?.nama) {
     candidates.push({
       roleTitle: 'Bendahara Pengeluaran',
-      mappedSaktiRoles: ['BNG'],
+      mappedSaktiRoles: ['SATKER_BENDAHARA_PENGELUARAN'],
       officer: po.bendahara
     });
   }
@@ -76,7 +77,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.operatorKomitmen?.nama) {
     candidates.push({
       roleTitle: 'Operator Komitmen',
-      mappedSaktiRoles: ['KOM'],
+      mappedSaktiRoles: ['SATKER_OPERATOR_KOMITMEN'],
       officer: po.operatorKomitmen
     });
   }
@@ -84,7 +85,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.operatorPembayaran?.nama) {
     candidates.push({
       roleTitle: 'Operator Pembayaran',
-      mappedSaktiRoles: ['BYR'],
+      mappedSaktiRoles: ['SATKER_OPERATOR_PEMBAYARAN'],
       officer: po.operatorPembayaran
     });
   }
@@ -92,7 +93,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.operatorGaji?.nama) {
     candidates.push({
       roleTitle: 'Operator SPM Gaji',
-      mappedSaktiRoles: ['GAJI'],
+      mappedSaktiRoles: ['SATKER_OPERATOR_GAJI'],
       officer: po.operatorGaji
     });
   }
@@ -100,7 +101,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
   if (po?.operatorPelaporan?.nama) {
     candidates.push({
       roleTitle: 'Operator GL dan Pelaporan',
-      mappedSaktiRoles: ['GLP'],
+      mappedSaktiRoles: ['SATKER_OPERATOR_GLP'],
       officer: po.operatorPelaporan
     });
   }
@@ -121,19 +122,19 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
             if (!exists) {
               const j = (m.jabatan || '').toUpperCase();
               let title = m.jabatan || 'Pejabat Satker';
-              let roles = ['KOM'];
+              let roles = ['SATKER_OPERATOR_KOMITMEN'];
               if (j.includes('KPA')) {
                 title = 'Kuasa Pengguna Anggaran (KPA)';
-                roles = ['KPA'];
+                roles = ['SATKER_KPA'];
               } else if (j.includes('PPK')) {
                 title = 'Pejabat Pembuat Komitmen (PPK)';
-                roles = ['KOM'];
+                roles = ['SATKER_PPK'];
               } else if (j.includes('PPSPM')) {
                 title = 'Pejabat Penandatangan SPM (PPSPM)';
-                roles = ['BYR'];
+                roles = ['SATKER_PPSPM'];
               } else if (j.includes('BENDAHARA')) {
                 title = 'Bendahara Pengeluaran';
-                roles = ['BNG'];
+                roles = ['SATKER_BENDAHARA_PENGELUARAN'];
               }
               candidates.push({
                 roleTitle: title,
@@ -162,7 +163,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
     if (!exists) {
       candidates.push({
         roleTitle: 'PIC / Operator Satker',
-        mappedSaktiRoles: ['ADM'],
+        mappedSaktiRoles: ['SATKER_ADMIN'],
         officer: {
           nama: satker.namaPic,
           noHp: satker.noHpPic || '',
@@ -229,7 +230,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
           jabatanPerbendaharaan: jabatanPerb,
           email: cand.officer.email?.trim() || `${cand.officer.nama.toLowerCase().replace(/[^a-z0-9]/g, '')}@kemenkeu.go.id`,
           noHp: cand.officer.noHp?.trim() || '08123456789',
-          roles: cand.mappedSaktiRoles,
+          roles: cand.mappedSaktiRoles.map(r => normalizeRoleCode(r) || r),
           nomorSk: cand.officer.skJabatan || 'KEP-01/WPB.14/KP.02/2026',
           tanggalSk: cand.officer.tglSk || today,
           keterangan: `Diimpor dari data ${cand.roleTitle} Kelola Satker`
@@ -337,7 +338,7 @@ export const ImportKelolaSatkerModal: React.FC<ImportKelolaSatkerModalProps> = (
                           <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-2 mt-0.5">
                             <span className="font-mono">NIP: {cand.officer.nip ? formatNIPDisplay(cand.officer.nip) : '-'}</span>
                             <span>•</span>
-                            <span>Role SAKTI: <strong className="text-teal-600 dark:text-teal-400">{cand.mappedSaktiRoles.join(', ')}</strong></span>
+                            <span>Role SAKTI: <strong className="text-teal-600 dark:text-teal-400">{cand.mappedSaktiRoles.map(r => MASTER_ROLE_MAP.get(r)?.roleName || r).join(', ')}</strong></span>
                           </p>
                         </div>
                       </div>

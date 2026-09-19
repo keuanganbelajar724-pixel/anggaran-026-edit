@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PendaftaranEmailHistoryItem } from '../../types';
 import { formatIndonesianDate } from '../../utils/pendaftaranSaktiExport';
 import { exportPendaftaranEmailToExcel, exportPendaftaranEmailToPDF } from '../../utils/pendaftaranEmailExport';
-import { History, X, FileSpreadsheet, FileText, Trash2, Mail } from 'lucide-react';
+import { History, X, FileSpreadsheet, FileText, Trash2, Mail, Check } from 'lucide-react';
 
 interface RiwayatPendaftaranEmailModalProps {
   isOpen: boolean;
@@ -19,6 +19,8 @@ export const RiwayatPendaftaranEmailModal: React.FC<RiwayatPendaftaranEmailModal
   onDeleteHistory,
   onLoadDraft
 }) => {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   return (
@@ -123,18 +125,39 @@ export const RiwayatPendaftaranEmailModal: React.FC<RiwayatPendaftaranEmailModal
                     <FileText className="w-4 h-4" />
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm('Hapus arsip permohonan email ini dari riwayat?')) {
-                        onDeleteHistory(item.id);
-                      }
-                    }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50"
-                    title="Hapus"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {confirmDeleteId === item.id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDeleteHistory(item.id);
+                          setConfirmDeleteId(null);
+                        }}
+                        className="px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition-colors cursor-pointer flex items-center gap-1"
+                        title="Klik untuk konfirmasi hapus"
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>Hapus?</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        title="Batal"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(item.id)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                      title="Hapus arsip ini"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))

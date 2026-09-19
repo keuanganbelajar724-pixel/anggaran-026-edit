@@ -262,14 +262,13 @@ export const PendaftaranEmailTab: React.FC<PendaftaranEmailTabProps> = ({
   };
 
   const handleClearAll = () => {
-    if (confirm('Yakin ingin mengosongkan seluruh daftar permohonan email?')) {
-      setEmailDraft(prev => ({
-        ...prev,
-        pegawaiList: [],
-        updatedAt: new Date().toISOString()
-      }));
-      showToast('info', 'Daftar permohonan telah dikosongkan.');
-    }
+    if (emailDraft.pegawaiList.length === 0) return;
+    setEmailDraft(prev => ({
+      ...prev,
+      pegawaiList: [],
+      updatedAt: new Date().toISOString()
+    }));
+    showToast('info', 'Daftar permohonan telah dikosongkan.');
   };
 
   // Export Excel

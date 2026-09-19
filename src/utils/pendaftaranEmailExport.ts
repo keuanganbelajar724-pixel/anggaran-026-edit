@@ -18,12 +18,26 @@ export const STATUS_PEGAWAI_MAP: Record<number, string> = {
  * Export Pendaftaran Email to Excel adhering strictly to template "format1 (57).xlsx"
  */
 export async function exportPendaftaranEmailToExcel(
-  kodeKppn: string,
-  kodeSatker: string,
-  namaSatker: string,
-  pegawaiList: PegawaiEmailRecord[]
+  kodeKppnOrDraft: string | { kodeKppn: string; kodeSatker: string; namaSatker: string; pegawaiList: PegawaiEmailRecord[] },
+  kodeSatker?: string,
+  namaSatker?: string,
+  pegawaiList?: PegawaiEmailRecord[]
 ): Promise<void> {
-  await exportPendaftaranEmailViaTemplate(kodeKppn, kodeSatker, namaSatker, pegawaiList);
+  if (typeof kodeKppnOrDraft === 'object' && kodeKppnOrDraft !== null) {
+    await exportPendaftaranEmailViaTemplate(
+      kodeKppnOrDraft.kodeKppn,
+      kodeKppnOrDraft.kodeSatker,
+      kodeKppnOrDraft.namaSatker,
+      kodeKppnOrDraft.pegawaiList
+    );
+  } else {
+    await exportPendaftaranEmailViaTemplate(
+      kodeKppnOrDraft,
+      kodeSatker || '',
+      namaSatker || '',
+      pegawaiList || []
+    );
+  }
 }
 
 /**
@@ -146,3 +160,28 @@ export function exportPendaftaranEmailToPDF(
   const filename = `Form-Pendaftaran-Email-${kodeSatker}-${getFormattedDateForFilename()}.pdf`;
   doc.save(filename);
 }
+
+export function getStatusNameByCode(code: number): string {
+  return STATUS_PEGAWAI_MAP[code] || 'Lainnya';
+}
+
+export const OFFICIAL_EMAIL_EXCEL_HEADERS = [
+  'Kode KPPN',
+  'Kode Satker',
+  'Nama Satker',
+  'Nama Pegawai',
+  'NIP/NRP',
+  'NIK',
+  'Status (1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K)'
+];
+
+export function downloadPendaftaranEmailTemplate(): void {
+  const link = document.createElement('a');
+  link.href = '/templates/format1 (57).xlsx';
+  link.download = 'format1 (57).xlsx';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+export const exportPendaftaranEmailToPdf = exportPendaftaranEmailToPDF;

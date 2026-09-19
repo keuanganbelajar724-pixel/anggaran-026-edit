@@ -2281,17 +2281,30 @@ export interface PerubahanUserHistoryItem {
 // -------------------------------------------------------------
 // PENDAFTARAN EMAIL KEDINASAN PEGAWAI KEMENKEU
 // -------------------------------------------------------------
+export type EmployeeStatusCode = 1 | 2 | 3 | 4 | 5;
+
+export const EMPLOYEE_STATUS_LIST = [
+  { code: 1 as EmployeeStatusCode, label: '1 - TNI' },
+  { code: 2 as EmployeeStatusCode, label: '2 - POLRI' },
+  { code: 3 as EmployeeStatusCode, label: '3 - PNS' },
+  { code: 4 as EmployeeStatusCode, label: '4 - PPNPN' },
+  { code: 5 as EmployeeStatusCode, label: '5 - P3K' }
+];
+
 export interface PegawaiEmailRecord {
   id: string;
   kodeKppn: string;
   kodeSatker: string;
   nama: string;
+  namaPegawai?: string;
   nip: string;
+  nipNrp?: string;
   nik: string;
-  status: 1 | 2 | 3 | 4 | 5; // 1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K
+  status: EmployeeStatusCode; // 1=TNI; 2=POLRI; 3=PNS; 4=PPNPN; 5=P3K
   statusLabel?: string;
   jabatan?: string;
   keterangan?: string;
+  catatan?: string;
 }
 
 export interface PejabatEmailPenandatangan {
@@ -2323,6 +2336,161 @@ export interface PendaftaranEmailHistoryItem {
   exportedAt?: string;
 }
 
+// -------------------------------------------------------------
+// PEMUTAKHIRAN KEWENANGAN PENGGUNA SAKTI
+// -------------------------------------------------------------
+export type PemutakhiranKategoriPeran = 'OPERATOR' | 'APPROVER' | 'VALIDATOR';
 
+export interface PemutakhiranRoleDiff {
+  rolesAdded: string[];
+  rolesRemoved: string[];
+  rolesUnchanged: string[];
+}
 
+export interface PemutakhiranUserItem {
+  id: string;
+  userSaktiId?: string;
+  kodeSatker: string;
+  tipe: string; // 'SATKER'
+  peranKategori: PemutakhiranKategoriPeran | string; // 'OPERATOR' | 'APPROVER' | 'VALIDATOR'
+  nama: string;
+  nik: string; // 16 digit angka
+  nip?: string;
+  rolesSaatIni: string[]; // Role SAKTI lama
+  rolesPemutakhiran: string[]; // Role SAKTI baru
+  diffSummary: PemutakhiranRoleDiff;
+  keterangan?: string;
+}
 
+export interface PemutakhiranAuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  detail: string;
+  user?: string;
+}
+
+export interface PemutakhiranKewenanganDraft {
+  id: string;
+  satkerId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  users: PemutakhiranUserItem[];
+  kpa: {
+    nama: string;
+    nip: string;
+    jabatan: string;
+  };
+  tempatPenetapan: string;
+  tanggalPenetapan: string;
+  status: 'DRAFT' | 'DIAJUKAN' | 'SELESAI' | 'DITOLAK';
+  auditLogs?: PemutakhiranAuditLog[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  exportedExcelAt?: string;
+  exportedPdfAt?: string;
+}
+
+export interface PemutakhiranKewenanganHistoryItem {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  draftData: PemutakhiranKewenanganDraft;
+  tanggalPengajuan: string;
+  totalUser: number;
+  kpa: {
+    nama: string;
+    nip: string;
+  };
+  status: 'DRAFT' | 'DIAJUKAN' | 'SELESAI' | 'DITOLAK';
+  exportedExcelAt?: string;
+  exportedPdfAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// -------------------------------------------------------------
+// PEMUTAKHIRAN DATA PENGGUNA APLIKASI SAKTI
+// Master Template: "Form Pemutakhiran Data Pengguna Aplikasi SAKTI.xlsx"
+// -------------------------------------------------------------
+export interface PemutakhiranDataUserItem {
+  id: string;
+  userSaktiId?: string;
+  kodeSatker: string;
+  peranList: string[]; // Role SAKTI codes dari ROLE_REFERENCE
+  nama: string;
+  nip: string; // Text tanpa spasi/simbol
+  npwp: string; // Text tanpa titik/strip
+  nik: string; // Text 16 digit angka
+  email: string; // @sakti.mail.go.id atau @kemenkeu.go.id
+  noHp: string; // Text, diawali 08
+  nomorSk: string; // Text, misal: 51 / SK / Tahun 2022
+  tanggalSk: string; // Format DD-MM-YYYY
+  dataAwal?: {
+    peranList: string[];
+    nama: string;
+    nip: string;
+    npwp: string;
+    nik: string;
+    email: string;
+    noHp: string;
+    nomorSk: string;
+    tanggalSk: string;
+  };
+  keterangan?: string;
+}
+
+export interface PemutakhiranDataAuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  detail: string;
+  user?: string;
+}
+
+export interface PemutakhiranDataDraft {
+  id: string;
+  satkerId?: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  users: PemutakhiranDataUserItem[];
+  kpa: {
+    nama: string;
+    nip: string;
+    jabatan: string;
+  };
+  tempatPenetapan: string;
+  tanggalPenetapan: string;
+  status: 'DRAFT' | 'DIAJUKAN' | 'SELESAI' | 'DITOLAK';
+  auditLogs?: PemutakhiranDataAuditLog[];
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  exportedExcelAt?: string;
+  exportedPdfAt?: string;
+}
+
+export interface PemutakhiranDataHistoryItem {
+  id: string;
+  kodeSatker: string;
+  namaSatker: string;
+  levelSatker: string;
+  draftData: PemutakhiranDataDraft;
+  tanggalPengajuan: string;
+  totalUser: number;
+  kpa: {
+    nama: string;
+    nip: string;
+  };
+  status: 'DRAFT' | 'DIAJUKAN' | 'SELESAI' | 'DITOLAK';
+  exportedExcelAt?: string;
+  exportedPdfAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}

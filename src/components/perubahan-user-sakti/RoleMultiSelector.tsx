@@ -5,6 +5,7 @@ import {
   ROLE_CATEGORIES,
   sortRolesByMasterOrder,
   isRoleBluOnly,
+  normalizeRoleCode,
   RoleCategory
 } from '../../data/masterRoleSakti';
 import { Search, Plus, X, ShieldAlert, Check, ChevronDown, Layers } from 'lucide-react';
@@ -63,32 +64,35 @@ export const RoleMultiSelector: React.FC<RoleMultiSelectorProps> = ({
 
   const handleToggleRole = (roleCode: string) => {
     if (disabled) return;
-    const roleMeta = MASTER_ROLE_MAP.get(roleCode);
-    if (!roleMeta) return;
+    const norm = normalizeRoleCode(roleCode) || roleCode;
+    const isSelected = selectedRoles.some(r => r === roleCode || normalizeRoleCode(r) === norm);
+
+    if (isSelected) {
+      onChange(sortRolesByMasterOrder(selectedRoles.filter(r => r !== roleCode && normalizeRoleCode(r) !== norm)));
+      return;
+    }
+
+    const roleMeta = MASTER_ROLE_MAP.get(norm) || MASTER_ROLE_MAP.get(roleCode);
 
     // Check BLU requirement
-    if (!isBLU && isRoleBluOnly(roleCode)) {
+    if (!isBLU && isRoleBluOnly(norm)) {
       setWarningMessage(
-        `Role "${roleMeta.roleName}" (${roleCode}) hanya diperuntukkan bagi Satker BLU (Badan Layanan Umum).`
+        `Role "${roleMeta?.roleName || norm}" (${norm}) hanya diperuntukkan bagi Satker BLU (Badan Layanan Umum).`
       );
       return;
     }
 
     setWarningMessage(null);
-    const isSelected = selectedRoles.includes(roleCode);
-    let nextRoles: string[];
-    if (isSelected) {
-      nextRoles = selectedRoles.filter(r => r !== roleCode);
-    } else {
-      nextRoles = [...selectedRoles, roleCode];
-    }
+    const nextRoles = [...selectedRoles, norm];
     onChange(sortRolesByMasterOrder(nextRoles));
   };
 
   const handleRemoveRole = (roleCode: string, e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     if (disabled) return;
-    onChange(sortRolesByMasterOrder(selectedRoles.filter(r => r !== roleCode)));
+    const norm = normalizeRoleCode(roleCode) || roleCode;
+    onChange(sortRolesByMasterOrder(selectedRoles.filter(r => r !== roleCode && normalizeRoleCode(r) !== norm)));
   };
 
   return (
@@ -101,7 +105,7 @@ export const RoleMultiSelector: React.FC<RoleMultiSelectorProps> = ({
           </span>
         ) : (
           sortedSelected.map(code => {
-            const meta = MASTER_ROLE_MAP.get(code);
+            const meta = MASTER_ROLE_MAP.get(code) || MASTER_ROLE_MAP.get(normalizeRoleCode(code));
             return (
               <span
                 key={code}
@@ -114,10 +118,11 @@ export const RoleMultiSelector: React.FC<RoleMultiSelectorProps> = ({
                   <button
                     type="button"
                     onClick={(e) => handleRemoveRole(code, e)}
-                    className="ml-0.5 hover:bg-indigo-200 dark:hover:bg-indigo-800/80 rounded-full p-0.5 text-indigo-600 dark:text-indigo-400 cursor-pointer"
+                    className="ml-0.5 hover:bg-rose-100 dark:hover:bg-rose-950/80 hover:text-rose-600 rounded-full p-1 text-indigo-600 dark:text-indigo-400 cursor-pointer transition-colors"
                     title={`Hapus role ${code}`}
+                    aria-label={`Hapus ${code}`}
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5 stroke-[2.5]" />
                   </button>
                 )}
               </span>
