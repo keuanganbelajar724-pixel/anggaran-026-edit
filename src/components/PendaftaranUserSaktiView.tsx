@@ -31,7 +31,8 @@ import {
   Shield,
   Clock,
   RotateCcw,
-  Mail
+  Mail,
+  Cloud
 } from 'lucide-react';
 import { 
   PendaftaranUserSaktiDraft, 
@@ -44,6 +45,15 @@ import { LEVEL_SATKER_OPTIONS, formatRolesForExcel, MASTER_ROLE_MAP } from '../d
 import { validatePendaftaranDraft, formatNIPDisplay } from '../utils/pendaftaranSaktiValidation';
 import { exportPendaftaranSaktiToExcel, exportPendaftaranSaktiToPDF } from '../utils/pendaftaranSaktiExport';
 import { resolveKodeBA, resolveSatkerKementerian, verifySatkerPassword } from '../utils/satkerSecurity';
+import { 
+  saveSaktiDraftToFirestore, 
+  fetchSaktiDraftFromFirestore, 
+  saveSaktiHistoryToFirestore, 
+  fetchSaktiHistoryFromFirestore,
+  resolveLatestDraft 
+} from '../utils/saktiFirestoreSync';
+import { useSatkerInactivityTimeout } from '../hooks/useSatkerInactivityTimeout';
+import { SatkerSessionTimerBadge, SatkerSessionExpiredModal } from './satker/SatkerSessionSecurityControls';
 import INITIAL_SATKER_DATA from '../data/satkersBaseline.json';
 
 import { UserSaktiModal } from './pendaftaran-sakti/UserSaktiModal';
@@ -208,6 +218,30 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     setSaveToast(`Akses Satker ${currentSatker.kodeSatker} dikunci kembali`);
   };
 
+  // Inactivity Timeout Auto-Lock for Satker security
+  const [isSessionExpiredModalOpen, setIsSessionExpiredModalOpen] = useState<boolean>(false);
+
+  const {
+    remainingSeconds,
+    formattedRemaining,
+    timeoutMinutes,
+    setTimeoutMinutes,
+    isWarning: isSessionWarning,
+    resetTimer: resetSessionTimer
+  } = useSatkerInactivityTimeout({
+    isEnabled: Boolean(isCurrentSatkerUnlocked && !isAdminAuthenticated),
+    satkerKode: currentSatker.kodeSatker,
+    onTimeout: () => {
+      handleLockCurrentSatker();
+      setIsSessionExpiredModalOpen(true);
+    }
+  });
+
+  // Cloud Sync State (Bridges Google AI Studio dev and Server Deployment)
+  const [isCloudSyncing, setIsCloudSyncing] = useState<boolean>(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'synced' | 'syncing' | 'idle' | 'error'>('idle');
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(null);
+
   // 4. Workspace View Mode: Form vs Perubahan vs Pemutakhiran vs Pemutakhiran Data vs Generate SK vs Email vs Riwayat
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<'FORM' | 'PERUBAHAN' | 'PEMUTAKHIRAN' | 'PEMUTAKHIRAN_DATA' | 'GENERATE_SK' | 'EMAIL' | 'RIWAYAT'>('FORM');
 
@@ -247,7 +281,100 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
     };
   });
 
-  // When selectedSatkerKode changes, re-sync draft
+  // 6. History Drafts (Loaded from satker specific key + global fallback)
+  const [historyDrafts, setHistoryDrafts] = useState<PendaftaranUserSaktiDraft[]>(() => {
+    if (typeof localStorage !== 'undefined') {
+      try {
+        const hist = localStorage.getItem('sakti_pendaftaran_all_history');
+        if (hist) {
+          const parsed = JSON.parse(hist);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  // Bidirectional Cloud Synchronization logic
+  const syncWithCloud = async (
+    targetKode: string,
+    currentLocalDraft: PendaftaranUserSaktiDraft,
+    currentLocalHistory: PendaftaranUserSaktiDraft[],
+    forcePush = false
+  ) => {
+    setIsCloudSyncing(true);
+    setCloudSyncStatus('syncing');
+    try {
+      const [cloudDraft, cloudHistory] = await Promise.all([
+        fetchSaktiDraftFromFirestore(targetKode),
+        fetchSaktiHistoryFromFirestore()
+      ]);
+
+      // 1. Process Draft (compare local vs cloud)
+      if (cloudDraft && !forcePush) {
+        const resolved = resolveLatestDraft(currentLocalDraft, cloudDraft);
+        if (resolved && resolved.source === 'cloud') {
+          setDraft(resolved.draft);
+          if (typeof localStorage !== 'undefined') {
+            try {
+              localStorage.setItem(getDraftStorageKey(resolved.draft.kodeSatker), JSON.stringify(resolved.draft));
+            } catch (e) {}
+          }
+        } else if (resolved && resolved.source === 'local') {
+          await saveSaktiDraftToFirestore(currentLocalDraft);
+        }
+      } else if (forcePush || (currentLocalDraft.users && currentLocalDraft.users.length > 0)) {
+        await saveSaktiDraftToFirestore(currentLocalDraft);
+      }
+
+      // 2. Process History (merge local & cloud records)
+      if (Array.isArray(cloudHistory) && cloudHistory.length > 0) {
+        const historyMap = new Map<string, PendaftaranUserSaktiDraft>();
+        cloudHistory.forEach(h => {
+          if (h && h.id) historyMap.set(h.id, h);
+        });
+        currentLocalHistory.forEach(h => {
+          if (!h || !h.id) return;
+          const existing = historyMap.get(h.id);
+          if (!existing) {
+            historyMap.set(h.id, h);
+          } else {
+            const localTime = new Date(h.updatedAt || h.createdAt || 0).getTime();
+            const cloudTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+            if (localTime > cloudTime) {
+              historyMap.set(h.id, h);
+            }
+          }
+        });
+
+        const mergedHistory = Array.from(historyMap.values()).sort((a, b) => {
+          const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+
+        setHistoryDrafts(mergedHistory);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(mergedHistory));
+          } catch (e) {}
+        }
+        await saveSaktiHistoryToFirestore(mergedHistory);
+      } else if (currentLocalHistory.length > 0) {
+        await saveSaktiHistoryToFirestore(currentLocalHistory);
+      }
+
+      setCloudSyncStatus('synced');
+      setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+    } catch (err) {
+      console.warn('[PendaftaranUserSaktiView] Cloud sync error:', err);
+      setCloudSyncStatus('error');
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  // When selectedSatkerKode changes, re-sync draft locally & with Cloud Firestore
   useEffect(() => {
     const isSatkerBLU = currentSatker.namaSatker?.toLowerCase().includes('blu') || false;
     const today = new Date().toISOString().split('T')[0];
@@ -265,39 +392,26 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
       } catch (e) {}
     }
 
-    if (loadedDraft) {
-      setDraft(loadedDraft);
-    } else {
-      setDraft({
-        id: `draft_${currentSatker.kodeSatker}_${Date.now()}`,
-        kodeSatker: currentSatker.kodeSatker,
-        namaSatker: currentSatker.namaSatker,
-        levelSatker: isSatkerBLU ? 'Badan Layanan Umum (BLU)' : 'Satker Daerah (KD)',
-        isBLU: isSatkerBLU,
-        judulPengajuan: `Pendaftaran User SAKTI - TA ${new Date().getFullYear()}`,
-        users: [],
-        status: 'DRAFT',
-        tempatPenetapan: 'Semarang',
-        tanggalPenetapan: today,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-    }
-  }, [currentSatker.kodeSatker, currentSatker.namaSatker]);
+    const activeLocalDraft = loadedDraft || {
+      id: `draft_${currentSatker.kodeSatker}_${Date.now()}`,
+      kodeSatker: currentSatker.kodeSatker,
+      namaSatker: currentSatker.namaSatker,
+      levelSatker: isSatkerBLU ? 'Badan Layanan Umum (BLU)' : 'Satker Daerah (KD)',
+      isBLU: isSatkerBLU,
+      judulPengajuan: `Pendaftaran User SAKTI - TA ${new Date().getFullYear()}`,
+      users: [],
+      status: 'DRAFT',
+      tempatPenetapan: 'Semarang',
+      tanggalPenetapan: today,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-  // 6. History Drafts (Loaded from satker specific key + global fallback)
-  const [historyDrafts, setHistoryDrafts] = useState<PendaftaranUserSaktiDraft[]>(() => {
-    if (typeof localStorage !== 'undefined') {
-      try {
-        const hist = localStorage.getItem('sakti_pendaftaran_all_history');
-        if (hist) {
-          const parsed = JSON.parse(hist);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch (e) {}
-    }
-    return [];
-  });
+    setDraft(activeLocalDraft);
+
+    // Concurrently synchronize with Cloud Firestore
+    syncWithCloud(currentSatker.kodeSatker, activeLocalDraft, historyDrafts);
+  }, [currentSatker.kodeSatker, currentSatker.namaSatker]);
 
   // Count of history records for active satker
   const currentSatkerHistory = useMemo(() => {
@@ -441,20 +555,19 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
         setHistoryDrafts(newHist);
       }
 
-      // 3. Cloud Firestore Persistence
-      if (db) {
-        try {
-          const draftDocRef = doc(db, 'pendaftaran_user_sakti', updatedDraft.id);
-          await setDoc(draftDocRef, {
-            ...updatedDraft,
-            serverSyncedAt: nowStr
-          });
-        } catch (cloudErr) {
-          console.warn('Draft saved locally, cloud sync deferred:', cloudErr);
-        }
+      // 3. Cloud Firestore Persistence (Bidirectional sync across Google AI Studio & Deployment)
+      try {
+        await Promise.all([
+          saveSaktiDraftToFirestore(updatedDraft),
+          saveSaktiHistoryToFirestore(newHist)
+        ]);
+        setCloudSyncStatus('synced');
+        setLastCloudSyncTime(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+      } catch (cloudErr) {
+        console.warn('Draft saved locally, cloud sync deferred:', cloudErr);
       }
 
-      setSaveToast('✓ Formulir draft pendaftaran berhasil disimpan ke riwayat internal Satker!');
+      setSaveToast('✓ Formulir draft pendaftaran berhasil disimpan & tersinkron ke Cloud!');
     } catch (err) {
       console.error(err);
       setSaveToast('Gagal menyimpan draft');
@@ -514,6 +627,7 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(next));
         }
+        saveSaktiHistoryToFirestore(next).catch(() => {});
         return next;
       });
 
@@ -558,6 +672,7 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(next));
         }
+        saveSaktiHistoryToFirestore(next).catch(() => {});
         return next;
       });
 
@@ -627,6 +742,7 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(next));
       }
+      saveSaktiHistoryToFirestore(next).catch(() => {});
       return next;
     });
     setHistoryToDeleteId(null);
@@ -801,16 +917,50 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
             </button>
 
             {isCurrentSatkerUnlocked && !isAdminAuthenticated && (
-              <button
-                type="button"
-                onClick={handleLockCurrentSatker}
-                className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                title="Kunci kembali akses privat Satker ini"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Kunci Kembali</span>
-              </button>
+              <>
+                <SatkerSessionTimerBadge
+                  remainingSeconds={remainingSeconds}
+                  formattedRemaining={formattedRemaining}
+                  timeoutMinutes={timeoutMinutes}
+                  isWarning={isSessionWarning}
+                  onResetTimer={resetSessionTimer}
+                  onSetTimeoutMinutes={setTimeoutMinutes}
+                  onLockNow={handleLockCurrentSatker}
+                  satkerKode={currentSatker.kodeSatker}
+                  satkerNama={currentSatker.namaSatker}
+                />
+
+                <button
+                  type="button"
+                  onClick={handleLockCurrentSatker}
+                  className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-400/30 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Kunci kembali akses privat Satker ini"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Kunci Kembali</span>
+                </button>
+              </>
             )}
+
+            {/* Cloud Firestore Sync Button / Badge */}
+            <button
+              type="button"
+              onClick={() => syncWithCloud(currentSatker.kodeSatker, draft, historyDrafts, true)}
+              disabled={isCloudSyncing}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 shadow-xs ${
+                cloudSyncStatus === 'synced'
+                  ? 'bg-emerald-950/70 text-emerald-300 border-emerald-700/80 hover:bg-emerald-900/60'
+                  : isCloudSyncing
+                  ? 'bg-sky-950/70 text-sky-300 border-sky-700/80 animate-pulse'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-800 hover:text-white'
+              }`}
+              title={`Sinkronisasi Cloud Firestore. Menjaga data formulir & riwayat tetap sinkron antara Google AI Studio & Server Deployment. ${lastCloudSyncTime ? `Terakhir disinkronkan: ${lastCloudSyncTime}` : 'Klik untuk sinkronkan sekarang.'}`}
+            >
+              <Cloud className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-bounce text-sky-400' : cloudSyncStatus === 'synced' ? 'text-emerald-400' : 'text-slate-400'}`} />
+              <span>
+                {isCloudSyncing ? 'Sinkronisasi...' : cloudSyncStatus === 'synced' ? `Cloud Sinkron${lastCloudSyncTime ? ` (${lastCloudSyncTime})` : ''}` : 'Sinkronkan Cloud'}
+              </span>
+            </button>
           </div>
 
           {/* Primary View Switcher: 4 Integrated Tabs + Arsip */}
@@ -1860,6 +2010,15 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
           </div>
         </div>
       )}
+
+      {/* Auto-Lock / Inactivity Session Expired Modal */}
+      <SatkerSessionExpiredModal
+        isOpen={isSessionExpiredModalOpen}
+        timeoutMinutes={timeoutMinutes}
+        satkerKode={currentSatker.kodeSatker}
+        satkerNama={currentSatker.namaSatker}
+        onClose={() => setIsSessionExpiredModalOpen(false)}
+      />
     </div>
   );
 };

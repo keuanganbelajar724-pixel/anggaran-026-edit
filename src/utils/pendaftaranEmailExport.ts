@@ -69,7 +69,7 @@ export function exportPendaftaranEmailToPDF(
       pejabat = kodeKppnOrDraft.pejabat;
     }
   } else {
-    kodeKppn = kodeKppnOrDraft || '136';
+    kodeKppn = typeof kodeKppnOrDraft === 'string' ? kodeKppnOrDraft : '136';
     kodeSatker = kodeSatkerArg || '';
     namaSatker = namaSatkerArg || '';
     pegawaiList = pegawaiListArg || [];

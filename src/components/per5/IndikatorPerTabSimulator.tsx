@@ -50,6 +50,8 @@ import { buildDefault12MonthsKetepatan } from '../../calculations/capaianOutput'
 import { getWorkbookSampleProject } from '../../calculations/sampleWorkbookData';
 import { sanitizeProjectDates } from '../../utils/ikpaDateUtils';
 import { verifySatkerPassword, resolveKodeBA } from '../../utils/satkerSecurity';
+import { useSatkerInactivityTimeout } from '../../hooks/useSatkerInactivityTimeout';
+import { SatkerSessionTimerBadge, SatkerSessionExpiredModal } from '../satker/SatkerSessionSecurityControls';
 import {
   saveSimulationToCloud,
   fetchSimulationFromCloud,
@@ -933,6 +935,25 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
     showNotification('Sesi Satker telah berhasil di-logout dan dikunci kembali. Silakan login ulang untuk membuka akses.', 'info');
   };
 
+  // Inactivity Timeout Auto-Lock for Satker security
+  const [isSessionExpiredModalOpen, setIsSessionExpiredModalOpen] = useState<boolean>(false);
+
+  const {
+    remainingSeconds,
+    formattedRemaining,
+    timeoutMinutes,
+    setTimeoutMinutes,
+    isWarning: isSessionWarning,
+    resetTimer: resetSessionTimer
+  } = useSatkerInactivityTimeout({
+    isEnabled: Boolean(isUnlocked && !isAdminAuthenticated && unlockedSatkerKode),
+    satkerKode: unlockedSatkerKode,
+    onTimeout: () => {
+      handleLockSatker();
+      setIsSessionExpiredModalOpen(true);
+    }
+  });
+
   // Sync actual Satker identity to project
   const handleSyncSatkerToProject = () => {
     if (!authenticatedSatker) return;
@@ -1407,14 +1428,28 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
             )}
 
             {!isAdminAuthenticated && (
-              <button
-                onClick={handleLockSatker}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
-                title="Keluar / Log Out dari sesi Satker dan kunci kembali ruang simulasi"
-              >
-                <LogOut className="h-3.5 w-3.5 text-white" />
-                <span>Log Out Satker {authenticatedSatker ? `(${authenticatedSatker.kodeSatker})` : ''}</span>
-              </button>
+              <>
+                <SatkerSessionTimerBadge
+                  remainingSeconds={remainingSeconds}
+                  formattedRemaining={formattedRemaining}
+                  timeoutMinutes={timeoutMinutes}
+                  isWarning={isSessionWarning}
+                  onResetTimer={resetSessionTimer}
+                  onSetTimeoutMinutes={setTimeoutMinutes}
+                  onLockNow={handleLockSatker}
+                  satkerKode={authenticatedSatker?.kodeSatker || unlockedSatkerKode}
+                  satkerNama={authenticatedSatker?.namaSatker}
+                />
+
+                <button
+                  onClick={handleLockSatker}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  title="Keluar / Log Out dari sesi Satker dan kunci kembali ruang simulasi"
+                >
+                  <LogOut className="h-3.5 w-3.5 text-white" />
+                  <span>Log Out Satker {authenticatedSatker ? `(${authenticatedSatker.kodeSatker})` : ''}</span>
+                </button>
+              </>
             )}
 
             {/* Export & Import Tools */}
@@ -1640,6 +1675,15 @@ export const IndikatorPerTabSimulator: React.FC<IndikatorPerTabSimulatorProps> =
         selectedSatkerId={selectedSatkerId}
         onSelectSatker={onSelectSatker}
         isDark={isDark}
+      />
+
+      {/* 7. INACTIVITY AUTO-LOCK EXPIRED MODAL */}
+      <SatkerSessionExpiredModal
+        isOpen={isSessionExpiredModalOpen}
+        timeoutMinutes={timeoutMinutes}
+        satkerKode={authenticatedSatker?.kodeSatker || unlockedSatkerKode}
+        satkerNama={authenticatedSatker?.namaSatker}
+        onClose={() => setIsSessionExpiredModalOpen(false)}
       />
     </div>
   );
