@@ -357,8 +357,8 @@ export interface AuditLogEntry {
   timestamp: string;
   user: string;
   role: 'ADMIN' | 'PESERTA' | 'SYSTEM';
-  modul: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP' | 'BROADCAST' | 'CONFIG' | 'AUTH';
-  aksi: 'UPLOAD' | 'IMPORT' | 'EDIT' | 'DELETE' | 'RESET' | 'LOGIN' | 'EXPORT' | 'UPDATE_PROFILE';
+  modul: 'MASTER_SATKER' | 'IKPA' | 'CAPAIAN_OUTPUT' | 'PEJABAT' | 'PENGELOLAAN_UP' | 'BROADCAST' | 'CONFIG' | 'AUTH' | 'REKONSILIASI';
+  aksi: 'UPLOAD' | 'IMPORT' | 'EDIT' | 'DELETE' | 'RESET' | 'LOGIN' | 'EXPORT' | 'UPDATE_PROFILE' | 'VIEW';
   detail: string;
   status: 'SUCCESS' | 'WARNING' | 'ERROR' | 'INFO';
   ipAddress?: string;
@@ -1037,6 +1037,9 @@ export interface MenuVisibilityConfig {
   'pengetahuan': boolean;
   'aduan'?: boolean;
   'pendaftaran-user-sakti'?: boolean;
+  'rekonsiliasi'?: boolean;
+  'lpj'?: boolean;
+  'gaji-induk'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1185,6 +1188,16 @@ export interface DashboardCustomTexts {
   kelolaSatkerTitle?: string;
   kelolaSatkerSubtitle?: string;
   kelolaSatkerAnnouncement?: string;
+
+  lpjBadge?: string;
+  lpjTitle?: string;
+  lpjSubtitle?: string;
+  lpjAnnouncement?: string;
+
+  gajiIndukBadge?: string;
+  gajiIndukTitle?: string;
+  gajiIndukSubtitle?: string;
+  gajiIndukAnnouncement?: string;
 }
 
 export type AduanStatus = 'MENUNGGU' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
@@ -1346,6 +1359,9 @@ export interface DashboardConfig {
     pengetahuan?: string;
     announcements?: string;
     aduan?: string;
+    rekonsiliasi?: string;
+    lpj?: string;
+    gajiInduk?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -1365,6 +1381,12 @@ export interface DashboardConfig {
   deviasiHal3Uploads?: DeviasiHal3UploadBatch[];
   spmPppRecords?: SPMPPPRecord[];
   spmPppUploads?: SPMPPPUploadBatch[];
+  rekonsiliasiRecords?: MonitoringRekonsiliasiRecord[];
+  rekonsiliasiUploads?: MonitoringRekonsiliasiUploadBatch[];
+  lpjRecords?: MonitoringLPJRecord[];
+  lpjUploads?: LPJUploadBatch[];
+  gajiIndukRecords?: SPMGajiRecord[];
+  gajiIndukUploads?: SPMGajiUploadBatch[];
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
@@ -1405,6 +1427,9 @@ export type NavigationTab =
   | 'pengetahuan'
   | 'aduan'
   | 'pendaftaran-user-sakti'
+  | 'rekonsiliasi'
+  | 'lpj'
+  | 'gaji-induk'
   | 'admin' 
   | 'reminder' 
   | 'guide';
@@ -2494,3 +2519,307 @@ export interface PemutakhiranDataHistoryItem {
   createdAt: string;
   updatedAt: string;
 }
+
+// -------------------------------------------------------------
+// REKONSILIASI (MONITORING KEPATUHAN SATKER) TYPES
+// -------------------------------------------------------------
+export type RekonsiliasiStatusType = 'SELESAI' | 'BELUM_SELESAI' | 'UNKNOWN';
+export type TodolistStatusType = 'SELESAI' | 'BELUM_SELESAI' | 'UNKNOWN';
+export type TutupPeriodeStatusType = 'BELUM_TUTUP' | 'SUDAH_TUTUP' | 'UNKNOWN';
+export type Sp2sStatusType = 'ADA' | 'TIDAK_ADA' | 'UNKNOWN';
+export type Sp3sStatusType = 'ADA' | 'BELUM_ADA' | 'UNKNOWN';
+export type PrioritasKategoriType = 'PERLU_TINDAKAN' | 'PERLU_PEMANTAUAN' | 'SELESAI';
+
+export interface MonitoringRekonsiliasiRecord {
+  id: string;
+  uploadId: string;
+  no: number | string;
+  noKppnSatker: string; // Column B (e.g. "00401", "01501" - text with leading zeros)
+  kodeSatker: string;   // Column C (e.g. "890594")
+  namaSatker: string;   // Column D
+  kodeKppn: string;     // Column E (e.g. "026")
+  statusSatker: string; // Column F (e.g. "AKTIF", "NONAKTIF")
+  periode: string;      // Column G (e.g. "2026-09")
+
+  // Status Kepatuhan Satker
+  rekonsiliasiRaw: string;
+  rekonsiliasiStatus: RekonsiliasiStatusType;
+
+  todolistRaw: string;
+  todolistStatus: TodolistStatusType;
+
+  tutupPeriodeRaw: string;
+  tutupPeriodeStatus: TutupPeriodeStatusType;
+
+  // Dokumen SP2S
+  sp2sNomor: string;
+  sp2sTanggal: string;
+  sp2sStatus: Sp2sStatusType;
+
+  // Dokumen SP3S
+  sp3sNomor: string;
+  sp3sTanggal: string;
+  sp3sStatus: Sp3sStatusType;
+
+  // Dispensasi
+  dispensasi: string;
+
+  // Prioritas Kategori Faktual
+  prioritasKategori: PrioritasKategoriType;
+
+  // Kelengkapan & Validasi
+  isLengkap: boolean;
+  validationNotes?: string[];
+
+  // Audit info
+  createdAt: string;
+  uploadedBy?: string;
+}
+
+export interface RekonsiliasiBatchSummary {
+  totalSatker: number;
+  rekonsiliasiSelesai: number;
+  rekonsiliasiBelumSelesai: number;
+  rekonsiliasiUnknown: number;
+  todolistSelesai: number;
+  todolistBelumSelesai: number;
+  todolistUnknown: number;
+  sudahTutupPeriode: number;
+  belumTutupPeriode: number;
+  tutupPeriodeUnknown: number;
+  adaSp2s: number;
+  tidakAdaSp2s: number;
+  adaSp3s: number;
+  belumAdaSp3s: number;
+  adaDispensasi: number;
+  perluTindakan: number;
+  perluPemantauan: number;
+  selesai: number;
+}
+
+export interface MonitoringRekonsiliasiUploadBatch {
+  id: string;
+  filename: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  periode: string; // e.g. "2026-09"
+  jumlahData: number;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR';
+  sheetsCount?: number;
+  sheetNames?: string[];
+  summary?: RekonsiliasiBatchSummary;
+  downloadWaktuInfo?: string;
+}
+
+export interface RekonsiliasiAuditLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  role: 'ADMIN' | 'SATKER' | 'SYSTEM';
+  aksi: 'UPLOAD' | 'VALIDASI' | 'IMPORT_SUCCESS' | 'IMPORT_FAILED' | 'VIEW_DETAIL' | 'EXPORT' | 'DELETE_BATCH' | 'TOGGLE_TAB';
+  detail: string;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR' | 'INFO';
+  periode?: string;
+  affectedCount?: number;
+}
+
+// -------------------------------------------------------------
+// MONITORING LPJ (LAPORAN PERTANGGUNGJAWABAN BENDAHARA) TYPES
+// -------------------------------------------------------------
+export type LPJStatusType = 'SUDAH_KIRIM' | 'BELUM_KIRIM';
+export type LPJJenisBendahara = 'PENGELUARAN' | 'PENERIMAAN' | 'KEDUANYA';
+export type LPJVerifikasiStatus = 'DISETUJUI' | 'TERVERIFIKASI' | 'MENUNGGU_VERIFIKASI' | 'BELUM_KIRIM' | 'DITOLAK';
+
+export interface MonitoringLPJRecord {
+  id: string;
+  uploadId?: string;
+  no: number | string;
+  kodeKppn: string;           // Kolom Kode KPPN (e.g. "026")
+  kodeSatker: string;         // Kolom Kode Satker (6-digit, e.g. "651046")
+  namaSatker: string;         // Kolom Nama Satker
+  kementerianLembaga?: string;// Kementerian / Lembaga
+  kodeBa?: string;            // Bagian Anggaran
+  jenisBendahara: LPJJenisBendahara; // Bendahara Pengeluaran / Penerimaan
+  periodeBulan: string;       // e.g. "Agustus", "September"
+  tahun: number;              // e.g. 2026
+  periodeFormatted: string;   // e.g. "Agustus 2026", "September 2026"
+  statusPengiriman: LPJStatusType; // SUDAH_KIRIM | BELUM_KIRIM
+  tanggalKirim?: string;      // e.g. "08/09/2026", "-" jika belum kirim
+  nomorLpj?: string;          // e.g. "LPJ-08/2026/651046", "-" jika belum kirim
+  nomorSuratPengantar?: string;
+  statusVerifikasi: LPJVerifikasiStatus; // DISETUJUI, TERVERIFIKASI, MENUNGGU_VERIFIKASI, BELUM_KIRIM, DITOLAK
+  saldoRekeningBank: number;  // Saldo Kas Bank (Rp)
+  saldoKasTunai: number;      // Saldo Kas Tunai / Brankas (Rp)
+  totalSaldoKas: number;      // Total Kas (Rp)
+  selisihKas: number;         // Selisih Kas (Rp) - 0 jika klop
+  statusKlopKas: 'KLOP' | 'SELISIH' | 'BELUM_VERIFIKASI';
+  namaBendahara: string;      // Nama Pejabat Bendahara
+  nipBendahara?: string;      // NIP Bendahara
+  noHpBendahara?: string;     // No HP / WhatsApp Bendahara
+  keterangan?: string;        // Catatan probis / hasil verifikasi KPPN
+  batasWaktuPengiriman?: string; // Batas akhir (misal tanggal 10 bulan berikutnya)
+  statusKetepatanWaktu?: 'TEPAT_WAKTU' | 'TERLAMBAT' | 'BELUM_KIRIM';
+  isLengkapDokumen?: boolean; // Kelengkapan berkas (Koran Bank, Berita Acara, Konfirmasi Setoran)
+  auditInfo?: {
+    uploadedAt?: string;
+    uploadedBy?: string;
+  };
+}
+
+export interface LPJBatchSummary {
+  totalSatker: number;
+  sudahKirim: number;
+  belumKirim: number;
+  persenKepatuhan: number; // e.g. 100% or 0%
+  bendaharaPengeluaranCount: number;
+  bendaharaPenerimaanCount: number;
+  terverifikasiCount: number;
+  menungguVerifikasiCount: number;
+  belumKirimCount: number;
+  totalSaldoKas: number;
+  totalSelisihKas: number;
+}
+
+export interface LPJUploadBatch {
+  id: string;
+  filename: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  periode: string; // e.g. "Agustus 2026", "September 2026"
+  jumlahData: number;
+  sudahKirimCount: number;
+  belumKirimCount: number;
+  status: 'SUCCESS' | 'WARNING' | 'ERROR';
+  notes?: string;
+}
+
+// -------------------------------------------------------------
+// MONITORING GAJI INDUK (PNS & PPPK/P3K) TYPES
+// -------------------------------------------------------------
+export type GajiIndukJenis = 'PNS' | 'PPPK';
+export type GajiIndukStatusPengiriman = 'SUDAH_MENGIRIM' | 'BELUM_MENGIRIM';
+export type GajiIndukArahPerubahan = 'NAIK' | 'TURUN' | 'TETAP' | 'TIDAK_ADA_PEMBANDING';
+
+/**
+ * Record SPM Gaji persis 48 kolom Excel A-AV
+ */
+export interface SPMGajiRecord {
+  // Kolom A-AV sumber Excel
+  id: string;              // Kolom A: id (TEXT)
+  idSpp: string;           // Kolom B: idSpp (TEXT)
+  kodePpk: string;         // Kolom C: kodePPK (TEXT)
+  nipPpk: string;          // Kolom D: nipPPK (TEXT)
+  tglCetakSpp: string;     // Kolom E: tglCetakSpp
+  tempatCetakSpp: string;  // Kolom F: tempatCetakSpp
+  kodeJenisSpp: string;    // Kolom G: kodeJenisSPP
+  kodePpspm: string;       // Kolom H: kodePPSPM (TEXT)
+  nipPpspm: string;        // Kolom I: nipPPSPM (TEXT)
+  tglCetakSpm: string;     // Kolom J: tglCetakSpm
+  tempatCetakSpm: string;  // Kolom K: tempatCetakSpm
+  noSpp: string;           // Kolom L: noSPP (TEXT)
+  jenisSpp: string;        // Kolom M: jnsSPP (Sumber utama penentuan jenis gaji)
+  uraian: string;          // Kolom N: uraian
+  jmlPengeluaran: number;  // Kolom O: jmlPengeluaran
+  jmlPotongan: number;     // Kolom P: jmlPotongan
+  jmlPembayaran: number;   // Kolom Q: jmlPembayaran
+  statusKppn: string;      // Kolom R: statusKPPN
+  petugas: string;         // Kolom S: petugas
+  keterangan: string;      // Kolom T: keterangan
+  lampiran: string;        // Kolom U: lampiran
+  statusSpm: string;       // Kolom V: statusSPM
+  tanggalRpd: string;      // Kolom W: tanggalRPD
+  tolak: string;           // Kolom X: tolak
+  tglTolak: string;        // Kolom Y: tglTolak
+  mataUang: string;        // Kolom Z: mataUang
+  buktiFisik: string;      // Kolom AA: buktiFisik
+  sp2d: string;            // Kolom AB: sp2d
+  file: string;            // Kolom AC: file
+  kodeKppn: string;        // Kolom AD: kodeKPPN (TEXT)
+  kodeSatker: string;      // Kolom AE: kodeSatker (TEXT dengan leading zero)
+  noFileAdk: string;       // Kolom AF: noFileADK (TEXT)
+  tglUpload: string;       // Kolom AG: tglUpload
+  frontOffice: string;     // Kolom AH: frontOffice
+  prosesFo: string;        // Kolom AI: prosesFO
+  validator: string;       // Kolom AJ: validator
+  prosesValidator: string; // Kolom AK: prosesValidator
+  reviewer: string;        // Kolom AL: reviewer
+  prosesReviewer: string;  // Kolom AM: prosesReviewer
+  approver: string;        // Kolom AN: approver
+  prosesApprover: string;  // Kolom AO: prosesApprover
+  tglSp2d: string;         // Kolom AP: tglSp2d
+  persetujuanTolak: string;// Kolom AQ: persetujuanTolak
+  thnAng: string;          // Kolom AR: thnAng
+  noGaji: string;          // Kolom AS: noGaji (TEXT)
+  kodeJenisSpp2: string;   // Kolom AT: kodeJenisSPP2
+  statusSpan: string;      // Kolom AU: statusSpan
+  keteranganSpan: string;  // Kolom AV: keteranganSpan
+
+  // Field komputasi / database internal
+  uploadBatchId?: string;
+  jenisGaji: GajiIndukJenis; // PNS atau PPPK (ditentukan dari Kolom M)
+  periodeKey: string;        // e.g. "2026-06", "2026-07", "2026-08"
+  periodeFormatted: string;  // e.g. "Juni 2026", "Juli 2026", "Agustus 2026"
+  namaSatker: string;        // Nama satker dari Master Satker
+}
+
+export interface SPMGajiUploadBatch {
+  id: string;
+  filename: string;
+  periode: string;           // e.g. "Agustus 2026"
+  periodeKey: string;        // e.g. "2026-08"
+  jenisGaji: GajiIndukJenis; // PNS / PPPK
+  uploadedAt: string;
+  uploadedBy: string;
+  jumlahRecord: number;      // Total SPM record
+  jumlahSatker: number;      // Satker unik
+  status: 'SUCCESS' | 'WARNING' | 'ERROR';
+  notes?: string;
+}
+
+/**
+ * Agregasi per Satker per Periode per Jenis Gaji
+ */
+export interface GajiSatkerBulanan {
+  periodeKey: string;        // e.g. "2026-08"
+  periodeFormatted: string;  // e.g. "Agustus 2026"
+  kodeSatker: string;
+  namaSatker: string;
+  kodeKppn: string;
+  jenisGaji: GajiIndukJenis;
+  statusPengiriman: GajiIndukStatusPengiriman;
+  jumlahSpm: number;
+  jumlahSpmBulanLalu: number | null;
+  selisihSpm: number | null;
+  arahPerubahan: GajiIndukArahPerubahan;
+  totalPengeluaran: number;
+  totalPotongan: number;
+  totalPembayaran: number;
+  jumlahSp2d: number;
+  tglSpmTerakhir?: string;
+  tglSp2dTerakhir?: string;
+  statusSp2dSummary: 'SPM ADA' | 'SP2D ADA' | 'SP2D BELUM ADA' | 'BELUM SPM';
+  records: SPMGajiRecord[];
+}
+
+export interface GajiIndukSummary {
+  periodeKey: string;
+  totalSatkerWajib: number;
+  sudahKirim: number;
+  belumKirim: number;
+  totalSpm: number;
+  totalPembayaran: number;
+  // Detail PNS
+  pnsWajib: number;
+  pnsSudah: number;
+  pnsBelum: number;
+  pnsTotalSpm: number;
+  pnsTotalPembayaran: number;
+  // Detail PPPK
+  pppkWajib: number;
+  pppkSudah: number;
+  pppkBelum: number;
+  pppkTotalSpm: number;
+  pppkTotalPembayaran: number;
+}
+
+

@@ -37,7 +37,8 @@ import {
   Radio,
   Smartphone,
   RefreshCw,
-  PieChart
+  PieChart,
+  Coins
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -362,6 +363,27 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <FileSpreadsheet className="w-4 h-4 text-teal-300" />,
       badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">User SAKTI</span>,
       activeColor: 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
+    },
+    {
+      id: 'rekonsiliasi',
+      label: '📊 Rekonsiliasi',
+      icon: <FileSpreadsheet className="w-4 h-4 text-blue-300" />,
+      badge: <span className="bg-blue-950 text-blue-200 border border-blue-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Kepatuhan</span>,
+      activeColor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-blue-400/40'
+    },
+    {
+      id: 'lpj',
+      label: '📋 Monitoring LPJ',
+      icon: <FileSpreadsheet className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">LPJ SAKTI</span>,
+      activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
+      id: 'gaji-induk',
+      label: '💰 Gaji Induk (PNS & PPPK)',
+      icon: <Coins className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Gaji Induk</span>,
+      activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
     }
   ];
 

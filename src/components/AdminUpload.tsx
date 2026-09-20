@@ -28,7 +28,13 @@ import {
   PresensiPrintConfig,
   SPMPPPRecord,
   TriwulanKey,
-  TargetTriwulanRule
+  TargetTriwulanRule,
+  MonitoringRekonsiliasiRecord,
+  MonitoringRekonsiliasiUploadBatch,
+  MonitoringLPJRecord,
+  LPJUploadBatch,
+  SPMGajiRecord,
+  SPMGajiUploadBatch
 } from '../types';
 import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
 import { deduplicateHistoricalUploads } from '../utils/firebaseStorageOptimizer';
@@ -41,6 +47,9 @@ import { UploadDigipaySection } from './admin/UploadDigipaySection';
 import { UploadDeviasiHal3Section } from './admin/UploadDeviasiHal3Section';
 import { UploadSPMPPPSection } from './admin/UploadSPMPPPSection';
 import { UploadPejabatIKPASection } from './admin/UploadPejabatIKPASection';
+import { UploadRekonsiliasiSection } from './admin/UploadRekonsiliasiSection';
+import { UploadLPJSection } from './admin/UploadLPJSection';
+import { UploadGajiIndukSection } from './admin/UploadGajiIndukSection';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
@@ -169,7 +178,8 @@ import {
   Image as ImageIcon,
   Film,
   LifeBuoy,
-  Receipt
+  Receipt,
+  Coins
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
@@ -223,6 +233,27 @@ interface AdminUploadProps {
   onApplyPejabatIKPAList?: (records: PejabatSertifikasi[], satkerPejabatMap?: Record<string, any>) => void;
   onClearPejabatIKPA?: () => void;
   onClearMasterSatkers?: () => void;
+  rekonsiliasiRecords?: MonitoringRekonsiliasiRecord[];
+  rekonsiliasiUploads?: MonitoringRekonsiliasiUploadBatch[];
+  onApplyRekonsiliasi?: (
+    records: MonitoringRekonsiliasiRecord[],
+    uploads: MonitoringRekonsiliasiUploadBatch[]
+  ) => void;
+  onClearRekonsiliasi?: () => void;
+  lpjRecords?: MonitoringLPJRecord[];
+  lpjUploads?: LPJUploadBatch[];
+  onApplyLPJ?: (
+    records: MonitoringLPJRecord[],
+    uploads: LPJUploadBatch[]
+  ) => void;
+  onClearLPJ?: () => void;
+  gajiIndukRecords?: SPMGajiRecord[];
+  gajiIndukUploads?: SPMGajiUploadBatch[];
+  onApplyGajiInduk?: (
+    records: SPMGajiRecord[],
+    uploads: SPMGajiUploadBatch[]
+  ) => void;
+  onClearGajiInduk?: () => void;
   onForceCloudSync?: () => void;
   isCloudSyncing?: boolean;
   cloudSyncMessage?: string | null;
@@ -391,6 +422,18 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onApplyPejabatIKPAList,
   onClearPejabatIKPA,
   onClearMasterSatkers,
+  rekonsiliasiRecords = [],
+  rekonsiliasiUploads = [],
+  onApplyRekonsiliasi,
+  onClearRekonsiliasi,
+  lpjRecords = [],
+  lpjUploads = [],
+  onApplyLPJ,
+  onClearLPJ,
+  gajiIndukRecords = [],
+  gajiIndukUploads = [],
+  onApplyGajiInduk,
+  onClearGajiInduk,
   onForceCloudSync,
   isCloudSyncing = false,
   cloudSyncMessage = null
@@ -402,8 +445,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3837,6 +3880,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'portal-link': true,
                         'presensi': true,
                         'pendaftaran-user-sakti': true,
+                        'rekonsiliasi': true,
+                        'lpj': true,
+                        'gaji-induk': true,
                         'aduan': true,
                         'reminder': true,
                         'guide': false
@@ -3879,6 +3925,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'portal-link': false,
                         'presensi': false,
                         'pendaftaran-user-sakti': false,
+                        'rekonsiliasi': false,
+                        'lpj': false,
+                        'gaji-induk': false,
                         'aduan': false,
                         'reminder': false,
                         'guide': false
@@ -3922,9 +3971,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   <span>
                     {(tempConfig.tabOrder || [
                       'dashboard',
+                      'realisasi-anggaran',
                       'capaian-output',
                       'diagnostik-caput',
                       'deviasi-hal3',
+                      'spm-ppp',
                       'pengelolaan-up',
                       'transaksi-kkp',
                       'transaksi-digipay',
@@ -3936,7 +3987,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'portal-link',
                       'pengetahuan',
                       'aduan',
-                      'presensi'
+                      'presensi',
+                      'pendaftaran-user-sakti',
+                      'rekonsiliasi',
+                      'lpj',
+                      'gaji-induk'
                     ]).filter(k => k !== 'guide' && tempConfig.menuVisibility?.[k as keyof MenuVisibilityConfig] !== false).length} Menu Aktif
                   </span>
                 </div>
@@ -3962,7 +4017,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pengetahuan': 'Juknis dan Pengetahuan Perbendaharaan',
                       'aduan': 'Lapor Aduan',
                       'presensi': 'Presensi Online',
-                      'pendaftaran-user-sakti': 'Pendaftaran User SAKTI'
+                      'pendaftaran-user-sakti': 'Pendaftaran User SAKTI',
+                      'rekonsiliasi': 'Rekonsiliasi',
+                      'lpj': 'Monitoring LPJ',
+                      'gaji-induk': 'Gaji Induk (PNS & PPPK)'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -3984,7 +4042,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pengetahuan',
                       'aduan',
                       'presensi',
-                      'pendaftaran-user-sakti'
+                      'pendaftaran-user-sakti',
+                      'rekonsiliasi',
+                      'lpj',
+                      'gaji-induk'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4030,7 +4091,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pengetahuan': { label: 'Juknis dan Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
                     'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' },
-                    'pendaftaran-user-sakti': { label: 'Pendaftaran User SAKTI', desc: 'Registrasi & pemutakhiran role user SAKTI resmi (Ekspor Excel & PDF)', category: 'SAKTI', badgeColor: 'bg-teal-100 text-teal-800' }
+                    'pendaftaran-user-sakti': { label: 'Pendaftaran User SAKTI', desc: 'Registrasi & pemutakhiran role user SAKTI resmi (Ekspor Excel & PDF)', category: 'SAKTI', badgeColor: 'bg-teal-100 text-teal-800' },
+                    'rekonsiliasi': { label: '📊 Rekonsiliasi & Kepatuhan Satker', desc: 'Monitoring otomatis kepatuhan Rekonsiliasi, Todolist, Tutup Periode, SP2S & SP3S', category: 'Kepatuhan', badgeColor: 'bg-blue-100 text-blue-800' },
+                    'lpj': { label: '📋 Monitoring LPJ Bendahara', desc: 'Monitoring penyampaian LPJ Bendahara SAKTI, status pengiriman, verifikasi & cetak PDF', category: 'LPJ Bendahara', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4052,7 +4116,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pengetahuan',
                     'aduan',
                     'presensi',
-                    'pendaftaran-user-sakti'
+                    'pendaftaran-user-sakti',
+                    'rekonsiliasi',
+                    'lpj',
+                    'gaji-induk'
                   ];
 
                   // Build unified order without guide
@@ -4189,9 +4256,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                             onClick={() => {
                               const currVis = tempConfig.menuVisibility || {
                                 'dashboard': true,
+                                'realisasi-anggaran': true,
                                 'capaian-output': true,
                                 'diagnostik-caput': true,
                                 'deviasi-hal3': true,
+                                'spm-ppp': true,
                                 'pengelolaan-up': true,
                                 'transaksi-kkp': true,
                                 'transaksi-digipay': true,
@@ -4204,6 +4273,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                                 'materi-slide': true,
                                 'portal-link': true,
                                 'presensi': true,
+                                'pendaftaran-user-sakti': true,
+                                'rekonsiliasi': true,
+                                'lpj': true,
+                                'gaji-induk': true,
                                 'aduan': true,
                                 'reminder': true,
                                 'guide': false
@@ -5020,6 +5093,23 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       updateDates: { ...prev.updateDates, aduan: e.target.value }
                     }))}
                     placeholder="Contoh: 07 Agustus 2026"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* 20. Monitoring Gaji Induk */}
+                <div className="bg-white p-3 rounded-xl border border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                    20. Monitoring Gaji Induk (PNS &amp; PPPK)
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.updateDates?.gajiInduk || '07 Agustus 2026 - 09:00 WIB'}
+                    onChange={(e) => setTempConfig(prev => ({
+                      ...prev,
+                      updateDates: { ...prev.updateDates, gajiInduk: e.target.value }
+                    }))}
+                    placeholder="Contoh: 07 Agustus 2026 - 09:00 WIB"
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
                   />
                 </div>
@@ -5888,6 +5978,51 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       onChange={(e) => setTempConfig(prev => ({
                         ...prev,
                         customTexts: { ...prev.customTexts, aduanSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* 20. Dashboard Monitoring Gaji Induk */}
+                <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 space-y-3">
+                  <span className="inline-block bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                    20. Dashboard Monitoring Gaji Induk (PNS &amp; PPPK)
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.gajiIndukBadge || 'MONITORING PENGIRIMAN GAJI INDUK PNS & PPPK'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, gajiIndukBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.gajiIndukTitle || 'Monitoring Pengiriman SPM Gaji Induk PNS & PPPK'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, gajiIndukTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.gajiIndukSubtitle || 'Pantau riwayat bulanan penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), identifikasi satker yang belum mengajukan, dan bandingkan nominal serta jumlah pegawai antar bulan.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, gajiIndukSubtitle: e.target.value }
                       }))}
                       className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
                     />
@@ -10639,6 +10774,69 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {pejabatIKPAList.length} Pejabat Terdaftar
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('rekonsiliasi')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'rekonsiliasi'
+                    ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
+                  <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
+                  <span>10. Rekonsiliasi &amp; Kepatuhan</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Monitoring Kepatuhan SAKTI: Rekonsiliasi, Todolist, Tutup Periode, SP2S, SP3S.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400">
+                  {rekonsiliasiRecords.length} Satker Terdata
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('lpj')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'lpj'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>11. LPJ Bendahara</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Upload Excel LPJ, Analisis Pengiriman (Agustus/September) &amp; Database.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  {lpjRecords.length} Satker Terdata
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('gaji-induk')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'gaji-induk'
+                    ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                  <Coins className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>12. SPM Gaji Induk</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Monitoring SPM Gaji Induk PNS &amp; PPPK (Juni, Juli, Agustus), Riwayat Bulanan &amp; Validasi Kolom A-AV.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                  {gajiIndukRecords.length} Record SPM Terdata
+                </div>
+              </button>
             </div>
           </div>
 
@@ -10775,6 +10973,49 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               pejabatList={pejabatIKPAList}
               onApplyPejabatList={onApplyPejabatIKPAList || (() => {})}
               onClearPejabatData={onClearPejabatIKPA || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'rekonsiliasi' && (
+            <UploadRekonsiliasiSection
+              isDark={isDark}
+              satkers={satkers}
+              masterSatkers={masterSatkers}
+              records={rekonsiliasiRecords}
+              uploads={rekonsiliasiUploads}
+              onApplyRecords={onApplyRekonsiliasi || (() => {})}
+              onClearRecords={onClearRekonsiliasi || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'lpj' && (
+            <UploadLPJSection
+              isDark={isDark}
+              masterSatkers={masterSatkers}
+              records={lpjRecords}
+              uploads={lpjUploads}
+              onApplyRecords={onApplyLPJ || (() => {})}
+              onClearRecords={onClearLPJ || (() => {})}
+              requestConfirm={requestConfirm}
+              showToast={showToast}
+              addLog={addLog}
+            />
+          )}
+
+          {uploadSubTab === 'gaji-induk' && (
+            <UploadGajiIndukSection
+              isDark={isDark}
+              masterSatkers={masterSatkers}
+              records={gajiIndukRecords}
+              uploads={gajiIndukUploads}
+              onApplyRecords={onApplyGajiInduk || (() => {})}
+              onClearRecords={onClearGajiInduk || (() => {})}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}

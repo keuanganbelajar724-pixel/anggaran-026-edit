@@ -1,6 +1,6 @@
 {
   "name": "ANGKASA",
-  "description": "ANGKASA (Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja) KPPN Semarang I: Monitoring Kinerja Anggaran, Capaian Output SAKTI, Presentasi Slide Show, Presensi & Sosialisasi",
+  "description": "ANGKASA (Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja) KPPN Semarang I: Monitoring Kinerja Anggaran, Gaji Induk PNS & PPPK, Rekonsiliasi & Kepatuhan Satker, Monitoring LPJ Bendahara, Capaian Output SAKTI, Presentasi Slide Show, Presensi & Sosialisasi",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

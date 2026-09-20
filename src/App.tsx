@@ -3,7 +3,14 @@ import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressTo
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch } from './types';
+import * as XLSX from 'xlsx';
+import { RekonsiliasiDashboard } from './components/rekonsiliasi/RekonsiliasiDashboard';
+import { parseMonitoringRekonsiliasiWorkbook, generateSampleMonitoringKepatuhanExcel } from './utils/rekonsiliasiExcelParser';
+import { LPJDashboard } from './components/lpj/LPJDashboard';
+import { generateInitialLPJData } from './utils/lpjExcelParser';
+import { GajiIndukDashboard } from './components/gaji-induk/GajiIndukDashboard';
+import { generateInitialGajiIndukData } from './utils/gajiIndukExcelParser';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
 import { DEFAULT_TARGET_TRIWULAN_RULES } from './utils/targetTriwulanProcessor';
@@ -167,6 +174,9 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'portal-link': true,
   'presensi': true,
   'pendaftaran-user-sakti': true,
+  'rekonsiliasi': true,
+  'lpj': true,
+  'gaji-induk': true,
   'aduan': true,
   'reminder': true,
   'guide': true,
@@ -411,7 +421,8 @@ export default function App() {
       presensi: '07 Agustus 2026',
       pengetahuan: '07 Agustus 2026',
       announcements: '07 Agustus 2026',
-      aduan: '07 Agustus 2026'
+      aduan: '07 Agustus 2026',
+      gajiInduk: '07 Agustus 2026 - 09:00 WIB'
     },
     customTexts: {
       dashboardBadge: 'Sistem Pembina Keuangan & Monitoring IKPA KPPN Semarang I',
@@ -488,7 +499,11 @@ export default function App() {
 
       aduanBadge: 'Helpdesk & Layanan Pengaduan Satker KPPN Semarang I',
       aduanTitle: 'Kanal Layanan Konsultasi & Pengaduan Satker',
-      aduanSubtitle: 'Sampaikan kendala teknis SAKTI, pengajuan dispensasi, rekonsiliasi laporan, atau pengaduan layanan secara langsung ke tim pembina KPPN Semarang I.'
+      aduanSubtitle: 'Sampaikan kendala teknis SAKTI, pengajuan dispensasi, rekonsiliasi laporan, atau pengaduan layanan secara langsung ke tim pembina KPPN Semarang I.',
+
+      gajiIndukBadge: 'MONITORING PENGIRIMAN GAJI INDUK PNS & PPPK',
+      gajiIndukTitle: 'Monitoring Pengiriman SPM Gaji Induk PNS & PPPK',
+      gajiIndukSubtitle: 'Pantau riwayat bulanan penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), identifikasi satker yang belum mengajukan, dan bandingkan nominal serta jumlah pegawai antar bulan.'
     }
   };
 });
@@ -636,6 +651,163 @@ export default function App() {
   const [adminPin, setAdminPin] = useState<string>(() => {
     return localStorage.getItem('kppn_admin_pin') || 'kppn026';
   });
+
+  // State Rekonsiliasi & Kepatuhan Satker
+  const [rekonsiliasiRecords, setRekonsiliasiRecords] = useState<MonitoringRekonsiliasiRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_rekonsiliasi_records');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_rekonsiliasi_records:', e);
+      }
+    }
+    try {
+      const sampleBytes = generateSampleMonitoringKepatuhanExcel();
+      const wb = XLSX.read(sampleBytes, { type: 'array' });
+      const parsed = parseMonitoringRekonsiliasiWorkbook(wb, 'Monitoring Kepatuhan Satker_2026-09-20 06-38.xlsx', 'Data Awal SAKTI');
+      return parsed.records;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [rekonsiliasiUploads, setRekonsiliasiUploads] = useState<MonitoringRekonsiliasiUploadBatch[]>(() => {
+    const saved = localStorage.getItem('kppn_rekonsiliasi_uploads');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_rekonsiliasi_uploads:', e);
+      }
+    }
+    try {
+      const sampleBytes = generateSampleMonitoringKepatuhanExcel();
+      const wb = XLSX.read(sampleBytes, { type: 'array' });
+      const parsed = parseMonitoringRekonsiliasiWorkbook(wb, 'Monitoring Kepatuhan Satker_2026-09-20 06-38.xlsx', 'Data Awal SAKTI');
+      return [parsed.batch];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const handleUpdateRekonsiliasi = (
+    newRecords: MonitoringRekonsiliasiRecord[],
+    newUploads: MonitoringRekonsiliasiUploadBatch[]
+  ) => {
+    setRekonsiliasiRecords(newRecords);
+    setRekonsiliasiUploads(newUploads);
+    try {
+      localStorage.setItem('kppn_rekonsiliasi_records', JSON.stringify(newRecords));
+      localStorage.setItem('kppn_rekonsiliasi_uploads', JSON.stringify(newUploads));
+    } catch (e) {
+      console.warn('Error saving rekonsiliasi data:', e);
+    }
+  };
+
+  // State Monitoring LPJ Bendahara (Agustus & September 2026)
+  const [lpjRecords, setLpjRecords] = useState<MonitoringLPJRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_lpj_records');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_lpj_records:', e);
+      }
+    }
+    try {
+      const initial = generateInitialLPJData(masterSatkers);
+      return initial.records;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [lpjUploads, setLpjUploads] = useState<LPJUploadBatch[]>(() => {
+    const saved = localStorage.getItem('kppn_lpj_uploads');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_lpj_uploads:', e);
+      }
+    }
+    try {
+      const initial = generateInitialLPJData(masterSatkers);
+      return initial.batches;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const handleUpdateLPJ = (
+    newRecords: MonitoringLPJRecord[],
+    newUploads: LPJUploadBatch[]
+  ) => {
+    setLpjRecords(newRecords);
+    setLpjUploads(newUploads);
+    try {
+      localStorage.setItem('kppn_lpj_records', JSON.stringify(newRecords));
+      localStorage.setItem('kppn_lpj_uploads', JSON.stringify(newUploads));
+    } catch (e) {
+      console.warn('Error saving lpj data:', e);
+    }
+  };
+
+  // State Monitoring SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus 2026)
+  const [gajiIndukRecords, setGajiIndukRecords] = useState<SPMGajiRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_gaji_induk_records');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_gaji_induk_records:', e);
+      }
+    }
+    try {
+      const initial = generateInitialGajiIndukData(masterSatkers);
+      return initial.records;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [gajiIndukUploads, setGajiIndukUploads] = useState<SPMGajiUploadBatch[]>(() => {
+    const saved = localStorage.getItem('kppn_gaji_induk_uploads');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_gaji_induk_uploads:', e);
+      }
+    }
+    try {
+      const initial = generateInitialGajiIndukData(masterSatkers);
+      return initial.batches;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const handleUpdateGajiInduk = (
+    newRecords: SPMGajiRecord[],
+    newUploads: SPMGajiUploadBatch[]
+  ) => {
+    setGajiIndukRecords(newRecords);
+    setGajiIndukUploads(newUploads);
+    try {
+      localStorage.setItem('kppn_gaji_induk_records', JSON.stringify(newRecords));
+      localStorage.setItem('kppn_gaji_induk_uploads', JSON.stringify(newUploads));
+    } catch (e) {
+      console.warn('Error saving gaji induk data:', e);
+    }
+  };
 
   // Initial Syncing State for clean first-visit experience (prevents flash of empty/uninitialized data)
   const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(() => {
@@ -2699,10 +2871,14 @@ export default function App() {
                   onClick={() => {
                     const tabPriorityOrder: NavigationTab[] = [
                       'dashboard',
+                      'realisasi-anggaran',
                       'capaian-output',
+                      'diagnostik-caput',
                       'deviasi-hal3',
+                      'spm-ppp',
                       'pengelolaan-up',
                       'transaksi-kkp',
+                      'transaksi-digipay',
                       'kelola-satker',
                       'sertifikasi',
                       'per5-analisis',
@@ -2711,6 +2887,10 @@ export default function App() {
                       'announcements',
                       'pengetahuan',
                       'presensi',
+                      'pendaftaran-user-sakti',
+                      'rekonsiliasi',
+                      'lpj',
+                      'gaji-induk',
                       'aduan',
                       'guide'
                     ];
@@ -2985,6 +3165,41 @@ export default function App() {
                 />
               )}
 
+              {/* Tab 📊 Rekonsiliasi & Kepatuhan Satker */}
+              {activeTab === 'rekonsiliasi' && (
+                <RekonsiliasiDashboard
+                  records={rekonsiliasiRecords}
+                  uploads={rekonsiliasiUploads}
+                  masterSatkers={masterSatkers}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  isDark={theme === 'dark'}
+                  onUpdateRecords={handleUpdateRekonsiliasi}
+                />
+              )}
+
+              {/* Tab 📋 Monitoring LPJ Bendahara */}
+              {activeTab === 'lpj' && (
+                <LPJDashboard
+                  records={lpjRecords}
+                  uploads={lpjUploads}
+                  masterSatkers={masterSatkers}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  isDark={theme === 'dark'}
+                />
+              )}
+
+              {/* Tab 💰 Monitoring Gaji Induk PNS & PPPK */}
+              {activeTab === 'gaji-induk' && (
+                <GajiIndukDashboard
+                  records={gajiIndukRecords}
+                  uploads={gajiIndukUploads}
+                  masterSatkers={masterSatkers}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  isDark={theme === 'dark'}
+                  onGoToAdminUpload={() => setActiveTab('admin')}
+                />
+              )}
+
               {activeTab === 'admin' && (
                 <AdminUpload
                   satkers={satkers}
@@ -3019,6 +3234,18 @@ export default function App() {
                   pejabatIKPAList={pejabatPerbendaharaanSatkerList}
                   onApplyPejabatIKPAList={handleUpdatePejabatPerbendaharaanSatker}
                   onClearPejabatIKPA={() => handleUpdatePejabatPerbendaharaanSatker([])}
+                  rekonsiliasiRecords={rekonsiliasiRecords}
+                  rekonsiliasiUploads={rekonsiliasiUploads}
+                  onApplyRekonsiliasi={handleUpdateRekonsiliasi}
+                  onClearRekonsiliasi={() => handleUpdateRekonsiliasi([], [])}
+                  lpjRecords={lpjRecords}
+                  lpjUploads={lpjUploads}
+                  onApplyLPJ={handleUpdateLPJ}
+                  onClearLPJ={() => handleUpdateLPJ([], [])}
+                  gajiIndukRecords={gajiIndukRecords}
+                  gajiIndukUploads={gajiIndukUploads}
+                  onApplyGajiInduk={handleUpdateGajiInduk}
+                  onClearGajiInduk={() => handleUpdateGajiInduk([], [])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}
