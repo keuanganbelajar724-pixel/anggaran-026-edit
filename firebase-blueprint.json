@@ -95,6 +95,35 @@
         "exportedAt": { "type": "string" }
       },
       "required": ["kodeSatker", "namaSatker", "users"]
+    },
+    "haicsoTickets": {
+      "title": "HAICSO Tickets",
+      "description": "Stores normalized ticket records from HAICSO Excel uploads",
+      "type": "object",
+      "properties": {
+        "list": { "type": "array" },
+        "totalRecords": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "haicsoUploadBatch": {
+      "title": "HAICSO Upload Batch",
+      "description": "Stores upload batch metadata and audit records for HAICSO Excel imports",
+      "type": "object",
+      "properties": {
+        "list": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "haicsoDashboardSettings": {
+      "title": "HAICSO Dashboard Settings",
+      "description": "Stores active status, toggle, and configuration for Monitoring Tiket HAICSO",
+      "type": "object",
+      "properties": {
+        "isActive": { "type": "boolean" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -105,6 +134,18 @@
     "/data/{dataType}": {
       "schema": { "$ref": "#/entities/satkerData" },
       "description": "Centralized sync datasets for Satker IKPA, Realisasi Belanja, Pejabat, and Presensi"
+    },
+    "/settings/haicso": {
+      "schema": { "$ref": "#/entities/haicsoDashboardSettings" },
+      "description": "HAICSO dashboard visibility and target configuration"
+    },
+    "/data/haicso_tickets": {
+      "schema": { "$ref": "#/entities/haicsoTickets" },
+      "description": "Centralized sync dataset for HAICSO tickets"
+    },
+    "/data/haicso_batches": {
+      "schema": { "$ref": "#/entities/haicsoUploadBatch" },
+      "description": "Centralized sync dataset for HAICSO upload batches"
     },
     "/announcements/{announcementId}": {
       "schema": { "$ref": "#/entities/announcements" },

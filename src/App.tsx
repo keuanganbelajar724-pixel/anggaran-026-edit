@@ -3,7 +3,7 @@ import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressTo
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch, HAICSOTicket, HAICSOUploadBatch, HAICSODashboardSettings } from './types';
 import * as XLSX from 'xlsx';
 import { RekonsiliasiDashboard } from './components/rekonsiliasi/RekonsiliasiDashboard';
 import { parseMonitoringRekonsiliasiWorkbook, generateSampleMonitoringKepatuhanExcel } from './utils/rekonsiliasiExcelParser';
@@ -11,6 +11,8 @@ import { LPJDashboard } from './components/lpj/LPJDashboard';
 import { generateInitialLPJData } from './utils/lpjExcelParser';
 import { GajiIndukDashboard } from './components/gaji-induk/GajiIndukDashboard';
 import { generateInitialGajiIndukData } from './utils/gajiIndukExcelParser';
+import { HaiCsoMainDashboard } from './components/haicso/HaiCsoMainDashboard';
+import { generateInitialHaiCsoData } from './utils/haiCsoExcelParser';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
 import { DEFAULT_TARGET_TRIWULAN_RULES } from './utils/targetTriwulanProcessor';
@@ -809,6 +811,130 @@ export default function App() {
     }
   };
 
+  // State Monitoring Tiket HAICSO
+  const [haicsoTickets, setHaicsoTickets] = useState<HAICSOTicket[]>(() => {
+    const saved = localStorage.getItem('kppn_haicso_tickets');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_haicso_tickets:', e);
+      }
+    }
+    try {
+      const initial = generateInitialHaiCsoData();
+      return initial.records;
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [haicsoBatches, setHaicsoBatches] = useState<HAICSOUploadBatch[]>(() => {
+    const saved = localStorage.getItem('kppn_haicso_batches');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_haicso_batches:', e);
+      }
+    }
+    try {
+      const initial = generateInitialHaiCsoData();
+      return [initial.batch];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [haicsoSettings, setHaicsoSettings] = useState<HAICSODashboardSettings>(() => {
+    const saved = localStorage.getItem('kppn_haicso_settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      } catch (e) {
+        console.warn('Error reading kppn_haicso_settings:', e);
+      }
+    }
+    return {
+      id: 'haicso-settings-default',
+      dashboard_code: 'HAICSO_DASHBOARD',
+      dashboard_name: 'Monitoring Tiket HAICSO',
+      is_active: true,
+      target_selesai_persen: 95,
+      catatan_kppn: 'Mohon Satuan Kerja segera memberikan respon/feedback pada tiket layanan HAICSO yang berstatus Menunggu konfirmasi/respons Satker agar tiket dapat diselesaikan dan memenuhi target IKU KPPN Semarang I.'
+    };
+  });
+
+  // Sync HAICSO Data with Server-Side Endpoints
+  useEffect(() => {
+    const fetchHaiCsoData = async () => {
+      try {
+        const role = isAdminAuthenticated ? 'admin' : 'satker';
+        const [ticketsRes, settingsRes, batchesRes] = await Promise.all([
+          fetch(`/api/haicso/tickets?role=${role}`),
+          fetch('/api/haicso/settings'),
+          fetch('/api/haicso/batches')
+        ]);
+        if (ticketsRes.ok) {
+          const ticketsData = await ticketsRes.json();
+          if (Array.isArray(ticketsData.tickets) && ticketsData.tickets.length > 0) {
+            setHaicsoTickets(ticketsData.tickets);
+            safeLocalStorageSet('kppn_haicso_tickets', JSON.stringify(ticketsData.tickets));
+          }
+        }
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData.settings) {
+            setHaicsoSettings(settingsData.settings);
+            safeLocalStorageSet('kppn_haicso_settings', JSON.stringify(settingsData.settings));
+          }
+        }
+        if (batchesRes.ok) {
+          const batchesData = await batchesRes.json();
+          if (Array.isArray(batchesData.batches) && batchesData.batches.length > 0) {
+            setHaicsoBatches(batchesData.batches);
+            safeLocalStorageSet('kppn_haicso_batches', JSON.stringify(batchesData.batches));
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching HAICSO data from server API:', err);
+      }
+    };
+
+    fetchHaiCsoData();
+  }, [isAdminAuthenticated]);
+
+  const handleUpdateHaiCso = (
+    newTickets: HAICSOTicket[],
+    newBatches?: HAICSOUploadBatch[]
+  ) => {
+    setHaicsoTickets(newTickets);
+    if (newBatches) setHaicsoBatches(newBatches);
+    try {
+      safeLocalStorageSet('kppn_haicso_tickets', JSON.stringify(newTickets));
+      if (newBatches) safeLocalStorageSet('kppn_haicso_batches', JSON.stringify(newBatches));
+    } catch (e) {
+      console.warn('Error saving haicso tickets to localStorage:', e);
+    }
+  };
+
+  const handleUpdateHaiCsoSettings = (newSettings: HAICSODashboardSettings) => {
+    setHaicsoSettings(newSettings);
+    try {
+      safeLocalStorageSet('kppn_haicso_settings', JSON.stringify(newSettings));
+      fetch('/api/haicso/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings)
+      }).catch(err => console.warn('Error syncing HAICSO settings to server:', err));
+    } catch (e) {
+      console.warn('Error updating haicso settings:', e);
+    }
+  };
+
   // Initial Syncing State for clean first-visit experience (prevents flash of empty/uninitialized data)
   const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(() => {
     try {
@@ -842,6 +968,7 @@ export default function App() {
           'announcements',
           'pengetahuan',
           'presensi',
+          'monitoring-haicso',
           'aduan',
           'guide'
         ];
@@ -3200,6 +3327,19 @@ export default function App() {
                 />
               )}
 
+              {/* Tab 🎫 Monitoring Tiket HAICSO */}
+              {activeTab === 'monitoring-haicso' && (
+                <HaiCsoMainDashboard
+                  isAdmin={isAdminAuthenticated}
+                  tickets={haicsoTickets}
+                  batches={haicsoBatches}
+                  settings={haicsoSettings}
+                  onUpdateTickets={handleUpdateHaiCso}
+                  onUpdateSettings={handleUpdateHaiCsoSettings}
+                  isDark={theme === 'dark'}
+                />
+              )}
+
               {activeTab === 'admin' && (
                 <AdminUpload
                   satkers={satkers}
@@ -3246,6 +3386,12 @@ export default function App() {
                   gajiIndukUploads={gajiIndukUploads}
                   onApplyGajiInduk={handleUpdateGajiInduk}
                   onClearGajiInduk={() => handleUpdateGajiInduk([], [])}
+                  haicsoTickets={haicsoTickets}
+                  haicsoBatches={haicsoBatches}
+                  haicsoSettings={haicsoSettings}
+                  onApplyHaiCso={handleUpdateHaiCso}
+                  onUpdateHaiCsoSettings={handleUpdateHaiCsoSettings}
+                  onClearHaiCso={() => handleUpdateHaiCso([], [])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

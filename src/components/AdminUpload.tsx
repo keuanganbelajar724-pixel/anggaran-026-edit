@@ -34,8 +34,12 @@ import {
   MonitoringLPJRecord,
   LPJUploadBatch,
   SPMGajiRecord,
-  SPMGajiUploadBatch
+  SPMGajiUploadBatch,
+  HAICSOTicket,
+  HAICSOUploadBatch,
+  HAICSODashboardSettings
 } from '../types';
+import { HaiCsoAdminDashboard } from './haicso/HaiCsoAdminDashboard';
 import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
 import { deduplicateHistoricalUploads } from '../utils/firebaseStorageOptimizer';
 import { UploadIKPASection } from './admin/UploadIKPASection';
@@ -179,7 +183,8 @@ import {
   Film,
   LifeBuoy,
   Receipt,
-  Coins
+  Coins,
+  Ticket
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
@@ -254,6 +259,12 @@ interface AdminUploadProps {
     uploads: SPMGajiUploadBatch[]
   ) => void;
   onClearGajiInduk?: () => void;
+  haicsoTickets?: HAICSOTicket[];
+  haicsoBatches?: HAICSOUploadBatch[];
+  haicsoSettings?: HAICSODashboardSettings;
+  onApplyHaiCso?: (tickets: HAICSOTicket[], batches: HAICSOUploadBatch[]) => void;
+  onUpdateHaiCsoSettings?: (settings: HAICSODashboardSettings) => void;
+  onClearHaiCso?: () => void;
   onForceCloudSync?: () => void;
   isCloudSyncing?: boolean;
   cloudSyncMessage?: string | null;
@@ -434,6 +445,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   gajiIndukUploads = [],
   onApplyGajiInduk,
   onClearGajiInduk,
+  haicsoTickets = [],
+  haicsoBatches = [],
+  haicsoSettings = {
+    id: 'haicso-settings-default',
+    dashboard_code: 'HAICSO_DASHBOARD',
+    dashboard_name: 'Monitoring Tiket HAICSO',
+    is_active: true,
+    target_selesai_persen: 95,
+    catatan_kppn: 'Monitoring penyelesaian tiket layanan HAICSO Satker untuk pemenuhan IKU KPPN.',
+    updated_by: 'Admin KPPN',
+    updated_at: new Date().toISOString()
+  },
+  onApplyHaiCso,
+  onUpdateHaiCsoSettings,
+  onClearHaiCso,
   onForceCloudSync,
   isCloudSyncing = false,
   cloudSyncMessage = null
@@ -441,12 +467,12 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'monitoring-haicso'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk, HAICSO)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk' | 'haicso'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3122,6 +3148,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             ⚡ Spark 50k Reads
           </span>
         </button>
+
+        <button
+          onClick={() => setAdminTab('monitoring-haicso')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'monitoring-haicso'
+              ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg shadow-amber-500/25 border border-amber-400/40 ring-2 ring-amber-400/30'
+              : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50 dark:text-amber-300 dark:hover:text-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60'
+          }`}
+        >
+          <Ticket className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>19. 🎫 Monitoring Tiket HAICSO</span>
+          <span className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            {haicsoTickets.length} Tiket
+          </span>
+        </button>
       </div>
 
       {/* Hidden File Inputs */}
@@ -3883,6 +3924,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'rekonsiliasi': true,
                         'lpj': true,
                         'gaji-induk': true,
+                        'monitoring-haicso': true,
                         'aduan': true,
                         'reminder': true,
                         'guide': false
@@ -3928,6 +3970,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'rekonsiliasi': false,
                         'lpj': false,
                         'gaji-induk': false,
+                        'monitoring-haicso': false,
                         'aduan': false,
                         'reminder': false,
                         'guide': false
@@ -3991,7 +4034,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
                       'lpj',
-                      'gaji-induk'
+                      'gaji-induk',
+                      'monitoring-haicso'
                     ]).filter(k => k !== 'guide' && tempConfig.menuVisibility?.[k as keyof MenuVisibilityConfig] !== false).length} Menu Aktif
                   </span>
                 </div>
@@ -4020,7 +4064,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pendaftaran-user-sakti': 'Pendaftaran User SAKTI',
                       'rekonsiliasi': 'Rekonsiliasi',
                       'lpj': 'Monitoring LPJ',
-                      'gaji-induk': 'Gaji Induk (PNS & PPPK)'
+                      'gaji-induk': 'Gaji Induk (PNS & PPPK)',
+                      'monitoring-haicso': '🎫 Tiket HAICSO'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -4045,7 +4090,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
                       'lpj',
-                      'gaji-induk'
+                      'gaji-induk',
+                      'monitoring-haicso'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4094,7 +4140,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pendaftaran-user-sakti': { label: 'Pendaftaran User SAKTI', desc: 'Registrasi & pemutakhiran role user SAKTI resmi (Ekspor Excel & PDF)', category: 'SAKTI', badgeColor: 'bg-teal-100 text-teal-800' },
                     'rekonsiliasi': { label: '📊 Rekonsiliasi & Kepatuhan Satker', desc: 'Monitoring otomatis kepatuhan Rekonsiliasi, Todolist, Tutup Periode, SP2S & SP3S', category: 'Kepatuhan', badgeColor: 'bg-blue-100 text-blue-800' },
                     'lpj': { label: '📋 Monitoring LPJ Bendahara', desc: 'Monitoring penyampaian LPJ Bendahara SAKTI, status pengiriman, verifikasi & cetak PDF', category: 'LPJ Bendahara', badgeColor: 'bg-emerald-100 text-emerald-800' },
-                    'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' }
+                    'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4119,7 +4166,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pendaftaran-user-sakti',
                     'rekonsiliasi',
                     'lpj',
-                    'gaji-induk'
+                    'gaji-induk',
+                    'monitoring-haicso'
                   ];
 
                   // Build unified order without guide
@@ -4277,6 +4325,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                                 'rekonsiliasi': true,
                                 'lpj': true,
                                 'gaji-induk': true,
+                                'monitoring-haicso': true,
                                 'aduan': true,
                                 'reminder': true,
                                 'guide': false
@@ -6028,6 +6077,190 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* 21. Dashboard Monitoring Tiket HAICSO */}
+                <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-block bg-amber-100 text-amber-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-md">
+                      21. Dashboard Monitoring Tiket HAICSO
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Status Modul: <strong className={haicsoSettings?.is_active ? 'text-emerald-600' : 'text-rose-600'}>
+                        {haicsoSettings?.is_active ? '● Aktif' : '○ Non-Aktif'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.haicsoBadge || 'MONITORING TIKET HAICSO SATKER'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, haicsoBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.haicsoTitle || 'Monitoring & Akselerasi Penyelesaian Tiket HAICSO'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, haicsoTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.haicsoSubtitle || 'Pantau status penanganan tiket layanan HAICSO satuan kerja per triwulan dan tindak lanjuti tiket berstatus Menunggu Konfirmasi/Respons Satker hingga Selesai untuk pemenuhan IKU KPPN.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, haicsoSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Dedicated HAICSO Module Activation & IKU Settings Card */}
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-2xl p-5 space-y-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md">
+                    <Ticket className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-amber-950 flex items-center gap-2">
+                      Pengaktifan &amp; Target IKU Modul Monitoring Tiket HAICSO
+                      <span className="text-[10px] bg-amber-200 text-amber-900 font-extrabold px-2 py-0.5 rounded-full">
+                        IKU KPPN
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-amber-800">
+                      Atur izin akses satker, target penyelesaian tiket selesai (IKU), dan catatan resmi KPPN.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Master Switch for HAICSO */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextActive = !haicsoSettings.is_active;
+                    if (onUpdateHaiCsoSettings) {
+                      onUpdateHaiCsoSettings({
+                        ...haicsoSettings,
+                        is_active: nextActive,
+                        updated_at: new Date().toISOString()
+                      });
+                    }
+                    const newVis = {
+                      ...(tempConfig.menuVisibility || {}),
+                      'monitoring-haicso': nextActive
+                    };
+                    const updatedCfg = {
+                      ...tempConfig,
+                      menuVisibility: newVis
+                    };
+                    setTempConfig(updatedCfg);
+                    onUpdateDashboardConfig(updatedCfg);
+                    addToast(`Modul Monitoring Tiket HAICSO ${nextActive ? 'Berhasil Diaktifkan' : 'Dinonaktifkan'} untuk Satker!`, nextActive ? 'success' : 'info');
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 shadow-xs ${
+                    haicsoSettings.is_active
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700'
+                  }`}
+                >
+                  {haicsoSettings.is_active ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      <span>Dashboard Satker Aktif</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Dashboard Satker Nonaktif</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold text-amber-950 mb-1">
+                    Target IKU Tiket Selesai (%)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={haicsoSettings.target_selesai_persen ?? 95}
+                      onChange={(e) => {
+                        const val = Number(e.target.value) || 0;
+                        if (onUpdateHaiCsoSettings) {
+                          onUpdateHaiCsoSettings({
+                            ...haicsoSettings,
+                            target_selesai_persen: val,
+                            updated_at: new Date().toISOString()
+                          });
+                        }
+                      }}
+                      className="w-28 bg-white border border-amber-300 rounded-xl p-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <span className="text-xs font-bold text-amber-900">% Tiket Selesai</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-amber-950 mb-1">
+                    Statistik Data Tiket Saat Ini
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+                    <span className="bg-white border border-amber-200 px-2 py-1 rounded-lg text-slate-700 font-bold">
+                      Total: {haicsoTickets.length}
+                    </span>
+                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-1 rounded-lg font-bold">
+                      Selesai: {haicsoTickets.filter(t => t.status_raw === 'Selesai').length}
+                    </span>
+                    <span className="bg-rose-100 text-rose-800 border border-rose-200 px-2 py-1 rounded-lg font-bold">
+                      Perlu Tindak Lanjut: {haicsoTickets.filter(t => t.needs_action_by_satker).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-amber-950 mb-1">
+                  Catatan / Instruksi KPPN untuk Satker Terkait Tiket Belum Selesai
+                </label>
+                <textarea
+                  rows={2}
+                  value={haicsoSettings.catatan_kppn || ''}
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    if (onUpdateHaiCsoSettings) {
+                      onUpdateHaiCsoSettings({
+                        ...haicsoSettings,
+                        catatan_kppn: text,
+                        updated_at: new Date().toISOString()
+                      });
+                    }
+                  }}
+                  placeholder="Contoh: Seluruh satker diharapkan segera memberikan feedback atau konfirmasi pada tiket HAICSO yang masih pending agar status menjadi selesai."
+                  className="w-full bg-white border border-amber-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none font-medium"
+                />
               </div>
             </div>
 
@@ -10837,6 +11070,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {gajiIndukRecords.length} Record SPM Terdata
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('haicso')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'haicso'
+                    ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                  <Ticket className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>13. Tiket HAICSO</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Upload Excel HAICSO (3 baris = 1 tiket), Analisis Per Triwulan, Filter Pengguna &amp; Respon Satker.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                  {haicsoTickets.length} Tiket Terdata
+                </div>
+              </button>
             </div>
           </div>
 
@@ -11021,6 +11275,30 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               addLog={addLog}
             />
           )}
+
+          {uploadSubTab === 'haicso' && (
+            <HaiCsoAdminDashboard
+              tickets={haicsoTickets}
+              batches={haicsoBatches}
+              settings={haicsoSettings}
+              onUpdateTickets={onApplyHaiCso || (() => {})}
+              onUpdateSettings={onUpdateHaiCsoSettings || (() => {})}
+              isDark={isDark}
+            />
+          )}
+        </div>
+      )}
+
+      {adminTab === 'monitoring-haicso' && (
+        <div className="space-y-6">
+          <HaiCsoAdminDashboard
+            tickets={haicsoTickets}
+            batches={haicsoBatches}
+            settings={haicsoSettings}
+            onUpdateTickets={onApplyHaiCso || (() => {})}
+            onUpdateSettings={onUpdateHaiCsoSettings || (() => {})}
+            isDark={isDark}
+          />
         </div>
       )}
 

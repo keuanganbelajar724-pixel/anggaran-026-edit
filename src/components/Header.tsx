@@ -38,7 +38,8 @@ import {
   Smartphone,
   RefreshCw,
   PieChart,
-  Coins
+  Coins,
+  Ticket
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -384,6 +385,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <Coins className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Gaji Induk</span>,
       activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
+      id: 'monitoring-haicso',
+      label: '🎫 Monitoring Tiket HAICSO',
+      icon: <Ticket className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">HAICSO</span>,
+      activeColor: 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
     }
   ];
 

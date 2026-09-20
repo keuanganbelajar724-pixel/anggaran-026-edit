@@ -219,6 +219,251 @@ async function startServer() {
     }
   });
 
+  // ==========================================
+  // HAICSO BACKEND STORAGE & SECURE ENDPOINTS
+  // ==========================================
+  let inMemoryHaiCsoTickets: any[] = [];
+  let inMemoryHaiCsoBatches: any[] = [];
+  let inMemoryHaiCsoSettings: any = {
+    id: 'haicso-settings-default',
+    dashboard_code: 'HAICSO_DASHBOARD',
+    dashboard_name: 'Monitoring Tiket HAICSO',
+    is_active: true,
+    target_selesai_persen: 95,
+    catatan_kppn: 'Monitoring penyelesaian tiket layanan HAICSO Satker untuk pemenuhan IKU KPPN.',
+    updated_by: 'Admin KPPN',
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    const ticketsPath = path.join(process.cwd(), 'haicso_tickets_generated.json');
+    if (fs.existsSync(ticketsPath)) {
+      const raw = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+      inMemoryHaiCsoTickets = Array.isArray(raw) ? raw : (raw.list || []);
+    }
+    const batchesPath = path.join(process.cwd(), 'haicso_batches_generated.json');
+    if (fs.existsSync(batchesPath)) {
+      const rawB = JSON.parse(fs.readFileSync(batchesPath, 'utf8'));
+      inMemoryHaiCsoBatches = Array.isArray(rawB) ? rawB : (rawB.list || []);
+    }
+    const settingsPath = path.join(process.cwd(), 'haicso_settings_generated.json');
+    if (fs.existsSync(settingsPath)) {
+      inMemoryHaiCsoSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('HAICSO storage initialization notice:', e);
+  }
+
+  // GET /api/haicso/tickets - Enforces backend role security
+  app.get('/api/haicso/tickets', (req, res) => {
+    try {
+      const role = String(req.query.role || 'satker').toLowerCase();
+      const year = req.query.year as string;
+      const triwulan = req.query.triwulan as string;
+      const status = req.query.status as string;
+      const feedback = req.query.feedback as string;
+      const email = req.query.email as string;
+      const user = req.query.user as string;
+      const satker = req.query.satker as string;
+      const kodeSatker = req.query.kode_satker as string;
+      const cso = req.query.cso as string;
+      const search = req.query.search as string;
+
+      let result = inMemoryHaiCsoTickets;
+
+      // STRICT BACKEND SECURITY ENFORCEMENT FOR SATKER:
+      // If user is not admin, ONLY return tickets needing Satker action:
+      // - status 'Menunggu konfirmasi/respons Satker'
+      // - OR status_feedback 'Belum ada feedback'
+      if (role !== 'admin') {
+        result = result.filter(t => {
+          const s = (t.status || '').toLowerCase();
+          const fb = (t.status_feedback || '').toLowerCase();
+          const isMenungguSatker = s.includes('respons satker') || s.includes('respon satker');
+          const isBelumFeedback = fb.includes('belum');
+          return isMenungguSatker || isBelumFeedback;
+        });
+      } else {
+        // Full filtering capabilities for Admin
+        if (year && year !== 'ALL') {
+          result = result.filter(t => String(t.tahun) === year);
+        }
+        if (triwulan && triwulan !== 'ALL') {
+          const normalizeTW = (s: string) => {
+            const clean = (s || '').toLowerCase().trim();
+            if (clean.includes('iv') || clean.includes('4')) return '4';
+            if (clean.includes('iii') || clean.includes('3')) return '3';
+            if (clean.includes('ii') || clean.includes('2')) return '2';
+            if (clean.includes('i') || clean.includes('1')) return '1';
+            return clean;
+          };
+          const targetTW = normalizeTW(triwulan);
+          result = result.filter(t => normalizeTW(t.triwulan) === targetTW);
+        }
+        if (status && status !== 'ALL') {
+          const st = status.toLowerCase();
+          result = result.filter(t => (t.status || '').toLowerCase().includes(st));
+        }
+        if (feedback && feedback !== 'ALL') {
+          const fb = (t: any) => (t.status_feedback || '').toLowerCase();
+          if (feedback === 'BELUM') result = result.filter(t => fb(t).includes('belum'));
+          if (feedback === 'SUDAH') result = result.filter(t => fb(t).includes('sudah'));
+        }
+        if (email && email !== 'ALL') {
+          result = result.filter(t => (t.email || '').toLowerCase() === email.toLowerCase());
+        }
+        if (user && user !== 'ALL') {
+          result = result.filter(t => (t.nama_pengguna || '').trim() === user.trim());
+        }
+        if (satker && satker !== 'ALL') {
+          result = result.filter(t => (t.nama_satker || '').trim() === satker.trim());
+        }
+        if (kodeSatker) {
+          result = result.filter(t => (t.kode_satker || '').includes(kodeSatker.trim()));
+        }
+        if (cso && cso !== 'ALL') {
+          result = result.filter(t => (t.cso || '').trim() === cso.trim());
+        }
+      }
+
+      // Universal search query
+      if (search) {
+        const q = search.toLowerCase().trim();
+        result = result.filter(t =>
+          (t.nomor_referensi || '').toLowerCase().includes(q) ||
+          (t.subjek || '').toLowerCase().includes(q) ||
+          (t.nama_pengguna || '').toLowerCase().includes(q) ||
+          (t.email || '').toLowerCase().includes(q) ||
+          (t.nama_satker || '').toLowerCase().includes(q) ||
+          (t.kode_satker || '').includes(q)
+        );
+      }
+
+      res.json({
+        status: 'ok',
+        role,
+        count: result.length,
+        totalInStore: inMemoryHaiCsoTickets.length,
+        tickets: result
+      });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // POST /api/haicso/upload - Save and de-duplicate tickets
+  app.post('/api/haicso/upload', (req, res) => {
+    try {
+      const { batch, tickets: incomingTickets } = req.body || {};
+      if (!Array.isArray(incomingTickets)) {
+        return res.status(400).json({ status: 'error', message: 'Tickets array required' });
+      }
+
+      // De-duplicate based on ticket_reference / id
+      const ticketMap = new Map<string, any>();
+      inMemoryHaiCsoTickets.forEach(t => {
+        const key = (t.nomor_referensi || t.id).trim().toUpperCase();
+        ticketMap.set(key, t);
+      });
+
+      let insertedCount = 0;
+      let updatedCount = 0;
+
+      incomingTickets.forEach(inc => {
+        const key = (inc.nomor_referensi || inc.id).trim().toUpperCase();
+        if (ticketMap.has(key)) {
+          ticketMap.set(key, { ...ticketMap.get(key), ...inc, updated_at: new Date().toISOString() });
+          updatedCount++;
+        } else {
+          ticketMap.set(key, inc);
+          insertedCount++;
+        }
+      });
+
+      inMemoryHaiCsoTickets = Array.from(ticketMap.values());
+      if (batch) {
+        inMemoryHaiCsoBatches = [batch, ...inMemoryHaiCsoBatches.filter(b => b.id !== batch.id)];
+      }
+
+      // Persist to disk
+      const ticketsPath = path.join(process.cwd(), 'haicso_tickets_generated.json');
+      fs.writeFile(ticketsPath, JSON.stringify(inMemoryHaiCsoTickets, null, 2), err => {
+        if (err) console.warn('Disk backup haicso tickets error:', err);
+      });
+
+      const batchesPath = path.join(process.cwd(), 'haicso_batches_generated.json');
+      fs.writeFile(batchesPath, JSON.stringify(inMemoryHaiCsoBatches, null, 2), err => {
+        if (err) console.warn('Disk backup haicso batches error:', err);
+      });
+
+      res.json({
+        status: 'ok',
+        insertedCount,
+        updatedCount,
+        total: inMemoryHaiCsoTickets.length
+      });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // GET /api/haicso/batches
+  app.get('/api/haicso/batches', (_req, res) => {
+    res.json({
+      status: 'ok',
+      count: inMemoryHaiCsoBatches.length,
+      batches: inMemoryHaiCsoBatches
+    });
+  });
+
+  // DELETE /api/haicso/batch/:id
+  app.delete('/api/haicso/batch/:id', (req, res) => {
+    try {
+      const batchId = req.params.id;
+      inMemoryHaiCsoBatches = inMemoryHaiCsoBatches.filter(b => b.id !== batchId);
+      inMemoryHaiCsoTickets = inMemoryHaiCsoTickets.filter(t => t.upload_batch_id !== batchId);
+
+      const ticketsPath = path.join(process.cwd(), 'haicso_tickets_generated.json');
+      fs.writeFile(ticketsPath, JSON.stringify(inMemoryHaiCsoTickets, null, 2), () => {});
+
+      const batchesPath = path.join(process.cwd(), 'haicso_batches_generated.json');
+      fs.writeFile(batchesPath, JSON.stringify(inMemoryHaiCsoBatches, null, 2), () => {});
+
+      res.json({ status: 'ok', message: `Batch ${batchId} deleted` });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // GET /api/haicso/settings
+  app.get('/api/haicso/settings', (_req, res) => {
+    res.json({
+      status: 'ok',
+      settings: inMemoryHaiCsoSettings
+    });
+  });
+
+  // POST /api/haicso/settings
+  app.post('/api/haicso/settings', (req, res) => {
+    try {
+      const body = req.body || {};
+      inMemoryHaiCsoSettings = {
+        ...inMemoryHaiCsoSettings,
+        ...body,
+        updated_at: new Date().toISOString()
+      };
+
+      const settingsPath = path.join(process.cwd(), 'haicso_settings_generated.json');
+      fs.writeFile(settingsPath, JSON.stringify(inMemoryHaiCsoSettings, null, 2), err => {
+        if (err) console.warn('Disk backup haicso settings error:', err);
+      });
+
+      res.json({ status: 'ok', settings: inMemoryHaiCsoSettings });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
   // Proxy image endpoint to safely serve Google Drive / external banner images without Referrer / iframe blocking
   app.get('/api/proxy-image', async (req, res) => {
     const rawUrl = req.query.url as string;

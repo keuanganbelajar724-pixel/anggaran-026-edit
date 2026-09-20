@@ -1040,6 +1040,7 @@ export interface MenuVisibilityConfig {
   'rekonsiliasi'?: boolean;
   'lpj'?: boolean;
   'gaji-induk'?: boolean;
+  'monitoring-haicso'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1362,6 +1363,7 @@ export interface DashboardConfig {
     rekonsiliasi?: string;
     lpj?: string;
     gajiInduk?: string;
+    haicso?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -1387,6 +1389,9 @@ export interface DashboardConfig {
   lpjUploads?: LPJUploadBatch[];
   gajiIndukRecords?: SPMGajiRecord[];
   gajiIndukUploads?: SPMGajiUploadBatch[];
+  haicsoTickets?: HAICSOTicket[];
+  haicsoBatches?: HAICSOUploadBatch[];
+  haicsoSettings?: HAICSODashboardSettings;
   broadcastMessages?: BroadcastMessageRecord[];
   auditLogs?: AuditLogEntry[];
   presensiKegiatanList?: PresensiKegiatan[];
@@ -1430,6 +1435,7 @@ export type NavigationTab =
   | 'rekonsiliasi'
   | 'lpj'
   | 'gaji-induk'
+  | 'monitoring-haicso'
   | 'admin' 
   | 'reminder' 
   | 'guide';
@@ -2821,5 +2827,132 @@ export interface GajiIndukSummary {
   pppkTotalSpm: number;
   pppkTotalPembayaran: number;
 }
+
+// -------------------------------------------------------------
+// MODUL MONITORING TIKET HAICSO (KPPN SEMARANG I)
+// -------------------------------------------------------------
+export type HAICSOStatus =
+  | 'Selesai'
+  | 'Menunggu konfirmasi/respon KPPN'
+  | 'Menunggu konfirmasi/respons Satker'
+  | 'Kirim ke HAI'
+  | string;
+
+export type HAICSOFeedbackStatus =
+  | 'Sudah ada feedback'
+  | 'Belum ada feedback'
+  | string;
+
+export type HAICSOTriwulan = 'Triwulan I' | 'Triwulan II' | 'Triwulan III' | 'Triwulan IV';
+
+export interface HAICSOTicket {
+  id: string; // ID unik (e.g. ticket_reference atau uuid)
+  ticket_id: string; // ID unik sistem
+  nomor: number | string; // Kolom A: NO
+  nama_pengguna: string; // Kolom B baris 1: Nama Pengguna (e.g. "SARIMAN")
+  email: string; // Kolom B baris 2: Email (e.g. "sariman87@kemenkeu.go.id")
+  nama_satker: string; // Kolom B baris 3: Nama Satker (e.g. "KANTOR PENGAWASAN DAN PELAYANAN BC SEMARANG")
+  kode_satker: string; // Kolom B baris 3: Kode Satker (e.g. "675524")
+  tanggal_tiket: string; // Kolom C: Tanggal Tiket (e.g. "2026-09-18 16:56:25")
+  nomor_referensi: string; // Kolom D baris 1: No. Ref (e.g. "HAI-20260918-5215c")
+  subjek: string; // Kolom D baris 2: Subjek Tiket
+  status: HAICSOStatus; // Kolom E: Status View (Selesai, Menunggu Satker, dll)
+  status_feedback: HAICSOFeedbackStatus; // Status feedback: 'Sudah ada feedback' | 'Belum ada feedback'
+  cso: string; // Kolom F: CSO Petugas
+  detail: string; // Kolom G: Detail catatan riwayat
+  periode: string; // e.g. "September 2026"
+  triwulan: HAICSOTriwulan; // Triwulan I / II / III / IV dihitung dari Tanggal Tiket
+  tahun: number; // e.g. 2026
+  bulan: number; // 1-12
+  upload_batch_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface HAICSOUploadBatch {
+  id: string;
+  file_name: string;
+  upload_date: string;
+  period_start: string;
+  period_end: string;
+  waktu_unduh_excel?: string;
+  total_records: number;
+  total_users: number;
+  total_emails: number;
+  total_satkers: number;
+  selesai_count: number;
+  menunggu_satker_count: number;
+  menunggu_kppn_count: number;
+  kirim_hai_count: number;
+  sudah_feedback_count: number;
+  belum_feedback_count: number;
+  uploaded_by: string;
+  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+  notes?: string;
+}
+
+export interface HAICSODashboardSettings {
+  id: string;
+  dashboard_code: string;
+  dashboard_name: string;
+  is_active: boolean; // Status Aktif / Nonaktif untuk Satker
+  updated_by: string;
+  updated_at: string;
+  target_selesai_persen?: number;
+  catatan_kppn?: string;
+}
+
+export interface HAICSOStatsSummary {
+  totalTickets: number;
+  selesaiCount: number;
+  menungguSatkerCount: number;
+  belumFeedbackCount: number;
+  menungguKppnCount: number;
+  kirimHaiCount: number;
+  sudahFeedbackCount: number;
+  totalUsers: number;
+  totalEmails: number;
+  totalSatkers: number;
+  persenSelesai: number;
+  persenBelumSelesai: number;
+  totalBelumSelesai: number;
+}
+
+export interface HAICSOUserTicketSummary {
+  nama_pengguna: string;
+  email: string;
+  nama_satker: string;
+  kode_satker: string;
+  totalTiket: number;
+  selesai: number;
+  menungguSatker: number;
+  belumFeedback: number;
+  menungguKppn: number;
+  kirimHai: number;
+}
+
+export interface HAICSOEmailTicketSummary {
+  email: string;
+  nama_pengguna: string;
+  nama_satker: string;
+  kode_satker: string;
+  totalTiket: number;
+  selesai: number;
+  belumSelesai: number;
+  menungguSatker: number;
+  belumFeedback: number;
+}
+
+export interface HAICSOSatkerTicketSummary {
+  nama_satker: string;
+  kode_satker: string;
+  totalTiket: number;
+  selesai: number;
+  menungguSatker: number;
+  belumFeedback: number;
+  menungguKppn: number;
+  kirimHai: number;
+}
+
 
 
