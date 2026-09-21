@@ -26,7 +26,8 @@ import {
   ShieldCheck,
   Check,
   PhoneCall,
-  Sparkles
+  Sparkles,
+  Landmark
 } from 'lucide-react';
 import {
   MonitoringLPJRecord,
@@ -53,7 +54,19 @@ interface LPJDashboardProps {
   isDark: boolean;
 }
 
-export type LPJKpiFilter = 'ALL' | 'SUDAH_KIRIM' | 'BELUM_KIRIM' | 'PENGELUARAN' | 'PENERIMAAN' | 'KLOP';
+export type LPJKpiFilter = 
+  | 'ALL' 
+  | 'SUDAH_KIRIM' 
+  | 'BELUM_KIRIM' 
+  | 'PENGELUARAN' 
+  | 'PENGELUARAN_SUDAH' 
+  | 'PENGELUARAN_BELUM' 
+  | 'PENERIMAAN' 
+  | 'PENERIMAAN_SUDAH' 
+  | 'PENERIMAAN_BELUM' 
+  | 'BLU' 
+  | 'BLU_SUDAH' 
+  | 'BLU_BELUM';
 
 export const LPJDashboard: React.FC<LPJDashboardProps> = ({
   records,
@@ -107,13 +120,20 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
       if (kpiFilter === 'SUDAH_KIRIM' && r.statusPengiriman !== 'SUDAH_KIRIM') return false;
       if (kpiFilter === 'BELUM_KIRIM' && r.statusPengiriman !== 'BELUM_KIRIM') return false;
       if (kpiFilter === 'PENGELUARAN' && r.jenisBendahara !== 'PENGELUARAN') return false;
+      if (kpiFilter === 'PENGELUARAN_SUDAH' && (r.jenisBendahara !== 'PENGELUARAN' || r.statusPengiriman !== 'SUDAH_KIRIM')) return false;
+      if (kpiFilter === 'PENGELUARAN_BELUM' && (r.jenisBendahara !== 'PENGELUARAN' || r.statusPengiriman !== 'BELUM_KIRIM')) return false;
       if (kpiFilter === 'PENERIMAAN' && r.jenisBendahara !== 'PENERIMAAN') return false;
-      if (kpiFilter === 'KLOP' && r.statusKlopKas !== 'KLOP') return false;
+      if (kpiFilter === 'PENERIMAAN_SUDAH' && (r.jenisBendahara !== 'PENERIMAAN' || r.statusPengiriman !== 'SUDAH_KIRIM')) return false;
+      if (kpiFilter === 'PENERIMAAN_BELUM' && (r.jenisBendahara !== 'PENERIMAAN' || r.statusPengiriman !== 'BELUM_KIRIM')) return false;
+      if (kpiFilter === 'BLU' && r.jenisBendahara !== 'BLU') return false;
+      if (kpiFilter === 'BLU_SUDAH' && (r.jenisBendahara !== 'BLU' || r.statusPengiriman !== 'SUDAH_KIRIM')) return false;
+      if (kpiFilter === 'BLU_BELUM' && (r.jenisBendahara !== 'BLU' || r.statusPengiriman !== 'BELUM_KIRIM')) return false;
 
       // 2. Jenis Bendahara dropdown
       if (filterJenis !== 'SEMUA') {
         if (filterJenis === 'PENGELUARAN' && r.jenisBendahara !== 'PENGELUARAN') return false;
         if (filterJenis === 'PENERIMAAN' && r.jenisBendahara !== 'PENERIMAAN') return false;
+        if (filterJenis === 'BLU' && r.jenisBendahara !== 'BLU') return false;
       }
 
       // 3. Status Pengiriman dropdown
@@ -333,123 +353,272 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* KPI 1: Total Satker Terdaftar */}
+          {/* Card 1: LPJ Bendahara Pengeluaran */}
           <div
-            onClick={() => setKpiFilter('ALL')}
-            className={`p-5 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden ${
-              kpiFilter === 'ALL'
-                ? isDark ? 'bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg' : 'bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-400/20 shadow-md'
-                : `${bgCard} hover:border-indigo-300 dark:hover:border-indigo-700`
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                Total Satker
-              </span>
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
-                <Building2 className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 dark:text-white">
-                {currentSummary.totalSatker}
-              </span>
-              <span className="text-xs font-medium text-slate-500">Satuan Kerja</span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center justify-between">
-              <span>{currentSummary.bendaharaPengeluaranCount} Pengeluaran</span>
-              <span>•</span>
-              <span>{currentSummary.bendaharaPenerimaanCount} Penerimaan</span>
-            </p>
-          </div>
-
-          {/* KPI 2: Sudah Mengirimkan LPJ (Lengkap) */}
-          <div
-            onClick={() => setKpiFilter('SUDAH_KIRIM')}
-            className={`p-5 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden ${
-              kpiFilter === 'SUDAH_KIRIM'
-                ? isDark ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-lg' : 'bg-emerald-50/90 border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
-                : `${bgCard} hover:border-emerald-300 dark:hover:border-emerald-700`
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Sudah Mengirimkan
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                {currentSummary.persenKepatuhan}%
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                {currentSummary.sudahKirim}
-              </span>
-              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                Satker Lengkap
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
-              <span>Status Terverifikasi KPPN</span>
-              {kpiFilter === 'SUDAH_KIRIM' && <span className="font-bold text-emerald-600">(Aktif)</span>}
-            </p>
-          </div>
-
-          {/* KPI 3: Belum Mengirimkan LPJ */}
-          <div
-            onClick={() => setKpiFilter('BELUM_KIRIM')}
-            className={`p-5 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden ${
-              kpiFilter === 'BELUM_KIRIM'
-                ? isDark ? 'bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/30 shadow-lg' : 'bg-rose-50/90 border-rose-500 ring-2 ring-rose-500/20 shadow-md'
-                : `${bgCard} hover:border-rose-300 dark:hover:border-rose-700`
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4 text-rose-500" /> Belum Mengirimkan
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-                {currentSummary.totalSatker ? 100 - currentSummary.persenKepatuhan : 0}%
-              </span>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-rose-600 dark:text-rose-400">
-                {currentSummary.belumKirim}
-              </span>
-              <span className="text-xs font-medium text-rose-700 dark:text-rose-300">
-                Satker Menunggak
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1">
-              <span>Perlu Teguran / Tagihan ADK</span>
-              {kpiFilter === 'BELUM_KIRIM' && <span className="font-bold text-rose-600">(Aktif)</span>}
-            </p>
-          </div>
-
-          {/* KPI 4: Posisi Saldo Kas & Rekonsiliasi Kas */}
-          <div
-            onClick={() => setKpiFilter('KLOP')}
-            className={`p-5 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden ${
-              kpiFilter === 'KLOP'
-                ? isDark ? 'bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20 shadow-md'
+            onClick={() => setKpiFilter(kpiFilter === 'PENGELUARAN' ? 'ALL' : 'PENGELUARAN')}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden flex flex-col justify-between ${
+              kpiFilter === 'PENGELUARAN' || kpiFilter === 'PENGELUARAN_SUDAH' || kpiFilter === 'PENGELUARAN_BELUM'
+                ? isDark ? 'bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/30 shadow-lg' : 'bg-blue-50/90 border-blue-400 ring-2 ring-blue-400/20 shadow-md'
                 : `${bgCard} hover:border-blue-300 dark:hover:border-blue-700`
             }`}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-blue-500" /> Saldo Kas Klop
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                Rp 0 Selisih
-              </span>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-blue-500" /> Bendahara Pengeluaran
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                  {currentSummary.bendaharaPengeluaranCount > 0 ? Math.round((currentSummary.pengeluaranSudahKirim / currentSummary.bendaharaPengeluaranCount) * 100) : 0}%
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">
+                  {currentSummary.bendaharaPengeluaranCount}
+                </span>
+                <span className="text-xs font-medium text-slate-500">Satker</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-black font-mono text-blue-600 dark:text-blue-400 truncate">
-                {formatRupiah(currentSummary.totalSaldoKas)}
-              </span>
+
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'PENGELUARAN_SUDAH' ? 'ALL' : 'PENGELUARAN_SUDAH');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'PENGELUARAN_SUDAH'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
+                }`}
+                title="Filter: Pengeluaran Sudah Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sudah
+                </span>
+                <span className="font-bold">{currentSummary.pengeluaranSudahKirim}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'PENGELUARAN_BELUM' ? 'ALL' : 'PENGELUARAN_BELUM');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'PENGELUARAN_BELUM'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60'
+                }`}
+                title="Filter: Pengeluaran Belum Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Belum
+                </span>
+                <span className="font-bold">{currentSummary.pengeluaranBelumKirim}</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-              Total kas terverifikasi klop pada bank/brankas
-            </p>
+          </div>
+
+          {/* Card 2: LPJ Bendahara Penerimaan */}
+          <div
+            onClick={() => setKpiFilter(kpiFilter === 'PENERIMAAN' ? 'ALL' : 'PENERIMAAN')}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden flex flex-col justify-between ${
+              kpiFilter === 'PENERIMAAN' || kpiFilter === 'PENERIMAAN_SUDAH' || kpiFilter === 'PENERIMAAN_BELUM'
+                ? isDark ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg' : 'bg-purple-50/90 border-purple-400 ring-2 ring-purple-400/20 shadow-md'
+                : `${bgCard} hover:border-purple-300 dark:hover:border-purple-700`
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Landmark className="w-4 h-4 text-purple-500" /> Bendahara Penerimaan
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                  {currentSummary.bendaharaPenerimaanCount > 0 ? Math.round((currentSummary.penerimaanSudahKirim / currentSummary.bendaharaPenerimaanCount) * 100) : 0}%
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">
+                  {currentSummary.bendaharaPenerimaanCount}
+                </span>
+                <span className="text-xs font-medium text-slate-500">Satker</span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'PENERIMAAN_SUDAH' ? 'ALL' : 'PENERIMAAN_SUDAH');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'PENERIMAAN_SUDAH'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
+                }`}
+                title="Filter: Penerimaan Sudah Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sudah
+                </span>
+                <span className="font-bold">{currentSummary.penerimaanSudahKirim}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'PENERIMAAN_BELUM' ? 'ALL' : 'PENERIMAAN_BELUM');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'PENERIMAAN_BELUM'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60'
+                }`}
+                title="Filter: Penerimaan Belum Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Belum
+                </span>
+                <span className="font-bold">{currentSummary.penerimaanBelumKirim}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Card 3: LPJ BLU (Badan Layanan Umum) */}
+          <div
+            onClick={() => setKpiFilter(kpiFilter === 'BLU' ? 'ALL' : 'BLU')}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden flex flex-col justify-between ${
+              kpiFilter === 'BLU' || kpiFilter === 'BLU_SUDAH' || kpiFilter === 'BLU_BELUM'
+                ? isDark ? 'bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/30 shadow-lg' : 'bg-amber-50/90 border-amber-400 ring-2 ring-amber-400/20 shadow-md'
+                : `${bgCard} hover:border-amber-300 dark:hover:border-amber-700`
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-amber-500" /> LPJ BLU
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                  {currentSummary.bendaharaBluCount > 0 ? Math.round((currentSummary.bluSudahKirim / currentSummary.bendaharaBluCount) * 100) : 0}%
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">
+                  {currentSummary.bendaharaBluCount}
+                </span>
+                <span className="text-xs font-medium text-slate-500">Satker</span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'BLU_SUDAH' ? 'ALL' : 'BLU_SUDAH');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'BLU_SUDAH'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
+                }`}
+                title="Filter: BLU Sudah Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sudah
+                </span>
+                <span className="font-bold">{currentSummary.bluSudahKirim}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'BLU_BELUM' ? 'ALL' : 'BLU_BELUM');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'BLU_BELUM'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60'
+                }`}
+                title="Filter: BLU Belum Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Belum
+                </span>
+                <span className="font-bold">{currentSummary.bluBelumKirim}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Card 4: Total Seluruh LPJ */}
+          <div
+            onClick={() => setKpiFilter('ALL')}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer select-none group relative overflow-hidden flex flex-col justify-between ${
+              kpiFilter === 'ALL' || kpiFilter === 'SUDAH_KIRIM' || kpiFilter === 'BELUM_KIRIM'
+                ? isDark ? 'bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/30 shadow-lg' : 'bg-indigo-50/90 border-indigo-400 ring-2 ring-indigo-400/20 shadow-md'
+                : `${bgCard} hover:border-indigo-300 dark:hover:border-indigo-700`
+            }`}
+          >
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-indigo-500" /> Total Seluruh LPJ
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                  {currentSummary.persenKepatuhan}% Kepatuhan
+                </span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-black text-slate-900 dark:text-white">
+                  {currentSummary.totalSatker}
+                </span>
+                <span className="text-xs font-medium text-slate-500">Berkas LPJ</span>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'SUDAH_KIRIM' ? 'ALL' : 'SUDAH_KIRIM');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'SUDAH_KIRIM'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
+                }`}
+                title="Filter: Semua Sudah Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> Sudah
+                </span>
+                <span className="font-bold">{currentSummary.sudahKirim}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setKpiFilter(kpiFilter === 'BELUM_KIRIM' ? 'ALL' : 'BELUM_KIRIM');
+                }}
+                className={`py-1.5 px-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                  kpiFilter === 'BELUM_KIRIM'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100 dark:bg-rose-950/60 dark:text-rose-300 dark:hover:bg-rose-900/60'
+                }`}
+                title="Filter: Semua Belum Kirim"
+              >
+                <span className="flex items-center gap-1 text-[11px]">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-500" /> Belum
+                </span>
+                <span className="font-bold">{currentSummary.belumKirim}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -502,9 +671,10 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
                 isDark ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-slate-50 border-slate-200 text-slate-700'
               } focus:outline-hidden focus:ring-2 focus:ring-emerald-500`}
             >
-              <option value="SEMUA">Tipe: Pengeluaran &amp; Penerimaan</option>
+              <option value="SEMUA">Semua Jenis LPJ</option>
               <option value="PENGELUARAN">Bendahara Pengeluaran</option>
               <option value="PENERIMAAN">Bendahara Penerimaan</option>
+              <option value="BLU">LPJ BLU (Badan Layanan Umum)</option>
             </select>
 
             {/* Filter Status Verifikasi */}
@@ -624,10 +794,12 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
                       <td className="py-3 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                           r.jenisBendahara === 'PENERIMAAN'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                            : r.jenisBendahara === 'BLU'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                         }`}>
-                          {r.jenisBendahara === 'PENERIMAAN' ? 'Penerimaan' : 'Pengeluaran'}
+                          {r.jenisBendahara === 'PENERIMAAN' ? 'Penerimaan' : r.jenisBendahara === 'BLU' ? 'BLU' : 'Pengeluaran'}
                         </span>
                       </td>
 

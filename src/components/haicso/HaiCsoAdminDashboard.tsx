@@ -29,6 +29,7 @@ import {
   AlertTriangle,
   Layers,
   Sparkles,
+  Save,
   X
 } from 'lucide-react';
 import {
@@ -78,7 +79,7 @@ interface HaiCsoAdminDashboardProps {
   onUpdateTickets: (newTickets: HAICSOTicket[], newBatches: HAICSOUploadBatch[]) => void;
   onUpdateSettings: (newSettings: HAICSODashboardSettings) => void;
   isDark?: boolean;
-  viewMode?: 'full' | 'upload_only';
+  viewMode?: 'full' | 'upload_only' | 'monitoring_only';
   defaultSubTab?: 'monitoring' | 'upload' | 'history' | 'settings';
 }
 
@@ -147,6 +148,7 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
 
   // Upload Draft State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<'replace' | 'merge'>('replace');
   const [parsedPreview, setParsedPreview] = useState<{
     batch: HAICSOUploadBatch;
     records: HAICSOTicket[];
@@ -543,30 +545,55 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
   const handleCommitUpload = () => {
     if (!parsedPreview) return;
 
-    // Merge and de-duplicate based on ticket_reference
-    const { merged, insertedCount, updatedCount } = mergeHaiCsoTicketsDeduplicated(
-      tickets,
-      parsedPreview.records
-    );
+    if (uploadMode === 'replace') {
+      const finalTickets = parsedPreview.records;
+      const finalBatches = [parsedPreview.batch];
+      onUpdateTickets(finalTickets, finalBatches);
 
-    const newBatches = [parsedPreview.batch, ...batches];
-    onUpdateTickets(merged, newBatches);
+      // Save to server API backend for persistent storage
+      fetch('/api/haicso/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batch: parsedPreview.batch,
+          tickets: parsedPreview.records,
+          replace: true
+        })
+      }).catch(e => console.warn('Server upload sync fallback:', e));
 
-    // Save to server API backend for persistent storage
-    fetch('/api/haicso/upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        batch: parsedPreview.batch,
-        tickets: parsedPreview.records
-      })
-    }).catch(e => console.warn('Server upload sync fallback:', e));
+      setGlobalNotice({
+        show: true,
+        type: 'success',
+        message: `Upload berhasil! Data lama digantikan dengan ${finalTickets.length} tiket baru dari file.`
+      });
+    } else {
+      // Merge and de-duplicate based on ticket_reference
+      const { merged, insertedCount, updatedCount } = mergeHaiCsoTicketsDeduplicated(
+        tickets,
+        parsedPreview.records
+      );
 
-    setGlobalNotice({
-      show: true,
-      type: 'success',
-      message: `Upload berhasil! ${insertedCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui.`
-    });
+      const newBatches = [parsedPreview.batch, ...batches.filter(b => b.id !== parsedPreview.batch.id)];
+      onUpdateTickets(merged, newBatches);
+
+      // Save to server API backend for persistent storage
+      fetch('/api/haicso/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batch: parsedPreview.batch,
+          tickets: parsedPreview.records,
+          replace: false
+        })
+      }).catch(e => console.warn('Server upload sync fallback:', e));
+
+      setGlobalNotice({
+        show: true,
+        type: 'success',
+        message: `Upload berhasil! ${insertedCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui.`
+      });
+    }
+
     setTimeout(() => setGlobalNotice({ show: false, type: 'info', message: '' }), 4000);
     setUploadFile(null);
     setParsedPreview(null);
@@ -697,105 +724,145 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Subtabs Navigation Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          {viewMode !== 'upload_only' && (
+      {/* Header Bar */}
+      {viewMode === 'monitoring_only' ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <BarChart3 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <span>Monitoring & Analisis Tiket HAICSO</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  {tickets.length} Tiket
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Pemantauan kepatuhan penyelesaian tiket, feedback satker, dan capaian IKU Layanan KPPN
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setActiveSubTab('monitoring')}
+              onClick={handleDownloadBelumSelesaiPDF}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>PDF Belum Selesai</span>
+            </button>
+
+            <button
+              onClick={handleDownloadAdminPDF}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors shadow-sm cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download PDF Lengkap</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Subtabs Navigation Bar (For Admin Upload & Settings Panel) */
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
+            {viewMode !== 'upload_only' && (
+              <button
+                onClick={() => setActiveSubTab('monitoring')}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  activeSubTab === 'monitoring'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Monitoring & Analisis</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveSubTab('upload')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeSubTab === 'monitoring'
+                activeSubTab === 'upload'
                   ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
-              <span>Monitoring & Analisis</span>
+              <Upload className="w-4 h-4" />
+              <span>Upload Excel</span>
             </button>
-          )}
 
-          <button
-            onClick={() => setActiveSubTab('upload')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'upload'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <Upload className="w-4 h-4" />
-            <span>Upload Excel</span>
-          </button>
-
-          <button
-            onClick={() => setActiveSubTab('history')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'history'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>Riwayat Upload ({batches.length})</span>
-          </button>
-
-          {viewMode !== 'upload_only' && (
             <button
-              onClick={() => setActiveSubTab('settings')}
+              onClick={() => setActiveSubTab('history')}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                activeSubTab === 'settings'
+                activeSubTab === 'history'
                   ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              <span>Pengaturan Dashboard</span>
+              <History className="w-4 h-4" />
+              <span>Riwayat Upload ({batches.length})</span>
             </button>
-          )}
-        </div>
 
-        {/* Global Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-          {tickets.length > 0 && (
+            {viewMode !== 'upload_only' && (
+              <button
+                onClick={() => setActiveSubTab('settings')}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  activeSubTab === 'settings'
+                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span>Pengaturan Dashboard</span>
+              </button>
+            )}
+          </div>
+
+          {/* Global Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+            {tickets.length > 0 && (
+              <button
+                onClick={handleClearAllHaiCso}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 transition-colors shadow-2xs cursor-pointer"
+                title="Kosongkan seluruh data tiket dan batch untuk upload data asli"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Kosongkan Data HAICSO</span>
+              </button>
+            )}
+
             <button
-              onClick={handleClearAllHaiCso}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 transition-colors shadow-2xs cursor-pointer"
-              title="Kosongkan seluruh data tiket dan batch untuk upload data asli"
+              onClick={handleDownloadSampleExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
+              title="Unduh contoh template excel"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Kosongkan Data HAICSO</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Contoh Excel</span>
             </button>
-          )}
 
-          <button
-            onClick={handleDownloadSampleExcel}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-            title="Unduh contoh template excel"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Contoh Excel</span>
-          </button>
+            {viewMode !== 'upload_only' && (
+              <>
+                <button
+                  onClick={handleDownloadBelumSelesaiPDF}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>PDF Belum Selesai</span>
+                </button>
 
-          {viewMode !== 'upload_only' && (
-            <>
-              <button
-                onClick={handleDownloadBelumSelesaiPDF}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>PDF Belum Selesai</span>
-              </button>
-
-              <button
-                onClick={handleDownloadAdminPDF}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PDF Lengkap</span>
-              </button>
-            </>
-          )}
+                <button
+                  onClick={handleDownloadAdminPDF}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download PDF Lengkap</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* GLOBAL ACTION NOTICE BANNER */}
       {globalNotice.show && (
@@ -1828,17 +1895,66 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
           {/* Pre-Import Validation & Acceptance Preview */}
           {parsedPreview && (
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Validasi Pre-Import Berhasil!</span>
+                  <span>Validasi Pre-Import Berhasil! ({parsedPreview.batch.total_records} Tiket Ditemukan)</span>
                 </h4>
                 <button
                   onClick={handleCommitUpload}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
                 >
-                  Simpan & Terapkan ke Database
+                  <Save className="w-4 h-4" />
+                  <span>Simpan & Terapkan ke Database</span>
                 </button>
+              </div>
+
+              {/* Mode Penerapan Data */}
+              <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-900/60 space-y-2">
+                <span className="text-xs font-bold text-blue-900 dark:text-blue-200 block">
+                  Pilih Cara Penerapan ke Database:
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    uploadMode === 'replace'
+                      ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-sm text-blue-900 dark:text-blue-200 font-semibold'
+                      : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-900/50'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="uploadMode"
+                      checked={uploadMode === 'replace'}
+                      onChange={() => setUploadMode('replace')}
+                      className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <div className="font-bold">Gantikan Seluruh Data Lama</div>
+                      <div className="text-[11px] opacity-80 font-normal mt-0.5">
+                        Bersihkan data simulasi/lama dan jadikan {parsedPreview.batch.total_records} tiket ini sebagai satu-satunya data aktif.
+                      </div>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    uploadMode === 'merge'
+                      ? 'bg-white dark:bg-slate-900 border-blue-500 shadow-sm text-blue-900 dark:text-blue-200 font-semibold'
+                      : 'border-transparent text-slate-600 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-900/50'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="uploadMode"
+                      checked={uploadMode === 'merge'}
+                      onChange={() => setUploadMode('merge')}
+                      className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <div className="font-bold">Gabungkan (Merge Data)</div>
+                      <div className="text-[11px] opacity-80 font-normal mt-0.5">
+                        Tambahkan tiket baru dan perbarui tiket lama yang memiliki Nomor Referensi sama.
+                      </div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Preview Metrics Grid */}

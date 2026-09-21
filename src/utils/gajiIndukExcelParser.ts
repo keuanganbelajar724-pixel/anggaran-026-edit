@@ -291,7 +291,7 @@ export function parseMonitoringGajiWorkbook(
     const namaSatker = matchedMaster?.namaSatker || `Satker ${cleanKodeSatker}`;
 
     const record: SPMGajiRecord = {
-      id: idVal || `spm-${r}`,
+      id: idVal ? `${batchId}-${idVal}` : `${batchId}-row-${r}`,
       idSpp: idSppVal || getCellStr(sheet, 1, r),
       kodePpk: getCellStr(sheet, 2, r),
       nipPpk: getCellStr(sheet, 3, r),

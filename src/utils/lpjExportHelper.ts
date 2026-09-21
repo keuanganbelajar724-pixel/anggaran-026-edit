@@ -171,11 +171,11 @@ export function exportLPJPDF(
   // Summary Metrics Table (Mini Box)
   const summaryRows = [
     [
-      `Total Satker: ${summary.totalSatker}`,
-      `Sudah Mengirim: ${summary.sudahKirim} (${summary.persenKepatuhan}%)`,
-      `Belum Mengirim: ${summary.belumKirim} (${100 - summary.persenKepatuhan}%)`,
-      `Bendahara Pengeluaran: ${summary.bendaharaPengeluaranCount}`,
-      `Bendahara Penerimaan: ${summary.bendaharaPenerimaanCount}`
+      `Total: ${summary.totalSatker}`,
+      `Sudah: ${summary.sudahKirim} (${summary.persenKepatuhan}%)`,
+      `Pengeluaran: ${summary.bendaharaPengeluaranCount} (S:${summary.pengeluaranSudahKirim || 0}/B:${summary.pengeluaranBelumKirim || 0})`,
+      `Penerimaan: ${summary.bendaharaPenerimaanCount} (S:${summary.penerimaanSudahKirim || 0}/B:${summary.penerimaanBelumKirim || 0})`,
+      `BLU: ${summary.bendaharaBluCount || 0} (S:${summary.bluSudahKirim || 0}/B:${summary.bluBelumKirim || 0})`
     ]
   ];
 
@@ -191,11 +191,11 @@ export function exportLPJPDF(
       fillColor: [248, 250, 252]
     },
     columnStyles: {
-      0: { cellWidth: 50 },
-      1: { cellWidth: 55 },
-      2: { cellWidth: 55 },
-      3: { cellWidth: 55 },
-      4: { cellWidth: 54 }
+      0: { cellWidth: 40 },
+      1: { cellWidth: 50 },
+      2: { cellWidth: 62 },
+      3: { cellWidth: 62 },
+      4: { cellWidth: 55 }
     }
   });
 
@@ -204,7 +204,7 @@ export function exportLPJPDF(
     i + 1,
     r.kodeSatker,
     r.namaSatker.length > 40 ? r.namaSatker.substring(0, 38) + '...' : r.namaSatker,
-    r.jenisBendahara === 'PENERIMAAN' ? 'Penerimaan' : 'Pengeluaran',
+    r.jenisBendahara === 'PENERIMAAN' ? 'Penerimaan' : r.jenisBendahara === 'BLU' ? 'BLU' : 'Pengeluaran',
     r.periodeFormatted,
     r.statusPengiriman === 'SUDAH_KIRIM' ? 'SUDAH KIRIM' : 'BELUM KIRIM',
     r.tanggalKirim || '-',

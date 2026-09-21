@@ -28,13 +28,62 @@ function getCellStr(sheet: XLSX.WorkSheet, colIndex: number, rowIndex: number): 
 
 /**
  * Helper to safely extract number from worksheet cell
+ * Handles pure numbers, Indonesian formatted strings ("4.061.716.419"), 
+ * decimals, currency symbols, and negatives.
  */
 function getCellNum(sheet: XLSX.WorkSheet, colIndex: number, rowIndex: number): number {
-  const str = getCellStr(sheet, colIndex, rowIndex);
-  if (!str) return 0;
-  const clean = str.replace(/[^0-9.-]+/g, '');
+  if (colIndex === undefined || colIndex < 0) return 0;
+  const cellAddress = XLSX.utils.encode_cell({ c: colIndex, r: rowIndex });
+  const cell = sheet[cellAddress];
+  if (!cell || cell.v === undefined || cell.v === null) return 0;
+
+  // Jika nilai di cell sudah murni bertipe number
+  if (typeof cell.v === 'number') {
+    return isNaN(cell.v) ? 0 : cell.v;
+  }
+
+  // Jika string atau formatted text
+  let rawStr = String(cell.w || cell.v).trim();
+  if (!rawStr || rawStr === '-' || rawStr === 'NIHIL' || rawStr === '0') return 0;
+
+  // Hapus tanda kurung negatif jika ada: (100.000) -> -100.000
+  const isNegative = rawStr.startsWith('(') && rawStr.endsWith(')');
+  rawStr = rawStr.replace(/[()]/g, '');
+
+  // Hapus prefix currency Rp atau IDR
+  rawStr = rawStr.replace(/^(Rp|IDR)\s*/i, '').trim();
+
+  // Bersihkan spasi
+  rawStr = rawStr.replace(/\s+/g, '');
+
+  // Format penulisan angka Indonesia:
+  // Contoh 1: "4.061.716.419" (hanya titik sebagai ribuan)
+  // Contoh 2: "4.061.716.419,00" (titik ribuan, koma desimal)
+  // Contoh 3: "4,061,716,419.00" (koma ribuan, titik desimal)
+  if (rawStr.includes('.') && rawStr.includes(',')) {
+    // Format Indonesia dengan desimal: "4.061.716.419,00" -> hapus titik, ubah koma jadi titik
+    rawStr = rawStr.replace(/\./g, '').replace(/,/g, '.');
+  } else if ((rawStr.match(/\./g) || []).length > 1) {
+    // Lebih dari satu titik: pasti ribuan Indonesia! "4.061.716.419" -> "4061716419"
+    rawStr = rawStr.replace(/\./g, '');
+  } else if ((rawStr.match(/,/g) || []).length > 1) {
+    // Lebih dari satu koma: pasti ribuan US! "4,061,716,419" -> "4061716419"
+    rawStr = rawStr.replace(/,/g, '');
+  } else if (rawStr.includes('.') && /^\d+\.\d{3}$/.test(rawStr)) {
+    // Tepat 1 titik diikuti 3 digit, misal "500.000" -> ribuan Indonesia
+    rawStr = rawStr.replace(/\./g, '');
+  } else if (rawStr.includes(',') && /^\d+,\d{3}$/.test(rawStr)) {
+    // Tepat 1 koma diikuti 3 digit, misal "500,000" -> ribuan US
+    rawStr = rawStr.replace(/,/g, '');
+  } else if (rawStr.includes(',') && !rawStr.includes('.')) {
+    // Desimal koma Indonesia, misal "150,50" -> ubah koma jadi titik
+    rawStr = rawStr.replace(/,/g, '.');
+  }
+
+  const clean = rawStr.replace(/[^0-9.-]+/g, '');
   const num = parseFloat(clean);
-  return isNaN(num) ? 0 : num;
+  const result = isNaN(num) ? 0 : num;
+  return isNegative ? -result : result;
 }
 
 /**
@@ -83,10 +132,32 @@ export function parseMonitoringLPJWorkbook(
   let headerRow = -1;
   let colMap: Record<string, number> = {};
 
+  // Deteksi jenis bendahara default dari Nama File (e.g. "Rekapitulasi LPJ BLU...", "Rekapitulasi LPJ Bendahara Penerimaan...")
+  let defaultJenis: LPJJenisBendahara = 'PENGELUARAN';
+  const cleanFileName = fileName.toUpperCase();
+  if (cleanFileName.includes('BLU')) {
+    defaultJenis = 'BLU';
+  } else if (cleanFileName.includes('PENERIMAAN') || cleanFileName.includes('TERIMA')) {
+    defaultJenis = 'PENERIMAAN';
+  } else if (cleanFileName.includes('PENGELUARAN') || cleanFileName.includes('KELUAR')) {
+    defaultJenis = 'PENGELUARAN';
+  }
+
   for (let r = range.s.r; r <= Math.min(range.s.r + 10, range.e.r); r++) {
     const rowValues: string[] = [];
     for (let c = range.s.c; c <= range.e.c; c++) {
-      rowValues.push(getCellStr(sheet, c, r).toLowerCase());
+      const cellText = getCellStr(sheet, c, r);
+      rowValues.push(cellText.toLowerCase());
+
+      // Jika belum terdeteksi dari nama file, periksa teks judul di baris awal
+      if (defaultJenis === 'PENGELUARAN' && !cleanFileName.includes('PENGELUARAN')) {
+        const uText = cellText.toUpperCase();
+        if (uText.includes('BLU')) {
+          defaultJenis = 'BLU';
+        } else if (uText.includes('PENERIMAAN')) {
+          defaultJenis = 'PENERIMAAN';
+        }
+      }
     }
 
     const hasKodeSatker = rowValues.some(v => v.includes('kode satker') || v.includes('kd satker') || v.includes('kdsatker') || v === 'satker');
@@ -95,22 +166,77 @@ export function parseMonitoringLPJWorkbook(
 
     if (hasKodeSatker || (hasNamaSatker && hasStatus)) {
       headerRow = r;
+
+      // Cek apakah baris r + 1 merupakan sub-header bertingkat (misal: KAS TUNAI, KAS BANK, JUMLAH, PNBP)
+      let nextRowValues: string[] = [];
+      let isNextRowHeader = false;
+      if (r + 1 <= range.e.r) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          nextRowValues.push(getCellStr(sheet, c, r + 1).toLowerCase());
+        }
+        isNextRowHeader = nextRowValues.some(v => 
+          v.includes('kas tunai') || v.includes('kas bank') || v.includes('jumlah') || 
+          v.includes('pnbp') || v.includes('tunai') || v.includes('bank') || v.includes('validasi')
+        );
+        if (isNextRowHeader) {
+          headerRow = r + 1; // baris data dimulai setelah baris sub-header
+        }
+      }
+
       // Map columns
       for (let c = range.s.c; c <= range.e.c; c++) {
-        const val = getCellStr(sheet, c, r).toLowerCase();
+        const valR = getCellStr(sheet, c, r).toLowerCase();
+        const valNext = isNextRowHeader ? (nextRowValues[c - range.s.c] || '') : '';
+        const val = `${valR} ${valNext}`.trim();
+
         if ((val.includes('no') || val === '#') && !val.includes('kppn') && !val.includes('lpj') && !val.includes('hp')) colMap['no'] = c;
+        if (val.includes('ba') || val.includes('bagian anggaran') || val.includes('kementerian') || val.includes('kl')) colMap['kodeBa'] = c;
         if (val.includes('kode satker') || val.includes('kd satker') || val.includes('kdsatker')) colMap['kodeSatker'] = c;
-        if (val.includes('nama satker') || val.includes('nmsatker') || (val.includes('nama') && !val.includes('bendahara'))) colMap['namaSatker'] = c;
+        if (val.includes('nama satker') || val.includes('nmsatker') || (val.includes('nama') && !val.includes('bendahara') && !val.includes('bank'))) colMap['namaSatker'] = c;
         if (val.includes('kppn')) colMap['kodeKppn'] = c;
         if (val.includes('jenis') || val.includes('tipe') || val.includes('bendahara')) colMap['jenisBendahara'] = c;
         if (val.includes('periode') || val.includes('bulan')) colMap['periode'] = c;
-        if (val.includes('status pengiriman') || val.includes('status kirim') || val.includes('pengiriman') || (val.includes('status') && !val.includes('verifikasi'))) colMap['statusPengiriman'] = c;
+        if (val.includes('status pengiriman') || val.includes('status kirim') || val.includes('pengiriman') || (val.includes('status') && !val.includes('verifikasi') && !val.includes('validasi'))) colMap['statusPengiriman'] = c;
         if (val.includes('tanggal') || val.includes('tgl kirim') || val.includes('tgl upload')) colMap['tanggalKirim'] = c;
         if (val.includes('no lpj') || val.includes('nomor lpj') || val.includes('dokumen')) colMap['nomorLpj'] = c;
-        if (val.includes('verifikasi') || val.includes('status verifikasi')) colMap['statusVerifikasi'] = c;
-        if (val.includes('bank') || val.includes('saldo bank')) colMap['saldoBank'] = c;
-        if (val.includes('tunai') || val.includes('saldo tunai')) colMap['saldoTunai'] = c;
+        if (val.includes('verifikasi') || val.includes('status verifikasi') || val.includes('validasi') || val.includes('status validasi')) colMap['statusVerifikasi'] = c;
+        
+        // Kas Tunai
+        if (val.includes('kas tunai') || val.includes('saldo tunai') || (val.includes('tunai') && !val.includes('ket'))) {
+          colMap['saldoTunai'] = c;
+        }
+
+        // Kas Bank (Perhatikan: jangan sampai tertimpa kolom rekening bank, no rek, koran bank, nama bank)
+        if (val.includes('kas bank') || val.includes('saldo bank')) {
+          colMap['saldoBank'] = c;
+        } else if (
+          val.includes('bank') && 
+          !val.includes('rekening') && 
+          !val.includes('rek') && 
+          !val.includes('koran') && 
+          !val.includes('nama') && 
+          !val.includes('buku') &&
+          colMap['saldoBank'] === undefined
+        ) {
+          colMap['saldoBank'] = c;
+        }
+
+        // Total Kas (Kolom JUMLAH di samping Kas Bank / Kas Tunai)
+        if (
+          val.includes('total kas') || 
+          val.includes('total saldo') || 
+          val.includes('jumlah kas') || 
+          val === 'jumlah' || 
+          valR === 'jumlah' || 
+          valNext === 'jumlah' ||
+          val.includes('saldo kas')
+        ) {
+          colMap['totalSaldo'] = c;
+        }
+
+        // Selisih Kas
         if (val.includes('selisih')) colMap['selisihKas'] = c;
+
         if (val.includes('nama bendahara') || val.includes('pejabat bendahara')) colMap['namaBendahara'] = c;
         if (val.includes('hp') || val.includes('wa') || val.includes('telepon') || val.includes('kontak')) colMap['noHpBendahara'] = c;
         if (val.includes('keterangan') || val.includes('catatan')) colMap['keterangan'] = c;
@@ -144,8 +270,9 @@ export function parseMonitoringLPJWorkbook(
     if (!cleanKode && !rawNama) continue;
 
     const rowNo = colMap['no'] !== undefined ? getCellStr(sheet, colMap['no'], r) : `${records.length + 1}`;
+    const rawBa = colMap['kodeBa'] !== undefined ? getCellStr(sheet, colMap['kodeBa'], r) : '';
     const rawKppn = colMap['kodeKppn'] !== undefined ? getCellStr(sheet, colMap['kodeKppn'], r) : '026';
-    const rawJenis = colMap['jenisBendahara'] !== undefined ? getCellStr(sheet, colMap['jenisBendahara'], r) : 'Pengeluaran';
+    const rawJenis = colMap['jenisBendahara'] !== undefined ? getCellStr(sheet, colMap['jenisBendahara'], r) : '';
     const rawPeriode = colMap['periode'] !== undefined ? getCellStr(sheet, colMap['periode'], r) : (detectedPeriode || 'Agustus 2026');
     if (!detectedPeriode && rawPeriode) detectedPeriode = rawPeriode;
 
@@ -155,10 +282,8 @@ export function parseMonitoringLPJWorkbook(
     const rawVerif = colMap['statusVerifikasi'] !== undefined ? getCellStr(sheet, colMap['statusVerifikasi'], r) : '';
     const rawSaldoBank = colMap['saldoBank'] !== undefined ? getCellNum(sheet, colMap['saldoBank'], r) : 0;
     const rawSaldoTunai = colMap['saldoTunai'] !== undefined ? getCellNum(sheet, colMap['saldoTunai'], r) : 0;
+    const rawTotalKas = colMap['totalSaldo'] !== undefined ? getCellNum(sheet, colMap['totalSaldo'], r) : 0;
     const rawSelisih = colMap['selisihKas'] !== undefined ? getCellNum(sheet, colMap['selisihKas'], r) : 0;
-    const rawBendahara = colMap['namaBendahara'] !== undefined ? getCellStr(sheet, colMap['namaBendahara'], r) : 'Bendahara Pengeluaran';
-    const rawHp = colMap['noHpBendahara'] !== undefined ? getCellStr(sheet, colMap['noHpBendahara'], r) : '';
-    const rawKet = colMap['keterangan'] !== undefined ? getCellStr(sheet, colMap['keterangan'], r) : '';
 
     // Normalisasi Status Pengiriman
     const isSudahKirim = 
@@ -171,12 +296,30 @@ export function parseMonitoringLPJWorkbook(
     const statusPengiriman: LPJStatusType = isSudahKirim ? 'SUDAH_KIRIM' : 'BELUM_KIRIM';
 
     // Normalisasi Jenis Bendahara
-    let jenisBendahara: LPJJenisBendahara = 'PENGELUARAN';
-    if (rawJenis.toUpperCase().includes('PENERIMAAN')) {
-      jenisBendahara = 'PENERIMAAN';
-    } else if (rawJenis.toUpperCase().includes('KEDUANYA') || rawJenis.toUpperCase().includes('SEMUA')) {
-      jenisBendahara = 'KEDUANYA';
+    let jenisBendahara: LPJJenisBendahara = defaultJenis;
+    if (rawJenis) {
+      const uj = rawJenis.toUpperCase();
+      if (uj.includes('BLU')) {
+        jenisBendahara = 'BLU';
+      } else if (uj.includes('PENERIMAAN') || uj.includes('TERIMA')) {
+        jenisBendahara = 'PENERIMAAN';
+      } else if (uj.includes('PENGELUARAN') || uj.includes('KELUAR')) {
+        jenisBendahara = 'PENGELUARAN';
+      } else if (uj.includes('KEDUANYA') || uj.includes('SEMUA')) {
+        jenisBendahara = 'KEDUANYA';
+      }
     }
+
+    const defaultBendaharaTitle = 
+      jenisBendahara === 'BLU' ? 'Bendahara BLU' :
+      jenisBendahara === 'PENERIMAAN' ? 'Bendahara Penerimaan' :
+      'Bendahara Pengeluaran';
+
+    const rawBendahara = colMap['namaBendahara'] !== undefined 
+      ? (getCellStr(sheet, colMap['namaBendahara'], r) || defaultBendaharaTitle)
+      : defaultBendaharaTitle;
+    const rawHp = colMap['noHpBendahara'] !== undefined ? getCellStr(sheet, colMap['noHpBendahara'], r) : '';
+    const rawKet = colMap['keterangan'] !== undefined ? getCellStr(sheet, colMap['keterangan'], r) : '';
 
     // Normalisasi Status Verifikasi
     let statusVerifikasi: LPJVerifikasiStatus = 'BELUM_KIRIM';
@@ -207,17 +350,30 @@ export function parseMonitoringLPJWorkbook(
 
     const periodeFormatted = `${periodeBulan} ${tahun}`;
 
-    const totalSaldoKas = rawSaldoBank + rawSaldoTunai;
+    let finalSaldoBank = rawSaldoBank;
+    let finalSaldoTunai = rawSaldoTunai;
+    let totalSaldoKas = 0;
+
+    if (rawTotalKas > 0) {
+      totalSaldoKas = rawTotalKas;
+      if (finalSaldoBank === 0 && finalSaldoTunai === 0) {
+        finalSaldoBank = rawTotalKas;
+      }
+    } else {
+      totalSaldoKas = finalSaldoBank + finalSaldoTunai;
+    }
+
     const statusKlopKas = statusPengiriman === 'BELUM_KIRIM' 
       ? 'BELUM_VERIFIKASI' 
       : (rawSelisih === 0 ? 'KLOP' : 'SELISIH');
 
     const record: MonitoringLPJRecord = {
-      id: `${uploadId}-${cleanKode || r}`,
+      id: `${uploadId}-${cleanKode || r}-${jenisBendahara}`,
       uploadId,
       no: parseInt(rowNo, 10) || records.length + 1,
       kodeKppn: rawKppn || '026',
       kodeSatker: cleanKode || rawKode,
+      kodeBa: rawBa || undefined,
       namaSatker: rawNama || `Satker ${cleanKode}`,
       jenisBendahara,
       periodeBulan,
@@ -225,10 +381,10 @@ export function parseMonitoringLPJWorkbook(
       periodeFormatted,
       statusPengiriman,
       tanggalKirim: statusPengiriman === 'SUDAH_KIRIM' ? (rawTglKirim || '08/09/2026') : '-',
-      nomorLpj: statusPengiriman === 'SUDAH_KIRIM' ? (rawNoLpj || `LPJ-${periodeBulan.substring(0, 3).toUpperCase()}/${tahun}/${cleanKode}`) : '-',
+      nomorLpj: statusPengiriman === 'SUDAH_KIRIM' ? (rawNoLpj || `LPJ-${jenisBendahara === 'BLU' ? 'BLU' : jenisBendahara === 'PENERIMAAN' ? 'PNR' : 'PGL'}-${periodeBulan.substring(0, 3).toUpperCase()}/${tahun}/${cleanKode}`) : '-',
       statusVerifikasi,
-      saldoRekeningBank: rawSaldoBank,
-      saldoKasTunai: rawSaldoTunai,
+      saldoRekeningBank: finalSaldoBank,
+      saldoKasTunai: finalSaldoTunai,
       totalSaldoKas,
       selisihKas: rawSelisih,
       statusKlopKas,
@@ -507,8 +663,22 @@ export function computeLPJSummary(records: MonitoringLPJRecord[]): LPJBatchSumma
   const belumKirim = records.filter(r => r.statusPengiriman === 'BELUM_KIRIM').length;
   const persenKepatuhan = totalSatker > 0 ? Math.round((sudahKirim / totalSatker) * 100) : 0;
 
-  const bendaharaPengeluaranCount = records.filter(r => r.jenisBendahara === 'PENGELUARAN').length;
-  const bendaharaPenerimaanCount = records.filter(r => r.jenisBendahara === 'PENERIMAAN').length;
+  const pengeluaranRecords = records.filter(r => r.jenisBendahara === 'PENGELUARAN');
+  const penerimaanRecords = records.filter(r => r.jenisBendahara === 'PENERIMAAN');
+  const bluRecords = records.filter(r => r.jenisBendahara === 'BLU');
+
+  const bendaharaPengeluaranCount = pengeluaranRecords.length;
+  const bendaharaPenerimaanCount = penerimaanRecords.length;
+  const bendaharaBluCount = bluRecords.length;
+
+  const pengeluaranSudahKirim = pengeluaranRecords.filter(r => r.statusPengiriman === 'SUDAH_KIRIM').length;
+  const pengeluaranBelumKirim = pengeluaranRecords.filter(r => r.statusPengiriman === 'BELUM_KIRIM').length;
+
+  const penerimaanSudahKirim = penerimaanRecords.filter(r => r.statusPengiriman === 'SUDAH_KIRIM').length;
+  const penerimaanBelumKirim = penerimaanRecords.filter(r => r.statusPengiriman === 'BELUM_KIRIM').length;
+
+  const bluSudahKirim = bluRecords.filter(r => r.statusPengiriman === 'SUDAH_KIRIM').length;
+  const bluBelumKirim = bluRecords.filter(r => r.statusPengiriman === 'BELUM_KIRIM').length;
 
   const terverifikasiCount = records.filter(r => r.statusVerifikasi === 'TERVERIFIKASI' || r.statusVerifikasi === 'DISETUJUI').length;
   const menungguVerifikasiCount = records.filter(r => r.statusVerifikasi === 'MENUNGGU_VERIFIKASI').length;
@@ -524,6 +694,13 @@ export function computeLPJSummary(records: MonitoringLPJRecord[]): LPJBatchSumma
     persenKepatuhan,
     bendaharaPengeluaranCount,
     bendaharaPenerimaanCount,
+    bendaharaBluCount,
+    pengeluaranSudahKirim,
+    pengeluaranBelumKirim,
+    penerimaanSudahKirim,
+    penerimaanBelumKirim,
+    bluSudahKirim,
+    bluBelumKirim,
     terverifikasiCount,
     menungguVerifikasiCount,
     belumKirimCount,

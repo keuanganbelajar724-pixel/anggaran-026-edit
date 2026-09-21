@@ -143,10 +143,10 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
       () => {
         // Merge or replace: kita simpan batch baru dan update records
         const newUploads = [previewResult.batch, ...uploads];
-        // Timpa atau tambahkan berdasarkan kodeSatker + periode
+        // Timpa atau tambahkan berdasarkan kodeSatker + periode + jenisBendahara
         const existingMap = new Map<string, MonitoringLPJRecord>();
-        records.forEach(r => existingMap.set(`${r.kodeSatker}-${r.periodeFormatted}`, r));
-        previewResult.records.forEach(r => existingMap.set(`${r.kodeSatker}-${r.periodeFormatted}`, r));
+        records.forEach(r => existingMap.set(`${r.kodeSatker}-${r.periodeFormatted}-${r.jenisBendahara}`, r));
+        previewResult.records.forEach(r => existingMap.set(`${r.kodeSatker}-${r.periodeFormatted}-${r.jenisBendahara}`, r));
 
         const updatedRecords = Array.from(existingMap.values());
         onApplyRecords(updatedRecords, newUploads);

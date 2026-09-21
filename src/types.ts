@@ -2633,7 +2633,7 @@ export interface RekonsiliasiAuditLog {
 // MONITORING LPJ (LAPORAN PERTANGGUNGJAWABAN BENDAHARA) TYPES
 // -------------------------------------------------------------
 export type LPJStatusType = 'SUDAH_KIRIM' | 'BELUM_KIRIM';
-export type LPJJenisBendahara = 'PENGELUARAN' | 'PENERIMAAN' | 'KEDUANYA';
+export type LPJJenisBendahara = 'PENGELUARAN' | 'PENERIMAAN' | 'BLU' | 'KEDUANYA';
 export type LPJVerifikasiStatus = 'DISETUJUI' | 'TERVERIFIKASI' | 'MENUNGGU_VERIFIKASI' | 'BELUM_KIRIM' | 'DITOLAK';
 
 export interface MonitoringLPJRecord {
@@ -2645,7 +2645,7 @@ export interface MonitoringLPJRecord {
   namaSatker: string;         // Kolom Nama Satker
   kementerianLembaga?: string;// Kementerian / Lembaga
   kodeBa?: string;            // Bagian Anggaran
-  jenisBendahara: LPJJenisBendahara; // Bendahara Pengeluaran / Penerimaan
+  jenisBendahara: LPJJenisBendahara; // Bendahara Pengeluaran / Penerimaan / BLU
   periodeBulan: string;       // e.g. "Agustus", "September"
   tahun: number;              // e.g. 2026
   periodeFormatted: string;   // e.g. "Agustus 2026", "September 2026"
@@ -2679,6 +2679,13 @@ export interface LPJBatchSummary {
   persenKepatuhan: number; // e.g. 100% or 0%
   bendaharaPengeluaranCount: number;
   bendaharaPenerimaanCount: number;
+  bendaharaBluCount: number;
+  pengeluaranSudahKirim: number;
+  pengeluaranBelumKirim: number;
+  penerimaanSudahKirim: number;
+  penerimaanBelumKirim: number;
+  bluSudahKirim: number;
+  bluBelumKirim: number;
   terverifikasiCount: number;
   menungguVerifikasiCount: number;
   belumKirimCount: number;

@@ -696,19 +696,6 @@ export default function App() {
   };
 
   // State Monitoring LPJ Bendahara (Agustus & September 2026)
-  const [lpjRecords, setLpjRecords] = useState<MonitoringLPJRecord[]>(() => {
-    const saved = localStorage.getItem('kppn_lpj_records');
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.warn('Error reading kppn_lpj_records:', e);
-      }
-    }
-    return [];
-  });
-
   const [lpjUploads, setLpjUploads] = useState<LPJUploadBatch[]>(() => {
     const saved = localStorage.getItem('kppn_lpj_uploads');
     if (saved !== null) {
@@ -717,6 +704,46 @@ export default function App() {
         if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_lpj_uploads:', e);
+      }
+    }
+    return [];
+  });
+
+  const [lpjRecords, setLpjRecords] = useState<MonitoringLPJRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_lpj_records');
+    const savedUploads = localStorage.getItem('kppn_lpj_uploads');
+    let batches: LPJUploadBatch[] = [];
+    if (savedUploads !== null) {
+      try {
+        const uParsed = JSON.parse(savedUploads);
+        if (Array.isArray(uParsed)) batches = uParsed;
+      } catch (e) {}
+    }
+
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Auto-repair jenisBendahara jika record terkait dengan batch BLU atau Penerimaan
+          const repaired = parsed.map((r: MonitoringLPJRecord) => {
+            if (r.uploadId && batches.length > 0) {
+              const matchedBatch = batches.find(b => b.id === r.uploadId);
+              if (matchedBatch) {
+                const fname = matchedBatch.filename.toUpperCase();
+                if (fname.includes('BLU') && r.jenisBendahara !== 'BLU') {
+                  return { ...r, jenisBendahara: 'BLU' as const, namaBendahara: r.namaBendahara.includes('Pengeluaran') ? 'Bendahara BLU' : r.namaBendahara };
+                }
+                if ((fname.includes('PENERIMAAN') || fname.includes('TERIMA')) && r.jenisBendahara !== 'PENERIMAAN') {
+                  return { ...r, jenisBendahara: 'PENERIMAAN' as const, namaBendahara: r.namaBendahara.includes('Pengeluaran') ? 'Bendahara Penerimaan' : r.namaBendahara };
+                }
+              }
+            }
+            return r;
+          });
+          return repaired;
+        }
+      } catch (e) {
+        console.warn('Error reading kppn_lpj_records:', e);
       }
     }
     return [];
@@ -783,7 +810,13 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((t: any) => t.upload_batch_id !== 'HAICSO-1789940341885');
+          if (cleaned.length !== parsed.length) {
+            safeLocalStorageSet('kppn_haicso_tickets', JSON.stringify(cleaned));
+          }
+          return cleaned;
+        }
       } catch (e) {
         console.warn('Error reading kppn_haicso_tickets:', e);
       }
@@ -796,7 +829,16 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) {
+          const cleaned = parsed.filter((b: any) => 
+            b.id !== 'HAICSO-1789940341885' && 
+            !b.file_name?.toLowerCase().includes('test_upload_verification')
+          );
+          if (cleaned.length !== parsed.length) {
+            safeLocalStorageSet('kppn_haicso_batches', JSON.stringify(cleaned));
+          }
+          return cleaned;
+        }
       } catch (e) {
         console.warn('Error reading kppn_haicso_batches:', e);
       }

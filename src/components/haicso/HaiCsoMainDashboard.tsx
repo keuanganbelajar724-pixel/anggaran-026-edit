@@ -87,7 +87,7 @@ export const HaiCsoMainDashboard: React.FC<HaiCsoMainDashboardProps> = ({
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
               }`}
             >
-              Panel Kontrol Admin
+              Tampilan Admin
             </button>
             <button
               onClick={() => setAdminViewMode('preview_satker')}
@@ -114,6 +114,7 @@ export const HaiCsoMainDashboard: React.FC<HaiCsoMainDashboardProps> = ({
           onUpdateTickets={onUpdateTickets}
           onUpdateSettings={onUpdateSettings}
           isDark={isDark}
+          viewMode="monitoring_only"
         />
       ) : (
         <HaiCsoSatkerDashboard

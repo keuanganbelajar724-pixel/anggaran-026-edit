@@ -354,35 +354,43 @@ async function startServer() {
   // POST /api/haicso/upload - Save and de-duplicate tickets
   app.post('/api/haicso/upload', (req, res) => {
     try {
-      const { batch, tickets: incomingTickets } = req.body || {};
+      const { batch, tickets: incomingTickets, replace } = req.body || {};
       if (!Array.isArray(incomingTickets)) {
         return res.status(400).json({ status: 'error', message: 'Tickets array required' });
       }
 
-      // De-duplicate based on ticket_reference / id
-      const ticketMap = new Map<string, any>();
-      inMemoryHaiCsoTickets.forEach(t => {
-        const key = (t.nomor_referensi || t.id).trim().toUpperCase();
-        ticketMap.set(key, t);
-      });
-
       let insertedCount = 0;
       let updatedCount = 0;
 
-      incomingTickets.forEach(inc => {
-        const key = (inc.nomor_referensi || inc.id).trim().toUpperCase();
-        if (ticketMap.has(key)) {
-          ticketMap.set(key, { ...ticketMap.get(key), ...inc, updated_at: new Date().toISOString() });
-          updatedCount++;
-        } else {
-          ticketMap.set(key, inc);
-          insertedCount++;
+      if (replace) {
+        inMemoryHaiCsoTickets = incomingTickets;
+        insertedCount = incomingTickets.length;
+        if (batch) {
+          inMemoryHaiCsoBatches = [batch];
         }
-      });
+      } else {
+        // De-duplicate based on ticket_reference / id
+        const ticketMap = new Map<string, any>();
+        inMemoryHaiCsoTickets.forEach(t => {
+          const key = (t.nomor_referensi || t.id).trim().toUpperCase();
+          ticketMap.set(key, t);
+        });
 
-      inMemoryHaiCsoTickets = Array.from(ticketMap.values());
-      if (batch) {
-        inMemoryHaiCsoBatches = [batch, ...inMemoryHaiCsoBatches.filter(b => b.id !== batch.id)];
+        incomingTickets.forEach(inc => {
+          const key = (inc.nomor_referensi || inc.id).trim().toUpperCase();
+          if (ticketMap.has(key)) {
+            ticketMap.set(key, { ...ticketMap.get(key), ...inc, updated_at: new Date().toISOString() });
+            updatedCount++;
+          } else {
+            ticketMap.set(key, inc);
+            insertedCount++;
+          }
+        });
+
+        inMemoryHaiCsoTickets = Array.from(ticketMap.values());
+        if (batch) {
+          inMemoryHaiCsoBatches = [batch, ...inMemoryHaiCsoBatches.filter(b => b.id !== batch.id)];
+        }
       }
 
       // Persist to disk

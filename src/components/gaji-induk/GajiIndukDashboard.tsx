@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   SPMGajiRecord,
   SPMGajiUploadBatch,
@@ -63,8 +63,31 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
   isDark = false,
   onGoToAdminUpload
 }) => {
+  // Tentukan periode terbaru dari data batch upload atau records
+  const latestDataPeriod = useMemo(() => {
+    if (uploads && uploads.length > 0) {
+      const sorted = [...uploads].sort((a, b) => (b.periodeKey || '').localeCompare(a.periodeKey || ''));
+      if (sorted[0]?.periodeKey) return sorted[0].periodeKey;
+    }
+    const recordPeriods = Array.from(new Set(records.map(r => r.periodeKey).filter(Boolean)));
+    if (recordPeriods.length > 0) {
+      return recordPeriods.sort().reverse()[0];
+    }
+    return '2026-09';
+  }, [uploads, records]);
+
   // State Filter Utama
-  const [selectedPeriode, setSelectedPeriode] = useState<string>('2026-08');
+  const [selectedPeriode, setSelectedPeriode] = useState<string>(() => latestDataPeriod);
+
+  // Jika ada upload batch baru dan selectedPeriode saat ini tidak ada datanya sama sekali, sinkronkan ke periode terbaru
+  useEffect(() => {
+    if (latestDataPeriod && records.length > 0) {
+      const currentPeriodHasData = records.some(r => r.periodeKey === selectedPeriode);
+      if (!currentPeriodHasData) {
+        setSelectedPeriode(latestDataPeriod);
+      }
+    }
+  }, [latestDataPeriod, records]);
   const [selectedJenisGaji, setSelectedJenisGaji] = useState<'ALL' | GajiIndukJenis>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<'ALL' | 'SUDAH' | 'BELUM' | 'BERUBAH'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -75,9 +98,20 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
   const [selectedSpmDetail, setSelectedSpmDetail] = useState<SPMGajiRecord | null>(null);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
 
-  // Daftar periode yang tersedia dari data atau default 3 bulan
+  // Daftar periode yang tersedia dari data atau default bulan Januari s.d. September 2026
   const availablePeriods = useMemo(() => {
-    const periodSet = new Set<string>(['2026-08', '2026-07', '2026-06']);
+    const defaultPeriods = [
+      '2026-09',
+      '2026-08',
+      '2026-07',
+      '2026-06',
+      '2026-05',
+      '2026-04',
+      '2026-03',
+      '2026-02',
+      '2026-01'
+    ];
+    const periodSet = new Set<string>(defaultPeriods);
     records.forEach(r => {
       if (r.periodeKey) periodSet.add(r.periodeKey);
     });
@@ -294,6 +328,59 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
         </div>
       </div>
 
+      {/* NOTIFIKASI EDUKATIF KETIKA BELUM ADA DATA UPLOAD EXCEL */}
+      {records.length === 0 && (
+        <div className={`p-4 sm:p-5 rounded-2xl border flex items-start gap-3.5 transition-all ${
+          isDark 
+            ? 'bg-amber-950/30 border-amber-800/60 text-amber-200' 
+            : 'bg-amber-50 border-amber-200 text-amber-900'
+        }`}>
+          <Info className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="text-xs sm:text-sm space-y-1.5">
+            <p className="font-bold flex items-center gap-2">
+              <span>Database Excel SPM Gaji Induk Belum Terisi (0 Batch Terunggah)</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200">
+                Baseline Master Satker KPPN
+              </span>
+            </p>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+              Daftar <strong>67 Satker</strong> di bawah ini dimuat secara otomatis dari <strong>Master Data Satker KPPN</strong> sebagai populasi satker mitra yang memiliki kewajiban penyampaian SPM Gaji Induk. Karena belum ada berkas Excel yang diunggah, seluruh satker saat ini berstatus <span className="font-bold text-rose-600 dark:text-rose-400">BELUM MENGIRIM</span>.
+            </p>
+            <p className="text-slate-700 dark:text-slate-300 font-medium">
+              💡 <em>Anda dapat mengunggah berkas Excel Monitoring SPM Gaji Induk dari <strong>Januari sampai September 2026</strong> via menu <strong>Upload Excel</strong>. Sistem akan langsung memetakan kode satker dan nomor SPP/SPM, memperbarui status menjadi <span className="font-bold text-emerald-600 dark:text-emerald-400">SUDAH MENGIRIM</span>, serta menyusun grafik riwayat tren bulanan secara otomatis.</em>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* BANNER JIKA PERIODE TERPILIH BELUM ADA DATA TAPI PERIODE LAIN ADA DATA UPLOAD */}
+      {records.length > 0 && records.filter(r => r.periodeKey === selectedPeriode).length === 0 && (
+        <div className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-all ${
+          isDark 
+            ? 'bg-blue-950/30 border-blue-800/60 text-blue-200' 
+            : 'bg-blue-50 border-blue-200 text-blue-900'
+        }`}>
+          <div className="flex items-start gap-3">
+            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <div className="text-xs sm:text-sm space-y-1">
+              <p className="font-bold">
+                Periode Terpilih ({formatPeriodeGaji(selectedPeriode)}) Belum Memiliki Data SPM Terunggah
+              </p>
+              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                Berkas Excel yang baru saja Anda unggah terdeteksi untuk periode <strong>{formatPeriodeGaji(latestDataPeriod)}</strong> ({records.length} SPM terdata). Klik tombol di samping untuk beralih ke periode tersebut.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedPeriode(latestDataPeriod)}
+            className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md cursor-pointer shrink-0 inline-flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            <span>Buka {formatPeriodeGaji(latestDataPeriod)}</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* KPI STAT CARDS (CLICKABLE) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {/* Total Satker Wajib */}
@@ -389,32 +476,110 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
         </div>
       </div>
 
-      {/* RINCIAN PER JENIS GAJI (PNS vs PPPK) */}
+      {/* RINCIAN PER JENIS GAJI (PNS vs PPPK) - DAPAT DI-KLIK UNTUK MEMFILTER */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card PNS */}
-        <div className={`p-4 sm:p-5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div
+          className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+            selectedJenisGaji === 'PNS'
+              ? 'ring-2 ring-blue-500 shadow-md bg-blue-50/20 dark:bg-blue-950/20 border-blue-300 dark:border-blue-800'
+              : 'hover:shadow-sm'
+          } ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+        >
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-              <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                Gaji Induk PNS
+            <div
+              onClick={() => {
+                setSelectedJenisGaji(selectedJenisGaji === 'PNS' ? 'ALL' : 'PNS');
+                if (selectedJenisGaji !== 'PNS') {
+                  setSelectedStatus('ALL');
+                  setActiveTab('semua');
+                }
+              }}
+              className="flex items-center gap-2 cursor-pointer group"
+              title="Klik untuk memfilter khusus Gaji Induk PNS"
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${selectedJenisGaji === 'PNS' ? 'bg-blue-600 ring-2 ring-blue-300' : 'bg-blue-500'}`} />
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                <span>Gaji Induk PNS</span>
+                {selectedJenisGaji === 'PNS' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300">
+                    Aktif
+                  </span>
+                )}
               </h3>
             </div>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300">
-              {summary.pnsTotalSpm} SPM
-            </span>
+            <div className="flex items-center gap-2">
+              {selectedJenisGaji === 'PNS' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedJenisGaji('ALL');
+                    setSelectedStatus('ALL');
+                    setActiveTab('semua');
+                  }}
+                  className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 underline cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300">
+                {summary.pnsTotalSpm} SPM
+              </span>
+            </div>
           </div>
 
+          {/* Sub-kotak Filter PNS */}
           <div className="grid grid-cols-3 gap-3 mt-4 text-center">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-              <div className="text-[11px] text-slate-500 font-medium">Satker Wajib</div>
+            {/* Satker Wajib PNS */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PNS');
+                setSelectedStatus('ALL');
+                setActiveTab('semua');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PNS' && selectedStatus === 'ALL' && activeTab === 'semua'
+                  ? 'ring-2 ring-blue-500 bg-blue-100/70 dark:bg-blue-900/40 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              title="Klik untuk melihat semua Satker Wajib PNS"
+            >
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Satker Wajib</div>
               <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{summary.pnsWajib}</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+
+            {/* Sudah Kirim PNS */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PNS');
+                setSelectedStatus('SUDAH');
+                setActiveTab('semua');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PNS' && selectedStatus === 'SUDAH'
+                  ? 'ring-2 ring-emerald-500 bg-emerald-100/70 dark:bg-emerald-900/50 shadow-sm'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40'
+              }`}
+              title="Klik untuk melihat Satker PNS yang Sudah Kirim"
+            >
               <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Sudah Kirim</div>
               <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{summary.pnsSudah}</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40">
+
+            {/* Belum Kirim PNS */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PNS');
+                setSelectedStatus('BELUM');
+                setActiveTab('belum');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PNS' && (selectedStatus === 'BELUM' || activeTab === 'belum')
+                  ? 'ring-2 ring-rose-500 bg-rose-100/70 dark:bg-rose-900/50 shadow-sm'
+                  : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100/60 dark:hover:bg-rose-900/40'
+              }`}
+              title="Klik untuk melihat Satker PNS yang Belum Kirim"
+            >
               <div className="text-[11px] text-rose-700 dark:text-rose-300 font-medium">Belum Kirim</div>
               <div className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5">{summary.pnsBelum}</div>
             </div>
@@ -426,29 +591,107 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
         </div>
 
         {/* Card PPPK */}
-        <div className={`p-4 sm:p-5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div
+          className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+            selectedJenisGaji === 'PPPK'
+              ? 'ring-2 ring-teal-500 shadow-md bg-teal-50/20 dark:bg-teal-950/20 border-teal-300 dark:border-teal-800'
+              : 'hover:shadow-sm'
+          } ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+        >
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
-              <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100">
-                Gaji Induk PPPK / P3K
+            <div
+              onClick={() => {
+                setSelectedJenisGaji(selectedJenisGaji === 'PPPK' ? 'ALL' : 'PPPK');
+                if (selectedJenisGaji !== 'PPPK') {
+                  setSelectedStatus('ALL');
+                  setActiveTab('semua');
+                }
+              }}
+              className="flex items-center gap-2 cursor-pointer group"
+              title="Klik untuk memfilter khusus Gaji Induk PPPK / P3K"
+            >
+              <span className={`w-2.5 h-2.5 rounded-full ${selectedJenisGaji === 'PPPK' ? 'bg-teal-600 ring-2 ring-teal-300' : 'bg-teal-500'}`} />
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-800 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors flex items-center gap-1.5">
+                <span>Gaji Induk PPPK / P3K</span>
+                {selectedJenisGaji === 'PPPK' && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300">
+                    Aktif
+                  </span>
+                )}
               </h3>
             </div>
-            <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-300">
-              {summary.pppkTotalSpm} SPM
-            </span>
+            <div className="flex items-center gap-2">
+              {selectedJenisGaji === 'PPPK' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedJenisGaji('ALL');
+                    setSelectedStatus('ALL');
+                    setActiveTab('semua');
+                  }}
+                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-800 dark:text-teal-400 underline cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-300">
+                {summary.pppkTotalSpm} SPM
+              </span>
+            </div>
           </div>
 
+          {/* Sub-kotak Filter PPPK */}
           <div className="grid grid-cols-3 gap-3 mt-4 text-center">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60">
-              <div className="text-[11px] text-slate-500 font-medium">Satker Wajib</div>
+            {/* Satker Wajib PPPK */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PPPK');
+                setSelectedStatus('ALL');
+                setActiveTab('semua');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PPPK' && selectedStatus === 'ALL' && activeTab === 'semua'
+                  ? 'ring-2 ring-teal-500 bg-teal-100/70 dark:bg-teal-900/40 shadow-sm'
+                  : 'bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              title="Klik untuk melihat semua Satker Wajib PPPK"
+            >
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Satker Wajib</div>
               <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">{summary.pppkWajib}</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+
+            {/* Sudah Kirim PPPK */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PPPK');
+                setSelectedStatus('SUDAH');
+                setActiveTab('semua');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PPPK' && selectedStatus === 'SUDAH'
+                  ? 'ring-2 ring-emerald-500 bg-emerald-100/70 dark:bg-emerald-900/50 shadow-sm'
+                  : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40'
+              }`}
+              title="Klik untuk melihat Satker PPPK yang Sudah Kirim"
+            >
               <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium">Sudah Kirim</div>
               <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{summary.pppkSudah}</div>
             </div>
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40">
+
+            {/* Belum Kirim PPPK */}
+            <div
+              onClick={() => {
+                setSelectedJenisGaji('PPPK');
+                setSelectedStatus('BELUM');
+                setActiveTab('belum');
+              }}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer ${
+                selectedJenisGaji === 'PPPK' && (selectedStatus === 'BELUM' || activeTab === 'belum')
+                  ? 'ring-2 ring-rose-500 bg-rose-100/70 dark:bg-rose-900/50 shadow-sm'
+                  : 'bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100/60 dark:hover:bg-rose-900/40'
+              }`}
+              title="Klik untuk melihat Satker PPPK yang Belum Kirim"
+            >
               <div className="text-[11px] text-rose-700 dark:text-rose-300 font-medium">Belum Kirim</div>
               <div className="text-lg font-bold text-rose-600 dark:text-rose-400 mt-0.5">{summary.pppkBelum}</div>
             </div>
@@ -742,11 +985,32 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
                 Menampilkan <strong>{filteredData.length}</strong> data Satker periode {formatPeriodeGaji(selectedPeriode)}. Klik baris atau tombol detail untuk rincian SPM.
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-slate-500">Filter Aktif:</span>
               <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-semibold">
-                {selectedJenisGaji === 'ALL' ? 'Semua Jenis' : selectedJenisGaji}
+                {selectedJenisGaji === 'ALL' ? 'Semua Jenis' : (selectedJenisGaji === 'PNS' ? 'Gaji Induk PNS' : 'Gaji Induk PPPK')}
               </span>
+              {selectedStatus !== 'ALL' && (
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                  selectedStatus === 'SUDAH' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300' :
+                  selectedStatus === 'BELUM' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300' :
+                  'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
+                }`}>
+                  {selectedStatus === 'SUDAH' ? 'Sudah Kirim' : selectedStatus === 'BELUM' ? 'Belum Kirim' : 'Perubahan SPM'}
+                </span>
+              )}
+              {(selectedJenisGaji !== 'ALL' || selectedStatus !== 'ALL') && (
+                <button
+                  onClick={() => {
+                    setSelectedJenisGaji('ALL');
+                    setSelectedStatus('ALL');
+                    setActiveTab('semua');
+                  }}
+                  className="text-xs text-rose-600 hover:text-rose-700 dark:text-rose-400 underline font-semibold cursor-pointer ml-1"
+                >
+                  Hapus Filter
+                </button>
+              )}
             </div>
           </div>
 

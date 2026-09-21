@@ -19,12 +19,15 @@ export interface ParseHaiCsoResult {
 }
 
 /**
- * Safely extract string from cell
+ * Safely extract string from cell, prioritizing formatted text (w) then raw value (v)
  */
 function getCellStr(sheet: XLSX.WorkSheet, colIndex: number, rowIndex: number): string {
   const cellAddress = XLSX.utils.encode_cell({ c: colIndex, r: rowIndex });
   const cell = sheet[cellAddress];
   if (!cell || cell.v === undefined || cell.v === null) return '';
+  if (cell.w !== undefined && cell.w !== null && String(cell.w).trim() !== '') {
+    return String(cell.w).trim();
+  }
   return String(cell.v).trim();
 }
 
@@ -41,28 +44,43 @@ export function extractDateMetrics(dateStr: string): {
   let validDate = false;
 
   if (dateStr) {
-    // Try standard ISO or YYYY-MM-DD
-    const isoMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-    if (isoMatch) {
-      const year = parseInt(isoMatch[1], 10);
-      const month = parseInt(isoMatch[2], 10);
-      const day = parseInt(isoMatch[3], 10);
-      dateObj = new Date(year, month - 1, day);
-      validDate = true;
-    } else {
-      // Try DD/MM/YYYY or DD-MM-YYYY
-      const dmyMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-      if (dmyMatch) {
-        const day = parseInt(dmyMatch[1], 10);
-        const month = parseInt(dmyMatch[2], 10);
-        const year = parseInt(dmyMatch[3], 10);
+    const trimmed = dateStr.trim();
+    // Try numeric Excel date serial (e.g. 45000 to 48000)
+    if (/^\d{5}(\.\d+)?$/.test(trimmed)) {
+      const serial = parseFloat(trimmed);
+      const utcDays = Math.floor(serial - 25569);
+      const utcValue = utcDays * 86400;
+      const parsedFromSerial = new Date(utcValue * 1000);
+      if (!isNaN(parsedFromSerial.getTime())) {
+        dateObj = parsedFromSerial;
+        validDate = true;
+      }
+    }
+    
+    if (!validDate) {
+      // Try standard ISO or YYYY-MM-DD (e.g., 2026-01-06 15:03:23)
+      const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (isoMatch) {
+        const year = parseInt(isoMatch[1], 10);
+        const month = parseInt(isoMatch[2], 10);
+        const day = parseInt(isoMatch[3], 10);
         dateObj = new Date(year, month - 1, day);
         validDate = true;
       } else {
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) {
-          dateObj = parsed;
+        // Try DD/MM/YYYY or DD-MM-YYYY (e.g., 06/01/2026 15:03:23)
+        const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        if (dmyMatch) {
+          const day = parseInt(dmyMatch[1], 10);
+          const month = parseInt(dmyMatch[2], 10);
+          const year = parseInt(dmyMatch[3], 10);
+          dateObj = new Date(year, month - 1, day);
           validDate = true;
+        } else {
+          const parsed = new Date(trimmed);
+          if (!isNaN(parsed.getTime())) {
+            dateObj = parsed;
+            validDate = true;
+          }
         }
       }
     }
@@ -213,13 +231,32 @@ export function parseHaiCsoWorkbook(
     }
   }
 
-  // Find start of table (typically row 6, 0-indexed row 5)
+  // Find start of table (typically row 6, 0-indexed row 5, search up to row 15)
   let tableHeaderRow = 5;
-  for (let r = 0; r <= Math.min(10, range.e.r); r++) {
+  let colIdxNo = 0;
+  let colIdxNama = 1;
+  let colIdxTanggal = 2;
+  let colIdxRef = 3;
+  let colIdxStatus = 4;
+  let colIdxCso = 5;
+  let colIdxDetail = 6;
+
+  for (let r = 0; r <= Math.min(15, range.e.r); r++) {
     const colA = getCellStr(sheet, 0, r).toUpperCase();
     const colB = getCellStr(sheet, 1, r).toUpperCase();
-    if (colA === 'NO' || colB.includes('NAMA') || colB.includes('EMAIL')) {
+    if (colA === 'NO' || colB.includes('NAMA') || colB.includes('EMAIL') || colB.includes('USER')) {
       tableHeaderRow = r;
+      // Dynamically detect column positions
+      for (let c = 0; c <= range.e.c; c++) {
+        const headerText = getCellStr(sheet, c, r).toUpperCase();
+        if (headerText === 'NO' || headerText === 'NO.') colIdxNo = c;
+        else if (headerText.includes('NAMA') || headerText.includes('EMAIL') || headerText.includes('USER')) colIdxNama = c;
+        else if (headerText.includes('TANGGAL') || headerText.includes('WAKTU')) colIdxTanggal = c;
+        else if (headerText.includes('REFERENSI') || headerText.includes('TIKET') || headerText.includes('SUBJEK')) colIdxRef = c;
+        else if (headerText.includes('STATUS')) colIdxStatus = c;
+        else if (headerText.includes('CSO') || headerText.includes('PETUGAS')) colIdxCso = c;
+        else if (headerText.includes('DETAIL') || headerText.includes('AKSI')) colIdxDetail = c;
+      }
       break;
     }
   }
@@ -249,22 +286,61 @@ export function parseHaiCsoWorkbook(
   const finalizeDraft = (draft: TicketDraft) => {
     if (!draft.nomor_referensi && !draft.subjek && !draft.nama_pengguna) return;
 
-    const cleanRef = cleanTicketReference(draft.nomor_referensi);
+    // Handle multiline cell in nama_pengguna (e.g. Nama \n email \n Satker (kode))
+    let namaPengguna = draft.nama_pengguna.trim();
+    let email = draft.email.trim();
+    let namaSatker = draft.nama_satker.trim();
+    let kodeSatker = draft.kode_satker.trim();
+
+    if (namaPengguna.includes('\n')) {
+      const lines = namaPengguna.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) namaPengguna = lines[0];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.includes('@') && !email) {
+          email = line;
+        } else if (!namaSatker && (line.includes('(') || line.length > 3)) {
+          const parsed = parseSatkerNameAndCode(line);
+          namaSatker = parsed.namaSatker;
+          kodeSatker = parsed.kodeSatker;
+        }
+      }
+    }
+
+    // Handle multiline cell in nomor_referensi (e.g. No. Ref: HAI-xxx \n Subjek text)
+    let noRef = draft.nomor_referensi.trim();
+    let subjek = draft.subjek.trim();
+    if (noRef.includes('\n')) {
+      const lines = noRef.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) noRef = lines[0];
+      if (lines.length > 1 && !subjek) subjek = lines.slice(1).join(' - ');
+    }
+
+    // Handle multiline cell in status (e.g. Menunggu konfirmasi/respons Satker \n Belum ada feedback)
+    let status = draft.status.trim();
+    let statusFeedback = draft.status_feedback.trim();
+    if (status.includes('\n')) {
+      const lines = status.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 0) status = lines[0];
+      if (lines.length > 1 && !statusFeedback) statusFeedback = lines.slice(1).join(' ');
+    }
+
+    const cleanRef = cleanTicketReference(noRef);
     const dateMetrics = extractDateMetrics(draft.tanggal_tiket);
-    const resolvedFeedback = resolveFeedbackStatus(draft.status, draft.detail, draft.status_feedback);
+    const resolvedFeedback = resolveFeedbackStatus(status, draft.detail, statusFeedback);
 
     const ticket: HAICSOTicket = {
       id: cleanRef ? `haicso-${cleanRef.toLowerCase().replace(/[^a-z0-9]/g, '-')}` : `haicso-gen-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       ticket_id: cleanRef || `TIK-${Date.now()}-${records.length + 1}`,
       nomor: draft.nomor || records.length + 1,
-      nama_pengguna: draft.nama_pengguna.trim(),
-      email: draft.email.trim(),
-      nama_satker: draft.nama_satker.trim(),
-      kode_satker: draft.kode_satker.trim(),
+      nama_pengguna: namaPengguna,
+      email: email,
+      nama_satker: namaSatker,
+      kode_satker: kodeSatker,
       tanggal_tiket: draft.tanggal_tiket || dateMetrics.isoDate,
-      nomor_referensi: cleanRef || draft.nomor_referensi,
-      subjek: draft.subjek.trim(),
-      status: draft.status || 'Selesai',
+      nomor_referensi: cleanRef || noRef,
+      subjek: subjek,
+      status: status || 'Selesai',
       status_feedback: resolvedFeedback,
       cso: draft.cso.trim() || 'HAI CSO KPPN',
       detail: draft.detail.trim(),
@@ -280,13 +356,13 @@ export function parseHaiCsoWorkbook(
   };
 
   for (let r = startRow; r <= range.e.r; r++) {
-    const colA = getCellStr(sheet, 0, r);
-    const colB = getCellStr(sheet, 1, r);
-    const colC = getCellStr(sheet, 2, r);
-    const colD = getCellStr(sheet, 3, r);
-    const colE = getCellStr(sheet, 4, r);
-    const colF = getCellStr(sheet, 5, r);
-    const colG = getCellStr(sheet, 6, r);
+    const colA = getCellStr(sheet, colIdxNo, r);
+    const colB = getCellStr(sheet, colIdxNama, r);
+    const colC = getCellStr(sheet, colIdxTanggal, r);
+    const colD = getCellStr(sheet, colIdxRef, r);
+    const colE = getCellStr(sheet, colIdxStatus, r);
+    const colF = getCellStr(sheet, colIdxCso, r);
+    const colG = getCellStr(sheet, colIdxDetail, r);
 
     // Skip totally empty rows
     if (!colA && !colB && !colC && !colD && !colE && !colF && !colG) {
