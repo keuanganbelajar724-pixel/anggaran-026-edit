@@ -28,7 +28,8 @@ import {
   FileText,
   AlertTriangle,
   Layers,
-  Sparkles
+  Sparkles,
+  X
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -49,7 +50,8 @@ import {
   HAICSOUploadBatch,
   HAICSODashboardSettings,
   HAICSOStatsSummary,
-  HAICSOTriwulan
+  HAICSOTriwulan,
+  MasterSatker
 } from '../../types';
 import {
   computeHaiCsoSummary,
@@ -58,21 +60,26 @@ import {
   computeSatkerTicketSummary,
   parseHaiCsoWorkbook,
   mergeHaiCsoTicketsDeduplicated,
-  generateSampleHaiCsoExcelBytes
+  generateSampleHaiCsoExcelBytes,
+  generateInitialHaiCsoData
 } from '../../utils/haiCsoExcelParser';
 import {
   exportHaiCsoAdminPDF,
   exportHaiCsoSatkerPDF
 } from '../../utils/haiCsoExportHelper';
 import { HaiCsoTicketDetailModal } from './HaiCsoTicketDetailModal';
+import { HaiCsoDrilldownModal, HaiCsoDrilldownType } from './HaiCsoDrilldownModal';
 
 interface HaiCsoAdminDashboardProps {
   tickets: HAICSOTicket[];
   batches: HAICSOUploadBatch[];
   settings: HAICSODashboardSettings;
+  masterSatkers?: MasterSatker[];
   onUpdateTickets: (newTickets: HAICSOTicket[], newBatches: HAICSOUploadBatch[]) => void;
   onUpdateSettings: (newSettings: HAICSODashboardSettings) => void;
   isDark?: boolean;
+  viewMode?: 'full' | 'upload_only';
+  defaultSubTab?: 'monitoring' | 'upload' | 'history' | 'settings';
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -86,11 +93,32 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
   tickets,
   batches,
   settings,
+  masterSatkers = [],
   onUpdateTickets,
   onUpdateSettings,
-  isDark = false
+  isDark = false,
+  viewMode = 'full',
+  defaultSubTab
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'monitoring' | 'upload' | 'history' | 'settings'>('monitoring');
+  const initialSubTab = defaultSubTab || (viewMode === 'upload_only' ? 'upload' : 'monitoring');
+  const [activeSubTab, setActiveSubTab] = useState<'monitoring' | 'upload' | 'history' | 'settings'>(initialSubTab);
+
+  // Global Action Notification Banner
+  const [globalNotice, setGlobalNotice] = useState<{
+    show: boolean;
+    type: 'success' | 'warning' | 'info';
+    message: string;
+  }>({ show: false, type: 'info', message: '' });
+
+  // In-Component Confirmation Modal for Safe Action Handling
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    actionType: 'delete_batch' | 'clear_all' | 'reset_sample';
+    targetBatchId?: string;
+  } | null>(null);
 
   // Filter States
   const [filterYear, setFilterYear] = useState<string>('ALL');
@@ -111,6 +139,7 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
 
   // Modal & Selection State
   const [selectedTicket, setSelectedTicket] = useState<HAICSOTicket | null>(null);
+  const [drilldownType, setDrilldownType] = useState<HaiCsoDrilldownType | null>(null);
 
   // Pagination for main table
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -391,6 +420,48 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
     setCurrentPage(1);
   };
 
+  // Helper to apply filter from drilldown modal
+  const handleApplyDrilldownFilter = (filterType: string, value: string) => {
+    setCurrentPage(1);
+    if (filterType === 'status') {
+      setFilterStatus(value);
+    } else if (filterType === 'feedback') {
+      setFilterFeedback(value);
+    } else if (filterType === 'user') {
+      setFilterUser(value);
+    } else if (filterType === 'email') {
+      setFilterEmail(value);
+    } else if (filterType === 'satker') {
+      setFilterSatker(value);
+    } else if (filterType === 'reset') {
+      handleResetFilters();
+    }
+  };
+
+  // Analisis Satker Bertiket vs Belum Pernah Buat Tiket
+  const satkerAnalysis = useMemo(() => {
+    const withTicketCodes = new Set<string>();
+    const withTicketNames = new Set<string>();
+    tickets.forEach(t => {
+      if (t.kode_satker) withTicketCodes.add(t.kode_satker.trim());
+      if (t.nama_satker) withTicketNames.add(t.nama_satker.trim().toLowerCase());
+    });
+
+    const sourceMaster = masterSatkers && masterSatkers.length > 0 ? masterSatkers : [];
+    const belumBertiket = sourceMaster.filter(m => {
+      const code = (m.kodeSatker || '').trim();
+      const name = (m.namaSatker || '').trim().toLowerCase();
+      return !withTicketCodes.has(code) && !withTicketNames.has(name);
+    });
+
+    return {
+      totalMaster: sourceMaster.length,
+      bertiketCount: summary.totalSatkers,
+      belumBertiketCount: belumBertiket.length,
+      belumBertiketList: belumBertiket
+    };
+  }, [tickets, masterSatkers, summary.totalSatkers]);
+
   // PDF Export Handlers
   const handleDownloadAdminPDF = () => {
     const activeFiltersList = [
@@ -491,10 +562,19 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
       })
     }).catch(e => console.warn('Server upload sync fallback:', e));
 
-    alert(`Upload berhasil! ${insertedCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui.`);
+    setGlobalNotice({
+      show: true,
+      type: 'success',
+      message: `Upload berhasil! ${insertedCount} tiket baru ditambahkan, ${updatedCount} tiket diperbarui.`
+    });
+    setTimeout(() => setGlobalNotice({ show: false, type: 'info', message: '' }), 4000);
     setUploadFile(null);
     setParsedPreview(null);
-    setActiveSubTab('monitoring');
+    if (viewMode === 'upload_only') {
+      setActiveSubTab('history');
+    } else {
+      setActiveSubTab('monitoring');
+    }
   };
 
   // Save Settings Handler
@@ -520,17 +600,99 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
     setTimeout(() => setSettingsSavedNotice(false), 3000);
   };
 
-  // Delete batch handler
+  // Delete batch handler with in-app confirmation modal
   const handleDeleteBatch = (batchId: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus batch upload ini? Tiket yang terkait dengan batch ini akan dihapus.')) {
-      return;
+    const target = batches.find(b => b.id === batchId);
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Batch Upload HAICSO?',
+      message: `Apakah Anda yakin ingin menghapus batch "${target?.file_name || batchId}"? Seluruh rekaman tiket terkait batch ini akan dihapus dari sistem.`,
+      confirmText: 'Ya, Hapus Batch',
+      actionType: 'delete_batch',
+      targetBatchId: batchId
+    });
+  };
+
+  // Clear all HAICSO data handler
+  const handleClearAllHaiCso = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Kosongkan Seluruh Data HAICSO?',
+      message: `Apakah Anda yakin ingin menghapus seluruh tiket HAICSO (${tickets.length} tiket) dan ${batches.length} riwayat batch upload? Seluruh data contoh akan dihapus total sehingga Anda dapat mengunggah file data asli dari awal. Tindakan ini tidak dapat dibatalkan.`,
+      confirmText: 'Ya, Kosongkan Seluruh Data',
+      actionType: 'clear_all'
+    });
+  };
+
+  // Reset to initial sample data
+  const handleResetSampleHaiCso = () => {
+    try {
+      const initial = generateInitialHaiCsoData(masterSatkers);
+      onUpdateTickets(initial.records, [initial.batch]);
+      localStorage.setItem('kppn_haicso_tickets', JSON.stringify(initial.records));
+      localStorage.setItem('kppn_haicso_batches', JSON.stringify([initial.batch]));
+      
+      setGlobalNotice({
+        show: true,
+        type: 'success',
+        message: 'Data contoh simulasi HAICSO berhasil dimuat kembali!'
+      });
+      setTimeout(() => setGlobalNotice({ show: false, type: 'info', message: '' }), 4000);
+    } catch (e) {
+      console.warn('Error reloading sample HAICSO:', e);
+    }
+  };
+
+  // Execute confirmed modal action
+  const executeModalConfirm = async () => {
+    if (!confirmModal) return;
+
+    if (confirmModal.actionType === 'delete_batch' && confirmModal.targetBatchId) {
+      const batchId = confirmModal.targetBatchId;
+      const target = batches.find(b => b.id === batchId);
+      const updatedBatches = batches.filter(b => b.id !== batchId);
+      let updatedTickets: HAICSOTicket[] = [];
+      if (updatedBatches.length === 0) {
+        updatedTickets = [];
+      } else {
+        updatedTickets = tickets.filter(t => t.upload_batch_id !== batchId);
+      }
+
+      onUpdateTickets(updatedTickets, updatedBatches);
+      try {
+        localStorage.setItem('kppn_haicso_tickets', JSON.stringify(updatedTickets));
+        localStorage.setItem('kppn_haicso_batches', JSON.stringify(updatedBatches));
+        await fetch(`/api/haicso/batch/${batchId}`, { method: 'DELETE' });
+      } catch (e) {
+        console.warn('Batch delete server error:', e);
+      }
+
+      setGlobalNotice({
+        show: true,
+        type: 'success',
+        message: `Batch "${target?.file_name || batchId}" dan seluruh tiket terkait berhasil dihapus.`
+      });
+      setTimeout(() => setGlobalNotice({ show: false, type: 'info', message: '' }), 4000);
+    } else if (confirmModal.actionType === 'clear_all') {
+      onUpdateTickets([], []);
+      try {
+        localStorage.setItem('kppn_haicso_tickets', JSON.stringify([]));
+        localStorage.setItem('kppn_haicso_batches', JSON.stringify([]));
+        await fetch('/api/haicso/all', { method: 'DELETE' });
+      } catch (e) {
+        console.warn('Clear all HAICSO error:', e);
+      }
+
+      setGlobalNotice({
+        show: true,
+        type: 'success',
+        message: 'Seluruh basis data HAICSO berhasil dikosongkan! Anda dapat langsung mengunggah file data asli di tab "Upload Excel".'
+      });
+      setTimeout(() => setGlobalNotice({ show: false, type: 'info', message: '' }), 4500);
+      setActiveSubTab('upload');
     }
 
-    const updatedBatches = batches.filter(b => b.id !== batchId);
-    const updatedTickets = tickets.filter(t => t.upload_batch_id !== batchId);
-    onUpdateTickets(updatedTickets, updatedBatches);
-
-    fetch(`/api/haicso/batch/${batchId}`, { method: 'DELETE' }).catch(e => console.warn(e));
+    setConfirmModal(null);
   };
 
   return (
@@ -538,17 +700,19 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
       {/* Subtabs Navigation Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          <button
-            onClick={() => setActiveSubTab('monitoring')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'monitoring'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Monitoring & Analisis</span>
-          </button>
+          {viewMode !== 'upload_only' && (
+            <button
+              onClick={() => setActiveSubTab('monitoring')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                activeSubTab === 'monitoring'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Monitoring & Analisis</span>
+            </button>
+          )}
 
           <button
             onClick={() => setActiveSubTab('upload')}
@@ -574,21 +738,34 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
             <span>Riwayat Upload ({batches.length})</span>
           </button>
 
-          <button
-            onClick={() => setActiveSubTab('settings')}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              activeSubTab === 'settings'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <Settings className="w-4 h-4" />
-            <span>Pengaturan Dashboard</span>
-          </button>
+          {viewMode !== 'upload_only' && (
+            <button
+              onClick={() => setActiveSubTab('settings')}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                activeSubTab === 'settings'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Pengaturan Dashboard</span>
+            </button>
+          )}
         </div>
 
         {/* Global Action Buttons */}
-        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {tickets.length > 0 && (
+            <button
+              onClick={handleClearAllHaiCso}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 border border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300 transition-colors shadow-2xs cursor-pointer"
+              title="Kosongkan seluruh data tiket dan batch untuk upload data asli"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Kosongkan Data HAICSO</span>
+            </button>
+          )}
+
           <button
             onClick={handleDownloadSampleExcel}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
@@ -598,49 +775,102 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
             <span>Contoh Excel</span>
           </button>
 
-          <button
-            onClick={handleDownloadBelumSelesaiPDF}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>PDF Belum Selesai</span>
-          </button>
+          {viewMode !== 'upload_only' && (
+            <>
+              <button
+                onClick={handleDownloadBelumSelesaiPDF}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 hover:bg-amber-100 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>PDF Belum Selesai</span>
+              </button>
 
-          <button
-            onClick={handleDownloadAdminPDF}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download PDF Lengkap</span>
-          </button>
+              <button
+                onClick={handleDownloadAdminPDF}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download PDF Lengkap</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* GLOBAL ACTION NOTICE BANNER */}
+      {globalNotice.show && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold transition-all shadow-sm ${
+          globalNotice.type === 'success'
+            ? 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+            : globalNotice.type === 'warning'
+            ? 'bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-200'
+            : 'bg-blue-50 dark:bg-blue-950/60 border border-blue-300 dark:border-blue-800 text-blue-800 dark:text-blue-200'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {globalNotice.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            )}
+            <span>{globalNotice.message}</span>
+          </div>
+          <button
+            onClick={() => setGlobalNotice({ show: false, type: 'info', message: '' })}
+            className="p-1 rounded-lg hover:bg-black/5 text-slate-400 hover:text-slate-600"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* SUBTAB 1: MONITORING & ANALISIS */}
       {/* ========================================================================= */}
       {activeSubTab === 'monitoring' && (
         <div className="space-y-6">
-          {/* Top 9 Statistics Cards Grid */}
+          {/* Top 10 Interactive Statistics Cards Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
             {/* 1. Total Tiket */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Total Tiket
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('total_tiket')}
+              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-500/60 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat rincian seluruh tiket"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Total Tiket
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
                   {summary.totalTickets}
                 </span>
                 <span className="text-[11px] text-slate-500">Tiket</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+                <span>Klik untuk lihat semua tiket</span>
+              </div>
+            </button>
 
             {/* 2. Selesai */}
-            <div className="p-4 rounded-2xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 shadow-sm">
-              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
-                Selesai (IKU)
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('selesai')}
+              className="p-4 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat rincian tiket yang sudah selesai"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                  Selesai (IKU)
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-300">
                   {summary.selesaiCount}
@@ -649,98 +879,218 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
                   ({summary.persenSelesai}%)
                 </span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <span>Target IKU: {settings.target_selesai_persen || 90}%</span>
+              </div>
+            </button>
 
             {/* 3. Menunggu Respons Satker */}
-            <div className="p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 shadow-sm">
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
-                Menunggu Satker
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('menunggu_satker')}
+              className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/60 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat mana saja tiket yang menunggu konfirmasi satker"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+                  Menunggu Satker
+                </span>
+                <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400 group-hover:underline">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-amber-700 dark:text-amber-300">
                   {summary.menungguSatkerCount}
                 </span>
                 <span className="text-[11px] text-slate-500">Tiket</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                <span>Perlu respon / data satker</span>
+              </div>
+            </button>
 
             {/* 4. Belum Ada Feedback */}
-            <div className="p-4 rounded-2xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 shadow-sm">
-              <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
-                Belum Feedback
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('belum_feedback')}
+              className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 shadow-sm hover:shadow-md hover:border-rose-400 dark:hover:border-rose-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat mana saja tiket yang belum feedback"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+                  Belum Feedback
+                </span>
+                <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 group-hover:underline">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-rose-700 dark:text-rose-300">
                   {summary.belumFeedbackCount}
                 </span>
                 <span className="text-[11px] text-slate-500">Tiket</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <span>Satker belum isi ulasan</span>
+              </div>
+            </button>
 
             {/* 5. Menunggu Respon KPPN */}
-            <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 shadow-sm">
-              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider block">
-                Menunggu KPPN
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('menunggu_kppn')}
+              className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat mana saja tiket yang sedang diproses KPPN"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider block">
+                  Menunggu KPPN
+                </span>
+                <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 group-hover:underline">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-blue-700 dark:text-blue-300">
                   {summary.menungguKppnCount}
                 </span>
                 <span className="text-[11px] text-slate-500">Tiket</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                <span>Antrean tindak lanjut FO/CSO</span>
+              </div>
+            </button>
 
             {/* 6. Kirim ke HAI */}
-            <div className="p-4 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 shadow-sm">
-              <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider block">
-                Kirim ke HAI
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('kirim_hai')}
+              className="p-4 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 shadow-sm hover:shadow-md hover:border-purple-400 dark:hover:border-purple-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat mana saja tiket yang dieskalasi ke HAI Pusat"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider block">
+                  Kirim ke HAI
+                </span>
+                <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400 group-hover:underline">
+                  Rincian ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-purple-700 dark:text-purple-300">
                   {summary.kirimHaiCount}
                 </span>
                 <span className="text-[11px] text-slate-500">Tiket</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-purple-600 dark:text-purple-400 flex items-center gap-1">
+                <span>Eskalasi kantor pusat</span>
+              </div>
+            </button>
 
             {/* 7. Total Pengguna */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Total Pengguna
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('total_pengguna')}
+              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-amber-400 dark:hover:border-amber-500/60 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat daftar pemohon / pengguna tiket"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Total Pengguna
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  Daftar ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
                   {summary.totalUsers}
                 </span>
                 <span className="text-[11px] text-slate-500">Orang</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+                <span>Pemohon aktif berkonsultasi</span>
+              </div>
+            </button>
 
             {/* 8. Total Email */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Total Email
-              </span>
+            <button
+              type="button"
+              onClick={() => setDrilldownType('total_email')}
+              className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500/60 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat daftar akun email pengirim tiket"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Total Email
+                </span>
+                <span className="text-[10px] font-semibold text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  Daftar ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
                   {summary.totalEmails}
                 </span>
                 <span className="text-[11px] text-slate-500">Akun</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-slate-400 flex items-center gap-1">
+                <span>Akun email terdaftar</span>
+              </div>
+            </button>
 
-            {/* 9. Total Satker */}
-            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm col-span-2 sm:col-span-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Total Satker
-              </span>
+            {/* 9. Satker Bertiket */}
+            <button
+              type="button"
+              onClick={() => setDrilldownType('satker_bertiket')}
+              className="p-4 rounded-2xl bg-emerald-50/40 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/60 shadow-sm hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat daftar satker yang memiliki tiket"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">
+                  Satker Bertiket
+                </span>
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                  Daftar ↗
+                </span>
+              </div>
               <div className="flex items-baseline gap-1.5 mt-1.5">
                 <span className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">
                   {summary.totalSatkers}
                 </span>
                 <span className="text-[11px] text-slate-500">Satker</span>
               </div>
-            </div>
+              <div className="mt-2 text-[10px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <span>Satker yang pernah niket</span>
+              </div>
+            </button>
+
+            {/* 10. Satker Belum Bertiket */}
+            <button
+              type="button"
+              onClick={() => setDrilldownType('satker_belum_tiket')}
+              className="p-4 rounded-2xl bg-rose-50/40 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/60 shadow-sm hover:shadow-md hover:border-rose-400 dark:hover:border-rose-500/70 transition-all duration-200 text-left cursor-pointer group relative overflow-hidden"
+              title="Klik untuk melihat analisis satker yang belum pernah membuat tiket"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wider block">
+                  Belum Buat Tiket
+                </span>
+                <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 group-hover:underline">
+                  Analisis ↗
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1.5 mt-1.5">
+                <span className="text-2xl font-extrabold text-rose-700 dark:text-rose-300">
+                  {satkerAnalysis.belumBertiketCount}
+                </span>
+                <span className="text-[11px] text-slate-500">Satker</span>
+              </div>
+              <div className="mt-2 text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                <span>Belum pernah niket (0 tiket)</span>
+              </div>
+            </button>
           </div>
 
           {/* IKU Indicator Card */}
@@ -1561,7 +1911,7 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'history' && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <History className="w-4 h-4 text-amber-500" />
@@ -1570,6 +1920,24 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
               <p className="text-xs text-slate-500 mt-0.5">
                 Daftar file Excel yang pernah diunggah beserta statistik rekonsiliasi tiket
               </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                {batches.length} Batch ({tickets.length} Tiket)
+              </span>
+
+              {tickets.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllHaiCso}
+                  className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                  title="Kosongkan seluruh data tiket HAICSO agar siap upload data asli"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Kosongkan Seluruh Data HAICSO</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1591,8 +1959,26 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {batches.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-400">
-                      Belum ada riwayat batch upload.
+                    <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <div className="max-w-md mx-auto space-y-2">
+                        <History className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
+                        <p className="font-bold text-slate-700 dark:text-slate-200 text-sm">
+                          Basis Data HAICSO Kosong
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Seluruh batch dan tiket telah dibersihkan. Anda sekarang dapat beralih ke subtab <strong>"Upload Excel"</strong> untuk mengunggah berkas data asli Anda.
+                        </p>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveSubTab('upload')}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>Buka Form Upload Excel</span>
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -1608,8 +1994,9 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
                       <td className="py-2 px-3 text-slate-600 dark:text-slate-400">{b.uploaded_by}</td>
                       <td className="py-2 px-3 text-center">
                         <button
+                          type="button"
                           onClick={() => handleDeleteBatch(b.id)}
-                          className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors"
+                          className="p-1 rounded text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 transition-colors cursor-pointer"
                           title="Hapus batch ini"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1720,6 +2107,60 @@ export const HaiCsoAdminDashboard: React.FC<HaiCsoAdminDashboardProps> = ({
           ticket={selectedTicket}
           onClose={() => setSelectedTicket(null)}
         />
+      )}
+
+      {/* Interactive Drilldown Modal for Detailed Metrics */}
+      {drilldownType && (
+        <HaiCsoDrilldownModal
+          type={drilldownType}
+          onClose={() => setDrilldownType(null)}
+          tickets={tickets}
+          masterSatkers={masterSatkers}
+          onSelectTicket={(ticket) => setSelectedTicket(ticket)}
+          onApplyFilter={handleApplyDrilldownFilter}
+          isDark={isDark}
+        />
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal && confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="flex items-start gap-3.5">
+              <div className="p-3 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                  {confirmModal.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {confirmModal.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={executeModalConfirm}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{confirmModal.confirmText}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

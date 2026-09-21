@@ -338,19 +338,6 @@ export const UploadRekonsiliasiSection: React.FC<UploadRekonsiliasiSectionProps>
               <span>Unduh Contoh Excel</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleLoadSample}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                isDark
-                  ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-emerald-400'
-                  : 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 text-emerald-800'
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Muat Data Contoh (127)</span>
-            </button>
-
             {records.length > 0 && (
               <button
                 type="button"

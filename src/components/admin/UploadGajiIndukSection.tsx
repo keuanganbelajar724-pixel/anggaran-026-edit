@@ -9,6 +9,7 @@ import {
 import {
   parseMonitoringGajiWorkbook,
   generateSampleGajiIndukExcel,
+  generateInitialGajiIndukData,
   formatPeriodeGaji,
   REQUIRED_GAJI_HEADERS
 } from '../../utils/gajiIndukExcelParser';
@@ -26,24 +27,45 @@ import {
   Layers,
   ArrowRight,
   Info,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 interface UploadGajiIndukSectionProps {
   records: SPMGajiRecord[];
   uploads: SPMGajiUploadBatch[];
-  masterSatkers: MasterSatker[];
-  onUploadSuccess: (newRecords: SPMGajiRecord[], newBatch: SPMGajiUploadBatch) => void;
+  masterSatkers?: MasterSatker[];
+  onApplyRecords?: (newRecords: SPMGajiRecord[], newUploads: SPMGajiUploadBatch[]) => void;
+  onUploadSuccess?: (newRecords: SPMGajiRecord[], newBatch: SPMGajiUploadBatch) => void;
+  onClearRecords?: () => void;
   onDeleteBatch?: (batchId: string) => void;
+  requestConfirm?: (
+    title: string,
+    message: string,
+    onConfirm: () => void | Promise<void>,
+    options?: {
+      confirmText?: string;
+      cancelText?: string;
+      variant?: 'danger' | 'warning' | 'info' | 'success';
+      iconType?: 'trash' | 'warning' | 'shield' | 'check' | 'info' | 'sparkles' | 'reload';
+    }
+  ) => void;
+  showToast?: (opts: { type: 'success' | 'error' | 'warning' | 'info'; title?: string; message: string }) => void;
+  addLog?: (action: string, category: 'AUTH' | 'UPLOAD' | 'SETTINGS' | 'ANNOUNCEMENT', details: string, status?: 'SUCCESS' | 'WARNING' | 'INFO') => void;
   isDark?: boolean;
 }
 
 export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
   records,
   uploads,
-  masterSatkers,
+  masterSatkers = [],
+  onApplyRecords,
   onUploadSuccess,
+  onClearRecords,
   onDeleteBatch,
+  requestConfirm,
+  showToast,
+  addLog,
   isDark = false
 }) => {
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -53,6 +75,16 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
     batch: SPMGajiUploadBatch;
     records: SPMGajiRecord[];
     warnings: string[];
+  } | null>(null);
+
+  // Fallback in-component confirmation modal
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    variant: 'danger' | 'warning' | 'info';
+    onConfirm: () => void;
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -93,8 +125,123 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
 
   const handleConfirmSave = () => {
     if (!parsedPreview) return;
-    onUploadSuccess(parsedPreview.records, parsedPreview.batch);
+    const newUploads = [parsedPreview.batch, ...uploads.filter(u => u.id !== parsedPreview.batch.id)];
+    const existingMap = new Map<string, SPMGajiRecord>();
+    records.forEach(r => existingMap.set(r.id, r));
+    parsedPreview.records.forEach(r => existingMap.set(r.id, r));
+    const mergedRecords = Array.from(existingMap.values());
+
+    if (onApplyRecords) {
+      onApplyRecords(mergedRecords, newUploads);
+    } else if (onUploadSuccess) {
+      onUploadSuccess(parsedPreview.records, parsedPreview.batch);
+    }
+
+    showToast?.({
+      type: 'success',
+      title: 'Batch Berhasil Disimpan',
+      message: `${parsedPreview.records.length} data SPM dari "${parsedPreview.batch.filename}" berhasil diterapkan.`
+    });
+    addLog?.('UPLOAD_GAJI_INDUK', 'UPLOAD', `Upload file Gaji Induk: ${parsedPreview.batch.filename} (${parsedPreview.records.length} SPM)`, 'SUCCESS');
     setParsedPreview(null);
+  };
+
+  const handleDeleteBatch = (batchId: string) => {
+    const target = uploads.find(b => b.id === batchId);
+    const fname = target?.filename || batchId;
+
+    const doDelete = () => {
+      const remainingUploads = uploads.filter(b => b.id !== batchId);
+      const remainingRecords = records.filter(r => {
+        if (r.uploadBatchId && r.uploadBatchId === batchId) return false;
+        if (target && r.periodeKey === target.periodeKey && r.jenisGaji === target.jenisGaji) return false;
+        return true;
+      });
+
+      if (onApplyRecords) {
+        onApplyRecords(remainingRecords, remainingUploads);
+      }
+      if (onDeleteBatch) {
+        onDeleteBatch(batchId);
+      }
+      if (remainingUploads.length === 0 && onClearRecords) {
+        onClearRecords();
+      }
+
+      showToast?.({
+        type: 'success',
+        title: 'Batch Berhasil Dihapus',
+        message: `Batch "${fname}" dan seluruh data SPM terkait telah dihapus.`
+      });
+      addLog?.('HAPUS_BATCH_GAJI', 'UPLOAD', `Hapus batch Gaji Induk: ${fname}`, 'WARNING');
+      setConfirmDialog(null);
+    };
+
+    if (requestConfirm) {
+      requestConfirm(
+        'Hapus Batch Monitoring Gaji?',
+        `Apakah Anda yakin ingin menghapus batch "${fname}"? Seluruh rekaman SPM pada batch ini akan dihapus dari sistem.`,
+        doDelete,
+        { confirmText: 'Ya, Hapus Batch', variant: 'danger', iconType: 'trash' }
+      );
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Hapus Batch Monitoring Gaji?',
+        message: `Apakah Anda yakin ingin menghapus batch "${fname}"? Seluruh rekaman SPM pada batch ini akan dihapus dari sistem.`,
+        confirmText: 'Ya, Hapus Batch',
+        variant: 'danger',
+        onConfirm: doDelete
+      });
+    }
+  };
+
+  const handleClearAll = () => {
+    const doClear = () => {
+      if (onClearRecords) {
+        onClearRecords();
+      } else if (onApplyRecords) {
+        onApplyRecords([], []);
+      }
+      showToast?.({
+        type: 'warning',
+        title: 'Database Gaji Induk Dikosongkan',
+        message: 'Seluruh rekaman data SPM Gaji Induk dan riwayat batch telah berhasil dikosongkan. Anda kini dapat mengunggah file data asli.'
+      });
+      addLog?.('CLEAR_GAJI_INDUK', 'UPLOAD', 'Mengosongkan seluruh database Monitoring SPM Gaji Induk', 'WARNING');
+      setConfirmDialog(null);
+    };
+
+    if (requestConfirm) {
+      requestConfirm(
+        'Kosongkan Database SPM Gaji Induk?',
+        `Seluruh data monitoring SPM Gaji Induk (${records.length} SPM) dan ${uploads.length} batch upload akan dihapus total agar Anda dapat mengunggah data asli dari awal. Tindakan ini tidak dapat dibatalkan.`,
+        doClear,
+        { confirmText: 'Ya, Kosongkan Semua', variant: 'danger', iconType: 'trash' }
+      );
+    } else {
+      setConfirmDialog({
+        isOpen: true,
+        title: 'Kosongkan Database SPM Gaji Induk?',
+        message: `Seluruh data monitoring SPM Gaji Induk (${records.length} SPM) dan ${uploads.length} batch upload akan dihapus total agar Anda dapat mengunggah data asli dari awal. Tindakan ini tidak dapat dibatalkan.`,
+        confirmText: 'Ya, Kosongkan Semua',
+        variant: 'danger',
+        onConfirm: doClear
+      });
+    }
+  };
+
+  const handleReloadSampleData = () => {
+    const initial = generateInitialGajiIndukData(masterSatkers || []);
+    if (onApplyRecords) {
+      onApplyRecords(initial.records, initial.batches);
+    }
+    showToast?.({
+      type: 'info',
+      title: 'Data Contoh Dimuat',
+      message: 'Data contoh monitoring SPM Gaji Induk berhasil dimuat kembali.'
+    });
+    addLog?.('RESET_SAMPLE_GAJI', 'UPLOAD', 'Memuat ulang data contoh SPM Gaji Induk', 'INFO');
   };
 
   const handleDownloadSample = (periode: string, jenis: GajiIndukJenis) => {
@@ -221,7 +368,7 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
 
       {/* RIWAYAT BATCH UPLOAD GAJI INDUK */}
       <div className={`rounded-2xl border shadow-sm overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h4 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2">
               <Clock className="w-4 h-4 text-emerald-600" />
@@ -231,9 +378,24 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
               Daftar file Excel yang telah tersimpan dalam basis data sistem.
             </p>
           </div>
-          <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-            {uploads.length} Batch Tersimpan
-          </span>
+          
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {uploads.length} Batch ({records.length} SPM)
+            </span>
+
+            {records.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                title="Kosongkan seluruh data SPM Gaji Induk agar siap upload data asli"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Kosongkan Database Gaji Induk</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -246,14 +408,17 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
                 <th className="py-3 px-3.5 text-center">Jumlah SPM</th>
                 <th className="py-3 px-3.5 text-center">Satker Terdata</th>
                 <th className="py-3 px-3.5">Waktu Upload</th>
-                <th className="py-3 px-3.5 text-center">Aksi</th>
+                <th className="py-3 px-3.5 text-center w-20">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
               {uploads.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400 text-xs">
-                    Belum ada batch upload Excel Gaji Induk.
+                    <div className="max-w-sm mx-auto space-y-1">
+                      <p className="font-semibold text-slate-600 dark:text-slate-300">Belum ada batch upload Excel Gaji Induk.</p>
+                      <p className="text-[11px] text-slate-400">Database saat ini kosong dan siap menerima unggahan berkas Excel data asli Anda melalui kotak dropzone di atas.</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -285,19 +450,14 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
                       {new Date(batch.uploadedAt).toLocaleString('id-ID')}
                     </td>
                     <td className="py-3 px-3.5 text-center">
-                      {onDeleteBatch && (
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Hapus batch "${batch.filename}" (${batch.periode})? Seluruh record SPM di batch ini akan dibatalkan.`)) {
-                              onDeleteBatch(batch.id);
-                            }
-                          }}
-                          className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-all cursor-pointer"
-                          title="Hapus Batch"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBatch(batch.id)}
+                        className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/60 transition-all cursor-pointer"
+                        title={`Hapus batch "${batch.filename}" (${batch.periode})`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -380,6 +540,49 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Simpan &amp; Terapkan ke Monitoring</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FALLBACK IN-COMPONENT CONFIRMATION MODAL */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className={`w-full max-w-md rounded-2xl border shadow-2xl p-6 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 space-y-1">
+                <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                  {confirmDialog.title}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  {confirmDialog.message}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{confirmDialog.confirmText}</span>
               </button>
             </div>
           </div>

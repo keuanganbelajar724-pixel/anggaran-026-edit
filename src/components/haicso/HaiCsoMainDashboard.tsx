@@ -11,7 +11,8 @@ import {
 import {
   HAICSOTicket,
   HAICSOUploadBatch,
-  HAICSODashboardSettings
+  HAICSODashboardSettings,
+  MasterSatker
 } from '../../types';
 import { HaiCsoAdminDashboard } from './HaiCsoAdminDashboard';
 import { HaiCsoSatkerDashboard } from './HaiCsoSatkerDashboard';
@@ -21,6 +22,7 @@ interface HaiCsoMainDashboardProps {
   tickets: HAICSOTicket[];
   batches: HAICSOUploadBatch[];
   settings: HAICSODashboardSettings;
+  masterSatkers?: MasterSatker[];
   onUpdateTickets: (newTickets: HAICSOTicket[], newBatches: HAICSOUploadBatch[]) => void;
   onUpdateSettings: (newSettings: HAICSODashboardSettings) => void;
   isDark?: boolean;
@@ -31,6 +33,7 @@ export const HaiCsoMainDashboard: React.FC<HaiCsoMainDashboardProps> = ({
   tickets,
   batches,
   settings,
+  masterSatkers = [],
   onUpdateTickets,
   onUpdateSettings,
   isDark = false
@@ -107,6 +110,7 @@ export const HaiCsoMainDashboard: React.FC<HaiCsoMainDashboardProps> = ({
           tickets={tickets}
           batches={batches}
           settings={settings}
+          masterSatkers={masterSatkers}
           onUpdateTickets={onUpdateTickets}
           onUpdateSettings={onUpdateSettings}
           isDark={isDark}

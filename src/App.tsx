@@ -657,42 +657,28 @@ export default function App() {
   // State Rekonsiliasi & Kepatuhan Satker
   const [rekonsiliasiRecords, setRekonsiliasiRecords] = useState<MonitoringRekonsiliasiRecord[]>(() => {
     const saved = localStorage.getItem('kppn_rekonsiliasi_records');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_rekonsiliasi_records:', e);
       }
     }
-    try {
-      const sampleBytes = generateSampleMonitoringKepatuhanExcel();
-      const wb = XLSX.read(sampleBytes, { type: 'array' });
-      const parsed = parseMonitoringRekonsiliasiWorkbook(wb, 'Monitoring Kepatuhan Satker_2026-09-20 06-38.xlsx', 'Data Awal SAKTI');
-      return parsed.records;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const [rekonsiliasiUploads, setRekonsiliasiUploads] = useState<MonitoringRekonsiliasiUploadBatch[]>(() => {
     const saved = localStorage.getItem('kppn_rekonsiliasi_uploads');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_rekonsiliasi_uploads:', e);
       }
     }
-    try {
-      const sampleBytes = generateSampleMonitoringKepatuhanExcel();
-      const wb = XLSX.read(sampleBytes, { type: 'array' });
-      const parsed = parseMonitoringRekonsiliasiWorkbook(wb, 'Monitoring Kepatuhan Satker_2026-09-20 06-38.xlsx', 'Data Awal SAKTI');
-      return [parsed.batch];
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const handleUpdateRekonsiliasi = (
@@ -712,38 +698,28 @@ export default function App() {
   // State Monitoring LPJ Bendahara (Agustus & September 2026)
   const [lpjRecords, setLpjRecords] = useState<MonitoringLPJRecord[]>(() => {
     const saved = localStorage.getItem('kppn_lpj_records');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_lpj_records:', e);
       }
     }
-    try {
-      const initial = generateInitialLPJData(masterSatkers);
-      return initial.records;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const [lpjUploads, setLpjUploads] = useState<LPJUploadBatch[]>(() => {
     const saved = localStorage.getItem('kppn_lpj_uploads');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_lpj_uploads:', e);
       }
     }
-    try {
-      const initial = generateInitialLPJData(masterSatkers);
-      return initial.batches;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const handleUpdateLPJ = (
@@ -763,38 +739,28 @@ export default function App() {
   // State Monitoring SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus 2026)
   const [gajiIndukRecords, setGajiIndukRecords] = useState<SPMGajiRecord[]>(() => {
     const saved = localStorage.getItem('kppn_gaji_induk_records');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_gaji_induk_records:', e);
       }
     }
-    try {
-      const initial = generateInitialGajiIndukData(masterSatkers);
-      return initial.records;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const [gajiIndukUploads, setGajiIndukUploads] = useState<SPMGajiUploadBatch[]>(() => {
     const saved = localStorage.getItem('kppn_gaji_induk_uploads');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_gaji_induk_uploads:', e);
       }
     }
-    try {
-      const initial = generateInitialGajiIndukData(masterSatkers);
-      return initial.batches;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const handleUpdateGajiInduk = (
@@ -814,38 +780,28 @@ export default function App() {
   // State Monitoring Tiket HAICSO
   const [haicsoTickets, setHaicsoTickets] = useState<HAICSOTicket[]>(() => {
     const saved = localStorage.getItem('kppn_haicso_tickets');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_haicso_tickets:', e);
       }
     }
-    try {
-      const initial = generateInitialHaiCsoData();
-      return initial.records;
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const [haicsoBatches, setHaicsoBatches] = useState<HAICSOUploadBatch[]>(() => {
     const saved = localStorage.getItem('kppn_haicso_batches');
-    if (saved) {
+    if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) {
         console.warn('Error reading kppn_haicso_batches:', e);
       }
     }
-    try {
-      const initial = generateInitialHaiCsoData();
-      return [initial.batch];
-    } catch (e) {
-      return [];
-    }
+    return [];
   });
 
   const [haicsoSettings, setHaicsoSettings] = useState<HAICSODashboardSettings>(() => {
@@ -880,7 +836,7 @@ export default function App() {
         ]);
         if (ticketsRes.ok) {
           const ticketsData = await ticketsRes.json();
-          if (Array.isArray(ticketsData.tickets) && ticketsData.tickets.length > 0) {
+          if (Array.isArray(ticketsData.tickets)) {
             setHaicsoTickets(ticketsData.tickets);
             safeLocalStorageSet('kppn_haicso_tickets', JSON.stringify(ticketsData.tickets));
           }
@@ -894,7 +850,7 @@ export default function App() {
         }
         if (batchesRes.ok) {
           const batchesData = await batchesRes.json();
-          if (Array.isArray(batchesData.batches) && batchesData.batches.length > 0) {
+          if (Array.isArray(batchesData.batches)) {
             setHaicsoBatches(batchesData.batches);
             safeLocalStorageSet('kppn_haicso_batches', JSON.stringify(batchesData.batches));
           }
@@ -3334,6 +3290,7 @@ export default function App() {
                   tickets={haicsoTickets}
                   batches={haicsoBatches}
                   settings={haicsoSettings}
+                  masterSatkers={masterSatkers}
                   onUpdateTickets={handleUpdateHaiCso}
                   onUpdateSettings={handleUpdateHaiCsoSettings}
                   isDark={theme === 'dark'}

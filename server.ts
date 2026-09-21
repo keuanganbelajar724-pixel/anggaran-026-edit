@@ -421,7 +421,11 @@ async function startServer() {
     try {
       const batchId = req.params.id;
       inMemoryHaiCsoBatches = inMemoryHaiCsoBatches.filter(b => b.id !== batchId);
-      inMemoryHaiCsoTickets = inMemoryHaiCsoTickets.filter(t => t.upload_batch_id !== batchId);
+      if (inMemoryHaiCsoBatches.length === 0) {
+        inMemoryHaiCsoTickets = [];
+      } else {
+        inMemoryHaiCsoTickets = inMemoryHaiCsoTickets.filter(t => t.upload_batch_id !== batchId);
+      }
 
       const ticketsPath = path.join(process.cwd(), 'haicso_tickets_generated.json');
       fs.writeFile(ticketsPath, JSON.stringify(inMemoryHaiCsoTickets, null, 2), () => {});
@@ -429,7 +433,30 @@ async function startServer() {
       const batchesPath = path.join(process.cwd(), 'haicso_batches_generated.json');
       fs.writeFile(batchesPath, JSON.stringify(inMemoryHaiCsoBatches, null, 2), () => {});
 
-      res.json({ status: 'ok', message: `Batch ${batchId} deleted` });
+      res.json({
+        status: 'ok',
+        message: `Batch ${batchId} deleted`,
+        remainingBatches: inMemoryHaiCsoBatches.length,
+        remainingTickets: inMemoryHaiCsoTickets.length
+      });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // DELETE /api/haicso/all - Kosongkan database HAICSO total untuk upload data asli
+  app.delete('/api/haicso/all', (_req, res) => {
+    try {
+      inMemoryHaiCsoBatches = [];
+      inMemoryHaiCsoTickets = [];
+
+      const ticketsPath = path.join(process.cwd(), 'haicso_tickets_generated.json');
+      fs.writeFile(ticketsPath, JSON.stringify([], null, 2), () => {});
+
+      const batchesPath = path.join(process.cwd(), 'haicso_batches_generated.json');
+      fs.writeFile(batchesPath, JSON.stringify([], null, 2), () => {});
+
+      res.json({ status: 'ok', message: 'Seluruh data HAICSO berhasil dikosongkan' });
     } catch (e: any) {
       res.status(500).json({ status: 'error', message: e?.message });
     }

@@ -743,21 +743,6 @@ export const RekonsiliasiDashboard: React.FC<RekonsiliasiDashboardProps> = ({
             Excel
           </button>
 
-          {/* Muat Data Contoh / Acceptance Test */}
-          <button
-            onClick={handleLoadSampleTestData}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-              isDark
-                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200'
-                : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700'
-            }`}
-            title="Muat 127 Satker sesuai contoh file (91 Rekon Selesai, 36 Belum, 63 Todolist Selesai, 64 Belum)"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="hidden sm:inline">Data Contoh (127)</span>
-            <span className="sm:hidden">Contoh</span>
-          </button>
-
           {/* Unduh Template / File Contoh */}
           <button
             onClick={handleDownloadSampleExcel}
@@ -1466,7 +1451,7 @@ export const RekonsiliasiDashboard: React.FC<RekonsiliasiDashboardProps> = ({
                   <td colSpan={12} className="p-8 text-center text-slate-400">
                     <Building2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     <p className="font-semibold text-sm">Tidak ada data Satker yang sesuai filter.</p>
-                    <p className="text-xs mt-1">Gunakan tombol "Muat Data Contoh" atau unggah file Excel monitoring.</p>
+                    <p className="text-xs mt-1">Silakan unggah file Excel monitoring melalui menu Admin Upload.</p>
                   </td>
                 </tr>
               ) : (

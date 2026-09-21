@@ -35,6 +35,7 @@ import {
 import {
   parseMonitoringLPJWorkbook,
   generateSampleLPJWorkbookBytes,
+  generateInitialLPJData,
   computeLPJSummary,
   formatRupiah,
   ParseLPJResult
@@ -195,6 +196,7 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
       'Semua data monitoring LPJ dan riwayat upload batch akan dihapus dari aplikasi. Tindakan ini tidak dapat dibatalkan.',
       () => {
         onClearRecords();
+        setPreviewResult(null);
         addLog('CLEAR_LPJ', 'UPLOAD', 'Mengosongkan seluruh database LPJ', 'WARNING');
         showToast({
           type: 'warning',
@@ -208,6 +210,49 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
         iconType: 'trash'
       }
     );
+  };
+
+  // Delete individual batch
+  const handleDeleteBatch = (batchId: string) => {
+    const targetBatch = uploads.find(b => b.id === batchId);
+    if (!targetBatch) return;
+
+    requestConfirm(
+      'Hapus Batch Upload LPJ?',
+      `Apakah Anda yakin ingin menghapus arsip "${targetBatch.filename}" (${targetBatch.periode})? Seluruh data LPJ terkait batch ini akan dihapus.`,
+      () => {
+        const remainingUploads = uploads.filter(b => b.id !== batchId);
+        const remainingRecords = records.filter(r => (r.uploadId ? r.uploadId !== batchId : r.periodeFormatted !== targetBatch.periode));
+        if (remainingUploads.length === 0) {
+          onClearRecords();
+        } else {
+          onApplyRecords(remainingRecords, remainingUploads);
+        }
+        addLog('DELETE_LPJ_BATCH', 'UPLOAD', `Menghapus batch LPJ ${targetBatch.filename}`, 'WARNING');
+        showToast({
+          type: 'info',
+          title: 'Batch Dihapus',
+          message: `Arsip batch "${targetBatch.filename}" berhasil dihapus.`
+        });
+      },
+      {
+        confirmText: 'Ya, Hapus Batch',
+        variant: 'danger',
+        iconType: 'trash'
+      }
+    );
+  };
+
+  // Reload sample LPJ data
+  const handleLoadSample = () => {
+    const initial = generateInitialLPJData(masterSatkers);
+    onApplyRecords(initial.records, initial.batches);
+    addLog('LOAD_SAMPLE_LPJ', 'UPLOAD', 'Memuat kembali data contoh monitoring LPJ (216 satker)', 'INFO');
+    showToast({
+      type: 'success',
+      title: 'Sampel LPJ Dimuat',
+      message: `Data contoh LPJ (${initial.records.length} rekaman) berhasil dimuat kembali.`
+    });
   };
 
   // Filtered preview data
@@ -295,8 +340,8 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
                 </p>
               </div>
 
-              {/* Download Sample Buttons */}
-              <div className="flex items-center gap-2">
+              {/* Action Buttons: Sample, Clear */}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleDownloadSample('Agustus 2026')}
@@ -304,7 +349,7 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
                   title="Unduh file Excel contoh Agustus yang sudah 100% lengkap terkirim"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Sampel Agustus (Lengkap)
+                  Sampel Agustus
                 </button>
                 <button
                   type="button"
@@ -313,8 +358,20 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
                   title="Unduh file Excel contoh September yang 100% belum mengirimkan"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Sampel September (Belum Kirim)
+                  Sampel September
                 </button>
+
+                {records.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClear}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs"
+                    title="Kosongkan seluruh data LPJ untuk persiapan upload data asli"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Kosongkan Database LPJ
+                  </button>
+                )}
               </div>
             </div>
 
@@ -591,11 +648,21 @@ export const UploadLPJSection: React.FC<UploadLPJSectionProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {uploads.map(b => (
                   <div key={b.id} className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-slate-800 dark:text-slate-200 truncate">{b.filename}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                        {b.status}
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                          {b.status}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBatch(b.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                          title={`Hapus arsip batch "${b.filename}"`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="text-slate-500 flex items-center justify-between text-[11px]">
                       <span>Periode: <strong>{b.periode}</strong></span>

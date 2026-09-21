@@ -467,7 +467,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'monitoring-haicso'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3146,21 +3146,6 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <span>18. Monitor Kuota Firebase</span>
           <span className="bg-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
             ⚡ Spark 50k Reads
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('monitoring-haicso')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'monitoring-haicso'
-              ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg shadow-amber-500/25 border border-amber-400/40 ring-2 ring-amber-400/30'
-              : 'text-amber-700 hover:text-amber-900 hover:bg-amber-50 dark:text-amber-300 dark:hover:text-amber-100 dark:hover:bg-amber-950/60 border border-amber-200 dark:border-amber-800/60'
-          }`}
-        >
-          <Ticket className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>19. 🎫 Monitoring Tiket HAICSO</span>
-          <span className="bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {haicsoTickets.length} Tiket
           </span>
         </button>
       </div>
@@ -11025,7 +11010,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   Monitoring Kepatuhan SAKTI: Rekonsiliasi, Todolist, Tutup Periode, SP2S, SP3S.
                 </p>
                 <div className="mt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400">
-                  {rekonsiliasiRecords.length} Satker Terdata
+                  {rekonsiliasiRecords.length > 0 ? `${rekonsiliasiRecords.length} Satker Terdata` : '0 Satker (Kosong - Siap Upload)'}
                 </div>
               </button>
 
@@ -11046,7 +11031,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   Upload Excel LPJ, Analisis Pengiriman (Agustus/September) &amp; Database.
                 </p>
                 <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                  {lpjRecords.length} Satker Terdata
+                  {lpjRecords.length > 0 ? `${lpjRecords.length} Satker Terdata` : '0 Satker (Kosong - Siap Upload)'}
                 </div>
               </button>
 
@@ -11067,7 +11052,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   Monitoring SPM Gaji Induk PNS &amp; PPPK (Juni, Juli, Agustus), Riwayat Bulanan &amp; Validasi Kolom A-AV.
                 </p>
                 <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                  {gajiIndukRecords.length} Record SPM Terdata
+                  {gajiIndukRecords.length > 0 ? `${gajiIndukRecords.length} Record SPM Terdata` : '0 Record (Kosong - Siap Upload)'}
                 </div>
               </button>
 
@@ -11088,7 +11073,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   Upload Excel HAICSO (3 baris = 1 tiket), Analisis Per Triwulan, Filter Pengguna &amp; Respon Satker.
                 </p>
                 <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                  {haicsoTickets.length} Tiket Terdata
+                  {haicsoTickets.length > 0 ? `${haicsoTickets.length} Tiket Terdata` : '0 Tiket (Kosong - Siap Upload)'}
                 </div>
               </button>
             </div>
@@ -11270,6 +11255,15 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               uploads={gajiIndukUploads}
               onApplyRecords={onApplyGajiInduk || (() => {})}
               onClearRecords={onClearGajiInduk || (() => {})}
+              onDeleteBatch={(batchId: string) => {
+                const remUploads = gajiIndukUploads.filter(b => b.id !== batchId);
+                const remRecords = gajiIndukRecords.filter(r => r.uploadBatchId !== batchId);
+                if (remUploads.length === 0) {
+                  onClearGajiInduk?.();
+                } else if (onApplyGajiInduk) {
+                  onApplyGajiInduk(remRecords, remUploads);
+                }
+              }}
               requestConfirm={requestConfirm}
               showToast={showToast}
               addLog={addLog}
@@ -11281,24 +11275,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               tickets={haicsoTickets}
               batches={haicsoBatches}
               settings={haicsoSettings}
+              masterSatkers={masterSatkers}
               onUpdateTickets={onApplyHaiCso || (() => {})}
               onUpdateSettings={onUpdateHaiCsoSettings || (() => {})}
               isDark={isDark}
+              viewMode="upload_only"
+              defaultSubTab="upload"
             />
           )}
-        </div>
-      )}
-
-      {adminTab === 'monitoring-haicso' && (
-        <div className="space-y-6">
-          <HaiCsoAdminDashboard
-            tickets={haicsoTickets}
-            batches={haicsoBatches}
-            settings={haicsoSettings}
-            onUpdateTickets={onApplyHaiCso || (() => {})}
-            onUpdateSettings={onUpdateHaiCsoSettings || (() => {})}
-            isDark={isDark}
-          />
         </div>
       )}
 
