@@ -16,15 +16,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
-  Copy,
-  Check,
   Sparkles,
   ArrowRight,
   BarChart3,
   PieChart as PieIcon,
-  MessageSquare,
   Zap,
-  PhoneCall,
   Activity,
   Layers,
   Award
@@ -52,8 +48,6 @@ export const RekonsiliasiAdminAnalytics: React.FC<RekonsiliasiAdminAnalyticsProp
   onFilterChange,
   activeFilter
 }) => {
-  const [copiedWA, setCopiedWA] = useState(false);
-  const [copiedSatkerWA, setCopiedSatkerWA] = useState<string | null>(null);
   const [chartTab, setChartTab] = useState<'3pilar' | 'bottleneck' | 'kl_distribusi' | 'resiko'>('3pilar');
 
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
@@ -186,48 +180,6 @@ export const RekonsiliasiAdminAnalytics: React.FC<RekonsiliasiAdminAnalyticsProp
     return { riskMatrix: { tinggi, sedang, rendah }, topKritisSatker: topKritis };
   }, [records]);
 
-  // Handle copy text WA tindak lanjut broadcast
-  const handleCopyWA = () => {
-    const text = `*PEMERINTAH KOTA SEMARANG / KPPN SEMARANG I*
-*PEMANTAUAN KEPATUHAN REKONSILIASI & TUTUP PERIODE SAKTI*
-Periode: ${periode}
-Update: ${new Date().toLocaleDateString('id-ID')}
-
-Yth. Kuasa Pengguna Anggaran & Operator Satker Mitra KPPN Semarang I,
-
-Diberitahukan ringkasan kepatuhan SAKTI sbb:
-1. Satker Belum Rekonsiliasi (TDK): ${summary.rekonsiliasiBelumSelesai} Satker
-2. Satker Masih Ada Todolist: ${summary.todolistBelumSelesai} Satker
-3. Satker Belum Tutup Periode: ${summary.belumTutupPeriode} Satker
-
-Mohon satker yang masih memiliki selisih rekon dan data todolist segera menuntaskan sebelum batas akhir agar tidak dikenakan sanksi SP2S / penolakan SPM.
-
-Terima kasih.
-_Seksi Verifikasi dan Akuntansi (Vera) KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedWA(true);
-    setTimeout(() => setCopiedWA(false), 2500);
-  };
-
-  // Handle Copy WA Personal ke Satker
-  const handleCopyPersonalWA = (satker: MonitoringRekonsiliasiRecord) => {
-    const text = `*PEMBERITAHUAN KEPATUHAN REKONSILIASI SAKTI KPPN SEMARANG I*
-Yth. Pengelola Keuangan Satker ${satker.namaSatker} (${satker.kodeSatker}),
-
-Berdasarkan monitoring Aplikasi SAKTI KPPN Semarang I Periode ${periode}, satker Anda tercatat:
-- Rekonsiliasi: ${satker.rekonsiliasiStatus === 'SELESAI' ? '✅ Selesai (SHR)' : '❌ Belum Selesai (TDK)'}
-- Todolist SAKTI: ${satker.todolistStatus === 'SELESAI' ? '✅ Bersih (0)' : '⚠️ Masih Ada Transaksi Todolist'}
-- Tutup Periode GLP: ${satker.tutupPeriodeStatus === 'SUDAH_TUTUP' ? '✅ Sudah Tutup' : '❌ Belum Tutup Periode'}
-
-Mohon bantuan Bapak/Ibu untuk segera menyelesaikan proses di modul terkait sebelum batas waktu agar nilai IKPA tetap maksimal dan tidak terkena sanksi SP2S. Terima kasih.
-_Seksi Vera KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedSatkerWA(satker.kodeSatker);
-    setTimeout(() => setCopiedSatkerWA(null), 2500);
-  };
-
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${bgCard} space-y-6 relative overflow-hidden transition-all duration-300`}>
       {/* Decorative Glow */}
@@ -256,7 +208,7 @@ _Seksi Vera KPPN Semarang I_`;
           </p>
         </div>
 
-        {/* Action: Copy WA Broadcast & Switch View Tabs */}
+        {/* Switch View Tabs */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
@@ -304,15 +256,6 @@ _Seksi Vera KPPN Semarang I_`;
               <span>Matriks Risiko ({riskMatrix.tinggi.length})</span>
             </button>
           </div>
-
-          <button
-            onClick={handleCopyWA}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            title="Salin template pengumuman kepatuhan untuk broadcast WhatsApp"
-          >
-            {copiedWA ? <Check className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-            <span>{copiedWA ? 'Tersalin!' : 'Pesan WA Broadcast'}</span>
-          </button>
         </div>
       </div>
 
@@ -791,12 +734,11 @@ _Seksi Vera KPPN Semarang I_`;
                     </div>
 
                     <button
-                      onClick={() => handleCopyPersonalWA(satker)}
-                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      title="Salin template WhatsApp pengingat untuk satker ini"
+                      onClick={() => onFilterChange('REKON_BELUM')}
+                      className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                     >
-                      {copiedSatkerWA === satker.kodeSatker ? <Check className="w-3 h-3" /> : <PhoneCall className="w-3 h-3" />}
-                      <span>{copiedSatkerWA === satker.kodeSatker ? 'Pesan Disalin!' : 'Kirim WA Satker'}</span>
+                      <span>Lihat Satker di Tabel</span>
+                      <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 ))}

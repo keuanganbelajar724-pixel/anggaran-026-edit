@@ -20,12 +20,10 @@ import {
   PieChart as PieIcon,
   BarChart3,
   Users,
-  Check,
-  MessageSquare,
   AlertTriangle,
   TrendingUp,
   Activity,
-  PhoneCall,
+  ArrowRight,
   Zap,
   Clock,
   Coins,
@@ -55,8 +53,6 @@ export const GajiIndukAdminAnalytics: React.FC<GajiIndukAdminAnalyticsProps> = (
   isDark = false,
   onFilterStatusChange
 }) => {
-  const [copiedWA, setCopiedWA] = useState(false);
-  const [copiedSatkerWA, setCopiedSatkerWA] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'status' | 'komposisi' | 'skala' | 'fluktuasi' | 'watchlist'>('status');
 
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
@@ -153,46 +149,6 @@ export const GajiIndukAdminAnalytics: React.FC<GajiIndukAdminAnalyticsProps> = (
     return { sp2dAda, spmAdaSp2dBelum, belumSpm };
   }, [aggregatedData]);
 
-  // Handle Copy WA Broadcast
-  const handleCopyWA = () => {
-    const text = `*PEMERINTAH KOTA SEMARANG / KPPN SEMARANG I*
-*PENGINGAT PENYAMPAIAN SPM GAJI INDUK PNS & PPPK*
-Periode: ${periode}
-Update: ${new Date().toLocaleDateString('id-ID')}
-
-Yth. Pejabat Penandatangan SPM (PPSPM) & Bendahara Gaji Satker Mitra KPPN Semarang I,
-
-Diberitahukan monitoring penyampaian SPM Gaji Induk:
-- Total Satker Wajib: ${summary.totalSatkerWajib} Satker
-- Sudah Mengajukan SPM: ${summary.sudahKirim} Satker (${persentasePenyampaian}%)
-- Belum Mengajukan: ${summary.belumKirim} Satker
-
-Mengingat batas waktu penerbitan SP2D Gaji Induk tepat waktu sebelum awal bulan berkenaan, kami himbau satker yang belum mengajukan SPM Gaji agar segera memproses pengajuan SPM melalui aplikasi SAKTI.
-
-Terima kasih.
-_Seksi Pencairan Dana (PD) / Seksi Vera KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedWA(true);
-    setTimeout(() => setCopiedWA(false), 2500);
-  };
-
-  // Handle Copy WA Personal ke Satker
-  const handleCopyPersonalWA = (satker: GajiSatkerBulanan) => {
-    const text = `*PEMBERITAHUAN SPM GAJI INDUK KPPN SEMARANG I*
-Yth. Pejabat Penandatangan SPM (PPSPM) Satker ${satker.namaSatker} (${satker.kodeSatker}),
-
-Berdasarkan monitoring Aplikasi SAKTI KPPN Semarang I Periode ${periode}, satker Anda tercatat *BELUM MENGAJUKAN SPM GAJI INDUK* (${satker.jenisGaji}).
-Guna memastikan hak pembayaran gaji pegawai terbit tepat waktu pada awal bulan tanpa kendala penolakan sistem, mohon untuk segera mengunggah ADK SPM Gaji ke KPPN hari ini.
-
-Terima kasih atas kerja samanya.
-_Seksi Pencairan Dana (PD) KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedSatkerWA(satker.kodeSatker);
-    setTimeout(() => setCopiedSatkerWA(null), 2500);
-  };
-
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${bgCard} space-y-6 relative overflow-hidden transition-all duration-300`}>
       <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -220,7 +176,7 @@ _Seksi Pencairan Dana (PD) KPPN Semarang I_`;
           </p>
         </div>
 
-        {/* Tab & WA Buttons */}
+        {/* Tab Buttons */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
@@ -279,15 +235,6 @@ _Seksi Pencairan Dana (PD) KPPN Semarang I_`;
               <span>Belum SPM ({summary.belumKirim})</span>
             </button>
           </div>
-
-          <button
-            onClick={handleCopyWA}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            title="Salin template broadcast WhatsApp untuk pengingat SPM Gaji Induk"
-          >
-            {copiedWA ? <Check className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-            <span>{copiedWA ? 'Tersalin!' : 'Pesan WA Broadcast'}</span>
-          </button>
         </div>
       </div>
 
@@ -636,12 +583,11 @@ _Seksi Pencairan Dana (PD) KPPN Semarang I_`;
                     </div>
 
                     <button
-                      onClick={() => handleCopyPersonalWA(satker)}
-                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      title="Salin template WhatsApp pengingat untuk satker ini"
+                      onClick={() => onFilterStatusChange('BELUM')}
+                      className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                     >
-                      {copiedSatkerWA === satker.kodeSatker ? <Check className="w-3 h-3" /> : <PhoneCall className="w-3 h-3" />}
-                      <span>{copiedSatkerWA === satker.kodeSatker ? 'Pesan Disalin!' : 'Kirim Pengingat WA'}</span>
+                      <span>Lihat di Tabel Gaji</span>
+                      <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -656,7 +602,7 @@ _Seksi Pencairan Dana (PD) KPPN Semarang I_`;
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
-            <strong>Prospek Gaji Induk:</strong> Kepatuhan pengajuan SPM Gaji berada di <strong>{persentasePenyampaian}%</strong>. Hubungi segera <strong>{summary.belumKirim} satker</strong> yang belum mengajukan agar hak gaji ASN/PPPK cair tepat waktu tanggal 1.
+            <strong>Monitoring Seksi Pencairan Dana:</strong> Kepatuhan pengajuan SPM Gaji Induk saat ini mencapai <strong>{persentasePenyampaian}%</strong>. Pengiriman broadcast himbauan ke PPSPM satker dapat dilakukan terpusat melalui modul Jarkom Pribadi &amp; Jarkom Grup WA Satker.
           </span>
         </div>
       </div>

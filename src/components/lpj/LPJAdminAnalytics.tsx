@@ -18,16 +18,13 @@ import {
   TrendingUp,
   CreditCard,
   Building2,
-  Check,
   Sparkles,
   ArrowRight,
   BarChart3,
   PieChart as PieIcon,
-  MessageSquare,
   Landmark,
   Coins,
   Clock,
-  PhoneCall,
   Zap,
   DollarSign
 } from 'lucide-react';
@@ -51,8 +48,6 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
   onFilterJenisChange,
   onFilterStatusChange
 }) => {
-  const [copiedWA, setCopiedWA] = useState(false);
-  const [copiedSatkerWA, setCopiedSatkerWA] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'komposisi' | 'verifikasi' | 'saldo' | 'watchlist'>('komposisi');
 
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
@@ -168,47 +163,6 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
       .slice(0, 6);
   }, [records]);
 
-  // Handle Copy WA Broadcast
-  const handleCopyWA = () => {
-    const text = `*PEMERINTAH KOTA SEMARANG / KPPN SEMARANG I*
-*MONITORING KEPATUHAN LPJ BENDAHARA (SAKTI)*
-Periode: ${periode}
-Update: ${new Date().toLocaleDateString('id-ID')}
-
-Yth. Bendahara Pengeluaran, Penerimaan & BLU Satker Mitra KPPN Semarang I,
-
-Diberitahukan perkembangan penyampaian LPJ Bendahara:
-- Bendahara Pengeluaran: ${summary.pengeluaranSudahKirim}/${summary.bendaharaPengeluaranCount} Satker (${persenPengeluaran}%)
-- Bendahara Penerimaan: ${summary.penerimaanSudahKirim}/${summary.bendaharaPenerimaanCount} Satker (${persenPenerimaan}%)
-- LPJ BLU: ${summary.bluSudahKirim}/${summary.bendaharaBluCount} Satker (${persenBlu}%)
-- Total Kepatuhan: ${summary.persenKepatuhan}%
-
-Batas akhir penyampaian LPJ adalah tanggal 10 bulan berikutnya. Mohon satker yang belum mengirim atau memerlukan konfirmasi rekening kas untuk segera menuntaskan.
-
-Terima kasih.
-_Seksi Verifikasi dan Akuntansi (Vera) KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedWA(true);
-    setTimeout(() => setCopiedWA(false), 2500);
-  };
-
-  // Handle Copy WA Personal ke Satker
-  const handleCopyPersonalWA = (satker: MonitoringLPJRecord) => {
-    const text = `*PEMBERITAHUAN LPJ BENDAHARA KPPN SEMARANG I*
-Yth. Bendahara ${satker.jenisBendahara || 'Pengeluaran'} Satker ${satker.namaSatker} (${satker.kodeSatker}),
-
-Berdasarkan monitoring Aplikasi SAKTI KPPN Semarang I Periode ${periode}, berkas LPJ Bendahara Anda tercatat *BELUM DIKIRIM*.
-Mohon segera memproses upload dan cetak LPJ SAKTI sebelum batas waktu tanggal 10 agar terhindar dari sanksi penundaan penerbitan SPM/SP2D.
-
-Terima kasih.
-_Seksi Vera KPPN Semarang I_`;
-
-    navigator.clipboard.writeText(text);
-    setCopiedSatkerWA(satker.kodeSatker);
-    setTimeout(() => setCopiedSatkerWA(null), 2500);
-  };
-
   return (
     <div className={`p-6 rounded-3xl border shadow-sm ${bgCard} space-y-6 relative overflow-hidden transition-all duration-300`}>
       <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
@@ -236,7 +190,7 @@ _Seksi Vera KPPN Semarang I_`;
           </p>
         </div>
 
-        {/* Tab & WA Buttons */}
+        {/* Tab Buttons */}
         <div className="flex items-center gap-2 flex-wrap shrink-0">
           <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
             <button
@@ -284,15 +238,6 @@ _Seksi Vera KPPN Semarang I_`;
               <span>Satker Belum ({summary.belumKirim})</span>
             </button>
           </div>
-
-          <button
-            onClick={handleCopyWA}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
-            title="Salin template broadcast WhatsApp untuk LPJ Bendahara"
-          >
-            {copiedWA ? <Check className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-            <span>{copiedWA ? 'Tersalin!' : 'Pesan WA Broadcast'}</span>
-          </button>
         </div>
       </div>
 
@@ -591,12 +536,11 @@ _Seksi Vera KPPN Semarang I_`;
                     </div>
 
                     <button
-                      onClick={() => handleCopyPersonalWA(satker)}
-                      className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
-                      title="Salin template WhatsApp pengingat untuk satker ini"
+                      onClick={() => onFilterStatusChange('BELUM_KIRIM')}
+                      className="w-full py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer"
                     >
-                      {copiedSatkerWA === satker.kodeSatker ? <Check className="w-3 h-3" /> : <PhoneCall className="w-3 h-3" />}
-                      <span>{copiedSatkerWA === satker.kodeSatker ? 'Pesan Disalin!' : 'Kirim Pengingat WA'}</span>
+                      <span>Lihat di Tabel LPJ</span>
+                      <ArrowRight className="w-3 h-3" />
                     </button>
                   </div>
                 ))}
@@ -611,7 +555,7 @@ _Seksi Vera KPPN Semarang I_`;
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>
-            <strong>Tips Vera:</strong> Tingkat kepatuhan LPJ saat ini berada di <strong>{summary.persenKepatuhan}%</strong>. Satker yang belum mengirim dapat langsung dihubungi melalui tombol <em>Kirim Pengingat WA</em> pada tab <em>Satker Belum</em>.
+            <strong>Monitoring Seksi Vera:</strong> Tingkat kepatuhan LPJ saat ini berada di <strong>{summary.persenKepatuhan}%</strong>. Pengiriman siaran dan jarkom pengingat resmi ke para bendahara dapat diakses terpusat di modul Jarkom Pribadi &amp; Jarkom Grup WA.
           </span>
         </div>
       </div>
