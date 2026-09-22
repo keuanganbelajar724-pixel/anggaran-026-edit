@@ -43,8 +43,10 @@ import {
   Layers,
   Sparkles,
   ArrowUpDown,
-  X
+  X,
+  Lock
 } from 'lucide-react';
+import { GajiIndukAdminAnalytics } from './GajiIndukAdminAnalytics';
 
 interface GajiIndukDashboardProps {
   records: SPMGajiRecord[];
@@ -53,6 +55,7 @@ interface GajiIndukDashboardProps {
   isAdminAuthenticated?: boolean;
   isDark?: boolean;
   onGoToAdminUpload?: () => void;
+  onLogoutAdmin?: () => void;
 }
 
 export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
@@ -61,8 +64,17 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
   masterSatkers,
   isAdminAuthenticated = false,
   isDark = false,
-  onGoToAdminUpload
+  onGoToAdminUpload,
+  onLogoutAdmin
 }) => {
+  // Role portal state: 'INTERNAL_KPPN' vs 'SATKER_PUBLIC'
+  const [portalRole, setPortalRole] = useState<'INTERNAL_KPPN' | 'SATKER_PUBLIC'>(() => {
+    return isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC';
+  });
+
+  useEffect(() => {
+    setPortalRole(isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC');
+  }, [isAdminAuthenticated]);
   // Tentukan periode terbaru dari data batch upload atau records
   const latestDataPeriod = useMemo(() => {
     if (uploads && uploads.length > 0) {
@@ -171,6 +183,53 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
   return (
     <div className={`space-y-6 pb-12 transition-colors duration-200 ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>
       
+      {/* Role Access Mode Switcher (Matching Image 4) */}
+      {isAdminAuthenticated && (
+        <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Hak Akses Portal:
+            </span>
+            <div className="inline-flex p-1 bg-slate-200/80 dark:bg-slate-800 rounded-2xl shadow-inner">
+              <button
+                type="button"
+                onClick={() => setPortalRole('INTERNAL_KPPN')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'INTERNAL_KPPN'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏛️ Internal KPPN (Lengkap)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPortalRole('SATKER_PUBLIC')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'SATKER_PUBLIC'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏢 Pratinjau Tampilan Satker
+              </button>
+            </div>
+          </div>
+
+          {onLogoutAdmin && (
+            <button
+              type="button"
+              onClick={onLogoutAdmin}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Kunci / Keluar dari mode Admin"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Kunci / Keluar</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="bg-gradient-to-r from-emerald-700 via-teal-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl pointer-events-none" />
@@ -327,6 +386,31 @@ export const GajiIndukDashboard: React.FC<GajiIndukDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mode Internal KPPN: Tampilkan Diagram & Analisis Eksekutif Gaji Induk */}
+      {portalRole === 'INTERNAL_KPPN' && (
+        <GajiIndukAdminAnalytics
+          aggregatedData={aggregatedData}
+          summary={summary}
+          periode={formatPeriodeGaji(selectedPeriode)}
+          isDark={isDark}
+          onFilterStatusChange={(status) => {
+            if (status === 'BERUBAH') {
+              setSelectedStatus('BERUBAH');
+              setActiveTab('berubah');
+            } else if (status === 'SUDAH') {
+              setSelectedStatus('SUDAH');
+              setActiveTab('semua');
+            } else if (status === 'BELUM') {
+              setSelectedStatus('BELUM');
+              setActiveTab('belum');
+            } else {
+              setSelectedStatus('ALL');
+              setActiveTab('semua');
+            }
+          }}
+        />
+      )}
 
       {/* NOTIFIKASI EDUKATIF KETIKA BELUM ADA DATA UPLOAD EXCEL */}
       {records.length === 0 && (

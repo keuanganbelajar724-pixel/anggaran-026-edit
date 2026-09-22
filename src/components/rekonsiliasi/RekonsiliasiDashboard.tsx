@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Printer,
   MousePointerClick,
-  X
+  X,
+  Lock
 } from 'lucide-react';
 import {
   MonitoringRekonsiliasiRecord,
@@ -50,6 +51,7 @@ import {
 import { DetailSatkerRekonsiliasiModal } from './DetailSatkerRekonsiliasiModal';
 import { RiwayatUploadRekonsiliasiModal } from './RiwayatUploadRekonsiliasiModal';
 import { RekonsiliasiAuditLogModal } from './RekonsiliasiAuditLogModal';
+import { RekonsiliasiAdminAnalytics } from './RekonsiliasiAdminAnalytics';
 
 interface RekonsiliasiDashboardProps {
   records: MonitoringRekonsiliasiRecord[];
@@ -61,6 +63,7 @@ interface RekonsiliasiDashboardProps {
     newRecords: MonitoringRekonsiliasiRecord[],
     newUploads: MonitoringRekonsiliasiUploadBatch[]
   ) => void;
+  onLogoutAdmin?: () => void;
 }
 
 export type KpiFilterType =
@@ -96,9 +99,19 @@ export const RekonsiliasiDashboard: React.FC<RekonsiliasiDashboardProps> = ({
   masterSatkers = [],
   isAdminAuthenticated,
   isDark,
-  onUpdateRecords
+  onUpdateRecords,
+  onLogoutAdmin
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Role portal state: 'INTERNAL_KPPN' vs 'SATKER_PUBLIC'
+  const [portalRole, setPortalRole] = useState<'INTERNAL_KPPN' | 'SATKER_PUBLIC'>(() => {
+    return isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC';
+  });
+
+  useEffect(() => {
+    setPortalRole(isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC');
+  }, [isAdminAuthenticated]);
 
   // Theme styling helpers
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
@@ -674,6 +687,53 @@ export const RekonsiliasiDashboard: React.FC<RekonsiliasiDashboardProps> = ({
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+      {/* Role Access Mode Switcher (Matching Image 4) */}
+      {isAdminAuthenticated && (
+        <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Hak Akses Portal:
+            </span>
+            <div className="inline-flex p-1 bg-slate-200/80 dark:bg-slate-800 rounded-2xl shadow-inner">
+              <button
+                type="button"
+                onClick={() => setPortalRole('INTERNAL_KPPN')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'INTERNAL_KPPN'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏛️ Internal KPPN (Lengkap)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPortalRole('SATKER_PUBLIC')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'SATKER_PUBLIC'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏢 Pratinjau Tampilan Satker
+              </button>
+            </div>
+          </div>
+
+          {onLogoutAdmin && (
+            <button
+              type="button"
+              onClick={onLogoutAdmin}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Kunci / Keluar dari mode Admin"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Kunci / Keluar</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Header Card */}
       <div className={`p-6 rounded-2xl border ${bgCard} shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4`}>
         <div className="flex items-start sm:items-center gap-4">
@@ -757,33 +817,48 @@ export const RekonsiliasiDashboard: React.FC<RekonsiliasiDashboardProps> = ({
             <span className="hidden sm:inline">Unduh Contoh Excel</span>
           </button>
 
-          {/* Riwayat Batch */}
-          <button
-            onClick={() => setShowRiwayatModal(true)}
-            className={`p-2 rounded-xl border transition-all ${
-              isDark
-                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600'
-            }`}
-            title="Riwayat Batch Upload"
-          >
-            <History className="w-4 h-4" />
-          </button>
+          {/* Riwayat Batch & Audit Log (Khusus Internal KPPN) */}
+          {portalRole === 'INTERNAL_KPPN' && (
+            <>
+              <button
+                onClick={() => setShowRiwayatModal(true)}
+                className={`p-2 rounded-xl border transition-all ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                    : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600'
+                }`}
+                title="Riwayat Batch Upload"
+              >
+                <History className="w-4 h-4" />
+              </button>
 
-          {/* Audit Log */}
-          <button
-            onClick={() => setShowAuditModal(true)}
-            className={`p-2 rounded-xl border transition-all ${
-              isDark
-                ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
-                : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600'
-            }`}
-            title="Log Audit Aktivitas"
-          >
-            <ShieldCheck className="w-4 h-4 text-amber-500" />
-          </button>
+              <button
+                onClick={() => setShowAuditModal(true)}
+                className={`p-2 rounded-xl border transition-all ${
+                  isDark
+                    ? 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'
+                    : 'bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-600'
+                }`}
+                title="Log Audit Aktivitas"
+              >
+                <ShieldCheck className="w-4 h-4 text-amber-500" />
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Mode Internal KPPN: Tampilkan Diagram & Analisis Eksekutif */}
+      {portalRole === 'INTERNAL_KPPN' && (
+        <RekonsiliasiAdminAnalytics
+          records={currentPeriodRecords}
+          summary={summary}
+          periode={formatPeriodeRekonsiliasi(selectedPeriode)}
+          isDark={isDark}
+          onFilterChange={(filter) => handleToggleKpiFilter(filter)}
+          activeFilter={kpiFilter}
+        />
+      )}
 
       {/* Ringkasan KPI Dashboard (10 Matriks Kepatuhan) */}
       <div>

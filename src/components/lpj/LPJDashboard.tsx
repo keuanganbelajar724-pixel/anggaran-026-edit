@@ -27,7 +27,8 @@ import {
   Check,
   PhoneCall,
   Sparkles,
-  Landmark
+  Landmark,
+  Lock
 } from 'lucide-react';
 import {
   MonitoringLPJRecord,
@@ -45,6 +46,7 @@ import {
 import { exportLPJExcel, exportLPJPDF } from '../../utils/lpjExportHelper';
 import { DetailSatkerLPJModal } from './DetailSatkerLPJModal';
 import { CetakLPJPdfModal } from './CetakLPJPdfModal';
+import { LPJAdminAnalytics } from './LPJAdminAnalytics';
 
 interface LPJDashboardProps {
   records: MonitoringLPJRecord[];
@@ -52,6 +54,7 @@ interface LPJDashboardProps {
   masterSatkers?: MasterSatker[];
   isAdminAuthenticated: boolean;
   isDark: boolean;
+  onLogoutAdmin?: () => void;
 }
 
 export type LPJKpiFilter = 
@@ -73,8 +76,17 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
   uploads,
   masterSatkers = [],
   isAdminAuthenticated,
-  isDark
+  isDark,
+  onLogoutAdmin
 }) => {
+  // Role portal state: 'INTERNAL_KPPN' vs 'SATKER_PUBLIC'
+  const [portalRole, setPortalRole] = useState<'INTERNAL_KPPN' | 'SATKER_PUBLIC'>(() => {
+    return isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC';
+  });
+
+  useEffect(() => {
+    setPortalRole(isAdminAuthenticated ? 'INTERNAL_KPPN' : 'SATKER_PUBLIC');
+  }, [isAdminAuthenticated]);
   // Theme styling
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
@@ -215,6 +227,53 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300 pb-12">
+      {/* Role Access Mode Switcher (Matching Image 4) */}
+      {isAdminAuthenticated && (
+        <div className="flex items-center justify-between pb-1 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Hak Akses Portal:
+            </span>
+            <div className="inline-flex p-1 bg-slate-200/80 dark:bg-slate-800 rounded-2xl shadow-inner">
+              <button
+                type="button"
+                onClick={() => setPortalRole('INTERNAL_KPPN')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'INTERNAL_KPPN'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏛️ Internal KPPN (Lengkap)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPortalRole('SATKER_PUBLIC')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                  portalRole === 'SATKER_PUBLIC'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                🏢 Pratinjau Tampilan Satker
+              </button>
+            </div>
+          </div>
+
+          {onLogoutAdmin && (
+            <button
+              type="button"
+              onClick={onLogoutAdmin}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Kunci / Keluar dari mode Admin"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Kunci / Keluar</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Banner Executive Header */}
       <div className={`p-6 rounded-2xl border shadow-sm ${bgCard} relative overflow-hidden`}>
         <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
@@ -334,6 +393,25 @@ export const LPJDashboard: React.FC<LPJDashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Mode Internal KPPN: Tampilkan Diagram & Analisis Eksekutif LPJ */}
+      {portalRole === 'INTERNAL_KPPN' && (
+        <LPJAdminAnalytics
+          records={filteredRecords}
+          summary={currentSummary}
+          periode={selectedPeriode === 'ALL' ? 'Semua Periode' : selectedPeriode}
+          isDark={isDark}
+          onFilterJenisChange={(jenis) => {
+            if (jenis === 'PENGELUARAN') setKpiFilter('PENGELUARAN');
+            else if (jenis === 'PENERIMAAN') setKpiFilter('PENERIMAAN');
+            else if (jenis === 'BLU') setKpiFilter('BLU');
+          }}
+          onFilterStatusChange={(status) => {
+            if (status === 'SUDAH_KIRIM') setKpiFilter('SUDAH_KIRIM');
+            else if (status === 'BELUM_KIRIM') setKpiFilter('BELUM_KIRIM');
+          }}
+        />
+      )}
 
       {/* Interactive KPI Summary Cards - "Masing-masing filternya bisa di klik dong" */}
       <div>

@@ -3299,6 +3299,7 @@ export default function App() {
                   isAdminAuthenticated={isAdminAuthenticated}
                   isDark={theme === 'dark'}
                   onUpdateRecords={handleUpdateRekonsiliasi}
+                  onLogoutAdmin={handleLogoutAdmin}
                 />
               )}
 
@@ -3310,6 +3311,7 @@ export default function App() {
                   masterSatkers={masterSatkers}
                   isAdminAuthenticated={isAdminAuthenticated}
                   isDark={theme === 'dark'}
+                  onLogoutAdmin={handleLogoutAdmin}
                 />
               )}
 
@@ -3322,6 +3324,7 @@ export default function App() {
                   isAdminAuthenticated={isAdminAuthenticated}
                   isDark={theme === 'dark'}
                   onGoToAdminUpload={() => setActiveTab('admin')}
+                  onLogoutAdmin={handleLogoutAdmin}
                 />
               )}
 

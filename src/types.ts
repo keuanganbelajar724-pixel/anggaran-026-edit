@@ -2536,6 +2536,18 @@ export type Sp2sStatusType = 'ADA' | 'TIDAK_ADA' | 'UNKNOWN';
 export type Sp3sStatusType = 'ADA' | 'BELUM_ADA' | 'UNKNOWN';
 export type PrioritasKategoriType = 'PERLU_TINDAKAN' | 'PERLU_PEMANTAUAN' | 'SELESAI';
 
+export type KpiFilterType =
+  | 'ALL'
+  | 'REKON_SELESAI'
+  | 'REKON_BELUM'
+  | 'TODOLIST_SELESAI'
+  | 'TODOLIST_BELUM'
+  | 'SUDAH_TUTUP'
+  | 'BELUM_TUTUP'
+  | 'ADA_SP2S'
+  | 'ADA_SP3S'
+  | 'ADA_DISPENSASI';
+
 export interface MonitoringRekonsiliasiRecord {
   id: string;
   uploadId: string;
