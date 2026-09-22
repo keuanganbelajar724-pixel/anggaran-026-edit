@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { 
   getFirestore, 
   initializeFirestore,
@@ -7,6 +8,7 @@ import {
   memoryLocalCache,
   doc, 
   getDoc as rawGetDoc, 
+  getDocFromServer,
   getDocs as rawGetDocs,
   setDoc as rawSetDoc, 
   onSnapshot as rawOnSnapshot, 
@@ -22,7 +24,22 @@ import { trackFirestoreRead, trackFirestoreWrite } from '../utils/firestoreQuota
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with persistentLocalCache to prevent unnecessary network reads & respect quota limits
+let authInstance: any = null;
+try {
+  authInstance = getAuth(app);
+} catch {
+  try {
+    authInstance = getAuth();
+  } catch {
+    authInstance = {
+      currentUser: null,
+    };
+  }
+}
+
+export const auth = authInstance;
+
+// Initialize Firestore with forceLongPolling to prevent 10s WebSocket timeout issues in sandboxed/iframe preview environments
 let firestoreDb: any;
 try {
   let cacheConfig: any;
@@ -31,7 +48,6 @@ try {
       tabManager: persistentMultipleTabManager(),
     });
   } catch (err) {
-    console.warn("Persistent cache fallback to memory cache:", err);
     cacheConfig = memoryLocalCache();
   }
 
@@ -39,18 +55,40 @@ try {
     app,
     {
       localCache: cacheConfig,
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
     },
     firebaseConfig.firestoreDatabaseId || undefined
   );
 } catch (e) {
-  firestoreDb = getFirestore(
-    app,
-    firebaseConfig.firestoreDatabaseId || undefined
-  );
+  try {
+    firestoreDb = initializeFirestore(
+      app,
+      {
+        experimentalForceLongPolling: true,
+      },
+      firebaseConfig.firestoreDatabaseId || undefined
+    );
+  } catch {
+    firestoreDb = getFirestore(
+      app,
+      firebaseConfig.firestoreDatabaseId || undefined
+    );
+  }
 }
 
 export const db = firestoreDb;
+
+// Validate Connection to Firestore (Per Firebase Integration Skill)
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(firestoreDb, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn("Firestore connection check: operating in local offline cache mode.");
+    }
+  }
+}
+testConnection();
 
 // ==========================================
 // Robust Quota Guard & Circuit Breaker State
@@ -99,6 +137,61 @@ export function resetFirestoreQuotaExhaustion(): void {
   }
 }
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const currentUser = auth?.currentUser;
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: currentUser?.uid || null,
+      email: currentUser?.email || null,
+      emailVerified: currentUser?.emailVerified || null,
+      isAnonymous: currentUser?.isAnonymous || null,
+      tenantId: currentUser?.tenantId || null,
+      providerInfo: currentUser?.providerData?.map((provider: any) => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+function isPermissionError(err: any): boolean {
+  if (!err) return false;
+  const msg = (err.message || String(err)).toLowerCase();
+  const code = (err.code || '').toLowerCase();
+  return code.includes('permission-denied') || msg.includes('missing or insufficient permissions');
+}
+
 // Reset any legacy quota exhaustion locks on startup
 resetFirestoreQuotaExhaustion();
 
@@ -124,6 +217,9 @@ export async function getDoc<T = any>(
     trackFirestoreRead(reference?.path || 'unknown_doc');
     return snap;
   } catch (err: any) {
+    if (isPermissionError(err)) {
+      handleFirestoreError(err, OperationType.GET, reference?.path || null);
+    }
     if (isQuotaError(err)) {
       reportFirestoreQuotaExhaustion(1);
     } else {
@@ -174,6 +270,9 @@ export async function setDoc<T = any>(
     }
     trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {
+    if (isPermissionError(err)) {
+      handleFirestoreError(err, OperationType.WRITE, reference?.path || null);
+    }
     if (isQuotaError(err)) {
       reportFirestoreQuotaExhaustion(1);
     } else {
@@ -214,6 +313,9 @@ export function onSnapshot(...args: any[]): () => void {
     };
 
     const wrappedErrorCallback = (err: any) => {
+      if (isPermissionError(err)) {
+        handleFirestoreError(err, OperationType.GET, pathStr);
+      }
       if (isQuotaError(err)) {
         reportFirestoreQuotaExhaustion(15);
       }
@@ -234,6 +336,9 @@ export function onSnapshot(...args: any[]): () => void {
 
     return (rawOnSnapshot as any)(...args);
   } catch (err: any) {
+    if (isPermissionError(err)) {
+      handleFirestoreError(err, OperationType.GET, args[0]?.path || null);
+    }
     if (isQuotaError(err)) {
       reportFirestoreQuotaExhaustion(15);
     } else {
@@ -249,6 +354,9 @@ export async function getDocs(queryOrCollection: any): Promise<any> {
     trackFirestoreRead(queryOrCollection?.path || 'query_docs', snap?.size || 1);
     return snap;
   } catch (err: any) {
+    if (isPermissionError(err)) {
+      handleFirestoreError(err, OperationType.LIST, queryOrCollection?.path || null);
+    }
     if (isQuotaError(err)) {
       reportFirestoreQuotaExhaustion(5);
     } else {
