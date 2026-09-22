@@ -219,6 +219,259 @@ export const DetailSatkerLPJModal: React.FC<DetailSatkerLPJModalProps> = ({
             </div>
           </div>
 
+          {/* SECTION SPESIFIK: Rincian Buku Pembantu & Mutasi sesuai Jenis Bendahara */}
+          {record.jenisBendahara === 'PENGELUARAN' && (
+            <div className={`p-4 rounded-xl border ${cardBg} space-y-3`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4" /> Rincian Buku Pembantu (Bendahara Pengeluaran)
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 font-medium">
+                    Validasi SAKTI: {record.rincianPengeluaran?.tglValidasiKppn && record.rincianPengeluaran.tglValidasiKppn !== '-' ? record.rincianPengeluaran.tglValidasiKppn : 'Tervalidasi'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid 5 BP Pengeluaran */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">BP UP / TUP</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPengeluaran?.bpUpTup ?? record.saldoRekeningBank)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">BP LS Bendahara</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPengeluaran?.bpLsBendahara ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">BP Pajak</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPengeluaran?.bpPajak ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">BP Hibah</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPengeluaran?.bpHibah ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">BP Lain-Lain</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPengeluaran?.bpLainLain ?? 0)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Subtotal BP & Rekonsiliasi Kas */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                <div className="p-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60">
+                  <div className="flex justify-between items-center">
+                    <span className="text-indigo-900 dark:text-indigo-300 font-semibold">Jumlah Buku Pembantu</span>
+                    <span className="font-mono font-bold text-indigo-700 dark:text-indigo-300">
+                      {formatRupiah(record.rincianPengeluaran?.jumlahBp ?? record.totalSaldoKas)}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60">
+                  <div className="flex justify-between items-center">
+                    <span className="text-blue-900 dark:text-blue-300 font-semibold">Kuitansi Belum GU</span>
+                    <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                      {formatRupiah(record.rincianPengeluaran?.kuitansi ?? 0)}
+                    </span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60">
+                  <div className="flex justify-between items-center">
+                    <span className="text-emerald-900 dark:text-emerald-300 font-semibold">Total Saldo Kas Fisik</span>
+                    <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
+                      {formatRupiah(record.rincianPengeluaran?.saldoKas ?? record.totalSaldoKas)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {record.jenisBendahara === 'PENERIMAAN' && (
+            <div className={`p-4 rounded-xl border ${cardBg} space-y-3`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4" /> Rincian Mutasi PNBP (Bendahara Penerimaan)
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-medium">
+                  Kas Bank: {formatRupiah(record.rincianPenerimaan?.kasBank ?? record.saldoRekeningBank)}
+                </span>
+              </div>
+
+              {/* Grid Mutasi PNBP */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Saldo Awal PNBP</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPenerimaan?.saldoAwalPnbp ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Penerimaan PNBP</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-emerald-600 dark:text-emerald-400">
+                    {formatRupiah(record.rincianPenerimaan?.penerimaanPnbp ?? record.totalSaldoKas)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Penyetoran ke Kas Negara</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-blue-600 dark:text-blue-400">
+                    {formatRupiah(record.rincianPenerimaan?.penyetoranPnbp ?? record.totalSaldoKas)}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block font-medium">Saldo PNBP Akhir</span>
+                  <span className="text-xs font-mono font-bold mt-1 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianPenerimaan?.saldoPnbp ?? 0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {record.jenisBendahara === 'BLU' && (
+            <div className={`p-4 rounded-xl border ${cardBg} space-y-3`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4" /> Rincian Buku Pembantu &amp; Pengelolaan Kas Satker BLU
+                </span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 font-medium">
+                  Pola BLU
+                </span>
+              </div>
+
+              {/* Grid 9 BP BLU */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP UP</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpUp ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP LS Bendahara</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpLsBendahara ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Pendapatan</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-purple-600 dark:text-purple-400">
+                    {formatRupiah(record.rincianBlu?.bpPendapatan ?? record.totalSaldoKas)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Pajak</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpPajak ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Pihak Ketiga</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpUangPihakKetiga ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Uang Titipan</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpUangTitipan ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Dana Bergulir</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpDanaBergulir ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Hibah/Donasi</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpHibah ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">BP Lain-Lain</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-slate-800 dark:text-slate-200">
+                    {formatRupiah(record.rincianBlu?.bpLainLain ?? 0)}
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800">
+                  <span className="text-[10px] text-purple-700 dark:text-purple-300 block font-bold">Total Buku Pembantu</span>
+                  <span className="text-xs font-mono font-bold mt-0.5 block text-purple-700 dark:text-purple-300">
+                    {formatRupiah(record.rincianBlu?.jumlahBp ?? record.totalSaldoKas)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 3 Pilar Kas BLU */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                <div className="p-2.5 rounded-lg bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1">1. Komponen Uang Persediaan</span>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Saldo UP</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.saldoUp ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Kuitansi Belum GU</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.kuitansiBelumGu ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <span>Jumlah UP</span>
+                      <span className="font-mono text-purple-600 dark:text-purple-400">{formatRupiah(record.rincianBlu?.jumlahUp ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1">2. Komponen Pendapatan BLU</span>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Saldo Pendapatan</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.saldoPendapatan ?? record.totalSaldoKas)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Belum Disetor</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.pendapatanBelumDisetor ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <span>Jumlah Pendapatan</span>
+                      <span className="font-mono text-purple-600 dark:text-purple-400">{formatRupiah(record.rincianBlu?.jumlahPendapatan ?? record.totalSaldoKas)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  <span className="font-bold text-slate-800 dark:text-slate-200 block mb-1">3. Komponen Hibah / Donasi</span>
+                  <div className="space-y-1 text-[11px]">
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Saldo Hibah</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.saldoHibah ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className={textMuted}>Belum Disetor</span>
+                      <span className="font-mono">{formatRupiah(record.rincianBlu?.hibahBelumDisetor ?? 0)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold pt-1 border-t border-slate-200 dark:border-slate-700">
+                      <span>Jumlah Hibah</span>
+                      <span className="font-mono text-purple-600 dark:text-purple-400">{formatRupiah(record.rincianBlu?.jumlahHibah ?? 0)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Rincian Pejabat Bendahara & Kontak */}
           <div className={`p-4 rounded-xl border ${cardBg} space-y-3`}>
             <div className="flex items-center justify-between">

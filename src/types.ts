@@ -2666,6 +2666,56 @@ export interface MonitoringLPJRecord {
   batasWaktuPengiriman?: string; // Batas akhir (misal tanggal 10 bulan berikutnya)
   statusKetepatanWaktu?: 'TEPAT_WAKTU' | 'TERLAMBAT' | 'BELUM_KIRIM';
   isLengkapDokumen?: boolean; // Kelengkapan berkas (Koran Bank, Berita Acara, Konfirmasi Setoran)
+
+  // Rincian Tambahan Khusus Bendahara Pengeluaran (Buku Pembantu & Kuitansi)
+  rincianPengeluaran?: {
+    tglValidasiKppn?: string;
+    tglTolakanTerakhir?: string;
+    bpUpTup?: number;
+    bpLsBendahara?: number;
+    bpPajak?: number;
+    bpHibah?: number;
+    bpLainLain?: number;
+    jumlahBp?: number;
+    saldoKas?: number;
+    kuitansi?: number;
+    totalKasKuitansi?: number;
+  };
+
+  // Rincian Tambahan Khusus Bendahara Penerimaan (Kas & PNBP)
+  rincianPenerimaan?: {
+    kasTunai?: number;
+    kasBank?: number;
+    jumlahKas?: number;
+    saldoAwalPnbp?: number;
+    penerimaanPnbp?: number;
+    penyetoranPnbp?: number;
+    saldoPnbp?: number;
+  };
+
+  // Rincian Tambahan Khusus BLU (Badan Layanan Umum)
+  rincianBlu?: {
+    bpUp?: number;
+    bpLsBendahara?: number;
+    bpPendapatan?: number;
+    bpPajak?: number;
+    bpUangPihakKetiga?: number;
+    bpUangTitipan?: number;
+    bpDanaBergulir?: number;
+    bpHibah?: number;
+    bpLainLain?: number;
+    jumlahBp?: number;
+    saldoUp?: number;
+    kuitansiBelumGu?: number;
+    jumlahUp?: number;
+    saldoPendapatan?: number;
+    pendapatanBelumDisetor?: number;
+    jumlahPendapatan?: number;
+    saldoHibah?: number;
+    hibahBelumDisetor?: number;
+    jumlahHibah?: number;
+  };
+
   auditInfo?: {
     uploadedAt?: string;
     uploadedBy?: string;

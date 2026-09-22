@@ -184,6 +184,7 @@ export function parseMonitoringLPJWorkbook(
       }
 
       // Map columns
+      let foundFirstJumlah = false;
       for (let c = range.s.c; c <= range.e.c; c++) {
         const valR = getCellStr(sheet, c, r).toLowerCase();
         const valNext = isNextRowHeader ? (nextRowValues[c - range.s.c] || '') : '';
@@ -196,10 +197,13 @@ export function parseMonitoringLPJWorkbook(
         if (val.includes('kppn')) colMap['kodeKppn'] = c;
         if (val.includes('jenis') || val.includes('tipe') || val.includes('bendahara')) colMap['jenisBendahara'] = c;
         if (val.includes('periode') || val.includes('bulan')) colMap['periode'] = c;
-        if (val.includes('status pengiriman') || val.includes('status kirim') || val.includes('pengiriman') || (val.includes('status') && !val.includes('verifikasi') && !val.includes('validasi'))) colMap['statusPengiriman'] = c;
+        if (val.includes('status pengiriman') || val.includes('status kirim') || val.includes('pengiriman')) colMap['statusPengiriman'] = c;
         if (val.includes('tanggal') || val.includes('tgl kirim') || val.includes('tgl upload')) colMap['tanggalKirim'] = c;
+        if (val.includes('tgl validasi') || val.includes('validasi kppn')) colMap['tglValidasiKppn'] = c;
+        if (val.includes('tolakan') || val.includes('tgl tolak')) colMap['tglTolakan'] = c;
+        if (val.includes('status validasi') || val.includes('validasi')) colMap['statusValidasi'] = c;
         if (val.includes('no lpj') || val.includes('nomor lpj') || val.includes('dokumen')) colMap['nomorLpj'] = c;
-        if (val.includes('verifikasi') || val.includes('status verifikasi') || val.includes('validasi') || val.includes('status validasi')) colMap['statusVerifikasi'] = c;
+        if (val.includes('verifikasi') || val.includes('status verifikasi')) colMap['statusVerifikasi'] = c;
         
         // Kas Tunai
         if (val.includes('kas tunai') || val.includes('saldo tunai') || (val.includes('tunai') && !val.includes('ket'))) {
@@ -226,16 +230,60 @@ export function parseMonitoringLPJWorkbook(
           val.includes('total kas') || 
           val.includes('total saldo') || 
           val.includes('jumlah kas') || 
-          val === 'jumlah' || 
-          valR === 'jumlah' || 
-          valNext === 'jumlah' ||
           val.includes('saldo kas')
         ) {
           colMap['totalSaldo'] = c;
+          colMap['saldoKasPengeluaran'] = c;
         }
 
         // Selisih Kas
         if (val.includes('selisih')) colMap['selisihKas'] = c;
+
+        // --- Kolom Spesifik Pengeluaran ---
+        if (val.includes('up/tup') || val.includes('bp up/tup') || val.includes('up / tup')) colMap['bpUpTup'] = c;
+        if (val.includes('bp ls') || val.includes('ls bendahara')) colMap['bpLsBendahara'] = c;
+        if ((val.includes('pajak') || val.includes('bp pajak')) && !val.includes('blu')) colMap['bpPajak'] = c;
+        if ((val.includes('bp hibah') || val.includes('hibah')) && !val.includes('donasi') && !val.includes('belum')) colMap['bpHibah'] = c;
+        if (val.includes('bp lain') || val.includes('lain-lain') || val.includes('lain lain')) {
+          colMap['bpLainLain'] = c;
+          colMap['bluBpLainLain'] = c;
+        }
+        if (val.includes('kuitansi') && !val.includes('belum gu')) colMap['kuitansi'] = c;
+
+        // --- Kolom Spesifik Penerimaan (PNBP) ---
+        if (val.includes('saldo awal') || val.includes('awal pnbp')) colMap['saldoAwalPnbp'] = c;
+        if (val.includes('penerimaan pnbp') || (val.includes('penerimaan') && !val.includes('bendahara') && !val.includes('tipe'))) colMap['penerimaanPnbp'] = c;
+        if (val.includes('penyetoran pnbp') || val.includes('penyetoran') || val.includes('setor pnbp')) colMap['penyetoranPnbp'] = c;
+        if (val.includes('saldo pnbp')) colMap['saldoPnbp'] = c;
+
+        // --- Kolom Spesifik BLU ---
+        if (val === 'bp up' || (val.includes('bp up') && !val.includes('tup'))) colMap['bluBpUp'] = c;
+        if (val.includes('bp pendapatan') || val.includes('pendapatan')) {
+          if (val.includes('saldo pend')) colMap['bluSaldoPendapatan'] = c;
+          else if (val.includes('belum disetor')) colMap['bluPendapatanBelumDisetor'] = c;
+          else if (val.includes('jumlah pend')) colMap['bluJumlahPendapatan'] = c;
+          else if (val.includes('bp pend')) colMap['bluBpPendapatan'] = c;
+        }
+        if (val.includes('pihak ketiga')) colMap['bluBpPihakKetiga'] = c;
+        if (val.includes('titipan') || val.includes('uang titipan')) colMap['bluBpTitipan'] = c;
+        if (val.includes('dana bergulir')) colMap['bluBpDanaBergulir'] = c;
+        if (val.includes('saldo up')) colMap['bluSaldoUp'] = c;
+        if (val.includes('belum gu') || val.includes('kuitansi belum')) colMap['bluKuitansiBelumGu'] = c;
+        if (val.includes('jumlah up')) colMap['bluJumlahUp'] = c;
+        if (val.includes('saldo hibah')) colMap['bluSaldoHibah'] = c;
+        if (val.includes('hibah') && val.includes('belum')) colMap['bluHibahBelumDisetor'] = c;
+        if (val.includes('jumlah hibah')) colMap['bluJumlahHibah'] = c;
+
+        // Deteksi kolom "JUMLAH" ambigu
+        if (val === 'jumlah' || valR === 'jumlah' || valNext === 'jumlah') {
+          if (!foundFirstJumlah) {
+            colMap['jumlahBp'] = c;
+            foundFirstJumlah = true;
+            if (colMap['totalSaldo'] === undefined) colMap['totalSaldo'] = c;
+          } else {
+            colMap['totalKasKuitansi'] = c;
+          }
+        }
 
         if (val.includes('nama bendahara') || val.includes('pejabat bendahara')) colMap['namaBendahara'] = c;
         if (val.includes('hp') || val.includes('wa') || val.includes('telepon') || val.includes('kontak')) colMap['noHpBendahara'] = c;
@@ -280,13 +328,61 @@ export function parseMonitoringLPJWorkbook(
     const rawTglKirim = colMap['tanggalKirim'] !== undefined ? getCellStr(sheet, colMap['tanggalKirim'], r) : '';
     const rawNoLpj = colMap['nomorLpj'] !== undefined ? getCellStr(sheet, colMap['nomorLpj'], r) : '';
     const rawVerif = colMap['statusVerifikasi'] !== undefined ? getCellStr(sheet, colMap['statusVerifikasi'], r) : '';
+    const rawTglValidasiKppn = colMap['tglValidasiKppn'] !== undefined ? getCellStr(sheet, colMap['tglValidasiKppn'], r) : '';
+    const rawTglTolakan = colMap['tglTolakan'] !== undefined ? getCellStr(sheet, colMap['tglTolakan'], r) : '';
+    const rawStatusValidasi = colMap['statusValidasi'] !== undefined ? getCellStr(sheet, colMap['statusValidasi'], r) : '';
+
     const rawSaldoBank = colMap['saldoBank'] !== undefined ? getCellNum(sheet, colMap['saldoBank'], r) : 0;
     const rawSaldoTunai = colMap['saldoTunai'] !== undefined ? getCellNum(sheet, colMap['saldoTunai'], r) : 0;
     const rawTotalKas = colMap['totalSaldo'] !== undefined ? getCellNum(sheet, colMap['totalSaldo'], r) : 0;
     const rawSelisih = colMap['selisihKas'] !== undefined ? getCellNum(sheet, colMap['selisihKas'], r) : 0;
 
-    // Normalisasi Status Pengiriman
+    // Nilai Spesifik Pengeluaran
+    const rawBpUpTup = colMap['bpUpTup'] !== undefined ? getCellNum(sheet, colMap['bpUpTup'], r) : 0;
+    const rawBpLsBendahara = colMap['bpLsBendahara'] !== undefined ? getCellNum(sheet, colMap['bpLsBendahara'], r) : 0;
+    const rawBpPajak = colMap['bpPajak'] !== undefined ? getCellNum(sheet, colMap['bpPajak'], r) : 0;
+    const rawBpHibah = colMap['bpHibah'] !== undefined ? getCellNum(sheet, colMap['bpHibah'], r) : 0;
+    const rawBpLainLain = colMap['bpLainLain'] !== undefined ? getCellNum(sheet, colMap['bpLainLain'], r) : 0;
+    const rawJumlahBp = colMap['jumlahBp'] !== undefined ? getCellNum(sheet, colMap['jumlahBp'], r) : 0;
+    const rawSaldoKasPengeluaran = colMap['saldoKasPengeluaran'] !== undefined ? getCellNum(sheet, colMap['saldoKasPengeluaran'], r) : 0;
+    const rawKuitansi = colMap['kuitansi'] !== undefined ? getCellNum(sheet, colMap['kuitansi'], r) : 0;
+    const rawTotalKasKuitansi = colMap['totalKasKuitansi'] !== undefined ? getCellNum(sheet, colMap['totalKasKuitansi'], r) : 0;
+
+    // Nilai Spesifik Penerimaan
+    const rawSaldoAwalPnbp = colMap['saldoAwalPnbp'] !== undefined ? getCellNum(sheet, colMap['saldoAwalPnbp'], r) : 0;
+    const rawPenerimaanPnbp = colMap['penerimaanPnbp'] !== undefined ? getCellNum(sheet, colMap['penerimaanPnbp'], r) : 0;
+    const rawPenyetoranPnbp = colMap['penyetoranPnbp'] !== undefined ? getCellNum(sheet, colMap['penyetoranPnbp'], r) : 0;
+    const rawSaldoPnbp = colMap['saldoPnbp'] !== undefined ? getCellNum(sheet, colMap['saldoPnbp'], r) : 0;
+
+    // Nilai Spesifik BLU
+    const rawBluBpUp = colMap['bluBpUp'] !== undefined ? getCellNum(sheet, colMap['bluBpUp'], r) : 0;
+    const rawBluBpLs = colMap['bluBpLsBendahara'] !== undefined ? getCellNum(sheet, colMap['bluBpLsBendahara'], r) : 0;
+    const rawBluBpPend = colMap['bluBpPendapatan'] !== undefined ? getCellNum(sheet, colMap['bluBpPendapatan'], r) : 0;
+    const rawBluBpPajak = colMap['bluBpPajak'] !== undefined ? getCellNum(sheet, colMap['bluBpPajak'], r) : 0;
+    const rawBluBpPihakKetiga = colMap['bluBpPihakKetiga'] !== undefined ? getCellNum(sheet, colMap['bluBpPihakKetiga'], r) : 0;
+    const rawBluBpTitipan = colMap['bluBpTitipan'] !== undefined ? getCellNum(sheet, colMap['bluBpTitipan'], r) : 0;
+    const rawBluBpDanaBergulir = colMap['bluBpDanaBergulir'] !== undefined ? getCellNum(sheet, colMap['bluBpDanaBergulir'], r) : 0;
+    const rawBluBpHibah = colMap['bluBpHibah'] !== undefined ? getCellNum(sheet, colMap['bluBpHibah'], r) : 0;
+    const rawBluBpLain = colMap['bluBpLainLain'] !== undefined ? getCellNum(sheet, colMap['bluBpLainLain'], r) : 0;
+    const rawBluSaldoUp = colMap['bluSaldoUp'] !== undefined ? getCellNum(sheet, colMap['bluSaldoUp'], r) : 0;
+    const rawBluKuitansiBelumGu = colMap['bluKuitansiBelumGu'] !== undefined ? getCellNum(sheet, colMap['bluKuitansiBelumGu'], r) : 0;
+    const rawBluJumlahUp = colMap['bluJumlahUp'] !== undefined ? getCellNum(sheet, colMap['bluJumlahUp'], r) : 0;
+    const rawBluSaldoPendapatan = colMap['bluSaldoPendapatan'] !== undefined ? getCellNum(sheet, colMap['bluSaldoPendapatan'], r) : 0;
+    const rawBluPendapatanBelumDisetor = colMap['bluPendapatanBelumDisetor'] !== undefined ? getCellNum(sheet, colMap['bluPendapatanBelumDisetor'], r) : 0;
+    const rawBluJumlahPendapatan = colMap['bluJumlahPendapatan'] !== undefined ? getCellNum(sheet, colMap['bluJumlahPendapatan'], r) : 0;
+    const rawBluSaldoHibah = colMap['bluSaldoHibah'] !== undefined ? getCellNum(sheet, colMap['bluSaldoHibah'], r) : 0;
+    const rawBluHibahBelumDisetor = colMap['bluHibahBelumDisetor'] !== undefined ? getCellNum(sheet, colMap['bluHibahBelumDisetor'], r) : 0;
+    const rawBluJumlahHibah = colMap['bluJumlahHibah'] !== undefined ? getCellNum(sheet, colMap['bluJumlahHibah'], r) : 0;
+
+    // Normalisasi Status Pengiriman & Validasi
+    const isTervalidasi = 
+      rawStatusValidasi === '1' || 
+      rawStatusValidasi.toUpperCase().includes('TER') || 
+      rawStatusValidasi.toUpperCase().includes('VALID') ||
+      Boolean(rawTglValidasiKppn && rawTglValidasiKppn.length >= 6 && !rawTglValidasiKppn.includes('-'));
+
     const isSudahKirim = 
+      isTervalidasi ||
       rawStatus.toUpperCase().includes('SUDAH') ||
       rawStatus.toUpperCase().includes('LENGKAP') ||
       rawStatus.toUpperCase().includes('TERKIRIM') ||
@@ -354,18 +450,44 @@ export function parseMonitoringLPJWorkbook(
     let finalSaldoTunai = rawSaldoTunai;
     let totalSaldoKas = 0;
 
-    if (rawTotalKas > 0) {
-      totalSaldoKas = rawTotalKas;
-      if (finalSaldoBank === 0 && finalSaldoTunai === 0) {
+    if (jenisBendahara === 'PENGELUARAN') {
+      if (rawSaldoKasPengeluaran > 0) {
+        totalSaldoKas = rawSaldoKasPengeluaran;
+        finalSaldoBank = rawSaldoKasPengeluaran;
+      } else if (rawTotalKas > 0) {
+        totalSaldoKas = rawTotalKas;
         finalSaldoBank = rawTotalKas;
+      } else {
+        totalSaldoKas = finalSaldoBank + finalSaldoTunai;
+      }
+    } else if (jenisBendahara === 'BLU') {
+      const sumBluSaldo = rawBluSaldoUp + rawBluSaldoPendapatan + rawBluSaldoHibah;
+      if (sumBluSaldo > 0) {
+        totalSaldoKas = sumBluSaldo;
+        finalSaldoBank = sumBluSaldo;
+      } else if (rawTotalKas > 0) {
+        totalSaldoKas = rawTotalKas;
+        finalSaldoBank = rawTotalKas;
+      } else {
+        totalSaldoKas = finalSaldoBank + finalSaldoTunai;
       }
     } else {
-      totalSaldoKas = finalSaldoBank + finalSaldoTunai;
+      // PENERIMAAN
+      if (rawTotalKas > 0) {
+        totalSaldoKas = rawTotalKas;
+        if (finalSaldoBank === 0 && finalSaldoTunai === 0) {
+          finalSaldoBank = rawTotalKas;
+        }
+      } else {
+        totalSaldoKas = finalSaldoBank + finalSaldoTunai;
+      }
     }
 
     const statusKlopKas = statusPengiriman === 'BELUM_KIRIM' 
       ? 'BELUM_VERIFIKASI' 
       : (rawSelisih === 0 ? 'KLOP' : 'SELISIH');
+
+    const displayTglKirim = rawTglKirim || rawTglValidasiKppn || '08/09/2026';
 
     const record: MonitoringLPJRecord = {
       id: `${uploadId}-${cleanKode || r}-${jenisBendahara}`,
@@ -380,7 +502,7 @@ export function parseMonitoringLPJWorkbook(
       tahun,
       periodeFormatted,
       statusPengiriman,
-      tanggalKirim: statusPengiriman === 'SUDAH_KIRIM' ? (rawTglKirim || '08/09/2026') : '-',
+      tanggalKirim: statusPengiriman === 'SUDAH_KIRIM' ? displayTglKirim : '-',
       nomorLpj: statusPengiriman === 'SUDAH_KIRIM' ? (rawNoLpj || `LPJ-${jenisBendahara === 'BLU' ? 'BLU' : jenisBendahara === 'PENERIMAAN' ? 'PNR' : 'PGL'}-${periodeBulan.substring(0, 3).toUpperCase()}/${tahun}/${cleanKode}`) : '-',
       statusVerifikasi,
       saldoRekeningBank: finalSaldoBank,
@@ -394,6 +516,54 @@ export function parseMonitoringLPJWorkbook(
       statusKetepatanWaktu: statusPengiriman === 'SUDAH_KIRIM' ? 'TEPAT_WAKTU' : 'BELUM_KIRIM',
       isLengkapDokumen: statusPengiriman === 'SUDAH_KIRIM',
       batasWaktuPengiriman: `10 ${periodeBulan === 'Agustus' ? 'September' : 'Oktober'} ${tahun}`,
+      
+      // Lampirkan rincian lengkap Buku Pembantu sesuai jenis
+      rincianPengeluaran: jenisBendahara === 'PENGELUARAN' ? {
+        tglValidasiKppn: rawTglValidasiKppn || '-',
+        tglTolakanTerakhir: rawTglTolakan || 'Belum ada penolakan',
+        bpUpTup: rawBpUpTup,
+        bpLsBendahara: rawBpLsBendahara,
+        bpPajak: rawBpPajak,
+        bpHibah: rawBpHibah,
+        bpLainLain: rawBpLainLain,
+        jumlahBp: rawJumlahBp || (rawBpUpTup + rawBpLsBendahara + rawBpPajak + rawBpHibah + rawBpLainLain),
+        saldoKas: rawSaldoKasPengeluaran || totalSaldoKas,
+        kuitansi: rawKuitansi,
+        totalKasKuitansi: rawTotalKasKuitansi || ((rawSaldoKasPengeluaran || totalSaldoKas) + rawKuitansi),
+      } : undefined,
+
+      rincianPenerimaan: jenisBendahara === 'PENERIMAAN' ? {
+        kasTunai: rawSaldoTunai,
+        kasBank: finalSaldoBank,
+        jumlahKas: totalSaldoKas,
+        saldoAwalPnbp: rawSaldoAwalPnbp,
+        penerimaanPnbp: rawPenerimaanPnbp,
+        penyetoranPnbp: rawPenyetoranPnbp,
+        saldoPnbp: rawSaldoPnbp,
+      } : undefined,
+
+      rincianBlu: jenisBendahara === 'BLU' ? {
+        bpUp: rawBluBpUp,
+        bpLsBendahara: rawBluBpLs,
+        bpPendapatan: rawBluBpPend,
+        bpPajak: rawBluBpPajak,
+        bpUangPihakKetiga: rawBluBpPihakKetiga,
+        bpUangTitipan: rawBluBpTitipan,
+        bpDanaBergulir: rawBluBpDanaBergulir,
+        bpHibah: rawBluBpHibah,
+        bpLainLain: rawBluBpLain,
+        jumlahBp: rawJumlahBp || (rawBluBpUp + rawBluBpLs + rawBluBpPend + rawBluBpPajak + rawBluBpPihakKetiga + rawBluBpTitipan + rawBluBpDanaBergulir + rawBluBpHibah + rawBluBpLain),
+        saldoUp: rawBluSaldoUp,
+        kuitansiBelumGu: rawBluKuitansiBelumGu,
+        jumlahUp: rawBluJumlahUp || (rawBluSaldoUp + rawBluKuitansiBelumGu),
+        saldoPendapatan: rawBluSaldoPendapatan,
+        pendapatanBelumDisetor: rawBluPendapatanBelumDisetor,
+        jumlahPendapatan: rawBluJumlahPendapatan || (rawBluSaldoPendapatan + rawBluPendapatanBelumDisetor),
+        saldoHibah: rawBluSaldoHibah,
+        hibahBelumDisetor: rawBluHibahBelumDisetor,
+        jumlahHibah: rawBluJumlahHibah || (rawBluSaldoHibah + rawBluHibahBelumDisetor),
+      } : undefined,
+
       auditInfo: {
         uploadedAt: new Date().toISOString(),
         uploadedBy
