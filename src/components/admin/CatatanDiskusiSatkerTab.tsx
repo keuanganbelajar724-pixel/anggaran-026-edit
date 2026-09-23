@@ -285,7 +285,7 @@ export const CatatanDiskusiSatkerTab: React.FC<CatatanDiskusiSatkerTabProps> = (
         updatedList = [newRecord, ...updatedList];
       }
 
-      await saveCatatanDiskusiSatker(satker.kodeSatker, updatedList);
+      await saveCatatanDiskusiSatker(satker.kodeSatker, satker.namaSatker, updatedList);
       setDiscussions(updatedList);
       triggerNotification(
         editingId ? 'Catatan notula diskusi berhasil diperbarui.' : 'Catatan diskusi baru berhasil direkam.',
@@ -307,7 +307,7 @@ export const CatatanDiskusiSatkerTab: React.FC<CatatanDiskusiSatkerTabProps> = (
     if (!deletingNote) return;
     try {
       const updatedList = discussions.filter(d => d.id !== deletingNote.id);
-      await saveCatatanDiskusiSatker(satker.kodeSatker, updatedList);
+      await saveCatatanDiskusiSatker(satker.kodeSatker, satker.namaSatker, updatedList);
       setDiscussions(updatedList);
       if (selectedNoteForView?.id === deletingNote.id) {
         setSelectedNoteForView(null);
@@ -332,7 +332,7 @@ export const CatatanDiskusiSatkerTab: React.FC<CatatanDiskusiSatkerTabProps> = (
         }
         return item;
       });
-      await saveCatatanDiskusiSatker(satker.kodeSatker, updatedList);
+      await saveCatatanDiskusiSatker(satker.kodeSatker, satker.namaSatker, updatedList);
       setDiscussions(updatedList);
       triggerNotification(`Status diperbarui menjadi: ${newStatus}`, 'success');
     } catch (err) {

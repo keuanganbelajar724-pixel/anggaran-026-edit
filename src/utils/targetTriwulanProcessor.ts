@@ -1,4 +1,5 @@
 import { MyIntressRecord, TriwulanKey, TargetTriwulanRule } from '../types';
+export type { TriwulanKey, TargetTriwulanRule };
 
 /**
  * Aturan Target Triwulanan Realisasi Belanja Resmi Sesuai Ketentuan DJPb:

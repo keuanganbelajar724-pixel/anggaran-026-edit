@@ -617,14 +617,13 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
       setDraft(updatedDraft);
 
       // 1. Save locally for this Satker
+      const filtered = historyDrafts.filter(h => h.id !== updatedDraft.id);
+      const newHist = [updatedDraft, ...filtered];
+      setHistoryDrafts(newHist);
+
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(getDraftStorageKey(updatedDraft.kodeSatker), JSON.stringify(updatedDraft));
-
-        // 2. Append/Update in History List
-        const filtered = historyDrafts.filter(h => h.id !== updatedDraft.id);
-        const newHist = [updatedDraft, ...filtered];
         localStorage.setItem('sakti_pendaftaran_all_history', JSON.stringify(newHist));
-        setHistoryDrafts(newHist);
       }
 
       // 3. Cloud Firestore Persistence (Bidirectional sync across Google AI Studio & Deployment)
@@ -650,14 +649,14 @@ export const PendaftaranUserSaktiView: React.FC<PendaftaranUserSaktiViewProps> =
   const getIkpaInfoForSatker = (kodeSatker: string) => {
     const s = satkers.find(item => item.kodeSatker === kodeSatker);
     if (!s) return undefined;
-    const sorted = [...satkers].sort((a, b) => (b.totalNilai || 0) - (a.totalNilai || 0));
+    const sorted = [...satkers].sort((a, b) => (b.nilaiTotalIKPA || (b as any).totalNilai || 0) - (a.nilaiTotalIKPA || (a as any).totalNilai || 0));
     const rankIndex = sorted.findIndex(item => item.kodeSatker === s.kodeSatker);
     return {
-      totalNilai: s.totalNilai,
+      totalNilai: s.nilaiTotalIKPA || (s as any).totalNilai || 0,
       predikat: s.predikat,
       rank: rankIndex >= 0 ? rankIndex + 1 : undefined,
-      capaianOutput: s.konfirmasiCapaianOutput,
-      penyerapanAnggaran: s.penyerapanAnggaran
+      capaianOutput: s.indikator?.capaianOutput || (s as any).konfirmasiCapaianOutput,
+      penyerapanAnggaran: s.indikator?.penyerapanAnggaran || (s as any).penyerapanAnggaran
     };
   };
 

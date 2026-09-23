@@ -912,14 +912,19 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       return;
     }
 
+    const b51 = intressSummary.breakdownJenisBelanja?.find(b => b.kode === '51');
+    const b52 = intressSummary.breakdownJenisBelanja?.find(b => b.kode === '52');
+    const b53 = intressSummary.breakdownJenisBelanja?.find(b => b.kode === '53');
+    const b57 = intressSummary.breakdownJenisBelanja?.find(b => b.kode === '57');
+
     const updatedConfig: BuletinConfig = {
       ...buletinConfig,
       realisasiAkun: {
         ...buletinConfig.realisasiAkun,
-        belanjaPegawai: { pagu: intressSummary.paguPegawai51, realisasi: intressSummary.realPegawai51, persen: intressSummary.persenPegawai51 },
-        belanjaBarang: { pagu: intressSummary.paguBarang52, realisasi: intressSummary.realBarang52, persen: intressSummary.persenBarang52 },
-        belanjaModal: { pagu: intressSummary.paguModal53, realisasi: intressSummary.realModal53, persen: intressSummary.persenModal53 },
-        belanjaBansos: { pagu: intressSummary.paguBansos57, realisasi: intressSummary.realBansos57, persen: intressSummary.persenBansos57 },
+        belanjaPegawai: { pagu: b51?.pagu || 0, realisasi: b51?.realisasi || 0, persen: b51?.persen || 0 },
+        belanjaBarang: { pagu: b52?.pagu || 0, realisasi: b52?.realisasi || 0, persen: b52?.persen || 0 },
+        belanjaModal: { pagu: b53?.pagu || 0, realisasi: b53?.realisasi || 0, persen: b53?.persen || 0 },
+        belanjaBansos: { pagu: b57?.pagu || 0, realisasi: b57?.realisasi || 0, persen: b57?.persen || 0 },
       },
       updatedAt: new Date().toISOString()
     };
@@ -1076,7 +1081,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
       overallSummary || filteredSummary,
       buletinConfig,
       satkers,
-      dashboardConfig?.juknisList || []
+      (dashboardConfig as any)?.juknisList || []
     );
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -2652,7 +2657,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
             satkers={satkers}
             records={records}
             intressRecords={intressRecords}
-            intressSummary={myIntressSummary}
+            intressSummary={intressSummary}
           />
 
           {/* ============================================================ */}
@@ -2697,7 +2702,7 @@ export const BuletinWartaSection: React.FC<BuletinWartaSectionProps> = ({
               satkers={satkers}
               records={records}
               intressRecords={intressRecords}
-              intressSummary={myIntressSummary}
+              intressSummary={intressSummary}
               onUpdateBuletinConfig={(newConfig) => {
                 setBuletinConfig(newConfig);
                 safeLocalStorageSet(STORAGE_KEY_BULETIN_CFG, JSON.stringify(newConfig));

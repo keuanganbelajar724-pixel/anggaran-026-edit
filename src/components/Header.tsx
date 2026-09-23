@@ -359,6 +359,13 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
     },
     {
+      id: 'konfirmasi-kehadiran',
+      label: '🤝 Konfirmasi Kehadiran',
+      icon: <UserCheck className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">RSVP Satker</span>,
+      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+    },
+    {
       id: 'pendaftaran-user-sakti',
       label: '📝 Pendaftaran User SAKTI',
       icon: <FileSpreadsheet className="w-4 h-4 text-teal-300" />,

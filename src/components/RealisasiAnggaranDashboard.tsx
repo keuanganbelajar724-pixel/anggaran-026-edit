@@ -84,6 +84,8 @@ interface RealisasiAnggaranDashboardProps {
   onUpdateConfig?: (newConfig: RealisasiAnggaranConfig) => void;
   onUploadExcel?: (file: File) => void;
   onResetDefaultData?: () => void;
+  onResetDefault?: () => void;
+  onGoToUpload?: () => void;
   isAdminAuthenticated?: boolean;
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;

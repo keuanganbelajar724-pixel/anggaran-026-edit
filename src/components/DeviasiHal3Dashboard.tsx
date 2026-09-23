@@ -65,7 +65,7 @@ interface DeviasiHal3DashboardProps {
   onGoToAdmin?: () => void;
 }
 
-type TabBelanjaMode = 'MATRIKS' | '51' | '52' | '53' | '57';
+type TabBelanjaMode = 'TOTAL' | 'MATRIKS' | '51' | '52' | '53' | '57';
 export type SeverityFilterType =
   | 'ALL'
   | 'ALERT_ANY'        // Ada Akun Belanja (51, 52, 53, atau 57) dengan Deviasi > 10%

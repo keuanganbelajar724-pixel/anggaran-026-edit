@@ -254,19 +254,28 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
     updated.catatanAnalis = `${deep.analisisBppParagraphs[0]} ${deep.analisisJenisBelanja.belanjaBarang}`;
 
     // Populate specialized treasury data from live synthesis
-    updated.satkerPaguBesarTable = deep.satkerBesarList;
-    updated.evaluasiDelapanIkpa = deep.evaluasiDelapanIkpa;
-    updated.belanjaModalProyek = deep.belanjaModalProyek;
-    updated.monitoringReturSp2d = deep.monitoringReturSp2d;
-    updated.leaderboardDigipayKkp = deep.leaderboardDigipayKkp;
-    if (deep.topSatkersData && deep.topSatkersData.length > 0) {
-      updated.wallOfFameSatker = deep.topSatkersData.map((s, idx) => ({
+    if ((deep as any).satkerBesarList) updated.satkerPaguBesarTable = (deep as any).satkerBesarList;
+    if ((deep as any).evaluasiDelapanIkpa) updated.evaluasiDelapanIkpa = (deep as any).evaluasiDelapanIkpa;
+    if ((deep as any).belanjaModalProyek) updated.belanjaModalProyek = (deep as any).belanjaModalProyek;
+    if ((deep as any).monitoringReturSp2d) updated.monitoringReturSp2d = (deep as any).monitoringReturSp2d;
+    if ((deep as any).leaderboardDigipayKkp) updated.leaderboardDigipayKkp = (deep as any).leaderboardDigipayKkp;
+    if ((deep as any).topSatkersData && (deep as any).topSatkersData.length > 0) {
+      updated.wallOfFameSatker = (deep as any).topSatkersData.map((s: any, idx: number) => ({
         kode: s.kodeSatker,
         nama: s.namaSatker,
         predikat: 'SANGAT BAIK',
         nilai: s.persen,
         kategori: 'Realisasi Belanja APBN',
         highlight: `Peringkat #${idx + 1} dengan realisasi ${s.persen.toFixed(1)}% (${formatRupiahShort(s.realisasi)})`
+      }));
+    } else if (deep.ikpaStats?.topSatkers && deep.ikpaStats.topSatkers.length > 0) {
+      updated.wallOfFameSatker = deep.ikpaStats.topSatkers.map((s, idx) => ({
+        kode: s.kode,
+        nama: s.nama,
+        predikat: s.predikat || 'SANGAT BAIK',
+        nilai: s.nilai,
+        kategori: 'Nilai IKPA SAKTI',
+        highlight: `Peringkat #${idx + 1} dengan nilai IKPA ${s.nilai.toFixed(2)}`
       }));
     }
 

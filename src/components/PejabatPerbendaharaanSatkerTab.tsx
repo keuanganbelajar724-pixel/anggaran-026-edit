@@ -60,7 +60,7 @@ export const PejabatPerbendaharaanSatkerTab: React.FC<PejabatPerbendaharaanSatke
       if (kode && pKode && pKode === kode) return true;
 
       // 2. Name match
-      const pSatkerName = (p.nmSatker || p.satker || '').trim().toLowerCase();
+      const pSatkerName = (p.nmSatker || (p as any).satker || '').trim().toLowerCase();
       const pCleanName = pSatkerName.replace(/[^a-z0-9]/g, '');
       if (cleanNamaSatker && pCleanName) {
         if (cleanNamaSatker === pCleanName) return true;

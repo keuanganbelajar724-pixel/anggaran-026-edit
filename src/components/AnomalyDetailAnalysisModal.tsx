@@ -245,7 +245,7 @@ export const AnomalyDetailAnalysisModal: React.FC<AnomalyDetailAnalysisModalProp
 
   // 2. MATHEMATICAL DECOMPOSITION OF WHY THE DROP OCCURRED
   const impactDecomposition = useMemo(() => {
-    const weights: Record<keyof IndikatorIKPA, { name: string; weight: number; code: string }> = {
+    const weights: Partial<Record<keyof IndikatorIKPA, { name: string; weight: number; code: string }>> = {
       capaianOutput: { name: 'Capaian Output SAKTI', weight: 0.25, code: '25%' },
       penyerapanAnggaran: { name: 'Penyerapan Anggaran', weight: 0.20, code: '20%' },
       deviasiHal3Dipa: { name: 'Deviasi Halaman III DIPA', weight: 0.10, code: '10%' },
@@ -1078,7 +1078,7 @@ Tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long
                     satker: record.satker,
                     indicatorKey: record.pemicuUtama[0].indicatorKey as any,
                     value: record.pemicuUtama[0].currentVal,
-                    category: record.satker.predikat,
+                    category: record.satker.predikat as any,
                     periodLabel: record.currentMonth
                   });
                 }}

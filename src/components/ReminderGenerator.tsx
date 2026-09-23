@@ -305,7 +305,7 @@ export const ReminderGenerator: React.FC<ReminderGeneratorProps> = ({
       confirmText: 'Ya, Putuskan',
       cancelText: 'Batal',
       variant: 'danger',
-      iconType: 'warning',
+      iconType: 'alert',
       onConfirm: () => {
         updateWaDevice({
           isConnected: false,

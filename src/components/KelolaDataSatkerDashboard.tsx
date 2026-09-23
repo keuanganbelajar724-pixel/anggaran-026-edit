@@ -451,11 +451,13 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   // Bulk Apply Default Passwords ([KodeSatker]_[KodeBA]) for All Satkers
   const handleBulkSetDefaultPasswords = () => {
     setConfirmModal({
+      isOpen: true,
       title: 'Terapkan Password Default Massal ([KodeSatker]_[KodeBA])?',
       message: `Tindakan ini akan menyetel / mereset password untuk seluruh ${masterSatkers.length} Satker ke format standar resmi KPPN: [KodeSatker]_[KodeBA] (Contoh: 890594_018). Password ini langsung terintegrasi secara terpusat untuk Simulasi IKPA, form kontak 8 pejabat & operator SAKTI, serta seluruh akses Satker di aplikasi.`,
       confirmText: `Ya, Terapkan ke ${masterSatkers.length} Satker`,
       cancelText: 'Batal',
-      type: 'warning',
+      variant: 'warning',
+      iconType: 'alert',
       onConfirm: () => {
         const updatedList = masterSatkers.map(m => ({
           ...m,
@@ -981,18 +983,9 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       {/* Modern Confirmation Modal */}
       {confirmModal && (
         <ModernConfirmModal
-          isOpen={confirmModal.isOpen}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmText}
-          cancelText={confirmModal.cancelText}
-          variant={confirmModal.variant}
-          iconType={confirmModal.iconType}
-          onConfirm={() => {
-            confirmModal.onConfirm();
-            setConfirmModal(null);
-          }}
-          onCancel={() => setConfirmModal(null)}
+          modal={confirmModal}
+          onClose={() => setConfirmModal(null)}
+          isDark={theme === 'dark'}
         />
       )}
 
@@ -2587,22 +2580,6 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           </div>
         </div>
       )}
-
-      {/* Confirmation Modal */}
-      <ModernConfirmModal
-        isOpen={!!confirmModal}
-        onClose={() => setConfirmModal(null)}
-        onConfirm={() => {
-          if (confirmModal?.onConfirm) confirmModal.onConfirm();
-          setConfirmModal(null);
-        }}
-        title={confirmModal?.title || ''}
-        message={confirmModal?.message || ''}
-        confirmText={confirmModal?.confirmText || 'Konfirmasi'}
-        cancelText={confirmModal?.cancelText || 'Batal'}
-        type={confirmModal?.type || 'warning'}
-        theme={theme}
-      />
     </div>
   );
 };

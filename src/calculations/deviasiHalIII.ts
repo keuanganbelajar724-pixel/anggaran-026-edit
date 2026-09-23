@@ -355,10 +355,10 @@ export function calculateDeviasiHal3(
     const totalPagu = pagu51 + pagu52 + pagu53 + pagu57;
 
     // Proporsi: prioritas 1 dari input proporsi, prioritas 2 dari nominal pagu, prioritas 3 default workbook
-    let p51 = existing?.proporsi51 ?? existing?.proporsiPagu51;
-    let p52 = existing?.proporsi52 ?? existing?.proporsiPagu52;
-    let p53 = existing?.proporsi53 ?? existing?.proporsiPagu53;
-    let p57 = existing?.proporsi57 ?? existing?.proporsiPagu57;
+    let p51 = existing?.proporsi51 ?? (existing as any)?.proporsiPagu51;
+    let p52 = existing?.proporsi52 ?? (existing as any)?.proporsiPagu52;
+    let p53 = existing?.proporsi53 ?? (existing as any)?.proporsiPagu53;
+    let p57 = existing?.proporsi57 ?? (existing as any)?.proporsiPagu57;
 
     if ((p51 === undefined || p51 === null) && totalPagu > 0) {
       const calcProp = calculateBudgetProportion(pagu51, pagu52, pagu53, pagu57);

@@ -39,7 +39,7 @@ try {
 
 export const auth = authInstance;
 
-// Initialize Firestore with forceLongPolling to prevent 10s WebSocket timeout issues in sandboxed/iframe preview environments
+// Initialize Firestore with autoDetectLongPolling to allow instantaneous WebSockets with reliable fallback
 let firestoreDb: any;
 try {
   let cacheConfig: any;
@@ -55,7 +55,7 @@ try {
     app,
     {
       localCache: cacheConfig,
-      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: true,
     },
     firebaseConfig.firestoreDatabaseId || undefined
   );
@@ -64,7 +64,7 @@ try {
     firestoreDb = initializeFirestore(
       app,
       {
-        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
       },
       firebaseConfig.firestoreDatabaseId || undefined
     );

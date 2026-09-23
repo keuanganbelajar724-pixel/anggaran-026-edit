@@ -67,7 +67,9 @@ import { KelolaPengetahuanJuknisSection } from './admin/KelolaPengetahuanJuknisS
 import { BuletinWartaSection } from './admin/BuletinWartaSection';
 import { FirebaseQuotaMonitorSection } from './admin/FirebaseQuotaMonitorSection';
 import { AdvancedWhatIfAnalyticsSection } from './admin/AdvancedWhatIfAnalyticsSection';
+import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
+import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord } from '../types';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -171,7 +173,6 @@ import {
   FileDown,
   Bot,
   BrainCircuit,
-  UserCheck,
   CreditCard,
   Settings,
   ArrowUp,
@@ -277,6 +278,13 @@ interface AdminUploadProps {
   onForceCloudSync?: () => void;
   isCloudSyncing?: boolean;
   cloudSyncMessage?: string | null;
+  onNavigateTab?: (tab: NavigationTab) => void;
+  konfirmasiKegiatanList?: UndanganKonfirmasiKegiatan[];
+  konfirmasiKehadiranList?: KonfirmasiKehadiranRecord[];
+  onSaveKonfirmasiKegiatan?: (kegiatan: UndanganKonfirmasiKegiatan) => void;
+  onDeleteKonfirmasiKegiatan?: (kegiatanId: string) => void;
+  onSaveKonfirmasiKehadiran?: (record: KonfirmasiKehadiranRecord) => void;
+  onDeleteKonfirmasiKehadiran?: (recordId: string) => void;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -475,12 +483,19 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onClearKontrak,
   onForceCloudSync,
   isCloudSyncing = false,
-  cloudSyncMessage = null
+  cloudSyncMessage = null,
+  onNavigateTab,
+  konfirmasiKegiatanList = [],
+  konfirmasiKehadiranList = [],
+  onSaveKonfirmasiKegiatan,
+  onDeleteKonfirmasiKegiatan,
+  onSaveKonfirmasiKehadiran,
+  onDeleteKonfirmasiKehadiran
 }) => {
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -745,7 +760,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       message: message || '',
       confirmText: options?.confirmText || 'Ya, Lanjutkan',
       cancelText: options?.cancelText || 'Batal',
-      variant: options?.variant || 'danger',
+      variant: (options?.variant === 'info' ? 'primary' : options?.variant) || 'danger',
       iconType: options?.iconType as any,
       onConfirm: onConfirm || (() => {})
     });
@@ -1217,6 +1232,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [newAdminPinInput, setNewAdminPinInput] = useState<string>('');
   const [confirmAdminPinInput, setConfirmAdminPinInput] = useState<string>('');
   const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [showHiddenKiResetSection, setShowHiddenKiResetSection] = useState<boolean>(false);
 
   // Sync state when dashboardConfig prop updates from Firebase Firestore realtime
   useEffect(() => {
@@ -1390,6 +1406,50 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     setTimeout(() => {
       setConfigSaveSuccess(false);
     }, 5000);
+  };
+
+  // Emergency Recovery: Reset Seksi Kepatuhan Internal (SKI) Password back to default (ki026)
+  const handleEmergencyResetKiPassword = () => {
+    requestConfirm(
+      'Reset Sandi Kepatuhan Internal (SKI) ke Default?',
+      'Apakah Anda yakin ingin mereset kata sandi Seksi Kepatuhan Internal kembali ke kata sandi awal bawaan sistem ("ki026")? Fitur ini khusus digunakan jika Ketua Seksi Kepatuhan Internal lupa kata sandi kustom yang telah dibuat.',
+      () => {
+        const updatedCfg: DashboardConfig = {
+          ...tempConfig,
+          kepatuhanInternalPassword: 'ki026',
+          kepatuhanInternalPasswordUpdatedAt: ''
+        };
+        setTempConfig(updatedCfg);
+        onUpdateDashboardConfig(updatedCfg);
+        safeLocalStorageSet('kppn_ki_password', 'ki026');
+        try {
+          localStorage.removeItem('kppn_ki_password_updated_at');
+          const saved = localStorage.getItem('kppn_dashboard_config');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            parsed.kepatuhanInternalPassword = 'ki026';
+            delete parsed.kepatuhanInternalPasswordUpdatedAt;
+            safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(parsed));
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+
+        addLog(
+          'Reset Darurat Sandi KI ke Default',
+          'AUTH',
+          'Kata sandi Seksi Kepatuhan Internal berhasil dikembalikan ke bawaan awal (ki026) oleh Admin dari menu Pengaturan Dashboard.',
+          'WARNING'
+        );
+        addToast('Kata sandi Seksi Kepatuhan Internal berhasil dikembalikan ke bawaan sistem: ki026', 'success');
+      },
+      {
+        confirmText: 'Ya, Reset ke ki026',
+        cancelText: 'Batal',
+        variant: 'warning',
+        iconType: 'shield'
+      }
+    );
   };
 
   const handleSaveAnnouncement = (e: React.FormEvent) => {
@@ -3037,6 +3097,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </button>
 
         <button
+          onClick={() => setAdminTab('konfirmasi-admin')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            adminTab === 'konfirmasi-admin'
+              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-emerald-500/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+          }`}
+        >
+          <UserCheck className="w-4 h-4 text-emerald-600" />
+          <span>10b. Konfirmasi Kehadiran &amp; Undangan (RSVP)</span>
+          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            {konfirmasiKegiatanList.filter(k => k.isActive).length} Aktif
+          </span>
+        </button>
+
+        <button
           onClick={() => setAdminTab('broadcast')}
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
             adminTab === 'broadcast'
@@ -3879,7 +3954,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'portal-link',
                         'pengetahuan',
                         'aduan',
-                        'presensi'
+                        'presensi',
+                        'konfirmasi-kehadiran',
+                        'pendaftaran-user-sakti',
+                        'rekonsiliasi',
+                        'lpj',
+                        'gaji-induk',
+                        'monitoring-haicso',
+                        'kontrak'
                       ];
                       const newCfg = {
                         ...tempConfig,
@@ -3918,6 +4000,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'materi-slide': true,
                         'portal-link': true,
                         'presensi': true,
+                        'konfirmasi-kehadiran': true,
                         'pendaftaran-user-sakti': true,
                         'rekonsiliasi': true,
                         'lpj': true,
@@ -3965,6 +4048,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'materi-slide': false,
                         'portal-link': false,
                         'presensi': false,
+                        'konfirmasi-kehadiran': false,
                         'pendaftaran-user-sakti': false,
                         'rekonsiliasi': false,
                         'lpj': false,
@@ -4031,11 +4115,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pengetahuan',
                       'aduan',
                       'presensi',
+                      'konfirmasi-kehadiran',
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
                       'lpj',
                       'gaji-induk',
-                      'monitoring-haicso'
+                      'monitoring-haicso',
+                      'kontrak'
                     ]).filter(k => k !== 'guide' && tempConfig.menuVisibility?.[k as keyof MenuVisibilityConfig] !== false).length} Menu Aktif
                   </span>
                 </div>
@@ -4061,11 +4147,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pengetahuan': 'Juknis dan Pengetahuan Perbendaharaan',
                       'aduan': 'Lapor Aduan',
                       'presensi': 'Presensi Online',
+                      'konfirmasi-kehadiran': '🤝 Konfirmasi Kehadiran',
                       'pendaftaran-user-sakti': 'Pendaftaran User SAKTI',
                       'rekonsiliasi': 'Rekonsiliasi',
                       'lpj': 'Monitoring LPJ',
                       'gaji-induk': 'Gaji Induk (PNS & PPPK)',
-                      'monitoring-haicso': '🎫 Tiket HAICSO'
+                      'monitoring-haicso': '🎫 Tiket HAICSO',
+                      'kontrak': '📑 Data Kontrak'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -4087,11 +4175,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'pengetahuan',
                       'aduan',
                       'presensi',
+                      'konfirmasi-kehadiran',
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
                       'lpj',
                       'gaji-induk',
-                      'monitoring-haicso'
+                      'monitoring-haicso',
+                      'kontrak'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4137,6 +4227,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pengetahuan': { label: 'Juknis dan Pengetahuan Perbendaharaan', desc: 'Direktori Juknis, Artikel Edukasi & Format Acuan SPM SAKTI', category: 'Edukasi', badgeColor: 'bg-cyan-100 text-cyan-800' },
                     'aduan': { label: 'Lapor Aduan Satker', desc: 'Kanal Layanan & Tiket Aduan Satker', category: 'Layanan', badgeColor: 'bg-rose-100 text-rose-800' },
                     'presensi': { label: 'Presensi Online', desc: 'Daftar Hadir Online Peserta Sosialisasi', category: 'Layanan', badgeColor: 'bg-teal-100 text-teal-800' },
+                    'konfirmasi-kehadiran': { label: '🤝 Konfirmasi Kehadiran Satker (RSVP Undangan)', desc: 'Monitoring konfirmasi kehadiran resmi KPA/PPK/PPSPM/Bendahara per kegiatan', category: 'Layanan', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'pendaftaran-user-sakti': { label: 'Pendaftaran User SAKTI', desc: 'Registrasi & pemutakhiran role user SAKTI resmi (Ekspor Excel & PDF)', category: 'SAKTI', badgeColor: 'bg-teal-100 text-teal-800' },
                     'rekonsiliasi': { label: '📊 Rekonsiliasi & Kepatuhan Satker', desc: 'Monitoring otomatis kepatuhan Rekonsiliasi, Todolist, Tutup Periode, SP2S & SP3S', category: 'Kepatuhan', badgeColor: 'bg-blue-100 text-blue-800' },
                     'lpj': { label: '📋 Monitoring LPJ Bendahara', desc: 'Monitoring penyampaian LPJ Bendahara SAKTI, status pengiriman, verifikasi & cetak PDF', category: 'LPJ Bendahara', badgeColor: 'bg-emerald-100 text-emerald-800' },
@@ -4164,6 +4255,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'pengetahuan',
                     'aduan',
                     'presensi',
+                    'konfirmasi-kehadiran',
                     'pendaftaran-user-sakti',
                     'rekonsiliasi',
                     'lpj',
@@ -6170,9 +6262,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       ...(tempConfig.menuVisibility || {}),
                       'monitoring-haicso': nextActive
                     };
-                    const updatedCfg = {
+                    const updatedCfg: DashboardConfig = {
                       ...tempConfig,
-                      menuVisibility: newVis
+                      menuVisibility: newVis as any
                     };
                     setTempConfig(updatedCfg);
                     onUpdateDashboardConfig(updatedCfg);
@@ -6313,6 +6405,105 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Setting 8: Opsi Tersembunyi Pemulihan & Reset Kata Sandi Seksi Kepatuhan Internal (SKI) */}
+            {(() => {
+              const currentKiPassInSettings = tempConfig.kepatuhanInternalPassword || (typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_ki_password') : null) || 'ki026';
+              const isKiPassDefaultInSettings = currentKiPassInSettings === 'ki026';
+              const kiPassUpdatedAtInSettings = tempConfig.kepatuhanInternalPasswordUpdatedAt || (typeof localStorage !== 'undefined' ? localStorage.getItem('kppn_ki_password_updated_at') : '') || '';
+
+              return (
+                <div className="bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 transition-all">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
+                        <KeyRound className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <label className="text-xs font-black text-slate-800 dark:text-slate-100 uppercase tracking-wider block">
+                            Opsi Pemulihan Sandi Kepatuhan Internal (SKI)
+                          </label>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            Fitur Tersembunyi Admin
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          Tombol reset darurat untuk mengembalikan kata sandi Seksi Kepatuhan Internal ke bawaan awal sistem (<code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">ki026</code>) apabila Ketua KI lupa kata sandinya.
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowHiddenKiResetSection(!showHiddenKiResetSection)}
+                      className="shrink-0 text-xs font-black px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{showHiddenKiResetSection ? 'Sembunyikan Opsi Reset' : 'Buka Opsi Reset Sandi KI'}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showHiddenKiResetSection ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+
+                  {showHiddenKiResetSection && (
+                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3 animate-in fade-in duration-200">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Status Sandi KI:</span>
+                            {isKiPassDefaultInSettings ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                Masih Password Bawaan / Default (ki026)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                Sandi Kustom Aktif (Sudah Pernah Diubah)
+                              </span>
+                            )}
+
+                            {kiPassUpdatedAtInSettings && (
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                • Terakhir diperbarui: {kiPassUpdatedAtInSettings}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl">
+                            {isKiPassDefaultInSettings
+                              ? 'Kata sandi Seksi Kepatuhan Internal saat ini masih menggunakan kata sandi awal bawaan sistem ("ki026"). Ketua KI dapat membukanya langsung dengan sandi tersebut.'
+                              : 'Kata sandi Seksi Kepatuhan Internal telah diubah menjadi sandi kustom. Jika Ketua KI lupa sandi tersebut sehingga tidak bisa mengakses modul aduan, klik tombol reset di samping untuk mengembalikannya ke "ki026".'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleEmergencyResetKiPassword}
+                            className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95 ${
+                              isKiPassDefaultInSettings
+                                ? 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
+                                : 'bg-amber-500 hover:bg-amber-400 text-slate-950 ring-2 ring-amber-400/50'
+                            }`}
+                          >
+                            <RotateCcw className="w-4 h-4 text-amber-900 dark:text-amber-100" />
+                            <span>{isKiPassDefaultInSettings ? 'Paksa Reset Ulang ke ki026' : 'Reset Sandi KI ke Bawaan (ki026)'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                        <span>
+                          <strong>Catatan Keamanan:</strong> Menekan tombol reset akan menyinkronkan kata sandi KI menjadi <code className="px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 rounded font-mono font-black text-amber-950 dark:text-amber-100">ki026</code> pada penyimpanan lokal dan cloud serta mencatat aktivitas pada Log Audit Admin. Setelah dibuka kembali, Ketua Seksi Kepatuhan Internal dapat membuat password baru melalui tombol <em>"Ganti Password KI"</em>.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Action Buttons & Immediate Feedback */}
             {configSaveSuccess && (
@@ -7347,6 +7538,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       isPinned: false,
                       isActive: true,
                       importance: 'Sangat Penting',
+                      accessType: 'UMUM',
+                      password: '',
                       tagsInput: 'PER-5, IKPA, KPPN'
                     });
                   }}
@@ -10129,6 +10322,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         );
       })()}
 
+      {/* Konfirmasi Kehadiran & Undangan (RSVP) Admin Module */}
+      {adminTab === 'konfirmasi-admin' && (
+        <KonfirmasiAdminSection
+          isDark={isDark}
+          kegiatanList={konfirmasiKegiatanList}
+          konfirmasiList={konfirmasiKehadiranList}
+          masterSatkers={masterSatkers}
+          onSaveKegiatan={onSaveKonfirmasiKegiatan}
+          onDeleteKegiatan={onDeleteKonfirmasiKegiatan}
+          onSaveKonfirmasi={onSaveKonfirmasiKehadiran}
+          onDeleteKonfirmasi={onDeleteKonfirmasiKehadiran}
+          requestConfirm={(title, message, onConfirm, isDestructive) =>
+            requestConfirm(title, message, onConfirm, { variant: isDestructive ? 'danger' : 'info' })
+          }
+          showToast={addToast}
+        />
+      )}
+
       {/* Broadcast & Mass Notification Tab (Japri Pribadi) */}
       {adminTab === 'broadcast' && (
         <BroadcastMasifSection
@@ -10194,7 +10405,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }}
           isDark={isDark}
           theme={theme}
-          addLog={addLog}
+          addLog={(action, category, details, status) => addLog(action, category as any, details, status as any)}
           showToast={(opts) => addToast(opts.message, opts.type)}
         />
       )}
@@ -10204,11 +10415,16 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           satkers={satkers}
           theme={theme}
           isAdminAuthenticated={isAdminAuthenticated}
-          onSaveMasterSatker={onSaveMasterSatker}
-          onUpdateMasterSatkers={onUpdateMasterSatkers}
+          onSaveMasterSatker={onSaveMasterSatker || (() => {})}
+          onUpdateMasterSatkers={onUpdateMasterSatkers || (() => {})}
           onDeleteMasterSatker={onDeleteMasterSatker}
           onDeleteBatchMasterSatkers={onDeleteBatchMasterSatkers}
-          onToggleActiveMasterSatker={onToggleActiveMasterSatker}
+          onToggleActiveMasterSatker={(id: string) => {
+            if (onToggleActiveMasterSatker) {
+              const target = masterSatkers.find(m => m.id === id);
+              onToggleActiveMasterSatker(id, !target?.isActive);
+            }
+          }}
         />
       )}
 
@@ -11250,7 +11466,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               pejabatList={pejabatIKPAList}
               onApplyPejabatList={onApplyPejabatIKPAList || (() => {})}
               onClearPejabatData={onClearPejabatIKPA || (() => {})}
-              requestConfirm={requestConfirm}
+              requestConfirm={(title, message, onConfirm, isDestructive) => requestConfirm(title, message, onConfirm, { variant: isDestructive ? 'danger' : 'info' })}
               showToast={showToast}
               addLog={addLog}
             />
@@ -11303,7 +11519,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 }
               }}
               requestConfirm={requestConfirm}
-              showToast={showToast}
+              showToast={(opts) => showToast(opts.message, opts.type, opts.title)}
               addLog={addLog}
             />
           )}

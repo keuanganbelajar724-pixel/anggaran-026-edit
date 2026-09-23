@@ -236,7 +236,8 @@ export const SPMPPPDashboard: React.FC<SPMPPPDashboardProps> = ({
       } else if (statusFilter === 'BELUM') {
         if (s.belumCount === 0) return false;
       } else if (statusFilter === 'SELESAI' || statusFilter === 'SP2D') {
-        if (s.selesaiCount === 0) return false;
+        const selesaiCount = (s.statusCounts['Selesai SP2D'] || 0) + (s.statusCounts['SP2D'] || 0);
+        if (selesaiCount === 0) return false;
       } else if (statusFilter === 'PROSES') {
         if (s.prosesCount === 0) return false;
       } else {

@@ -1399,12 +1399,9 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
         buletinConfig={buletinConfig}
         overallSummary={overallSummary}
         satkers={satkers}
-        onApplyAiDraft={updatedFields => {
+        onUpdateBuletinConfig={updated => {
           if (onUpdateBuletinConfig) {
-            onUpdateBuletinConfig({
-              ...buletinConfig,
-              ...updatedFields
-            });
+            onUpdateBuletinConfig(updated);
           }
         }}
       />
@@ -1413,8 +1410,13 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
       <BuletinSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
-        pages={activePages}
-        onSelectPage={pageNum => {
+        pageDirectory={activePages.map((p, idx) => ({
+          num: p.num,
+          title: p.title,
+          section: p.section,
+          seqIndex: idx
+        }))}
+        onJumpToPage={pageNum => {
           goToPage(pageNum);
           setIsSearchModalOpen(false);
         }}
@@ -1424,7 +1426,8 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
       <BuletinAnnotationDrawer
         isOpen={isAnnotationDrawerOpen}
         onClose={() => setIsAnnotationDrawerOpen(false)}
-        currentPage={readerMode === 'flipbook' ? currentSpread * 2 + 1 : currentSinglePage}
+        currentPageNum={readerMode === 'flipbook' ? currentSpread * 2 + 1 : currentSinglePage}
+        totalPages={activePages.length}
         onJumpToPage={pageNum => {
           goToPage(pageNum);
         }}
@@ -1451,23 +1454,28 @@ export const BuletinMagazineLayout: React.FC<BuletinMagazineLayoutProps> = ({
       />
 
       {/* Voice Narrator (TTS Speech Synthesis Engine) */}
-      <BuletinVoiceNarratorModal
-        isOpen={isVoiceNarratorOpen}
-        onClose={() => setIsVoiceNarratorOpen(false)}
-        currentPage={readerMode === 'flipbook' ? currentSpread * 2 + 1 : currentSinglePage}
-        totalPages={activePages.length}
-        pageContent={getActivePageText(readerMode === 'flipbook' ? currentSpread * 2 + 1 : currentSinglePage)}
-        onNextPage={goToNext}
-        onPrevPage={goToPrev}
-      />
+      {(() => {
+        const curPage = readerMode === 'flipbook' ? currentSpread * 2 + 1 : currentSinglePage;
+        const curPageObj = masterPageDirectory.find(p => p.num === curPage);
+        return (
+          <BuletinVoiceNarratorModal
+            isOpen={isVoiceNarratorOpen}
+            onClose={() => setIsVoiceNarratorOpen(false)}
+            currentPage={curPage}
+            totalPages={activePages.length}
+            currentPageTitle={curPageObj?.title || `Halaman ${curPage}`}
+            pageTextContent={getActivePageText(curPage)}
+            onNavigatePage={goToPage}
+          />
+        );
+      })()}
 
       {/* Distribution Hub (WhatsApp / Sosmed / Embed / QR) */}
       <BuletinDistributionHubModal
         isOpen={isDistributionHubOpen}
         onClose={() => setIsDistributionHubOpen(false)}
         buletinConfig={buletinConfig}
-        overallSummary={overallSummary}
-        totalPages={activePages.length}
+        overallSummary={overallSummary || undefined}
       />
 
       {/* Interactive Game Arena (TTS & Kuis APBN) */}

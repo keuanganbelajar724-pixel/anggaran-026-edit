@@ -113,7 +113,19 @@ export function getWorkbookSampleProject(): SimulationProject {
   }));
 
   const penyelesaianTagihan: PenyelesaianTagihanInput[] = DEFAULT_EXCEL_TAGIHAN_ROWS.map((t: any) => ({
-    no: t.id,
+    no: t.id || t.no || 1,
+    identitasTagihan: t.identitasTagihan || `TAG-${t.noSp2d || t.id}`,
+    keterangan: t.keterangan || '-',
+    jenisTagihan: t.jenisTagihan || 'Kontraktual',
+    nomorSPP: t.nomorSPP || t.noSpp || '-',
+    tanggalSPP: normalizeDateToIso(t.tanggalSpp || t.tanggalSpm),
+    hariLibur: t.jumlahHariLibur ?? 0,
+    jumlahHariEfektif: t.jumlahHariEfektif ?? null,
+    status: (t.status || 'TEPAT') as any,
+    keteranganHasil: t.keteranganHasil || 'Tepat Waktu',
+    tanggalMulai: normalizeDateToIso(t.tanggalMulaiPerhitungan),
+    tanggalKonversi: normalizeDateToIso(t.tanggalKonversiAdk),
+    selisihHari: null,
     satker: t.satker,
     nomorSP2D: t.noSp2d,
     tanggalSP2D: normalizeDateToIso(t.tanggalSp2d),

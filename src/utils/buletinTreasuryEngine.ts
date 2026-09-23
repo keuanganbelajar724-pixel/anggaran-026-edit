@@ -18,6 +18,8 @@ export interface TreasuryAllDatasets {
   pengelolaanUpRecords?: any[];
   masterSatkers?: any[];
   pejabatList?: any[];
+  summary?: any;
+  satkers?: any[];
 }
 
 export interface DeepFiscalAnalysisResult {

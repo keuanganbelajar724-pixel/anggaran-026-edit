@@ -142,7 +142,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
   // General Header & Time Config
   const [namaKppn, setNamaKppn] = useState<string>(() => {
-    return dashboardConfig.namaKppn || 'KPPN Semarang I';
+    return (dashboardConfig as any)?.namaKppn || 'KPPN Semarang I';
   });
   
   // Waktu Monitoring (contoh: "3 September 2026 pukul 14.20 WIB")
@@ -598,9 +598,9 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       return sorted;
     }
     // Fallback from buletinConfig or realistic preset
-    const preset = dashboardConfig.buletinConfig?.leaderboardDigipayKkp?.topDigipaySatker;
+    const preset = (dashboardConfig as any)?.buletinConfig?.leaderboardDigipayKkp?.topDigipaySatker;
     if (preset && preset.length > 0) {
-      return preset.map((p, idx) => ({
+      return preset.map((p: any, idx: number) => ({
         kodeSatker: `6${idx}8921`,
         namaSatker: p.nama,
         count: p.transaksi,
@@ -632,9 +632,9 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
       return sorted;
     }
     // Fallback from buletinConfig or realistic preset
-    const preset = dashboardConfig.buletinConfig?.leaderboardDigipayKkp?.topKkpSatker;
+    const preset = (dashboardConfig as any)?.buletinConfig?.leaderboardDigipayKkp?.topKkpSatker;
     if (preset && preset.length > 0) {
-      return preset.map((p, idx) => ({
+      return preset.map((p: any, idx: number) => ({
         kodeSatker: `5${idx}4312`,
         namaSatker: p.nama,
         count: p.transaksi,
@@ -687,7 +687,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
     const isSatkerBelum = (s: SatkerIKPA) =>
       s.statusCapaianOutput === 'Belum Terlaporkan' ||
-      s.statusCapaianOutput === 'Belum Lapor' ||
+      (s.statusCapaianOutput as any) === 'Belum Lapor' ||
       (typeof s.indikator?.capaianOutput === 'number' && s.indikator.capaianOutput === 0);
 
     // Periksa dari arsip CAPUT aktif terlebih dahulu
@@ -1361,7 +1361,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
           return `✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨ ✨\n`;
         case 'NONE':
           return `\n`;
-        case 'SOLID':
+        case 'LINE':
         default:
           return `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
       }
@@ -1369,21 +1369,18 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
     // Helper for bullet style
     const formatBullet = (idx: number, isNumbered = false) => {
-      if (bulletStyle === 'MEDALS') {
+      if (bulletStyle === 'MEDAL_NUM') {
         const medals = ['🥇', '🥈', '🥉', '🎖️', '🏅', '⭐', '🔹', '🔹', '🔹', '🔹'];
-        return medals[idx] || '🔹';
+        return medals[idx] || `${idx + 1}.`;
       }
-      if (bulletStyle === 'ALERT') {
+      if (bulletStyle === 'ALERT_DOTS') {
         const alerts = ['🚨', '⚠️', '🔴', '🟠', '🟡', '⏳', '📌', '📌', '📌', '📌'];
         return alerts[idx] || '⚠️';
       }
       if (bulletStyle === 'DIAMOND') {
         return '💠';
       }
-      if (bulletStyle === 'DOT') {
-        return '•';
-      }
-      if (bulletStyle === 'NUMBER') {
+      if (bulletStyle === 'PLAIN_NUM') {
         return `${idx + 1}.`;
       }
       return isNumbered ? `${idx + 1}.` : '•';
@@ -1392,15 +1389,16 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
     // Helper for greetings
     const getGreetingText = () => {
       switch (greetingType) {
-        case 'RESMI_KPA':
+        case 'FORMAL_KPA':
           return `Yth. Kuasa Pengguna Anggaran (KPA) & Seluruh Pejabat Perbendaharaan Lingkup ${namaKppn},\n\n`;
-        case 'SEKRETARIS':
-          return `Yth. Para Pimpinan Satuan Kerja, Sekretaris, dan Rekan Pengelola Keuangan Lingkup ${namaKppn},\n\n`;
-        case 'PAGI_SEMANGAT':
-          return `Selamat Pagi & Semangat Pagi rekan-rekan Pengelola Keuangan Hebat Lingkup ${namaKppn},\nSemoga selalu diberikan kesehatan dan kelancaran dalam bertugas.\n\n`;
-        case 'URGENT_ATTENTION':
-          return `🚨 *[PERHATIAN MENDESAK / ACTION REQUIRED]*\nYth. KPA, PPK, PPSPM, dan Bendahara Satuan Kerja Lingkup ${namaKppn},\n\n`;
-        case 'FORMAL_KPPN':
+        case 'PPK_PPSPM':
+          return `Yth. Para Pejabat Pembuat Komitmen (PPK) & PPSPM Satuan Kerja Lingkup ${namaKppn},\n\n`;
+        case 'BENDAHARA':
+          return `Yth. Bapak/Ibu Bendahara Pengeluaran/Penerimaan Satuan Kerja Lingkup ${namaKppn},\n\n`;
+        case 'RINGKAS':
+          return `Yth. Bapak/Ibu Pengelola Keuangan Satuan Kerja Mitra ${namaKppn},\n\n`;
+        case 'OFF':
+          return '';
         default:
           return `Yth. Bapak/Ibu Kuasa Pengguna Anggaran & Pengelola Keuangan Satker Lingkup ${namaKppn},\n\n`;
       }
@@ -1428,10 +1426,10 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
 
     // Helper for applying satker limit
     const applyLimit = <T,>(arr: T[]): { items: T[]; remainingCount: number } => {
-      if (satkerLimit === 'ALL' || !satkerLimit) {
+      if (!satkerLimit || satkerLimit <= 0) {
         return { items: arr, remainingCount: 0 };
       }
-      const num = parseInt(satkerLimit, 10);
+      const num = Number(satkerLimit);
       if (isNaN(num) || arr.length <= num) {
         return { items: arr, remainingCount: 0 };
       }
@@ -2103,7 +2101,7 @@ export const BroadcastGroupSection: React.FC<BroadcastGroupSectionProps> = ({
         }
         if (activeCaput.length > 0) {
           text += `Daftar Satker belum rekam/approval CAPUT:\n`;
-          const limitCount = satkerLimit === 'ALL' ? 6 : Math.min(6, parseInt(satkerLimit, 10) || 6);
+          const limitCount = !satkerLimit || satkerLimit <= 0 ? 6 : Math.min(6, Number(satkerLimit));
           activeCaput.slice(0, limitCount).forEach((s, idx) => {
             const persenText = showPersentase ? ` (Capaian: *${s.indikator?.capaianOutput ?? 0}%*)` : '';
             text += `${formatBullet(idx, true)} ${formatSatkerInline(s.kodeSatker, s.namaSatker)}${persenText}\n`;
@@ -2652,8 +2650,8 @@ ${currentDisplayText}
 4. Tetap gunakan format WhatsApp (tanda bintang *teks* untuk bold, format list rapi).
 5. Jangan menambahkan tautan fiktif. Identitas instansi adalah ${namaKppn}.`;
 
-      const res = await generateGeminiContent(prompt);
-      setAiPreview(res);
+      const res = await generateGeminiContent({ prompt });
+      setAiPreview(res.text || '');
     } catch (err: any) {
       console.error(err);
       if (showToast) {

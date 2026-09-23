@@ -309,7 +309,7 @@ export const ExecutiveReportModal: React.FC<ExecutiveReportModalProps> = ({
                   (Tanda Tangan &amp; Cap Dinas)
                 </div>
                 <span className="font-bold text-slate-900 block underline uppercase">
-                  {dashboardConfig?.contactPerson?.name || 'Kepala KPPN Semarang I'}
+                  {(dashboardConfig as any)?.contactPerson?.name || 'Kepala KPPN Semarang I'}
                 </span>
                 <span className="text-slate-500 block">NIP. 19750815 199602 1 001</span>
               </div>

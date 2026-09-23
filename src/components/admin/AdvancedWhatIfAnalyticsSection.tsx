@@ -25,7 +25,8 @@ import {
   Scale,
   Save,
   Trash2,
-  FolderOpen
+  FolderOpen,
+  Bookmark
 } from 'lucide-react';
 import { SatkerIKPA, IndikatorIKPA, PejabatSertifikasi, AppTheme } from '../../types';
 import { hitungTotalIKPA, getPredikatIKPA } from '../../data/initialSatkerData';
@@ -1770,7 +1771,6 @@ Mohon dapat segera dilakukan langkah koordinasi sebelum batas waktu cut-off peri
         onApplyScore={(score) => {
           setSimValues(prev => ({ ...prev, deviasiHal3Dipa: score }));
         }}
-        currentScore={simValues.deviasiHal3Dipa}
         isDark={isDark}
       />
 
@@ -1781,7 +1781,6 @@ Mohon dapat segera dilakukan langkah koordinasi sebelum batas waktu cut-off peri
         onApplyScore={(score) => {
           setSimValues(prev => ({ ...prev, penyerapanAnggaran: score }));
         }}
-        currentScore={simValues.penyerapanAnggaran}
         isDark={isDark}
       />
 
@@ -1819,8 +1818,8 @@ Mohon dapat segera dilakukan langkah koordinasi sebelum batas waktu cut-off peri
                 <input
                   type="text"
                   placeholder="Contoh: Optimasi RPD Q3 + Percepatan UP"
-                  value={scenarioTitleInput}
-                  onChange={(e) => setScenarioTitleInput(e.target.value)}
+                  value={scenarioNameInput}
+                  onChange={(e) => setScenarioNameInput(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-hidden"
                   autoFocus
                 />
@@ -1849,7 +1848,7 @@ Mohon dapat segera dilakukan langkah koordinasi sebelum batas waktu cut-off peri
               </button>
               <button
                 onClick={handleSaveCurrentScenario}
-                disabled={!scenarioTitleInput.trim()}
+                disabled={!scenarioNameInput.trim()}
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black shadow-md cursor-pointer flex items-center gap-1.5"
               >
                 <Save className="w-3.5 h-3.5" />

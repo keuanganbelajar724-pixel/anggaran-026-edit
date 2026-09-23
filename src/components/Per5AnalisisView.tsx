@@ -1635,7 +1635,7 @@ Dibuat otomatis oleh Sistem Monitoring IKPA KPPN Semarang I (PER-5/PB/2024)`;
         <PerhitunganIkpaExcelUploadSection
           referenceData={activeExcelReference}
           isAdminAuthenticated={isAdminAuthenticated}
-          onAuthenticateAdmin={onAuthenticateAdmin}
+          onAuthenticateAdmin={() => setIsAdminLoginModalOpen(true)}
           onSaveReference={handleSaveExcelReference}
           theme={theme}
         />

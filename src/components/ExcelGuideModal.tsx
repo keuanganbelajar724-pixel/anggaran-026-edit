@@ -11,7 +11,12 @@ import {
   ShieldCheck
 } from 'lucide-react';
 
-export const ExcelGuideModal: React.FC = () => {
+export interface ExcelGuideModalProps {
+  theme?: string;
+  isDark?: boolean;
+}
+
+export const ExcelGuideModal: React.FC<ExcelGuideModalProps> = () => {
   return (
     <div className="space-y-6">
       

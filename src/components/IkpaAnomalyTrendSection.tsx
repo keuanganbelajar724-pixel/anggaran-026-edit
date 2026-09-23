@@ -937,7 +937,7 @@ export const IkpaAnomalyTrendSection: React.FC<IkpaAnomalyTrendSectionProps> = (
                                   satker: rec.satker,
                                   indicatorKey: rec.pemicuUtama[0].indicatorKey as any,
                                   value: rec.pemicuUtama[0].currentVal,
-                                  category: rec.satker.predikat,
+                                  category: rec.satker.predikat as any,
                                   periodLabel: currentPeriodLabel
                                 });
                               }}

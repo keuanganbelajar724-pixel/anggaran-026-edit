@@ -88,25 +88,34 @@ export interface DiagnostikCaputROItem {
   namaRo: string;
   volumeTarget: number;       // TVRO (Target Volume RO - Kolom X)
   volumeRealisasi: number;    // RVRO (Realisasi Volume RO - Kolom P)
+  realisasiVolume?: number;   // alias for volumeRealisasi
   targetProgres: number;      // TPCRO (% - Kolom Y)
   realisasiProgres: number;   // PCRO (% - Kolom Q)
   paguAnggaran?: number;      // Pagu DIPA RO
+  alokasiAnggaran?: number;   // alias for paguAnggaran
   realisasiAnggaran?: number; // Realisasi Belanja RO
   persenPenyerapan?: number;  // % Penyerapan Anggaran (PPA)
   polarisasi?: 'MAXIMIZE' | 'MINIMIZE' | 'RANGE';
   keteranganSakti?: string;
+  keterangan?: string;
   statusKonfirmasiKppn?: string; // Kolom R: 'TERKONFIRMASI' | 'TIDAK TERKONFIRMASI' | 'BELUM TERKONFIRMASI' | 'TERKONFIRMASI OTOMATIS' | 'MENUNGGU KONFIRMASI' | string
   isUnconfirmedKppn?: boolean;   // True if Kolom R is unconfirmed (causes score 0 in MyIntress)
-  diagnosaSeverity: 'KRITIS' | 'PERINGATAN' | 'OPTIMAL' | 'INFO';
+  diagnosaSeverity: 'KRITIS' | 'PERINGATAN' | 'OPTIMAL' | 'INFO' | 'SEDANG';
   diagnosaCode: 'TPCRO_PCRO_ZERO' | 'PCRO_BELOW_TPCRO' | 'PCRO_100_RVRO_BELOW_TVRO' | 'TPCRO_GT0_PCRO_ZERO' | 'LAGGING_CAPUT' | 'RVRO_ANOMALY' | 'DEVIATION_HIGH' | 'MISSING_EXPLANATION' | 'UNMATCHED_TARGET' | 'OPTIMAL';
   diagnosaTitle: string;
   diagnosaDescription: string;
   rekomendasiTindakan: string[];
   templateKeteranganSakti: string;
   selectedReferensiSakti?: string; // '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08' | '99'
+  rekomendasiRefCode?: string;
+  kodeRefOriginal?: string;
   uraianReferensiSakti?: string;
+  rekomendasiRefName?: string;
+  targetVolume?: number;       // alias for volumeTarget
+  satuan?: string;
+  smartNarrativeDraft?: string;
   validasiSaktiCode?: '00' | '01' | '02' | '03' | '04' | '05' | '06' | '07' | '08';
-  validasiSaktiStatus?: 'Input Ditolak (Wajib Perbaikan)' | 'Input Diterima (Early Warning / Konfirmasi KPPN)' | 'Valid by System';
+  validasiSaktiStatus?: 'Input Ditolak (Wajib Perbaikan)' | 'Input Diterima (Early Warning / Konfirmasi KPPN)' | 'Valid by System' | 'Lolos Validasi' | 'Early Warning (Ref Ditentukan)' | string;
   gapKinerja: number; // TPCRO - PCRO
   gapPpa: number;     // PCRO - PPA
   nilaiKomponenRo: number; // 0 - 100 (Kolom Z)
@@ -115,7 +124,9 @@ export interface DiagnostikCaputROItem {
 
 export interface DiagnostikCaputSatkerSummary {
   kodeSatker: string;
+  satkerCode?: string;
   namaSatker: string;
+  satkerName?: string;
   totalRo: number;
   roKritisCount: number;
   roPeringatanCount: number;
@@ -146,7 +157,9 @@ export interface DiagnostikCaputResult {
     totalRealisasi: number;
     persenPenyerapanTotal: number;
     kodeSatker: string;
+    satkerCode?: string;
     namaSatker: string;
+    satkerName?: string;
     periode: string;
   };
   satkerBreakdown?: DiagnostikCaputSatkerSummary[];
@@ -815,6 +828,56 @@ export interface PesertaPresensi {
   createdAt?: string;
 }
 
+// -------------------------------------------------------------
+// KONFIRMASI KEHADIRAN SATUAN KERJA (RSVP KEGIATAN & MONITORING)
+// -------------------------------------------------------------
+export type TargetPejabatUndangan = 'KPA' | 'PPK' | 'PPSPM' | 'Bendahara' | 'Operator' | 'Lainnya';
+export type StatusKehadiranRSVP = 'HADIR_LANGSUNG' | 'HADIR_ONLINE' | 'DIKUASAKAN' | 'BERHALANGAN';
+
+export interface UndanganKonfirmasiKegiatan {
+  id: string;
+  nomorSurat: string;
+  judulKegiatan: string;
+  subJudul?: string;
+  deskripsi?: string;
+  tanggalKegiatan: string;
+  waktuKegiatan: string;
+  lokasiKegiatan: string;
+  tipePelaksanaan: 'OFFLINE' | 'ONLINE' | 'HYBRID';
+  linkMeeting?: string;
+  batasWaktuKonfirmasi?: string; // e.g. "30 September 2026, 17:00 WIB"
+  targetPejabat: TargetPejabatUndangan[];
+  targetSatkerCodes: string[]; // List of invited kodeSatker
+  isSemuaSatker: boolean;
+  penyelenggara?: string;
+  isActive: boolean;
+  isLocked?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface KonfirmasiKehadiranRecord {
+  id: string;
+  kegiatanId: string;
+  kodeSatker: string;
+  namaSatker: string;
+  pejabatTarget: TargetPejabatUndangan;
+  statusKehadiran: StatusKehadiranRSVP;
+  namaPeserta: string;
+  nipPeserta: string;
+  jabatanPeserta: string;
+  noHpWhatsapp: string;
+  emailPeserta?: string;
+  namaPengganti?: string;
+  nipPengganti?: string;
+  jabatanPengganti?: string;
+  alasanBerhalangan?: string;
+  catatan?: string;
+  isComplete: boolean;
+  waktuKonfirmasi: string;
+  updatedAt?: string;
+}
+
 export interface TransaksiKKPRecord {
   id: string;
   batchId?: string;
@@ -1034,6 +1097,7 @@ export interface MenuVisibilityConfig {
   'materi-slide'?: boolean;
   'portal-link'?: boolean;
   'presensi'?: boolean;
+  'konfirmasi-kehadiran'?: boolean;
   'pengetahuan': boolean;
   'aduan'?: boolean;
   'pendaftaran-user-sakti'?: boolean;
@@ -1131,6 +1195,11 @@ export interface DashboardCustomTexts {
   presensiSubtitle?: string;
   presensiAnnouncement?: string;
 
+  konfirmasiKehadiranBadge?: string;
+  konfirmasiKehadiranTitle?: string;
+  konfirmasiKehadiranSubtitle?: string;
+  konfirmasiKehadiranAnnouncement?: string;
+
   pengetahuanBadge?: string;
   pengetahuanTitle?: string;
   pengetahuanSubtitle?: string;
@@ -1200,6 +1269,11 @@ export interface DashboardCustomTexts {
   gajiIndukTitle?: string;
   gajiIndukSubtitle?: string;
   gajiIndukAnnouncement?: string;
+
+  haicsoBadge?: string;
+  haicsoTitle?: string;
+  haicsoSubtitle?: string;
+  haicsoAnnouncement?: string;
 }
 
 export type AduanStatus = 'MENUNGGU' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
@@ -1341,6 +1415,8 @@ export interface DashboardConfig {
   helpdeskOpeningGreeting?: string;
   allowPublicTickets?: boolean;
   aduanList?: AduanSatkerRecord[];
+  kepatuhanInternalPassword?: string;
+  kepatuhanInternalPasswordUpdatedAt?: string;
   updateDates?: {
     dashboard?: string;
     realisasiAnggaran?: string;
@@ -1400,6 +1476,8 @@ export interface DashboardConfig {
   presensiKegiatanList?: PresensiKegiatan[];
   presensiPesertaList?: PesertaPresensi[];
   presensiPrintConfig?: PresensiPrintConfig;
+  konfirmasiKegiatanList?: UndanganKonfirmasiKegiatan[];
+  konfirmasiKehadiranList?: KonfirmasiKehadiranRecord[];
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
   uraianSpmList?: UraianSpmSaktiItem[];
@@ -1432,6 +1510,7 @@ export type NavigationTab =
   | 'materi-slide'
   | 'portal-link'
   | 'presensi'
+  | 'konfirmasi-kehadiran'
   | 'pengetahuan'
   | 'aduan'
   | 'pendaftaran-user-sakti'
@@ -1461,6 +1540,8 @@ export interface RealisasiAnggaranConfig {
   waktuUnduh?: string; // e.g. "24/10/2024 10:28:44"
   periodeLabel?: string; // e.g. "Posisi Data s.d. 24 Oktober 2024"
   activeTriwulan?: TriwulanKey; // e.g. "Tw III"
+  triwulanAktif?: string;
+  targetRules?: any;
   customTargets?: Partial<Record<TriwulanKey, TargetTriwulanRule>>;
   note?: string;
 }
@@ -1781,7 +1862,7 @@ export interface BuletinConfig {
   };
   
   // Format / Layout Template Multi-Style
-  layoutFormat?: 'executive_magazine' | 'canva_vibrant' | 'clean_treasury' | 'royal_indigo' | 'classic_newsletter';
+  layoutFormat?: 'executive_magazine' | 'canva_vibrant' | 'clean_treasury' | 'royal_indigo' | 'classic_newsletter' | 'modern_newsletter' | 'corporate_report' | 'infographic_bulletin';
   highlightMissingData?: boolean; // Highlight incomplete / empty data in red
 
   // Hal 1: Cover Images & Highlights
@@ -2937,6 +3018,9 @@ export interface HAICSOTicket {
   triwulan: HAICSOTriwulan; // Triwulan I / II / III / IV dihitung dari Tanggal Tiket
   tahun: number; // e.g. 2026
   bulan: number; // 1-12
+  status_raw?: string;
+  needs_action_by_satker?: boolean;
+  needsActionBySatker?: boolean;
   upload_batch_id: string;
   created_at?: string;
   updated_at?: string;

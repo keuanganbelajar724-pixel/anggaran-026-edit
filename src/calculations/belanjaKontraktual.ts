@@ -290,6 +290,7 @@ export function calculateBelanjaKontraktualSummary(
       kompDistribusi: 0,
       kompKontrakDini: 0,
       kompAkselerasi53: 0,
+      rawNilaiIndikator: finalScore,
       nilaiIndikator: finalScore,
       cappedValue: finalScore,
       weightedValue: finalWeighted,
@@ -402,7 +403,7 @@ export function calculateBelanjaKontraktualSummary(
     const isEligible50jt = nilaiKontrak >= 50_000_000;
 
     if (item.nilaiKontrakDini !== undefined) {
-      if (item.nilaiKontrakDini === null || item.nilaiKontrakDini === '' || Number(item.nilaiKontrakDini) === 0) {
+      if (item.nilaiKontrakDini === null || (item.nilaiKontrakDini as any) === '' || Number(item.nilaiKontrakDini) === 0) {
         nilaiKontrakDini = null; // User secara eksplisit memilih "- (Bukan Objek Dini)"
       } else {
         const parsed = Number(item.nilaiKontrakDini);
@@ -420,7 +421,7 @@ export function calculateBelanjaKontraktualSummary(
     // Jika bukan Belanja Modal 53 pada rentang tersebut -> nilaiAkselerasi53 = null (blank / tidak dinilai).
     let nilaiAkselerasi53: number | null = null;
     if (isEligible53Range) {
-      if (item.nilaiAkselerasi53 !== undefined && item.nilaiAkselerasi53 !== null && item.nilaiAkselerasi53 !== '') {
+      if (item.nilaiAkselerasi53 !== undefined && item.nilaiAkselerasi53 !== null && (item.nilaiAkselerasi53 as any) !== '') {
         nilaiAkselerasi53 = Number(item.nilaiAkselerasi53);
       } else {
         nilaiAkselerasi53 = getAkselerasi53Score(triwulanPenyelesaian53, isEligible53Range);

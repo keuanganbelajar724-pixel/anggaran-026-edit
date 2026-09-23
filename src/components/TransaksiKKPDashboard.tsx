@@ -54,6 +54,7 @@ interface TransaksiKKPDashboardProps {
   isAdminAuthenticated?: boolean;
   customTexts?: any;
   showToast?: (opts: { type: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }) => void;
+  onApplyRecords?: (newRecords: any) => void;
 }
 
 export const TransaksiKKPDashboard: React.FC<TransaksiKKPDashboardProps> = ({

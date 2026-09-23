@@ -688,7 +688,9 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
       id: newCustomTemplate.id,
       jenis: newCustomTemplate.jenis,
       judul: newCustomTemplate.judul,
-      isiWa: newCustomTemplate.isiWa
+      isiWa: newCustomTemplate.isiWa,
+      subjekEmail: newCustomTemplate.judul,
+      isiSurat: newCustomTemplate.isiWa
     });
     setModalViewMode('CATALOG');
     setActiveCategory('✨ Template AI Saya');
@@ -874,7 +876,7 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                     return (
                       <div
                         key={template.id}
-                        onClick={() => setSelectedTemplate(template)}
+                        onClick={() => setSelectedTemplate(template as any)}
                         className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative ${
                           isSelected
                             ? 'bg-white dark:bg-slate-900 border-rose-500 shadow-md ring-2 ring-rose-500/20'
@@ -908,7 +910,7 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedTemplate(template);
+                                setSelectedTemplate(template as any);
                                 handleCopyText(template.isiWa, template.id);
                               }}
                               className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-700 dark:text-slate-300 transition-all flex items-center gap-1 cursor-pointer"

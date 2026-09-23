@@ -211,15 +211,15 @@ export function calculateSemesterIKPA(
     const tanggalRevisi = existing?.tanggalRevisi || null;
     const kodeJenisRevisi = existing?.kodeJenisRevisi || '';
 
-    const f = existing?.paguSebelum !== undefined
-      ? existing.paguSebelum
-      : (existing?.paguDipaSebelum !== undefined ? existing.paguDipaSebelum : null);
+    const f = (existing as any)?.paguSebelum !== undefined
+      ? (existing as any).paguSebelum
+      : ((existing as any)?.paguDipaSebelum !== undefined ? (existing as any).paguDipaSebelum : null);
 
-    const g = existing?.paguMenjadi !== undefined
-      ? existing.paguMenjadi
-      : (existing?.paguDipaMenjadi !== undefined ? existing.paguDipaMenjadi : null);
+    const g = (existing as any)?.paguMenjadi !== undefined
+      ? (existing as any).paguMenjadi
+      : ((existing as any)?.paguDipaMenjadi !== undefined ? (existing as any).paguDipaMenjadi : null);
 
-    const hRaw = existing?.empatBelasJenis ?? existing?.jenisRevisi14 ?? '-';
+    const hRaw = (existing as any)?.empatBelasJenis ?? (existing as any)?.jenisRevisi14 ?? '-';
     const empatBelasJenis: "ya" | "tidak" | "-" =
       hRaw === 'ya' ? 'ya' : (hRaw === 'tidak' ? 'tidak' : '-');
 
@@ -290,9 +290,9 @@ export function hasActualRevisiDIPAData(inputs?: (RevisiDIPAInput | RevisionDipa
     const revKe = Number(r.revisiKe);
     if (!isNaN(revKe) && revKe > 0) return true;
     if (typeof r.tanggalRevisi === 'string' && r.tanggalRevisi.trim() !== '') return true;
-    const pSeb = Number(r.paguDipaSebelum ?? (r as any).paguSebelum);
+    const pSeb = Number((r as any).paguDipaSebelum ?? (r as any).paguSebelum);
     if (!isNaN(pSeb) && pSeb > 0) return true;
-    const pMen = Number(r.paguDipaMenjadi ?? (r as any).paguMenjadi);
+    const pMen = Number((r as any).paguDipaMenjadi ?? (r as any).paguMenjadi);
     if (!isNaN(pMen) && pMen > 0) return true;
     if (r.kodeJenisRevisi && String(r.kodeJenisRevisi).trim() !== '') return true;
     return false;

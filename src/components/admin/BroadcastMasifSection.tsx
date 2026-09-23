@@ -56,6 +56,10 @@ import {
   MasterSatker,
   PejabatSertifikasi,
   PengelolaanUPRecord,
+  TransaksiKKPRecord,
+  DigipayRecord,
+  DeviasiHal3Record,
+  SPMPPPRecord,
   DashboardConfig,
   WhatsAppGatewayConfig,
   BroadcastSettings,
@@ -2398,7 +2402,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                         ? belum.map((s, idx) => `${idx + 1}. [${s.kodeSatker}] ${s.namaSatker} (Skor: ${s.indikator?.capaianOutput || 0}%)`).join('\n')
                         : '🎉 Seluruh Satker telah menyampaikan Capaian Output dengan lengkap!';
 
-                      const text = `📢 *[PENGUMUMAN CAPAIAN OUTPUT - KPPN SEMARANG I]* 📢\n\nYth. Bapak/Ibu Kuasa Pengguna Anggaran (KPA), PPK, dan Operator SAKTI Satker Lingkup KPPN Semarang I,\n\nIzin menyampaikan monitoring pengiriman Realisasi Capaian Output (CAPUT) periode ${dashboardConfig?.periodeBulan || 'Berjalan'} pada Modul Komitmen Aplikasi SAKTI:\n\n✅ *TERIMA KASIH KEPADA ${sudah.length} SATKER YANG SUDAH MENGIRIMKAN CAPAIAN OUTPUT TEPAT WAKTU.*\n\n⏳ *DAFTAR SATKER YANG BELUM MENGIRIMKAN CAPAIAN OUTPUT (${belum.length} SATKER):*\n${belumText}\n\n⚠️ *Perhatian & Tindak Lanjut:*\n1. Bagi Satker yang *BELUM mengirimkan*, dimohon *SEGERA* melakukan pengisian dan pengiriman data Capaian Output pada Modul Komitmen SAKTI serta menyelesaikan persetujuan KPA/PPK. *Ditunggu pengirimannya* agar nilai IKPA tetap optimal dan tidak terkena sanksi keterlambatan cut-off.\n2. Bagi Satker yang nilai komponen RO-nya belum optimal (Kolom Z < 100):\n   • Pastikan isian Kolom Q (PCRO) tidak lebih kecil dari Kolom Y (Target TPCRO).\n   • Jika Kolom Q (PCRO) = 100%, pastikan Kolom P (Realisasi Volume) telah terisi sesuai Kolom X.\n   • Jika TPCRO = 0 dan PCRO = 0, segera isi PCRO minimal 0,01 agar sistem SAKTI membentuk progres.\n\n🔍 Lakukan diagnostik mandiri data Excel SAKTI pada menu SI-CAPUT di portal:\n👉 https://anggaran-026.my.id\n\nTerima kasih bagi yang sudah mengirimkan, yang belum mengirimkan segera untuk mengirimkan ditunggu. 🙏\n\n_Seksi MSKI - KPPN Semarang I_`;
+                      const text = `📢 *[PENGUMUMAN CAPAIAN OUTPUT - KPPN SEMARANG I]* 📢\n\nYth. Bapak/Ibu Kuasa Pengguna Anggaran (KPA), PPK, dan Operator SAKTI Satker Lingkup KPPN Semarang I,\n\nIzin menyampaikan monitoring pengiriman Realisasi Capaian Output (CAPUT) periode ${(dashboardConfig as any)?.periodeBulan || (dashboardConfig as any)?.periode || 'Berjalan'} pada Modul Komitmen Aplikasi SAKTI:\n\n✅ *TERIMA KASIH KEPADA ${sudah.length} SATKER YANG SUDAH MENGIRIMKAN CAPAIAN OUTPUT TEPAT WAKTU.*\n\n⏳ *DAFTAR SATKER YANG BELUM MENGIRIMKAN CAPAIAN OUTPUT (${belum.length} SATKER):*\n${belumText}\n\n⚠️ *Perhatian & Tindak Lanjut:*\n1. Bagi Satker yang *BELUM mengirimkan*, dimohon *SEGERA* melakukan pengisian dan pengiriman data Capaian Output pada Modul Komitmen SAKTI serta menyelesaikan persetujuan KPA/PPK. *Ditunggu pengirimannya* agar nilai IKPA tetap optimal dan tidak terkena sanksi keterlambatan cut-off.\n2. Bagi Satker yang nilai komponen RO-nya belum optimal (Kolom Z < 100):\n   • Pastikan isian Kolom Q (PCRO) tidak lebih kecil dari Kolom Y (Target TPCRO).\n   • Jika Kolom Q (PCRO) = 100%, pastikan Kolom P (Realisasi Volume) telah terisi sesuai Kolom X.\n   • Jika TPCRO = 0 dan PCRO = 0, segera isi PCRO minimal 0,01 agar sistem SAKTI membentuk progres.\n\n🔍 Lakukan diagnostik mandiri data Excel SAKTI pada menu SI-CAPUT di portal:\n👉 https://anggaran-026.my.id\n\nTerima kasih bagi yang sudah mengirimkan, yang belum mengirimkan segera untuk mengirimkan ditunggu. 🙏\n\n_Seksi MSKI - KPPN Semarang I_`;
 
                       navigator.clipboard.writeText(text);
                       if (showToast) {

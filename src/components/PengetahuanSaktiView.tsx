@@ -555,18 +555,9 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
       {/* Confirmation Modal */}
       {confirmModal && (
         <ModernConfirmModal
-          isOpen={confirmModal.isOpen}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmText}
-          cancelText={confirmModal.cancelText}
-          variant={confirmModal.variant}
-          iconType={confirmModal.iconType}
-          onConfirm={async () => {
-            await confirmModal.onConfirm();
-            setConfirmModal(null);
-          }}
-          onCancel={() => setConfirmModal(null)}
+          modal={confirmModal}
+          onClose={() => setConfirmModal(null)}
+          isDark={isDark}
         />
       )}
 

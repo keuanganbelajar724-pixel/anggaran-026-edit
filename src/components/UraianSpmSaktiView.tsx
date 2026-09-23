@@ -327,7 +327,7 @@ export const UraianSpmSaktiView: React.FC<UraianSpmSaktiViewProps> = ({
       confirmText: 'Hapus Format',
       cancelText: 'Batal',
       variant: 'danger',
-      iconType: 'delete',
+      iconType: 'trash',
       onConfirm: async () => {
         const newList = uraianList.filter(u => u.id !== item.id);
         if (onSaveList) {
@@ -1367,18 +1367,9 @@ export const UraianSpmSaktiView: React.FC<UraianSpmSaktiViewProps> = ({
       {/* Confirmation Modal */}
       {confirmModal && (
         <ModernConfirmModal
-          isOpen={confirmModal.isOpen}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmText}
-          cancelText={confirmModal.cancelText}
-          variant={confirmModal.variant}
-          iconType={confirmModal.iconType}
-          onConfirm={async () => {
-            await confirmModal.onConfirm();
-            setConfirmModal(null);
-          }}
-          onCancel={() => setConfirmModal(null)}
+          modal={confirmModal}
+          onClose={() => setConfirmModal(null)}
+          isDark={isDark}
         />
       )}
     </div>

@@ -3,7 +3,7 @@ import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressTo
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch, HAICSOTicket, HAICSOUploadBatch, HAICSODashboardSettings } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch, HAICSOTicket, HAICSOUploadBatch, HAICSODashboardSettings } from './types';
 import * as XLSX from 'xlsx';
 import { RekonsiliasiDashboard } from './components/rekonsiliasi/RekonsiliasiDashboard';
 import { parseMonitoringRekonsiliasiWorkbook, generateSampleMonitoringKepatuhanExcel } from './utils/rekonsiliasiExcelParser';
@@ -14,8 +14,10 @@ import { generateInitialGajiIndukData } from './utils/gajiIndukExcelParser';
 import { HaiCsoMainDashboard } from './components/haicso/HaiCsoMainDashboard';
 import { generateInitialHaiCsoData } from './utils/haiCsoExcelParser';
 import { KontrakDashboard } from './components/kontrak/KontrakDashboard';
+import { KonfirmasiKehadiranDashboard } from './components/KonfirmasiKehadiranDashboard';
 import { KontrakMonitoringRecord, KontrakUploadBatch } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
+import { INITIAL_KONFIRMASI_KEGIATAN, INITIAL_KONFIRMASI_KEHADIRAN } from './data/initialKonfirmasiData';
 import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
 import { DEFAULT_TARGET_TRIWULAN_RULES } from './utils/targetTriwulanProcessor';
 import { processMyIntressExcel } from './utils/realisasiBelanjaProcessor';
@@ -177,6 +179,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'materi-slide': true,
   'portal-link': true,
   'presensi': true,
+  'konfirmasi-kehadiran': true,
   'pendaftaran-user-sakti': true,
   'rekonsiliasi': true,
   'lpj': true,
@@ -634,6 +637,33 @@ export default function App() {
       }
     }
     return INITIAL_DEFAULT_KEGIATAN;
+  });
+
+  // Konfirmasi Kehadiran Satuan Kerja (RSVP Undangan & Monitoring)
+  const [konfirmasiKegiatanList, setKonfirmasiKegiatanList] = useState<UndanganKonfirmasiKegiatan[]>(() => {
+    const saved = safeLocalStorageGet('kppn_konfirmasi_kegiatan');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved konfirmasi kegiatan:', e);
+      }
+    }
+    return INITIAL_KONFIRMASI_KEGIATAN;
+  });
+
+  const [konfirmasiKehadiranList, setKonfirmasiKehadiranList] = useState<KonfirmasiKehadiranRecord[]>(() => {
+    const saved = safeLocalStorageGet('kppn_konfirmasi_kehadiran');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved konfirmasi kehadiran:', e);
+      }
+    }
+    return INITIAL_KONFIRMASI_KEHADIRAN;
   });
 
   // My InTress Realisasi Belanja Records State
@@ -1287,7 +1317,7 @@ export default function App() {
         // Fallback if empty in Firestore: initialize from INITIAL_SATKER_DATA
         setMasterSatkers(curr => {
           if (curr.length === 0 && Array.isArray(INITIAL_SATKER_DATA) && INITIAL_SATKER_DATA.length > 0) {
-            const fallbackMaster = INITIAL_SATKER_DATA.map(s => ({
+            const fallbackMaster: MasterSatker[] = INITIAL_SATKER_DATA.map(s => ({
               id: s.id || `satker-${s.kodeSatker}`,
               kodeSatker: s.kodeSatker,
               namaSatker: s.namaSatker,
@@ -1298,6 +1328,7 @@ export default function App() {
               emailPic: s.emailPic || '',
               passwordSatker: s.passwordSatker || '',
               alamatSatker: s.alamatSatker || '',
+              isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             }));
@@ -1644,6 +1675,32 @@ export default function App() {
         console.warn("Firebase Presensi listener notice:", error);
       });
 
+      // 5b. Realtime Konfirmasi Kegiatan Undangan
+      const unsubKonfKegiatan = onSnapshot(doc(db, 'data', 'konfirmasi_kegiatan'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setKonfirmasiKegiatanList(data.list);
+            safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Konfirmasi Kegiatan listener notice:", error);
+      });
+
+      // 5c. Realtime Konfirmasi Kehadiran Respon Satker
+      const unsubKonfKehadiran = onSnapshot(doc(db, 'data', 'konfirmasi_kehadiran'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list)) {
+            setKonfirmasiKehadiranList(data.list);
+            safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Konfirmasi Kehadiran listener notice:", error);
+      });
+
       // 6. Realtime Master Satkers Data (Source of Truth)
       const unsubMaster = onSnapshot(doc(db, 'data', 'master_satkers'), (docSnap) => {
         if (docSnap.exists()) {
@@ -1787,6 +1844,8 @@ export default function App() {
         unsubPejabat();
         unsubPejabatPerbendaharaan();
         unsubPresensi();
+        unsubKonfKegiatan();
+        unsubKonfKehadiran();
         unsubMaster();
         unsubUP();
         unsubKKP();
@@ -2026,6 +2085,45 @@ export default function App() {
     safeLocalStorageSet('kppn_presensi_kegiatan', JSON.stringify(updated));
     const newConfig = { ...dashboardConfig, presensiKegiatanList: updated };
     handleUpdateDashboardConfig(newConfig);
+  };
+
+  // Konfirmasi Kehadiran Handlers
+  const handleSaveKonfirmasiKegiatan = (kegiatan: UndanganKonfirmasiKegiatan) => {
+    const exists = konfirmasiKegiatanList.some(k => k.id === kegiatan.id);
+    const updated = exists
+      ? konfirmasiKegiatanList.map(k => k.id === kegiatan.id ? kegiatan : k)
+      : [kegiatan, ...konfirmasiKegiatanList];
+    setKonfirmasiKegiatanList(updated);
+    safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(updated));
+    setDoc(doc(db, 'data', 'konfirmasi_kegiatan'), { list: updated, updatedAt: new Date().toISOString() }, { merge: true })
+      .catch(err => console.warn("Error syncing konfirmasi kegiatan to Firebase:", err));
+  };
+
+  const handleDeleteKonfirmasiKegiatan = (kegiatanId: string) => {
+    const updated = konfirmasiKegiatanList.filter(k => k.id !== kegiatanId);
+    setKonfirmasiKegiatanList(updated);
+    safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(updated));
+    setDoc(doc(db, 'data', 'konfirmasi_kegiatan'), { list: updated, updatedAt: new Date().toISOString() }, { merge: true })
+      .catch(err => console.warn("Error syncing konfirmasi kegiatan to Firebase:", err));
+  };
+
+  const handleSaveKonfirmasiKehadiran = (record: KonfirmasiKehadiranRecord) => {
+    const exists = konfirmasiKehadiranList.some(k => k.id === record.id || (k.kegiatanId === record.kegiatanId && k.kodeSatker === record.kodeSatker));
+    const updated = exists
+      ? konfirmasiKehadiranList.map(k => (k.id === record.id || (k.kegiatanId === record.kegiatanId && k.kodeSatker === record.kodeSatker)) ? record : k)
+      : [record, ...konfirmasiKehadiranList];
+    setKonfirmasiKehadiranList(updated);
+    safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(updated));
+    setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: updated, updatedAt: new Date().toISOString() }, { merge: true })
+      .catch(err => console.warn("Error syncing konfirmasi kehadiran to Firebase:", err));
+  };
+
+  const handleDeleteKonfirmasiKehadiran = (recordId: string) => {
+    const updated = konfirmasiKehadiranList.filter(k => k.id !== recordId);
+    setKonfirmasiKehadiranList(updated);
+    safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(updated));
+    setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: updated, updatedAt: new Date().toISOString() }, { merge: true })
+      .catch(err => console.warn("Error syncing konfirmasi kehadiran to Firebase:", err));
   };
 
   const handleUpdatePejabatList = (newList: PejabatSertifikasi[]) => {
@@ -3267,7 +3365,7 @@ export default function App() {
                   masterSatkers={masterSatkers}
                   onGoToUpload={() => setActiveTab('admin')}
                   onSelectSatker={(satkerCode) => {
-                    const found = satkers.find(s => s.kode === satkerCode);
+                    const found = satkers.find(s => s.kodeSatker === satkerCode || (s as any).kode === satkerCode);
                     if (found) {
                       setSelectedSatkerForDetail(found);
                     }
@@ -3430,6 +3528,24 @@ export default function App() {
                   onDeletePesertaPresensi={handleDeletePesertaPresensi}
                   onSaveKegiatan={handleSavePresensiKegiatan}
                   onDeleteKegiatan={handleDeletePresensiKegiatan}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab 🤝 Konfirmasi Kehadiran Satuan Kerja (RSVP Undangan & Monitoring) */}
+              {activeTab === 'konfirmasi-kehadiran' && (
+                <KonfirmasiKehadiranDashboard
+                  kegiatanList={konfirmasiKegiatanList}
+                  konfirmasiList={konfirmasiKehadiranList}
+                  masterSatkers={masterSatkers}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  customTexts={dashboardConfig.customTexts}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onSaveKegiatan={handleSaveKonfirmasiKegiatan}
+                  onDeleteKegiatan={handleDeleteKonfirmasiKegiatan}
+                  onSaveKonfirmasi={handleSaveKonfirmasiKehadiran}
+                  onDeleteKonfirmasi={handleDeleteKonfirmasiKehadiran}
                   onGoToAdmin={() => setActiveTab('admin')}
                 />
               )}
@@ -3622,6 +3738,13 @@ export default function App() {
                   onForceCloudSync={handleForceCloudSync}
                   isCloudSyncing={isCloudSyncing}
                   cloudSyncMessage={cloudSyncMessage}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                  konfirmasiKegiatanList={konfirmasiKegiatanList}
+                  konfirmasiKehadiranList={konfirmasiKehadiranList}
+                  onSaveKonfirmasiKegiatan={handleSaveKonfirmasiKegiatan}
+                  onDeleteKonfirmasiKegiatan={handleDeleteKonfirmasiKegiatan}
+                  onSaveKonfirmasiKehadiran={handleSaveKonfirmasiKehadiran}
+                  onDeleteKonfirmasiKehadiran={handleDeleteKonfirmasiKehadiran}
                 />
               )}
 

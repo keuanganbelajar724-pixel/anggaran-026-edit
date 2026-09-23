@@ -79,7 +79,7 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
     judulAduan: '',
     deskripsi: '',
     urgensi: 'BIASA',
-    isAnonim: true
+    isAnonim: false
   });
 
   // Submission Result State
@@ -399,7 +399,7 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
                           judulAduan: '',
                           deskripsi: '',
                           urgensi: 'BIASA',
-                          isAnonim: true
+                          isAnonim: false
                         });
                       }}
                       className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-bold cursor-pointer"
@@ -411,17 +411,47 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
               ) : (
                 <form onSubmit={handleSubmitToDashboard} className="space-y-4 text-xs">
                   
-                  {/* Anonymous Switcher */}
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <Lock className="w-4 h-4 text-amber-600" />
-                      <div>
-                        <span className="font-extrabold text-slate-900 dark:text-white block">Mode Anonim / Rahasia</span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">Identitas dan nama satker disamarkan</span>
+                  {/* Privacy & Confidentiality Guarantee Notice */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-500/10 via-indigo-500/10 to-emerald-500/10 border-2 border-indigo-400/40 text-slate-800 dark:text-slate-200 space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <div className="p-1.5 rounded-xl bg-indigo-600 text-white shrink-0 mt-0.5 shadow-xs">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="font-black text-xs text-indigo-900 dark:text-indigo-300 block">
+                          Jaminan Kerahasiaan &amp; Himbauan Pengisian Data Lengkap
+                        </span>
+                        <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-300 font-medium">
+                          <strong>Mohon tidak memakai anonim atau silakan isi data lengkap</strong> apabila melakukan pengaduan. <strong>Kerahasiaan akan terjaga sepenuhnya</strong> karena kami dapat merespon secara lebih lanjut apabila mau lebih privat lagi atau dapat melakukan <strong>chat WhatsApp</strong>.
+                        </p>
                       </div>
                     </div>
 
-                    <label className="relative inline-flex items-center cursor-pointer">
+                    <div className="flex items-center justify-end pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveSubTab('chat-wa')}
+                        className="text-[11px] font-black text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1.5 cursor-pointer bg-white dark:bg-slate-900/90 px-3 py-1.5 rounded-xl border border-emerald-300 dark:border-emerald-800 transition-all shadow-xs"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Mau Lebih Privat? Chat Langsung via WhatsApp &rarr;</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Anonymous Switcher */}
+                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <div>
+                        <span className="font-extrabold text-slate-900 dark:text-white block">Mode Anonim / Samarkan Identitas (Opsional)</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {formData.isAnonim ? 'Identitas pelapor disamarkan (kami sarankan isi lengkap agar respon dan tindak lanjut optimal)' : 'Identitas terdata (kerahasiaan terjamin penuh & respon lebih cepat)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-2">
                       <input
                         type="checkbox"
                         checked={formData.isAnonim}
