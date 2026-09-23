@@ -49,6 +49,7 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
   onFilterStatusChange
 }) => {
   const [activeTab, setActiveTab] = useState<'komposisi' | 'verifikasi' | 'saldo' | 'watchlist'>('komposisi');
+  const [donutMode, setDonutMode] = useState<'komposisi' | 'kepatuhan'>('komposisi');
 
   const bgCard = isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200';
   const textMuted = isDark ? 'text-slate-400' : 'text-slate-500';
@@ -64,35 +65,69 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
     ? Math.round((summary.bluSudahKirim / summary.bendaharaBluCount) * 100)
     : 0;
 
-  // 1. Data Komposisi Jenis LPJ
+  // 1. Data Komposisi Jenis LPJ dengan warna spesifik tiap jenis bendahara
   const dataJenisLPJ = useMemo(() => [
     {
       name: 'Pengeluaran',
+      key: 'PENGELUARAN',
       sudah: summary.pengeluaranSudahKirim,
       belum: summary.pengeluaranBelumKirim,
       total: summary.bendaharaPengeluaranCount,
       persen: persenPengeluaran,
-      color: '#3b82f6'
+      color: '#2563eb' // Biru untuk Pengeluaran
     },
     {
       name: 'Penerimaan',
+      key: 'PENERIMAAN',
       sudah: summary.penerimaanSudahKirim,
       belum: summary.penerimaanBelumKirim,
       total: summary.bendaharaPenerimaanCount,
       persen: persenPenerimaan,
-      color: '#8b5cf6'
+      color: '#7c3aed' // Ungu untuk Penerimaan
     },
     {
       name: 'BLU',
+      key: 'BLU',
       sudah: summary.bluSudahKirim,
       belum: summary.bluBelumKirim,
       total: summary.bendaharaBluCount,
       persen: persenBlu,
-      color: '#f59e0b'
+      color: '#f59e0b' // Amber/Oranye untuk BLU
     }
   ], [summary, persenPengeluaran, persenPenerimaan, persenBlu]);
 
-  // 2. Data Donut Kepatuhan Keseluruhan
+  // 2. Data Donut Komposisi Jenis Bendahara
+  const dataDonutKomposisi = useMemo(() => [
+    {
+      name: 'Pengeluaran',
+      value: summary.bendaharaPengeluaranCount,
+      sudah: summary.pengeluaranSudahKirim,
+      belum: summary.pengeluaranBelumKirim,
+      persen: persenPengeluaran,
+      color: '#2563eb',
+      key: 'PENGELUARAN'
+    },
+    {
+      name: 'Penerimaan',
+      value: summary.bendaharaPenerimaanCount,
+      sudah: summary.penerimaanSudahKirim,
+      belum: summary.penerimaanBelumKirim,
+      persen: persenPenerimaan,
+      color: '#7c3aed',
+      key: 'PENERIMAAN'
+    },
+    {
+      name: 'BLU',
+      value: summary.bendaharaBluCount,
+      sudah: summary.bluSudahKirim,
+      belum: summary.bluBelumKirim,
+      persen: persenBlu,
+      color: '#f59e0b',
+      key: 'BLU'
+    }
+  ].filter(d => d.value > 0), [summary, persenPengeluaran, persenPenerimaan, persenBlu]);
+
+  // 3. Data Donut Kepatuhan Keseluruhan
   const dataDonutKepatuhan = useMemo(() => [
     { name: 'Sudah Mengirim', value: summary.sudahKirim, color: '#10b981' },
     { name: 'Belum Mengirim', value: summary.belumKirim, color: '#ef4444' }
@@ -241,8 +276,9 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* Row Metrik Analitis Ringkas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Row Metrik Analitis Ringkas - 5 Kolom Warna Spesifik */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* 1. Tingkat Kepatuhan Keseluruhan */}
         <div 
           onClick={() => onFilterStatusChange('SUDAH_KIRIM')}
           className={`p-4 rounded-2xl border ${bgSubtle} border-slate-200 dark:border-slate-800 cursor-pointer hover:border-emerald-400 transition-colors`}
@@ -256,40 +292,64 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
           </div>
         </div>
 
+        {/* 2. Bendahara Pengeluaran (Biru) */}
         <div 
           onClick={() => onFilterJenisChange('PENGELUARAN')}
-          className={`p-4 rounded-2xl border ${bgSubtle} border-slate-200 dark:border-slate-800 cursor-pointer hover:border-blue-400 transition-colors`}
+          className={`p-4 rounded-2xl border bg-blue-50/30 dark:bg-blue-950/20 border-blue-200/80 dark:border-blue-900/50 cursor-pointer hover:border-blue-500 transition-colors shadow-2xs`}
         >
-          <div className={`text-xs font-bold ${textMuted}`}>Bendahara Pengeluaran</div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Bendahara Pengeluaran</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block" />
+          </div>
           <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
             {summary.pengeluaranSudahKirim} <span className="text-xs text-slate-400 font-normal">/ {summary.bendaharaPengeluaranCount}</span>
           </div>
-          <div className="text-[11px] text-blue-600 font-bold mt-1">
+          <div className="text-[11px] text-blue-600 dark:text-blue-400 font-bold mt-1">
             {persenPengeluaran}% Kepatuhan
           </div>
         </div>
 
+        {/* 3. Bendahara Penerimaan (Ungu) */}
         <div 
           onClick={() => onFilterJenisChange('PENERIMAAN')}
-          className={`p-4 rounded-2xl border ${bgSubtle} border-slate-200 dark:border-slate-800 cursor-pointer hover:border-purple-400 transition-colors`}
+          className={`p-4 rounded-2xl border bg-purple-50/30 dark:bg-purple-950/20 border-purple-200/80 dark:border-purple-900/50 cursor-pointer hover:border-purple-500 transition-colors shadow-2xs`}
         >
-          <div className={`text-xs font-bold ${textMuted}`}>Bendahara Penerimaan &amp; BLU</div>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-            {summary.penerimaanSudahKirim + summary.bluSudahKirim} <span className="text-xs text-slate-400 font-normal">/ {summary.bendaharaPenerimaanCount + summary.bendaharaBluCount}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-purple-700 dark:text-purple-300">Bendahara Penerimaan</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block" />
           </div>
-          <div className="text-[11px] text-purple-600 font-bold mt-1">
-            {summary.bendaharaPenerimaanCount + summary.bendaharaBluCount > 0
-              ? `${Math.round(((summary.penerimaanSudahKirim + summary.bluSudahKirim) / (summary.bendaharaPenerimaanCount + summary.bendaharaBluCount)) * 100)}% Kepatuhan`
-              : '100% Kepatuhan'}
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            {summary.penerimaanSudahKirim} <span className="text-xs text-slate-400 font-normal">/ {summary.bendaharaPenerimaanCount}</span>
+          </div>
+          <div className="text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1">
+            {persenPenerimaan}% Kepatuhan
           </div>
         </div>
 
+        {/* 4. Bendahara BLU (Amber/Oranye) */}
+        <div 
+          onClick={() => onFilterJenisChange('BLU')}
+          className={`p-4 rounded-2xl border bg-amber-50/30 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/50 cursor-pointer hover:border-amber-500 transition-colors shadow-2xs`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Bendahara BLU</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+          </div>
+          <div className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+            {summary.bluSudahKirim} <span className="text-xs text-slate-400 font-normal">/ {summary.bendaharaBluCount}</span>
+          </div>
+          <div className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1">
+            {persenBlu}% Kepatuhan
+          </div>
+        </div>
+
+        {/* 5. Total Saldo Kas Terpantau */}
         <div 
           onClick={() => setActiveTab('saldo')}
-          className={`p-4 rounded-2xl border ${bgSubtle} border-slate-200 dark:border-slate-800 cursor-pointer hover:border-amber-400 transition-colors`}
+          className={`p-4 rounded-2xl border ${bgSubtle} border-slate-200 dark:border-slate-800 cursor-pointer hover:border-emerald-400 transition-colors`}
         >
-          <div className={`text-xs font-bold ${textMuted}`}>Total Saldo Kas Terpantau</div>
-          <div className="text-lg font-black text-emerald-700 dark:text-emerald-300 mt-0.5 truncate">
+          <div className={`text-xs font-bold ${textMuted}`}>Total Saldo Kas</div>
+          <div className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 mt-0.5 truncate">
             {formatRupiah(saldoAnalysis.totalKas)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
@@ -310,12 +370,42 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
                   Perbandingan Kepatuhan per Jenis Bendahara
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Rincian berkas yang telah dikirimkan vs belum disampaikan ke KPPN Semarang I
+                  Warna spesifik: Pengeluaran (Biru), Penerimaan (Ungu), dan BLU (Oranye/Amber)
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs font-semibold">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500 inline-block" /> Sudah Kirim</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-rose-500 inline-block" /> Belum Kirim</span>
+
+              {/* Legend Komposisi Warna */}
+              <div className="flex items-center gap-2 text-xs font-semibold flex-wrap">
+                <button
+                  onClick={() => onFilterJenisChange('PENGELUARAN')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:border-blue-400 transition-all cursor-pointer"
+                  title="Klik untuk filter Bendahara Pengeluaran"
+                >
+                  <span className="w-2.5 h-2.5 rounded-sm bg-blue-600 inline-block" />
+                  <span>Pengeluaran ({summary.pengeluaranSudahKirim}/{summary.bendaharaPengeluaranCount})</span>
+                </button>
+                <button
+                  onClick={() => onFilterJenisChange('PENERIMAAN')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 hover:border-purple-400 transition-all cursor-pointer"
+                  title="Klik untuk filter Bendahara Penerimaan"
+                >
+                  <span className="w-2.5 h-2.5 rounded-sm bg-purple-600 inline-block" />
+                  <span>Penerimaan ({summary.penerimaanSudahKirim}/{summary.bendaharaPenerimaanCount})</span>
+                </button>
+                <button
+                  onClick={() => onFilterJenisChange('BLU')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:border-amber-400 transition-all cursor-pointer"
+                  title="Klik untuk filter Bendahara BLU"
+                >
+                  <span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />
+                  <span>BLU ({summary.bluSudahKirim}/{summary.bendaharaBluCount})</span>
+                </button>
+                {summary.belumKirim > 0 && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />
+                    <span>Belum Kirim ({summary.belumKirim})</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -325,22 +415,93 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
                   <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip />
-                  <Bar dataKey="sudah" name="Sudah Kirim" fill="#10b981" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="belum" name="Belum Kirim" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <RechartsTooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const item = payload[0].payload;
+                        return (
+                          <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1.5 min-w-[200px]">
+                            <div className="font-black text-slate-800 dark:text-slate-100 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: item.color }} />
+                                <span>Bendahara {item.name}</span>
+                              </div>
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {item.total} Berkas
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center text-slate-600 dark:text-slate-300 pt-0.5">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
+                                Sudah Kirim:
+                              </span>
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                                {item.sudah} Berkas ({item.persen}%)
+                              </span>
+                            </div>
+                            {item.belum > 0 && (
+                              <div className="flex justify-between items-center text-rose-600 dark:text-rose-400">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                  Belum Kirim:
+                                </span>
+                                <span className="font-bold">{item.belum} Berkas</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  {/* Bar Sudah Kirim dengan Warna Spesifik tiap jenis bendahara */}
+                  <Bar dataKey="sudah" name="Sudah Kirim" radius={[6, 6, 0, 0]}>
+                    {dataJenisLPJ.map((entry, index) => (
+                      <Cell key={`cell-sudah-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                  {/* Bar Belum Kirim (Merah/Rose) */}
+                  <Bar dataKey="belum" name="Belum Kirim" fill="#ef4444" radius={[6, 6, 0, 0]}>
+                    {dataJenisLPJ.map((entry, index) => (
+                      <Cell key={`cell-belum-${index}`} fill="#ef4444" />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Donut Chart Kepatuhan Keseluruhan */}
+          {/* Donut Chart: Komposisi Jenis Bendahara vs Status Kepatuhan */}
           <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex flex-col items-center justify-between">
             <div className="w-full text-center">
+              <div className="inline-flex p-0.5 bg-slate-200/80 dark:bg-slate-700/80 rounded-xl mb-2">
+                <button
+                  onClick={() => setDonutMode('komposisi')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    donutMode === 'komposisi'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Proporsi Bendahara
+                </button>
+                <button
+                  onClick={() => setDonutMode('kepatuhan')}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    donutMode === 'kepatuhan'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Status Kirim
+                </button>
+              </div>
+
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                Rasio Kepatuhan LPJ
+                {donutMode === 'komposisi' ? 'Distribusi Jenis Bendahara' : 'Rasio Kepatuhan LPJ'}
               </h3>
               <p className="text-xs text-slate-400">
-                Dari {summary.totalSatker} berkas kewajiban satker mitra
+                {donutMode === 'komposisi' ? 'Pengeluaran (Biru), Penerimaan (Ungu), BLU (Oranye)' : `Dari ${summary.totalSatker} berkas kewajiban satker mitra`}
               </p>
             </div>
 
@@ -348,7 +509,7 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={dataDonutKepatuhan}
+                    data={donutMode === 'komposisi' ? dataDonutKomposisi : dataDonutKepatuhan}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -356,35 +517,65 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
                     paddingAngle={4}
                     dataKey="value"
                   >
-                    {dataDonutKepatuhan.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {(donutMode === 'komposisi' ? dataDonutKomposisi : dataDonutKepatuhan).map((entry, index) => (
+                      <Cell key={`donut-cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
                   <RechartsTooltip />
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-2xl font-black text-slate-900 dark:text-white">{summary.persenKepatuhan}%</span>
-                <span className="text-[10px] uppercase font-bold text-slate-400">Kepatuhan</span>
+                <span className="text-2xl font-black text-slate-900 dark:text-white">
+                  {donutMode === 'komposisi' ? summary.totalSatker : `${summary.persenKepatuhan}%`}
+                </span>
+                <span className="text-[10px] uppercase font-bold text-slate-400">
+                  {donutMode === 'komposisi' ? 'Total Berkas' : 'Kepatuhan'}
+                </span>
               </div>
             </div>
 
-            <div className="w-full grid grid-cols-2 gap-2 text-center text-xs pt-3 border-t border-slate-200 dark:border-slate-800">
-              <button
-                onClick={() => onFilterStatusChange('SUDAH_KIRIM')}
-                className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer"
-              >
-                <div>{summary.sudahKirim} Berkas</div>
-                <div className="text-[10px] font-normal text-emerald-600">Sudah Kirim</div>
-              </button>
-              <button
-                onClick={() => onFilterStatusChange('BELUM_KIRIM')}
-                className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer"
-              >
-                <div>{summary.belumKirim} Berkas</div>
-                <div className="text-[10px] font-normal text-rose-600">Belum Kirim</div>
-              </button>
-            </div>
+            {donutMode === 'komposisi' ? (
+              <div className="w-full grid grid-cols-3 gap-1.5 text-center text-xs pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => onFilterJenisChange('PENGELUARAN')}
+                  className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer border border-blue-200 dark:border-blue-900"
+                >
+                  <div className="text-sm font-black">{summary.bendaharaPengeluaranCount}</div>
+                  <div className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Pengeluaran</div>
+                </button>
+                <button
+                  onClick={() => onFilterJenisChange('PENERIMAAN')}
+                  className="p-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer border border-purple-200 dark:border-purple-900"
+                >
+                  <div className="text-sm font-black">{summary.bendaharaPenerimaanCount}</div>
+                  <div className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Penerimaan</div>
+                </button>
+                <button
+                  onClick={() => onFilterJenisChange('BLU')}
+                  className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer border border-amber-200 dark:border-amber-900"
+                >
+                  <div className="text-sm font-black">{summary.bendaharaBluCount}</div>
+                  <div className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">BLU</div>
+                </button>
+              </div>
+            ) : (
+              <div className="w-full grid grid-cols-2 gap-2 text-center text-xs pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => onFilterStatusChange('SUDAH_KIRIM')}
+                  className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                  <div>{summary.sudahKirim} Berkas</div>
+                  <div className="text-[10px] font-normal text-emerald-600">Sudah Kirim</div>
+                </button>
+                <button
+                  onClick={() => onFilterStatusChange('BELUM_KIRIM')}
+                  className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 font-bold hover:scale-[1.02] transition-transform cursor-pointer"
+                >
+                  <div>{summary.belumKirim} Berkas</div>
+                  <div className="text-[10px] font-normal text-rose-600">Belum Kirim</div>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -530,8 +721,17 @@ export const LPJAdminAnalytics: React.FC<LPJAdminAnalyticsProps> = ({
                           {satker.kodeSatker}
                         </span>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1">
-                        Jenis: <strong className="text-slate-800 dark:text-slate-200">{satker.jenisBendahara || 'Pengeluaran'}</strong>
+                      <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+                        <span>Jenis Bendahara:</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          satker.jenisBendahara === 'BLU'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                            : satker.jenisBendahara === 'PENERIMAAN'
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {satker.jenisBendahara || 'PENGELUARAN'}
+                        </span>
                       </div>
                     </div>
 

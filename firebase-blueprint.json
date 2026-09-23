@@ -124,6 +124,26 @@
         "updatedBy": { "type": "string" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "gajiIndukData": {
+      "title": "Monitoring SPM Gaji Induk Data",
+      "description": "Stores records and upload batches of SPM Gaji Induk (PNS & PPPK)",
+      "type": "object",
+      "properties": {
+        "records": { "type": "array" },
+        "uploads": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
+    },
+    "kontrakMonitoringData": {
+      "title": "Monitoring Data Kontrak",
+      "description": "Stores records and upload batches of Monitoring Data Kontrak KPPN",
+      "type": "object",
+      "properties": {
+        "records": { "type": "array" },
+        "uploads": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -134,6 +154,14 @@
     "/data/{dataType}": {
       "schema": { "$ref": "#/entities/satkerData" },
       "description": "Centralized sync datasets for Satker IKPA, Realisasi Belanja, Pejabat, and Presensi"
+    },
+    "/data/gaji_induk": {
+      "schema": { "$ref": "#/entities/gajiIndukData" },
+      "description": "Centralized sync dataset for SPM Gaji Induk records and batches"
+    },
+    "/data/kontrak_monitoring": {
+      "schema": { "$ref": "#/entities/kontrakMonitoringData" },
+      "description": "Centralized sync dataset for Monitoring Data Kontrak records and batches"
     },
     "/settings/haicso": {
       "schema": { "$ref": "#/entities/haicsoDashboardSettings" },

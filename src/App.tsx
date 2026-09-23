@@ -13,6 +13,8 @@ import { GajiIndukDashboard } from './components/gaji-induk/GajiIndukDashboard';
 import { generateInitialGajiIndukData } from './utils/gajiIndukExcelParser';
 import { HaiCsoMainDashboard } from './components/haicso/HaiCsoMainDashboard';
 import { generateInitialHaiCsoData } from './utils/haiCsoExcelParser';
+import { KontrakDashboard } from './components/kontrak/KontrakDashboard';
+import { KontrakMonitoringRecord, KontrakUploadBatch } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
 import { DEFAULT_TARGET_TRIWULAN_RULES } from './utils/targetTriwulanProcessor';
@@ -797,11 +799,20 @@ export default function App() {
     setGajiIndukRecords(newRecords);
     setGajiIndukUploads(newUploads);
     try {
-      localStorage.setItem('kppn_gaji_induk_records', JSON.stringify(newRecords));
-      localStorage.setItem('kppn_gaji_induk_uploads', JSON.stringify(newUploads));
+      safeLocalStorageSet('kppn_gaji_induk_records', JSON.stringify(newRecords));
+      safeLocalStorageSet('kppn_gaji_induk_uploads', JSON.stringify(newUploads));
     } catch (e) {
       console.warn('Error saving gaji induk data:', e);
     }
+
+    // Persist to Cloud Firestore
+    setDoc(doc(db, 'data', 'gaji_induk'), {
+      records: newRecords,
+      uploads: newUploads,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.warn('Firestore gaji_induk save notice:', err);
+    });
   };
 
   // State Monitoring Tiket HAICSO
@@ -933,6 +944,78 @@ export default function App() {
     }
   };
 
+  // State Monitoring Data Kontrak KPPN (SPAN & SAKTI)
+  const [kontrakRecords, setKontrakRecords] = useState<KontrakMonitoringRecord[]>(() => {
+    const saved = localStorage.getItem('kppn_kontrak_records');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Clean out any acceptance test dummy records
+          const filtered = parsed.filter(
+            (r: KontrakMonitoringRecord) =>
+              r.upload_batch_id !== 'KONTRAK-20260923-001' &&
+              !r.nomor_kontrak?.startsWith('KTR-2026-')
+          );
+          if (filtered.length !== parsed.length) {
+            safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(filtered));
+          }
+          return filtered;
+        }
+      } catch (e) {
+        console.warn('Error reading kppn_kontrak_records:', e);
+      }
+    }
+    return [];
+  });
+
+  const [kontrakBatches, setKontrakBatches] = useState<KontrakUploadBatch[]>(() => {
+    const saved = localStorage.getItem('kppn_kontrak_batches');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Clean out any acceptance test dummy batches
+          const filtered = parsed.filter(
+            (b: KontrakUploadBatch) =>
+              b.id !== 'KONTRAK-20260923-001' &&
+              b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+          );
+          if (filtered.length !== parsed.length) {
+            safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(filtered));
+          }
+          return filtered;
+        }
+      } catch (e) {
+        console.warn('Error reading kppn_kontrak_batches:', e);
+      }
+    }
+    return [];
+  });
+
+  const handleUpdateKontrak = (
+    newRecords: KontrakMonitoringRecord[],
+    newBatches: KontrakUploadBatch[]
+  ) => {
+    setKontrakRecords(newRecords);
+    setKontrakBatches(newBatches);
+    try {
+      safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(newRecords));
+      safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(newBatches));
+    } catch (e) {
+      console.warn('Error saving kontrak data:', e);
+    }
+
+    // Persist to Cloud Firestore
+    setDoc(doc(db, 'data', 'kontrak_monitoring'), {
+      records: newRecords,
+      batches: newBatches,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }).catch(err => {
+      console.warn('Firestore kontrak_monitoring save notice:', err);
+    });
+  };
+
   // Initial Syncing State for clean first-visit experience (prevents flash of empty/uninitialized data)
   const [isInitialSyncing, setIsInitialSyncing] = useState<boolean>(() => {
     try {
@@ -967,6 +1050,7 @@ export default function App() {
           'pengetahuan',
           'presensi',
           'monitoring-haicso',
+          'kontrak',
           'aduan',
           'guide'
         ];
@@ -1360,6 +1444,42 @@ export default function App() {
             .catch(e => console.warn('Sync initial SPM PPP to Firestore notice:', e));
         }
       }).catch(err => console.warn("Initial Firestore SPM PPP fetch notice:", err));
+
+      // Gaji Induk Initial Cloud Fetch
+      getDoc(doc(db, 'data', 'gaji_induk')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+            setGajiIndukUploads(data.uploads);
+            safeLocalStorageSet('kppn_gaji_induk_uploads', JSON.stringify(data.uploads));
+          }
+          if (Array.isArray(data.records) && data.records.length > 0) {
+            setGajiIndukRecords(data.records);
+            safeLocalStorageSet('kppn_gaji_induk_records', JSON.stringify(data.records));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Gaji Induk fetch notice:", err));
+
+      // Kontrak Monitoring Initial Cloud Fetch
+      getDoc(doc(db, 'data', 'kontrak_monitoring')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.batches)) {
+            const cleanBatches = data.batches.filter(
+              (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+            );
+            setKontrakBatches(cleanBatches);
+            safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
+          }
+          if (Array.isArray(data.records)) {
+            const cleanRecords = data.records.filter(
+              (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+            );
+            setKontrakRecords(cleanRecords);
+            safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(cleanRecords));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Kontrak fetch notice:", err));
 
       // SINTESA Realisasi & My InTress Initial Cloud Fetch
       fetchSintesaFromFirestore().then(result => {
@@ -2558,6 +2678,40 @@ export default function App() {
         }
       }
 
+      // 11. Fetch Gaji Induk
+      const gajiSnap = await getDoc(doc(db, 'data', 'gaji_induk'));
+      if (gajiSnap.exists()) {
+        const data = gajiSnap.data();
+        if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+          setGajiIndukUploads(data.uploads);
+          safeLocalStorageSet('kppn_gaji_induk_uploads', JSON.stringify(data.uploads));
+        }
+        if (Array.isArray(data.records) && data.records.length > 0) {
+          setGajiIndukRecords(data.records);
+          safeLocalStorageSet('kppn_gaji_induk_records', JSON.stringify(data.records));
+        }
+      }
+
+      // 12. Fetch Kontrak Monitoring
+      const kontrakSnap = await getDoc(doc(db, 'data', 'kontrak_monitoring'));
+      if (kontrakSnap.exists()) {
+        const data = kontrakSnap.data();
+        if (Array.isArray(data.batches)) {
+          const cleanBatches = data.batches.filter(
+            (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+          );
+          setKontrakBatches(cleanBatches);
+          safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
+        }
+        if (Array.isArray(data.records)) {
+          const cleanRecords = data.records.filter(
+            (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+          );
+          setKontrakRecords(cleanRecords);
+          safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(cleanRecords));
+        }
+      }
+
       setCloudSyncMessage(`Sinkronisasi Cloud Berhasil! Terhubung ke Firestore (${satkerCount || satkers.length} Satker, ${caputBelumCount || 17} Belum Caput).`);
       setTimeout(() => setCloudSyncMessage(null), 6000);
     } catch (e: any) {
@@ -3342,6 +3496,57 @@ export default function App() {
                 />
               )}
 
+              {/* Tab 📑 Monitoring Data Kontrak */}
+              {activeTab === 'kontrak' && (
+                <KontrakDashboard
+                  records={kontrakRecords}
+                  batches={kontrakBatches}
+                  userRole={isAdminAuthenticated ? 'admin' : 'satker'}
+                  isDashboardActive={dashboardConfig.menuVisibility?.['kontrak'] ?? true}
+                  onToggleDashboardActive={async (active) => {
+                    const newConfig = {
+                      ...dashboardConfig,
+                      menuVisibility: {
+                        ...dashboardConfig.menuVisibility,
+                        'kontrak': active
+                      }
+                    };
+                    handleUpdateDashboardConfig(newConfig);
+                  }}
+                  onImportBatch={(batch, newRecords, mode) => {
+                    let updatedRecords: KontrakMonitoringRecord[];
+                    let updatedBatches: KontrakUploadBatch[];
+
+                    if (mode === 'REPLACE_PERIOD') {
+                      const filteredRecords = kontrakRecords.filter(
+                        r => !(r.tanggal_kontrak >= batch.period_start && r.tanggal_kontrak <= batch.period_end)
+                      );
+                      updatedRecords = [...filteredRecords, ...newRecords];
+                      updatedBatches = [batch, ...kontrakBatches.filter(b => b.id !== batch.id)];
+                    } else {
+                      updatedRecords = [...kontrakRecords, ...newRecords];
+                      updatedBatches = [batch, ...kontrakBatches];
+                    }
+                    handleUpdateKontrak(updatedRecords, updatedBatches);
+                  }}
+                  onDeleteBatch={(batchId) => {
+                    const remBatches = kontrakBatches.filter(b => b.id !== batchId);
+                    const remRecords = kontrakRecords.filter(r => r.upload_batch_id !== batchId);
+                    if (remBatches.length === 0) {
+                      handleUpdateKontrak([], []);
+                    } else {
+                      handleUpdateKontrak(remRecords, remBatches);
+                    }
+                  }}
+                  isDark={theme === 'dark'}
+                  viewMode="full"
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
+                  adminPin={adminPin}
+                  onGoToAdminUpload={() => setActiveTab('admin')}
+                />
+              )}
+
               {activeTab === 'admin' && (
                 <AdminUpload
                   satkers={satkers}
@@ -3394,6 +3599,10 @@ export default function App() {
                   onApplyHaiCso={handleUpdateHaiCso}
                   onUpdateHaiCsoSettings={handleUpdateHaiCsoSettings}
                   onClearHaiCso={() => handleUpdateHaiCso([], [])}
+                  kontrakRecords={kontrakRecords}
+                  kontrakBatches={kontrakBatches}
+                  onApplyKontrak={handleUpdateKontrak}
+                  onClearKontrak={() => handleUpdateKontrak([], [])}
                   onResetData={handleResetData}
                   onClearAllData={handleClearAllSatkers}
                   currentSatkerCount={satkers.length}

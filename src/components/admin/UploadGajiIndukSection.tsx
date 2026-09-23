@@ -71,11 +71,11 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [parsedPreview, setParsedPreview] = useState<{
+  const [parsedPreviewList, setParsedPreviewList] = useState<Array<{
     batch: SPMGajiUploadBatch;
     records: SPMGajiRecord[];
     warnings: string[];
-  } | null>(null);
+  }> | null>(null);
 
   // Fallback in-component confirmation modal
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -89,61 +89,107 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileProcess = async (file: File) => {
+  const handleFilesProcess = async (files: File[]) => {
     setErrorMsg(null);
     setIsLoading(true);
 
-    try {
-      if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
-        throw new Error('Format file tidak didukung. Mohon unggah file Excel berformat .xlsx atau .xls.');
-      }
-
-      const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
-
-      const parsed = parseMonitoringGajiWorkbook(workbook, file.name, masterSatkers, 'Admin KPPN');
-
-      if (parsed.records.length === 0) {
-        throw new Error('File Excel tidak memuat data transaksi SPM yang dapat diproses.');
-      }
-
-      setParsedPreview({
-        batch: parsed.batch,
-        records: parsed.records,
-        warnings: parsed.warnings
-      });
-    } catch (err: any) {
-      console.error('Error parsing Gaji Excel:', err);
-      setErrorMsg(err.message || 'Terjadi kesalahan saat memproses file Excel.');
-    } finally {
+    const validFiles = files.filter(f => f.name.endsWith('.xlsx') || f.name.endsWith('.xls'));
+    if (validFiles.length === 0) {
+      setErrorMsg('Format file tidak didukung. Mohon unggah file Excel berformat .xlsx atau .xls.');
       setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      return;
+    }
+
+    const results: Array<{
+      batch: SPMGajiUploadBatch;
+      records: SPMGajiRecord[];
+      warnings: string[];
+    }> = [];
+    const errors: string[] = [];
+
+    for (let i = 0; i < validFiles.length; i++) {
+      const file = validFiles[i];
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+        const parsed = parseMonitoringGajiWorkbook(workbook, file.name, masterSatkers, 'Admin KPPN');
+
+        if (parsed.records.length === 0) {
+          errors.push(`File "${file.name}" tidak memuat data transaksi SPM.`);
+        } else {
+          // Berikan sedikit offset pada batchId agar ID batch unik jika diunggah bersamaan
+          const uniqueBatch = {
+            ...parsed.batch,
+            id: `${parsed.batch.id}-${i}`
+          };
+          const uniqueRecords = parsed.records.map((r, rIdx) => ({
+            ...r,
+            id: `${uniqueBatch.id}-${r.idSpp || rIdx}`,
+            uploadBatchId: uniqueBatch.id
+          }));
+
+          results.push({
+            batch: uniqueBatch,
+            records: uniqueRecords,
+            warnings: parsed.warnings
+          });
+        }
+      } catch (err: any) {
+        console.error(`Error parsing ${file.name}:`, err);
+        errors.push(`Gagal memproses "${file.name}": ${err.message || 'Format tidak sesuai'}`);
       }
+    }
+
+    setIsLoading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    if (errors.length > 0 && results.length === 0) {
+      setErrorMsg(errors.join(' | '));
+      return;
+    }
+
+    if (errors.length > 0) {
+      setErrorMsg(`Peringatan: ${errors.join(', ')}`);
+    }
+
+    if (results.length > 0) {
+      setParsedPreviewList(results);
     }
   };
 
   const handleConfirmSave = () => {
-    if (!parsedPreview) return;
-    const newUploads = [parsedPreview.batch, ...uploads.filter(u => u.id !== parsedPreview.batch.id)];
+    if (!parsedPreviewList || parsedPreviewList.length === 0) return;
+
+    const incomingBatchIds = new Set(parsedPreviewList.map(p => p.batch.id));
+    const newUploads = [...parsedPreviewList.map(p => p.batch), ...uploads.filter(u => !incomingBatchIds.has(u.id))];
+
     const existingMap = new Map<string, SPMGajiRecord>();
     records.forEach(r => existingMap.set(r.id, r));
-    parsedPreview.records.forEach(r => existingMap.set(r.id, r));
+    
+    let totalNewSPM = 0;
+    parsedPreviewList.forEach(p => {
+      p.records.forEach(r => existingMap.set(r.id, r));
+      totalNewSPM += p.records.length;
+    });
+
     const mergedRecords = Array.from(existingMap.values());
 
     if (onApplyRecords) {
       onApplyRecords(mergedRecords, newUploads);
-    } else if (onUploadSuccess) {
-      onUploadSuccess(parsedPreview.records, parsedPreview.batch);
+    } else if (onUploadSuccess && parsedPreviewList.length === 1) {
+      onUploadSuccess(parsedPreviewList[0].records, parsedPreviewList[0].batch);
     }
 
+    const fileNames = parsedPreviewList.map(p => p.batch.filename).join(', ');
     showToast?.({
       type: 'success',
       title: 'Batch Berhasil Disimpan',
-      message: `${parsedPreview.records.length} data SPM dari "${parsedPreview.batch.filename}" berhasil diterapkan.`
+      message: `${totalNewSPM} data SPM dari ${parsedPreviewList.length} file Excel berhasil diterapkan ke sistem.`
     });
-    addLog?.('UPLOAD_GAJI_INDUK', 'UPLOAD', `Upload file Gaji Induk: ${parsedPreview.batch.filename} (${parsedPreview.records.length} SPM)`, 'SUCCESS');
-    setParsedPreview(null);
+    addLog?.('UPLOAD_GAJI_INDUK', 'UPLOAD', `Upload ${parsedPreviewList.length} file Gaji Induk: ${fileNames} (${totalNewSPM} SPM)`, 'SUCCESS');
+    setParsedPreviewList(null);
   };
 
   const handleDeleteBatch = (batchId: string) => {
@@ -313,7 +359,7 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
           e.preventDefault();
           setIsDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleFileProcess(e.dataTransfer.files[0]);
+            handleFilesProcess(Array.from(e.dataTransfer.files));
           }
         }}
         onClick={() => fileInputRef.current?.click()}
@@ -327,9 +373,10 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
           ref={fileInputRef}
           type="file"
           accept=".xlsx,.xls"
+          multiple
           onChange={e => {
             if (e.target.files && e.target.files.length > 0) {
-              handleFileProcess(e.target.files[0]);
+              handleFilesProcess(Array.from(e.target.files));
             }
           }}
           className="hidden"
@@ -344,11 +391,14 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
         </div>
 
         <h4 className="text-lg font-extrabold text-slate-800 dark:text-slate-100">
-          {isLoading ? 'Sedang Memvalidasi Format 48 Kolom...' : 'Tarik & Letakkan File Excel Monitoring SPM Gaji Induk di Sini'}
+          {isLoading ? 'Sedang Memvalidasi Format 48 Kolom File Excel...' : 'Tarik & Letakkan File Excel Monitoring SPM Gaji Induk di Sini'}
         </h4>
-        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto mt-1.5 leading-relaxed">
           Atau klik untuk memilih file dari komputer Anda (.xlsx / .xls).
-          Otomatis mendeteksi periode (Juni, Juli, Agustus), jenis gaji (PNS vs PPPK), dan validasi satker.
+          <span className="block mt-1 font-semibold text-emerald-600 dark:text-emerald-400">
+            ✓ Mendukung unggah banyak file sekaligus (contoh: Gaji PNS dan Gaji PPPK)
+          </span>
+          Sistem otomatis mendeteksi periode, jenis gaji, dan memetakan kode satker tanpa saling menimpa.
         </p>
       </div>
 
@@ -467,69 +517,96 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
         </div>
       </div>
 
-      {/* MODAL KONFIRMASI / PREVIEW HASIL PARSE */}
-      {parsedPreview && (
+      {/* MODAL KONFIRMASI / PREVIEW HASIL PARSE (MENDUKUNG SINGLE & MULTI FILE) */}
+      {parsedPreviewList && parsedPreviewList.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`w-full max-w-2xl rounded-3xl border shadow-2xl p-6 ${
+          <div className={`w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden ${
             isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'
           }`}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
               <div className="flex items-center gap-2 font-extrabold text-base text-emerald-600">
                 <CheckCircle2 className="w-5 h-5" />
-                <span>Konfirmasi Hasil Validasi File Excel</span>
+                <span>
+                  {parsedPreviewList.length === 1
+                    ? 'Konfirmasi Hasil Validasi File Excel'
+                    : `Konfirmasi Unggahan ${parsedPreviewList.length} Berkas Excel Gaji Induk`}
+                </span>
               </div>
               <button
-                onClick={() => setParsedPreview(null)}
+                onClick={() => setParsedPreviewList(null)}
                 className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="my-5 space-y-4 text-xs sm:text-sm">
-              <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Nama File:</span>
-                  <strong className="font-mono text-slate-800 dark:text-slate-200">{parsedPreview.batch.filename}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Periode Terdeteksi:</span>
-                  <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{parsedPreview.batch.periode}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Jenis Gaji:</span>
-                  <strong className="font-bold text-slate-800 dark:text-slate-200">
-                    {parsedPreview.batch.jenisGaji === 'PPPK' ? 'Gaji Induk PPPK/P3K' : 'Gaji Induk PNS'}
-                  </strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Jumlah Record SPM:</span>
-                  <strong className="font-mono font-bold text-emerald-600">{parsedPreview.records.length} SPM</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-600 dark:text-slate-400 font-medium">Jumlah Satker Terdata:</span>
-                  <strong className="font-mono font-bold text-slate-800 dark:text-slate-200">{parsedPreview.batch.jumlahSatker} Satker</strong>
-                </div>
+            <div className="p-6 overflow-y-auto space-y-4 text-xs sm:text-sm">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Sistem berhasil memvalidasi {parsedPreviewList.length} file Excel monitoring SPM. Data berikut akan digabungkan secara kumulatif ke dalam riwayat sistem:
+              </p>
+
+              <div className="space-y-3">
+                {parsedPreviewList.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl border space-y-2 ${
+                      isDark
+                        ? 'bg-slate-800/60 border-slate-700'
+                        : 'bg-emerald-50/60 border-emerald-200'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-emerald-200/60 dark:border-slate-700 pb-2">
+                      <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="truncate max-w-md font-mono text-xs">{item.batch.filename}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold self-start sm:self-auto ${
+                        item.batch.jenisGaji === 'PPPK'
+                          ? 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300'
+                          : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                      }`}>
+                        {item.batch.jenisGaji === 'PPPK' ? 'Gaji Induk PPPK/P3K' : 'Gaji Induk PNS'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 text-xs">
+                      <div>
+                        <span className="text-slate-500 block">Periode:</span>
+                        <strong className="text-emerald-700 dark:text-emerald-400 font-bold">{item.batch.periode}</strong>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block">Jumlah SPM:</span>
+                        <strong className="font-mono text-slate-800 dark:text-slate-200 font-bold">{item.records.length} SPM</strong>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-slate-500 block">Satker Terdata:</span>
+                        <strong className="font-mono text-slate-800 dark:text-slate-200 font-bold">{item.batch.jumlahSatker} Satker</strong>
+                      </div>
+                    </div>
+
+                    {item.warnings.length > 0 && (
+                      <div className="mt-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-[11px] space-y-0.5">
+                        <strong className="block font-semibold">Catatan:</strong>
+                        {item.warnings.map((w, wIdx) => (
+                          <div key={wIdx}>• {w}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
 
-              {parsedPreview.warnings.length > 0 && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs space-y-1">
-                  <strong className="block font-bold">Catatan Verifikasi Kolom:</strong>
-                  {parsedPreview.warnings.map((w, i) => (
-                    <div key={i}>• {w}</div>
-                  ))}
-                </div>
-              )}
-
-              <p className="text-xs text-slate-500">
-                Data akan digabungkan ke dalam basis data monitoring. Satker yang terdata akan otomatis
-                diperbarui statusnya menjadi <strong>SUDAH MENGIRIM</strong> untuk periode {parsedPreview.batch.periode}.
-              </p>
+              <div className="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-600 dark:text-slate-400 font-medium">Total Keseluruhan File Baru:</span>
+                <strong className="text-slate-900 dark:text-white font-bold">
+                  {parsedPreviewList.reduce((acc, curr) => acc + curr.records.length, 0)} SPM dari {parsedPreviewList.length} Berkas
+                </strong>
+              </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex justify-end gap-3 p-6 pt-4 border-t border-slate-200 dark:border-slate-800 shrink-0">
               <button
-                onClick={() => setParsedPreview(null)}
+                onClick={() => setParsedPreviewList(null)}
                 className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-xs font-bold transition-all cursor-pointer"
               >
                 Batal
@@ -539,7 +616,11 @@ export const UploadGajiIndukSection: React.FC<UploadGajiIndukSectionProps> = ({
                 className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Simpan &amp; Terapkan ke Monitoring</span>
+                <span>
+                  {parsedPreviewList.length === 1
+                    ? 'Simpan & Terapkan ke Monitoring'
+                    : `Simpan & Terapkan Semua (${parsedPreviewList.reduce((acc, curr) => acc + curr.records.length, 0)} SPM)`}
+                </span>
               </button>
             </div>
           </div>

@@ -1041,6 +1041,7 @@ export interface MenuVisibilityConfig {
   'lpj'?: boolean;
   'gaji-induk'?: boolean;
   'monitoring-haicso'?: boolean;
+  'kontrak'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1389,6 +1390,8 @@ export interface DashboardConfig {
   lpjUploads?: LPJUploadBatch[];
   gajiIndukRecords?: SPMGajiRecord[];
   gajiIndukUploads?: SPMGajiUploadBatch[];
+  kontrakRecords?: KontrakMonitoringRecord[];
+  kontrakUploads?: KontrakUploadBatch[];
   haicsoTickets?: HAICSOTicket[];
   haicsoBatches?: HAICSOUploadBatch[];
   haicsoSettings?: HAICSODashboardSettings;
@@ -1436,6 +1439,7 @@ export type NavigationTab =
   | 'lpj'
   | 'gaji-induk'
   | 'monitoring-haicso'
+  | 'kontrak'
   | 'admin' 
   | 'reminder' 
   | 'guide';
@@ -3022,6 +3026,119 @@ export interface HAICSOSatkerTicketSummary {
   menungguKppn: number;
   kirimHai: number;
 }
+
+// -------------------------------------------------------------
+// MONITORING DATA KONTRAK TYPES
+// -------------------------------------------------------------
+
+export type StatusProgressKontrak =
+  | 'SELESAI TEPAT WAKTU'
+  | 'BELUM SELESAI'
+  | 'BELUM SELESAI TERLAMBAT TERMIN'
+  | 'BELUM SELESAI TERLAMBAT'
+  | 'SELESAI TERLAMBAT';
+
+export type StatusNrk = 'SESUAI' | 'SESUAIKAN DENGAN NRK SPAN' | string;
+
+export interface KontrakUploadBatch {
+  id: string; // e.g. KONTRAK-20260923-001
+  file_name: string;
+  upload_date: string;
+  download_time_source: string;
+  kanwil: string;
+  kppn: string;
+  period_start: string;
+  period_end: string;
+  total_records: number;
+  uploaded_by: string;
+  status: 'SUCCESS' | 'WARNING' | 'FAILED';
+}
+
+export interface KontrakMonitoringRecord {
+  id: string;
+  upload_batch_id: string;
+  no: number;
+  kode_satker: string;
+  deskripsi_satker: string;
+  kode_kppn: string;
+  nomor_kontrak: string;
+  nrk_span: string;
+  nrk_sakti: string;
+  status_nrk: StatusNrk;
+  tanggal_kontrak: string;
+  kode_mata_uang: string;
+  nama_supplier: string;
+  nomor_register_supplier: string;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  uraian_kontrak: string;
+  nilai_kontrak: number;
+  nilai_pembayaran: number;
+  sisa_kontrak: number;
+  status_progress_kontrak: StatusProgressKontrak;
+  kode_coa: string;
+  status_kirim_kppn: string;
+  detail_barang_jasa: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface KontrakFilterState {
+  searchQuery: string;
+  tahun: string;
+  triwulan: string;
+  bulan: string;
+  kodeSatker: string;
+  namaSatker: string;
+  nomorKontrak: string;
+  supplier: string;
+  statusNrk: string;
+  statusProgress: string;
+  statusKirimKppn: string;
+  kodeCoa: string;
+  kodeMataUang: string;
+  tanggalKontrakStart: string;
+  tanggalKontrakEnd: string;
+  tanggalMulaiStart: string;
+  tanggalMulaiEnd: string;
+  tanggalSelesaiStart: string;
+  tanggalSelesaiEnd: string;
+  kategoriProgress?: 'ALL' | 'SELESAI' | 'BELUM_SELESAI' | 'TERLAMBAT' | 'NRK_PERLU_PENYESUAIAN';
+}
+
+export interface KontrakSummary {
+  totalKontrak: number;
+  totalNilaiKontrak: number;
+  totalNilaiPembayaran: number;
+  totalSisaKontrak: number;
+  selesaiTepatWaktu: number;
+  selesaiTerlambat: number;
+  totalSelesai: number;
+  belumSelesaiMurni: number;
+  belumSelesaiTerlambatTermin: number;
+  belumSelesaiTerlambat: number;
+  totalBelumSelesai: number;
+  totalTerlambat: number; // BELUM SELESAI TERLAMBAT TERMIN + BELUM SELESAI TERLAMBAT + SELESAI TERLAMBAT
+  terlambatNilaiKontrak: number;
+  terlambatNilaiPembayaran: number;
+  terlambatSisaKontrak: number;
+  nrkSesuai: number;
+  nrkPerluPenyesuaian: number;
+  persenRealisasiPembayaran: number | null;
+  persenSisaKontrak: number | null;
+}
+
+export interface KontrakQualityReport {
+  nrkPerluPenyesuaian: number;
+  nomorKontrakDuplikat: number;
+  nilaiKontrakNol: number;
+  pembayaranMelebihiKontrak: number;
+  sisaKontrakNegatif: number;
+  tanggalTidakValid: number;
+  tanggalSelesaiSebelumMulai: number;
+  duplicateKeysList?: string[];
+}
+
 
 
 

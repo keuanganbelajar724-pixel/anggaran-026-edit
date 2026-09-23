@@ -54,6 +54,8 @@ import { UploadPejabatIKPASection } from './admin/UploadPejabatIKPASection';
 import { UploadRekonsiliasiSection } from './admin/UploadRekonsiliasiSection';
 import { UploadLPJSection } from './admin/UploadLPJSection';
 import { UploadGajiIndukSection } from './admin/UploadGajiIndukSection';
+import { KontrakDashboard } from './kontrak/KontrakDashboard';
+import { KontrakMonitoringRecord, KontrakUploadBatch } from '../types';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
 import { BroadcastMasifSection } from './admin/BroadcastMasifSection';
@@ -265,6 +267,13 @@ interface AdminUploadProps {
   onApplyHaiCso?: (tickets: HAICSOTicket[], batches: HAICSOUploadBatch[]) => void;
   onUpdateHaiCsoSettings?: (settings: HAICSODashboardSettings) => void;
   onClearHaiCso?: () => void;
+  kontrakRecords?: KontrakMonitoringRecord[];
+  kontrakBatches?: KontrakUploadBatch[];
+  onApplyKontrak?: (
+    records: KontrakMonitoringRecord[],
+    batches: KontrakUploadBatch[]
+  ) => void;
+  onClearKontrak?: () => void;
   onForceCloudSync?: () => void;
   isCloudSyncing?: boolean;
   cloudSyncMessage?: string | null;
@@ -460,6 +469,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onApplyHaiCso,
   onUpdateHaiCsoSettings,
   onClearHaiCso,
+  kontrakRecords = [],
+  kontrakBatches = [],
+  onApplyKontrak,
+  onClearKontrak,
   onForceCloudSync,
   isCloudSyncing = false,
   cloudSyncMessage = null
@@ -471,8 +484,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk, HAICSO)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk' | 'haicso'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk, HAICSO, Kontrak)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk' | 'haicso' | 'kontrak'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3910,6 +3923,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'lpj': true,
                         'gaji-induk': true,
                         'monitoring-haicso': true,
+                        'kontrak': true,
                         'aduan': true,
                         'reminder': true,
                         'guide': false
@@ -3956,6 +3970,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'lpj': false,
                         'gaji-induk': false,
                         'monitoring-haicso': false,
+                        'kontrak': false,
                         'aduan': false,
                         'reminder': false,
                         'guide': false
@@ -4126,7 +4141,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'rekonsiliasi': { label: '📊 Rekonsiliasi & Kepatuhan Satker', desc: 'Monitoring otomatis kepatuhan Rekonsiliasi, Todolist, Tutup Periode, SP2S & SP3S', category: 'Kepatuhan', badgeColor: 'bg-blue-100 text-blue-800' },
                     'lpj': { label: '📋 Monitoring LPJ Bendahara', desc: 'Monitoring penyampaian LPJ Bendahara SAKTI, status pengiriman, verifikasi & cetak PDF', category: 'LPJ Bendahara', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' },
-                    'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' }
+                    'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4152,7 +4168,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'rekonsiliasi',
                     'lpj',
                     'gaji-induk',
-                    'monitoring-haicso'
+                    'monitoring-haicso',
+                    'kontrak'
                   ];
 
                   // Build unified order without guide
@@ -11076,6 +11093,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {haicsoTickets.length > 0 ? `${haicsoTickets.length} Tiket Terdata` : '0 Tiket (Kosong - Siap Upload)'}
                 </div>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('kontrak')}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                  uploadSubTab === 'kontrak'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
+                    : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span>14. Monitoring Data Kontrak</span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                  Tools Internal KPPN: Upload Excel Data Kontrak (Row 8 Header, 22 Kolom A:V), Preview, Analisis &amp; Monitoring.
+                </p>
+                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                  {kontrakRecords.length > 0 ? `${kontrakRecords.length} Data Kontrak Terdata` : '0 Kontrak (Kosong - Siap Upload)'}
+                </div>
+              </button>
             </div>
           </div>
 
@@ -11281,6 +11319,58 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               isDark={isDark}
               viewMode="upload_only"
               defaultSubTab="upload"
+            />
+          )}
+
+          {uploadSubTab === 'kontrak' && (
+            <KontrakDashboard
+              records={kontrakRecords}
+              batches={kontrakBatches}
+              userRole="admin"
+              viewMode="upload_only"
+              isDashboardActive={tempConfig?.menuVisibility?.['kontrak'] ?? true}
+              onToggleDashboardActive={async (active) => {
+                const updatedConfig = {
+                  ...tempConfig,
+                  menuVisibility: {
+                    ...tempConfig.menuVisibility,
+                    'kontrak': active
+                  }
+                };
+                setTempConfig(updatedConfig);
+                if (onUpdateDashboardConfig) {
+                  onUpdateDashboardConfig(updatedConfig);
+                }
+              }}
+              onImportBatch={(batch, newRecords, mode) => {
+                let updatedRecords: KontrakMonitoringRecord[];
+                let updatedBatches: KontrakUploadBatch[];
+
+                if (mode === 'REPLACE_PERIOD') {
+                  const filteredRecords = kontrakRecords.filter(
+                    r => !(r.tanggal_kontrak >= batch.period_start && r.tanggal_kontrak <= batch.period_end)
+                  );
+                  updatedRecords = [...filteredRecords, ...newRecords];
+                  updatedBatches = [batch, ...kontrakBatches.filter(b => b.id !== batch.id)];
+                } else {
+                  updatedRecords = [...kontrakRecords, ...newRecords];
+                  updatedBatches = [batch, ...kontrakBatches];
+                }
+
+                if (onApplyKontrak) {
+                  onApplyKontrak(updatedRecords, updatedBatches);
+                }
+              }}
+              onDeleteBatch={(batchId) => {
+                const remBatches = kontrakBatches.filter(b => b.id !== batchId);
+                const remRecords = kontrakRecords.filter(r => r.upload_batch_id !== batchId);
+                if (remBatches.length === 0) {
+                  onClearKontrak?.();
+                } else if (onApplyKontrak) {
+                  onApplyKontrak(remRecords, remBatches);
+                }
+              }}
+              isDark={isDark}
             />
           )}
         </div>
