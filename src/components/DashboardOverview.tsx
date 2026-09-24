@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme, DeviasiHal3Record } from '../types';
+import { SatkerIKPA, IKPAPredikat, DashboardConfig, AppTheme, DeviasiHal3Record, AppUser } from '../types';
 import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
 import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
 import { PaginationControl } from './PaginationControl';
 import { IkpaAnomalyTrendSection } from './IkpaAnomalyTrendSection';
+import { UserGreetingBanner } from './UserGreetingBanner';
 import { 
   Building2, 
   TrendingUp, 
@@ -66,6 +67,11 @@ interface DashboardOverviewProps {
   theme?: AppTheme;
   isAdminAuthenticated?: boolean;
   onSetIsAdminAuthenticated?: (val: boolean) => void;
+  currentUser?: AppUser | null;
+  onOpenProfileModal?: (tab?: 'profile' | 'password') => void;
+  onOpenLoginModal?: () => void;
+  onLogout?: () => void;
+  onNavigateToAdmin?: () => void;
 }
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
@@ -80,7 +86,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   onUpdateDashboardConfig,
   theme = 'light',
   isAdminAuthenticated = false,
-  onSetIsAdminAuthenticated
+  onSetIsAdminAuthenticated,
+  currentUser,
+  onOpenProfileModal,
+  onOpenLoginModal,
+  onLogout,
+  onNavigateToAdmin
 }) => {
   const [filterPredikat, setFilterPredikat] = useState<string>('ALL');
   const [searchSatker, setSearchSatker] = useState<string>('');
@@ -487,6 +498,16 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   return (
     <div className="space-y-6">
       
+      {/* Personalized Greeting Banner for KPPN User / Admin Super */}
+      <UserGreetingBanner
+        currentUser={currentUser || null}
+        onOpenProfileModal={onOpenProfileModal || (() => {})}
+        onOpenLoginModal={onOpenLoginModal || (() => {})}
+        onLogout={onLogout || (() => {})}
+        onNavigateToAdmin={onNavigateToAdmin || onGoToUpload}
+        theme={theme}
+      />
+
       {/* Top Banner Notice - Executive Institutional Styling */}
       <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-8 rounded-3xl border border-slate-800 text-white shadow-2xl relative overflow-hidden space-y-4">
         <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -858,7 +879,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed max-w-3xl">
               {isUnlocked
                 ? 'Klik salah satu kartu indikator di bawah untuk melihat rincian satker yang nilainya Kurang (< 70), Cukup, Baik, maupun Sangat Baik beserta rekomendasi pembinaan taktis.'
-                : 'Panel diagnostik internal untuk pendampingan dan pembinaan satker oleh Seksi MSKI KPPN Semarang I. Klik tombol di kanan dan masukkan password KPPN (kppn026) untuk membuka rincian.'
+                : 'Panel diagnostik internal untuk pendampingan dan pembinaan satker oleh Seksi MSKI KPPN Semarang I. Klik tombol di kanan dan masukkan password Administrator KPPN untuk membuka rincian.'
               }
             </p>
           </div>

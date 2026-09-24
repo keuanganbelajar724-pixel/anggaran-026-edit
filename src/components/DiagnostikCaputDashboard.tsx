@@ -2447,7 +2447,7 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                             setAdminPinInput(e.target.value);
                             setAdminPinError(null);
                           }}
-                          placeholder="Masukkan PIN Admin (contoh: kppn026)"
+                          placeholder="Masukkan PIN Admin..."
                           className="w-full px-4 py-2.5 pr-10 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                           autoFocus
                         />
@@ -2460,7 +2460,7 @@ export const DiagnostikCaputDashboard: React.FC<DiagnostikCaputDashboardProps> =
                         </button>
                       </div>
                       <p className="text-[11px] text-slate-400 mt-1">
-                        PIN standar sistem: <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">kppn026</span>
+                        Gunakan PIN Administrator resmi KPPN Semarang I.
                       </p>
                     </div>
 

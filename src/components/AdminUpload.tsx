@@ -55,6 +55,8 @@ import { UploadRekonsiliasiSection } from './admin/UploadRekonsiliasiSection';
 import { UploadLPJSection } from './admin/UploadLPJSection';
 import { UploadGajiIndukSection } from './admin/UploadGajiIndukSection';
 import { KontrakDashboard } from './kontrak/KontrakDashboard';
+import { UploadKontrakSection } from './kontrak/UploadKontrakSection';
+import { KontrakBatchHistory } from './kontrak/KontrakBatchHistory';
 import { KontrakMonitoringRecord, KontrakUploadBatch } from '../types';
 import { SatkerPerhatianAnalyticsSection } from './admin/SatkerPerhatianAnalyticsSection';
 import { GeminiSatkerAnalyticsSection } from './admin/GeminiSatkerAnalyticsSection';
@@ -68,8 +70,9 @@ import { BuletinWartaSection } from './admin/BuletinWartaSection';
 import { FirebaseQuotaMonitorSection } from './admin/FirebaseQuotaMonitorSection';
 import { AdvancedWhatIfAnalyticsSection } from './admin/AdvancedWhatIfAnalyticsSection';
 import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
+import { UserManagementSection } from './admin/UserManagementSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
-import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord } from '../types';
+import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -115,6 +118,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   Building2,
+  Crown,
   SlidersHorizontal,
   LayoutDashboard,
   Megaphone,
@@ -187,7 +191,8 @@ import {
   LifeBuoy,
   Receipt,
   Coins,
-  Ticket
+  Ticket,
+  UploadCloud
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
@@ -285,6 +290,8 @@ interface AdminUploadProps {
   onDeleteKonfirmasiKegiatan?: (kegiatanId: string) => void;
   onSaveKonfirmasiKehadiran?: (record: KonfirmasiKehadiranRecord) => void;
   onDeleteKonfirmasiKehadiran?: (recordId: string) => void;
+  onClearAllKonfirmasiKehadiran?: () => void;
+  currentUser?: AppUser | null;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -490,12 +497,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onSaveKonfirmasiKegiatan,
   onDeleteKonfirmasiKegiatan,
   onSaveKonfirmasiKehadiran,
-  onDeleteKonfirmasiKehadiran
+  onDeleteKonfirmasiKehadiran,
+  onClearAllKonfirmasiKehadiran,
+  currentUser = null
 }) => {
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3162,20 +3171,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           )}
         </button>
 
-        <button
-          onClick={() => setAdminTab('logs')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'logs'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <History className="w-4 h-4 text-purple-600" />
-          <span>14. Log Admin</span>
-          <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {activityLogs.length}
-          </span>
-        </button>
+        {currentUser?.role !== 'pegawai' && (
+          <button
+            onClick={() => setAdminTab('logs')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'logs'
+                ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+            }`}
+          >
+            <History className="w-4 h-4 text-purple-600" />
+            <span>14. Log Admin</span>
+            <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
+              {activityLogs.length}
+            </span>
+          </button>
+        )}
 
         <button
           onClick={() => setAdminTab('gemini-ai')}
@@ -3236,6 +3247,23 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             ⚡ Spark 50k Reads
           </span>
         </button>
+
+        {currentUser?.role !== 'pegawai' && (
+          <button
+            onClick={() => setAdminTab('users')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+              adminTab === 'users'
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/25 border border-orange-400/40 ring-2 ring-orange-400/30'
+                : 'text-orange-700 hover:text-orange-900 hover:bg-orange-50 dark:text-orange-300 dark:hover:text-orange-100 dark:hover:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60'
+            }`}
+          >
+            <Crown className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>19. Manajemen Pengguna &amp; Pegawai</span>
+            <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
+              👑 Admin Super
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Hidden File Inputs */}
@@ -6223,6 +6251,60 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* 20. Custom Texts: Monitoring Data Kontrak */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      📑 Modul Monitoring Data Kontrak
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500">
+                      Status Modul:{' '}
+                      <strong className={tempConfig.menuVisibility?.['kontrak'] !== false ? 'text-emerald-600' : 'text-rose-600'}>
+                        {tempConfig.menuVisibility?.['kontrak'] !== false ? '● Aktif' : '○ Non-Aktif'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Badge Text</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.kontrakBadge || 'TOOLS INTERNAL KPPN'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, kontrakBadge: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Judul Utama (Title)</label>
+                      <input
+                        type="text"
+                        value={tempConfig.customTexts?.kontrakTitle || 'Monitoring Data Kontrak'}
+                        onChange={(e) => setTempConfig(prev => ({
+                          ...prev,
+                          customTexts: { ...prev.customTexts, kontrakTitle: e.target.value }
+                        }))}
+                        className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Deskripsi / Subtitle</label>
+                    <textarea
+                      rows={2}
+                      value={tempConfig.customTexts?.kontrakSubtitle || 'Alat bantu analisis data kontrak SPAN & SAKTI KPPN Semarang I: Filter multi-kategori, status progress, sisa termin, evaluasi NRK, rincian supplier & ekspor laporan monitoring PDF.'}
+                      onChange={(e) => setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, kontrakSubtitle: e.target.value }
+                      }))}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium resize-none"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -6358,16 +6440,235 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </div>
             </div>
 
+            {/* Dedicated Monitoring Data Kontrak Activation & Settings Card */}
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300 rounded-2xl p-5 space-y-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-200 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
+                    <FileSpreadsheet className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-emerald-950 flex items-center gap-2">
+                      📑 Monitoring Data Kontrak
+                      <span className="text-[10px] bg-emerald-200 text-emerald-900 font-extrabold px-2 py-0.5 rounded-full">
+                        Database KPPN
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-emerald-800">
+                      Pengaturan akses dashboard satker, nama tampilan dashboard, dan status sinkronisasi database.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Master Switch for Kontrak Dashboard */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentActive = tempConfig.menuVisibility?.['kontrak'] !== false;
+                    const nextActive = !currentActive;
+                    const newVis = {
+                      ...(tempConfig.menuVisibility || {}),
+                      'kontrak': nextActive
+                    };
+                    const updatedCfg: DashboardConfig = {
+                      ...tempConfig,
+                      menuVisibility: newVis as any
+                    };
+                    setTempConfig(updatedCfg);
+                    onUpdateDashboardConfig(updatedCfg);
+                    addToast(
+                      `Modul Monitoring Data Kontrak ${nextActive ? '🟢 Diaktifkan' : '🔴 Dinonaktifkan'} untuk Satker! Disimpan ke Database.`,
+                      nextActive ? 'success' : 'info'
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 shadow-xs ${
+                    tempConfig.menuVisibility?.['kontrak'] !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700'
+                  }`}
+                >
+                  {tempConfig.menuVisibility?.['kontrak'] !== false ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-ping"></span>
+                      <span>🟢 Aktif (Tampil di Satker)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-200"></span>
+                      <span>🔴 Nonaktif (Disembunyikan)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-950 mb-1">
+                    Nama Dashboard:
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.customTexts?.kontrakTitle || 'Monitoring Data Kontrak'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTempConfig(prev => ({
+                        ...prev,
+                        customTexts: { ...prev.customTexts, kontrakTitle: val }
+                      }));
+                    }}
+                    placeholder="Monitoring Data Kontrak"
+                    className="w-full bg-white border border-emerald-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
+                  />
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    Nama dashboard yang tampil pada menu navigasi dan tajuk utama.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-black text-emerald-950 mb-1">
+                    Status:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVis = {
+                          ...(tempConfig.menuVisibility || {}),
+                          'kontrak': true
+                        };
+                        const updatedCfg: DashboardConfig = {
+                          ...tempConfig,
+                          menuVisibility: newVis as any
+                        };
+                        setTempConfig(updatedCfg);
+                        onUpdateDashboardConfig(updatedCfg);
+                        addToast('Modul Monitoring Data Kontrak 🟢 Aktif untuk Satker. Tersimpan di Database.', 'success');
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        tempConfig.menuVisibility?.['kontrak'] !== false
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs'
+                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>🟢 Aktif</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVis = {
+                          ...(tempConfig.menuVisibility || {}),
+                          'kontrak': false
+                        };
+                        const updatedCfg: DashboardConfig = {
+                          ...tempConfig,
+                          menuVisibility: newVis as any
+                        };
+                        setTempConfig(updatedCfg);
+                        onUpdateDashboardConfig(updatedCfg);
+                        addToast('Modul Monitoring Data Kontrak 🔴 Nonaktif untuk Satker. Tersimpan di Database.', 'info');
+                      }}
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-black border transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        tempConfig.menuVisibility?.['kontrak'] === false
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-xs'
+                          : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>🔴 Nonaktif</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    {tempConfig.menuVisibility?.['kontrak'] !== false
+                      ? '🟢 Aktif: dashboard tampil pada Dashboard Satker/pengguna yang memiliki hak akses.'
+                      : '🔴 Nonaktif: dashboard tidak tampil pada Satker.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Info Box & Database Persistence Notice */}
+              <div className="p-3.5 rounded-xl bg-white/90 border border-emerald-200 text-xs space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px]">
+                  <span className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Penyimpanan Permanen Database:
+                  </span>
+                  <span className="font-mono text-emerald-800 font-bold bg-emerald-100/70 px-2 py-0.5 rounded-lg border border-emerald-300">
+                    Cloud Firestore &bull; role-based access control (RBAC)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  Pengaturan ini disimpan di <strong>DATABASE</strong> (bukan hanya localStorage). Jika <strong>🟢 Aktif</strong>, dashboard tampil pada Dashboard Satker/pengguna yang memiliki hak akses. Jika <strong>🔴 Nonaktif</strong>, dashboard tidak tampil bagi Satker.
+                </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-emerald-100">
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 font-semibold">
+                    <span>Total Kontrak: <strong className="text-slate-900">{kontrakRecords.length}</strong></span>
+                    <span>&bull;</span>
+                    <span>Total Batch: <strong className="text-slate-900">{kontrakBatches.length}</strong></span>
+                    <span>&bull;</span>
+                    <span>Hak Akses Satker: <strong className={tempConfig.menuVisibility?.['kontrak'] !== false ? 'text-emerald-700' : 'text-rose-700'}>{tempConfig.menuVisibility?.['kontrak'] !== false ? 'Terbuka' : 'Tertutup'}</strong></span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminTab('upload');
+                        setUploadSubTab('kontrak');
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold cursor-pointer transition-all"
+                    >
+                      📤 Buka Upload Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onNavigateTab?.('kontrak');
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-teal-100 hover:bg-teal-200 text-teal-900 text-[11px] font-bold cursor-pointer transition-all"
+                    >
+                      📊 Buka Monitoring
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminTab('upload');
+                        setUploadSubTab('kontrak');
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold cursor-pointer transition-all"
+                    >
+                      📜 Riwayat Upload
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Setting 7: Ubah Password / PIN Admin */}
             <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-600" />
-                  Keamanan Akses &amp; Ubah Password / PIN Admin:
-                </label>
-                <p className="text-[11px] text-amber-800/80 mt-1">
-                  Ubah password/PIN akses yang digunakan untuk masuk ke Panel Modul Admin, Rekap WhatsApp Satker, dan fitur manajemen data.
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs font-extrabold text-amber-900 uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      Keamanan Akses &amp; Ubah Password / PIN Admin:
+                    </label>
+                    {/* UI indicator to show if password has been changed from default */}
+                    {adminPin === 'kppn026' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        Status: Masih Menggunakan PIN Bawaan Sistem (Disarankan Mengganti)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                        Status: Password Kustom Aktif (Sudah Diubah dari Bawaan)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-amber-800/80 mt-1">
+                    Ubah password/PIN akses yang digunakan untuk masuk ke Panel Modul Admin, Rekap WhatsApp Satker, dan fitur manajemen data.
+                  </p>
+                </div>
               </div>
 
               {pinChangeMsg && (
@@ -8129,8 +8430,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       )}
 
       {/* Activity Log Tab */}
-      {adminTab === 'logs' && (() => {
-        const filteredLogs = activityLogs.filter(log => {
+      {adminTab === 'logs' && (
+        currentUser?.role === 'pegawai' ? (
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-rose-200 dark:border-rose-900 shadow-xl text-center space-y-4 max-w-xl mx-auto my-12">
+            <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+              Akses Log Aktivitas Dibatasi
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Log aktivitas aplikasi dan pemantauan riwayat login hanya dapat diakses oleh Admin Super KPPN demi kepatuhan keamanan informasi dan audit sistem.
+            </p>
+          </div>
+        ) : (() => {
+            const filteredLogs = activityLogs.filter(log => {
           if (logCategoryFilter !== 'ALL' && log.category !== logCategoryFilter) return false;
           if (logStatusFilter !== 'ALL' && log.status !== logStatusFilter) return false;
           if (logSearchQuery.trim()) {
@@ -8387,7 +8701,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </div>
           </div>
         );
-      })()}
+      })()
+      )}
 
       {/* Link Sosialisasi Tab */}
       {adminTab === 'portal-link' && (
@@ -10333,6 +10648,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           onDeleteKegiatan={onDeleteKonfirmasiKegiatan}
           onSaveKonfirmasi={onSaveKonfirmasiKehadiran}
           onDeleteKonfirmasi={onDeleteKonfirmasiKehadiran}
+          onClearAllKonfirmasi={onClearAllKonfirmasiKehadiran}
           requestConfirm={(title, message, onConfirm, isDestructive) =>
             requestConfirm(title, message, onConfirm, { variant: isDestructive ? 'danger' : 'info' })
           }
@@ -10515,6 +10831,28 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           deviasiHal3Records={deviasiHal3Records}
           isDark={isDark}
         />
+      )}
+
+      {/* 19. Manajemen Pengguna & Pegawai KPPN (Admin Super) */}
+      {adminTab === 'users' && (
+        currentUser?.role === 'pegawai' ? (
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-rose-200 dark:border-rose-900 shadow-xl text-center space-y-4 max-w-xl mx-auto my-12">
+            <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+              Akses Khusus Admin Super
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Modul Manajemen Pengguna dan Pembuatan Akun Pegawai KPPN Semarang I hanya dapat diakses oleh Admin Super. Pegawai dapat memperbarui profil dan sandi pribadi melalui menu Pengaturan Profil di Dashboard.
+            </p>
+          </div>
+        ) : (
+          <UserManagementSection
+            currentUser={currentUser}
+            theme={theme}
+          />
+        )
       )}
 
       {/* Phone Number Monitoring Subtab */}
@@ -11586,6 +11924,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   onApplyKontrak(remRecords, remBatches);
                 }
               }}
+              onGoToMonitoring={() => onNavigateTab?.('kontrak')}
               isDark={isDark}
             />
           )}

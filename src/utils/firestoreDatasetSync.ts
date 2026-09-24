@@ -1,5 +1,5 @@
 import { db, doc, setDoc, getDoc } from '../lib/firebase';
-import { RealisasiBelanjaRecord, MyIntressRecord } from '../types';
+import { RealisasiBelanjaRecord, MyIntressRecord, KontrakMonitoringRecord, KontrakUploadBatch } from '../types';
 
 const CHUNK_SIZE = 600;
 
@@ -171,6 +171,129 @@ export async function fetchMyIntressFromFirestore(): Promise<MyIntressSyncResult
     };
   } catch (error) {
     console.warn('[firestoreDatasetSync] Error fetching My InTress from Firestore:', error);
+    return null;
+  }
+}
+
+export interface KontrakSyncResult {
+  records: KontrakMonitoringRecord[];
+  batches: KontrakUploadBatch[];
+  isEmpty: boolean;
+}
+
+const KONTRAK_CHUNK_SIZE = 300;
+
+/**
+ * Save Kontrak Monitoring dataset to Firestore with chunking
+ */
+export async function saveKontrakToFirestore(
+  records: KontrakMonitoringRecord[],
+  batches: KontrakUploadBatch[]
+): Promise<boolean> {
+  try {
+    const isEmpty = !Array.isArray(records) || records.length === 0;
+    if (isEmpty) {
+      await setDoc(doc(db, 'data', 'kontrak_monitoring'), {
+        batches: batches || [],
+        records: [],
+        isEmpty: true,
+        chunkCount: 0,
+        totalRecords: 0,
+        updatedAt: new Date().toISOString()
+      });
+      return true;
+    }
+
+    const chunkCount = Math.ceil(records.length / KONTRAK_CHUNK_SIZE);
+    const chunkPromises: Promise<void>[] = [];
+
+    for (let i = 0; i < chunkCount; i++) {
+      const chunk = records.slice(i * KONTRAK_CHUNK_SIZE, (i + 1) * KONTRAK_CHUNK_SIZE);
+      chunkPromises.push(
+        setDoc(doc(db, 'data', `kontrak_chunk_${i}`), {
+          chunkIndex: i,
+          records: chunk,
+          updatedAt: new Date().toISOString()
+        })
+      );
+    }
+
+    await Promise.all(chunkPromises);
+
+    await setDoc(doc(db, 'data', 'kontrak_monitoring'), {
+      batches: batches || [],
+      records: [], // Stored in chunks to avoid 1MB document limit
+      isEmpty: false,
+      chunkCount,
+      totalRecords: records.length,
+      updatedAt: new Date().toISOString()
+    });
+
+    return true;
+  } catch (error) {
+    console.error('[firestoreDatasetSync] Error saving Kontrak to Firestore:', error);
+    return false;
+  }
+}
+
+/**
+ * Fetch Kontrak Monitoring dataset from Firestore, assembling chunks if present
+ */
+export async function fetchKontrakFromFirestore(): Promise<KontrakSyncResult | null> {
+  try {
+    const snap = await getDoc(doc(db, 'data', 'kontrak_monitoring'));
+    if (!snap.exists()) return null;
+
+    const data = snap.data();
+    const batches = Array.isArray(data.batches) ? data.batches : [];
+
+    if (data.isEmpty === true || (Array.isArray(data.records) && data.records.length === 0 && !data.chunkCount)) {
+      return {
+        records: [],
+        batches,
+        isEmpty: true
+      };
+    }
+
+    // If chunked
+    if (data.chunkCount && typeof data.chunkCount === 'number' && data.chunkCount > 0) {
+      const chunkPromises: Promise<any>[] = [];
+      for (let i = 0; i < data.chunkCount; i++) {
+        chunkPromises.push(getDoc(doc(db, 'data', `kontrak_chunk_${i}`)));
+      }
+      const chunkSnaps = await Promise.all(chunkPromises);
+      const allRecords: KontrakMonitoringRecord[] = [];
+      for (const cSnap of chunkSnaps) {
+        if (cSnap.exists()) {
+          const cData = cSnap.data();
+          if (Array.isArray(cData.records)) {
+            allRecords.push(...cData.records);
+          }
+        }
+      }
+      return {
+        records: allRecords,
+        batches,
+        isEmpty: allRecords.length === 0
+      };
+    }
+
+    // Single doc legacy fallback
+    if (Array.isArray(data.records) && data.records.length > 0) {
+      return {
+        records: data.records,
+        batches,
+        isEmpty: false
+      };
+    }
+
+    return {
+      records: [],
+      batches,
+      isEmpty: true
+    };
+  } catch (error) {
+    console.warn('[firestoreDatasetSync] Error fetching Kontrak from Firestore:', error);
     return null;
   }
 }

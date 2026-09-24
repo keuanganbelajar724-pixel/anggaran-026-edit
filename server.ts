@@ -121,6 +121,84 @@ async function startServer() {
     });
   });
 
+  // Kontrak Monitoring Persistence Endpoints (Dual-Backup to prevent data loss)
+  let inMemoryKontrakRecords: any[] = [];
+  let inMemoryKontrakBatches: any[] = [];
+  try {
+    const kontrakPath = path.join(process.cwd(), 'kontrak_generated.json');
+    if (fs.existsSync(kontrakPath)) {
+      const parsedKontrak = JSON.parse(fs.readFileSync(kontrakPath, 'utf8'));
+      if (parsedKontrak && Array.isArray(parsedKontrak.records)) {
+        inMemoryKontrakRecords = parsedKontrak.records;
+        inMemoryKontrakBatches = parsedKontrak.batches || [];
+      }
+    }
+  } catch (e) {
+    console.warn('Could not load kontrak_generated.json on server start:', e);
+  }
+
+  app.get('/api/data/kontrak', (_req, res) => {
+    res.json({
+      status: 'ok',
+      records: inMemoryKontrakRecords,
+      batches: inMemoryKontrakBatches,
+    });
+  });
+
+  app.post('/api/data/kontrak', (req, res) => {
+    try {
+      const { records, batches } = req.body || {};
+      inMemoryKontrakRecords = Array.isArray(records) ? records : [];
+      inMemoryKontrakBatches = Array.isArray(batches) ? batches : [];
+      const kontrakPath = path.join(process.cwd(), 'kontrak_generated.json');
+      fs.writeFile(
+        kontrakPath,
+        JSON.stringify({ records: inMemoryKontrakRecords, batches: inMemoryKontrakBatches, updatedAt: new Date().toISOString() }, null, 2),
+        (err) => {
+          if (err) console.warn('Server disk backup kontrak notice:', err);
+        }
+      );
+      res.json({ status: 'ok', recordCount: inMemoryKontrakRecords.length, batchCount: inMemoryKontrakBatches.length });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // Users Persistence Endpoints (Backup storage)
+  let inMemoryUsers: any[] = [];
+  try {
+    const usersPath = path.join(process.cwd(), 'users_generated.json');
+    if (fs.existsSync(usersPath)) {
+      inMemoryUsers = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not load users_generated.json on server start:', e);
+  }
+
+  app.get('/api/data/users', (_req, res) => {
+    res.json({
+      status: 'ok',
+      users: inMemoryUsers,
+    });
+  });
+
+  app.post('/api/data/users', (req, res) => {
+    try {
+      const { users } = req.body || {};
+      if (Array.isArray(users)) {
+        inMemoryUsers = users;
+        const usersPath = path.join(process.cwd(), 'users_generated.json');
+        fs.writeFile(usersPath, JSON.stringify(users, null, 2), (err) => {
+          if (err) console.warn('Server disk backup users notice:', err);
+        });
+        return res.json({ status: 'ok', count: users.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid users array' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
   app.post('/api/data/historical_uploads', (req, res) => {
     try {
       const { list } = req.body || {};
@@ -716,16 +794,44 @@ async function startServer() {
   });
 
   // Vite middleware in dev, static files in production
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
+  const isProduction = process.env.NODE_ENV === 'production' && hasDist;
+
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
+
+    // Fallback SPA routing in dev mode using transformIndexHtml
+    app.use('*', async (req, res, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api')) {
+        return next();
+      }
+      try {
+        const indexPath = path.resolve(process.cwd(), 'index.html');
+        if (!fs.existsSync(indexPath)) {
+          return next();
+        }
+        let template = fs.readFileSync(indexPath, 'utf-8');
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        if (vite.ssrFixStacktrace) {
+          vite.ssrFixStacktrace(e);
+        }
+        next(e);
+      }
+    });
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res, next) => {
+      if (req.originalUrl.startsWith('/api')) {
+        return next();
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

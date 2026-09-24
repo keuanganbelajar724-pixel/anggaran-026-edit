@@ -144,9 +144,22 @@
         "uploads": { "type": "array" },
         "updatedAt": { "type": "string" }
       }
+    },
+    "userData": {
+      "title": "KPPN User Accounts",
+      "description": "Stores user accounts for Super Admin and Pegawai KPPN with roles, greetings, and Google Drive photos",
+      "type": "object",
+      "properties": {
+        "users": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
+    "/data/users": {
+      "schema": { "$ref": "#/entities/userData" },
+      "description": "Centralized sync dataset for Super Admin and Pegawai user accounts"
+    },
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/settings" },
       "description": "Global application configuration documents"

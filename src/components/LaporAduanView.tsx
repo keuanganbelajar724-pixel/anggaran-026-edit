@@ -446,7 +446,7 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
                       <div>
                         <span className="font-extrabold text-slate-900 dark:text-white block">Mode Anonim / Samarkan Identitas (Opsional)</span>
                         <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {formData.isAnonim ? 'Identitas pelapor disamarkan (kami sarankan isi lengkap agar respon dan tindak lanjut optimal)' : 'Identitas terdata (kerahasiaan terjamin penuh & respon lebih cepat)'}
+                          {formData.isAnonim ? 'Identitas pelapor disamarkan' : 'Identitas terdata (kerahasiaan terjamin penuh & respon lebih cepat)'}
                         </span>
                       </div>
                     </div>
@@ -461,6 +461,24 @@ export const LaporAduanView: React.FC<LaporAduanViewProps> = ({
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500"></div>
                     </label>
                   </div>
+
+                  {formData.isAnonim && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-200 text-xs flex items-start gap-2 animate-in fade-in">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-bold leading-relaxed">
+                          Himbauan: Mohon tidak pakai anonim atau isi data lengkap apabila melakukan pengaduan kerahasiaan akan terjaga karena kami dapat merespon secara lebih lanjut apabila mau lebih privat lagi atau dapat melakukan chat WA.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveSubTab('chat-wa')}
+                          className="text-[11px] font-black text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
+                        >
+                          Klik di sini untuk langsung chat via WhatsApp KPPN &rarr;
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pelapor & Satker Fields */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

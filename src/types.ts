@@ -1274,6 +1274,11 @@ export interface DashboardCustomTexts {
   haicsoTitle?: string;
   haicsoSubtitle?: string;
   haicsoAnnouncement?: string;
+
+  kontrakBadge?: string;
+  kontrakTitle?: string;
+  kontrakSubtitle?: string;
+  kontrakAnnouncement?: string;
 }
 
 export type AduanStatus = 'MENUNGGU' | 'DIPROSES' | 'SELESAI' | 'DITOLAK';
@@ -3222,6 +3227,8 @@ export interface KontrakQualityReport {
   tanggalSelesaiSebelumMulai: number;
   duplicateKeysList?: string[];
 }
+
+export * from './types/user';
 
 
 

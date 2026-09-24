@@ -35,6 +35,7 @@ interface KonfirmasiAdminSectionProps {
   onDeleteKegiatan?: (kegiatanId: string) => void;
   onSaveKonfirmasi?: (record: KonfirmasiKehadiranRecord) => void;
   onDeleteKonfirmasi?: (recordId: string) => void;
+  onClearAllKonfirmasi?: () => void;
   requestConfirm: (title: string, message: string, onConfirm: () => void, isDestructive?: boolean) => void;
   showToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -48,6 +49,7 @@ export const KonfirmasiAdminSection: React.FC<KonfirmasiAdminSectionProps> = ({
   onDeleteKegiatan,
   onSaveKonfirmasi: _onSaveKonfirmasi,
   onDeleteKonfirmasi,
+  onClearAllKonfirmasi,
   requestConfirm,
   showToast
 }) => {
@@ -577,6 +579,28 @@ export const KonfirmasiAdminSection: React.FC<KonfirmasiAdminSectionProps> = ({
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>📥 Unduh Rekap Excel (XLSX)</span>
               </button>
+
+              {konfirmasiList.length > 0 && onClearAllKonfirmasi && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    requestConfirm(
+                      'Kosongkan Seluruh Data RSVP',
+                      'Apakah Anda yakin ingin mengosongkan seluruh data respon RSVP konfirmasi kehadiran? Semua rekaman kehadiran saat ini akan dihapus agar dapat diisi ulang dari awal secara mandiri.',
+                      () => {
+                        onClearAllKonfirmasi();
+                        showToast('Seluruh data respon konfirmasi kehadiran berhasil dikosongkan.', 'info');
+                      },
+                      true
+                    );
+                  }}
+                  className="font-extrabold text-xs sm:text-sm px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                  title="Kosongkan seluruh data respon RSVP konfirmasi kehadiran"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>🗑️ Kosongkan Data RSVP ({konfirmasiList.length})</span>
+                </button>
+              )}
             </div>
           </div>
 

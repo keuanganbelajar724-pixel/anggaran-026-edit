@@ -15,7 +15,8 @@ import {
   Settings,
   Edit3,
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import {
   UndanganKonfirmasiKegiatan,
@@ -41,6 +42,7 @@ interface KonfirmasiKehadiranDashboardProps {
   onDeleteKegiatan?: (kegiatanId: string) => void;
   onSaveKonfirmasi: (record: KonfirmasiKehadiranRecord) => void;
   onDeleteKonfirmasi?: (recordId: string) => void;
+  onClearAllKonfirmasi?: () => void;
   onGoToAdmin?: () => void;
 }
 
@@ -51,6 +53,8 @@ export const KonfirmasiKehadiranDashboard: React.FC<KonfirmasiKehadiranDashboard
   theme,
   isAdminAuthenticated = false,
   onSaveKonfirmasi,
+  onDeleteKonfirmasi,
+  onClearAllKonfirmasi,
   onGoToAdmin
 }) => {
   const isDark = theme === 'dark';
@@ -387,6 +391,22 @@ export const KonfirmasiKehadiranDashboard: React.FC<KonfirmasiKehadiranDashboard
               >
                 <FileSpreadsheet className="w-4 h-4" />
                 <span>📥 Unduh Rekap Excel</span>
+              </button>
+            )}
+
+            {konfirmasiList.length > 0 && onClearAllKonfirmasi && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm('Kosongkan semua data respon konfirmasi kehadiran (RSVP)? Semua data konfirmasi saat ini akan dibersihkan agar Anda dapat mengisi dari awal secara mandiri.')) {
+                    onClearAllKonfirmasi();
+                  }
+                }}
+                className="font-extrabold text-xs sm:text-sm px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white shadow-md flex items-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
+                title="Kosongkan seluruh data RSVP untuk mencoba pengisian dari awal"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>🗑️ Kosongkan Data RSVP ({konfirmasiList.length})</span>
               </button>
             )}
 
@@ -1026,13 +1046,41 @@ export const KonfirmasiKehadiranDashboard: React.FC<KonfirmasiKehadiranDashboard
 
               {/* Action Buttons */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRsvpModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                >
-                  Tutup
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRsvpModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  >
+                    Tutup
+                  </button>
+
+                  {/* If this role already has a saved record, allow deleting it */}
+                  {(() => {
+                    const satkerRecords = satkerConfirmationsMap.get(modalSatker.kodeSatker) || [];
+                    const existing = satkerRecords.find(r => r.pejabatTarget === formPejabat);
+                    if (existing && onDeleteKonfirmasi) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Hapus data konfirmasi kehadiran untuk pejabat ${formPejabat} di satker ${modalSatker.namaSatker}?`)) {
+                              onDeleteKonfirmasi(existing.id);
+                              loadRoleData(formPejabat, modalSatker);
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                          title={`Hapus rekaman konfirmasi ${formPejabat}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus Data {formPejabat}</span>
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+
                 <button
                   type="submit"
                   disabled={isSubmitting}

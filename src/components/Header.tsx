@@ -39,9 +39,10 @@ import {
   RefreshCw,
   PieChart,
   Coins,
-  Ticket
+  Ticket,
+  Crown
 } from 'lucide-react';
-import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig } from '../types';
+import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
 import { AndroidInstallModal } from './AndroidInstallModal';
 import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
@@ -66,6 +67,9 @@ interface HeaderProps {
   isAdminAuthenticated?: boolean;
   onAuthenticateAdmin?: (pin: string) => boolean;
   onLogoutAdmin?: () => void;
+  currentUser?: AppUser | null;
+  onOpenProfileModal?: (tab?: 'profile' | 'password') => void;
+  onLoginSuccess?: (user: AppUser) => void;
   masterSatkers?: MasterSatker[];
   transaksiKkpCount?: number;
   transaksiDigipayCount?: number;
@@ -97,6 +101,9 @@ export const Header: React.FC<HeaderProps> = ({
   isAdminAuthenticated = false,
   onAuthenticateAdmin,
   onLogoutAdmin,
+  currentUser = null,
+  onOpenProfileModal,
+  onLoginSuccess,
   masterSatkers = [],
   transaksiKkpCount = 0,
   transaksiDigipayCount = 0,
@@ -619,10 +626,45 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
               >
                 <Lock className="w-3.5 h-3.5" />
-                <span>Login Admin</span>
+                <span>Login Admin / Pengguna</span>
               </button>
             ) : (
               <div className="flex items-center gap-1.5 shrink-0">
+                {/* User Profile Capsule */}
+                {currentUser && (
+                  <button
+                    onClick={() => onOpenProfileModal?.('profile')}
+                    className="flex items-center gap-2 px-2.5 sm:px-3 py-1 text-xs rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-white border border-slate-700 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
+                    title="Pengaturan Profil Pengguna & Kata Sandi"
+                  >
+                    {currentUser.photoUrl ? (
+                      <img
+                        src={currentUser.photoUrl}
+                        alt={currentUser.displayName}
+                        className="w-6 h-6 rounded-full object-cover border border-amber-400/60"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
+                        {currentUser.displayName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="text-left hidden md:block">
+                      <div className="font-bold text-[11px] leading-tight flex items-center gap-1">
+                        <span>{currentUser.displayName}</span>
+                        {currentUser.role === 'superadmin' && (
+                          <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                        )}
+                      </div>
+                      <div className="text-[9px] text-amber-300 font-medium">
+                        {currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai KPPN'}
+                      </div>
+                    </div>
+                  </button>
+                )}
+
                 <button
                   onClick={() => handleTabClick('admin')}
                   className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-black rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] ${
@@ -642,7 +684,7 @@ export const Header: React.FC<HeaderProps> = ({
                     if (onLogoutAdmin) onLogoutAdmin();
                   }}
                   className="flex items-center justify-center p-2 text-xs font-bold rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
-                  title="Keluar Sesi Admin"
+                  title="Keluar Sesi Admin / Pengguna"
                 >
                   <LogOut className="w-4 h-4 text-rose-400" />
                 </button>
@@ -791,11 +833,7 @@ export const Header: React.FC<HeaderProps> = ({
                     key={t.id}
                     data-active={isActive ? "true" : "false"}
                     onClick={() => handleTabClick(t.id)}
-                    className={`relative flex items-center justify-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap min-h-[38px] touch-manipulation select-none ${
-                      isAutoFillLayout
-                        ? 'shrink-0 xl:shrink xl:flex-1 xl:min-w-fit justify-center text-center'
-                        : 'shrink-0'
-                    } ${activeStyle}`}
+                    className={`relative flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap min-h-[38px] shrink-0 touch-manipulation select-none hover:shadow-xs ${activeStyle}`}
                   >
                     {isActive && (
                       <div
@@ -832,6 +870,12 @@ export const Header: React.FC<HeaderProps> = ({
             return success;
           }
           return false;
+        }}
+        onLoginSuccess={(user) => {
+          if (onLoginSuccess) {
+            onLoginSuccess(user);
+          }
+          setActiveTab('admin');
         }}
         theme={theme}
       />

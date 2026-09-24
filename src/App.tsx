@@ -1,5 +1,5 @@
 import { safeLocalStorageSet, safeLocalStorageGet, saveLargeDataset, removeLargeDataset, getLargeDataset } from './utils/safeStorage';
-import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressToFirestore } from './utils/firestoreDatasetSync';
+import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressToFirestore, fetchKontrakFromFirestore, saveKontrakToFirestore } from './utils/firestoreDatasetSync';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
@@ -55,6 +55,15 @@ import { INITIAL_DEVIASI_HAL3_DATA } from './data/initialDeviasiHal3Data';
 import { INITIAL_SPM_PPP_DATA } from './data/initialSPMPPPData';
 import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
 import { loadCloudGeminiConfig } from './services/geminiService';
+import { AppUser } from './types/user';
+import { 
+  getCurrentUser, 
+  setCurrentUser as persistCurrentUser, 
+  clearCurrentUser, 
+  subscribeUsers 
+} from './utils/userManager';
+import { UserProfileModal } from './components/UserProfileModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { Header } from './components/Header';
 import { DashboardOverview } from './components/DashboardOverview';
 import { RealisasiAnggaranDashboard } from './components/RealisasiAnggaranDashboard';
@@ -645,12 +654,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          return parsed.filter(k => !['und-ikpa-tw3-2026', 'und-kkp-digipay-2026', 'und-fgd-kpa-2026'].includes(k.id));
+        }
       } catch (e) {
         console.warn('Error parsing saved konfirmasi kegiatan:', e);
       }
     }
-    return INITIAL_KONFIRMASI_KEGIATAN;
+    return [];
   });
 
   const [konfirmasiKehadiranList, setKonfirmasiKehadiranList] = useState<KonfirmasiKehadiranRecord[]>(() => {
@@ -658,12 +669,15 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) {
+          // Filter out dummy initial records (with ids starting with 'konf-')
+          return parsed.filter((r: KonfirmasiKehadiranRecord) => !r.id?.startsWith('konf-'));
+        }
       } catch (e) {
         console.warn('Error parsing saved konfirmasi kehadiran:', e);
       }
     }
-    return INITIAL_KONFIRMASI_KEHADIRAN;
+    return [];
   });
 
   // My InTress Realisasi Belanja Records State
@@ -680,8 +694,19 @@ export default function App() {
     return INITIAL_MY_INTRESS_DATA || [];
   });
 
+  // User Authentication & Role Management State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    return getCurrentUser();
+  });
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'profile' | 'password'>('profile');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+
   // Global Admin Authentication State shared across Admin Upload, Satker Details Modal & Reminder Generator
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
+    const user = getCurrentUser();
+    return Boolean(user && user.isActive);
+  });
   const [adminPin, setAdminPin] = useState<string>(() => {
     return localStorage.getItem('kppn_admin_pin') || 'kppn026';
   });
@@ -1029,20 +1054,24 @@ export default function App() {
   ) => {
     setKontrakRecords(newRecords);
     setKontrakBatches(newBatches);
+
+    // 1. Save to IndexedDB (unlimited quota, robust persistence against browser reload/crash)
+    saveLargeDataset('kppn_kontrak_records', newRecords);
+    saveLargeDataset('kppn_kontrak_batches', newBatches);
+
+    // 2. Best-effort save to localStorage
     try {
-      safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(newRecords));
       safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(newBatches));
+      if (newRecords.length < 500) {
+        safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(newRecords));
+      }
     } catch (e) {
-      console.warn('Error saving kontrak data:', e);
+      console.warn('Error saving kontrak data to localStorage:', e);
     }
 
-    // Persist to Cloud Firestore
-    setDoc(doc(db, 'data', 'kontrak_monitoring'), {
-      records: newRecords,
-      batches: newBatches,
-      updatedAt: new Date().toISOString()
-    }, { merge: true }).catch(err => {
-      console.warn('Firestore kontrak_monitoring save notice:', err);
+    // 3. Persist to Cloud Firestore with automatic chunking (bypasses 1MB document limit)
+    saveKontrakToFirestore(newRecords, newBatches).catch(err => {
+      console.warn('Firestore saveKontrakToFirestore notice:', err);
     });
   };
 
@@ -1491,22 +1520,46 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore Gaji Induk fetch notice:", err));
 
-      // Kontrak Monitoring Initial Cloud Fetch
-      getDoc(doc(db, 'data', 'kontrak_monitoring')).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          if (Array.isArray(data.batches)) {
-            const cleanBatches = data.batches.filter(
-              (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
-            );
-            setKontrakBatches(cleanBatches);
-            safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
+      // Kontrak Monitoring Initial Load: Check IndexedDB first for fast local restore
+      getLargeDataset<KontrakMonitoringRecord[]>('kppn_kontrak_records').then(idbRecs => {
+        if (idbRecs && Array.isArray(idbRecs) && idbRecs.length > 0) {
+          const cleanRecs = idbRecs.filter(
+            r => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+          );
+          if (cleanRecs.length > 0) {
+            setKontrakRecords(prev => prev.length === 0 ? cleanRecs : prev);
           }
-          if (Array.isArray(data.records)) {
-            const cleanRecords = data.records.filter(
-              (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
-            );
-            setKontrakRecords(cleanRecords);
+        }
+      }).catch(e => console.warn('IDB Kontrak records load notice:', e));
+
+      getLargeDataset<KontrakUploadBatch[]>('kppn_kontrak_batches').then(idbBatches => {
+        if (idbBatches && Array.isArray(idbBatches) && idbBatches.length > 0) {
+          const cleanBatches = idbBatches.filter(
+            b => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+          );
+          if (cleanBatches.length > 0) {
+            setKontrakBatches(prev => prev.length === 0 ? cleanBatches : prev);
+          }
+        }
+      }).catch(e => console.warn('IDB Kontrak batches load notice:', e));
+
+      // Kontrak Monitoring Cloud Fetch with chunk reassembly
+      fetchKontrakFromFirestore().then(result => {
+        if (!result) return;
+        const cleanBatches = (result.batches || []).filter(
+          (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+        );
+        const cleanRecords = (result.records || []).filter(
+          (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+        );
+
+        if (cleanRecords.length > 0 || cleanBatches.length > 0) {
+          setKontrakBatches(cleanBatches);
+          setKontrakRecords(cleanRecords);
+          saveLargeDataset('kppn_kontrak_batches', cleanBatches);
+          saveLargeDataset('kppn_kontrak_records', cleanRecords);
+          safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
+          if (cleanRecords.length < 500) {
             safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(cleanRecords));
           }
         }
@@ -1536,6 +1589,35 @@ export default function App() {
           setMyIntressRecords(result.records);
         }
       }).catch(err => console.warn("Initial Firestore My InTress fetch notice:", err));
+
+      // Purge legacy dummy konfirmasi kegiatan & dummy konf- records from Firebase & localStorage if present
+      try {
+        const dummyKegiatanIds = ['und-ikpa-tw3-2026', 'und-kkp-digipay-2026', 'und-fgd-kpa-2026'];
+
+        const rawKeg = safeLocalStorageGet('kppn_konfirmasi_kegiatan');
+        if (rawKeg) {
+          const parsedKeg = JSON.parse(rawKeg);
+          if (Array.isArray(parsedKeg) && parsedKeg.some((k: any) => dummyKegiatanIds.includes(k.id))) {
+            const cleanKeg = parsedKeg.filter((k: any) => !dummyKegiatanIds.includes(k.id));
+            safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(cleanKeg));
+            setKonfirmasiKegiatanList(cleanKeg);
+            setDoc(doc(db, 'data', 'konfirmasi_kegiatan'), { list: cleanKeg, updatedAt: new Date().toISOString() }, { merge: true })
+              .catch(err => console.warn("Notice purging dummy konfirmasi kegiatan:", err));
+          }
+        }
+
+        const rawKonf = safeLocalStorageGet('kppn_konfirmasi_kehadiran');
+        if (rawKonf) {
+          const parsed = JSON.parse(rawKonf);
+          if (Array.isArray(parsed) && parsed.some((r: any) => r.id?.startsWith('konf-') || dummyKegiatanIds.includes(r.kegiatanId))) {
+            const clean = parsed.filter((r: any) => !r.id?.startsWith('konf-') && !dummyKegiatanIds.includes(r.kegiatanId));
+            safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(clean));
+            setKonfirmasiKehadiranList(clean);
+            setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: clean, updatedAt: new Date().toISOString() }, { merge: true })
+              .catch(err => console.warn("Notice purging dummy konfirmasi kehadiran:", err));
+          }
+        }
+      } catch (_) {}
 
       // 2. Realtime Settings & Dashboard Config
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
@@ -1676,12 +1758,14 @@ export default function App() {
       });
 
       // 5b. Realtime Konfirmasi Kegiatan Undangan
+      const dummyKegIds = ['und-ikpa-tw3-2026', 'und-kkp-digipay-2026', 'und-fgd-kpa-2026'];
       const unsubKonfKegiatan = onSnapshot(doc(db, 'data', 'konfirmasi_kegiatan'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
-            setKonfirmasiKegiatanList(data.list);
-            safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(data.list));
+          if (Array.isArray(data.list)) {
+            const clean = data.list.filter((k: UndanganKonfirmasiKegiatan) => !dummyKegIds.includes(k.id));
+            setKonfirmasiKegiatanList(clean);
+            safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(clean));
           }
         }
       }, (error) => {
@@ -1693,8 +1777,9 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list)) {
-            setKonfirmasiKehadiranList(data.list);
-            safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(data.list));
+            const clean = data.list.filter((r: KonfirmasiKehadiranRecord) => !r.id?.startsWith('konf-') && !dummyKegIds.includes(r.kegiatanId));
+            setKonfirmasiKehadiranList(clean);
+            safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(clean));
           }
         }
       }, (error) => {
@@ -1827,6 +1912,44 @@ export default function App() {
         console.warn("Firebase My InTress listener notice:", error);
       });
 
+      // 13. Realtime Kontrak Monitoring Data
+      const unsubKontrak = onSnapshot(doc(db, 'data', 'kontrak_monitoring'), () => {
+        fetchKontrakFromFirestore().then(result => {
+          if (!result) return;
+          const cleanBatches = (result.batches || []).filter(
+            (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+          );
+          const cleanRecords = (result.records || []).filter(
+            (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+          );
+          if (cleanRecords.length > 0 || cleanBatches.length > 0) {
+            setKontrakBatches(cleanBatches);
+            setKontrakRecords(cleanRecords);
+            saveLargeDataset('kppn_kontrak_batches', cleanBatches);
+            saveLargeDataset('kppn_kontrak_records', cleanRecords);
+          }
+        });
+      }, (error) => {
+        console.warn("Firebase Kontrak listener notice:", error);
+      });
+
+      const unsubUsers = subscribeUsers((users) => {
+        const active = getCurrentUser();
+        if (active) {
+          const found = users.find(u => u.id === active.id);
+          if (found) {
+            if (!found.isActive) {
+              clearCurrentUser();
+              setCurrentUser(null);
+              setIsAdminAuthenticated(false);
+            } else {
+              persistCurrentUser(found);
+              setCurrentUser(found);
+            }
+          }
+        }
+      });
+
       const onMyIntressUpdated = (evt: Event) => {
         const customEvt = evt as CustomEvent;
         if (customEvt.detail?.records && Array.isArray(customEvt.detail.records)) {
@@ -1838,6 +1961,7 @@ export default function App() {
       return () => {
         window.removeEventListener('focus', onWindowFocus);
         window.removeEventListener('kppn_my_intress_updated', onMyIntressUpdated);
+        unsubUsers();
         unsubSettings();
         unsubHistorical();
         unsubSatkers();
@@ -1854,6 +1978,7 @@ export default function App() {
         unsubSPMPPP();
         unsubSintesa();
         unsubMyIntress();
+        unsubKontrak();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -2108,13 +2233,25 @@ export default function App() {
   };
 
   const handleSaveKonfirmasiKehadiran = (record: KonfirmasiKehadiranRecord) => {
-    const exists = konfirmasiKehadiranList.some(k => k.id === record.id || (k.kegiatanId === record.kegiatanId && k.kodeSatker === record.kodeSatker));
+    // Crucial: check both kodeSatker AND pejabatTarget so that PPK and PPSPM (or other roles) do not overwrite each other!
+    const isSameTargetRecord = (k: KonfirmasiKehadiranRecord) =>
+      k.id === record.id ||
+      (k.kegiatanId === record.kegiatanId && k.kodeSatker === record.kodeSatker && k.pejabatTarget === record.pejabatTarget);
+
+    const exists = konfirmasiKehadiranList.some(isSameTargetRecord);
     const updated = exists
-      ? konfirmasiKehadiranList.map(k => (k.id === record.id || (k.kegiatanId === record.kegiatanId && k.kodeSatker === record.kodeSatker)) ? record : k)
+      ? konfirmasiKehadiranList.map(k => isSameTargetRecord(k) ? record : k)
       : [record, ...konfirmasiKehadiranList];
     setKonfirmasiKehadiranList(updated);
     safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(updated));
     setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: updated, updatedAt: new Date().toISOString() }, { merge: true })
+      .catch(err => console.warn("Error syncing konfirmasi kehadiran to Firebase:", err));
+  };
+
+  const handleClearAllKonfirmasiKehadiran = () => {
+    setKonfirmasiKehadiranList([]);
+    safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify([]));
+    setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: [], updatedAt: new Date().toISOString() }, { merge: true })
       .catch(err => console.warn("Error syncing konfirmasi kehadiran to Firebase:", err));
   };
 
@@ -2520,6 +2657,14 @@ export default function App() {
     }
   }, [isAdminAuthenticated]);
 
+  const handleLoginSuccess = (user: AppUser) => {
+    persistCurrentUser(user);
+    setCurrentUser(user);
+    createAdminSession();
+    setIsAdminAuthenticated(true);
+    setIsLoginModalOpen(false);
+  };
+
   const handleAuthenticateAdmin = (pin: string): boolean => {
     const cleanPin = sanitizeInput(pin).trim();
     if (!cleanPin) return false;
@@ -2533,12 +2678,29 @@ export default function App() {
     ) {
       createAdminSession();
       setIsAdminAuthenticated(true);
+      if (!currentUser) {
+        const defaultUser: AppUser = {
+          id: 'user_superadmin_01',
+          username: 'superadmin',
+          displayName: 'Super Admin MSKI',
+          role: 'superadmin',
+          jabatan: 'Administrator Utama & PIC Pembina Satker',
+          seksi: 'Seksi MSKI (Manajemen Satker & Kepatuhan Internal)',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        persistCurrentUser(defaultUser);
+        setCurrentUser(defaultUser);
+      }
       return true;
     }
     return false;
   };
 
   const handleLogoutAdmin = () => {
+    clearCurrentUser();
+    setCurrentUser(null);
     clearAdminSession();
     setIsAdminAuthenticated(false);
   };
@@ -2791,22 +2953,23 @@ export default function App() {
       }
 
       // 12. Fetch Kontrak Monitoring
-      const kontrakSnap = await getDoc(doc(db, 'data', 'kontrak_monitoring'));
-      if (kontrakSnap.exists()) {
-        const data = kontrakSnap.data();
-        if (Array.isArray(data.batches)) {
-          const cleanBatches = data.batches.filter(
-            (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
-          );
+      const kontrakResult = await fetchKontrakFromFirestore();
+      if (kontrakResult) {
+        const cleanBatches = (kontrakResult.batches || []).filter(
+          (b: any) => b.id !== 'KONTRAK-20260923-001' && b.file_name !== 'Monitoring Data Kontrak_2026-09-23 05-28.xlsx'
+        );
+        const cleanRecords = (kontrakResult.records || []).filter(
+          (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
+        );
+        if (cleanRecords.length > 0 || cleanBatches.length > 0) {
           setKontrakBatches(cleanBatches);
-          safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
-        }
-        if (Array.isArray(data.records)) {
-          const cleanRecords = data.records.filter(
-            (r: any) => r.upload_batch_id !== 'KONTRAK-20260923-001' && !r.nomor_kontrak?.startsWith('KTR-2026-')
-          );
           setKontrakRecords(cleanRecords);
-          safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(cleanRecords));
+          saveLargeDataset('kppn_kontrak_batches', cleanBatches);
+          saveLargeDataset('kppn_kontrak_records', cleanRecords);
+          safeLocalStorageSet('kppn_kontrak_batches', JSON.stringify(cleanBatches));
+          if (cleanRecords.length < 500) {
+            safeLocalStorageSet('kppn_kontrak_records', JSON.stringify(cleanRecords));
+          }
         }
       }
 
@@ -3203,6 +3366,12 @@ export default function App() {
         isAdminAuthenticated={isAdminAuthenticated}
         onAuthenticateAdmin={handleAuthenticateAdmin}
         onLogoutAdmin={handleLogoutAdmin}
+        currentUser={currentUser}
+        onOpenProfileModal={(tab) => {
+          setProfileModalInitialTab(tab || 'profile');
+          setIsProfileModalOpen(true);
+        }}
+        onLoginSuccess={handleLoginSuccess}
         masterSatkers={masterSatkers}
         slideShowConfig={dashboardConfig.slideShowConfig}
         onOpenAdminSlideShow={() => setActiveTab('admin')}
@@ -3304,6 +3473,14 @@ export default function App() {
                   theme={theme}
                   isAdminAuthenticated={isAdminAuthenticated}
                   onSetIsAdminAuthenticated={setIsAdminAuthenticated}
+                  currentUser={currentUser}
+                  onOpenProfileModal={(tab) => {
+                    setProfileModalInitialTab(tab || 'profile');
+                    setIsProfileModalOpen(true);
+                  }}
+                  onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  onLogout={handleLogoutAdmin}
+                  onNavigateToAdmin={() => setActiveTab('admin')}
                 />
               )}
 
@@ -3546,6 +3723,7 @@ export default function App() {
                   onDeleteKegiatan={handleDeleteKonfirmasiKegiatan}
                   onSaveKonfirmasi={handleSaveKonfirmasiKehadiran}
                   onDeleteKonfirmasi={handleDeleteKonfirmasiKehadiran}
+                  onClearAllKonfirmasi={handleClearAllKonfirmasiKehadiran}
                   onGoToAdmin={() => setActiveTab('admin')}
                 />
               )}
@@ -3618,6 +3796,9 @@ export default function App() {
                   records={kontrakRecords}
                   batches={kontrakBatches}
                   userRole={isAdminAuthenticated ? 'admin' : 'satker'}
+                  customTitle={dashboardConfig.customTexts?.kontrakTitle}
+                  customBadge={dashboardConfig.customTexts?.kontrakBadge}
+                  customSubtitle={dashboardConfig.customTexts?.kontrakSubtitle}
                   isDashboardActive={dashboardConfig.menuVisibility?.['kontrak'] ?? true}
                   onToggleDashboardActive={async (active) => {
                     const newConfig = {
@@ -3726,6 +3907,7 @@ export default function App() {
                   onUpdateDashboardConfig={handleUpdateDashboardConfig}
                   isAdminAuthenticated={isAdminAuthenticated}
                   setIsAdminAuthenticated={setIsAdminAuthenticated}
+                  currentUser={currentUser}
                   theme={theme}
                   adminPin={adminPin}
                   onUpdateAdminPin={handleUpdateAdminPin}
@@ -3745,6 +3927,7 @@ export default function App() {
                   onDeleteKonfirmasiKegiatan={handleDeleteKonfirmasiKegiatan}
                   onSaveKonfirmasiKehadiran={handleSaveKonfirmasiKehadiran}
                   onDeleteKonfirmasiKehadiran={handleDeleteKonfirmasiKehadiran}
+                  onClearAllKonfirmasiKehadiran={handleClearAllKonfirmasiKehadiran}
                 />
               )}
 
@@ -3857,6 +4040,28 @@ export default function App() {
         isOpen={isGlobalBroadcastLibraryOpen}
         onClose={() => setIsGlobalBroadcastLibraryOpen(false)}
         masterSatkers={masterSatkers}
+        theme={theme}
+      />
+
+      {/* User Profile & Password Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        currentUser={currentUser}
+        onUserUpdated={(updatedUser) => {
+          persistCurrentUser(updatedUser);
+          setCurrentUser(updatedUser);
+        }}
+        theme={theme}
+        initialTab={profileModalInitialTab}
+      />
+
+      {/* Admin / Pegawai Login Modal */}
+      <AdminLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onAuthenticateAdmin={handleAuthenticateAdmin}
+        onLoginSuccess={handleLoginSuccess}
         theme={theme}
       />
 
