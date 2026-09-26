@@ -16,6 +16,7 @@ import {
   Clock,
   Fingerprint,
   User,
+  UserCheck,
   Crown,
   Mail,
   ArrowLeft,
@@ -55,12 +56,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   theme = 'light'
 }) => {
   const isDark = theme === 'dark';
+  const [activeLoginTab, setActiveLoginTab] = useState<'superadmin' | 'pegawai'>('superadmin');
   const [viewMode, setViewMode] = useState<'login' | 'forgot' | 'verify'>('login');
-  const [loginMode, setLoginMode] = useState<'account' | 'pin'>('account');
+  const [adminPinInput, setAdminPinInput] = useState<string>('');
   const [usernameInput, setUsernameInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
-  const [pinInput, setPinInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [showAdminPin, setShowAdminPin] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [successUser, setSuccessUser] = useState<AppUser | null>(null);
@@ -132,7 +134,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       `Kode ini berlaku selama 15 menit. Jika Anda tidak meminta reset ini, abaikan pesan ini.\n\n` +
       `Salam,\nAdministrator KPPN Semarang I (026)`
     );
-    window.open(`mailto:${resetTargetUser.email}?subject=${subject}&body=${body}`, '_blank');
+    try {
+      window.location.href = `mailto:${resetTargetUser.email}?subject=${subject}&body=${body}`;
+    } catch {
+      // Fallback
+    }
   };
 
   // Submit Request Reset OTP via Email
@@ -237,16 +243,15 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       return;
     }
 
-    if (loginMode === 'account') {
-      const cleanUser = sanitizeInput(usernameInput).trim();
-      const cleanPass = passwordInput.trim();
-
-      if (!cleanUser || !cleanPass) {
-        setErrorMsg('Harap isi Username dan Kata Sandi.');
+    if (activeLoginTab === 'superadmin') {
+      const cleanPin = adminPinInput.trim();
+      if (!cleanPin) {
+        setErrorMsg('Harap masukkan PIN Rahasia Super Admin.');
         return;
       }
 
-      const result = authenticateUser(cleanUser, cleanPass);
+      // Authenticate via quick PIN
+      const result = authenticateUser(cleanPin);
       if (result.success && result.user) {
         resetFailedLoginAttempts();
         createAdminSession();
@@ -258,13 +263,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           onLoginSuccess(result.user);
         }
         if (onAuthenticateAdmin) {
-          onAuthenticateAdmin(cleanPass);
+          onAuthenticateAdmin(cleanPin);
         }
 
         setTimeout(() => {
           setSuccessUser(null);
-          setUsernameInput('');
-          setPasswordInput('');
+          setAdminPinInput('');
           onClose();
         }, 1100);
       } else {
@@ -277,52 +281,53 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik untuk mencegah serangan brute-force.`
           );
         } else {
-          setErrorMsg(result.message || 'Username atau Kata Sandi salah.');
+          setErrorMsg('PIN Rahasia Super Admin salah. Harap periksa kembali.');
         }
       }
+      return;
+    }
+
+    // Pegawai Tab: Username & Password
+    const cleanUser = sanitizeInput(usernameInput).trim();
+    const cleanPass = passwordInput.trim();
+
+    if (!cleanUser || !cleanPass) {
+      setErrorMsg('Harap isi Username dan Kata Sandi Pegawai.');
+      return;
+    }
+
+    const result = authenticateUser(cleanUser, cleanPass);
+    if (result.success && result.user) {
+      resetFailedLoginAttempts();
+      createAdminSession();
+      setErrorMsg(null);
+      setSuccessUser(result.user);
+      setFailedCount(0);
+
+      if (onLoginSuccess) {
+        onLoginSuccess(result.user);
+      }
+      if (onAuthenticateAdmin) {
+        onAuthenticateAdmin(cleanPass);
+      }
+
+      setTimeout(() => {
+        setSuccessUser(null);
+        setUsernameInput('');
+        setPasswordInput('');
+        onClose();
+      }, 1100);
     } else {
-      // PIN Mode
-      const sanitizedPin = sanitizeInput(pinInput).trim();
-      if (!sanitizedPin) {
-        setErrorMsg('Masukkan PIN Akses Admin.');
-        return;
-      }
+      const lockStatus = recordFailedLoginAttempt();
+      setFailedCount(lockStatus.failedAttempts);
 
-      const result = authenticateUser(sanitizedPin);
-      if (result.success && result.user) {
-        resetFailedLoginAttempts();
-        createAdminSession();
-        setErrorMsg(null);
-        setSuccessUser(result.user);
-        setFailedCount(0);
-
-        if (onLoginSuccess) {
-          onLoginSuccess(result.user);
-        }
-        if (onAuthenticateAdmin) {
-          onAuthenticateAdmin(sanitizedPin);
-        }
-
-        setTimeout(() => {
-          setSuccessUser(null);
-          setPinInput('');
-          onClose();
-        }, 1100);
+      if (lockStatus.isLocked) {
+        setLockoutSeconds(lockStatus.remainingSeconds);
+        setErrorMsg(
+          `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik untuk mencegah serangan brute-force.`
+        );
       } else {
-        const lockStatus = recordFailedLoginAttempt();
-        setFailedCount(lockStatus.failedAttempts);
-
-        if (lockStatus.isLocked) {
-          setLockoutSeconds(lockStatus.remainingSeconds);
-          setErrorMsg(
-            `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik.`
-          );
-        } else {
-          const remainingTries = 5 - lockStatus.failedAttempts;
-          setErrorMsg(
-            `PIN Administrator salah. Sisa kesempatan sebelum terkunci: ${remainingTries > 0 ? remainingTries : 1} kali.`
-          );
-        }
+        setErrorMsg(result.message || 'Username atau Kata Sandi salah.');
       }
     }
   };
@@ -344,63 +349,90 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         </button>
 
         {/* Top Banner Header */}
-        <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-7 text-white text-center relative overflow-hidden border-b border-indigo-500/30">
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none" />
+        <div className={`p-6 sm:p-7 text-white text-center relative overflow-hidden border-b transition-colors duration-300 ${
+          activeLoginTab === 'superadmin'
+            ? 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-amber-500/30'
+            : 'bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950 border-emerald-500/30'
+        }`}>
+          <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
+            activeLoginTab === 'superadmin' ? 'bg-amber-500/20' : 'bg-emerald-500/20'
+          }`} />
 
-          <div className="w-14 h-14 bg-indigo-500/20 border border-indigo-400/40 rounded-2xl flex items-center justify-center mx-auto mb-3 text-amber-400 shadow-inner">
+          <div className={`w-14 h-14 border rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner ${
+            activeLoginTab === 'superadmin'
+              ? 'bg-amber-500/20 border-amber-400/40 text-amber-400'
+              : 'bg-emerald-500/20 border-emerald-400/40 text-emerald-400'
+          }`}>
             {viewMode === 'login' ? (
-              <ShieldCheck className="w-7 h-7" />
+              activeLoginTab === 'superadmin' ? (
+                <Crown className="w-7 h-7 text-amber-400" />
+              ) : (
+                <UserCheck className="w-7 h-7 text-emerald-400" />
+              )
             ) : (
               <KeyRound className="w-7 h-7 text-amber-400 animate-pulse" />
             )}
           </div>
 
-          <div className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wide mb-2">
+          <div className={`inline-flex items-center gap-1.5 border px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wide mb-2 ${
+            activeLoginTab === 'superadmin'
+              ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
+              : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
+          }`}>
             <Building2 className="w-3.5 h-3.5" />
-            PORTAL LOGIN RESMI KPPN SEMARANG I (026)
+            KPPN SEMARANG I (026) • PORTAL RESMI
           </div>
 
           <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
             {viewMode === 'login' 
-              ? 'Login Admin Super & Pegawai' 
+              ? (activeLoginTab === 'superadmin' ? 'Login Khusus Super Admin' : 'Login Akun Pegawai KPPN') 
               : viewMode === 'forgot'
-                ? 'Pemulihan Kata Sandi Akun'
+                ? 'Pemulihan Kata Sandi Pegawai'
                 : 'Verifikasi OTP & Reset Sandi'}
           </h3>
           <p className="text-slate-300 text-xs mt-1 max-w-xs mx-auto leading-relaxed">
             {viewMode === 'login'
-              ? 'Akses masuk khusus pegawai dan administrator internal KPPN Semarang I.'
+              ? (activeLoginTab === 'superadmin' 
+                  ? 'Akses tingkat tinggi Super Administrator KPPN Semarang I.' 
+                  : 'Akses masuk pegawai internal KPPN Semarang I untuk operasional perbendaharaan.')
               : viewMode === 'forgot'
                 ? 'Kirim kode OTP ke alamat email terdaftar untuk reset kata sandi mandiri.'
                 : `Masukkan kode verifikasi yang telah dikirim ke ${maskedEmail || 'email Anda'}.`}
           </p>
 
-          {/* Mode Switcher Tabs (Only in Login View) */}
+          {/* Mode Switcher Tabs between Super Admin and Pegawai */}
           {viewMode === 'login' && (
-            <div className="flex items-center gap-2 mt-4 bg-slate-900/80 p-1 rounded-xl border border-indigo-500/30">
+            <div className="flex items-center gap-1.5 mt-5 bg-slate-900/80 p-1 rounded-2xl border border-slate-700/60 max-w-sm mx-auto">
               <button
                 type="button"
-                onClick={() => { setLoginMode('account'); setErrorMsg(null); }}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  loginMode === 'account'
-                    ? 'bg-indigo-600 text-white shadow-md'
+                onClick={() => {
+                  setActiveLoginTab('superadmin');
+                  setErrorMsg(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeLoginTab === 'superadmin'
+                    ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-slate-950 font-black shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <User className="w-3.5 h-3.5" />
-                <span>Akun Username &amp; Password</span>
+                <Crown className="w-3.5 h-3.5" />
+                <span>Super Admin</span>
               </button>
+
               <button
                 type="button"
-                onClick={() => { setLoginMode('pin'); setErrorMsg(null); }}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  loginMode === 'pin'
-                    ? 'bg-indigo-600 text-white shadow-md'
+                onClick={() => {
+                  setActiveLoginTab('pegawai');
+                  setErrorMsg(null);
+                }}
+                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeLoginTab === 'pegawai'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>PIN Cepat Admin</span>
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Pegawai KPPN</span>
               </button>
             </div>
           )}
@@ -409,9 +441,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         {/* Notice for Public Satker */}
         {viewMode === 'login' && (
           <div className="px-5 pt-3 pb-0">
-            <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-950 dark:text-indigo-200 text-xs space-y-1">
+            <div className="p-3 rounded-2xl bg-sky-50/80 dark:bg-sky-950/40 border border-sky-200/80 dark:border-sky-800/60 text-sky-950 dark:text-sky-200 text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-extrabold text-[11px]">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <Sparkles className="w-3.5 h-3.5 text-sky-500 shrink-0" />
                 <span>Info Satker &amp; Pengunjung:</span>
               </div>
               <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-normal">
@@ -426,18 +458,26 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
             {successUser ? (
               <div className="py-6 text-center space-y-3 animate-fadeIn">
-                <div className="w-14 h-14 bg-emerald-500/20 text-emerald-500 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/40">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto border ${
+                  successUser.role === 'superadmin'
+                    ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
+                    : 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
+                }`}>
                   <Check className="w-7 h-7 stroke-[3]" />
                 </div>
                 <div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 mb-1">
-                    {successUser.role === 'superadmin' ? '👑 Admin Super' : '🏛️ Pegawai KPPN'}
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1 ${
+                    successUser.role === 'superadmin'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    {successUser.role === 'superadmin' ? '👑 Super Admin KPPN' : '🏛️ Pegawai KPPN'}
                   </span>
                   <h4 className="text-base font-black text-slate-900 dark:text-white">
                     Selamat Datang, {successUser.displayName}!
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {successUser.customGreeting || 'Membuka hak akses modul operasional KPPN...'}
+                    {successUser.customGreeting || 'Membuka hak akses modul operasional perbendaharaan...'}
                   </p>
                 </div>
               </div>
@@ -459,119 +499,48 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   <span>Buka kunci dalam: {lockoutSeconds} detik</span>
                 </div>
               </div>
-            ) : (
+            ) : activeLoginTab === 'superadmin' ? (
+              /* TAB 1: SUPER ADMIN LOGIN */
               <>
-                {loginMode === 'account' ? (
-                  <>
-                    <div>
-                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                        Username Pengguna
-                      </label>
-                      <div className="relative">
-                        <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="misal: admin atau pegawai"
-                          value={usernameInput}
-                          onChange={(e) => {
-                            setUsernameInput(e.target.value);
-                            if (errorMsg) setErrorMsg(null);
-                          }}
-                          disabled={isCurrentlyLocked}
-                          className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          autoFocus
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                          Kata Sandi / Password
-                        </label>
-                        {failedCount > 0 && (
-                          <span className="text-amber-500 text-[10px] font-bold">
-                            Percobaan gagal: {failedCount}/5
-                          </span>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          placeholder="Masukkan kata sandi..."
-                          value={passwordInput}
-                          onChange={(e) => {
-                            setPasswordInput(e.target.value);
-                            if (errorMsg) setErrorMsg(null);
-                          }}
-                          disabled={isCurrentlyLocked}
-                          className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                        >
-                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-
-                      {/* Lupa Kata Sandi Trigger Link */}
-                      <div className="flex justify-end mt-1.5">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setErrorMsg(null);
-                            setInfoMsg(null);
-                            setResetIdentifier(usernameInput || '');
-                            setViewMode('forgot');
-                          }}
-                          className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <HelpCircle className="w-3.5 h-3.5 text-indigo-500" />
-                          <span>Lupa Kata Sandi? Reset via Email</span>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                      <span>Masukkan PIN Cepat Admin</span>
-                      {failedCount > 0 && (
-                        <span className="text-amber-500 text-[10px] font-bold">
-                          Percobaan gagal: {failedCount}/5
-                        </span>
-                      )}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      PIN Akses Khusus Super Admin
                     </label>
-                    <div className="relative">
-                      <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Masukkan PIN Cepat Administrator..."
-                        value={pinInput}
-                        onChange={(e) => {
-                          setPinInput(e.target.value);
-                          if (errorMsg) setErrorMsg(null);
-                        }}
-                        disabled={isCurrentlyLocked}
-                        className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        autoFocus
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    {failedCount > 0 && (
+                      <span className="text-amber-500 text-[10px] font-bold">
+                        Percobaan gagal: {failedCount}/5
+                      </span>
+                    )}
                   </div>
-                )}
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showAdminPin ? 'text' : 'password'}
+                      placeholder="Masukkan PIN Super Admin..."
+                      value={adminPinInput}
+                      onChange={(e) => {
+                        setAdminPinInput(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      disabled={isCurrentlyLocked}
+                      className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      autoFocus
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPin(!showAdminPin)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+                    <span>Hanya dapat diakses oleh Administrator utama KPPN Semarang I.</span>
+                  </p>
+                </div>
 
                 {errorMsg && (
                   <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-start gap-2">
@@ -583,10 +552,103 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 <button
                   type="submit"
                   disabled={isCurrentlyLocked}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 text-white font-extrabold text-xs py-3 rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-amber-500 via-amber-600 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 disabled:bg-slate-600 text-slate-950 font-black text-xs py-3 rounded-xl shadow-md shadow-amber-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
                 >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Masuk Sekarang</span>
+                  <Crown className="w-4 h-4 text-slate-950" />
+                  <span>Masuk sebagai Super Admin</span>
+                </button>
+              </>
+            ) : (
+              /* TAB 2: PEGAWAI LOGIN */
+              <>
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                    Username Pegawai
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Masukkan username akun pegawai..."
+                      value={usernameInput}
+                      onChange={(e) => {
+                        setUsernameInput(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      disabled={isCurrentlyLocked}
+                      className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      autoFocus
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Kata Sandi Pegawai
+                    </label>
+                    {failedCount > 0 && (
+                      <span className="text-amber-500 text-[10px] font-bold">
+                        Percobaan gagal: {failedCount}/5
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Masukkan kata sandi pegawai..."
+                      value={passwordInput}
+                      onChange={(e) => {
+                        setPasswordInput(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      disabled={isCurrentlyLocked}
+                      className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {/* Lupa Kata Sandi Trigger Link */}
+                  <div className="flex justify-end mt-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg(null);
+                        setInfoMsg(null);
+                        setResetIdentifier(usernameInput || '');
+                        setViewMode('forgot');
+                      }}
+                      className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Lupa Kata Sandi Pegawai? Reset via Email</span>
+                    </button>
+                  </div>
+                </div>
+
+                {errorMsg && (
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isCurrentlyLocked}
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:bg-slate-600 text-white font-extrabold text-xs py-3 rounded-xl shadow-md shadow-emerald-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Masuk Akun Pegawai</span>
                 </button>
               </>
             )}
@@ -678,26 +740,18 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   <span>Kode Verifikasi Berhasil Dibuat:</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-                  Kode OTP telah dikirimkan ke: <strong className="text-emerald-700 dark:text-emerald-300 font-mono">{maskedEmail}</strong>.
+                  Kode verifikasi OTP 6 digit telah dikirimkan ke: <strong className="text-emerald-700 dark:text-emerald-300 font-mono">{maskedEmail}</strong>. Silakan periksa kotak masuk atau folder spam email Anda.
                 </p>
                 
-                {/* Fast Testing & Email Link Trigger */}
+                {/* Email Client Trigger */}
                 <div className="pt-2 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={handleOpenEmailClient}
-                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                   >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>Buka Aplikasi Email</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCopyOtp}
-                    className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-800 dark:text-slate-200 rounded-lg font-bold text-[10px] flex items-center gap-1 transition-all cursor-pointer font-mono"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>{copiedOtp ? 'Tersalin: ' + generatedOtp : 'Salin Kode: ' + generatedOtp}</span>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Buka Aplikasi Email / Webmail</span>
                   </button>
                 </div>
               </div>

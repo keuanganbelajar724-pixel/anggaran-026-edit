@@ -73,6 +73,7 @@ import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
 import { UserManagementSection } from './admin/UserManagementSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
+import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER } from '../utils/userManager';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -157,6 +158,7 @@ import {
   Send,
   Users,
   Phone,
+  Mail,
   Cloud,
   PhoneCall,
   MessageSquare,
@@ -292,6 +294,7 @@ interface AdminUploadProps {
   onDeleteKonfirmasiKehadiran?: (recordId: string) => void;
   onClearAllKonfirmasiKehadiran?: () => void;
   currentUser?: AppUser | null;
+  onLoginSuccess?: (user: AppUser) => void;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -499,7 +502,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onSaveKonfirmasiKehadiran,
   onDeleteKonfirmasiKehadiran,
   onClearAllKonfirmasiKehadiran,
-  currentUser = null
+  currentUser = null,
+  onLoginSuccess
 }) => {
   const isDark = theme === 'dark';
 
@@ -1223,7 +1227,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [localAuth, setLocalAuth] = useState<boolean>(false);
   const isAuthenticated = isAdminAuthenticated || localAuth;
 
+  const [loginMode, setLoginMode] = useState<'account' | 'pin'>('account');
+  const [usernameInput, setUsernameInput] = useState<string>('pegawai');
   const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Dashboard Settings Form State
@@ -1240,6 +1247,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   } | null>(null);
   const [newAdminPinInput, setNewAdminPinInput] = useState<string>('');
   const [confirmAdminPinInput, setConfirmAdminPinInput] = useState<string>('');
+  const [adminSuperEmailInput, setAdminSuperEmailInput] = useState<string>(() => {
+    try {
+      const users = getStoredUsers();
+      const superAdmin = users.find(u => u.role === 'superadmin');
+      if (superAdmin?.email) return superAdmin.email;
+    } catch {}
+    return (dashboardConfig as any)?.adminSuperEmail || 'mski.kppn026@kemenkeu.go.id';
+  });
   const [pinChangeMsg, setPinChangeMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [showHiddenKiResetSection, setShowHiddenKiResetSection] = useState<boolean>(false);
 
@@ -1329,20 +1344,76 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanPass = passwordInput.trim();
-    const currentPin = (adminPin || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026').trim();
+    setAuthError(null);
 
-    if (cleanPass === currentPin || cleanPass === 'kppn026') {
-      if (setIsAdminAuthenticated) {
-        setIsAdminAuthenticated(true);
+    if (loginMode === 'account') {
+      const cleanUser = usernameInput.trim();
+      const cleanPass = passwordInput.trim();
+
+      if (!cleanUser || !cleanPass) {
+        setAuthError('Harap isi Username Pengguna dan Kata Sandi.');
+        return;
       }
-      setLocalAuth(true);
-      setAuthError(null);
-      setPasswordInput('');
-      addLog('Login Sesi Admin', 'AUTH', 'Login berhasil ke Modul Admin KPPN Semarang I.', 'SUCCESS');
+
+      const res = authenticateUser(cleanUser, cleanPass, adminPin);
+      if (res.success && res.user) {
+        if (setIsAdminAuthenticated) {
+          setIsAdminAuthenticated(true);
+        }
+        setLocalAuth(true);
+        setAuthError(null);
+        setPasswordInput('');
+
+        if (onLoginSuccess) {
+          onLoginSuccess(res.user);
+        }
+
+        addLog(
+          `Login Sesi ${res.user.role === 'superadmin' ? 'Admin Super' : 'Pegawai KPPN'}`,
+          'AUTH',
+          `${res.user.displayName} (@${res.user.username}) berhasil masuk ke Modul Admin KPPN.`,
+          'SUCCESS'
+        );
+
+        showToast({
+          type: 'success',
+          title: `Selamat Datang, ${res.user.displayName}!`,
+          message: `Berhasil masuk sebagai ${res.user.role === 'superadmin' ? 'Super Administrator' : 'Pegawai KPPN'}.`
+        });
+      } else {
+        setAuthError(res.message || 'Username atau Kata Sandi salah. Harap periksa kembali.');
+        addLog('Percobaan Login Gagal', 'AUTH', `Percobaan login gagal untuk username: ${cleanUser}`, 'WARNING');
+      }
     } else {
-      setAuthError('Password Admin salah. Silakan coba kembali dengan password yang benar.');
-      addLog('Percobaan Login Gagal', 'AUTH', 'Percobaan login dengan password tidak valid.', 'WARNING');
+      // PIN Mode (Superadmin quick access)
+      const cleanPass = passwordInput.trim();
+      const currentPin = (adminPin || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026').trim();
+
+      if (cleanPass === currentPin || cleanPass === 'kppn026') {
+        const users = getStoredUsers();
+        const superAdmin = users.find(u => u.role === 'superadmin' && u.isActive) || DEFAULT_SUPERADMIN_USER;
+
+        if (setIsAdminAuthenticated) {
+          setIsAdminAuthenticated(true);
+        }
+        setLocalAuth(true);
+        setAuthError(null);
+        setPasswordInput('');
+
+        if (onLoginSuccess) {
+          onLoginSuccess(superAdmin);
+        }
+
+        addLog('Login Sesi Admin Super (PIN Cepat)', 'AUTH', 'Login berhasil menggunakan PIN Akses Administrator.', 'SUCCESS');
+        showToast({
+          type: 'success',
+          title: 'Login Admin Super Berhasil',
+          message: 'Hak akses penuh Super Administrator KPPN aktif.'
+        });
+      } else {
+        setAuthError('PIN Administrator salah. Silakan coba kembali dengan PIN yang benar.');
+        addLog('Percobaan Login Gagal', 'AUTH', 'Percobaan login PIN Administrator tidak valid.', 'WARNING');
+      }
     }
   };
 
@@ -1380,6 +1451,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       setNewAdminPinInput('');
       setConfirmAdminPinInput('');
       addLog('Ubah Password Admin', 'AUTH', 'Password / PIN otentikasi Admin berhasil diperbarui.', 'SUCCESS');
+    }
+
+    // Process Admin Super Email Update
+    if (adminSuperEmailInput && adminSuperEmailInput.trim()) {
+      try {
+        const users = getStoredUsers();
+        const superAdmin = users.find(u => u.role === 'superadmin');
+        if (superAdmin) {
+          updateUserProfile(superAdmin.id, { email: adminSuperEmailInput.trim() });
+        }
+      } catch (err) {
+        console.warn('Sync admin email notice:', err);
+      }
+      (tempConfig as any).adminSuperEmail = adminSuperEmailInput.trim();
     }
 
     onUpdateDashboardConfig(tempConfig);
@@ -2647,6 +2732,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleClearAllHistory = () => {
+    if (currentUser?.role === 'pegawai') {
+      alert('Pemberitahuan: Fitur pengosongan data massal & arsip Excel dibatasi khusus untuk Super Administrator KPPN Semarang I demi keamanan data.');
+      return;
+    }
+
     if (historicalUploads.length === 0 && satkers.length === 0) {
       alert('Arsip file Excel dan data Dashboard sudah 100% kosong (0 Satker & 0 Arsip).');
       return;
@@ -2682,6 +2772,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleClearEverything = () => {
+    if (currentUser?.role === 'pegawai') {
+      alert('Pemberitahuan: Fitur reset total data & arsip dibatasi khusus untuk Super Administrator KPPN Semarang I.');
+      return;
+    }
+
     if (satkers.length === 0 && historicalUploads.length === 0) {
       alert('Data Satker dan Arsip Excel sudah 100% kosong (0 Satker).');
       return;
@@ -2790,49 +2885,156 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             {/* Ambient Background Glow */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-            <div className="flex items-center gap-3.5 mb-4">
+            <div className="flex items-center gap-3.5 mb-3">
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-indigo-500/20 border border-indigo-400/40 rounded-2xl flex items-center justify-center text-amber-400 shadow-lg shrink-0">
                 <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
               </div>
               <div>
                 <span className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-3 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
                   <Building2 className="w-3.5 h-3.5" />
-                  KPPN Semarang I (026) • Admin Control Center
+                  KPPN Semarang I (026) • Portal Masuk
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1">
-                  Otentikasi Administrator
+                  Portal Login Pegawai &amp; Administrator
                 </h2>
               </div>
             </div>
 
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-xl">
-              Gunakan password pengelola untuk membuka hak akses upload Excel SAKTI mentah, broadcast WhatsApp pejabat, manajemen arsip, dan kontrol menu.
+              Silakan masuk dengan akun username dan password pegawai atau PIN Admin Super untuk membuka hak akses modul operasional KPPN.
             </p>
+
+            {/* Mode Switcher Tabs */}
+            <div className="flex items-center gap-2 mt-5 bg-slate-900/80 p-1.5 rounded-2xl border border-indigo-500/30">
+              <button
+                type="button"
+                onClick={() => { setLoginMode('account'); setAuthError(null); }}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  loginMode === 'account'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <User className="w-4 h-4 text-indigo-300" />
+                <span>Akun Pegawai &amp; Admin (Username &amp; Sandi)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginMode('pin'); setAuthError(null); }}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  loginMode === 'pin'
+                    ? 'bg-gradient-to-r from-amber-600 to-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Crown className="w-4 h-4 text-amber-300" />
+                <span>PIN Cepat Admin Super</span>
+              </button>
+            </div>
           </div>
 
           {/* Form & Quick Actions Body */}
           <div className="p-5 sm:p-8 space-y-6">
             <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
-                  Password Administrator
-                </label>
-                <div className="relative">
-                  <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="password"
-                    placeholder="Masukkan password administrator..."
-                    value={passwordInput}
-                    onChange={(e) => {
-                      setPasswordInput(e.target.value);
-                      if (authError) setAuthError(null);
-                    }}
-                    className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm font-mono font-bold rounded-xl pl-11 pr-4 py-3.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-xs"
-                    autoFocus
-                    required
-                  />
+              {loginMode === 'account' ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
+                      Username Pengguna
+                    </label>
+                    <div className="relative">
+                      <User className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="misal: pegawai atau admin"
+                        value={usernameInput}
+                        onChange={(e) => {
+                          setUsernameInput(e.target.value);
+                          if (authError) setAuthError(null);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm font-bold rounded-xl pl-11 pr-4 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-xs"
+                        autoFocus
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
+                      Kata Sandi / Password
+                    </label>
+                    <div className="relative">
+                      <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Masukkan kata sandi akun..."
+                        value={passwordInput}
+                        onChange={(e) => {
+                          setPasswordInput(e.target.value);
+                          if (authError) setAuthError(null);
+                        }}
+                        className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm font-mono font-bold rounded-xl pl-11 pr-11 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-xs"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        title={showPassword ? 'Sembunyikan sandi' : 'Tampilkan sandi'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Interactive Login Info Notice */}
+                  <div className="p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs space-y-1.5">
+                    <div className="font-extrabold text-[11px] text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>Informasi Akun Pegawai KPPN:</span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Gunakan akun internal pegawai KPPN Semarang I yang telah didaftarkan oleh Super Administrator. Hubungi Seksi MSKI jika belum memiliki akun atau lupa kata sandi.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      PIN Akses Rahasia Super Admin
+                    </label>
+                    <span className="text-[10px] text-amber-500 font-bold">Khusus Super Administrator KPPN</span>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Masukkan PIN Akses Admin Super..."
+                      value={passwordInput}
+                      onChange={(e) => {
+                        setPasswordInput(e.target.value);
+                        if (authError) setAuthError(null);
+                      }}
+                      className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-sm font-mono font-bold rounded-xl pl-11 pr-11 py-3.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all shadow-xs"
+                      autoFocus
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      title={showPassword ? 'Sembunyikan PIN' : 'Tampilkan PIN'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    <span>PIN rahasia ini terenkripsi dan khusus untuk Super Administrator KPPN Semarang I.</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {authError && (
                 <div className="p-3.5 bg-rose-50 dark:bg-rose-950/80 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-center gap-2 animate-shake">
@@ -2846,14 +3048,16 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 className="w-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 hover:from-indigo-500 hover:to-purple-600 text-white font-black text-sm py-4 rounded-xl transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
               >
                 <ShieldCheck className="w-5 h-5" />
-                <span>Masuk Sesi Administrator KPPN</span>
+                <span>
+                  {loginMode === 'account' ? 'Masuk sebagai Pegawai / Administrator' : 'Masuk dengan PIN Admin Super'}
+                </span>
               </button>
             </form>
 
             {/* Feature Highlights Grid */}
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
-                Fitur Eksklusif Mode Edit Admin:
+                Fitur Eksklusif Mode Pengelola &amp; Pegawai:
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center gap-2">
@@ -2885,14 +3089,25 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     <div className="space-y-6">
       
       {/* Top Admin Workspace Command Banner (Distinct Visual Styling) */}
-      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-8 rounded-3xl text-white border-2 border-indigo-500/40 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className={`p-6 sm:p-8 rounded-3xl text-white border-2 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+        currentUser?.role === 'pegawai'
+          ? 'bg-gradient-to-r from-slate-950 via-teal-950 to-slate-900 border-emerald-500/40'
+          : 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-indigo-500/40'
+      }`}>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3.5 py-1 rounded-full text-xs font-black shadow-xs">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              MODE EDIT ADMINISTRATOR AKTIF
-            </span>
-            <span className="inline-flex items-center gap-1.5 bg-amber-400/20 text-amber-300 border border-amber-400/40 px-3 py-1 rounded-full text-xs font-bold">
+            {currentUser?.role === 'pegawai' ? (
+              <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3.5 py-1 rounded-full text-xs font-black shadow-xs">
+                <Building2 className="w-4 h-4 text-emerald-400" />
+                MODE OPERASIONAL PEGAWAI KPPN (Seksi MSKI)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3.5 py-1 rounded-full text-xs font-black shadow-xs">
+                <Crown className="w-4 h-4 text-amber-400" />
+                MODE SUPER ADMINISTRATOR AKTIF
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 bg-indigo-500/20 text-indigo-300 border border-indigo-400/40 px-3 py-1 rounded-full text-xs font-bold">
               <Building2 className="w-3.5 h-3.5" />
               KPPN SEMARANG I (026)
             </span>
@@ -2900,12 +3115,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <Activity className="w-3.5 h-3.5" />
               Sync Firebase Active
             </span>
+            {currentUser && (
+              <span className="inline-flex items-center gap-1.5 bg-white/10 text-slate-200 border border-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                <User className="w-3.5 h-3.5 text-slate-300" />
+                <span>Masuk: {currentUser.displayName} (@{currentUser.username})</span>
+              </span>
+            )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            Control Center &amp; Pengelolaan Data Admin
+            {currentUser?.role === 'pegawai' 
+              ? 'Control Center Operasional Pegawai KPPN' 
+              : 'Control Center & Pengelolaan Data Admin Super'}
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
-            Pusat kendali penuh KPPN Semarang I: Pengolahan file Excel SAKTI mentah, broadcast WhatsApp pejabat, pengelolaan riwayat arsip, penerbitan pengumuman, serta kunci visibilitas menu Satker.
+            {currentUser?.role === 'pegawai'
+              ? 'Pusat kerja operasional staf dan pelaksana KPPN Semarang I: Pengolahan file Excel SAKTI, monitoring capaian Satker, broadcast pengingat, tindak lanjut pengaduan, dan absensi kegiatan.'
+              : 'Pusat kendali penuh KPPN Semarang I: Pengolahan file Excel SAKTI mentah, broadcast WhatsApp pejabat, pengelolaan riwayat arsip, kelola pengguna & hak akses, serta kontrol visibilitas menu Satker.'}
           </p>
           {cloudSyncMessage && (
             <div className="mt-2.5 inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-200 px-3.5 py-1.5 rounded-xl text-xs font-bold animate-fadeIn">
@@ -2947,323 +3172,377 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
       </div>
 
-      {/* Sub Navigation Bar for Admin */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-200/80 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-300 dark:border-slate-700 w-full overflow-x-auto">
-        <button
-          onClick={() => setAdminTab('upload')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'upload'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4 text-sky-600" />
-          <span>1. Upload Excel</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('crud')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'crud'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Wrench className="w-4 h-4 text-emerald-600" />
-          <span>2. Kelola Data Satker</span>
-          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {masterSatkers.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('perhatian')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'perhatian'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-rose-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <AlertCircle className="w-4 h-4 text-rose-600" />
-          <span>3. Satker Dalam Perhatian</span>
-          <span className="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {satkers.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75 || s.indikator.deviasiHal3Dipa < 75).length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('history')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'history'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <FolderArchive className="w-4 h-4 text-blue-600" />
-          <span>4. Arsip Periode</span>
-          <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {historicalUploads.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('analysis')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'analysis'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/40 ring-2 ring-indigo-400/30'
-              : 'text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60'
-          }`}
-        >
-          <Calculator className={`w-4 h-4 ${adminTab === 'analysis' ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
-          <span>5. Simulator &amp; Analisis Canggih</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs ${
-            adminTab === 'analysis' ? 'bg-amber-400 text-slate-950' : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200'
-          }`}>
-            ✨ Goal-Seek &amp; Radar
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('settings')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'settings'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <SlidersHorizontal className="w-4 h-4 text-teal-600" />
-          <span>6. Pengaturan Dashboard</span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('announcements')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'announcements'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-purple-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Megaphone className="w-4 h-4 text-amber-600" />
-          <span>7. Pengumuman &amp; Pop-Up Tools</span>
-          {tempConfig.slideShowConfig?.isEnabled ? (
-            <span className="bg-indigo-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black shadow-sm">
-              SLIDE ON
-            </span>
-          ) : tempConfig.popUpAnnouncement?.isEnabled ? (
-            <span className="bg-emerald-500 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">
-              POP-UP ON
-            </span>
-          ) : (tempConfig.announcements?.length || 0) > 0 ? (
-            <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-              {tempConfig.announcements.length}
-            </span>
-          ) : null}
-        </button>
-
-        <button
-          onClick={() => setAdminTab('materi-slide')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'materi-slide'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-indigo-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Presentation className="w-4 h-4 text-indigo-600" />
-          <span>8. Kelola Materi Slide Show</span>
-          <span className="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {(tempConfig.presentationMaterials?.length || 0)}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('portal-link')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'portal-link'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-emerald-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Link2 className="w-4 h-4 text-emerald-600" />
-          <span>9. Link Sosialisasi (Linktree)</span>
-          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {(tempConfig.kegiatanSosialisasi?.length || 0)}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('presensi-admin')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'presensi-admin'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-teal-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <ClipboardCheck className="w-4 h-4 text-teal-600" />
-          <span>10. Presensi &amp; Rekap Kehadiran</span>
-          <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {presensiPesertaList.length} Peserta
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('konfirmasi-admin')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'konfirmasi-admin'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-emerald-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-emerald-600" />
-          <span>10b. Konfirmasi Kehadiran &amp; Undangan (RSVP)</span>
-          <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {konfirmasiKegiatanList.filter(k => k.isActive).length} Aktif
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('broadcast')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'broadcast'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-rose-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <Send className="w-4 h-4 text-rose-600" />
-          <span>11. Jarkom Pribadi (Japri Pejabat)</span>
-          <span className="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Japri 1-on-1
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('jarkom-grup')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'jarkom-grup'
-              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20 border border-emerald-500 ring-2 ring-emerald-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <MessageSquare className={`w-4 h-4 ${adminTab === 'jarkom-grup' ? 'text-white' : 'text-emerald-600'}`} />
-          <span>12. 📢 Jarkom Grup WA Satker</span>
-          <span className={`${adminTab === 'jarkom-grup' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'} text-[10px] px-2 py-0.5 rounded-full font-bold`}>
-            Peringkat &amp; Rekap Grup
-          </span>
-        </button>
-
-        <button
-          onClick={() => setAdminTab('aduan')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'aduan'
-              ? 'bg-white text-slate-900 shadow-md border border-slate-200/60 ring-2 ring-rose-500/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
-          }`}
-        >
-          <ShieldAlert className="w-4 h-4 text-rose-600" />
-          <span>13. Kelola Aduan &amp; Tiket Satker</span>
-          {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length > 0 ? (
-            <span className="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold animate-pulse">
-              {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length} Baru
-            </span>
-          ) : (
-            <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
-              {(tempConfig.aduanList || []).length} Tiket
-            </span>
-          )}
-        </button>
-
-        {currentUser?.role !== 'pegawai' && (
+      {/* Sub Navigation Bar for Admin - Rata Simetris 4 Baris Elegan & Ber-Border */}
+      <div className="bg-slate-100/90 dark:bg-slate-900/90 p-2.5 sm:p-3 rounded-3xl border-2 border-slate-300/90 dark:border-slate-800 shadow-md space-y-2.5">
+        {/* Row 1: 6 Tombol Utama */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           <button
-            onClick={() => setAdminTab('logs')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-              adminTab === 'logs'
-                ? 'bg-white text-slate-900 shadow-md border border-slate-200/60'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-700'
+            onClick={() => setAdminTab('upload')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'upload'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-sky-500 dark:border-sky-400 ring-2 ring-sky-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
             }`}
           >
-            <History className="w-4 h-4 text-purple-600" />
-            <span>14. Log Admin</span>
-            <span className="bg-purple-100 text-purple-800 text-[10px] px-2 py-0.5 rounded-full font-bold">
-              {activityLogs.length}
+            <div className="flex items-center gap-1.5 truncate">
+              <FileSpreadsheet className="w-4 h-4 text-sky-600 shrink-0" />
+              <span className="truncate">1. Upload Excel</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('crud')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'crud'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Wrench className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="truncate">2. Kelola Data Satker</span>
+            </div>
+            <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-emerald-300/50 dark:border-emerald-800">
+              {masterSatkers.length}
             </span>
           </button>
-        )}
 
-        <button
-          onClick={() => setAdminTab('gemini-ai')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'gemini-ai'
-              ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-sky-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/40 ring-2 ring-purple-400/30'
-              : 'text-purple-600 hover:text-purple-900 hover:bg-purple-50 dark:text-purple-300 dark:hover:text-purple-100 dark:hover:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60'
-          }`}
-        >
-          <Bot className="w-4 h-4 text-purple-400 animate-pulse shrink-0" />
-          <span>15. Asisten Analis Gemini AI</span>
-          <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
-            ✨ AI Live
-          </span>
-        </button>
+          <button
+            onClick={() => setAdminTab('perhatian')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'perhatian'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-rose-500 dark:border-rose-400 ring-2 ring-rose-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="truncate">3. Satker Dalam Perhatian</span>
+            </div>
+            <span className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-rose-300/50 dark:border-rose-800">
+              {satkers.filter(s => s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75 || s.indikator.deviasiHal3Dipa < 75).length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setAdminTab('pengetahuan-admin')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'pengetahuan-admin'
-              ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/40 ring-2 ring-cyan-400/30'
-              : 'text-cyan-700 hover:text-cyan-900 hover:bg-cyan-50 dark:text-cyan-300 dark:hover:text-cyan-100 dark:hover:bg-cyan-950/60 border border-cyan-200 dark:border-cyan-800/60'
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-cyan-500 shrink-0" />
-          <span>16. Juknis dan Pengetahuan Perbendaharaan</span>
-          <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
-            Direktori &amp; Panduan
-          </span>
-        </button>
+          <button
+            onClick={() => setAdminTab('history')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'history'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <FolderArchive className="w-4 h-4 text-blue-600 shrink-0" />
+              <span className="truncate">4. Arsip Periode</span>
+            </div>
+            <span className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-blue-300/50 dark:border-blue-800">
+              {historicalUploads.length}
+            </span>
+          </button>
 
-        <button
-          onClick={() => setAdminTab('buletin')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'buletin'
-              ? 'bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 text-white shadow-lg shadow-rose-500/25 border border-rose-400/40 ring-2 ring-rose-400/30'
-              : 'text-rose-700 hover:text-rose-900 hover:bg-rose-50 dark:text-rose-300 dark:hover:text-rose-100 dark:hover:bg-rose-950/60 border border-rose-200 dark:border-rose-800/60'
-          }`}
-        >
-          <Sparkles className="w-4 h-4 text-amber-300 animate-pulse shrink-0" />
-          <span>17. Buletin &amp; Warta KPPN Semarang I</span>
-          <span className="bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
-            🎨 Majalah &amp; Canva
-          </span>
-        </button>
+          <button
+            onClick={() => setAdminTab('analysis')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'analysis'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border-2 border-indigo-400 ring-2 ring-indigo-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Calculator className={`w-4 h-4 shrink-0 ${adminTab === 'analysis' ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
+              <span className="truncate">5. Simulator &amp; Analisis Canggih</span>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 ${
+              adminTab === 'analysis' ? 'bg-amber-400 text-slate-950' : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-200 border border-indigo-300/50 dark:border-indigo-800'
+            }`}>
+              Goal-Seek &amp; Radar
+            </span>
+          </button>
 
-        <button
-          onClick={() => setAdminTab('firestore-quota')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-            adminTab === 'firestore-quota'
-              ? 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-700 text-white shadow-lg shadow-sky-500/25 border border-sky-400/40 ring-2 ring-sky-400/30'
-              : 'text-sky-700 hover:text-sky-900 hover:bg-sky-50 dark:text-sky-300 dark:hover:text-sky-100 dark:hover:bg-sky-950/60 border border-sky-200 dark:border-sky-800/60'
-          }`}
-        >
-          <Database className="w-4 h-4 text-sky-400 animate-pulse shrink-0" />
-          <span>18. Monitor Kuota Firebase</span>
-          <span className="bg-emerald-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
-            ⚡ Spark 50k Reads
-          </span>
-        </button>
+          <button
+            onClick={() => setAdminTab('settings')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'settings'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-teal-500 dark:border-teal-400 ring-2 ring-teal-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <SlidersHorizontal className="w-4 h-4 text-teal-600 shrink-0" />
+              <span className="truncate">6. Pengaturan Dashboard</span>
+            </div>
+          </button>
+        </div>
 
-        {currentUser?.role !== 'pegawai' && (
+        {/* Row 2: 5 Tombol Agenda & Slide */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <button
+            onClick={() => setAdminTab('announcements')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'announcements'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Megaphone className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="truncate">7. Pengumuman &amp; Pop-up Tools</span>
+            </div>
+            {tempConfig.slideShowConfig?.isEnabled ? (
+              <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0">
+                SLIDE-ON
+              </span>
+            ) : tempConfig.popUpAnnouncement?.isEnabled ? (
+              <span className="bg-emerald-500 text-slate-950 text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0">
+                POP-UP
+              </span>
+            ) : (tempConfig.announcements?.length || 0) > 0 ? (
+              <span className="bg-amber-100 text-amber-800 text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-amber-300/50">
+                {tempConfig.announcements.length}
+              </span>
+            ) : null}
+          </button>
+
+          <button
+            onClick={() => setAdminTab('materi-slide')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'materi-slide'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-indigo-500 dark:border-indigo-400 ring-2 ring-indigo-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Presentation className="w-4 h-4 text-indigo-600 shrink-0" />
+              <span className="truncate">8. Kelola Materi Slide Show</span>
+            </div>
+            <span className="bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-indigo-300/50 dark:border-indigo-800">
+              {(tempConfig.presentationMaterials?.length || 0)}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('portal-link')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'portal-link'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Link2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="truncate">9. Link Sosialisasi (Linktree)</span>
+            </div>
+            <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-emerald-300/50 dark:border-emerald-800">
+              {(tempConfig.kegiatanSosialisasi?.length || 0)}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('presensi-admin')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'presensi-admin'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-teal-500 dark:border-teal-400 ring-2 ring-teal-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <ClipboardCheck className="w-4 h-4 text-teal-600 shrink-0" />
+              <span className="truncate">10. Presensi &amp; Rekap Kehadiran</span>
+            </div>
+            <span className="bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-teal-300/50 dark:border-teal-800">
+              {presensiPesertaList.length} Peserta
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('konfirmasi-admin')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'konfirmasi-admin'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="truncate">10b. Konfirmasi Kehadiran &amp; Undangan (RSVP)</span>
+            </div>
+            <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-emerald-300/50 dark:border-emerald-800">
+              {konfirmasiKegiatanList.filter(k => k.isActive).length} Aktif
+            </span>
+          </button>
+        </div>
+
+        {/* Row 3: 5 Tombol Komunikasi & Analis AI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          <button
+            onClick={() => setAdminTab('broadcast')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'broadcast'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-rose-500 dark:border-rose-400 ring-2 ring-rose-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Send className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="truncate">11. Jarkom Pribadi (Japri Pejabat)</span>
+            </div>
+            <span className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-rose-300/50 dark:border-rose-800">
+              Japri 1-on-1
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('jarkom-grup')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'jarkom-grup'
+                ? 'bg-emerald-600 text-white shadow-md border-2 border-emerald-400 ring-2 ring-emerald-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-emerald-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <MessageSquare className={`w-4 h-4 shrink-0 ${adminTab === 'jarkom-grup' ? 'text-white' : 'text-emerald-600'}`} />
+              <span className="truncate">12. Jarkom Grup WA Satker</span>
+            </div>
+            <span className={`${adminTab === 'jarkom-grup' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/50'} text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0`}>
+              Peringkat &amp; Rekap Grup
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('aduan')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'aduan'
+                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-rose-500 dark:border-rose-400 ring-2 ring-rose-500/20'
+                : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="truncate">13. Kelola Aduan &amp; Tiket Satker</span>
+            </div>
+            {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length > 0 ? (
+              <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 animate-pulse border border-amber-300">
+                {(tempConfig.aduanList || []).filter(a => a.status === 'MENUNGGU').length} Baru
+              </span>
+            ) : (
+              <span className="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-slate-300 dark:border-slate-600">
+                {(tempConfig.aduanList || []).length} Tiket
+              </span>
+            )}
+          </button>
+
+          {currentUser?.role !== 'pegawai' && (
+            <button
+              onClick={() => setAdminTab('logs')}
+              className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+                adminTab === 'logs'
+                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-md border-2 border-purple-500 dark:border-purple-400 ring-2 ring-purple-500/20'
+                  : 'bg-white/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-2xs hover:shadow-xs'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <History className="w-4 h-4 text-purple-600 shrink-0" />
+                <span className="truncate">14. Log Admin</span>
+              </div>
+              <span className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-purple-300/50 dark:border-purple-800">
+                {activityLogs.length}
+              </span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setAdminTab('gemini-ai')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'gemini-ai'
+                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-sky-600 text-white shadow-md border-2 border-purple-400 ring-2 ring-purple-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-purple-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Bot className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span className="truncate">15. Asisten Analis Gemini AI</span>
+            </div>
+            <span className="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs">
+              AI LIVE
+            </span>
+          </button>
+        </div>
+
+        {/* Row 4: 4 Tombol Tata Kelola, Knowledge & Superadmin */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+          <button
+            onClick={() => setAdminTab('pengetahuan-admin')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'pengetahuan-admin'
+                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md border-2 border-cyan-400 ring-2 ring-cyan-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-cyan-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <BookOpen className="w-4 h-4 text-cyan-600 dark:text-cyan-400 shrink-0" />
+              <span className="truncate">16. Juknis dan Pengetahuan Perbendaharaan</span>
+            </div>
+            <span className="bg-cyan-100 text-cyan-900 dark:bg-cyan-950 dark:text-cyan-200 text-[9px] px-1.5 py-0.5 rounded-full font-black shrink-0 border border-cyan-300/50 dark:border-cyan-800">
+              Direktori &amp; Panduan
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('buletin')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'buletin'
+                ? 'bg-gradient-to-r from-pink-600 via-rose-600 to-amber-600 text-white shadow-md border-2 border-rose-400 ring-2 ring-rose-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-rose-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="truncate">17. Buletin &amp; Warta KPPN Semarang I</span>
+            </div>
+            <span className="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs">
+              MAJALAH &amp; CANVA
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('firestore-quota')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'firestore-quota'
+                ? 'bg-gradient-to-r from-sky-600 via-indigo-600 to-blue-700 text-white shadow-md border-2 border-sky-400 ring-2 ring-sky-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-sky-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Database className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0" />
+              <span className="truncate">18. Monitor Kuota Firebase</span>
+            </div>
+            <span className="bg-emerald-400 text-slate-950 text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs">
+              SPARK 50K READS
+            </span>
+          </button>
+
           <button
             onClick={() => setAdminTab('users')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
               adminTab === 'users'
-                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/25 border border-orange-400/40 ring-2 ring-orange-400/30'
-                : 'text-orange-700 hover:text-orange-900 hover:bg-orange-50 dark:text-orange-300 dark:hover:text-orange-100 dark:hover:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60'
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md border-2 border-orange-400 ring-2 ring-orange-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-amber-400 shadow-2xs hover:shadow-xs'
             }`}
           >
-            <Crown className="w-4 h-4 text-amber-300 shrink-0" />
-            <span>19. Manajemen Pengguna &amp; Pegawai</span>
-            <span className="bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 rounded-full font-black uppercase shadow-xs">
-              👑 Admin Super
+            <div className="flex items-center gap-1.5 truncate">
+              <Crown className="w-4 h-4 text-amber-500 shrink-0" />
+              <span className="truncate">19. Manajemen Pengguna &amp; Pegawai</span>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs ${
+              currentUser?.role === 'pegawai'
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                : 'bg-amber-400 text-slate-950'
+            }`}>
+              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
             </span>
           </button>
-        )}
+        </div>
       </div>
 
       {/* Hidden File Inputs */}
@@ -6679,6 +6958,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 </div>
               )}
 
+              {/* Alamat Email Pemulihan Admin Super */}
+              <div className="bg-white/90 dark:bg-slate-900/90 p-3.5 rounded-xl border border-amber-200/90 dark:border-slate-700 space-y-1.5">
+                <label className="block text-[11px] font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                  <Mail className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Email Resmi Pemulihan Admin Super (Untuk Fitur Lupa Password via Email):</span>
+                </label>
+                <input
+                  type="email"
+                  value={adminSuperEmailInput}
+                  onChange={(e) => setAdminSuperEmailInput(e.target.value)}
+                  placeholder="contoh: mski.kppn026@kemenkeu.go.id"
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono font-bold"
+                />
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Digunakan untuk menerima 6-digit kode verifikasi OTP jika Admin Super lupa password dan ingin melakukan reset mandiri melalui email pada halaman login.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -6789,7 +7086,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                             }`}
                           >
                             <RotateCcw className="w-4 h-4 text-amber-900 dark:text-amber-100" />
-                            <span>{isKiPassDefaultInSettings ? 'Paksa Reset Ulang ke ki026' : 'Reset Sandi KI ke Bawaan (ki026)'}</span>
+                            <span>{isKiPassDefaultInSettings ? 'Paksa Reset Ulang ke Sandi Bawaan' : 'Reset Sandi KI ke Sandi Bawaan'}</span>
                           </button>
                         </div>
                       </div>
@@ -6797,7 +7094,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                         <span>
-                          <strong>Catatan Keamanan:</strong> Menekan tombol reset akan menyinkronkan kata sandi KI menjadi <code className="px-1.5 py-0.5 bg-amber-200 dark:bg-amber-900 rounded font-mono font-black text-amber-950 dark:text-amber-100">ki026</code> pada penyimpanan lokal dan cloud serta mencatat aktivitas pada Log Audit Admin. Setelah dibuka kembali, Ketua Seksi Kepatuhan Internal dapat membuat password baru melalui tombol <em>"Ganti Password KI"</em>.
+                          <strong>Catatan Keamanan:</strong> Menekan tombol reset akan menyinkronkan kata sandi KI kembali ke kata sandi standar bawaan sistem pada penyimpanan lokal dan cloud serta mencatat aktivitas pada Log Audit Admin. Setelah dibuka kembali, Ketua Seksi Kepatuhan Internal dapat membuat password baru melalui tombol <em>"Ganti Password KI"</em>.
                         </span>
                       </div>
                     </div>
@@ -8126,7 +8423,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-700 space-y-2 animate-fade-in">
                       <label className="block text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center justify-between">
                         <span>Password Akses Slide Internal: <span className="text-rose-500">*</span></span>
-                        <span className="text-[10px] text-slate-400 font-normal">Contoh default: kppn026</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Gunakan kata sandi aman</span>
                       </label>
                       <div className="relative">
                         <input
@@ -8148,20 +8445,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-slate-500 font-semibold">Preset cepat:</span>
-                        <button
-                          type="button"
-                          onClick={() => setMatForm({ ...matForm, password: 'kppn026' })}
-                          className="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-mono font-bold hover:bg-slate-300"
-                        >
-                          kppn026
-                        </button>
+                        <span className="text-[10px] text-slate-500 font-semibold">Saran:</span>
                         <button
                           type="button"
                           onClick={() => setMatForm({ ...matForm, password: 'internal026' })}
-                          className="text-[10px] bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded font-mono font-bold hover:bg-slate-300"
+                          className="text-[10px] bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-lg font-bold hover:bg-indigo-100 cursor-pointer transition-colors"
                         >
-                          internal026
+                          Terapkan Sandi Internal Standar
                         </button>
                       </div>
                     </div>
@@ -11373,25 +11663,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </div>
             </div>
 
-            {/* 4 Dedicated Upload Tabs Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 14 Dedicated Upload Tabs Buttons - Sesuai Tampilan Asli (4 Kolom Sempurna) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               <button
                 type="button"
                 onClick={() => setUploadSubTab('ikpa')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'ikpa'
                     ? 'bg-sky-50 dark:bg-sky-950/80 border-sky-500 ring-2 ring-sky-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-sky-800 dark:text-sky-300">
-                  <BarChart3 className="w-5 h-5 text-sky-600 shrink-0" />
-                  <span>1. Excel IKPA</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-sky-800 dark:text-sky-300">
+                    <BarChart3 className="w-5 h-5 text-sky-600 shrink-0" />
+                    <span>1. Excel IKPA</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    8 Indikator IKPA, Nilai Kinerja &amp; Arsip Periode IKPA.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  8 Indikator IKPA, Nilai Kinerja &amp; Arsip Periode IKPA.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-sky-700 dark:text-sky-400 border-t border-sky-200/50 dark:border-slate-800">
                   {satkers.filter(s => s.hasIKPAData !== false && (s.nilaiTotalIKPA > 0 || s.paguAnggaran > 0)).length} Satker IKPA
                 </div>
               </button>
@@ -11399,20 +11691,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('output')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'output'
                     ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
-                  <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>2. Capaian Output</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                    <TrendingUp className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>2. Capaian Output</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Status Pengisian, Konfirmasi &amp; Progres Output SAKTI Satker.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Status Pengisian, Konfirmasi &amp; Progres Output SAKTI Satker.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 border-t border-emerald-200/50 dark:border-slate-800">
                   {satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan').length} Terlaporkan
                 </div>
               </button>
@@ -11420,20 +11714,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('sertifikasi')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'sertifikasi'
                     ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
-                  <Award className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>3. Excel Sertifikasi</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                    <Award className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>3. Excel Sertifikasi</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Database KPA, PPK, PPSPM, PTP &amp; No. Sertifikat Jabatan.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Database KPA, PPK, PPSPM, PTP &amp; No. Sertifikat Jabatan.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 border-t border-amber-200/50 dark:border-slate-800">
                   {pejabatList.length} Pejabat Terdaftar
                 </div>
               </button>
@@ -11441,20 +11737,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('tup')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'tup'
                     ? 'bg-purple-50 dark:bg-purple-950/80 border-purple-500 ring-2 ring-purple-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-purple-800 dark:text-purple-300">
-                  <FileSpreadsheet className="w-5 h-5 text-purple-600 shrink-0" />
-                  <span>4. Pengelolaan TUP &amp; UP</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-purple-800 dark:text-purple-300">
+                    <FileSpreadsheet className="w-5 h-5 text-purple-600 shrink-0" />
+                    <span>4. Pengelolaan TUP &amp; UP</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Monitoring Pagu UP/TUP, Revolving GUP &amp; Batas 30 Hari.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Monitoring Pagu UP/TUP, Revolving GUP &amp; Batas 30 Hari.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-purple-700 dark:text-purple-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-purple-700 dark:text-purple-400 border-t border-purple-200/50 dark:border-slate-800">
                   {pengelolaanUpRecords.length} Catatan UP/TUP
                 </div>
               </button>
@@ -11462,20 +11760,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('kkp')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'kkp'
                     ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
-                  <CreditCard className="w-5 h-5 text-blue-600 shrink-0" />
-                  <span>5. Transaksi KKP (GUP)</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
+                    <CreditCard className="w-5 h-5 text-blue-600 shrink-0" />
+                    <span>5. Transaksi KKP</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Rekap Transaksi Kartu Kredit Pemerintah &amp; GUP KKP Satker.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Rekap Transaksi Kartu Kredit Pemerintah &amp; GUP KKP Satker.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400 border-t border-blue-200/50 dark:border-slate-800">
                   {transaksiKkpRecords.length} Transaksi KKP
                 </div>
               </button>
@@ -11483,20 +11783,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('digipay')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'digipay'
                     ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
-                  <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>6. Transaksi Digipay (VA &amp; KKP)</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                    <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>6. Transaksi Digipay</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Multi-Tab Excel Pembayaran VA &amp; Kartu Kredit Pemerintah.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Multi-Tab Excel Pembayaran VA &amp; Kartu Kredit Pemerintah.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 border-t border-emerald-200/50 dark:border-slate-800">
                   {transaksiDigipayRecords.length} Transaksi Digipay
                 </div>
               </button>
@@ -11504,20 +11806,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('deviasi-hal3')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'deviasi-hal3'
                     ? 'bg-indigo-50 dark:bg-indigo-950/80 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-indigo-800 dark:text-indigo-300">
-                  <FileSpreadsheet className="w-5 h-5 text-indigo-600 shrink-0" />
-                  <span>7. Deviasi Hal III DIPA</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-indigo-800 dark:text-indigo-300">
+                    <FileSpreadsheet className="w-5 h-5 text-indigo-600 shrink-0" />
+                    <span>7. Deviasi Hal III</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    RPD vs Realisasi SP2D Bulanan &amp; Mitigasi Skor IKPA (10%).
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  RPD vs Realisasi SP2D Bulanan &amp; Mitigasi Skor IKPA (10%).
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-400 border-t border-indigo-200/50 dark:border-slate-800">
                   {deviasiHal3Records.length} Data Satker
                 </div>
               </button>
@@ -11525,20 +11829,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('spm-ppp')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'spm-ppp'
                     ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
-                  <Receipt className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>8. SPM PPP (PLN &amp; TELKOM)</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                    <Receipt className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>8. SPM PPP (PFK)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Daftar Satker Belum Mengajukan SPM PFK Listrik &amp; Internet.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Daftar Satker Belum Mengajukan SPM PFK Listrik &amp; Internet.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 border-t border-amber-200/50 dark:border-slate-800">
                   {spmPppRecords.length} Tagihan PFK
                 </div>
               </button>
@@ -11546,20 +11852,22 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('pejabat-ikpa')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'pejabat-ikpa'
                     ? 'bg-teal-50 dark:bg-teal-950/80 border-teal-500 ring-2 ring-teal-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-teal-800 dark:text-teal-300">
-                  <UserCheck className="w-5 h-5 text-teal-600 shrink-0" />
-                  <span>9. Pejabat Satker (IKPA)</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-teal-800 dark:text-teal-300">
+                    <UserCheck className="w-5 h-5 text-teal-600 shrink-0" />
+                    <span>9. Pejabat Satker</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Database Pejabat Perbendaharaan Satker untuk Tab IKPA.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Database Pejabat Perbendaharaan Satker untuk update Tab IKPA &amp; Rincian Satker.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400">
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-teal-700 dark:text-teal-400 border-t border-teal-200/50 dark:border-slate-800">
                   {pejabatIKPAList.length} Pejabat Terdaftar
                 </div>
               </button>
@@ -11567,105 +11875,115 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               <button
                 type="button"
                 onClick={() => setUploadSubTab('rekonsiliasi')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'rekonsiliasi'
                     ? 'bg-blue-50 dark:bg-blue-950/80 border-blue-500 ring-2 ring-blue-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
-                  <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
-                  <span>10. Rekonsiliasi &amp; Kepatuhan</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-blue-800 dark:text-blue-300">
+                    <FileSpreadsheet className="w-5 h-5 text-blue-600 shrink-0" />
+                    <span>10. Rekonsiliasi &amp; Kepatuhan</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Monitoring SAKTI: Todolist, Tutup Periode, SP2S, SP3S.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Monitoring Kepatuhan SAKTI: Rekonsiliasi, Todolist, Tutup Periode, SP2S, SP3S.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400">
-                  {rekonsiliasiRecords.length > 0 ? `${rekonsiliasiRecords.length} Satker Terdata` : '0 Satker (Kosong - Siap Upload)'}
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-blue-700 dark:text-blue-400 border-t border-blue-200/50 dark:border-slate-800">
+                  {rekonsiliasiRecords.length > 0 ? `${rekonsiliasiRecords.length} Satker` : '0 Satker (Siap Upload)'}
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setUploadSubTab('lpj')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'lpj'
                     ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>11. LPJ Bendahara</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>11. LPJ Bendahara</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Upload LPJ, Analisis Pengiriman &amp; Validasi Bendahara.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Upload Excel LPJ, Analisis Pengiriman (Agustus/September) &amp; Database.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                  {lpjRecords.length > 0 ? `${lpjRecords.length} Satker Terdata` : '0 Satker (Kosong - Siap Upload)'}
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 border-t border-emerald-200/50 dark:border-slate-800">
+                  {lpjRecords.length > 0 ? `${lpjRecords.length} Satker` : '0 Satker (Siap Upload)'}
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setUploadSubTab('gaji-induk')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'gaji-induk'
                     ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
-                  <Coins className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>12. SPM Gaji Induk</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                    <Coins className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>12. SPM Gaji Induk</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    SPM Gaji PNS &amp; PPPK, Riwayat Bulanan (Kolom A-AV).
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Monitoring SPM Gaji Induk PNS &amp; PPPK (Juni, Juli, Agustus), Riwayat Bulanan &amp; Validasi Kolom A-AV.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                  {gajiIndukRecords.length > 0 ? `${gajiIndukRecords.length} Record SPM Terdata` : '0 Record (Kosong - Siap Upload)'}
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 border-t border-amber-200/50 dark:border-slate-800">
+                  {gajiIndukRecords.length > 0 ? `${gajiIndukRecords.length} SPM` : '0 SPM (Siap Upload)'}
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setUploadSubTab('haicso')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'haicso'
                     ? 'bg-amber-50 dark:bg-amber-950/80 border-amber-500 ring-2 ring-amber-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
-                  <Ticket className="w-5 h-5 text-amber-600 shrink-0" />
-                  <span>13. Tiket HAICSO</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-amber-800 dark:text-amber-300">
+                    <Ticket className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>13. Tiket HAICSO</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Excel HAICSO, Analisis Per Triwulan, Respon Satker.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Upload Excel HAICSO (3 baris = 1 tiket), Analisis Per Triwulan, Filter Pengguna &amp; Respon Satker.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                  {haicsoTickets.length > 0 ? `${haicsoTickets.length} Tiket Terdata` : '0 Tiket (Kosong - Siap Upload)'}
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 border-t border-amber-200/50 dark:border-slate-800">
+                  {haicsoTickets.length > 0 ? `${haicsoTickets.length} Tiket` : '0 Tiket (Siap Upload)'}
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setUploadSubTab('kontrak')}
-                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                   uploadSubTab === 'kontrak'
                     ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md'
                     : 'bg-slate-50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
-                  <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span>14. Monitoring Data Kontrak</span>
+                <div>
+                  <div className="flex items-center gap-2 font-extrabold text-sm text-emerald-800 dark:text-emerald-300">
+                    <FileSpreadsheet className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <span>14. Data Kontrak</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                    Excel Kontrak SPAN/SAKTI (22 Kolom A:V), Analisis &amp; Monitor.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
-                  Tools Internal KPPN: Upload Excel Data Kontrak (Row 8 Header, 22 Kolom A:V), Preview, Analisis &amp; Monitoring.
-                </p>
-                <div className="mt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                  {kontrakRecords.length > 0 ? `${kontrakRecords.length} Data Kontrak Terdata` : '0 Kontrak (Kosong - Siap Upload)'}
+                <div className="mt-auto pt-2 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400 border-t border-emerald-200/50 dark:border-slate-800">
+                  {kontrakRecords.length > 0 ? `${kontrakRecords.length} Kontrak` : '0 Kontrak (Siap Upload)'}
                 </div>
               </button>
             </div>

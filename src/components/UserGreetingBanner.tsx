@@ -16,7 +16,7 @@ import {
   Zap,
   LogIn
 } from 'lucide-react';
-import { AppUser, AppTheme } from '../types';
+import { AppUser, AppTheme, NavigationTab } from '../types';
 import { normalizeImageUrl } from '../utils/imageUrlHelper';
 
 interface UserGreetingBannerProps {
@@ -26,6 +26,8 @@ interface UserGreetingBannerProps {
   onLogout: () => void;
   onNavigateToAdmin?: () => void;
   theme?: AppTheme;
+  activeTab?: NavigationTab;
+  onNavigateToDashboard?: () => void;
 }
 
 export const UserGreetingBanner: React.FC<UserGreetingBannerProps> = ({
@@ -34,7 +36,9 @@ export const UserGreetingBanner: React.FC<UserGreetingBannerProps> = ({
   onOpenLoginModal,
   onLogout,
   onNavigateToAdmin,
-  theme = 'light'
+  theme = 'light',
+  activeTab,
+  onNavigateToDashboard
 }) => {
   const isDark = theme === 'dark';
   const [imageError, setImageError] = useState<boolean>(false);
@@ -184,15 +188,27 @@ export const UserGreetingBanner: React.FC<UserGreetingBannerProps> = ({
 
             {onNavigateToAdmin && (
               <button
-                onClick={onNavigateToAdmin}
+                onClick={activeTab === 'admin' ? (onNavigateToDashboard || (() => {})) : onNavigateToAdmin}
                 className={`font-black text-xs px-4 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95 ${
-                  isSuperAdmin
-                    ? 'bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white'
-                    : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
+                  activeTab === 'admin'
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white ring-2 ring-emerald-400/40'
+                    : isSuperAdmin
+                      ? 'bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'
                 }`}
+                title={activeTab === 'admin' ? "Buka Dashboard IKPA Utama" : "Buka Modul Admin Control Center"}
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Buka Modul Admin</span>
+                {activeTab === 'admin' ? (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-200" />
+                    <span>✓ Sedang di Modul Admin</span>
+                  </>
+                ) : (
+                  <>
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Buka Modul Admin</span>
+                  </>
+                )}
               </button>
             )}
 

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { SlideShowConfig, SlideShowBannerItem } from '../types';
 import { normalizeImageUrl, getAlternativeImageUrl } from '../utils/imageUrlHelper';
+import { INITIAL_SLIDESHOW_CONFIG } from '../data/initialSlideShowData';
 
 interface SlideShowBannerCarouselProps {
   config?: SlideShowConfig;

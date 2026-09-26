@@ -92,6 +92,7 @@ import { SatkerDetailModal } from './components/SatkerDetailModal';
 import { ExcelGuideModal } from './components/ExcelGuideModal';
 import { BroadcastTemplateLibraryModal } from './components/BroadcastTemplateLibraryModal';
 import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
+import { UserGreetingBanner } from './components/UserGreetingBanner';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
 
@@ -2682,7 +2683,7 @@ export default function App() {
         const defaultUser: AppUser = {
           id: 'user_superadmin_01',
           username: 'superadmin',
-          displayName: 'Super Admin MSKI',
+          displayName: 'Admin Super KPPN 026',
           role: 'superadmin',
           jabatan: 'Administrator Utama & PIC Pembina Satker',
           seksi: 'Seksi MSKI (Manajemen Satker & Kepatuhan Internal)',
@@ -3458,6 +3459,33 @@ export default function App() {
             </div>
           ) : (
             <div>
+              {/* Sesi Admin Aktif & Greeting Banner (Tampil di semua dashboard dan saat berada pada tab admin) */}
+              {(currentUser || isAdminAuthenticated || activeTab === 'dashboard') && (
+                <UserGreetingBanner
+                  currentUser={currentUser || (isAdminAuthenticated ? (getCurrentUser() || {
+                    id: 'user_superadmin_01',
+                    username: 'superadmin',
+                    displayName: 'Admin Super KPPN 026',
+                    role: 'superadmin',
+                    jabatan: 'Administrator Utama & PIC Pembina Satker',
+                    seksi: 'Seksi MSKI (Manajemen Satker & Kepatuhan Internal)',
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                  }) : null)}
+                  onOpenProfileModal={(tab) => {
+                    setProfileModalInitialTab(tab || 'profile');
+                    setIsProfileModalOpen(true);
+                  }}
+                  onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  onLogout={handleLogoutAdmin}
+                  onNavigateToAdmin={() => setActiveTab('admin')}
+                  onNavigateToDashboard={() => setActiveTab('dashboard')}
+                  theme={theme}
+                  activeTab={activeTab}
+                />
+              )}
+
               {/* Tab 1: Dashboard IKPA Overview */}
               {activeTab === 'dashboard' && (
                 <DashboardOverview
@@ -3908,6 +3936,7 @@ export default function App() {
                   isAdminAuthenticated={isAdminAuthenticated}
                   setIsAdminAuthenticated={setIsAdminAuthenticated}
                   currentUser={currentUser}
+                  onLoginSuccess={handleLoginSuccess}
                   theme={theme}
                   adminPin={adminPin}
                   onUpdateAdminPin={handleUpdateAdminPin}

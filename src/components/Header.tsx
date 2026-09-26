@@ -40,7 +40,8 @@ import {
   PieChart,
   Coins,
   Ticket,
-  Crown
+  Crown,
+  Check
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -422,7 +423,7 @@ export const Header: React.FC<HeaderProps> = ({
       id: 'admin' as NavigationTab,
       label: '🛡️ Modul Admin (Control Center)',
       icon: <ShieldCheck className="w-4 h-4 text-amber-300" />,
-      badge: <span className="bg-amber-950 text-amber-200 border border-amber-500/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black">Admin</span>,
+      badge: <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black shadow-xs">Admin</span>,
       activeColor: 'bg-gradient-to-r from-indigo-700 via-purple-700 to-slate-900 text-white shadow-lg shadow-indigo-700/40 ring-2 ring-amber-400/60'
     };
 
@@ -533,160 +534,146 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Controls & Quick Stats */}
-          <div className="flex items-center gap-2 sm:gap-3 w-full lg:w-auto">
-            
-            {/* Theme Toggle Button (Light/Dark Mode) */}
-            <button
-              onClick={toggleTheme}
-              className={`relative flex items-center justify-between gap-2 px-3 py-1.5 sm:py-2 rounded-xl border text-xs font-bold transition-all duration-300 cursor-pointer shadow-md overflow-hidden shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95 ${
-                isDark 
-                  ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-amber-500/50 text-amber-300 shadow-amber-950/30 ring-1 ring-amber-500/20' 
-                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-300 border-amber-400 text-slate-950 shadow-amber-500/20 ring-2 ring-amber-400/50'
-              }`}
-              title={isDark ? "Beralih ke Light Mode" : "Beralih ke Dark Mode"}
-            >
-              {isDark ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded-lg bg-amber-500/20 text-amber-300">
-                    <Sun className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <span className="text-xs font-extrabold text-amber-200 hidden sm:inline">☀️ Light</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  <div className="p-1 rounded-lg bg-slate-900/20 text-slate-900">
-                    <Moon className="w-4 h-4 text-slate-900" />
-                  </div>
-                  <span className="text-xs font-extrabold text-slate-900 hidden sm:inline">🌙 Dark</span>
-                </div>
-              )}
-            </button>
-
-            {/* Search Box */}
-            <div className="relative flex-1 min-w-0 md:min-w-[220px]">
-              <Search className={`w-3.5 h-3.5 sm:w-4 sm:h-4 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${
-                isDark ? 'text-slate-400' : 'text-slate-400'
-              }`} />
-              <input
-                type="text"
-                placeholder="Cari Satker, Kode..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full text-xs rounded-xl pl-8 sm:pl-9 pr-3 py-2 border focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all min-h-[40px] sm:min-h-[44px] ${
+          {/* Controls & Quick Stats - Compact 2-Tier on Desktop when Logged In */}
+          <div className="flex flex-col items-stretch lg:items-end gap-1.5 w-full lg:w-auto shrink-0">
+            {/* Row 1: Search, Theme, Android, Sync, or Login Button */}
+            <div className="flex items-center gap-2 w-full lg:w-auto justify-end">
+              {/* Theme Toggle Button (Light/Dark Mode) */}
+              <button
+                onClick={toggleTheme}
+                className={`relative flex items-center justify-between gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all duration-300 cursor-pointer shadow-xs shrink-0 min-h-[38px] hover:scale-105 active:scale-95 ${
                   isDark 
-                    ? 'bg-slate-900 text-slate-100 border-slate-800 placeholder:text-slate-500' 
-                    : 'bg-slate-100 text-slate-900 border-slate-300 placeholder:text-slate-500 focus:bg-white'
+                    ? 'bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 border-amber-500/50 text-amber-300 shadow-amber-950/30' 
+                    : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-300 border-amber-400 text-slate-950 shadow-amber-500/20'
                 }`}
-              />
-            </div>
+                title={isDark ? "Beralih ke Light Mode" : "Beralih ke Dark Mode"}
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-slate-900" />
+                )}
+                <span className="text-xs font-extrabold hidden sm:inline">{isDark ? 'Light' : 'Dark'}</span>
+              </button>
 
-            {/* Install Android PWA Button */}
-            <button
-              type="button"
-              onClick={() => setIsAndroidModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md border border-emerald-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
-              title="Pasang Aplikasi ANGKASA di HP Android"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">App Android</span>
-              <span className="sm:hidden text-[10px]">App</span>
-            </button>
+              {/* Search Box */}
+              <div className="relative flex-1 min-w-0 sm:min-w-[180px] lg:min-w-[220px]">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Cari Satker, Kode..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={`w-full text-xs rounded-xl pl-8 sm:pl-9 pr-3 py-1.5 sm:py-2 border focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all min-h-[38px] ${
+                    isDark 
+                      ? 'bg-slate-900 text-slate-100 border-slate-800 placeholder:text-slate-500' 
+                      : 'bg-slate-100 text-slate-900 border-slate-300 placeholder:text-slate-500 focus:bg-white'
+                  }`}
+                />
+              </div>
 
-            {/* Force Cloud Sync Button */}
-            {onForceCloudSync && (
+              {/* Install Android PWA Button */}
               <button
                 type="button"
-                onClick={onForceCloudSync}
-                disabled={isCloudSyncing}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95 disabled:opacity-50"
-                title="Sinkronkan data dengan Firebase Firestore Cloud Database"
+                onClick={() => setIsAndroidModalOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white shadow-xs border border-emerald-400/30 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95"
+                title="Pasang Aplikasi ANGKASA di HP Android"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-                <span className="hidden lg:inline">{isCloudSyncing ? 'Sinkron...' : 'Sinkron Cloud'}</span>
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Android</span>
               </button>
-            )}
 
-            {/* Template Broadcast Quick Access (Admin Only) */}
-            {isAdminAuthenticated && onOpenBroadcastLibrary && (
-              <button
-                onClick={onOpenBroadcastLibrary}
-                className="hidden md:flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-md border border-rose-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
-                title="Buka Katalog Template Broadcast Siap Salin"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Template Broadcast</span>
-              </button>
-            )}
+              {/* Force Cloud Sync Button */}
+              {onForceCloudSync && (
+                <button
+                  type="button"
+                  onClick={onForceCloudSync}
+                  disabled={isCloudSyncing}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95 disabled:opacity-50"
+                  title="Sinkronkan data dengan Firebase Firestore Cloud Database"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                  <span className="hidden md:inline">{isCloudSyncing ? 'Sinkron...' : 'Cloud'}</span>
+                </button>
+              )}
 
-            {/* Admin Login / Logout Button */}
-            {!isAdminAuthenticated ? (
-              <button
-                onClick={() => setIsAdminLoginModalOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white shadow-md shadow-sky-600/20 border border-sky-400/30 transition-all cursor-pointer shrink-0 min-h-[40px] sm:min-h-[44px] hover:scale-105 active:scale-95"
-              >
-                <Lock className="w-3.5 h-3.5" />
-                <span>Login Admin / Pengguna</span>
-              </button>
-            ) : (
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* User Profile Capsule */}
+              {/* Login Button (Only shown when not logged in) */}
+              {!isAdminAuthenticated && (
+                <button
+                  onClick={() => setIsAdminLoginModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 via-indigo-600 to-emerald-600 hover:from-amber-400 hover:to-emerald-500 text-white shadow-md shadow-indigo-600/20 border border-amber-400/40 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95"
+                  title="Masuk sebagai Super Admin atau Pegawai KPPN Semarang I"
+                >
+                  <Lock className="w-3.5 h-3.5 text-amber-300" />
+                  <span>Login Admin / Pegawai</span>
+                </button>
+              )}
+            </div>
+
+            {/* Row 2: Admin Super & Pegawai Profile & Actions */}
+            {isAdminAuthenticated && (
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
                 {currentUser && (
                   <button
+                    type="button"
                     onClick={() => onOpenProfileModal?.('profile')}
-                    className="flex items-center gap-2 px-2.5 sm:px-3 py-1 text-xs rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-white border border-slate-700 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
-                    title="Pengaturan Profil Pengguna & Kata Sandi"
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 transition-all cursor-pointer shadow-xs hover:border-amber-400/50"
+                    title={`Klik untuk Pengaturan Profil ${currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai'}`}
                   >
                     {currentUser.photoUrl ? (
                       <img
                         src={currentUser.photoUrl}
                         alt={currentUser.displayName}
-                        className="w-6 h-6 rounded-full object-cover border border-amber-400/60"
+                        className="w-4 h-4 rounded-full object-cover border border-amber-400/60"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
                     ) : (
-                      <div className="w-6 h-6 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
+                      <div className={`w-4 h-4 rounded-full ${currentUser.role === 'superadmin' ? 'bg-amber-500' : 'bg-emerald-500'} text-slate-950 font-black text-[9px] flex items-center justify-center`}>
                         {currentUser.displayName.charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <div className="text-left hidden md:block">
-                      <div className="font-bold text-[11px] leading-tight flex items-center gap-1">
-                        <span>{currentUser.displayName}</span>
-                        {currentUser.role === 'superadmin' && (
-                          <Crown className="w-3 h-3 text-amber-400 shrink-0" />
-                        )}
-                      </div>
-                      <div className="text-[9px] text-amber-300 font-medium">
-                        {currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai KPPN'}
-                      </div>
-                    </div>
+                    <span className="font-bold text-[11px] leading-tight text-slate-100">
+                      {currentUser.displayName === 'Super Admin MSKI' ? 'Admin Super KPPN 026' : currentUser.displayName}
+                    </span>
+                    {currentUser.role === 'superadmin' ? (
+                      <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                    ) : (
+                      <UserCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                    )}
+                    <span className={`text-[9px] border px-1.5 py-0.2 rounded font-bold ${
+                      currentUser.role === 'superadmin'
+                        ? 'bg-amber-400/20 text-amber-300 border-amber-400/30'
+                        : 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30'
+                    }`}>
+                      {currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai'}
+                    </span>
+                  </button>
+                )}
+
+                {onOpenBroadcastLibrary && (
+                  <button
+                    type="button"
+                    onClick={onOpenBroadcastLibrary}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-extrabold rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-xs border border-rose-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                    title="Buka Katalog Template Broadcast Siap Salin"
+                  >
+                    <Sparkles className="w-3 h-3 text-amber-200" />
+                    <span>Template WA</span>
                   </button>
                 )}
 
                 <button
-                  onClick={() => handleTabClick('admin')}
-                  className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-black rounded-xl border transition-all cursor-pointer min-h-[40px] sm:min-h-[44px] ${
-                    activeTab === 'admin'
-                      ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md ring-2 ring-emerald-400/50'
-                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
-                  }`}
-                  title="Masuk ke Modul Admin"
-                >
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span className="hidden sm:inline">Admin Mode</span>
-                  <span className="sm:hidden text-[11px]">Admin</span>
-                </button>
-
-                <button
+                  type="button"
                   onClick={() => {
                     if (onLogoutAdmin) onLogoutAdmin();
                   }}
-                  className="flex items-center justify-center p-2 text-xs font-bold rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer min-h-[40px] sm:min-h-[44px]"
-                  title="Keluar Sesi Admin / Pengguna"
+                  className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition-all cursor-pointer hover:scale-105 active:scale-95"
+                  title="Keluar Sesi Admin"
                 >
-                  <LogOut className="w-4 h-4 text-rose-400" />
+                  <LogOut className="w-3 h-3 text-rose-400" />
+                  <span>Keluar</span>
                 </button>
               </div>
             )}
@@ -694,51 +681,58 @@ export const Header: React.FC<HeaderProps> = ({
 
         </div>
 
-        {/* Mobile Live Real-Time Clock Bar (< lg screens) */}
-        <div className="flex lg:hidden items-center justify-center gap-2 mt-2 px-3 py-2 rounded-xl bg-slate-900/10 dark:bg-slate-900/70 border border-slate-300/60 dark:border-slate-800 text-xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-          <span className="text-slate-600 dark:text-slate-400 font-bold">Waktu Sistem:</span>
-          <span className="font-mono font-black text-indigo-700 dark:text-sky-300 text-xs">
-            {formattedDateStr} • {formattedTimeStr}
-          </span>
-        </div>
-
-        {/* Admin Exclusive Status & Simulator Strip */}
+        {/* Admin Exclusive Status & Simulator Strip (Bilah Pembatas Elegan Sesuai Gambar) */}
         {isAdminAuthenticated && (
-          <div className="mt-2 bg-gradient-to-r from-sky-950 via-slate-900 to-indigo-950 px-3 py-2 rounded-2xl border border-sky-500/30 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs shadow-md">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
-              <span className="font-extrabold text-sky-200 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                SESI ADMIN EKSKLUSIF AKTIF:
-              </span>
-              <span className="text-slate-300 text-[11px] hidden md:inline">
+          <div className="mt-2.5 bg-gradient-to-r from-slate-900 via-sky-950 to-slate-900 px-3.5 sm:px-4 py-2 rounded-2xl border border-sky-500/30 text-white flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs shadow-md">
+            {/* Left side: Sesi Admin Eksklusif Info */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 font-black text-sky-200 shrink-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="tracking-wide uppercase font-black">SESI ADMIN EKSKLUSIF AKTIF:</span>
+              </div>
+              <span className="text-slate-300 text-[11px] sm:text-xs">
                 Akses penuh Olah Excel, WhatsApp Gateway, Pengumuman &amp; Kunci Menu Satker.
               </span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            {/* Right side: Action tools */}
+            <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
               <button
+                type="button"
                 onClick={() => setIsSatkerPreviewMode(!isSatkerPreviewMode)}
-                className={`px-3 py-1 rounded-xl text-[11px] font-black border transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95 ${
                   isSatkerPreviewMode 
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm' 
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-xs' 
                     : 'bg-slate-800 text-sky-200 border-slate-700 hover:bg-slate-700'
                 }`}
+                title="Simulasi Tampilan Satker"
               >
                 {isSatkerPreviewMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                <span>{isSatkerPreviewMode ? 'Mode Simulasi Satker: ON 🟢' : 'Simulasi Tampilan Satker'}</span>
+                <span>{isSatkerPreviewMode ? 'Mode Simulasi: ON 🟢' : 'Simulasi Tampilan Satker'}</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => handleTabClick('admin')}
-                className={`px-3 py-1 rounded-xl text-[11px] font-extrabold border cursor-pointer transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-black border cursor-pointer transition-all flex items-center gap-1.5 shadow-sm hover:scale-105 active:scale-95 ${
                   activeTab === 'admin'
-                    ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black shadow-sm'
-                    : 'bg-sky-600 hover:bg-sky-500 text-white border-sky-400/40'
+                    ? 'bg-emerald-400 text-slate-950 border-emerald-300 font-black shadow-emerald-500/25 ring-1 ring-emerald-300'
+                    : 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400/40 shadow-indigo-600/30'
                 }`}
+                title="Buka / Lompat Langsung ke Modul Admin"
               >
-                {activeTab === 'admin' ? '✓ Sedang di Tab Admin' : 'Ke Tab Admin →'}
+                {activeTab === 'admin' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 stroke-[3] text-slate-950" />
+                    <span>Sedang di Tab Admin</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Ke Tab Admin</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -746,7 +740,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Responsive Slide Show Banner Carousel (Placed ABOVE Navigation Tabs) */}
         {activeTab !== 'admin' && slideShowConfig?.isEnabled && (
-          <div className="mt-2.5">
+          <div className="mt-2">
             <SlideShowBannerCarousel
               config={slideShowConfig}
               activeTab={activeTab}
@@ -757,52 +751,11 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Navigation Tabs - Horizontally Scrollable Bar on small screens, Flexible Fluid Wrap on wide screens */}
-        <div className="relative mt-2 border-t pt-1.5 group">
-          {/* Left Arrow Scroll (Available on all scrollable screens: mobile, tablet, laptop) */}
-          <button
-            type="button"
-            onClick={() => scrollNav('left')}
-            className={`flex xl:hidden absolute left-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900/90 hover:bg-indigo-600 text-white items-center justify-center shadow-lg border border-slate-700/80 transition-all cursor-pointer ${
-              canScrollLeft ? 'opacity-95 scale-100' : 'opacity-40 pointer-events-none scale-90'
-            }`}
-            title="Geser Menu ke Kiri"
-            aria-label="Geser Menu ke Kiri"
-          >
-            <ChevronLeft className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-          </button>
-
-          {/* Right Arrow Scroll (Available on all scrollable screens: mobile, tablet, laptop) */}
-          <button
-            type="button"
-            onClick={() => scrollNav('right')}
-            className={`flex xl:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-900/90 hover:bg-indigo-600 text-white items-center justify-center shadow-lg border border-slate-700/80 transition-all cursor-pointer ${
-              canScrollRight ? 'opacity-95 scale-100' : 'opacity-40 pointer-events-none scale-90'
-            }`}
-            title="Geser Menu ke Kanan"
-            aria-label="Geser Menu ke Kanan"
-          >
-            <ChevronRight className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-          </button>
-
-          {/* Mobile Edge Gradient Indicators */}
-          {canScrollLeft && (
-            <div className="xl:hidden absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-slate-900/40 to-transparent pointer-events-none z-10" />
-          )}
-          {canScrollRight && (
-            <div className="xl:hidden absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-slate-900/40 to-transparent pointer-events-none z-10" />
-          )}
-
+        {/* Navigation Tabs - Bersih & Rata Penuh (Auto-Fill Justified) */}
+        <div className="relative mt-2 border-t border-slate-200/60 dark:border-slate-800/80 pt-1.5">
           <nav
-            ref={navScrollRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUpOrLeave}
-            onMouseLeave={handleMouseUpOrLeave}
-            className={`w-full flex items-center gap-1.5 overflow-x-auto xl:flex-wrap no-scrollbar scroll-smooth py-1 px-8 sm:px-9 xl:px-0 touch-pan-x overscroll-x-contain select-none ${
-              isDragging ? 'cursor-grabbing' : 'cursor-grab xl:cursor-default'
-            } ${
-              isDark ? 'border-slate-800/80' : 'border-slate-200'
+            className={`w-full flex flex-wrap items-center gap-1.5 sm:gap-2 py-0.5 select-none ${
+              isAutoFillLayout ? 'justify-between' : 'justify-start'
             }`}
           >
             {tabs
@@ -823,30 +776,33 @@ export const Header: React.FC<HeaderProps> = ({
                       ? `${activePreset.activeTabClass} ${themeSettings.activeTabGlow !== false ? 'shadow-lg ring-2 ring-white/30' : ''}`
                       : t.activeColor)
                   : t.id === 'admin'
-                    ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-purple-950 text-amber-300 border border-amber-500/60 hover:border-amber-400 shadow-md hover:bg-indigo-900/80 font-black'
+                    ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-amber-300 border-2 border-amber-500/70 hover:border-amber-400 hover:text-white shadow-md font-black ring-1 ring-amber-500/30 hover:scale-102'
                     : isDark 
-                      ? 'text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700'
-                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/90 border border-slate-200/80 hover:border-slate-300 bg-white/60 shadow-2xs';
+                      ? 'text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800/80 hover:border-slate-700 bg-slate-900/60'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-100/90 border border-slate-200/90 hover:border-slate-300 bg-white shadow-2xs';
 
                 return (
                   <button
                     key={t.id}
                     data-active={isActive ? "true" : "false"}
                     onClick={() => handleTabClick(t.id)}
-                    className={`relative flex items-center justify-center gap-2 px-3 sm:px-3.5 py-2 text-xs sm:text-[13px] font-bold rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap min-h-[38px] shrink-0 touch-manipulation select-none hover:shadow-xs ${activeStyle}`}
+                    className={`relative flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer whitespace-nowrap min-h-[36px] touch-manipulation select-none hover:shadow-xs active:scale-98 ${
+                      isAutoFillLayout ? 'flex-1 min-w-fit' : 'shrink-0'
+                    } ${activeStyle}`}
                   >
                     {isActive && (
                       <div
                         className="absolute inset-0 rounded-xl bg-white/10"
                       />
                     )}
-                    <span className="relative z-10 flex items-center justify-center gap-2">
+                    <span className="relative z-10 flex items-center justify-center gap-1.5">
                       {t.icon}
                       <span className="whitespace-nowrap">{t.label}</span>
                       {t.badge}
                       {isAdminAuthenticated && isDisabledForSatker && (
-                        <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5" title="Menu ini saat ini dinonaktifkan untuk Satker">
-                          <Lock className="w-2.5 h-2.5" /> Off
+                        <span className="bg-rose-50 text-rose-600 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0" title="Menu ini dinonaktifkan untuk Satker">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>OFF</span>
                         </span>
                       )}
                     </span>

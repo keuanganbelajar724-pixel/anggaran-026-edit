@@ -4,7 +4,6 @@ import { exportSatkersToExcel, exportSatkersToPDF } from '../utils/exportUtils';
 import { IndicatorAnalysisModal, IndicatorAnalysisModalData } from './IndicatorAnalysisModal';
 import { PaginationControl } from './PaginationControl';
 import { IkpaAnomalyTrendSection } from './IkpaAnomalyTrendSection';
-import { UserGreetingBanner } from './UserGreetingBanner';
 import { 
   Building2, 
   TrendingUp, 
@@ -497,17 +496,6 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      
-      {/* Personalized Greeting Banner for KPPN User / Admin Super */}
-      <UserGreetingBanner
-        currentUser={currentUser || null}
-        onOpenProfileModal={onOpenProfileModal || (() => {})}
-        onOpenLoginModal={onOpenLoginModal || (() => {})}
-        onLogout={onLogout || (() => {})}
-        onNavigateToAdmin={onNavigateToAdmin || onGoToUpload}
-        theme={theme}
-      />
-
       {/* Top Banner Notice - Executive Institutional Styling */}
       <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 p-6 sm:p-8 rounded-3xl border border-slate-800 text-white shadow-2xl relative overflow-hidden space-y-4">
         <div className="absolute top-0 right-0 transform translate-x-8 -translate-y-8 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
