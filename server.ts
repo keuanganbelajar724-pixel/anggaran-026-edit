@@ -4,6 +4,15 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import { 
+  loadEmailConfig, 
+  saveEmailConfig, 
+  getPublicEmailStatus, 
+  sendEmail, 
+  buildOtpEmailHtml, 
+  buildTestEmailHtml, 
+  EmailConfig 
+} from './server_email';
 
 dotenv.config();
 
@@ -294,6 +303,137 @@ async function startServer() {
       res.status(400).json({ status: 'error', message: 'Invalid list payload' });
     } catch (e: any) {
       res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // ==========================================
+  // EMAIL GATEWAY (BREVO / RESEND / SMTP GMAIL) ENDPOINTS
+  // ==========================================
+  let emailConfig: EmailConfig = loadEmailConfig();
+
+  app.get('/api/email/config', (_req, res) => {
+    res.json({
+      status: 'ok',
+      config: getPublicEmailStatus(emailConfig)
+    });
+  });
+
+  app.post('/api/email/config', (req, res) => {
+    try {
+      const body = req.body || {};
+      const updated: EmailConfig = {
+        ...emailConfig,
+        provider: body.provider || emailConfig.provider,
+        senderName: body.senderName !== undefined ? body.senderName : emailConfig.senderName,
+        senderEmail: body.senderEmail !== undefined ? body.senderEmail : emailConfig.senderEmail,
+        brevoApiKey: body.brevoApiKey && !body.brevoApiKey.includes('••••') ? body.brevoApiKey.trim() : emailConfig.brevoApiKey,
+        resendApiKey: body.resendApiKey && !body.resendApiKey.includes('••••') ? body.resendApiKey.trim() : emailConfig.resendApiKey,
+        smtpHost: body.smtpHost || emailConfig.smtpHost,
+        smtpPort: Number(body.smtpPort) || emailConfig.smtpPort,
+        smtpSecure: body.smtpSecure !== undefined ? body.smtpSecure : emailConfig.smtpSecure,
+        smtpUser: body.smtpUser !== undefined ? body.smtpUser.trim() : emailConfig.smtpUser,
+        smtpPass: body.smtpPass && !body.smtpPass.includes('••••') ? body.smtpPass.trim() : emailConfig.smtpPass,
+      };
+
+      emailConfig = saveEmailConfig(updated);
+      res.json({
+        status: 'ok',
+        message: 'Konfigurasi Email Gateway berhasil disimpan',
+        config: getPublicEmailStatus(emailConfig)
+      });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/email/test', async (req, res) => {
+    try {
+      const { testRecipient, configOverride } = req.body || {};
+      if (!testRecipient || !testRecipient.includes('@')) {
+        return res.status(400).json({ success: false, error: 'Alamat email penerima uji coba tidak valid.' });
+      }
+
+      const activeConfig: EmailConfig = {
+        ...emailConfig,
+        ...(configOverride || {})
+      };
+
+      if (configOverride) {
+        if (!configOverride.brevoApiKey || configOverride.brevoApiKey.includes('••••')) {
+          activeConfig.brevoApiKey = emailConfig.brevoApiKey;
+        }
+        if (!configOverride.resendApiKey || configOverride.resendApiKey.includes('••••')) {
+          activeConfig.resendApiKey = emailConfig.resendApiKey;
+        }
+        if (!configOverride.smtpPass || configOverride.smtpPass.includes('••••')) {
+          activeConfig.smtpPass = emailConfig.smtpPass;
+        }
+      }
+
+      const htmlContent = buildTestEmailHtml({
+        provider: activeConfig.provider,
+        senderEmail: activeConfig.senderEmail,
+        senderName: activeConfig.senderName,
+        testedAt: new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) + ' WIB'
+      });
+
+      const result = await sendEmail(activeConfig, {
+        toEmail: testRecipient.trim(),
+        subject: `[Uji Coba] Konfigurasi Gateway Email ANGKASA - ${activeConfig.provider.toUpperCase()}`,
+        htmlContent
+      });
+
+      res.json({
+        success: true,
+        message: `Email uji coba berhasil dikirim ke ${testRecipient} melalui ${result.provider.toUpperCase()}! Silakan periksa folder Inbox atau Spam.`,
+        provider: result.provider,
+        messageId: result.messageId
+      });
+    } catch (e: any) {
+      res.status(500).json({
+        success: false,
+        error: e?.message || 'Gagal mengirim email uji coba.'
+      });
+    }
+  });
+
+  app.post('/api/send-email-otp', async (req, res) => {
+    try {
+      const { userId, email, displayName, username, otp } = req.body || {};
+
+      if (!email || !email.includes('@')) {
+        return res.status(400).json({ success: false, error: 'Email tujuan tidak valid atau akun belum memiliki email terdaftar.' });
+      }
+      if (!otp) {
+        return res.status(400).json({ success: false, error: 'Kode OTP tidak ditemukan.' });
+      }
+
+      const htmlContent = buildOtpEmailHtml({
+        displayName: displayName || 'Pengguna ANGKASA',
+        username: username || 'user',
+        otp: String(otp),
+        expiryMinutes: 15
+      });
+
+      const sendResult = await sendEmail(emailConfig, {
+        toEmail: email.trim(),
+        toName: displayName || username,
+        subject: 'Kode Verifikasi OTP Reset Kata Sandi - ANGKASA KPPN Semarang I',
+        htmlContent
+      });
+
+      res.json({
+        success: true,
+        message: `Kode verifikasi OTP telah dikirimkan ke email ${email}.`,
+        provider: sendResult.provider,
+        messageId: sendResult.messageId
+      });
+    } catch (e: any) {
+      console.error('Failed to send OTP email:', e);
+      res.status(500).json({
+        success: false,
+        error: e?.message || 'Gagal mengirimkan email OTP verifikasi.'
+      });
     }
   });
 

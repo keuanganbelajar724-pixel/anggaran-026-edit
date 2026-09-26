@@ -95,6 +95,8 @@ import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
 import { UserGreetingBanner } from './components/UserGreetingBanner';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
+import { InternalAppSidebar } from './components/InternalAppSidebar';
+import { INITIAL_SIDEBAR_CONFIG } from './data/initialSidebarData';
 
 import { ToastProvider } from './components/ToastNotification';
 import { trackPageView } from './utils/trafficTracker';
@@ -372,7 +374,8 @@ export default function App() {
         },
         realisasiAnggaranConfig: savedConfig.realisasiAnggaranConfig
           ? { ...DEFAULT_REALISASI_ANGGARAN_CONFIG, ...savedConfig.realisasiAnggaranConfig }
-          : DEFAULT_REALISASI_ANGGARAN_CONFIG
+          : DEFAULT_REALISASI_ANGGARAN_CONFIG,
+        sidebarConfig: savedConfig.sidebarConfig || INITIAL_SIDEBAR_CONFIG
       };
     }
 
@@ -398,6 +401,7 @@ export default function App() {
       historicalUploads: savedHist,
       presensiPrintConfig: initialPresensiPrint,
       realisasiAnggaranConfig: DEFAULT_REALISASI_ANGGARAN_CONFIG,
+      sidebarConfig: INITIAL_SIDEBAR_CONFIG,
       menuVisibility: {
         ...DEFAULT_MENU_VISIBILITY,
         ...(savedMenuVisibility || {})
@@ -4160,6 +4164,17 @@ export default function App() {
 
       {/* Premium Accessibility Floating Widget & Menu */}
       <AccessibilityWidget />
+
+      {/* Sidebar Aplikasi Internal KPPN (Hanya muncul jika sudah login) */}
+      <InternalAppSidebar
+        config={dashboardConfig.sidebarConfig}
+        currentUser={currentUser}
+        isAdminAuthenticated={isAdminAuthenticated}
+        onOpenSettings={() => {
+          setActiveTab('admin');
+        }}
+        isDark={theme === 'dark'}
+      />
 
     </div>
   );

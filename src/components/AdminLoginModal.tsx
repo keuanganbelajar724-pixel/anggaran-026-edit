@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  RefreshCw
 } from 'lucide-react';
 import { AppTheme, AppUser } from '../types';
 import { 
@@ -39,6 +40,7 @@ import {
   requestPasswordResetOtp, 
   verifyOtpAndResetPassword 
 } from '../utils/userManager';
+import { sendPasswordResetEmailOtp } from '../services/emailGatewayService';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -75,13 +77,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const [resetIdentifier, setResetIdentifier] = useState<string>('');
   const [resetTargetUser, setResetTargetUser] = useState<AppUser | null>(null);
   const [maskedEmail, setMaskedEmail] = useState<string>('');
-  const [generatedOtp, setGeneratedOtp] = useState<string>('');
   const [enteredOtp, setEnteredOtp] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [isProcessingReset, setIsProcessingReset] = useState<boolean>(false);
-  const [copiedOtp, setCopiedOtp] = useState<boolean>(false);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [emailSendResult, setEmailSendResult] = useState<{ success: boolean; message: string; provider?: string } | null>(null);
 
   // Check rate limiter status on open or timer tick
   useEffect(() => {
@@ -93,6 +95,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       setInfoMsg(null);
       setSuccessUser(null);
       setViewMode('login');
+      setEmailSendResult(null);
     }
   }, [isOpen]);
 
@@ -113,37 +116,30 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
     return () => clearInterval(timer);
   }, [lockoutSeconds]);
 
+  // Resend OTP countdown timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
   if (!isOpen) return null;
 
   const isCurrentlyLocked = lockoutSeconds > 0;
 
-  const handleCopyOtp = () => {
-    if (!generatedOtp) return;
-    navigator.clipboard.writeText(generatedOtp);
-    setCopiedOtp(true);
-    setTimeout(() => setCopiedOtp(false), 2000);
-  };
-
-  const handleOpenEmailClient = () => {
-    if (!resetTargetUser || !resetTargetUser.email) return;
-    const subject = encodeURIComponent('Kode Verifikasi Reset Kata Sandi ANGKASA KPPN Semarang I');
-    const body = encodeURIComponent(
-      `Yth. ${resetTargetUser.displayName},\n\n` +
-      `Berikut adalah kode verifikasi OTP untuk reset kata sandi akun ANGKASA Anda:\n\n` +
-      `KODE VERIFIKASI: ${generatedOtp}\n\n` +
-      `Kode ini berlaku selama 15 menit. Jika Anda tidak meminta reset ini, abaikan pesan ini.\n\n` +
-      `Salam,\nAdministrator KPPN Semarang I (026)`
-    );
-    try {
-      window.location.href = `mailto:${resetTargetUser.email}?subject=${subject}&body=${body}`;
-    } catch {
-      // Fallback
-    }
-  };
-
   // Submit Request Reset OTP via Email
-  const handleRequestResetOtp = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRequestResetOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
     setInfoMsg(null);
 
@@ -159,12 +155,28 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       if (res.success && res.user && res.otp && res.maskedEmail) {
         setResetTargetUser(res.user);
         setMaskedEmail(res.maskedEmail);
-        setGeneratedOtp(res.otp);
         setEnteredOtp('');
         setNewPassword('');
         setConfirmNewPassword('');
+        setResendCooldown(60);
+
+        // Dispatch OTP to user's real email via backend Email Gateway (Brevo / Resend / Gmail SMTP)
+        const emailRes = await sendPasswordResetEmailOtp({
+          userId: res.user.id,
+          email: res.user.email || '',
+          displayName: res.user.displayName,
+          username: res.user.username,
+          otp: res.otp
+        });
+
+        setEmailSendResult(emailRes);
         setViewMode('verify');
-        setInfoMsg(`Kode verifikasi 6-digit telah dikirim ke alamat email: ${res.maskedEmail}`);
+
+        if (emailRes.success) {
+          setInfoMsg(`Kode verifikasi 6-digit telah dikirimkan ke email: ${res.maskedEmail}`);
+        } else {
+          setErrorMsg(`Pengiriman email via gateway gagal: ${emailRes.message}. Pastikan Super Admin telah mengatur API Resend/Brevo/Gmail di Manajemen User.`);
+        }
       } else {
         setErrorMsg(res.message || 'Akun tidak ditemukan atau belum mendaftarkan email.');
       }
@@ -734,62 +746,54 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         {viewMode === 'verify' && (
           <form onSubmit={handleVerifyOtpAndSavePassword} className="p-5 sm:p-6 space-y-4">
             {infoMsg && (
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 rounded-2xl text-xs space-y-2">
-                <div className="flex items-center gap-1.5 font-black text-[11px]">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  <span>Kode Verifikasi OTP Siap Digunakan:</span>
+              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 rounded-2xl text-xs space-y-2.5">
+                <div className="flex items-center gap-2 font-black text-xs">
+                  <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Kode Verifikasi OTP Dikirim ke Email:</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-                  Untuk akun dengan email terdaftar: <strong className="text-emerald-700 dark:text-emerald-300 font-mono">{maskedEmail}</strong>.
+                  Sistem telah mengirimkan 6-digit kode verifikasi ke alamat email: <strong className="text-emerald-700 dark:text-emerald-300 font-mono">{maskedEmail}</strong>. Harap periksa folder <strong>Kotak Masuk (Inbox)</strong> atau folder <strong>Spam / Promosi</strong> di email Anda.
                 </p>
 
-                {/* Direct OTP Display & Quick Paste */}
-                {generatedOtp && (
-                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 flex items-center justify-between shadow-2xs">
-                    <div>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">
-                        Kode OTP Verifikasi Anda:
-                      </span>
-                      <span className="text-base font-mono font-black text-emerald-600 dark:text-emerald-400 tracking-widest">
-                        {generatedOtp}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={handleCopyOtp}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                        title="Salin kode OTP"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>{copiedOtp ? 'Tersalin! ✅' : 'Salin'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEnteredOtp(generatedOtp);
-                          if (errorMsg) setErrorMsg(null);
-                        }}
-                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[11px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-xs active:scale-95"
-                      >
-                        <span>Tempel Otomatis &rarr;</span>
-                      </button>
-                    </div>
+                {/* Gateway Status Badge */}
+                {emailSendResult && (
+                  <div className="pt-1">
+                    {emailSendResult.success ? (
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold text-[10px]">
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>Terkirim otomatis via Gateway Email ({emailSendResult.provider ? emailSendResult.provider.toUpperCase() : 'RESEND/BREVO'})</span>
+                      </div>
+                    ) : (
+                      <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-[11px] font-medium space-y-1">
+                        <div className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>Pemberitahuan Gateway Email:</span>
+                        </div>
+                        <p>{emailSendResult.message}</p>
+                      </div>
+                    )}
                   </div>
                 )}
-                
-                {/* Email Client Trigger */}
-                <div className="pt-1 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleOpenEmailClient}
-                    className="px-2.5 py-1 bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg font-bold text-[10px] flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <Mail className="w-3 h-3 text-emerald-600" />
-                    <span>Kirim Salinan ke Aplikasi Email / Webmail</span>
-                  </button>
+
+                {/* Resend Cooldown Section */}
+                <div className="pt-1 flex items-center justify-between border-t border-emerald-200/60 dark:border-emerald-800/60 text-[11px]">
+                  {resendCooldown > 0 ? (
+                    <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                      <Clock className="w-3 h-3 text-emerald-600" />
+                      <span>Kirim ulang kode dalam <strong className="text-emerald-700 dark:text-emerald-300 font-mono font-bold">{resendCooldown}s</strong></span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRequestResetOtp()}
+                      disabled={isProcessingReset}
+                      className="font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isProcessingReset ? 'animate-spin' : ''}`} />
+                      <span>Kirim Ulang Kode OTP ke Email &rarr;</span>
+                    </button>
+                  )}
+                  <span className="text-[10px] text-slate-400">Masa berlaku 15 menit</span>
                 </div>
               </div>
             )}

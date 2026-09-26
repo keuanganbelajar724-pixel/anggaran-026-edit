@@ -1489,6 +1489,7 @@ export interface DashboardConfig {
   juknisSubTabVisibility?: JuknisSubTabVisibility;
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
   perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
+  sidebarConfig?: import('./types/sidebar').SidebarConfig;
 }
 
 export interface JuknisSubTabVisibility {
@@ -3229,6 +3230,7 @@ export interface KontrakQualityReport {
 }
 
 export * from './types/user';
+export * from './types/sidebar';
 
 
 

@@ -39,6 +39,7 @@ import {
 import { normalizeImageUrl } from '../../utils/imageUrlHelper';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 import { useToast } from '../ToastNotification';
+import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
 
 interface UserManagementSectionProps {
   currentUser: AppUser | null;
@@ -51,6 +52,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
 }) => {
   const isDark = theme === 'dark';
   const { showToast } = useToast();
+  const [subTab, setSubTab] = useState<'users' | 'email_gateway'>('users');
   const [users, setUsers] = useState<AppUser[]>(() => getStoredUsers());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'superadmin' | 'pegawai'>('ALL');
@@ -368,8 +370,48 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         </div>
       </div>
 
-      {/* Search and Role Filter Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      {/* Subtab Navigation: Kelola User vs Gateway Email API */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-100 dark:bg-slate-900/80 rounded-2xl border border-slate-200 dark:border-slate-800 w-fit">
+        <button
+          type="button"
+          onClick={() => setSubTab('users')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            subTab === 'users'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>Kelola Pengguna ({totalUsers})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('email_gateway')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            subTab === 'email_gateway'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Mail className="w-4 h-4" />
+          <span>Gateway Email OTP (Brevo / Resend / Gmail)</span>
+        </button>
+      </div>
+
+      {/* VIEW A: EMAIL GATEWAY CONFIGURATION */}
+      {subTab === 'email_gateway' && (
+        <EmailGatewayConfigCard 
+          currentUserEmail={currentUser?.email} 
+          theme={theme === 'dark' ? 'dark' : 'light'} 
+        />
+      )}
+
+      {/* VIEW B: USER LIST & MANAGEMENT */}
+      {subTab === 'users' && (
+        <>
+          {/* Search and Role Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="relative w-full sm:w-80">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -593,6 +635,8 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
             Gunakan kata kunci lain atau klik tombol "Tambah User Pegawai" di atas.
           </p>
         </div>
+      )}
+      </>
       )}
 
       {/* Modal 1: Add New User */}

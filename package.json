@@ -31,6 +31,7 @@
     "jspdf-autotable": "^5.0.8",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
+    "nodemailer": "^10.0.10",
     "pdfjs-dist": "^6.2.108",
     "pptxgenjs": "^4.0.1",
     "react": "^19.0.1",
@@ -42,7 +43,9 @@
     "vite": "^6.2.3",
     "xlsx": "^0.18.5"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2"
+  },
   "overrides": {
     "@napi-rs/canvas": "npm:empty-npm-package@1.0.0"
   },

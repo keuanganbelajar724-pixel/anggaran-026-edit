@@ -71,6 +71,7 @@ import { FirebaseQuotaMonitorSection } from './admin/FirebaseQuotaMonitorSection
 import { AdvancedWhatIfAnalyticsSection } from './admin/AdvancedWhatIfAnalyticsSection';
 import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
 import { UserManagementSection } from './admin/UserManagementSection';
+import { SidebarManagementSection } from './admin/SidebarManagementSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
 import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER } from '../utils/userManager';
@@ -194,7 +195,8 @@ import {
   Receipt,
   Coins,
   Ticket,
-  UploadCloud
+  UploadCloud,
+  LayoutGrid
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
@@ -508,7 +510,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3469,8 +3471,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           </button>
         </div>
 
-        {/* Row 4: 4 Tombol Tata Kelola, Knowledge & Superadmin */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        {/* Row 4: 5 Tombol Tata Kelola, Knowledge, Superadmin & Sidebar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
           <button
             onClick={() => setAdminTab('pengetahuan-admin')}
             className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
@@ -3538,6 +3540,27 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               currentUser?.role === 'pegawai'
                 ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
                 : 'bg-amber-400 text-slate-950'
+            }`}>
+              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setAdminTab('sidebar')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'sidebar'
+                ? 'bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-700 text-white shadow-md border-2 border-sky-400 ring-2 ring-sky-400/30'
+                : 'bg-white/80 dark:bg-slate-800/80 text-blue-900 dark:text-blue-300 border border-blue-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <LayoutGrid className="w-4 h-4 text-sky-500 shrink-0" />
+              <span className="truncate">20. Tab Side Bar (Aplikasi Internal)</span>
+            </div>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs ${
+              currentUser?.role === 'pegawai'
+                ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                : 'bg-sky-400 text-slate-950'
             }`}>
               {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
             </span>
@@ -11141,6 +11164,37 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           <UserManagementSection
             currentUser={currentUser}
             theme={theme}
+          />
+        )
+      )}
+
+      {/* 20. Pengaturan Side Bar Aplikasi Internal KPPN (Admin Super) */}
+      {adminTab === 'sidebar' && (
+        currentUser?.role === 'pegawai' ? (
+          <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-rose-200 dark:border-rose-900 shadow-xl text-center space-y-4 max-w-xl mx-auto my-12">
+            <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-slate-100">
+              Akses Khusus Admin Super
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              Pengaturan menu, tautan submenu, dan tema warna Sidebar Aplikasi Internal KPPN Semarang I hanya dapat diakses dan dikonfigurasi oleh Admin Super. Pegawai KPPN dapat menggunakan dan membuka sidebar langsung melalui tombol pintasan di sisi layar.
+            </p>
+          </div>
+        ) : (
+          <SidebarManagementSection
+            currentUser={currentUser}
+            sidebarConfig={tempConfig.sidebarConfig}
+            onUpdateSidebarConfig={(newSidebarConfig) => {
+              const updatedConfig: DashboardConfig = {
+                ...tempConfig,
+                sidebarConfig: newSidebarConfig
+              };
+              setTempConfig(updatedConfig);
+              onUpdateDashboardConfig(updatedConfig);
+            }}
+            isDark={isDark}
           />
         )
       )}
