@@ -72,24 +72,21 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
   onOpenSettings,
   isDark = false
 }) => {
-  // CRITICAL REQUIREMENT:
-  // "jadi kalau di luar yang tidak bisa login maka side bar tidak muncul"
-  // "niatnya sidebar ini hanya bisa dilihat oleh yang mempunyai user"
-  if (!isAdminAuthenticated || !currentUser || config?.isEnabled === false) {
-    return null;
-  }
-
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [expandedMenuIds, setExpandedMenuIds] = useState<string[]>([]);
 
-  const themePresetKey = config.themePreset || 'navy_kemenkeu';
+  const themePresetKey = config?.themePreset || 'navy_kemenkeu';
   const themePreset = SIDEBAR_THEME_PRESETS[themePresetKey] || SIDEBAR_THEME_PRESETS.navy_kemenkeu;
-  const isPositionRight = config.position === 'right';
+  const isPositionRight = config?.position === 'right';
 
   // Toggle open/close on keyboard shortcut: Ctrl+B or Cmd+B
   useEffect(() => {
+    if (!isAdminAuthenticated || !currentUser || config?.isEnabled === false) {
+      return;
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
@@ -100,21 +97,21 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, isAdminAuthenticated, currentUser, config?.isEnabled]);
 
   // Width classes
   const widthClasses = useMemo(() => {
-    switch (config.widthMode) {
+    switch (config?.widthMode) {
       case 'compact': return 'w-80 max-w-[85vw]';
       case 'wide': return 'w-[440px] max-w-[92vw]';
       case 'standard':
       default: return 'w-[370px] max-w-[90vw]';
     }
-  }, [config.widthMode]);
+  }, [config?.widthMode]);
 
   const activeItems = useMemo(() => {
-    return (config.items || []).filter(item => item.isActive !== false);
-  }, [config.items]);
+    return (config?.items || []).filter(item => item.isActive !== false);
+  }, [config?.items]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -169,6 +166,13 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
   const collapseAll = () => {
     setExpandedMenuIds([]);
   };
+
+  // CRITICAL REQUIREMENT:
+  // "jadi kalau di luar yang tidak bisa login maka side bar tidak muncul"
+  // "niatnya sidebar ini hanya bisa dilihat oleh yang mempunyai user"
+  if (!isAdminAuthenticated || !currentUser || config?.isEnabled === false) {
+    return null;
+  }
 
   return (
     <>
