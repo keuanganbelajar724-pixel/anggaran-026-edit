@@ -228,7 +228,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         if (onLoginSuccess) {
           onLoginSuccess(resetTargetUser);
         }
-        if (onAuthenticateAdmin) {
+        if (onAuthenticateAdmin && resetTargetUser.role === 'superadmin') {
           onAuthenticateAdmin(newPassword);
         }
 
@@ -319,7 +319,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       if (onLoginSuccess) {
         onLoginSuccess(result.user);
       }
-      if (onAuthenticateAdmin) {
+      if (onAuthenticateAdmin && result.user.role === 'superadmin') {
         onAuthenticateAdmin(cleanPass);
       }
 
@@ -548,10 +548,25 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
-                    <Lock className="w-3 h-3 text-amber-500 shrink-0" />
-                    <span>Hanya dapat diakses oleh Administrator utama KPPN Semarang I.</span>
-                  </p>
+                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+                      <span>PIN Standar: <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-amber-600 dark:text-amber-400 font-mono font-bold">kppn026</code></span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg(null);
+                        setInfoMsg(null);
+                        setResetIdentifier('admin');
+                        setViewMode('forgot');
+                      }}
+                      className="text-[11px] text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Lupa PIN Super Admin? Reset via Email</span>
+                    </button>
+                  </div>
                 </div>
 
                 {errorMsg && (
@@ -575,13 +590,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
               <>
                 <div>
                   <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                    Username Pegawai
+                    Username, Alamat Email, atau NIP Pegawai
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Masukkan username akun pegawai..."
+                      placeholder="Ketik username (@pegawai), email terdaftar, atau NIP 18-digit..."
                       value={usernameInput}
                       onChange={(e) => {
                         setUsernameInput(e.target.value);
@@ -592,6 +607,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       autoFocus
                       required
                     />
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-slate-500 dark:text-slate-400">
+                    <span>💡 Bisa masuk menggunakan:</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Username (@pegawai)</span> •
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Email</span> •
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">NIP 18-digit</span>
                   </div>
                 </div>
 
@@ -642,7 +663,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <HelpCircle className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>Lupa Kata Sandi Pegawai? Reset via Email</span>
+                      <span>Lupa Kata Sandi Pegawai? Reset via Email OTP</span>
                     </button>
                   </div>
                 </div>
@@ -682,13 +703,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
             <div>
               <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Username atau Alamat Email Terdaftar
+                Username, Alamat Email, atau NIP Akun Terdaftar
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="contoh: admin, budi, atau email@kemenkeu.go.id"
+                  placeholder="contoh: admin, pegawai, email@kemenkeu.go.id, atau NIP 18-digit"
                   value={resetIdentifier}
                   onChange={(e) => {
                     setResetIdentifier(e.target.value);

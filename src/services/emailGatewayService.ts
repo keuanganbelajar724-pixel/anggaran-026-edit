@@ -227,3 +227,49 @@ export async function sendPasswordResetEmailOtp(params: {
     };
   }
 }
+
+/**
+ * Send official Jarkom / Broadcast Email to Satker or Pejabat
+ */
+export async function sendBroadcastEmail(params: {
+  toEmail: string;
+  toName?: string;
+  subject: string;
+  messageText: string;
+  htmlContent?: string;
+  satkerNama?: string;
+  satkerKode?: string;
+  roleLabel?: string;
+  configOverride?: Partial<EmailGatewayConfig>;
+}): Promise<EmailSendResult> {
+  try {
+    const res = await fetch('/api/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return {
+        success: true,
+        message: data.message || `Email berhasil terkirim ke ${params.toEmail}`,
+        provider: data.provider,
+        messageId: data.messageId
+      };
+    }
+
+    return {
+      success: false,
+      message: data.error || data.message || 'Gagal mengirim email.',
+      error: data.error
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Terjadi kesalahan koneksi saat mengirim email ke server gateway.',
+      error: err.message
+    };
+  }
+}
+

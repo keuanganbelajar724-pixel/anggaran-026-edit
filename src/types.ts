@@ -12,6 +12,8 @@ export interface MasterSatker {
   namaPic?: string;
   noHpPic?: string;
   emailPic?: string;
+  emailSatker?: string; // Email resmi Satker untuk integrasi API & notifikasi
+  email?: string;       // Alias email serbaguna untuk API
   alamatSatker?: string;
   catatan?: string;
   pejabatOperator?: PejabatDanOperator;
@@ -519,6 +521,8 @@ export interface SatkerIKPA {
   namaPic?: string;
   noHpPic?: string;
   emailPic?: string;
+  emailSatker?: string; // Email resmi Satker untuk integrasi API
+  email?: string;
   alamatSatker?: string;
 
   // Rincian Pengelola Keuangan & Operator Satker (Internal - Diakses via Detail)

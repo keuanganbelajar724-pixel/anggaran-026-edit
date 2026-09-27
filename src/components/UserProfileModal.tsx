@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Crown,
   Mail,
-  Phone
+  Phone,
+  Fingerprint
 } from 'lucide-react';
 import { AppUser, AppTheme } from '../types';
 import { normalizeImageUrl, isGoogleDriveUrl, extractGoogleDriveFileId } from '../utils/imageUrlHelper';
@@ -49,6 +50,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   const [displayName, setDisplayName] = useState<string>('');
   const [jabatan, setJabatan] = useState<string>('');
   const [seksi, setSeksi] = useState<string>('');
+  const [nip, setNip] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [noHp, setNoHp] = useState<string>('');
   const [photoUrlInput, setPhotoUrlInput] = useState<string>('');
@@ -74,6 +76,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
       setDisplayName(currentUser.displayName || '');
       setJabatan(currentUser.jabatan || '');
       setSeksi(currentUser.seksi || 'Seksi MSKI');
+      setNip(currentUser.nip || '');
       setEmail(currentUser.email || '');
       setNoHp(currentUser.noHp || '');
       setPhotoUrlInput(currentUser.photoUrl || '');
@@ -120,6 +123,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         displayName: displayName.trim(),
         jabatan: jabatan.trim(),
         seksi: seksi.trim(),
+        nip: nip.trim(),
         email: email.trim(),
         noHp: noHp.trim(),
         photoUrl: photoUrlInput.trim(),
@@ -339,6 +343,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+            </div>
+
+            {/* NIP Pegawai */}
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider mb-1.5 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
+                <span>NIP (Nomor Induk Pegawai 18-digit)</span>
+              </label>
+              <input
+                type="text"
+                maxLength={18}
+                value={nip}
+                onChange={(e) => setNip(e.target.value.replace(/\D/g, ''))}
+                placeholder="misal: 199205152014021002"
+                className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                NIP 18-digit ini dapat Anda gunakan sebagai identitas login alternatif ke sistem.
+              </p>
             </div>
 
             {/* Email & No. HP / WhatsApp for Password Reset */}

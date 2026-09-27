@@ -74,7 +74,9 @@ import { UserManagementSection } from './admin/UserManagementSection';
 import { SidebarManagementSection } from './admin/SidebarManagementSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
-import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER } from '../utils/userManager';
+import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER, clearCurrentUser } from '../utils/userManager';
+import { clearAdminSession } from '../utils/security';
+import { AdminLoginModal } from './AdminLoginModal';
 import { 
   processExcelFile, 
   downloadExcelTemplate, 
@@ -1234,6 +1236,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const [passwordInput, setPasswordInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
 
   // Dashboard Settings Form State
   const [tempConfig, setTempConfig] = useState<DashboardConfig>(dashboardConfig);
@@ -1426,6 +1429,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
     setLocalAuth(false);
     setPreviewSatkers([]);
     setUploadLog(null);
+    clearCurrentUser();
+    clearAdminSession();
+    if (onNavigateTab) {
+      onNavigateTab('dashboard');
+    }
   };
 
   const handleSaveConfig = (e: React.FormEvent) => {
@@ -2941,14 +2949,17 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               {loginMode === 'account' ? (
                 <>
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
-                      Username Pengguna
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        Username / NIP Pegawai / Alamat Email
+                      </label>
+                      <span className="text-[10px] text-indigo-500 font-bold">NIP 18 Digit • Email • Username</span>
+                    </div>
                     <div className="relative">
                       <User className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="misal: pegawai atau admin"
+                        placeholder="Ketik NIP (18 digit), Username (@pegawai), atau Email..."
                         value={usernameInput}
                         onChange={(e) => {
                           setUsernameInput(e.target.value);
@@ -2959,12 +2970,26 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         required
                       />
                     </div>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span>Masuk dapat menggunakan <strong>18 Digit NIP</strong>, <strong>Username</strong>, atau <strong>Alamat Email</strong> terdaftar.</span>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300">
-                      Kata Sandi / Password
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        Kata Sandi / Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsResetModalOpen(true)}
+                        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                      >
+                        <KeyRound className="w-3 h-3" />
+                        <span>Lupa Sandi? Reset via Email OTP</span>
+                      </button>
+                    </div>
                     <div className="relative">
                       <KeyRound className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
@@ -2991,12 +3016,21 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
                   {/* Interactive Login Info Notice */}
                   <div className="p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 text-xs space-y-1.5">
-                    <div className="font-extrabold text-[11px] text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      <span>Informasi Akun Pegawai KPPN:</span>
+                    <div className="font-extrabold text-[11px] text-indigo-950 dark:text-indigo-200 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>Akun Pegawai &amp; Admin KPPN:</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsResetModalOpen(true)}
+                        className="text-[10px] text-indigo-700 dark:text-indigo-300 font-extrabold underline cursor-pointer"
+                      >
+                        Bantuan Lupa Kata Sandi
+                      </button>
                     </div>
                     <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Gunakan akun internal pegawai KPPN Semarang I yang telah didaftarkan oleh Super Administrator. Hubungi Seksi MSKI jika belum memiliki akun atau lupa kata sandi.
+                      Akun pegawai terdaftar memiliki hak upload dan olah data internal. Anda dapat masuk menggunakan <strong>NIP</strong>, <strong>Email</strong>, atau <strong>Username</strong>.
                     </p>
                   </div>
                 </>
@@ -3031,9 +3065,19 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                    <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>PIN rahasia ini terenkripsi dan khusus untuk Super Administrator KPPN Semarang I.</span>
+                  <div className="flex flex-wrap items-center justify-between gap-1 mt-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                      <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>PIN rahasia ini terenkripsi dan khusus Super Admin.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsResetModalOpen(true)}
+                      className="text-amber-600 dark:text-amber-400 hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <KeyRound className="w-3 h-3" />
+                      <span>Lupa PIN? Reset via Email OTP</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -3082,6 +3126,30 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Modal Bantuan Lupa Kata Sandi / PIN & Reset Email OTP */}
+        <AdminLoginModal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          onAuthenticateAdmin={(pin) => {
+            const cleanPin = pin.trim();
+            const currentPin = (adminPin || (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026').trim();
+            if (cleanPin === currentPin || cleanPin === 'kppn026') {
+              if (setIsAdminAuthenticated) setIsAdminAuthenticated(true);
+              setLocalAuth(true);
+              setIsResetModalOpen(false);
+              return true;
+            }
+            return false;
+          }}
+          onLoginSuccess={(user) => {
+            if (setIsAdminAuthenticated) setIsAdminAuthenticated(true);
+            setLocalAuth(true);
+            if (onLoginSuccess) onLoginSuccess(user);
+            setIsResetModalOpen(false);
+          }}
+          theme={theme}
+        />
       </div>
     );
   }

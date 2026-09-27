@@ -236,12 +236,13 @@ export default function App() {
       if (typeof window !== 'undefined') {
         if (window.location.hash) {
           const h = window.location.hash.replace('#', '').trim() as NavigationTab;
-          if (h) return h;
+          // Never allow cold navigation/refresh to jump directly into admin tab
+          if (h && h !== 'admin') return h;
         }
         if (window.location.search) {
           const p = new URLSearchParams(window.location.search);
           const t = p.get('tab') as NavigationTab;
-          if (t) return t;
+          if (t && t !== 'admin') return t;
         }
         let menuVis: any = null;
         try {
@@ -699,22 +700,33 @@ export default function App() {
     return INITIAL_MY_INTRESS_DATA || [];
   });
 
-  // User Authentication & Role Management State
-  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
-    return getCurrentUser();
-  });
+  // User Authentication & Role Management State (Session in memory only: starts null on reload / browser restart)
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
   const [profileModalInitialTab, setProfileModalInitialTab] = useState<'profile' | 'password'>('profile');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
-  // Global Admin Authentication State shared across Admin Upload, Satker Details Modal & Reminder Generator
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(() => {
-    const user = getCurrentUser();
-    return Boolean(user && user.isActive);
-  });
+  // Global Admin Authentication State (Session in memory only: starts false on reload / browser restart)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
   const [adminPin, setAdminPin] = useState<string>(() => {
     return localStorage.getItem('kppn_admin_pin') || 'kppn026';
   });
+
+  // High-Grade Session Security: Clear persistent tokens and ensure cold starts / refreshes start logged out
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('kppn_current_user_session_v2');
+        localStorage.removeItem('kppn_auth_current_user');
+        sessionStorage.removeItem('kppn_current_user_session_v2');
+        sessionStorage.removeItem('kppn_auth_current_user');
+        sessionStorage.removeItem('kppn_sec_admin_session');
+        if (window.location.hash === '#admin') {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    } catch (e) {}
+  }, []);
 
   // State Rekonsiliasi & Kepatuhan Satker
   const [rekonsiliasiRecords, setRekonsiliasiRecords] = useState<MonitoringRekonsiliasiRecord[]>(() => {
@@ -2085,7 +2097,9 @@ export default function App() {
         kodeBa: item.kodeBa || existing.kodeBa,
         namaPic: item.namaPic || existing.namaPic,
         noHpPic: item.noHpPic || existing.noHpPic,
-        emailPic: item.emailPic || existing.emailPic,
+        emailPic: item.emailPic || item.emailSatker || item.email || existing.emailPic,
+        emailSatker: item.emailSatker || item.emailPic || item.email || existing.emailSatker || existing.emailPic,
+        email: item.email || item.emailSatker || item.emailPic || existing.email || existing.emailPic,
         alamatSatker: item.alamatSatker || existing.alamatSatker,
         passwordSatker: item.passwordSatker || existing.passwordSatker,
         pejabatOperator: mergedPejabatOperator,
@@ -2116,7 +2130,9 @@ export default function App() {
             passwordSatker: matchMaster.passwordSatker || s.passwordSatker,
             namaPic: matchMaster.namaPic || s.namaPic,
             noHpPic: matchMaster.noHpPic || s.noHpPic,
-            emailPic: matchMaster.emailPic || s.emailPic,
+            emailPic: matchMaster.emailPic || matchMaster.emailSatker || s.emailPic,
+            emailSatker: matchMaster.emailSatker || matchMaster.emailPic || s.emailSatker || s.emailPic,
+            email: matchMaster.email || matchMaster.emailSatker || matchMaster.emailPic || s.email || s.emailPic,
             alamatSatker: matchMaster.alamatSatker || s.alamatSatker,
             pejabatOperator: matchMaster.pejabatOperator || s.pejabatOperator
           };
@@ -2668,6 +2684,10 @@ export default function App() {
     createAdminSession();
     setIsAdminAuthenticated(true);
     setIsLoginModalOpen(false);
+    // If regular pegawai logs in while on admin tab, safely route them to public dashboard
+    if (user.role === 'pegawai' && activeTab === 'admin') {
+      setActiveTab('dashboard');
+    }
   };
 
   const handleAuthenticateAdmin = (pin: string): boolean => {
@@ -2708,6 +2728,12 @@ export default function App() {
     setCurrentUser(null);
     clearAdminSession();
     setIsAdminAuthenticated(false);
+    setActiveTab('dashboard');
+    try {
+      if (typeof window !== 'undefined' && window.location.hash === '#admin') {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    } catch (e) {}
   };
 
   const [lastUpdateDate, setLastUpdateDate] = useState<string>(
@@ -4172,6 +4198,12 @@ export default function App() {
         isAdminAuthenticated={isAdminAuthenticated}
         onOpenSettings={() => {
           setActiveTab('admin');
+        }}
+        onUpdateConfig={(newSidebarConfig) => {
+          handleUpdateDashboardConfig({
+            ...dashboardConfig,
+            sidebarConfig: newSidebarConfig
+          });
         }}
         isDark={theme === 'dark'}
       />

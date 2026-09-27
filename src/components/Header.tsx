@@ -41,7 +41,8 @@ import {
   Coins,
   Ticket,
   Crown,
-  Check
+  Check,
+  LayoutGrid
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -652,6 +653,20 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 )}
 
+                {/* Tombol Pintasan Buka Sidebar Aplikasi Internal KPPN */}
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('toggle-kppn-sidebar'))}
+                  className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-xl bg-slate-900/90 hover:bg-sky-950/80 text-sky-200 border border-sky-500/40 transition-all cursor-pointer shadow-xs hover:border-sky-400 hover:scale-105 active:scale-95"
+                  title="Buka Sidebar Aplikasi Internal KPPN (Ctrl+B)"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="hidden sm:inline">Aplikasi KPPN</span>
+                  <span className="bg-sky-500/20 text-sky-300 font-mono text-[9px] font-black px-1.5 py-0.2 rounded-md border border-sky-400/30">
+                    {dashboardConfig?.sidebarConfig?.items?.filter(i => i.isActive !== false)?.length || 0}
+                  </span>
+                </button>
+
                 {onOpenBroadcastLibrary && (
                   <button
                     type="button"
@@ -831,7 +846,14 @@ export const Header: React.FC<HeaderProps> = ({
           if (onLoginSuccess) {
             onLoginSuccess(user);
           }
-          setActiveTab('admin');
+          // Only redirect to superadmin panel if user is superadmin
+          if (user.role === 'superadmin') {
+            setActiveTab('admin');
+          } else {
+            if (activeTab === 'admin') {
+              setActiveTab('dashboard');
+            }
+          }
         }}
         theme={theme}
       />

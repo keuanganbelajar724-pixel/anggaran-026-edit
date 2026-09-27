@@ -40,6 +40,7 @@ interface InternalAppSidebarProps {
   currentUser: AppUser | null;
   isAdminAuthenticated: boolean;
   onOpenSettings?: () => void;
+  onUpdateConfig?: (newConfig: SidebarConfig) => void;
   isDark?: boolean;
 }
 
@@ -70,6 +71,7 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
   currentUser,
   isAdminAuthenticated,
   onOpenSettings,
+  onUpdateConfig,
   isDark = false
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -77,11 +79,98 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [expandedMenuIds, setExpandedMenuIds] = useState<string[]>([]);
 
+  // State Ukuran Tombol (Simbol saja vs Penuh)
+  const [isMinimized, setIsMinimized] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_sidebar_btn_minimized');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // fallback
+    }
+    return config?.floatingButtonSize === 'symbol';
+  });
+
+  // State Visibilitas Tombol Melayang di Layar (Aktif vs Nonaktif)
+  const [isFloatingVisible, setIsFloatingVisible] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_sidebar_btn_visible');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // fallback
+    }
+    return config?.showFloatingButton !== false;
+  });
+
   const themePresetKey = config?.themePreset || 'navy_kemenkeu';
   const themePreset = SIDEBAR_THEME_PRESETS[themePresetKey] || SIDEBAR_THEME_PRESETS.navy_kemenkeu;
   const isPositionRight = config?.position === 'right';
 
-  // Toggle open/close on keyboard shortcut: Ctrl+B or Cmd+B
+  // Sinkronisasi saat config dari props berubah
+  useEffect(() => {
+    if (config?.showFloatingButton !== undefined) {
+      try {
+        const saved = localStorage.getItem('kppn_sidebar_btn_visible');
+        if (saved === null) {
+          setIsFloatingVisible(config.showFloatingButton);
+        }
+      } catch {
+        setIsFloatingVisible(config.showFloatingButton);
+      }
+    }
+  }, [config?.showFloatingButton]);
+
+  useEffect(() => {
+    if (config?.floatingButtonSize !== undefined) {
+      try {
+        const saved = localStorage.getItem('kppn_sidebar_btn_minimized');
+        if (saved === null) {
+          setIsMinimized(config.floatingButtonSize === 'symbol');
+        }
+      } catch {
+        setIsMinimized(config.floatingButtonSize === 'symbol');
+      }
+    }
+  }, [config?.floatingButtonSize]);
+
+  // Handler Toggle Minimize
+  const toggleMinimize = (toState?: boolean) => {
+    setIsMinimized(prev => {
+      const next = toState !== undefined ? toState : !prev;
+      try {
+        localStorage.setItem('kppn_sidebar_btn_minimized', String(next));
+      } catch (e) {
+        console.warn('LocalStorage notice:', e);
+      }
+      if (onUpdateConfig && config) {
+        onUpdateConfig({
+          ...config,
+          floatingButtonSize: next ? 'symbol' : 'full'
+        });
+      }
+      return next;
+    });
+  };
+
+  // Handler Toggle Floating Button Visible
+  const toggleFloatingVisible = (toState?: boolean) => {
+    setIsFloatingVisible(prev => {
+      const next = toState !== undefined ? toState : !prev;
+      try {
+        localStorage.setItem('kppn_sidebar_btn_visible', String(next));
+      } catch (e) {
+        console.warn('LocalStorage notice:', e);
+      }
+      if (onUpdateConfig && config) {
+        onUpdateConfig({
+          ...config,
+          showFloatingButton: next
+        });
+      }
+      return next;
+    });
+  };
+
+  // Toggle open/close on keyboard shortcut: Ctrl+B or Cmd+B, dan Custom Events
   useEffect(() => {
     if (!isAdminAuthenticated || !currentUser || config?.isEnabled === false) {
       return;
@@ -95,8 +184,19 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
         setIsOpen(false);
       }
     };
+
+    const handleCustomOpen = () => setIsOpen(true);
+    const handleCustomToggle = () => setIsOpen(prev => !prev);
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('open-kppn-sidebar', handleCustomOpen);
+    window.addEventListener('toggle-kppn-sidebar', handleCustomToggle);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('open-kppn-sidebar', handleCustomOpen);
+      window.removeEventListener('toggle-kppn-sidebar', handleCustomToggle);
+    };
   }, [isOpen, isAdminAuthenticated, currentUser, config?.isEnabled]);
 
   // Width classes
@@ -176,8 +276,8 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
 
   return (
     <>
-      {/* 1. Sleek Floating Toggle Button (Hanya tampil bagi yang login) */}
-      {!isOpen && (
+      {/* 1. Sleek Floating Toggle Button (Hanya tampil bagi yang login & jika diaktifkan) */}
+      {!isOpen && isFloatingVisible && (
         <div 
           className={`fixed z-40 transition-all duration-300 ${
             isPositionRight 
@@ -185,37 +285,120 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
               : 'left-0 top-1/3 -translate-y-1/2'
           }`}
         >
-          <button
-            onClick={() => setIsOpen(true)}
-            type="button"
-            className={`group relative flex items-center gap-2.5 px-3 py-3.5 shadow-2xl transition-all duration-300 cursor-pointer ${
-              isPositionRight 
-                ? 'rounded-l-2xl border-l-2 border-y border-sky-400/50 hover:pl-4' 
-                : 'rounded-r-2xl border-r-2 border-y border-sky-400/50 hover:pr-4'
-            } bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white hover:bg-blue-900/95 ring-1 ring-white/10`}
-            title="Buka Sidebar Aplikasi Internal KPPN (Ctrl+B)"
-          >
-            {/* Glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-sky-400/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-inherit" />
+          {isMinimized ? (
+            /* Mode 1: UKURAN SIMBOL SAJA (Minimalis agar tidak mengganggu membaca) */
+            <div className="relative group/btn flex items-center">
+              <button
+                onClick={() => setIsOpen(true)}
+                type="button"
+                className={`group relative flex items-center justify-center p-2.5 sm:p-3 shadow-2xl transition-all duration-300 cursor-pointer ${
+                  isPositionRight 
+                    ? 'rounded-l-2xl border-l-2 border-y border-sky-400/60 hover:pl-3.5' 
+                    : 'rounded-r-2xl border-r-2 border-y border-sky-400/60 hover:pr-3.5'
+                } bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white hover:bg-blue-900/95 ring-1 ring-white/10 hover:scale-105 active:scale-95`}
+                title="Buka Sidebar Aplikasi Internal KPPN (Ctrl+B) • Ukuran Simbol"
+                aria-label="Buka Sidebar Aplikasi Internal KPPN"
+              >
+                {/* Glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/30 to-sky-400/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-inherit" />
 
-            <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md group-hover:scale-110 transition-transform">
-              <LayoutGrid className="w-4 h-4 text-sky-200" />
+                {/* Symbol Icon */}
+                <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md group-hover:rotate-6 transition-transform">
+                  <LayoutGrid className="w-4 h-4 text-sky-200" />
+                </div>
+
+                {/* Counter indicator dot/badge */}
+                <span className="absolute -top-1 -right-1 bg-sky-500 text-slate-950 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md border border-slate-900">
+                  {activeItems.length}
+                </span>
+              </button>
+
+              {/* Tooltip on hover */}
+              <div 
+                className={`absolute pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-all duration-200 whitespace-nowrap z-50 ${
+                  isPositionRight ? 'right-full mr-2' : 'left-full ml-2'
+                }`}
+              >
+                <div className="bg-slate-900/95 border border-slate-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-xl shadow-xl flex items-center gap-1.5 backdrop-blur-md">
+                  <span>Aplikasi KPPN</span>
+                  <span className="text-[10px] text-sky-300 font-mono font-bold">({activeItems.length})</span>
+                </div>
+              </div>
+
+              {/* Small Expand Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMinimize(false);
+                }}
+                className={`absolute opacity-0 group-hover/btn:opacity-100 transition-all duration-200 p-1 rounded-lg bg-slate-800/90 hover:bg-sky-600 text-sky-300 hover:text-white border border-slate-700 shadow-lg cursor-pointer ${
+                  isPositionRight ? '-left-6 top-1/2 -translate-y-1/2' : '-right-6 top-1/2 -translate-y-1/2'
+                }`}
+                title="Perbesar tombol ke ukuran penuh (dengan teks)"
+                aria-label="Perbesar ke ukuran penuh"
+              >
+                <Maximize2 className="w-3 h-3" />
+              </button>
             </div>
+          ) : (
+            /* Mode 2: UKURAN PENUH (Dengan Teks & Tombol Minimize) */
+            <div className="relative group/btn flex items-center">
+              <button
+                onClick={() => setIsOpen(true)}
+                type="button"
+                className={`group relative flex items-center gap-2.5 px-3 py-3 shadow-2xl transition-all duration-300 cursor-pointer ${
+                  isPositionRight 
+                    ? 'rounded-l-2xl border-l-2 border-y border-sky-400/50 hover:pl-4' 
+                    : 'rounded-r-2xl border-r-2 border-y border-sky-400/50 hover:pr-4'
+                } bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md text-white hover:bg-blue-900/95 ring-1 ring-white/10`}
+                title="Buka Sidebar Aplikasi Internal KPPN (Ctrl+B)"
+                aria-label="Buka Sidebar Aplikasi Internal KPPN"
+              >
+                {/* Glow effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-sky-400/20 opacity-0 group-hover:opacity-100 transition-opacity rounded-inherit" />
 
-            <div className="relative flex flex-col text-left pr-1">
-              <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
-                <span>INTERNAL</span>
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              </span>
-              <span className="text-xs font-black tracking-tight text-white leading-tight">
-                Aplikasi KPPN
-              </span>
+                <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md group-hover:scale-110 transition-transform">
+                  <LayoutGrid className="w-4 h-4 text-sky-200" />
+                </div>
+
+                <div className="relative flex flex-col text-left pr-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1">
+                    <span>INTERNAL</span>
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  </span>
+                  <span className="text-xs font-black tracking-tight text-white leading-tight">
+                    Aplikasi KPPN
+                  </span>
+                </div>
+
+                <span className="relative bg-white/10 border border-white/20 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md text-sky-200">
+                  {activeItems.length}
+                </span>
+
+                {/* Tombol Minimize ke Simbol */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMinimize(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      toggleMinimize(true);
+                    }
+                  }}
+                  className="p-1 rounded-lg bg-white/10 hover:bg-sky-500 hover:text-slate-950 text-sky-200 transition-colors cursor-pointer ml-0.5"
+                  title="Minimize tombol ke ukuran simbol agar tidak mengganggu membaca"
+                  aria-label="Minimize tombol ke ukuran simbol"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                </span>
+              </button>
             </div>
-
-            <span className="relative bg-white/10 border border-white/20 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md text-sky-200">
-              {activeItems.length}
-            </span>
-          </button>
+          )}
         </div>
       )}
 
@@ -301,6 +484,82 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Kontrol Cepat Pengaturan Tombol Melayang di Layar */}
+        <div className="px-4 py-2.5 bg-slate-950/70 border-b border-slate-800/80 shrink-0 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sliders className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-200 truncate">
+                Tombol Melayang di Layar
+              </span>
+            </div>
+
+            {/* Toggle Saklar Aktif / Nonaktif */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`text-[10px] font-black uppercase ${isFloatingVisible ? 'text-emerald-400' : 'text-slate-400'}`}>
+                {isFloatingVisible ? 'Aktif' : 'Nonaktif'}
+              </span>
+              <button
+                type="button"
+                onClick={() => toggleFloatingVisible()}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isFloatingVisible ? 'bg-emerald-500' : 'bg-slate-700'
+                }`}
+                title={isFloatingVisible ? "Nonaktifkan tombol melayang agar tidak menutupi tampilan bacaan" : "Aktifkan kembali tombol melayang di tepi layar"}
+                aria-label="Aktifkan atau nonaktifkan tombol melayang"
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    isFloatingVisible ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Opsi Mode Ukuran Tombol ketika tombol aktif */}
+          {isFloatingVisible ? (
+            <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-800/70 text-[10px]">
+              <span className="text-slate-400 font-medium">Ukuran Tombol:</span>
+              <div className="flex items-center gap-1 bg-slate-900 p-0.5 rounded-lg border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => toggleMinimize(true)}
+                  className={`px-2 py-1 rounded-md font-bold text-[10px] transition-all cursor-pointer flex items-center gap-1 ${
+                    isMinimized 
+                      ? 'bg-sky-500 text-slate-950 font-black shadow-xs' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Ukuran simbol saja agar tidak mengganggu membaca"
+                >
+                  <Minimize2 className="w-3 h-3" />
+                  <span>Simbol Saja</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleMinimize(false)}
+                  className={`px-2 py-1 rounded-md font-bold text-[10px] transition-all cursor-pointer flex items-center gap-1 ${
+                    !isMinimized 
+                      ? 'bg-sky-500 text-slate-950 font-black shadow-xs' 
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Ukuran penuh dengan teks Aplikasi KPPN"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Penuh (Teks)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[10px] leading-relaxed flex items-start gap-1.5">
+              <span className="text-amber-400 font-bold shrink-0">ℹ️</span>
+              <span>
+                Tombol melayang dinonaktifkan agar tidak mengganggu membaca. Anda tetap dapat membuka sidebar melalui tombol <strong>"Aplikasi KPPN"</strong> di Header atau tombol keyboard <strong>Ctrl + B</strong>.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Search Bar & Category Filter */}

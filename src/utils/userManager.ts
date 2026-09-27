@@ -156,45 +156,38 @@ export function subscribeUsers(callback: (users: AppUser[]) => void): () => void
   }
 }
 
+// Clear legacy persistent storage from prior versions immediately on bundle execution
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
+    localStorage.removeItem('kppn_auth_current_user');
+    sessionStorage.removeItem(STORAGE_KEY_CURRENT_USER);
+    sessionStorage.removeItem('kppn_auth_current_user');
+  } catch (e) {}
+}
+
+// In-memory active user session (resets automatically on page reload / tab close for high security)
+let inMemoryActiveUser: AppUser | null = null;
+
 /**
- * Gets the currently logged-in user from session/local storage
+ * Gets the currently logged-in user from active memory
  */
 export function getCurrentUser(): AppUser | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    // Check sessionStorage first
-    const sessionRaw = sessionStorage.getItem(STORAGE_KEY_CURRENT_USER);
-    if (sessionRaw) {
-      return JSON.parse(sessionRaw);
-    }
-    // Check localStorage fallback
-    const localRaw = safeLocalStorageGet(STORAGE_KEY_CURRENT_USER);
-    if (localRaw) {
-      const parsed = JSON.parse(localRaw);
-      return parsed;
-    }
-  } catch (err) {
-    console.warn('Error reading current user session:', err);
-  }
-  return null;
+  return inMemoryActiveUser;
 }
 
 /**
- * Sets the active user in both session and local storage
+ * Sets the active user in memory session (never persisted to localStorage for strict banking/gov security)
  */
 export function setCurrentUser(user: AppUser | null): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (user) {
-      const userStr = JSON.stringify(user);
-      sessionStorage.setItem(STORAGE_KEY_CURRENT_USER, userStr);
-      safeLocalStorageSet(STORAGE_KEY_CURRENT_USER, userStr);
-    } else {
-      sessionStorage.removeItem(STORAGE_KEY_CURRENT_USER);
+  inMemoryActiveUser = user;
+  if (typeof window !== 'undefined') {
+    try {
       localStorage.removeItem(STORAGE_KEY_CURRENT_USER);
-    }
-  } catch (err) {
-    console.warn('Error setting current user:', err);
+      localStorage.removeItem('kppn_auth_current_user');
+      sessionStorage.removeItem(STORAGE_KEY_CURRENT_USER);
+      sessionStorage.removeItem('kppn_auth_current_user');
+    } catch (err) {}
   }
 }
 
@@ -202,6 +195,7 @@ export function setCurrentUser(user: AppUser | null): void {
  * Clears user session on logout
  */
 export function clearCurrentUser(): void {
+  inMemoryActiveUser = null;
   setCurrentUser(null);
 }
 
@@ -249,10 +243,21 @@ export function authenticateUser(
     }
   }
 
-  // Mode 2: Username & Password authentication
-  const targetUser = users.find(
-    u => u.username.toLowerCase() === cleanId.toLowerCase()
-  );
+  // Mode 2: Username, Email, or NIP & Password authentication
+  const cleanLower = cleanId.toLowerCase();
+  const cleanDigits = cleanId.replace(/\D/g, '');
+
+  const targetUser = users.find(u => {
+    const uName = (u.username || '').toLowerCase();
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uNip = (u.nip || '').replace(/\D/g, '');
+
+    return (
+      uName === cleanLower ||
+      (uEmail && uEmail === cleanLower) ||
+      (cleanDigits.length >= 8 && uNip && uNip === cleanDigits)
+    );
+  });
 
   if (!targetUser) {
     // Check if entered username is empty and password matches admin pin
@@ -261,7 +266,10 @@ export function authenticateUser(
       setCurrentUser(superAdmin);
       return { success: true, user: superAdmin };
     }
-    return { success: false, message: 'Username tidak ditemukan di database pengguna KPPN.' };
+    return { 
+      success: false, 
+      message: 'Username, Alamat Email, atau NIP tidak ditemukan di database pengguna KPPN.' 
+    };
   }
 
   if (!targetUser.isActive) {
@@ -451,16 +459,25 @@ interface ResetOtpRecord {
 }
 
 /**
- * Searches for an existing user by username or registered email
+ * Searches for an existing user by username, registered email, or NIP
  */
 export function findUserByUsernameOrEmail(identifier: string): AppUser | undefined {
   if (!identifier) return undefined;
   const clean = identifier.trim().toLowerCase();
+  const cleanDigits = identifier.replace(/\D/g, '');
   const users = getStoredUsers();
-  return users.find(u => 
-    u.username.toLowerCase() === clean || 
-    (u.email && u.email.trim().toLowerCase() === clean)
-  );
+
+  return users.find(u => {
+    const uName = (u.username || '').toLowerCase();
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uNip = (u.nip || '').replace(/\D/g, '');
+
+    return (
+      uName === clean ||
+      (uEmail && uEmail === clean) ||
+      (cleanDigits.length >= 8 && uNip && uNip === cleanDigits)
+    );
+  });
 }
 
 /**
@@ -575,6 +592,15 @@ export async function verifyOtpAndResetPassword(
     };
     users[idx] = updatedUser;
     saveStoredUsers(users, true);
+
+    // If superadmin, also synchronize the global admin PIN
+    if (updatedUser.role === 'superadmin') {
+      try {
+        localStorage.setItem('kppn_admin_pin', newPasswordRaw.trim());
+      } catch {
+        // ignore
+      }
+    }
 
     // Delete OTP record
     delete records[userId];

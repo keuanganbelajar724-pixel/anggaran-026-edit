@@ -39,7 +39,11 @@ import {
   HelpCircle,
   Info,
   Copy,
-  PhoneCall
+  PhoneCall,
+  AtSign,
+  Code,
+  Terminal,
+  CheckCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo, UserSaktiRecord } from '../types';
@@ -86,6 +90,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'AKTIF' | 'NONAKTIF' | 'LENGKAP' | 'BELUM_LENGKAP'>('ALL');
+  const [filterEmail, setFilterEmail] = useState<'ALL' | 'WITH_EMAIL' | 'NO_EMAIL'>('ALL');
   const [filterKL, setFilterKL] = useState<string>('ALL');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -118,6 +123,23 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     satker: null,
     passwordValue: ''
   });
+
+  // Quick Email Change Modal for Admin / Satker
+  const [quickEmailModal, setQuickEmailModal] = useState<{
+    isOpen: boolean;
+    satker: MasterSatker | null;
+    emailValue: string;
+  }>({
+    isOpen: false,
+    satker: null,
+    emailValue: ''
+  });
+
+  // Modal Export / Format API Email Helper
+  const [isApiEmailModalOpen, setIsApiEmailModalOpen] = useState(false);
+  const [apiEmailTab, setApiEmailTab] = useState<'csv' | 'json' | 'curl'>('csv');
+  const [apiEmailScope, setApiEmailScope] = useState<'resmi' | 'all_contacts'>('resmi');
+  const [copiedText, setCopiedText] = useState<string | null>(null);
 
   // Real-time SAKTI registered users synced from Pendaftaran User SAKTI
   const [saktiUsersMap, setSaktiUsersMap] = useState<Record<string, UserSaktiRecord[]>>({});
@@ -186,6 +208,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     namaPic: '',
     noHpPic: '',
     emailPic: '',
+    emailSatker: '',
+    email: '',
     alamatSatker: '',
     passwordSatker: '',
     catatan: ''
@@ -202,6 +226,132 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3800);
+  };
+
+  // Helper Copy Text to Clipboard with Feedback
+  const handleCopyText = (text: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedText(text);
+    triggerToast(`${label} berhasil disalin ke clipboard!`);
+    setTimeout(() => setCopiedText(null), 2500);
+  };
+
+  // Quick Email Modal Open & Save
+  const handleOpenQuickEmail = (satker: MasterSatker) => {
+    setQuickEmailModal({
+      isOpen: true,
+      satker,
+      emailValue: satker.emailPic || satker.emailSatker || satker.email || ''
+    });
+  };
+
+  const handleSaveQuickEmail = async () => {
+    if (!quickEmailModal.satker) return;
+    const cleanEmail = quickEmailModal.emailValue.trim();
+    const updatedSatker: MasterSatker = {
+      ...quickEmailModal.satker,
+      emailPic: cleanEmail || undefined,
+      emailSatker: cleanEmail || undefined,
+      email: cleanEmail || undefined,
+      updatedAt: new Date().toISOString()
+    };
+
+    await onSaveMasterSatker(updatedSatker);
+    setQuickEmailModal({ isOpen: false, satker: null, emailValue: '' });
+    triggerToast(`Email resmi Satker ${updatedSatker.namaSatker} (${updatedSatker.kodeSatker}) berhasil disimpan!`);
+  };
+
+  // Download Comprehensive Template Excel (Includes all Email fields)
+  const handleDownloadTemplate = () => {
+    const templateRows = [
+      {
+        'Kode Satker': '651046',
+        'Nama Satker': 'BALAI BESAR PENGEMBANGAN PENJAMINAN MUTU PENDIDIKAN VOKASI SENI DAN BUDAYA',
+        'Kementerian / Lembaga': 'Kementerian Pendidikan Dasar dan Menengah',
+        'Kode BA': '023',
+        'Status Satker': 'AKTIF',
+        'Password Akses Satker': '651046_023',
+        'Email Satker (Resmi / API)': 'satker651046@kemdikbud.go.id',
+        'No HP PIC (WhatsApp)': '081234567890',
+        'Nama PIC': 'Budi Santoso',
+        'KPA (Nama)': 'Dr. H. Hendra Wijaya, M.Pd.',
+        'KPA (No HP)': '081211112222',
+        'KPA (Email)': 'hendra.kpa@kemdikbud.go.id',
+        'PPK (Nama)': 'Drs. Supriyanto, M.M.',
+        'PPK (No HP)': '081233334444',
+        'PPK (Email)': 'supriyanto.ppk@kemdikbud.go.id',
+        'PPSPM (Nama)': 'Rina Kartikasari, S.E.',
+        'PPSPM (No HP)': '081255556666',
+        'PPSPM (Email)': 'rina.ppspm@kemdikbud.go.id',
+        'Bendahara Pengeluaran (Nama)': 'Agus Prasetyo, A.Md.',
+        'Bendahara Pengeluaran (No HP)': '081277778888',
+        'Bendahara Pengeluaran (Email)': 'agus.bendahara@kemdikbud.go.id',
+        'Operator Pembayaran (Nama)': 'Dewi Lestari, S.Kom.',
+        'Operator Pembayaran (No HP)': '081299990000',
+        'Operator Pembayaran (Email)': 'dewi.bayar@kemdikbud.go.id',
+        'Operator Komitmen (Nama)': 'Bambang Trihatmojo',
+        'Operator Komitmen (No HP)': '081311112222',
+        'Operator Komitmen (Email)': 'bambang.komitmen@kemdikbud.go.id',
+        'Operator Gaji (Nama)': 'Siti Nurhaliza, S.E.',
+        'Operator Gaji (No HP)': '081333334444',
+        'Operator Gaji (Email)': 'siti.gaji@kemdikbud.go.id',
+        'Operator Pelaporan (Nama)': 'Eko Wahyudi, S.A.P.',
+        'Operator Pelaporan (No HP)': '081355556666',
+        'Operator Pelaporan (Email)': 'eko.pelaporan@kemdikbud.go.id',
+        'Alamat Satker': 'Jl. Kaliurang KM 9, Sleman, D.I. Yogyakarta'
+      },
+      {
+        'Kode Satker': '411792',
+        'Nama Satker': 'KANTOR PELAYANAN PAJAK PRATAMA CANDISARI',
+        'Kementerian / Lembaga': 'Kementerian Keuangan',
+        'Kode BA': '015',
+        'Status Satker': 'AKTIF',
+        'Password Akses Satker': '411792_015',
+        'Email Satker (Resmi / API)': 'kpp.candisari@pajak.go.id',
+        'No HP PIC (WhatsApp)': '081399887766',
+        'Nama PIC': 'Sri Rahayu',
+        'KPA (Nama)': 'Bambang Setiawan, Ak.',
+        'KPA (No HP)': '081288889999',
+        'KPA (Email)': 'bambang.kpa@pajak.go.id',
+        'PPK (Nama)': 'Indah Permatasari, S.E.',
+        'PPK (No HP)': '081244445555',
+        'PPK (Email)': 'indah.ppk@pajak.go.id',
+        'PPSPM (Nama)': 'Hadi Purnomo',
+        'PPSPM (No HP)': '081266667777',
+        'PPSPM (Email)': 'hadi.ppspm@pajak.go.id',
+        'Bendahara Pengeluaran (Nama)': 'Wahyu Hidayat',
+        'Bendahara Pengeluaran (No HP)': '081211223344',
+        'Bendahara Pengeluaran (Email)': 'wahyu.bendahara@pajak.go.id',
+        'Operator Pembayaran (Nama)': 'Maya Anggraini',
+        'Operator Pembayaran (No HP)': '081322334455',
+        'Operator Pembayaran (Email)': 'maya.bayar@pajak.go.id',
+        'Operator Komitmen (Nama)': 'Rizky Firmansyah',
+        'Operator Komitmen (No HP)': '081333445566',
+        'Operator Komitmen (Email)': 'rizky.komitmen@pajak.go.id',
+        'Operator Gaji (Nama)': 'Dina Marlina',
+        'Operator Gaji (No HP)': '081344556677',
+        'Operator Gaji (Email)': 'dina.gaji@pajak.go.id',
+        'Operator Pelaporan (Nama)': 'Fajar Nugroho',
+        'Operator Pelaporan (No HP)': '081355667788',
+        'Operator Pelaporan (Email)': 'fajar.pelaporan@pajak.go.id',
+        'Alamat Satker': 'Jl. Pemuda No. 1, Semarang'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateRows);
+    ws['!cols'] = [
+      { wch: 14 }, { wch: 45 }, { wch: 35 }, { wch: 10 }, { wch: 12 }, { wch: 22 },
+      { wch: 32 }, { wch: 22 }, { wch: 25 }, { wch: 28 }, { wch: 18 }, { wch: 28 },
+      { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 28 }, { wch: 18 }, { wch: 28 },
+      { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 28 }, { wch: 18 }, { wch: 28 },
+      { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 28 }, { wch: 18 }, { wch: 28 },
+      { wch: 28 }, { wch: 18 }, { wch: 28 }, { wch: 40 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template_Satker_dan_Email');
+    XLSX.writeFile(wb, `Template_Master_Satker_Kontak_Email_KPPN026.xlsx`);
+    triggerToast('Template Excel Satker & Email berhasil diunduh.');
   };
 
   // Distinct K/L options for filtering
@@ -234,10 +384,25 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   const filteredSatkers = useMemo(() => {
     return masterSatkers.filter(m => {
       const q = searchQuery.toLowerCase().trim();
+      const satkerEmail = (m.emailPic || m.emailSatker || m.email || '').toLowerCase();
+      const po = m.pejabatOperator;
+      const poEmails = [
+        po?.kpa?.email,
+        po?.ppk?.email,
+        po?.ppspm?.email,
+        po?.bendahara?.email,
+        po?.operatorPembayaran?.email,
+        po?.operatorKomitmen?.email,
+        po?.operatorGaji?.email,
+        po?.operatorPelaporan?.email
+      ].filter(Boolean).map(e => String(e).toLowerCase());
+
       const matchSearch =
         !q ||
         m.kodeSatker.toLowerCase().includes(q) ||
         m.namaSatker.toLowerCase().includes(q) ||
+        satkerEmail.includes(q) ||
+        poEmails.some(e => e.includes(q)) ||
         (m.namaPic && m.namaPic.toLowerCase().includes(q)) ||
         (m.noHpPic && m.noHpPic.includes(q)) ||
         (m.kementerianLembaga && m.kementerianLembaga.toLowerCase().includes(q)) ||
@@ -249,6 +414,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           (u.namaLengkap && u.namaLengkap.toLowerCase().includes(q)) || 
           (u.noHp && u.noHp.includes(q)) ||
           (u.nip && u.nip.includes(q)) ||
+          (u.email && u.email.toLowerCase().includes(q)) ||
           (u.jabatan && u.jabatan.toLowerCase().includes(q)) ||
           (u.jabatanPerbendaharaan && u.jabatanPerbendaharaan.toLowerCase().includes(q))
         ));
@@ -256,6 +422,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       if (!matchSearch) return false;
 
       if (filterKL !== 'ALL' && m.kementerianLembaga !== filterKL) return false;
+
+      const hasEmail = Boolean(m.emailPic || m.emailSatker || m.email || poEmails.length > 0);
+      if (filterEmail === 'WITH_EMAIL' && !hasEmail) return false;
+      if (filterEmail === 'NO_EMAIL' && hasEmail) return false;
 
       const rolesFilled = getFilledRolesCount(m);
       if (filterStatus === 'AKTIF') return m.isActive === true;
@@ -265,7 +435,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
       return true;
     });
-  }, [masterSatkers, searchQuery, filterStatus, filterKL]);
+  }, [masterSatkers, searchQuery, filterStatus, filterKL, filterEmail, saktiUsersMap]);
 
   const paginatedSatkers = useMemo(() => {
     if (pageSize <= 0) return filteredSatkers;
@@ -278,6 +448,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   const totalNonaktif = masterSatkers.filter(m => !m.isActive).length;
   const totalLengkap = masterSatkers.filter(m => getFilledRolesCount(m) >= 4).length;
   const totalBelumLengkap = totalMaster - totalLengkap;
+  const totalWithEmail = masterSatkers.filter(m => !!(m.emailPic || m.emailSatker || m.email)).length;
+  const totalNoEmail = totalMaster - totalWithEmail;
 
   // Open Pejabat / Satker Data Form with Password Verification
   const handleOpenPejabatModal = (satker: MasterSatker) => {
@@ -298,7 +470,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       operatorPelaporan: { nama: po.operatorPelaporan?.nama || '', noHp: po.operatorPelaporan?.noHp || '', nip: po.operatorPelaporan?.nip || '', email: po.operatorPelaporan?.email || '' },
       namaPic: satker.namaPic || '',
       noHpPic: satker.noHpPic || '',
-      emailPic: satker.emailPic || '',
+      emailPic: satker.emailPic || satker.emailSatker || satker.email || '',
       alamatSatker: satker.alamatSatker || '',
       passwordSatker: satker.passwordSatker || getSatkerDefaultPassword(satker)
     });
@@ -431,12 +603,15 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       newPejabatOperator.ppk?.nama ||
       newPejabatOperator.kpa?.nama;
 
+    const savedEmail = pejabatFormData.emailPic.trim() || undefined;
     const updated: MasterSatker = {
       ...selectedSatkerForPejabat,
       pejabatOperator: newPejabatOperator,
       namaPic: primaryName || undefined,
       noHpPic: primaryPhone || undefined,
-      emailPic: pejabatFormData.emailPic.trim() || undefined,
+      emailPic: savedEmail,
+      emailSatker: savedEmail,
+      email: savedEmail,
       alamatSatker: pejabatFormData.alamatSatker.trim() || undefined,
       passwordSatker: pejabatFormData.passwordSatker.trim() || getSatkerDefaultPassword(selectedSatkerForPejabat),
       updatedAt: new Date().toISOString()
@@ -471,14 +646,14 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     });
   };
 
-  // Export Satker Credentials & Contacts to Excel
+  // Export Satker Credentials & Contacts to Excel (Including Emails for API & blast)
   const handleExportAccountsToExcel = () => {
     const exportData = masterSatkers.map((m, idx) => {
       const p = m.pejabatOperator || {};
       const defaultPw = getSatkerDefaultPassword(m);
       const saktiUsers = saktiUsersMap[m.kodeSatker] || [];
       const saktiContactsSummary = saktiUsers.length > 0
-        ? saktiUsers.map(u => `${u.namaLengkap} (${u.jabatanPerbendaharaan || u.peranJabatan || 'User SAKTI'}: ${u.noHp || '-'})`).join('; ')
+        ? saktiUsers.map(u => `${u.namaLengkap} (${u.jabatanPerbendaharaan || u.peranJabatan || 'User SAKTI'}: ${u.noHp || '-'}, Email: ${u.email || '-'})`).join('; ')
         : '-';
 
       return {
@@ -489,24 +664,34 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         'Kode BA': m.kodeBa || resolveKodeBA(m),
         'Status Satker': m.isActive ? 'AKTIF' : 'NONAKTIF',
         'Password Akses Satker': m.passwordSatker || defaultPw,
+        'Email Satker (Resmi / API)': m.emailPic || m.emailSatker || m.email || '-',
+        'Kontak Utama (No HP)': m.noHpPic || '-',
+        'Nama PIC / Narahubung': m.namaPic || '-',
         'Kontak Tambahan (Pendaftaran SAKTI)': saktiContactsSummary,
         'KPA (Nama)': p.kpa?.nama || '-',
         'KPA (No HP)': p.kpa?.noHp || '-',
+        'KPA (Email)': p.kpa?.email || '-',
         'PPK (Nama)': p.ppk?.nama || '-',
         'PPK (No HP)': p.ppk?.noHp || '-',
+        'PPK (Email)': p.ppk?.email || '-',
         'PPSPM (Nama)': p.ppspm?.nama || '-',
         'PPSPM (No HP)': p.ppspm?.noHp || '-',
+        'PPSPM (Email)': p.ppspm?.email || '-',
         'Bendahara Pengeluaran (Nama)': p.bendahara?.nama || '-',
         'Bendahara Pengeluaran (No HP)': p.bendahara?.noHp || '-',
+        'Bendahara Pengeluaran (Email)': p.bendahara?.email || '-',
         'Operator Pembayaran (Nama)': p.operatorPembayaran?.nama || '-',
         'Operator Pembayaran (No HP)': p.operatorPembayaran?.noHp || '-',
+        'Operator Pembayaran (Email)': p.operatorPembayaran?.email || '-',
         'Operator Komitmen (Nama)': p.operatorKomitmen?.nama || '-',
         'Operator Komitmen (No HP)': p.operatorKomitmen?.noHp || '-',
+        'Operator Komitmen (Email)': p.operatorKomitmen?.email || '-',
         'Operator Gaji (Nama)': p.operatorGaji?.nama || '-',
         'Operator Gaji (No HP)': p.operatorGaji?.noHp || '-',
+        'Operator Gaji (Email)': p.operatorGaji?.email || '-',
         'Operator Pelaporan (Nama)': p.operatorPelaporan?.nama || '-',
         'Operator Pelaporan (No HP)': p.operatorPelaporan?.noHp || '-',
-        'Email PIC': m.emailPic || '-',
+        'Operator Pelaporan (Email)': p.operatorPelaporan?.email || '-',
         'Alamat': m.alamatSatker || '-'
       };
     });
@@ -514,9 +699,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     const ws = XLSX.utils.json_to_sheet(exportData);
     ws['!cols'] = [
       { wch: 5 }, { wch: 14 }, { wch: 40 }, { wch: 30 }, { wch: 10 }, { wch: 12 }, { wch: 22 },
-      { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 },
-      { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 }, { wch: 25 }, { wch: 16 },
-      { wch: 25 }, { wch: 35 }
+      { wch: 32 }, { wch: 18 }, { wch: 22 }, { wch: 28 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 25 }, { wch: 16 }, { wch: 25 },
+      { wch: 35 }
     ];
 
     const wb = XLSX.utils.book_new();
@@ -538,6 +730,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       namaPic: '',
       noHpPic: '',
       emailPic: '',
+      emailSatker: '',
+      email: '',
       alamatSatker: '',
       passwordSatker: '',
       catatan: ''
@@ -557,7 +751,9 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       unitEselon1: satker.unitEselon1 || '',
       namaPic: satker.namaPic || '',
       noHpPic: satker.noHpPic || '',
-      emailPic: satker.emailPic || '',
+      emailPic: satker.emailPic || satker.emailSatker || satker.email || '',
+      emailSatker: satker.emailSatker || satker.emailPic || satker.email || '',
+      email: satker.email || satker.emailSatker || satker.emailPic || '',
       alamatSatker: satker.alamatSatker || '',
       passwordSatker: satker.passwordSatker || getSatkerDefaultPassword(satker),
       catatan: satker.catatan || ''
@@ -573,6 +769,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
     }
 
     const cleanKode = formData.kodeSatker.trim();
+    const cleanEmail = formData.emailPic?.trim() || undefined;
     const payload: MasterSatker = {
       id: editingSatker ? editingSatker.id : `satker-${cleanKode}-${Date.now()}`,
       kodeSatker: cleanKode,
@@ -583,7 +780,9 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       unitEselon1: formData.unitEselon1?.trim() || '',
       namaPic: formData.namaPic?.trim() || undefined,
       noHpPic: formData.noHpPic?.trim() || undefined,
-      emailPic: formData.emailPic?.trim() || undefined,
+      emailPic: cleanEmail,
+      emailSatker: cleanEmail,
+      email: cleanEmail,
       alamatSatker: formData.alamatSatker?.trim() || undefined,
       passwordSatker: formData.passwordSatker?.trim() || `${cleanKode}_${formData.kodeBa?.trim() || '018'}`,
       catatan: formData.catatan?.trim() || undefined,
@@ -621,6 +820,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         let colStatus = -1;
         let colBA = -1;
         let colKL = -1;
+        let colEmail = -1;
 
         for (let r = 0; r < Math.min(10, jsonData.length); r++) {
           const row = jsonData[r];
@@ -632,6 +832,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             if (str.includes('status') || str.includes('aktif')) colStatus = cIdx;
             if (str.includes('kode ba') || str.includes('ba')) colBA = cIdx;
             if (str.includes('kementerian') || str.includes('lembaga')) colKL = cIdx;
+            if (str.includes('email') || str.includes('mail')) colEmail = cIdx;
           });
           if (colKode !== -1 && colNama !== -1) {
             headerRowIdx = r;
@@ -658,6 +859,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           const isActive = !rawStatus.includes('NON') && !rawStatus.includes('TIDAK') && !rawStatus.includes('PASIF');
           const kodeBa = colBA !== -1 && row[colBA] ? String(row[colBA]).trim().padStart(3, '0') : '018';
           const kementerianLembaga = colKL !== -1 && row[colKL] ? String(row[colKL]).trim() : 'Kementerian / Lembaga Mitra';
+          const valEmail = colEmail !== -1 && row[colEmail] ? String(row[colEmail]).trim() : undefined;
 
           const existing = newMasterMap.get(kodeSatker);
           if (existing) {
@@ -667,6 +869,9 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               isActive: isActive,
               kodeBa: kodeBa || existing.kodeBa,
               kementerianLembaga: kementerianLembaga || existing.kementerianLembaga,
+              emailPic: valEmail || existing.emailPic,
+              emailSatker: valEmail || existing.emailSatker || existing.emailPic,
+              email: valEmail || existing.email || existing.emailPic,
               passwordSatker: existing.passwordSatker || `${kodeSatker}_${kodeBa}`,
               updatedAt: new Date().toISOString()
             });
@@ -679,6 +884,9 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               isActive,
               kodeBa,
               kementerianLembaga,
+              emailPic: valEmail,
+              emailSatker: valEmail,
+              email: valEmail,
               passwordSatker: `${kodeSatker}_${kodeBa}`,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
@@ -729,14 +937,14 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         let headerRowIdx = 0;
         let colKode = -1;
         let colNamaSatker = -1;
-        let colKpaNama = -1, colKpaHp = -1;
-        let colPpkNama = -1, colPpkHp = -1;
-        let colPpspmNama = -1, colPpspmHp = -1;
-        let colBendaharaNama = -1, colBendaharaHp = -1;
-        let colOpBayarNama = -1, colOpBayarHp = -1;
-        let colOpKomitmenNama = -1, colOpKomitmenHp = -1;
-        let colOpGajiNama = -1, colOpGajiHp = -1;
-        let colOpLaporNama = -1, colOpLaporHp = -1;
+        let colKpaNama = -1, colKpaHp = -1, colKpaEmail = -1;
+        let colPpkNama = -1, colPpkHp = -1, colPpkEmail = -1;
+        let colPpspmNama = -1, colPpspmHp = -1, colPpspmEmail = -1;
+        let colBendaharaNama = -1, colBendaharaHp = -1, colBendaharaEmail = -1;
+        let colOpBayarNama = -1, colOpBayarHp = -1, colOpBayarEmail = -1;
+        let colOpKomitmenNama = -1, colOpKomitmenHp = -1, colOpKomitmenEmail = -1;
+        let colOpGajiNama = -1, colOpGajiHp = -1, colOpGajiEmail = -1;
+        let colOpLaporNama = -1, colOpLaporHp = -1, colOpLaporEmail = -1;
         let colPicNama = -1, colPicHp = -1, colPicEmail = -1, colAlamat = -1;
 
         for (let r = 0; r < Math.min(10, jsonData.length); r++) {
@@ -750,46 +958,58 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             
             // KPA
             if (str.includes('kpa') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colKpaHp = cIdx;
+            else if (str.includes('kpa') && (str.includes('email') || str.includes('mail'))) colKpaEmail = cIdx;
             else if (str.includes('kpa') && (str.includes('nama') || str.includes('pejabat'))) colKpaNama = cIdx;
             else if (str === 'kpa' || str.includes('kuasa pengguna')) colKpaNama = cIdx;
 
             // PPK
             if (str.includes('ppk') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colPpkHp = cIdx;
+            else if (str.includes('ppk') && (str.includes('email') || str.includes('mail'))) colPpkEmail = cIdx;
             else if (str.includes('ppk') && (str.includes('nama') || str.includes('pejabat'))) colPpkNama = cIdx;
             else if (str === 'ppk' || str.includes('komitmen')) colPpkNama = cIdx;
 
             // PPSPM
             if (str.includes('ppspm') && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colPpspmHp = cIdx;
+            else if (str.includes('ppspm') && (str.includes('email') || str.includes('mail'))) colPpspmEmail = cIdx;
             else if (str.includes('ppspm') && (str.includes('nama') || str.includes('pejabat'))) colPpspmNama = cIdx;
             else if (str === 'ppspm' || str.includes('penguji')) colPpspmNama = cIdx;
 
             // Bendahara
             if ((str.includes('bendahara') || str.includes('bpp')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('nomor') || str.includes('phone'))) colBendaharaHp = cIdx;
+            else if ((str.includes('bendahara') || str.includes('bpp')) && (str.includes('email') || str.includes('mail'))) colBendaharaEmail = cIdx;
             else if ((str.includes('bendahara') || str.includes('bpp')) && (str.includes('nama') || str.includes('pejabat'))) colBendaharaNama = cIdx;
             else if (str.includes('bendahara')) colBendaharaNama = cIdx;
 
             // Op Pembayaran
             if ((str.includes('bayar') || str.includes('pembayaran') || str.includes('spp')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpBayarHp = cIdx;
+            else if ((str.includes('bayar') || str.includes('pembayaran') || str.includes('spp')) && (str.includes('email') || str.includes('mail'))) colOpBayarEmail = cIdx;
             else if (str.includes('bayar') || str.includes('pembayaran')) colOpBayarNama = cIdx;
 
             // Op Komitmen
             if ((str.includes('komitmen') || str.includes('kontrak')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpKomitmenHp = cIdx;
+            else if ((str.includes('komitmen') || str.includes('kontrak')) && (str.includes('email') || str.includes('mail'))) colOpKomitmenEmail = cIdx;
             else if (str.includes('komitmen') || str.includes('kontrak')) colOpKomitmenNama = cIdx;
 
             // Op Gaji
             if ((str.includes('gaji') || str.includes('ppn') || str.includes('tukin')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpGajiHp = cIdx;
+            else if ((str.includes('gaji') || str.includes('ppn') || str.includes('tukin')) && (str.includes('email') || str.includes('mail'))) colOpGajiEmail = cIdx;
             else if (str.includes('gaji')) colOpGajiNama = cIdx;
 
             // Op Pelaporan / Caput
             if ((str.includes('lapor') || str.includes('pelaporan') || str.includes('caput') || str.includes('akuntansi')) && (str.includes('hp') || str.includes('wa') || str.includes('telp') || str.includes('kontak') || str.includes('phone'))) colOpLaporHp = cIdx;
+            else if ((str.includes('lapor') || str.includes('pelaporan') || str.includes('caput') || str.includes('akuntansi')) && (str.includes('email') || str.includes('mail'))) colOpLaporEmail = cIdx;
             else if (str.includes('lapor') || str.includes('pelaporan') || str.includes('caput')) colOpLaporNama = cIdx;
+
+            // General Satker Email / PIC Email
+            if ((str.includes('email') || str.includes('mail')) && !str.includes('kpa') && !str.includes('ppk') && !str.includes('ppspm') && !str.includes('bendahara') && !str.includes('bayar') && !str.includes('komitmen') && !str.includes('gaji') && !str.includes('lapor')) {
+              colPicEmail = cIdx;
+            }
 
             // General PIC / HP
             if ((str.includes('pic') || str.includes('kontak') || str.includes('whatsapp') || str.includes('no hp') || str.includes('nohp') || str.includes('telepon')) && !str.includes('kpa') && !str.includes('ppk') && !str.includes('ppspm') && !str.includes('bendahara')) {
               if (str.includes('nama')) colPicNama = cIdx;
               else colPicHp = cIdx;
             }
-            if (str.includes('email')) colPicEmail = cIdx;
             if (str.includes('alamat')) colAlamat = cIdx;
           });
 
@@ -831,27 +1051,35 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
           const valKpaNama = colKpaNama !== -1 && row[colKpaNama] ? String(row[colKpaNama]).trim() : undefined;
           const valKpaHp = colKpaHp !== -1 ? cleanHp(row[colKpaHp]) : undefined;
+          const valKpaEmail = colKpaEmail !== -1 && row[colKpaEmail] ? String(row[colKpaEmail]).trim() : undefined;
 
           const valPpkNama = colPpkNama !== -1 && row[colPpkNama] ? String(row[colPpkNama]).trim() : undefined;
           const valPpkHp = colPpkHp !== -1 ? cleanHp(row[colPpkHp]) : undefined;
+          const valPpkEmail = colPpkEmail !== -1 && row[colPpkEmail] ? String(row[colPpkEmail]).trim() : undefined;
 
           const valPpspmNama = colPpspmNama !== -1 && row[colPpspmNama] ? String(row[colPpspmNama]).trim() : undefined;
           const valPpspmHp = colPpspmHp !== -1 ? cleanHp(row[colPpspmHp]) : undefined;
+          const valPpspmEmail = colPpspmEmail !== -1 && row[colPpspmEmail] ? String(row[colPpspmEmail]).trim() : undefined;
 
           const valBendaharaNama = colBendaharaNama !== -1 && row[colBendaharaNama] ? String(row[colBendaharaNama]).trim() : undefined;
           const valBendaharaHp = colBendaharaHp !== -1 ? cleanHp(row[colBendaharaHp]) : undefined;
+          const valBendaharaEmail = colBendaharaEmail !== -1 && row[colBendaharaEmail] ? String(row[colBendaharaEmail]).trim() : undefined;
 
           const valOpBayarNama = colOpBayarNama !== -1 && row[colOpBayarNama] ? String(row[colOpBayarNama]).trim() : undefined;
           const valOpBayarHp = colOpBayarHp !== -1 ? cleanHp(row[colOpBayarHp]) : undefined;
+          const valOpBayarEmail = colOpBayarEmail !== -1 && row[colOpBayarEmail] ? String(row[colOpBayarEmail]).trim() : undefined;
 
           const valOpKomitmenNama = colOpKomitmenNama !== -1 && row[colOpKomitmenNama] ? String(row[colOpKomitmenNama]).trim() : undefined;
           const valOpKomitmenHp = colOpKomitmenHp !== -1 ? cleanHp(row[colOpKomitmenHp]) : undefined;
+          const valOpKomitmenEmail = colOpKomitmenEmail !== -1 && row[colOpKomitmenEmail] ? String(row[colOpKomitmenEmail]).trim() : undefined;
 
           const valOpGajiNama = colOpGajiNama !== -1 && row[colOpGajiNama] ? String(row[colOpGajiNama]).trim() : undefined;
           const valOpGajiHp = colOpGajiHp !== -1 ? cleanHp(row[colOpGajiHp]) : undefined;
+          const valOpGajiEmail = colOpGajiEmail !== -1 && row[colOpGajiEmail] ? String(row[colOpGajiEmail]).trim() : undefined;
 
           const valOpLaporNama = colOpLaporNama !== -1 && row[colOpLaporNama] ? String(row[colOpLaporNama]).trim() : undefined;
           const valOpLaporHp = colOpLaporHp !== -1 ? cleanHp(row[colOpLaporHp]) : undefined;
+          const valOpLaporEmail = colOpLaporEmail !== -1 && row[colOpLaporEmail] ? String(row[colOpLaporEmail]).trim() : undefined;
 
           const valPicNama = colPicNama !== -1 && row[colPicNama] ? String(row[colPicNama]).trim() : undefined;
           const valPicHp = colPicHp !== -1 ? cleanHp(row[colPicHp]) : undefined;
@@ -863,49 +1091,49 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               nama: valKpaNama || existingPo.kpa?.nama || '',
               noHp: valKpaHp || existingPo.kpa?.noHp || undefined,
               nip: existingPo.kpa?.nip,
-              email: existingPo.kpa?.email
+              email: valKpaEmail || existingPo.kpa?.email
             },
             ppk: {
               nama: valPpkNama || existingPo.ppk?.nama || '',
               noHp: valPpkHp || existingPo.ppk?.noHp || undefined,
               nip: existingPo.ppk?.nip,
-              email: existingPo.ppk?.email
+              email: valPpkEmail || existingPo.ppk?.email
             },
             ppspm: {
               nama: valPpspmNama || existingPo.ppspm?.nama || '',
               noHp: valPpspmHp || existingPo.ppspm?.noHp || undefined,
               nip: existingPo.ppspm?.nip,
-              email: existingPo.ppspm?.email
+              email: valPpspmEmail || existingPo.ppspm?.email
             },
             bendahara: {
               nama: valBendaharaNama || existingPo.bendahara?.nama || '',
               noHp: valBendaharaHp || existingPo.bendahara?.noHp || undefined,
               nip: existingPo.bendahara?.nip,
-              email: existingPo.bendahara?.email
+              email: valBendaharaEmail || existingPo.bendahara?.email
             },
             operatorPembayaran: {
               nama: valOpBayarNama || existingPo.operatorPembayaran?.nama || '',
               noHp: valOpBayarHp || existingPo.operatorPembayaran?.noHp || undefined,
               nip: existingPo.operatorPembayaran?.nip,
-              email: existingPo.operatorPembayaran?.email
+              email: valOpBayarEmail || existingPo.operatorPembayaran?.email
             },
             operatorKomitmen: {
               nama: valOpKomitmenNama || existingPo.operatorKomitmen?.nama || '',
               noHp: valOpKomitmenHp || existingPo.operatorKomitmen?.noHp || undefined,
               nip: existingPo.operatorKomitmen?.nip,
-              email: existingPo.operatorKomitmen?.email
+              email: valOpKomitmenEmail || existingPo.operatorKomitmen?.email
             },
             operatorGaji: {
               nama: valOpGajiNama || existingPo.operatorGaji?.nama || '',
               noHp: valOpGajiHp || existingPo.operatorGaji?.noHp || undefined,
               nip: existingPo.operatorGaji?.nip,
-              email: existingPo.operatorGaji?.email
+              email: valOpGajiEmail || existingPo.operatorGaji?.email
             },
             operatorPelaporan: {
               nama: valOpLaporNama || existingPo.operatorPelaporan?.nama || '',
               noHp: valOpLaporHp || existingPo.operatorPelaporan?.noHp || undefined,
               nip: existingPo.operatorPelaporan?.nip,
-              email: existingPo.operatorPelaporan?.email
+              email: valOpLaporEmail || existingPo.operatorPelaporan?.email
             }
           };
 
@@ -931,6 +1159,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             namaPic: primaryName || existing.namaPic,
             noHpPic: primaryPhone || existing.noHpPic,
             emailPic: valPicEmail || existing.emailPic,
+            emailSatker: valPicEmail || existing.emailSatker || existing.emailPic,
+            email: valPicEmail || existing.email || existing.emailPic,
             alamatSatker: valAlamat || existing.alamatSatker,
             updatedAt: new Date().toISOString()
           });
@@ -1061,10 +1291,32 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   type="button"
                   onClick={handleExportAccountsToExcel}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
-                  title="Download Excel berisi daftar username, password, dan kontak lengkap pejabat seluruh Satker"
+                  title="Download Excel berisi daftar username, password, email resmi, dan kontak lengkap pejabat seluruh Satker"
                 >
                   <FileDown className="w-4 h-4 text-slate-300" />
-                  <span>Export Akun &amp; Password (.xlsx)</span>
+                  <span>Export Akun &amp; Email (.xlsx)</span>
+                </button>
+
+                {/* API Email Generator / Formatter */}
+                <button
+                  type="button"
+                  onClick={() => setIsApiEmailModalOpen(true)}
+                  className="bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl shadow-lg shadow-sky-600/25 border border-sky-400/40 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                  title="Lihat format data email siap pakai untuk integrasi API Email KPPN (JSON / List Koma / CSV)"
+                >
+                  <Mail className="w-4 h-4 text-sky-200 animate-pulse" />
+                  <span>Format API Email ({totalWithEmail})</span>
+                </button>
+
+                {/* Download Template Excel Satker & Email */}
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Download format / template Excel resmi untuk upload Master Satker, kontak WhatsApp, dan Email"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>Template Excel Email</span>
                 </button>
 
                 {/* Tambah Satker Baru (Admin) */}
@@ -1093,10 +1345,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   onClick={() => phoneFileInputRef.current?.click()}
                   disabled={isProcessingFile}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow-md border border-emerald-400/30 transition-all flex items-center gap-2 cursor-pointer"
-                  title="Upload batch kontak HP pejabat & operator dari Excel (penggabungan aman tanpa hapus data lama)"
+                  title="Upload batch kontak HP & email pejabat / operator dari Excel (penggabungan aman tanpa hapus data lama)"
                 >
                   <Phone className="w-4 h-4 text-emerald-200" />
-                  <span>Upload Batch Kontak</span>
+                  <span>Upload Batch Kontak &amp; Email</span>
                 </button>
 
                 {/* Proteksi Data Anti-Hapus */}
@@ -1106,15 +1358,35 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 </div>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={handleExportAccountsToExcel}
-                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
-                title="Download Excel rekap daftar kontak resmi seluruh Satker"
-              >
-                <Download className="w-4 h-4 text-slate-300" />
-                <span>Unduh Rekap Kontak Satker (.xlsx)</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsApiEmailModalOpen(true)}
+                  className="bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-extrabold text-xs px-3.5 py-2.5 rounded-xl shadow-md border border-sky-400/40 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Buka format API Email Satker"
+                >
+                  <Mail className="w-4 h-4 text-sky-200" />
+                  <span>Format API Email ({totalWithEmail})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Unduh format template Excel resmi kontak & email Satker"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>Template Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportAccountsToExcel}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Download Excel rekap daftar kontak resmi seluruh Satker"
+                >
+                  <Download className="w-4 h-4 text-slate-300" />
+                  <span>Unduh Rekap Kontak Satker (.xlsx)</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -1137,8 +1409,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         </div>
       )}
 
-      {/* 4 Metric Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 5 Metric Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <div className={`p-5 rounded-2xl border transition-all ${
           isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
@@ -1223,7 +1495,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               {totalBelumLengkap}
             </span>
             <button
-              onClick={() => setFilterStatus('BELUM_LENGKAP')}
+              onClick={() => {
+                setFilterStatus('BELUM_LENGKAP');
+                setCurrentPage(1);
+              }}
               className="text-[11px] font-extrabold text-amber-600 hover:underline cursor-pointer ml-2"
             >
               Filter &amp; Isi &rarr;
@@ -1231,6 +1506,40 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           </div>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
             Klik Satker untuk memasukkan password &amp; melengkapi kontak
+          </p>
+        </div>
+
+        {/* 5th Card: Email Satker (API Ready) */}
+        <div className={`p-5 rounded-2xl border transition-all ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider flex items-center gap-1">
+              <span>Email Satker (API Ready)</span>
+            </span>
+            <div className="p-2 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400">
+              <Mail className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-black text-sky-600 dark:text-sky-400">
+              {totalWithEmail}
+            </span>
+            <span className="text-xs font-medium text-slate-500">
+              ({totalMaster > 0 ? Math.round((totalWithEmail / totalMaster) * 100) : 0}%)
+            </span>
+            <button
+              onClick={() => {
+                setFilterEmail(prev => prev === 'WITH_EMAIL' ? 'ALL' : 'WITH_EMAIL');
+                setCurrentPage(1);
+              }}
+              className="text-[11px] font-extrabold text-sky-600 hover:underline cursor-pointer ml-2"
+            >
+              {filterEmail === 'WITH_EMAIL' ? 'Reset' : 'Filter Email \u2192'}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+            {totalNoEmail} Satker belum ada email terdaftar
           </p>
         </div>
       </div>
@@ -1244,7 +1553,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             <Search className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
             <input
               type="text"
-              placeholder="Cari Kode Satker, Nama Satker, Nama KPA / PPK / PPSPM / Bendahara..."
+              placeholder="Cari Kode Satker, Nama Satker, Email Satker, Email Pejabat, Nama KPA / PPK / PPSPM / Bendahara..."
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -1261,10 +1570,11 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               type="button"
               onClick={() => {
                 setFilterStatus('ALL');
+                setFilterEmail('ALL');
                 setCurrentPage(1);
               }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                filterStatus === 'ALL'
+                filterStatus === 'ALL' && filterEmail === 'ALL'
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
               }`}
@@ -1301,6 +1611,38 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             >
               Belum Lengkap ({totalBelumLengkap})
             </button>
+
+            {/* Email Filter Pills */}
+            <button
+              type="button"
+              onClick={() => {
+                setFilterEmail(prev => prev === 'WITH_EMAIL' ? 'ALL' : 'WITH_EMAIL');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterEmail === 'WITH_EMAIL'
+                  ? 'bg-sky-600 text-white shadow-xs'
+                  : 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800'
+              }`}
+            >
+              <Mail className="w-3 h-3" />
+              <span>Ada Email ({totalWithEmail})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setFilterEmail(prev => prev === 'NO_EMAIL' ? 'ALL' : 'NO_EMAIL');
+                setCurrentPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                filterEmail === 'NO_EMAIL'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+              }`}
+            >
+              <span>Belum Ada Email ({totalNoEmail})</span>
+            </button>
           </div>
         </div>
 
@@ -1323,6 +1665,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 <option key={kl} value={kl}>{kl}</option>
               ))}
             </select>
+
+            <button
+              type="button"
+              onClick={() => setIsApiEmailModalOpen(true)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
+              title="Buka format payload dan daftar alamat email untuk API Email"
+            >
+              <AtSign className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Daftar Email API</span>
+            </button>
           </div>
 
           {selectedIds.length > 0 && (
@@ -1400,6 +1752,12 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 <th className="py-3.5 px-4">Kode Satker</th>
                 <th className="py-3.5 px-4 min-w-[200px]">Nama Satker &amp; K/L</th>
                 <th className="py-3.5 px-4 text-center">Status</th>
+                <th className="py-3.5 px-4 min-w-[210px]">
+                  <div className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Resmi Satker (API)</span>
+                  </div>
+                </th>
                 <th className="py-3.5 px-4 min-w-[280px]">Rincian Kontak 8 Pejabat &amp; Operator</th>
                 <th className="py-3.5 px-4 min-w-[250px]">
                   <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
@@ -1414,7 +1772,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredSatkers.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdminAuthenticated ? 8 : 7} className="py-16 text-center text-slate-400">
+                  <td colSpan={isAdminAuthenticated ? 9 : 8} className="py-16 text-center text-slate-400">
                     <Building2 className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-700 mb-2" />
                     <p className="font-bold text-sm">Tidak ada Satker yang sesuai kriteria pencarian</p>
                     <p className="text-xs mt-1">Coba ubah kata kunci atau reset filter.</p>
@@ -1426,6 +1784,11 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                   const po = satker.pejabatOperator || {};
                   const filledCount = getFilledRolesCount(satker);
                   const defaultPw = getSatkerDefaultPassword(satker);
+                  const currentEmail = satker.emailPic || satker.emailSatker || satker.email;
+                  const roleEmails = [
+                    po.kpa?.email, po.ppk?.email, po.ppspm?.email, po.bendahara?.email,
+                    po.operatorPembayaran?.email, po.operatorKomitmen?.email, po.operatorGaji?.email, po.operatorPelaporan?.email
+                  ].filter(Boolean);
 
                   return (
                     <tr
@@ -1503,6 +1866,70 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             <span className={`w-1.5 h-1.5 rounded-full ${satker.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                             <span>{satker.isActive ? 'AKTIF' : 'NONAKTIF'}</span>
                           </span>
+                        )}
+                      </td>
+
+                      {/* Email Resmi Satker (API Ready) */}
+                      <td className="py-3.5 px-4 min-w-[210px]">
+                        {currentEmail ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={`mailto:${currentEmail}`}
+                                className="inline-flex items-center gap-1.5 font-mono font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900/60 px-2 py-1 rounded-lg text-[11px] transition-colors truncate max-w-[200px] border border-sky-200/60 dark:border-sky-800/60"
+                                title={`Kirim email ke ${currentEmail}`}
+                              >
+                                <Mail className="w-3 h-3 shrink-0 text-sky-500" />
+                                <span className="truncate">{currentEmail}</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(currentEmail, `Email ${satker.kodeSatker}`)}
+                                className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+                                title="Salin alamat email"
+                              >
+                                {copiedText === currentEmail ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                              {isAdminAuthenticated && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenQuickEmail(satker)}
+                                  className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 transition-colors cursor-pointer shrink-0"
+                                  title="Ubah alamat email Satker ini"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+
+                            {roleEmails.length > 0 && (
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                <span>+{roleEmails.length} email pejabat/operator</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-dashed border-amber-300 dark:border-amber-800">
+                              <Mail className="w-3 h-3 text-amber-500" />
+                              <span>Belum ada email</span>
+                            </span>
+                            {isAdminAuthenticated && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuickEmail(satker)}
+                                className="text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                                title="Isi email satker ini"
+                              >
+                                + Isi
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -1858,6 +2285,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email KPA (Notifikasi / API):</label>
+                          <input
+                            type="email"
+                            placeholder="kpa@satker.go.id"
+                            value={pejabatFormData.kpa.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, kpa: { ...pejabatFormData.kpa, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
                       </div>
 
                       {/* 2. PPK */}
@@ -1885,6 +2322,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             value={pejabatFormData.ppk.noHp || ''}
                             onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppk: { ...pejabatFormData.ppk, noHp: e.target.value } })}
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email PPK (Notifikasi / API):</label>
+                          <input
+                            type="email"
+                            placeholder="ppk@satker.go.id"
+                            value={pejabatFormData.ppk.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppk: { ...pejabatFormData.ppk, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
                       </div>
@@ -1916,6 +2363,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email PPSPM (Notifikasi / API):</label>
+                          <input
+                            type="email"
+                            placeholder="ppspm@satker.go.id"
+                            value={pejabatFormData.ppspm.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppspm: { ...pejabatFormData.ppspm, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
                       </div>
 
                       {/* 4. Bendahara Pengeluaran */}
@@ -1943,6 +2400,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             value={pejabatFormData.bendahara.noHp || ''}
                             onChange={(e) => setPejabatFormData({ ...pejabatFormData, bendahara: { ...pejabatFormData.bendahara, noHp: e.target.value } })}
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Bendahara (Notifikasi / API):</label>
+                          <input
+                            type="email"
+                            placeholder="bendahara@satker.go.id"
+                            value={pejabatFormData.bendahara.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, bendahara: { ...pejabatFormData.bendahara, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
                       </div>
@@ -1984,6 +2451,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Pembayaran:</label>
+                          <input
+                            type="email"
+                            placeholder="op.bayar@satker.go.id"
+                            value={pejabatFormData.operatorPembayaran.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPembayaran: { ...pejabatFormData.operatorPembayaran, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
                       </div>
 
                       {/* Operator Komitmen */}
@@ -2009,6 +2486,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             value={pejabatFormData.operatorKomitmen.noHp || ''}
                             onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorKomitmen: { ...pejabatFormData.operatorKomitmen, noHp: e.target.value } })}
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Komitmen:</label>
+                          <input
+                            type="email"
+                            placeholder="op.komitmen@satker.go.id"
+                            value={pejabatFormData.operatorKomitmen.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorKomitmen: { ...pejabatFormData.operatorKomitmen, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
                       </div>
@@ -2038,6 +2525,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Gaji:</label>
+                          <input
+                            type="email"
+                            placeholder="op.gaji@satker.go.id"
+                            value={pejabatFormData.operatorGaji.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorGaji: { ...pejabatFormData.operatorGaji, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
                       </div>
 
                       {/* Operator Pelaporan */}
@@ -2063,6 +2560,16 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             value={pejabatFormData.operatorPelaporan.noHp || ''}
                             onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPelaporan: { ...pejabatFormData.operatorPelaporan, noHp: e.target.value } })}
                             className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Pelaporan:</label>
+                          <input
+                            type="email"
+                            placeholder="op.pelaporan@satker.go.id"
+                            value={pejabatFormData.operatorPelaporan.email || ''}
+                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPelaporan: { ...pejabatFormData.operatorPelaporan, email: e.target.value } })}
+                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
                       </div>
@@ -2178,6 +2685,35 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                                   <span className="text-[10px] text-slate-400 italic">Tidak ada nomor</span>
                                 )}
                               </div>
+
+                              {usr.email && (
+                                <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[9px] text-slate-400 block">Email Pengguna:</span>
+                                    <span className="font-mono text-[11px] text-sky-600 dark:text-sky-400 truncate block">
+                                      {usr.email}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <a
+                                      href={`mailto:${usr.email}`}
+                                      className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-[10px] px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 transition-colors"
+                                      title="Kirim email"
+                                    >
+                                      <Mail className="w-3 h-3 text-sky-500" />
+                                      <span>Email</span>
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyText(usr.email!, `Email ${usr.namaLengkap}`)}
+                                      className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                      title="Salin alamat email"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
 
                               {/* Quick Apply to Permanent Fields above */}
                               <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
@@ -2447,6 +2983,76 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 </div>
               </div>
 
+              {/* Email Resmi & Kontak PIC (API Ready) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-extrabold block text-slate-700 dark:text-slate-300 mb-1">
+                    Email Resmi Satker (Untuk API Email &amp; Notifikasi):
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="satker@kemenkeu.go.id"
+                    value={formData.emailPic || ''}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      emailPic: e.target.value,
+                      emailSatker: e.target.value,
+                      email: e.target.value
+                    })}
+                    className={`w-full text-xs rounded-xl p-2.5 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isDark ? 'bg-slate-950 text-slate-100 border-slate-800' : 'bg-slate-50 text-slate-900 border-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="font-extrabold block text-slate-700 dark:text-slate-300 mb-1">
+                    Nomor WhatsApp / HP PIC Satker:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="081234567890"
+                    value={formData.noHpPic || ''}
+                    onChange={(e) => setFormData({ ...formData, noHpPic: e.target.value })}
+                    className={`w-full font-mono text-xs rounded-xl p-2.5 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isDark ? 'bg-slate-950 text-slate-100 border-slate-800' : 'bg-slate-50 text-slate-900 border-slate-300'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="font-extrabold block text-slate-700 dark:text-slate-300 mb-1">
+                    Nama PIC Utama Satker:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Nama PIC Satker"
+                    value={formData.namaPic || ''}
+                    onChange={(e) => setFormData({ ...formData, namaPic: e.target.value })}
+                    className={`w-full text-xs rounded-xl p-2.5 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isDark ? 'bg-slate-950 text-slate-100 border-slate-800' : 'bg-slate-50 text-slate-900 border-slate-300'
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="font-extrabold block text-slate-700 dark:text-slate-300 mb-1">
+                    Alamat Lengkap Kantor Satker:
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Alamat kantor satker"
+                    value={formData.alamatSatker || ''}
+                    onChange={(e) => setFormData({ ...formData, alamatSatker: e.target.value })}
+                    className={`w-full text-xs rounded-xl p-2.5 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isDark ? 'bg-slate-950 text-slate-100 border-slate-800' : 'bg-slate-50 text-slate-900 border-slate-300'
+                    }`}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="font-extrabold block text-slate-700 dark:text-slate-300 mb-1">
                   Password Satker (Default: {formData.kodeSatker ? `${formData.kodeSatker}_${formData.kodeBa || '018'}` : '[KodeSatker]_[KodeBA]'}):
@@ -2575,6 +3181,460 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               >
                 <Save className="w-4 h-4" />
                 <span>Simpan Password</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: QUICK EDIT EMAIL SATKER (ADMIN ONLY) */}
+      {quickEmailModal.isOpen && quickEmailModal.satker && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className={`rounded-3xl border shadow-2xl max-w-md w-full p-6 space-y-5 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-sky-100 dark:bg-sky-950/80 text-sky-600 dark:text-sky-400 rounded-xl">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                    KELOLA EMAIL RESMI (API READY)
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Ubah Email Satker
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickEmailModal({ isOpen: false, satker: null, emailValue: '' })}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs space-y-1">
+              <div className="font-extrabold text-slate-900 dark:text-white">
+                {quickEmailModal.satker.namaSatker}
+              </div>
+              <div className="flex items-center gap-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Kode: <strong>{quickEmailModal.satker.kodeSatker}</strong></span>
+                <span>BA: <strong>{quickEmailModal.satker.kodeBa || resolveKodeBA(quickEmailModal.satker)}</strong></span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-extrabold text-slate-700 dark:text-slate-300 block mb-1">
+                  Alamat Email Resmi Satker:
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type="email"
+                    value={quickEmailModal.emailValue}
+                    onChange={(e) => setQuickEmailModal(prev => ({ ...prev, emailValue: e.target.value }))}
+                    placeholder="contoh: satker651046@kemenkeu.go.id"
+                    className={`w-full font-mono text-xs rounded-xl pl-10 pr-3.5 py-3 border focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {quickEmailModal.emailValue && (
+                <div className="flex items-center justify-between text-[11px] p-2.5 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300">
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Format email terisi
+                  </span>
+                  <a
+                    href={`mailto:${quickEmailModal.emailValue}`}
+                    className="font-bold text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
+                  >
+                    <span>Kirim Test</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              )}
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Email resmi ini digunakan sebagai target integrasi API Email Gateway KPPN, blast pengingat Capaian Output, serta notifikasi monev IKPA Satker.
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setQuickEmailModal({ isOpen: false, satker: null, emailValue: '' })}
+                className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickEmail}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-black text-xs px-5 py-2 rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Save className="w-4 h-4" />
+                <span>Simpan Email</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: INTEGRASI API EMAIL GATEWAY & FORMAT DATA HELPER */}
+      {isApiEmailModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-fade-in">
+          <div className={`rounded-3xl border shadow-2xl max-w-4xl w-full my-6 flex flex-col max-h-[92vh] overflow-hidden ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-slate-950 via-sky-950 to-indigo-950 text-white p-5 sm:p-6 border-b border-slate-800 flex items-start justify-between relative shrink-0">
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-400/40 text-sky-200 px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                  <Mail className="w-3 h-3 text-sky-400" />
+                  <span>INTEGRASI API EMAIL GATEWAY KPPN</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                  <span>Portal Format API Email Satker</span>
+                </h2>
+                <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                  Gunakan format data di bawah ini untuk menghubungkan data email Satker ke API Email Anda (Nodemailer, SendGrid, Mailgun, Resend, atau REST API Email KPPN).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsApiEmailModalOpen(false)}
+                className="text-slate-400 hover:text-white p-2 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Scope & Tab Toolbar */}
+            <div className="p-4 sm:px-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              {/* Tab Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-200/80 dark:bg-slate-800 p-1 rounded-2xl">
+                <button
+                  type="button"
+                  onClick={() => setApiEmailTab('csv')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    apiEmailTab === 'csv'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Daftar Koma / CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setApiEmailTab('json')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    apiEmailTab === 'json'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Code className="w-3.5 h-3.5" />
+                  <span>Payload JSON API</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setApiEmailTab('curl')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                    apiEmailTab === 'curl'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Contoh cURL / Fetch</span>
+                </button>
+              </div>
+
+              {/* Scope Selector */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold text-slate-500">Cakupan Email:</span>
+                <select
+                  value={apiEmailScope}
+                  onChange={(e) => setApiEmailScope(e.target.value as any)}
+                  className={`text-xs font-bold rounded-xl px-3 py-1.5 border focus:outline-none focus:ring-1 focus:ring-sky-500 ${
+                    isDark ? 'bg-slate-950 text-slate-200 border-slate-800' : 'bg-white text-slate-800 border-slate-300'
+                  }`}
+                >
+                  <option value="resmi">Email Resmi Satker Saja ({totalWithEmail} Satker)</option>
+                  <option value="all_contacts">Semua Kontak (+ Email Pejabat/Operator &amp; SAKTI)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Content Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 text-xs">
+              {/* Quick Metrics Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Master Satker</span>
+                  <div className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{totalMaster} Satker</div>
+                </div>
+
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-sky-950/30 border-sky-800/60' : 'bg-sky-50/80 border-sky-200'}`}>
+                  <span className="text-[10px] uppercase font-bold text-sky-600 dark:text-sky-400 block">Satker Siap API Email</span>
+                  <div className="text-xl font-black text-sky-600 dark:text-sky-400 mt-0.5">
+                    {totalWithEmail} Satker ({totalMaster > 0 ? Math.round((totalWithEmail / totalMaster) * 100) : 0}%)
+                  </div>
+                </div>
+
+                <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-amber-950/30 border-amber-800/60' : 'bg-amber-50/80 border-amber-200'}`}>
+                  <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 block">Belum Ada Email Resmi</span>
+                  <div className="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                    {totalNoEmail} Satker
+                  </div>
+                </div>
+              </div>
+
+              {/* TAB 1: CSV / LIST KOMA */}
+              {apiEmailTab === 'csv' && (() => {
+                const emailsList: string[] = [];
+                masterSatkers.forEach(m => {
+                  const main = m.emailPic || m.emailSatker || m.email;
+                  if (main && !emailsList.includes(main)) emailsList.push(main);
+                  if (apiEmailScope === 'all_contacts' && m.pejabatOperator) {
+                    const po = m.pejabatOperator;
+                    [
+                      po.kpa?.email, po.ppk?.email, po.ppspm?.email, po.bendahara?.email,
+                      po.operatorPembayaran?.email, po.operatorKomitmen?.email, po.operatorGaji?.email, po.operatorPelaporan?.email
+                    ].forEach(e => {
+                      if (e && !emailsList.includes(e)) emailsList.push(e);
+                    });
+                  }
+                  if (apiEmailScope === 'all_contacts') {
+                    const sUsers = saktiUsersMap[m.kodeSatker] || [];
+                    sUsers.forEach(u => {
+                      if (u.email && !emailsList.includes(u.email)) emailsList.push(u.email);
+                    });
+                  }
+                });
+
+                const csvString = emailsList.join(', ');
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-slate-700 dark:text-slate-300">
+                        Daftar Alamat Email ({emailsList.length} Alamat Siap Kirim):
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(csvString, `${emailsList.length} Alamat Email`)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
+                        >
+                          {copiedText === csvString ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedText === csvString ? 'Tersalin!' : 'Salin Semua Email'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const blob = new Blob([csvString], { type: 'text/plain;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `daftar_email_satker_${Date.now()}.txt`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            triggerToast('File daftar email berhasil diunduh!');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Unduh .txt</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <textarea
+                        readOnly
+                        rows={10}
+                        value={csvString || '(Belum ada data email terdaftar. Silakan upload Excel kontak atau isi email satker)'}
+                        className={`w-full font-mono text-xs p-4 rounded-2xl border resize-y focus:outline-none ${
+                          isDark ? 'bg-slate-950 text-sky-300 border-slate-800' : 'bg-slate-50 text-slate-800 border-slate-300'
+                        }`}
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Format di atas dapat langsung disalin ke kolom <strong>BCC</strong> email klien (Gmail / Outlook / Mail Gateway) atau dipisahkan dengan koma untuk parameter pengiriman API massal.
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* TAB 2: JSON API PAYLOAD */}
+              {apiEmailTab === 'json' && (() => {
+                const targetSatkers = masterSatkers.filter(m => !!(m.emailPic || m.emailSatker || m.email || apiEmailScope === 'all_contacts'));
+                const jsonData = targetSatkers.map(m => {
+                  const emailResmi = m.emailPic || m.emailSatker || m.email || null;
+                  const po = m.pejabatOperator || {};
+                  return {
+                    kodeSatker: m.kodeSatker,
+                    namaSatker: m.namaSatker,
+                    emailResmi: emailResmi,
+                    kodeBa: m.kodeBa || '018',
+                    kementerianLembaga: m.kementerianLembaga || 'Kementerian / Lembaga Mitra',
+                    kontakUtama: {
+                      nama: m.namaPic || null,
+                      noHp: m.noHpPic || null,
+                      alamat: m.alamatSatker || null
+                    },
+                    pejabatOperator: {
+                      kpa: { nama: po.kpa?.nama || null, noHp: po.kpa?.noHp || null, email: po.kpa?.email || null },
+                      ppk: { nama: po.ppk?.nama || null, noHp: po.ppk?.noHp || null, email: po.ppk?.email || null },
+                      ppspm: { nama: po.ppspm?.nama || null, noHp: po.ppspm?.noHp || null, email: po.ppspm?.email || null },
+                      bendahara: { nama: po.bendahara?.nama || null, noHp: po.bendahara?.noHp || null, email: po.bendahara?.email || null },
+                      operatorPembayaran: { nama: po.operatorPembayaran?.nama || null, noHp: po.operatorPembayaran?.noHp || null, email: po.operatorPembayaran?.email || null },
+                      operatorKomitmen: { nama: po.operatorKomitmen?.nama || null, noHp: po.operatorKomitmen?.noHp || null, email: po.operatorKomitmen?.email || null },
+                      operatorGaji: { nama: po.operatorGaji?.nama || null, noHp: po.operatorGaji?.noHp || null, email: po.operatorGaji?.email || null },
+                      operatorPelaporan: { nama: po.operatorPelaporan?.nama || null, noHp: po.operatorPelaporan?.noHp || null, email: po.operatorPelaporan?.email || null }
+                    }
+                  };
+                });
+
+                const jsonString = JSON.stringify(jsonData, null, 2);
+
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-slate-700 dark:text-slate-300">
+                        Payload JSON Format API ({jsonData.length} Satker):
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleCopyText(jsonString, 'Payload JSON API Email')}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
+                        >
+                          {copiedText === jsonString ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedText === jsonString ? 'Tersalin!' : 'Salin JSON API'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `satker_email_api_payload_${Date.now()}.json`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                            triggerToast('File payload JSON berhasil diunduh!');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Unduh .json</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <textarea
+                        readOnly
+                        rows={12}
+                        value={jsonString}
+                        className={`w-full font-mono text-[11px] p-4 rounded-2xl border resize-y focus:outline-none ${
+                          isDark ? 'bg-slate-950 text-emerald-400 border-slate-800' : 'bg-slate-950 text-emerald-300 border-slate-800'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* TAB 3: cURL & FETCH INTEGRATION CODE SNIPPET */}
+              {apiEmailTab === 'curl' && (
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                      Panduan Pemanggilan Endpoint API Email
+                    </h4>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs">
+                      Berikut adalah contoh implementasi pemanggilan API Email menggunakan Node.js fetch atau cURL ke endpoint email gateway:
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Contoh cURL:</span>
+                    <pre className="p-4 rounded-2xl bg-slate-950 text-sky-300 font-mono text-[11px] overflow-x-auto border border-slate-800">
+{`curl -X POST https://api-email.kppn-semarang1.id/v1/send-broadcast \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_EMAIL_API_KEY" \\
+  -d '{
+    "sender": "kppn026.monev@kemenkeu.go.id",
+    "subject": "[KPPN 026] Pemberitahuan Batas Akhir Capaian Output Triwulan III",
+    "recipients": [
+      "satker651046@kemdikbud.go.id",
+      "kpp.candisari@pajak.go.id"
+    ],
+    "messageHtml": "<h1>Yth. Kuasa Pengguna Anggaran & Operator Satker</h1><p>Mohon segera melengkapi pelaporan Capaian Output...</p>"
+  }'`}
+                    </pre>
+                  </div>
+
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Contoh Node.js / JavaScript Fetch:</span>
+                    <pre className="p-4 rounded-2xl bg-slate-950 text-indigo-300 font-mono text-[11px] overflow-x-auto border border-slate-800">
+{`// Contoh pemanggilan API Email dari Node.js / script otomasi KPPN
+async function kirimEmailSatker(recipients, subject, htmlBody) {
+  const response = await fetch('https://api-email.kppn-semarang1.id/v1/send-broadcast', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + process.env.EMAIL_API_KEY
+    },
+    body: JSON.stringify({
+      sender: 'kppn026.monev@kemenkeu.go.id',
+      recipients: recipients,
+      subject: subject,
+      messageHtml: htmlBody
+    })
+  });
+  return await response.json();
+}`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/50 shrink-0">
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Format kompatibel dengan seluruh Email Gateway (SMTP / REST API / Webhook)</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsApiEmailModalOpen(false)}
+                className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer"
+              >
+                Tutup
               </button>
             </div>
           </div>

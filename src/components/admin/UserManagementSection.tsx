@@ -24,7 +24,8 @@ import {
   BadgeCheck,
   UserCheck,
   Mail,
-  Phone
+  Phone,
+  Fingerprint
 } from 'lucide-react';
 import { AppUser, UserRole } from '../../types/user';
 import { AppTheme } from '../../types';
@@ -542,6 +543,16 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
 
                 <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
                   <span className="flex items-center gap-1">
+                    <Fingerprint className="w-3 h-3 text-indigo-500" />
+                    <span>NIP Pegawai:</span>
+                  </span>
+                  <span className="font-bold font-mono text-slate-800 dark:text-slate-200">
+                    {u.nip || <span className="text-amber-500 font-normal italic">Belum diisi</span>}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                  <span className="flex items-center gap-1">
                     <Mail className="w-3 h-3 text-sky-500" />
                     <span>Email:</span>
                   </span>
@@ -736,6 +747,23 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                     <option value="Subbagian Umum">Subbagian Umum</option>
                   </select>
                 </div>
+              </div>
+
+              {/* NIP Pegawai */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider mb-1 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>NIP 18 Digit (Bisa dipakai login)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={18}
+                  value={formData.nip}
+                  onChange={(e) => setFormData({ ...formData, nip: e.target.value.replace(/\D/g, '') })}
+                  placeholder="contoh: 199205152014021002"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Pegawai dapat menggunakan 18 digit NIP ini sebagai identitas login ke sistem.</p>
               </div>
 
               {/* Email & No. HP / WA */}
@@ -947,6 +975,23 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                     <option value="Subbagian Umum">Subbagian Umum</option>
                   </select>
                 </div>
+              </div>
+
+              {/* NIP Pegawai */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider mb-1 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Fingerprint className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>NIP 18 Digit (Bisa dipakai login)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={18}
+                  value={formData.nip}
+                  onChange={(e) => setFormData({ ...formData, nip: e.target.value.replace(/\D/g, '') })}
+                  placeholder="contoh: 199205152014021002"
+                  className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">Dapat digunakan sebagai identitas login alternatif akun pegawai.</p>
               </div>
 
               {/* Email & No. HP in Edit User */}

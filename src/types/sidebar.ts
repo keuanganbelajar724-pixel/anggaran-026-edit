@@ -42,6 +42,8 @@ export interface SidebarConfig {
   customAccentColor?: string; // e.g. "#38bdf8"
   position: 'left' | 'right';
   widthMode: 'compact' | 'standard' | 'wide'; // 300px, 360px, 420px
+  showFloatingButton?: boolean; // Saklar aktif/nonaktif tombol melayang di layar (default: true)
+  floatingButtonSize?: 'symbol' | 'full'; // Mode ukuran tombol: 'symbol' (hanya simbol agar tidak mengganggu membaca) | 'full' (ukuran penuh)
   items: SidebarMenuItem[];
   updatedAt?: string;
   updatedBy?: string;

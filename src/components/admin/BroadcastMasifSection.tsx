@@ -47,7 +47,13 @@ import {
   Tag,
   Bot,
   Wand2,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Mail,
+  MailCheck,
+  AtSign,
+  Inbox,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { generateGeminiContent, getClientStoredApiKey } from '../../services/geminiService';
@@ -68,11 +74,19 @@ import {
 import { ensurePejabatOperator } from '../../utils/analysisEngine';
 import { BroadcastTemplateLibraryModal } from '../BroadcastTemplateLibraryModal';
 import { BroadcastGroupSection } from './BroadcastGroupSection';
+import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
+import { EmailGatewayPublicStatus } from '../../types/email';
+import { getEmailGatewayStatus, sendBroadcastEmail, testSendEmail } from '../../services/emailGatewayService';
+
+export type BroadcastChannel = 'WHATSAPP' | 'EMAIL' | 'HYBRID';
 
 export interface DeliveryTrackerRecord {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
   sentAt?: string;
   note?: string;
+  channel?: BroadcastChannel;
+  waStatus?: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  emailStatus?: 'SUCCESS' | 'FAILED' | 'SKIPPED';
 }
 
 interface BroadcastMasifSectionProps {
@@ -204,6 +218,55 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   }, [deliveryTrackerMap]);
 
+  // Communication Channel State (WhatsApp vs Email Resmi vs Multi-Kanal Hybrid)
+  const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel>(() => {
+    try {
+      const saved = localStorage.getItem('kppn_broadcast_channel_preference');
+      if (saved === 'WHATSAPP' || saved === 'EMAIL' || saved === 'HYBRID') return saved;
+    } catch {}
+    return 'WHATSAPP';
+  });
+
+  const [emailSubjectTemplate, setEmailSubjectTemplate] = useState<string>(
+    '[PEMBERITAHUAN MONEV IKPA] {NAMA_SATKER} ({KODE_SATKER}) - KPPN Semarang I'
+  );
+
+  const [emailGatewayStatus, setEmailGatewayStatus] = useState<EmailGatewayPublicStatus | null>(null);
+  const [gatewayConfigTab, setGatewayConfigTab] = useState<'WHATSAPP' | 'EMAIL'>('WHATSAPP');
+  const [testEmailRecipient, setTestEmailRecipient] = useState<string>('mybabo.official@gmail.com');
+  const [isTestingEmail, setIsTestingEmail] = useState<boolean>(false);
+  const [quickSingleEmailModal, setQuickSingleEmailModal] = useState<{
+    id: string;
+    satkerNama: string;
+    satkerKode: string;
+    recipientName: string;
+    roleLabel: string;
+    email: string;
+    subject: string;
+    message: string;
+  } | null>(null);
+
+  useEffect(() => {
+    try {
+      safeLocalStorageSet('kppn_broadcast_channel_preference', broadcastChannel);
+    } catch {}
+  }, [broadcastChannel]);
+
+  const refreshEmailGatewayStatus = async () => {
+    try {
+      const data = await getEmailGatewayStatus();
+      if (data?.status) {
+        setEmailGatewayStatus(data.status);
+      }
+    } catch (e) {
+      console.warn('Gagal memuat status gateway email:', e);
+    }
+  };
+
+  useEffect(() => {
+    refreshEmailGatewayStatus();
+  }, []);
+
   // Confirmation Dialog States (In-App Modals - immune to iframe confirm/alert restrictions)
   const [broadcastConfirmModal, setBroadcastConfirmModal] = useState<{
     isOpen: boolean;
@@ -213,9 +276,9 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
 
   const [unselectedRecipientIds, setUnselectedRecipientIds] = useState<string[]>([]);
-  const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; renderedMessage?: string }>>({});
+  const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; pejabatEmail?: string; renderedMessage?: string }>>({});
   const [recipientSearchQuery, setRecipientSearchQuery] = useState<string>('');
-  const [contactStatusFilter, setContactStatusFilter] = useState<'ALL' | 'WITH_PHONE' | 'NO_PHONE'>('ALL');
+  const [contactStatusFilter, setContactStatusFilter] = useState<'ALL' | 'WITH_PHONE' | 'NO_PHONE' | 'WITH_EMAIL' | 'NO_EMAIL' | 'READY_CURRENT'>('ALL');
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
   const [showBulkContactModal, setShowBulkContactModal] = useState<boolean>(false);
   const [bulkContactInputText, setBulkContactInputText] = useState<string>('');
@@ -555,6 +618,9 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       roleLabel: string;
       pejabatNama: string;
       pejabatNoHp: string;
+      pejabatEmail: string;
+      satkerEmail: string;
+      renderedSubject: string;
       renderedMessage: string;
       nilaiIkpa: number;
       isPerhatian: boolean;
@@ -563,43 +629,69 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
 
     targetSatkers.forEach(s => {
       const pejo = ensurePejabatOperator(s);
+      const masterSatker = masterSatkers.find(m => m.kodeSatker === s.kodeSatker);
+      const pejoMaster = masterSatker?.pejabatOperator;
       const customExcelItem = customBroadcastExcelList.find(c => c.kodeSatker === s.kodeSatker);
       const isPerhatian = s.nilaiTotalIKPA < 87.5 || s.statusCapaianOutput !== 'Sudah Terlaporkan' || s.persenPenyerapan < 75;
+
+      const satkerEmail = (
+        masterSatker?.emailSatker ||
+        masterSatker?.emailPic ||
+        masterSatker?.email ||
+        (s as any).emailSatker ||
+        (s as any).emailPic ||
+        (s as any).email ||
+        ''
+      ).trim();
 
       selectedBroadcastRoles.forEach(roleKey => {
         let pejabatNama = '';
         let pejabatNoHp = '';
+        let pejabatEmail = '';
 
         // Extract real contact information if recorded in Satker or Pejabat data
-        if (roleKey === 'kpa' && pejo.kpa) {
-          pejabatNama = pejo.kpa.nama?.trim() || '';
-          pejabatNoHp = pejo.kpa.noHp?.trim() || '';
-        } else if (roleKey === 'ppk' && pejo.ppk) {
-          pejabatNama = pejo.ppk.nama?.trim() || '';
-          pejabatNoHp = pejo.ppk.noHp?.trim() || '';
-        } else if (roleKey === 'ppspm' && pejo.ppspm) {
-          pejabatNama = pejo.ppspm.nama?.trim() || '';
-          pejabatNoHp = pejo.ppspm.noHp?.trim() || '';
-        } else if (roleKey === 'bendahara' && pejo.bendahara) {
-          pejabatNama = pejo.bendahara.nama?.trim() || '';
-          pejabatNoHp = pejo.bendahara.noHp?.trim() || '';
-        } else if (roleKey === 'operatorKomitmen' && pejo.operatorKomitmen) {
-          pejabatNama = pejo.operatorKomitmen.nama?.trim() || '';
-          pejabatNoHp = pejo.operatorKomitmen.noHp?.trim() || '';
-        } else if (roleKey === 'operatorPembayaran' && pejo.operatorPembayaran) {
-          pejabatNama = pejo.operatorPembayaran.nama?.trim() || '';
-          pejabatNoHp = pejo.operatorPembayaran.noHp?.trim() || '';
-        } else if (roleKey === 'operatorPelaporan' && pejo.operatorPelaporan) {
-          pejabatNama = pejo.operatorPelaporan.nama?.trim() || s.namaPic?.trim() || '';
-          pejabatNoHp = pejo.operatorPelaporan.noHp?.trim() || s.noHpPic?.trim() || '';
-        } else if (roleKey === 'operatorGaji' && pejo.operatorGaji) {
-          pejabatNama = pejo.operatorGaji.nama?.trim() || '';
-          pejabatNoHp = pejo.operatorGaji.noHp?.trim() || '';
+        if (roleKey === 'kpa') {
+          pejabatNama = pejo.kpa?.nama?.trim() || pejoMaster?.kpa?.nama?.trim() || '';
+          pejabatNoHp = pejo.kpa?.noHp?.trim() || pejoMaster?.kpa?.noHp?.trim() || '';
+          pejabatEmail = pejo.kpa?.email?.trim() || pejoMaster?.kpa?.email?.trim() || '';
+        } else if (roleKey === 'ppk') {
+          pejabatNama = pejo.ppk?.nama?.trim() || pejoMaster?.ppk?.nama?.trim() || '';
+          pejabatNoHp = pejo.ppk?.noHp?.trim() || pejoMaster?.ppk?.noHp?.trim() || '';
+          pejabatEmail = pejo.ppk?.email?.trim() || pejoMaster?.ppk?.email?.trim() || '';
+        } else if (roleKey === 'ppspm') {
+          pejabatNama = pejo.ppspm?.nama?.trim() || pejoMaster?.ppspm?.nama?.trim() || '';
+          pejabatNoHp = pejo.ppspm?.noHp?.trim() || pejoMaster?.ppspm?.noHp?.trim() || '';
+          pejabatEmail = pejo.ppspm?.email?.trim() || pejoMaster?.ppspm?.email?.trim() || '';
+        } else if (roleKey === 'bendahara') {
+          pejabatNama = pejo.bendahara?.nama?.trim() || pejoMaster?.bendahara?.nama?.trim() || '';
+          pejabatNoHp = pejo.bendahara?.noHp?.trim() || pejoMaster?.bendahara?.noHp?.trim() || '';
+          pejabatEmail = pejo.bendahara?.email?.trim() || pejoMaster?.bendahara?.email?.trim() || '';
+        } else if (roleKey === 'operatorKomitmen') {
+          pejabatNama = pejo.operatorKomitmen?.nama?.trim() || pejoMaster?.operatorKomitmen?.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorKomitmen?.noHp?.trim() || pejoMaster?.operatorKomitmen?.noHp?.trim() || '';
+          pejabatEmail = pejo.operatorKomitmen?.email?.trim() || pejoMaster?.operatorKomitmen?.email?.trim() || '';
+        } else if (roleKey === 'operatorPembayaran') {
+          pejabatNama = pejo.operatorPembayaran?.nama?.trim() || pejoMaster?.operatorPembayaran?.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorPembayaran?.noHp?.trim() || pejoMaster?.operatorPembayaran?.noHp?.trim() || '';
+          pejabatEmail = pejo.operatorPembayaran?.email?.trim() || pejoMaster?.operatorPembayaran?.email?.trim() || '';
+        } else if (roleKey === 'operatorPelaporan') {
+          pejabatNama = pejo.operatorPelaporan?.nama?.trim() || pejoMaster?.operatorPelaporan?.nama?.trim() || s.namaPic?.trim() || '';
+          pejabatNoHp = pejo.operatorPelaporan?.noHp?.trim() || pejoMaster?.operatorPelaporan?.noHp?.trim() || s.noHpPic?.trim() || '';
+          pejabatEmail = pejo.operatorPelaporan?.email?.trim() || pejoMaster?.operatorPelaporan?.email?.trim() || (s as any).emailPic?.trim() || '';
+        } else if (roleKey === 'operatorGaji') {
+          pejabatNama = pejo.operatorGaji?.nama?.trim() || pejoMaster?.operatorGaji?.nama?.trim() || '';
+          pejabatNoHp = pejo.operatorGaji?.noHp?.trim() || pejoMaster?.operatorGaji?.noHp?.trim() || '';
+          pejabatEmail = pejo.operatorGaji?.email?.trim() || pejoMaster?.operatorGaji?.email?.trim() || '';
         }
 
         // If specific role has no phone, check if general satker PIC phone exists
         if (!pejabatNoHp && s.noHpPic) {
           pejabatNoHp = s.noHpPic.trim();
+        }
+
+        // If specific role has no email, fallback to satker official email
+        if (!pejabatEmail && satkerEmail) {
+          pejabatEmail = satkerEmail;
         }
 
         const recId = `${s.id}-${roleKey}`;
@@ -612,12 +704,26 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           if (override.pejabatNoHp !== undefined) {
             pejabatNoHp = override.pejabatNoHp.trim();
           }
+          if (override.pejabatEmail !== undefined) {
+            pejabatEmail = override.pejabatEmail.trim();
+          }
         }
 
         const displayPejabatNama = pejabatNama || `Pejabat / ${roleLabelMap[roleKey] || roleKey}`;
 
         let text = customExcelItem?.customMessage || broadcastTemplateText;
         text = text
+          .replace(/\{NAMA_SATKER\}/g, s.namaSatker)
+          .replace(/\{KODE_SATKER\}/g, s.kodeSatker)
+          .replace(/\{NILAI_IKPA\}/g, String(s.nilaiTotalIKPA))
+          .replace(/\{PREDIKAT\}/g, s.predikat)
+          .replace(/\{NAMA_PEJABAT\}/g, displayPejabatNama)
+          .replace(/\{PERAN_PEJABAT\}/g, roleLabelMap[roleKey] || roleKey)
+          .replace(/\{STATUS_OUTPUT\}/g, s.statusCapaianOutput)
+          .replace(/\{PENYERAPAN\}/g, `${s.persenPenyerapan}%`)
+          .replace(/\{PERIODE_BULAN\}/g, s.periodeUpdate || 'Agustus 2026');
+
+        let renderedSubject = (emailSubjectTemplate || '[PEMBERITAHUAN MONEV IKPA] {NAMA_SATKER} ({KODE_SATKER})')
           .replace(/\{NAMA_SATKER\}/g, s.namaSatker)
           .replace(/\{KODE_SATKER\}/g, s.kodeSatker)
           .replace(/\{NILAI_IKPA\}/g, String(s.nilaiTotalIKPA))
@@ -648,6 +754,9 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           roleLabel: roleLabelMap[roleKey] || roleKey,
           pejabatNama,
           pejabatNoHp,
+          pejabatEmail,
+          satkerEmail,
+          renderedSubject,
           renderedMessage: text,
           nilaiIkpa: s.nilaiTotalIKPA,
           isPerhatian,
@@ -657,23 +766,41 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     });
 
     return recipients;
-  }, [targetSatkers, selectedBroadcastRoles, recipientOverrides, customBroadcastExcelList, broadcastTemplateText]);
+  }, [targetSatkers, selectedBroadcastRoles, recipientOverrides, customBroadcastExcelList, broadcastTemplateText, emailSubjectTemplate, masterSatkers]);
 
   // Overall Contact Stats
   const contactStats = useMemo(() => {
     const total = calculatedRecipients.length;
     const withPhone = calculatedRecipients.filter(r => r.pejabatNoHp && r.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8).length;
     const withoutPhone = total - withPhone;
-    return { total, withPhone, withoutPhone };
-  }, [calculatedRecipients]);
+    const withEmail = calculatedRecipients.filter(r => r.pejabatEmail && r.pejabatEmail.includes('@')).length;
+    const withoutEmail = total - withEmail;
+    const readyCurrent = calculatedRecipients.filter(r => {
+      const hasP = Boolean(r.pejabatNoHp && r.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+      const hasE = Boolean(r.pejabatEmail && r.pejabatEmail.includes('@'));
+      if (broadcastChannel === 'WHATSAPP') return hasP;
+      if (broadcastChannel === 'EMAIL') return hasE;
+      return hasP || hasE;
+    }).length;
+    return { total, withPhone, withoutPhone, withEmail, withoutEmail, readyCurrent };
+  }, [calculatedRecipients, broadcastChannel]);
 
   // Filtered Recipients by Search Bar & Contact Status Filter
   const filteredRecipients = useMemo(() => {
     return calculatedRecipients.filter(rec => {
-      // 1. Contact Status Filter
       const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+      const hasEmail = Boolean(rec.pejabatEmail && rec.pejabatEmail.includes('@'));
+
+      // 1. Contact Status Filter
       if (contactStatusFilter === 'WITH_PHONE' && !hasPhone) return false;
       if (contactStatusFilter === 'NO_PHONE' && hasPhone) return false;
+      if (contactStatusFilter === 'WITH_EMAIL' && !hasEmail) return false;
+      if (contactStatusFilter === 'NO_EMAIL' && hasEmail) return false;
+      if (contactStatusFilter === 'READY_CURRENT') {
+        if (broadcastChannel === 'WHATSAPP' && !hasPhone) return false;
+        if (broadcastChannel === 'EMAIL' && !hasEmail) return false;
+        if (broadcastChannel === 'HYBRID' && !hasPhone && !hasEmail) return false;
+      }
 
       // 2. Search Query Filter
       if (!recipientSearchQuery.trim()) return true;
@@ -683,10 +810,11 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         rec.satkerKode.toLowerCase().includes(q) ||
         rec.pejabatNama.toLowerCase().includes(q) ||
         rec.pejabatNoHp.toLowerCase().includes(q) ||
+        rec.pejabatEmail.toLowerCase().includes(q) ||
         rec.roleLabel.toLowerCase().includes(q)
       );
     });
-  }, [calculatedRecipients, recipientSearchQuery, contactStatusFilter]);
+  }, [calculatedRecipients, recipientSearchQuery, contactStatusFilter, broadcastChannel]);
 
   const selectedRecipients = useMemo(() => {
     return filteredRecipients.filter(r => !unselectedRecipientIds.includes(r.id));
@@ -703,7 +831,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   };
 
-  const handleUpdateOverride = (id: string, field: 'pejabatNama' | 'pejabatNoHp' | 'renderedMessage', value: string) => {
+  const handleUpdateOverride = (id: string, field: 'pejabatNama' | 'pejabatNoHp' | 'pejabatEmail' | 'renderedMessage', value: string) => {
     setRecipientOverrides(prev => ({
       ...prev,
       [id]: {
@@ -721,7 +849,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     });
   };
 
-  // Bulk Apply Pasted Contacts (KodeSatker, NoHp, NamaPejabat)
+  // Bulk Apply Pasted Contacts (KodeSatker, NoHp/Email, NamaPejabat)
   const handleApplyBulkContacts = () => {
     if (!bulkContactInputText.trim()) return;
 
@@ -733,15 +861,28 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       const parts = line.split(/[,\t;|]/).map(p => p.trim());
       if (parts.length >= 2) {
         const kode = parts[0];
-        const phone = parts[1].replace(/[^0-9+]/g, '');
-        const name = parts[2] || '';
+        let phone = '';
+        let email = '';
+        let name = '';
+
+        for (let i = 1; i < parts.length; i++) {
+          const part = parts[i];
+          if (part.includes('@')) {
+            email = part;
+          } else if (part.replace(/[^0-9+]/g, '').length >= 8) {
+            phone = part.replace(/[^0-9+]/g, '');
+          } else if (!name) {
+            name = part;
+          }
+        }
 
         // Match recipients by kode satker
         calculatedRecipients.forEach(rec => {
           if (rec.satkerKode === kode) {
             newOverrides[rec.id] = {
               ...newOverrides[rec.id],
-              pejabatNoHp: phone,
+              ...(phone ? { pejabatNoHp: phone } : {}),
+              ...(email ? { pejabatEmail: email } : {}),
               ...(name ? { pejabatNama: name } : {})
             };
             updatedCount++;
@@ -946,31 +1087,133 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   };
 
+  // Dispatch single Email message via Backend Email Gateway (Brevo / Resend / SMTP)
+  const sendSingleEmailMessage = async (
+    targetEmail: string,
+    targetName: string,
+    subject: string,
+    text: string,
+    satkerNama: string,
+    satkerKode: string,
+    roleLabel: string
+  ): Promise<{ success: boolean; note: string }> => {
+    if (!targetEmail || !targetEmail.includes('@')) {
+      return { success: false, note: 'Alamat email penerima kosong atau tidak valid' };
+    }
+
+    try {
+      const res = await sendBroadcastEmail({
+        toEmail: targetEmail.trim(),
+        toName: targetName,
+        subject,
+        messageText: text,
+        satkerNama,
+        satkerKode,
+        roleLabel
+      });
+
+      if (res.success) {
+        return {
+          success: true,
+          note: `Email Terkirim (${res.provider?.toUpperCase() || 'Gateway'} ID: ${res.messageId ? res.messageId.slice(0, 15) : 'OK'})`
+        };
+      } else {
+        return {
+          success: false,
+          note: `Email Gagal: ${res.error || res.message}`
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        note: `Email Error: ${err.message || 'Gagal koneksi gateway'}`
+      };
+    }
+  };
+
+  // Test Email Gateway Connection
+  const handleTestEmailConnection = async () => {
+    if (!testEmailRecipient || !testEmailRecipient.includes('@')) {
+      if (showToast) {
+        showToast({
+          type: 'warning',
+          title: 'Email Tidak Valid',
+          message: 'Harap masukkan alamat email tujuan uji coba yang valid.'
+        });
+      } else {
+        alert('Harap masukkan alamat email tujuan uji coba yang valid.');
+      }
+      return;
+    }
+
+    setIsTestingEmail(true);
+    setBroadcastLogs(prev => [`[TEST EMAIL] Mengirim email uji coba ke ${testEmailRecipient}...`, ...prev]);
+
+    try {
+      const res = await testSendEmail({ testRecipient: testEmailRecipient.trim() });
+      setIsTestingEmail(false);
+      if (res.success) {
+        setBroadcastLogs(prev => [`[TEST EMAIL SUCCESS] 🟢 ${res.message}`, ...prev]);
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'Tes Email Gateway Berhasil',
+            message: res.message
+          });
+        }
+      } else {
+        setBroadcastLogs(prev => [`[TEST EMAIL FAILED] 🔴 ${res.message || res.error}`, ...prev]);
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Tes Email Gateway Gagal',
+            message: res.message || res.error || 'Periksa API Key atau pengaturan gateway email.'
+          });
+        }
+      }
+    } catch (err: any) {
+      setIsTestingEmail(false);
+      setBroadcastLogs(prev => [`[TEST EMAIL ERROR] 🔴 ${err.message}`, ...prev]);
+      if (showToast) {
+        showToast({
+          type: 'error',
+          title: 'Kendala Jaringan Email',
+          message: err.message
+        });
+      }
+    }
+  };
+
   // Tracked Delivery Recipient List combining calculated recipients, selection, and live delivery status
   const trackedDeliveryList = useMemo(() => {
     return calculatedRecipients.map(rec => {
       const tracker = deliveryTrackerMap[rec.id];
       const isSelected = !unselectedRecipientIds.includes(rec.id);
       const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+      const hasEmail = Boolean(rec.pejabatEmail && rec.pejabatEmail.includes('@'));
+      const isReadyForChannel = broadcastChannel === 'WHATSAPP' ? hasPhone : broadcastChannel === 'EMAIL' ? hasEmail : (hasPhone || hasEmail);
       const hasExecuted = Boolean(tracker && (tracker.status === 'SUCCESS' || tracker.status === 'FAILED'));
 
       return {
         ...rec,
         isSelected,
         hasPhone,
+        hasEmail,
+        isReadyForChannel,
         hasExecuted,
         status: tracker?.status || 'PENDING',
         sentAt: tracker?.sentAt,
-        note: tracker?.note
+        note: tracker?.note,
+        channel: tracker?.channel
       };
     });
-  }, [calculatedRecipients, deliveryTrackerMap, unselectedRecipientIds]);
+  }, [calculatedRecipients, deliveryTrackerMap, unselectedRecipientIds, broadcastChannel]);
 
   // Overall Tracker Statistics based on active trackerScope
   const trackerStats = useMemo(() => {
-    // Mode ACTIVE_TARGETS: Menghitung hanya yang pernah dikirim ATAU yang aktif dipilih & memiliki nomor WhatsApp
+    // Mode ACTIVE_TARGETS: Menghitung hanya yang pernah dikirim ATAU yang aktif dipilih & siap kirim
     const list = trackerScope === 'ACTIVE_TARGETS'
-      ? trackedDeliveryList.filter(r => r.hasExecuted || (r.isSelected && r.hasPhone))
+      ? trackedDeliveryList.filter(r => r.hasExecuted || (r.isSelected && r.isReadyForChannel))
       : trackedDeliveryList;
 
     const total = list.length;
@@ -979,11 +1222,11 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     const pending = list.filter(r => r.status === 'PENDING').length;
     const successRate = total > 0 ? Math.round((success / total) * 100) : 0;
     
-    // Actionable pending: item antrean yang benar-benar siap dikirim (punya nomor HP)
-    const actionablePending = list.filter(r => r.status === 'PENDING' && r.hasPhone).length;
+    // Actionable pending: item antrean yang benar-benar siap dikirim sesuai moda terpilih
+    const actionablePending = list.filter(r => r.status === 'PENDING' && r.isReadyForChannel).length;
 
     // Total counts for scope switcher badges
-    const activeTargetsCount = trackedDeliveryList.filter(r => r.hasExecuted || (r.isSelected && r.hasPhone)).length;
+    const activeTargetsCount = trackedDeliveryList.filter(r => r.hasExecuted || (r.isSelected && r.isReadyForChannel)).length;
     const allSatkersCount = trackedDeliveryList.length;
 
     return { total, success, failed, pending, actionablePending, successRate, activeTargetsCount, allSatkersCount };

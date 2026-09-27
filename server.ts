@@ -11,6 +11,7 @@ import {
   sendEmail, 
   buildOtpEmailHtml, 
   buildTestEmailHtml, 
+  buildBroadcastEmailHtml,
   EmailConfig 
 } from './server_email';
 
@@ -393,6 +394,72 @@ async function startServer() {
       res.status(500).json({
         success: false,
         error: e?.message || 'Gagal mengirim email uji coba.'
+      });
+    }
+  });
+
+  app.post('/api/email/send', async (req, res) => {
+    try {
+      const {
+        toEmail,
+        toName,
+        subject,
+        messageText,
+        htmlContent: customHtml,
+        satkerNama,
+        satkerKode,
+        roleLabel,
+        configOverride
+      } = req.body || {};
+
+      if (!toEmail || !toEmail.includes('@')) {
+        return res.status(400).json({ success: false, error: 'Alamat email tujuan tidak valid.' });
+      }
+
+      if (!messageText && !customHtml) {
+        return res.status(400).json({ success: false, error: 'Isi pesan email tidak boleh kosong.' });
+      }
+
+      let activeConfig: EmailConfig = { ...emailConfig };
+      if (configOverride && typeof configOverride === 'object') {
+        const clean = { ...configOverride };
+        if (clean.brevoApiKey?.includes('••••') || clean.brevoApiKey?.includes('***')) delete clean.brevoApiKey;
+        if (clean.resendApiKey?.includes('••••') || clean.resendApiKey?.includes('***')) delete clean.resendApiKey;
+        if (clean.smtpPass?.includes('••••') || clean.smtpPass?.includes('***')) delete clean.smtpPass;
+        activeConfig = { ...activeConfig, ...clean };
+      }
+
+      const emailSubject = subject || `[KPPN SEMARANG I] Pemberitahuan Monev Perbendaharaan Satker ${satkerNama || ''}`;
+
+      const htmlContent = customHtml || buildBroadcastEmailHtml({
+        satkerNama,
+        satkerKode,
+        recipientName: toName,
+        roleLabel,
+        subject: emailSubject,
+        messageText: messageText || '',
+        senderName: activeConfig.senderName,
+        senderEmail: activeConfig.senderEmail
+      });
+
+      const sendResult = await sendEmail(activeConfig, {
+        toEmail: toEmail.trim(),
+        toName: toName || satkerNama || '',
+        subject: emailSubject,
+        htmlContent
+      });
+
+      res.json({
+        success: true,
+        message: `Email berhasil terkirim ke ${toEmail} via ${sendResult.provider.toUpperCase()}!`,
+        provider: sendResult.provider,
+        messageId: sendResult.messageId
+      });
+    } catch (e: any) {
+      console.error('Failed to send broadcast email:', e);
+      res.status(500).json({
+        success: false,
+        error: e?.message || 'Gagal mengirim email broadcast.'
       });
     }
   });

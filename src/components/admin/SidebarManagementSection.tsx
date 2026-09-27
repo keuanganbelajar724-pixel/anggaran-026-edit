@@ -36,7 +36,9 @@ import {
   HelpCircle,
   ArrowUp,
   ArrowDown,
-  Building2
+  Building2,
+  Minimize2,
+  Maximize2
 } from 'lucide-react';
 import { useToast } from '../ToastNotification';
 
@@ -748,6 +750,70 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
                   </button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Floating Button Size & Visibility Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Visibilitas Tombol Melayang di Layar:
+              </label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setLocalConfig({ ...localConfig, showFloatingButton: localConfig.showFloatingButton === false ? true : false })}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex-1 flex items-center justify-center gap-2 ${
+                    localConfig.showFloatingButton !== false
+                      ? 'bg-emerald-50 dark:bg-emerald-950 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20'
+                      : 'bg-rose-50 dark:bg-rose-950 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${localConfig.showFloatingButton !== false ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                  <span>{localConfig.showFloatingButton !== false ? 'Aktif (Tampilkan Tombol Melayang)' : 'Nonaktif (Sembunyikan Tombol)'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Jika dinonaktifkan, tombol melayang di tepi layar akan disembunyikan agar pembaca tidak terganggu.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Ukuran Standar Tombol Melayang:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLocalConfig({ ...localConfig, floatingButtonSize: 'symbol' })}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    localConfig.floatingButtonSize !== 'full'
+                      ? 'bg-sky-50 dark:bg-sky-950 border-sky-500 text-sky-700 dark:text-sky-300 ring-2 ring-sky-500/20'
+                      : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                  title="Ukuran simbol minimalis agar tidak mengganggu membaca"
+                >
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span>Simbol Saja (Minimalis)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLocalConfig({ ...localConfig, floatingButtonSize: 'full' })}
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    localConfig.floatingButtonSize === 'full'
+                      ? 'bg-sky-50 dark:bg-sky-950 border-sky-500 text-sky-700 dark:text-sky-300 ring-2 ring-sky-500/20'
+                      : 'border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                  title="Ukuran penuh dengan teks Aplikasi KPPN"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Penuh (Teks + Ikon)</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                Pengguna juga dapat memperkecil/memperbesar tombol langsung dari layar atau menu sidebar.
+              </p>
             </div>
           </div>
 

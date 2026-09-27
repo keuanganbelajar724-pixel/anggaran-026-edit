@@ -523,3 +523,172 @@ export function buildTestEmailHtml(params: {
 </html>
   `.trim();
 }
+
+/**
+ * Professional HTML template for Broadcast & Official Jarkom Notification
+ */
+export function buildBroadcastEmailHtml(params: {
+  satkerNama?: string;
+  satkerKode?: string;
+  recipientName?: string;
+  roleLabel?: string;
+  subject?: string;
+  messageText: string;
+  senderName?: string;
+  senderEmail?: string;
+}): string {
+  const {
+    satkerNama = 'Satker Mitra Kerja',
+    satkerKode = '',
+    recipientName = 'Bapak/Ibu Pejabat Pengelola Keuangan',
+    roleLabel = 'Pejabat / Operator Satker',
+    subject = 'Pemberitahuan Resmi Layanan Perbendaharaan Satker',
+    messageText,
+    senderName = 'KPPN Semarang I - Sistem ANGKASA',
+    senderEmail = 'kppn026.semarang@gmail.com'
+  } = params;
+
+  // Format WhatsApp/Markdown-style formatting to HTML
+  let formattedBody = (messageText || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*([^*\n]+)\*/g, '<strong style="color: #0f172a;">$1</strong>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+    .replace(/`([^`\n]+)`/g, '<code style="background-color: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 90%; color: #0284c7;">$1</code>')
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" style="color: #0284c7; text-decoration: underline; word-break: break-all;">$1</a>')
+    .replace(/\n/g, '<br/>');
+
+  const nowWib = new Date().toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    dateStyle: 'full',
+    timeStyle: 'short'
+  }) + ' WIB';
+
+  return `
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; line-height: 1.6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f8fafc; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Container Card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 640px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;">
+          
+          <!-- Official Kemenkeu Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #091e3a 0%, #1e3a8a 60%, #0369a1 100%); padding: 30px 28px; text-align: center; color: #ffffff;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <div style="display: inline-block; background-color: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 9999px; padding: 5px 16px; margin-bottom: 12px;">
+                      <span style="color: #fde047; font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;">KEMENTERIAN KEUANGAN REPUBLIK INDONESIA</span>
+                    </div>
+                    <h1 style="color: #ffffff; font-size: 20px; font-weight: 900; margin: 0 0 4px 0; letter-spacing: -0.5px;">KPPN SEMARANG I (026)</h1>
+                    <p style="color: #cbd5e1; font-size: 12px; margin: 0; font-weight: 600;">Sistem ANGKASA • Navigasi &amp; Kinerja Akuntabel Satker</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Metadata Ribbon -->
+          <tr>
+            <td style="background-color: #f1f5f9; padding: 14px 28px; border-bottom: 1px solid #e2e8f0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td>
+                    <span style="display: inline-block; background-color: #e0e7ff; color: #3730a3; font-size: 10px; font-weight: 800; padding: 3px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                      JARKOM RESMI PEJABAT SATKER
+                    </span>
+                  </td>
+                  <td align="right">
+                    <span style="color: #64748b; font-size: 11px; font-weight: 600;">
+                      📅 ${nowWib}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Target Satker & Pejabat Info Box -->
+          <tr>
+            <td style="padding: 24px 28px 12px 28px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border: 1px solid #dbeafe; border-radius: 14px; padding: 16px;">
+                <tr>
+                  <td>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td width="35%" style="padding: 4px 0; color: #64748b; font-size: 12px; font-weight: 600;">Satker Penerima:</td>
+                        <td width="65%" style="padding: 4px 0; color: #0f172a; font-size: 13px; font-weight: 800;">
+                          ${satkerNama} ${satkerKode ? `<span style="color: #2563eb; font-family: monospace;">(${satkerKode})</span>` : ''}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 4px 0; color: #64748b; font-size: 12px; font-weight: 600;">Pejabat / PIC:</td>
+                        <td style="padding: 4px 0; color: #0f172a; font-size: 13px; font-weight: 700;">
+                          ${recipientName} <span style="display: inline-block; background-color: #f1f5f9; color: #475569; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 4px;">${roleLabel}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Message Body Content -->
+          <tr>
+            <td style="padding: 16px 28px 28px 28px;">
+              <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 22px; font-size: 13.5px; color: #334155; line-height: 1.7;">
+                ${formattedBody}
+              </div>
+
+              <!-- Official Disclaimer Alert -->
+              <div style="background-color: #ecfdf5; border-left: 4px solid #10b981; padding: 14px 18px; border-radius: 8px; margin-top: 22px;">
+                <p style="margin: 0; font-size: 12px; color: #065f46; font-weight: 700; line-height: 1.5;">
+                  ℹ️ CATATAN RESMI PELAYANAN KPPN SEMARANG I:
+                </p>
+                <p style="margin: 4px 0 0 0; font-size: 11.5px; color: #047857; line-height: 1.5;">
+                  Email ini dikirimkan secara resmi oleh Tim Layanan Seksi MSKI KPPN Semarang I melalui Sistem ANGKASA sebagai sarana monitoring, pembinaan, dan koordinasi perbendaharaan Satker mitra kerja. Mohon pastikan koordinasi internal tim pengelola keuangan Satker berjalan optimal.
+                </p>
+              </div>
+
+              <!-- Portal Access Button -->
+              <div style="text-align: center; margin-top: 26px;">
+                <a href="https://anggaran-026.my.id" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%); color: #ffffff; font-weight: 800; font-size: 13px; text-decoration: none; padding: 12px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);">
+                  🌐 Buka Portal ANGKASA KPPN Semarang I
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer Section -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 28px; text-align: center;">
+              <p style="color: #64748b; font-size: 12px; margin: 0 0 4px 0; font-weight: 700;">
+                Kantor Pelayanan Perbendaharaan Negara (KPPN) Tipe A1 Semarang I
+              </p>
+              <p style="color: #94a3b8; font-size: 11px; margin: 0 0 4px 0;">
+                Seksi Manajemen Satker dan Kepatuhan Internal (MSKI)
+              </p>
+              <p style="color: #cbd5e1; font-size: 10.5px; margin: 0;">
+                Jl. Ki Mangunsarkoro No. 34, Semarang 50241 • Telepon (024) 8414441 • Pengirim: ${senderName} (${senderEmail})
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}

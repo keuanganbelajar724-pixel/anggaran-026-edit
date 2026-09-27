@@ -7,6 +7,8 @@ export const INITIAL_SIDEBAR_CONFIG: SidebarConfig = {
   themePreset: 'navy_kemenkeu',
   position: 'left',
   widthMode: 'standard',
+  showFloatingButton: true,
+  floatingButtonSize: 'symbol',
   customBgColor: '#0f172a',
   customHeaderColor: '#1e3a8a',
   customTextColor: '#f8fafc',
