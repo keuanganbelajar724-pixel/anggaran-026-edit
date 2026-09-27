@@ -1443,7 +1443,9 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         showToast({
           type: 'warning',
           title: 'Tidak Ada Penerima',
-          message: 'Pilih minimal satu penerima broadcast yang memiliki nomor WhatsApp.'
+          message: broadcastChannel === 'EMAIL' 
+            ? 'Pilih minimal satu penerima broadcast yang memiliki alamat email.'
+            : 'Pilih minimal satu penerima broadcast yang siap dikirim.'
         });
       } else {
         alert('Tidak ada penerima broadcast yang terpilih.');
@@ -1451,17 +1453,33 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
       return;
     }
 
-    if (waGatewayProvider !== 'simulasi' && waGatewayProvider !== 'wa_me_link' && !waGatewayToken.trim() && waGatewayProvider !== 'custom_api') {
-      if (showToast) {
-        showToast({
-          type: 'error',
-          title: 'Token Belum Diisi',
-          message: `Anda memilih provider '${waGatewayProvider.toUpperCase()}', namun API Token belum diisi/disimpan. Silakan simpan API Token pada Pengaturan Token Gateway.`
-        });
-      } else {
-        alert(`Anda memilih provider '${waGatewayProvider.toUpperCase()}', namun API Token belum diisi/disimpan. Silakan simpan API Token pada kartu 'Pengaturan Token Gateway'.`);
+    // Validate WhatsApp Gateway if channel uses WhatsApp
+    if (broadcastChannel === 'WHATSAPP' || broadcastChannel === 'HYBRID') {
+      if (waGatewayProvider !== 'simulasi' && waGatewayProvider !== 'wa_me_link' && !waGatewayToken.trim() && waGatewayProvider !== 'custom_api') {
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Token WhatsApp Belum Diisi',
+            message: `Anda memilih provider '${waGatewayProvider.toUpperCase()}', namun API Token belum diisi/disimpan. Silakan simpan API Token pada Pengaturan Gateway WhatsApp.`
+          });
+        } else {
+          alert(`Anda memilih provider '${waGatewayProvider.toUpperCase()}', namun API Token belum diisi/disimpan. Silakan simpan API Token pada kartu 'Pengaturan Gateway WhatsApp'.`);
+        }
+        return;
       }
-      return;
+    }
+
+    // Validate Email Gateway if channel uses Email
+    if (broadcastChannel === 'EMAIL') {
+      if (!emailGatewayStatus?.isConfigured) {
+        if (showToast) {
+          showToast({
+            type: 'warning',
+            title: 'Gateway Email Belum Lengkap',
+            message: 'Konfigurasi Gateway Email (Brevo / Resend / SMTP Gmail) belum aktif. Silakan lengkapi di tab Pengaturan Gateway Email.'
+          });
+        }
+      }
     }
 
     // Auto save gateway token
@@ -1483,13 +1501,20 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     isPausedRef.current = false;
     setBroadcastProgress(0);
     setSentStats({ success: 0, failed: 0, total: recipients.length });
-    setBroadcastLogs([`[SYSTEM] Memulai antrean broadcast masif ke ${recipients.length} Pejabat Satker via Provider '${waGatewayProvider.toUpperCase()}'...`]);
+    
+    const channelLabel = broadcastChannel === 'WHATSAPP' 
+      ? `WhatsApp (${waGatewayProvider.toUpperCase()})` 
+      : broadcastChannel === 'EMAIL'
+        ? `Email Gateway (${emailGatewayStatus?.provider?.toUpperCase() || 'SERVER'})`
+        : `Multi-Kanal Hybrid (WA + Email)`;
+
+    setBroadcastLogs([`[SYSTEM] Memulai antrean broadcast masif ke ${recipients.length} Pejabat Satker via Moda '${channelLabel}'...`]);
 
     if (showToast) {
       showToast({
         type: 'info',
         title: 'Broadcast Dimulai',
-        message: `Memulai pengiriman pesan ke ${recipients.length} nomor tujuan.`
+        message: `Memulai pengiriman pesan ke ${recipients.length} penerima via ${channelLabel}.`
       });
     }
 
@@ -1505,73 +1530,231 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
       const rec = recipients[i];
       const nowTimestamp = new Date().toLocaleTimeString('id-ID');
 
-      if (!rec.pejabatNoHp || rec.pejabatNoHp.replace(/[^0-9]/g, '').length < 8) {
-        failCount++;
-        setDeliveryTrackerMap(prev => ({
-          ...prev,
-          [rec.id]: {
-            status: 'FAILED',
-            sentAt: nowTimestamp,
-            note: 'Nomor HP kosong / kurang dari 8 digit'
-          }
-        }));
-        setBroadcastLogs(prev => [
-          `[${nowTimestamp}] GAGAL 🔴 (No. HP Kosong/Tidak Valid) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode})`,
-          ...prev.slice(0, 150)
-        ]);
-        setSentStats({ success: successCount, failed: failCount, total: recipients.length });
-        continue;
-      }
+      if (broadcastChannel === 'WHATSAPP') {
+        if (!rec.pejabatNoHp || rec.pejabatNoHp.replace(/[^0-9]/g, '').length < 8) {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: 'Nomor HP kosong / kurang dari 8 digit',
+              channel: 'WHATSAPP',
+              waStatus: 'FAILED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [WA] GAGAL 🔴 (No. HP Kosong/Tidak Valid) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode})`,
+            ...prev.slice(0, 150)
+          ]);
+          setSentStats({ success: successCount, failed: failCount, total: recipients.length });
+          continue;
+        }
 
-      const result = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
+        const result = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
 
-      if (result.success) {
-        successCount++;
-        setDeliveryTrackerMap(prev => ({
-          ...prev,
-          [rec.id]: {
-            status: 'SUCCESS',
-            sentAt: nowTimestamp,
-            note: result.note
-          }
-        }));
-        setBroadcastLogs(prev => [
-          `[${nowTimestamp}] TERKIRIM 🟢 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode}) | No: ${rec.pejabatNoHp}`,
-          ...prev.slice(0, 150)
-        ]);
+        if (result.success) {
+          successCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'SUCCESS',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'WHATSAPP',
+              waStatus: 'SUCCESS'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [WA] TERKIRIM 🟢 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode}) | No: ${rec.pejabatNoHp}`,
+            ...prev.slice(0, 150)
+          ]);
+        } else {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'WHATSAPP',
+              waStatus: 'FAILED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [WA] GAGAL 🔴 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | No: ${rec.pejabatNoHp}`,
+            ...prev.slice(0, 150)
+          ]);
+        }
+      } else if (broadcastChannel === 'EMAIL') {
+        const targetEmail = rec.pejabatEmail || rec.satkerEmail;
+        if (!targetEmail || !targetEmail.includes('@')) {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: 'Alamat email pejabat/satker belum terisi',
+              channel: 'EMAIL',
+              emailStatus: 'FAILED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [EMAIL] GAGAL 🔴 (Email Kosong/Tidak Valid) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode})`,
+            ...prev.slice(0, 150)
+          ]);
+          setSentStats({ success: successCount, failed: failCount, total: recipients.length });
+          continue;
+        }
+
+        const result = await sendSingleEmailMessage(
+          targetEmail,
+          rec.pejabatNama,
+          rec.renderedSubject,
+          rec.renderedMessage,
+          rec.satkerNama,
+          rec.satkerKode,
+          rec.roleLabel
+        );
+
+        if (result.success) {
+          successCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'SUCCESS',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'EMAIL',
+              emailStatus: 'SUCCESS'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [EMAIL] TERKIRIM 🟢 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} | Email: ${targetEmail}`,
+            ...prev.slice(0, 150)
+          ]);
+        } else {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'EMAIL',
+              emailStatus: 'FAILED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [EMAIL] GAGAL 🔴 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Email: ${targetEmail}`,
+            ...prev.slice(0, 150)
+          ]);
+        }
       } else {
-        failCount++;
-        setDeliveryTrackerMap(prev => ({
-          ...prev,
-          [rec.id]: {
-            status: 'FAILED',
-            sentAt: nowTimestamp,
-            note: result.note
-          }
-        }));
-        setBroadcastLogs(prev => [
-          `[${nowTimestamp}] GAGAL 🔴 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | No: ${rec.pejabatNoHp}`,
-          ...prev.slice(0, 150)
-        ]);
+        // HYBRID MODE (WA + EMAIL SEKALIGUS)
+        const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+        const targetEmail = rec.pejabatEmail || rec.satkerEmail;
+        const hasEmail = Boolean(targetEmail && targetEmail.includes('@'));
+
+        if (!hasPhone && !hasEmail) {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: 'No. HP dan Email keduanya kosong',
+              channel: 'HYBRID',
+              waStatus: 'SKIPPED',
+              emailStatus: 'SKIPPED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (Kontak Kosong) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama}`,
+            ...prev.slice(0, 150)
+          ]);
+          setSentStats({ success: successCount, failed: failCount, total: recipients.length });
+          continue;
+        }
+
+        let waSuccess = false;
+        let waNote = 'No HP kosong';
+        if (hasPhone) {
+          const waRes = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
+          waSuccess = waRes.success;
+          waNote = waRes.note;
+        }
+
+        let emailSuccess = false;
+        let emailNote = 'Email kosong';
+        if (hasEmail) {
+          const emailRes = await sendSingleEmailMessage(
+            targetEmail,
+            rec.pejabatNama,
+            rec.renderedSubject,
+            rec.renderedMessage,
+            rec.satkerNama,
+            rec.satkerKode,
+            rec.roleLabel
+          );
+          emailSuccess = emailRes.success;
+          emailNote = emailRes.note;
+        }
+
+        const isOverallSuccess = waSuccess || emailSuccess;
+        if (isOverallSuccess) {
+          successCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'SUCCESS',
+              sentAt: nowTimestamp,
+              note: `WA: ${waSuccess ? '✓ ' + waNote : '✗ ' + waNote} | Email: ${emailSuccess ? '✓ ' + emailNote : '✗ ' + emailNote}`,
+              channel: 'HYBRID',
+              waStatus: hasPhone ? (waSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
+              emailStatus: hasEmail ? (emailSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [HYBRID] TERKIRIM 🟢 (WA: ${waSuccess ? '✓' : '✗'}, Email: ${emailSuccess ? '✓' : '✗'}) -> ${rec.roleLabel} (${rec.pejabatNama})`,
+            ...prev.slice(0, 150)
+          ]);
+        } else {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: `WA: ${waNote} | Email: ${emailNote}`,
+              channel: 'HYBRID',
+              waStatus: hasPhone ? 'FAILED' : 'SKIPPED',
+              emailStatus: hasEmail ? 'FAILED' : 'SKIPPED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (WA & Email gagal) -> ${rec.roleLabel} (${rec.pejabatNama})`,
+            ...prev.slice(0, 150)
+          ]);
+        }
       }
 
       setSentStats({ success: successCount, failed: failCount, total: recipients.length });
       const progress = Math.round(((i + 1) / recipients.length) * 100);
       setBroadcastProgress(progress);
 
-      // High-Grade Anti-Ban Rate-Limiting & Jitter Delay to protect WhatsApp account from bans
+      // Anti-Ban & Rate-Limiting Delay between dispatches
       if (i < recipients.length - 1) {
         let sleepDuration = delayBetweenMs;
         if (useRandomJitter) {
-          // Add 1000ms to 3500ms random human delay variation
           sleepDuration += Math.floor(Math.random() * 2500) + 1000;
         }
 
-        // Batch pause check (e.g. pause 30s every 10 messages)
         if (batchPauseSize > 0 && (i + 1) % batchPauseSize === 0) {
           const pauseSec = batchPauseDurationSec || 30;
           setBroadcastLogs(prev => [
-            `🛡️ [ANTI-BAN COOLDOWN AKTIF] Menjeda ${pauseSec} detik setelah ${i + 1} pesan terkirim agar nomor WhatsApp aman dari deteksi spam/banned...`,
+            `🛡️ [ANTI-BAN COOLDOWN AKTIF] Menjeda ${pauseSec} detik setelah ${i + 1} pesan terkirim agar jalur pengiriman aman dari deteksi spam...`,
             ...prev.slice(0, 150)
           ]);
           
@@ -1591,17 +1774,17 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
     if (addLog) {
       addLog(
-        `Broadcast Masif WA (${successCount} Terkirim, ${failCount} Gagal)`,
+        `Broadcast Jarkom ${broadcastChannel} (${successCount} Terkirim, ${failCount} Gagal)`,
         'ANNOUNCEMENT',
-        `Pengiriman broadcast masif ke ${recipients.length} pejabat satker (Filter: ${broadcastTargetFilter}) via ${waGatewayProvider.toUpperCase()}.`
+        `Pengiriman broadcast ke ${recipients.length} pejabat satker (Filter: ${broadcastTargetFilter}) via ${channelLabel}.`
       );
     }
 
     if (showToast) {
       showToast({
         type: successCount > 0 ? 'success' : 'warning',
-        title: 'Broadcast Masif Selesai',
-        message: `Total ${successCount} pesan berhasil terkirim, ${failCount} gagal. Anda dapat memantau status detail pada Tab Monitoring Pengiriman.`
+        title: 'Broadcast Selesai',
+        message: `Total ${successCount} berhasil terkirim, ${failCount} gagal. Anda dapat memantau status detail pada Tab Monitoring Pengiriman.`
       });
     }
   };
@@ -1643,58 +1826,185 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
   };
 
   // Retry a Single Specific Recipient
-  const handleRetrySingleRecipient = async (recId: string) => {
+  const handleRetrySingleRecipient = async (recId: string, forcedChannel?: BroadcastChannel) => {
     const rec = calculatedRecipients.find(r => r.id === recId);
     if (!rec) return;
 
-    if (!rec.pejabatNoHp || rec.pejabatNoHp.replace(/[^0-9]/g, '').length < 8) {
-      if (showToast) {
-        showToast({
-          type: 'warning',
-          title: 'Nomor HP Tidak Valid',
-          message: 'Nomor HP tujuan masih kosong atau belum valid. Silakan lengkapi terlebih dahulu.'
-        });
-      } else {
-        alert('Nomor HP tujuan masih kosong. Silakan lengkapi nomor terlebih dahulu.');
-      }
-      return;
-    }
-
-    setBroadcastLogs(prev => [`[RETRY SINGLE] Mengirim ulang ke ${rec.pejabatNama} (${rec.satkerNama}) -> ${rec.pejabatNoHp}...`, ...prev]);
+    const channelToUse = forcedChannel || broadcastChannel;
     const nowTimestamp = new Date().toLocaleTimeString('id-ID');
-    const result = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
 
-    if (result.success) {
-      setDeliveryTrackerMap(prev => ({
-        ...prev,
-        [rec.id]: {
-          status: 'SUCCESS',
-          sentAt: nowTimestamp,
-          note: result.note
+    if (channelToUse === 'WHATSAPP') {
+      if (!rec.pejabatNoHp || rec.pejabatNoHp.replace(/[^0-9]/g, '').length < 8) {
+        if (showToast) {
+          showToast({
+            type: 'warning',
+            title: 'Nomor HP Tidak Valid',
+            message: 'Nomor HP WhatsApp tujuan masih kosong atau belum valid.'
+          });
+        } else {
+          alert('Nomor HP tujuan masih kosong. Silakan lengkapi nomor terlebih dahulu.');
         }
-      }));
-      if (showToast) {
-        showToast({
-          type: 'success',
-          title: 'Terkirim Ulang',
-          message: `Pesan berhasil dikirim ke ${rec.pejabatNama} (${rec.satkerNama}).`
-        });
+        return;
+      }
+
+      setBroadcastLogs(prev => [`[RETRY SINGLE WA] Mengirim ulang ke ${rec.pejabatNama} (${rec.satkerNama}) -> ${rec.pejabatNoHp}...`, ...prev]);
+      const result = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
+
+      if (result.success) {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'SUCCESS',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'WHATSAPP',
+            waStatus: 'SUCCESS'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'WhatsApp Terkirim Ulang',
+            message: `Pesan berhasil dikirim ke ${rec.pejabatNama} (${rec.satkerNama}).`
+          });
+        }
+      } else {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'FAILED',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'WHATSAPP',
+            waStatus: 'FAILED'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Kirim Ulang WA Gagal',
+            message: result.note
+          });
+        }
+      }
+    } else if (channelToUse === 'EMAIL') {
+      const targetEmail = rec.pejabatEmail || rec.satkerEmail;
+      if (!targetEmail || !targetEmail.includes('@')) {
+        if (showToast) {
+          showToast({
+            type: 'warning',
+            title: 'Email Tidak Valid',
+            message: 'Alamat email pejabat / satker masih kosong atau belum valid.'
+          });
+        } else {
+          alert('Alamat email masih kosong. Silakan lengkapi alamat email terlebih dahulu.');
+        }
+        return;
+      }
+
+      setBroadcastLogs(prev => [`[RETRY SINGLE EMAIL] Mengirim ulang email ke ${rec.pejabatNama} (${rec.satkerNama}) -> ${targetEmail}...`, ...prev]);
+      const result = await sendSingleEmailMessage(
+        targetEmail,
+        rec.pejabatNama,
+        rec.renderedSubject,
+        rec.renderedMessage,
+        rec.satkerNama,
+        rec.satkerKode,
+        rec.roleLabel
+      );
+
+      if (result.success) {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'SUCCESS',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'EMAIL',
+            emailStatus: 'SUCCESS'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'Email Terkirim Ulang',
+            message: `Email berhasil dikirim ke ${targetEmail} (${rec.satkerNama}).`
+          });
+        }
+      } else {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'FAILED',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'EMAIL',
+            emailStatus: 'FAILED'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Kirim Ulang Email Gagal',
+            message: result.note
+          });
+        }
       }
     } else {
-      setDeliveryTrackerMap(prev => ({
-        ...prev,
-        [rec.id]: {
-          status: 'FAILED',
-          sentAt: nowTimestamp,
-          note: result.note
+      // Hybrid retry
+      const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+      const targetEmail = rec.pejabatEmail || rec.satkerEmail;
+      const hasEmail = Boolean(targetEmail && targetEmail.includes('@'));
+
+      let waOk = false;
+      let emailOk = false;
+
+      if (hasPhone) {
+        const res = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
+        waOk = res.success;
+      }
+      if (hasEmail) {
+        const res = await sendSingleEmailMessage(
+          targetEmail,
+          rec.pejabatNama,
+          rec.renderedSubject,
+          rec.renderedMessage,
+          rec.satkerNama,
+          rec.satkerKode,
+          rec.roleLabel
+        );
+        emailOk = res.success;
+      }
+
+      if (waOk || emailOk) {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'SUCCESS',
+            sentAt: nowTimestamp,
+            note: `Terkirim Ulang (WA: ${waOk ? '✓' : '✗'}, Email: ${emailOk ? '✓' : '✗'})`,
+            channel: 'HYBRID',
+            waStatus: hasPhone ? (waOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
+            emailStatus: hasEmail ? (emailOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'Kirim Ulang Hybrid Selesai',
+            message: `WA: ${waOk ? 'Sukses' : 'Gagal'}, Email: ${emailOk ? 'Sukses' : 'Gagal'}.`
+          });
         }
-      }));
-      if (showToast) {
-        showToast({
-          type: 'error',
-          title: 'Kirim Ulang Gagal',
-          message: result.note
-        });
+      } else {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'FAILED',
+            sentAt: nowTimestamp,
+            note: 'Kirim ulang WA & Email keduanya gagal',
+            channel: 'HYBRID'
+          }
+        }));
       }
     }
   };
