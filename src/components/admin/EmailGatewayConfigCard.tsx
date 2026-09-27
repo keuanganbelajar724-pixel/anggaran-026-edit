@@ -78,15 +78,10 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
         setSmtpHost(data.status.smtpHost || 'smtp.gmail.com');
         setSmtpPort(data.status.smtpPort || 465);
         setSmtpUser(data.status.smtpUser || '');
-        if (data.status.brevoApiKeyMasked) {
-          setBrevoApiKey(data.status.brevoApiKeyMasked);
-        }
-        if (data.status.resendApiKeyMasked) {
-          setResendApiKey(data.status.resendApiKeyMasked);
-        }
-        if (data.status.smtpPassMasked) {
-          setSmtpPass(data.status.smtpPassMasked);
-        }
+        // Clear raw input so users aren't confused by masked "xke••••••••1234" in input boxes
+        setBrevoApiKey('');
+        setResendApiKey('');
+        setSmtpPass('');
       }
     } catch (err: any) {
       console.warn('Gagal memuat konfigurasi email gateway:', err);
@@ -111,17 +106,23 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
     setIsSaving(true);
     setTestResult(null);
 
+    // Only send the key if the user typed a new unmasked key.
+    // If left empty and key was already configured, server preserves the real existing key.
+    const cleanBrevo = brevoApiKey.trim();
+    const cleanResend = resendApiKey.trim();
+    const cleanSmtpPass = smtpPass.trim();
+
     const payload: EmailGatewayConfig = {
       provider,
       senderName: senderName.trim(),
       senderEmail: senderEmail.trim(),
-      brevoApiKey: brevoApiKey.trim(),
-      resendApiKey: resendApiKey.trim(),
+      brevoApiKey: cleanBrevo && !cleanBrevo.includes('••••') && !cleanBrevo.includes('***') ? cleanBrevo : '',
+      resendApiKey: cleanResend && !cleanResend.includes('••••') && !cleanResend.includes('***') ? cleanResend : '',
       smtpHost: smtpHost.trim(),
       smtpPort: Number(smtpPort),
       smtpSecure,
       smtpUser: smtpUser.trim(),
-      smtpPass: smtpPass.trim()
+      smtpPass: cleanSmtpPass && !cleanSmtpPass.includes('••••') && !cleanSmtpPass.includes('***') ? cleanSmtpPass : ''
     };
 
     try {
@@ -150,20 +151,34 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
     setTestResult(null);
 
     try {
+      const overridePayload: Partial<EmailGatewayConfig> = {
+        provider,
+        senderName: senderName.trim(),
+        senderEmail: senderEmail.trim(),
+        smtpHost: smtpHost.trim(),
+        smtpPort: Number(smtpPort),
+        smtpSecure,
+        smtpUser: smtpUser.trim()
+      };
+
+      const cleanBrevo = brevoApiKey.trim();
+      if (cleanBrevo && !cleanBrevo.includes('••••') && !cleanBrevo.includes('***')) {
+        overridePayload.brevoApiKey = cleanBrevo;
+      }
+
+      const cleanResend = resendApiKey.trim();
+      if (cleanResend && !cleanResend.includes('••••') && !cleanResend.includes('***')) {
+        overridePayload.resendApiKey = cleanResend;
+      }
+
+      const cleanSmtpPass = smtpPass.trim();
+      if (cleanSmtpPass && !cleanSmtpPass.includes('••••') && !cleanSmtpPass.includes('***')) {
+        overridePayload.smtpPass = cleanSmtpPass;
+      }
+
       const res = await testSendEmail({
         testRecipient: testRecipient.trim(),
-        configOverride: {
-          provider,
-          senderName: senderName.trim(),
-          senderEmail: senderEmail.trim(),
-          brevoApiKey: brevoApiKey.trim(),
-          resendApiKey: resendApiKey.trim(),
-          smtpHost: smtpHost.trim(),
-          smtpPort: Number(smtpPort),
-          smtpSecure,
-          smtpUser: smtpUser.trim(),
-          smtpPass: smtpPass.trim()
-        }
+        configOverride: overridePayload
       });
 
       setTestResult(res);
@@ -352,29 +367,44 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-              Alamat Email Pengirim (Sender Address)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Alamat Email Pengirim (Sender Address)
+              </label>
+              {currentUserEmail && senderEmail !== currentUserEmail && (
+                <button
+                  type="button"
+                  onClick={() => setSenderEmail(currentUserEmail)}
+                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  Gunakan email saya ({currentUserEmail})
+                </button>
+              )}
+            </div>
             <input
               type="email"
               value={senderEmail}
               onChange={(e) => setSenderEmail(e.target.value)}
-              placeholder="e.g. kppn026.semarang@gmail.com"
+              placeholder="e.g. mybabo.official@gmail.com"
               className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-bold rounded-xl px-3.5 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
             />
-            <span className="text-[10px] text-slate-500 mt-1 block">Alamat email terdaftar pada akun Brevo / Resend / Gmail Anda.</span>
+            <span className="text-[10px] text-slate-500 mt-1 block">
+              {provider === 'brevo' 
+                ? '⚠️ Wajib: Email ini harus sama persis dengan email akun Brevo Anda (tempat Anda membuat API Key).'
+                : 'Alamat email terdaftar pada akun gateway email Anda.'}
+            </span>
           </div>
         </div>
 
         {/* Section 3: Provider Specific Credentials */}
         {provider === 'brevo' && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="p-4 sm:p-5 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4 text-blue-600" />
                 <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  Brevo API Key (xkeysib-...)
+                  Brevo API Key (v3)
                 </label>
               </div>
               <a
@@ -388,32 +418,62 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
               </a>
             </div>
 
-            <div className="relative">
-              <input
-                type={showBrevoKey ? 'text' : 'password'}
-                value={brevoApiKey}
-                onChange={(e) => setBrevoApiKey(e.target.value)}
-                placeholder="xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                className="w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-3.5 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowBrevoKey(!showBrevoKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-              >
-                {showBrevoKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
+            {/* Status if already configured on server */}
+            {status?.brevoApiKeyMasked && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-1">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Kunci Aktif Tersimpan di Server: </span>
+                  <code className="bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded text-emerald-900 dark:text-emerald-200 font-mono text-[11px]">
+                    {status.brevoApiKeyMasked}
+                  </code>
+                </div>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 leading-relaxed pl-6">
+                  ✓ Kunci asli Anda tersimpan lengkap dan utuh di server &amp; database Firestore. Tampilan disamarkan (masking) otomatis semata-mata untuk perlindungan keamanan kredensial agar tidak terekspos.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <div className="relative">
+                <input
+                  type={showBrevoKey ? 'text' : 'password'}
+                  value={brevoApiKey}
+                  onChange={(e) => setBrevoApiKey(e.target.value)}
+                  placeholder={status?.brevoApiKeyMasked ? "Kunci aktif sudah tersimpan. Masukkan API Key baru HANYA jika ingin mengganti..." : "xkeysib-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}
+                  className="w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-3.5 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowBrevoKey(!showBrevoKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  {showBrevoKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {brevoApiKey.trim() && (
+                <p className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                  ✏️ Kunci baru terdeteksi ({brevoApiKey.length} karakter). Klik <strong>"Simpan Konfigurasi Gateway"</strong> di bawah untuk menerapkan.
+                </p>
+              )}
             </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-400">
-              💡 Buka akun <strong>Brevo.com</strong> &rarr; Menu <strong>SMTP &amp; API</strong> &rarr; Klik <strong>Generate a new API key</strong>.
-            </p>
+
+            <div className="p-3 rounded-xl bg-blue-100/60 dark:bg-blue-900/30 text-[11px] text-blue-950 dark:text-blue-200 space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                Tips Penggunaan Brevo (Sendinblue):
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-700 dark:text-slate-300">
+                <li>Buka akun <strong>Brevo.com</strong> &rarr; Menu Akun pojok kanan atas &rarr; <strong>SMTP &amp; API</strong> &rarr; Tab <strong>API Keys</strong> &rarr; Klik <strong>Generate a new API key</strong>.</li>
+                <li>Pastikan <strong>Alamat Email Pengirim (Sender Address)</strong> di atas diisi email yang Anda gunakan mendaftar Brevo.</li>
+              </ul>
+            </div>
           </div>
         )}
 
         {provider === 'resend' && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-100 dark:bg-slate-800/40 border border-slate-300 dark:border-slate-700 space-y-3.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Key className="w-4 h-4 text-slate-800 dark:text-slate-200" />
                 <label className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
@@ -431,14 +491,25 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
               </a>
             </div>
 
+            {status?.resendApiKeyMasked && (
+              <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span>Kunci Aktif Tersimpan: </span>
+                  <code className="bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded text-emerald-900 dark:text-emerald-200 font-mono text-[11px]">
+                    {status.resendApiKeyMasked}
+                  </code>
+                </div>
+              </div>
+            )}
+
             <div className="relative">
               <input
                 type={showResendKey ? 'text' : 'password'}
                 value={resendApiKey}
                 onChange={(e) => setResendApiKey(e.target.value)}
-                placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+                placeholder={status?.resendApiKeyMasked ? "Kunci aktif sudah tersimpan. Masukkan kunci baru jika ingin mengganti..." : "re_xxxxxxxxxxxxxxxxxxxxxxxx"}
                 className="w-full bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-3.5 pr-10 py-2.5 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                required
               />
               <button
                 type="button"
@@ -449,7 +520,7 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-slate-600 dark:text-slate-400">
-              💡 Buka <strong>Resend.com</strong> &rarr; Menu <strong>API Keys</strong> &rarr; Klik <strong>Create API Key</strong>. Jika belum memiliki domain custom, gunakan sender default <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded font-mono">onboarding@resend.dev</code> untuk pengiriman ke email akun Anda.
+              💡 Buka <strong>Resend.com</strong> &rarr; Menu <strong>API Keys</strong> &rarr; Klik <strong>Create API Key</strong>.
             </p>
           </div>
         )}

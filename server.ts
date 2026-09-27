@@ -326,13 +326,13 @@ async function startServer() {
         provider: body.provider || emailConfig.provider,
         senderName: body.senderName !== undefined ? body.senderName : emailConfig.senderName,
         senderEmail: body.senderEmail !== undefined ? body.senderEmail : emailConfig.senderEmail,
-        brevoApiKey: body.brevoApiKey && !body.brevoApiKey.includes('••••') ? body.brevoApiKey.trim() : emailConfig.brevoApiKey,
-        resendApiKey: body.resendApiKey && !body.resendApiKey.includes('••••') ? body.resendApiKey.trim() : emailConfig.resendApiKey,
+        brevoApiKey: body.brevoApiKey && !body.brevoApiKey.includes('••••') && !body.brevoApiKey.includes('***') && body.brevoApiKey.trim().length > 6 ? body.brevoApiKey.trim() : emailConfig.brevoApiKey,
+        resendApiKey: body.resendApiKey && !body.resendApiKey.includes('••••') && !body.resendApiKey.includes('***') && body.resendApiKey.trim().length > 6 ? body.resendApiKey.trim() : emailConfig.resendApiKey,
         smtpHost: body.smtpHost || emailConfig.smtpHost,
         smtpPort: Number(body.smtpPort) || emailConfig.smtpPort,
         smtpSecure: body.smtpSecure !== undefined ? body.smtpSecure : emailConfig.smtpSecure,
         smtpUser: body.smtpUser !== undefined ? body.smtpUser.trim() : emailConfig.smtpUser,
-        smtpPass: body.smtpPass && !body.smtpPass.includes('••••') ? body.smtpPass.trim() : emailConfig.smtpPass,
+        smtpPass: body.smtpPass && !body.smtpPass.includes('••••') && !body.smtpPass.includes('***') && body.smtpPass.trim().length > 3 ? body.smtpPass.trim() : emailConfig.smtpPass,
       };
 
       emailConfig = saveEmailConfig(updated);
@@ -359,13 +359,13 @@ async function startServer() {
       };
 
       if (configOverride) {
-        if (!configOverride.brevoApiKey || configOverride.brevoApiKey.includes('••••')) {
+        if (!configOverride.brevoApiKey || configOverride.brevoApiKey.includes('••••') || configOverride.brevoApiKey.includes('***') || configOverride.brevoApiKey.length < 10) {
           activeConfig.brevoApiKey = emailConfig.brevoApiKey;
         }
-        if (!configOverride.resendApiKey || configOverride.resendApiKey.includes('••••')) {
+        if (!configOverride.resendApiKey || configOverride.resendApiKey.includes('••••') || configOverride.resendApiKey.includes('***') || configOverride.resendApiKey.length < 10) {
           activeConfig.resendApiKey = emailConfig.resendApiKey;
         }
-        if (!configOverride.smtpPass || configOverride.smtpPass.includes('••••')) {
+        if (!configOverride.smtpPass || configOverride.smtpPass.includes('••••') || configOverride.smtpPass.includes('***')) {
           activeConfig.smtpPass = emailConfig.smtpPass;
         }
       }
@@ -399,7 +399,7 @@ async function startServer() {
 
   app.post('/api/send-email-otp', async (req, res) => {
     try {
-      const { userId, email, displayName, username, otp } = req.body || {};
+      const { userId, email, displayName, username, otp, configOverride } = req.body || {};
 
       if (!email || !email.includes('@')) {
         return res.status(400).json({ success: false, error: 'Email tujuan tidak valid atau akun belum memiliki email terdaftar.' });
@@ -415,7 +415,16 @@ async function startServer() {
         expiryMinutes: 15
       });
 
-      const sendResult = await sendEmail(emailConfig, {
+      let activeConfig = { ...emailConfig };
+      if (configOverride && typeof configOverride === 'object') {
+        const clean = { ...configOverride };
+        if (clean.brevoApiKey?.includes('••••') || clean.brevoApiKey?.includes('***')) delete clean.brevoApiKey;
+        if (clean.resendApiKey?.includes('••••') || clean.resendApiKey?.includes('***')) delete clean.resendApiKey;
+        if (clean.smtpPass?.includes('••••') || clean.smtpPass?.includes('***')) delete clean.smtpPass;
+        activeConfig = { ...activeConfig, ...clean };
+      }
+
+      const sendResult = await sendEmail(activeConfig, {
         toEmail: email.trim(),
         toName: displayName || username,
         subject: 'Kode Verifikasi OTP Reset Kata Sandi - ANGKASA KPPN Semarang I',

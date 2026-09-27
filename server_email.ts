@@ -116,20 +116,28 @@ async function sendViaBrevo(
   subject: string,
   htmlContent: string
 ): Promise<{ messageId?: string }> {
-  if (!apiKey || !apiKey.trim()) {
+  const cleanKey = (apiKey || '').trim();
+  if (!cleanKey) {
     throw new Error('API Key Brevo belum diisi. Harap masukkan API Key Brevo di menu Manajemen User Admin Super.');
   }
 
+  if (cleanKey.includes('••••') || cleanKey.includes('***')) {
+    throw new Error('API Key Brevo yang terkirim masih berupa teks sensor/masking. Harap masukkan kembali API Key Brevo asli Anda (diawali dengan xkeysib-...).');
+  }
+
   const endpoint = 'https://api.brevo.com/v3/smtp/email';
+  const cleanSenderEmail = (senderEmail || '').trim() || 'kppn026.semarang@gmail.com';
+  const cleanSenderName = (senderName || '').trim() || 'KPPN Semarang I - Sistem ANGKASA';
+
   const payload = {
     sender: {
-      name: senderName || 'KPPN Semarang I - Sistem ANGKASA',
-      email: senderEmail || 'kppn026.semarang@gmail.com'
+      name: cleanSenderName,
+      email: cleanSenderEmail
     },
     to: [
       {
-        email: toEmail,
-        name: toName || toEmail
+        email: toEmail.trim(),
+        name: (toName || toEmail).trim()
       }
     ],
     subject,
@@ -140,7 +148,7 @@ async function sendViaBrevo(
     method: 'POST',
     headers: {
       'accept': 'application/json',
-      'api-key': apiKey.trim(),
+      'api-key': cleanKey,
       'content-type': 'application/json'
     },
     body: JSON.stringify(payload)
@@ -156,6 +164,21 @@ async function sendViaBrevo(
 
   if (!response.ok) {
     const errorMsg = jsonRes?.message || jsonRes?.error || responseText || `HTTP ${response.status}`;
+    
+    // Provide user-friendly guidance based on Brevo error codes
+    if (response.status === 401) {
+      throw new Error(`Koneksi Brevo Ditolak (401 Unauthorized): API Key Brevo tidak valid atau telah dicabut. Pastikan Anda menyalin API Key v3 lengkap dari menu SMTP & API di https://app.brevo.com.`);
+    }
+
+    if (response.status === 400 && (
+      errorMsg.toLowerCase().includes('sender') || 
+      errorMsg.toLowerCase().includes('unauthorized') ||
+      errorMsg.toLowerCase().includes('not exist') ||
+      errorMsg.toLowerCase().includes('not registered')
+    )) {
+      throw new Error(`Alamat Pengirim Brevo Ditolak: Email "${cleanSenderEmail}" belum terdaftar/terverifikasi sebagai Pengirim (Sender) di akun Brevo Anda. Pada akun Brevo gratis, Alamat Email Pengirim (Sender Email) harus sama persis dengan email akun Brevo Anda (misal: email yang dipakai saat login ke Brevo).`);
+    }
+
     throw new Error(`Gagal mengirim via Brevo (${response.status}): ${errorMsg}`);
   }
 
