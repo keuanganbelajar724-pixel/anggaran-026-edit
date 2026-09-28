@@ -232,14 +232,14 @@ export const Header: React.FC<HeaderProps> = ({
       label: 'Dashboard IKPA',
       icon: <BarChart3 className="w-4 h-4" />,
       badge: <span className="bg-slate-900/60 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{satkerCount}</span>,
-      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/50'
     },
     {
       id: 'realisasi-anggaran',
       label: 'Realisasi Anggaran',
       icon: <PieChart className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">InTress</span>,
-      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-teal-600 via-cyan-600 to-emerald-600 text-white shadow-lg shadow-teal-600/30 ring-2 ring-teal-400/50'
     },
     {
       id: 'capaian-output',
@@ -252,56 +252,56 @@ export const Header: React.FC<HeaderProps> = ({
       ) : (
         <span className="bg-sky-950 text-sky-200 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold">SAKTI</span>
       ),
-      activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
+      activeColor: 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-sky-600/30 ring-2 ring-sky-400/50'
     },
     {
       id: 'diagnostik-caput',
       label: 'SI-CAPUT (Diagnostik)',
       icon: <Activity className="w-4 h-4 text-cyan-300" />,
       badge: <span className="bg-cyan-950 text-cyan-200 border border-cyan-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Diagnostik</span>,
-      activeColor: 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 ring-1 ring-cyan-400/40'
+      activeColor: 'bg-gradient-to-r from-cyan-600 via-teal-600 to-blue-600 text-white shadow-lg shadow-cyan-600/30 ring-2 ring-cyan-400/50'
     },
     {
       id: 'deviasi-hal3',
       label: 'Deviasi Hal III DIPA (Satker)',
       icon: <FileSpreadsheet className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Khusus Deviasi</span>,
-      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+      activeColor: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400/50'
     },
     {
       id: 'spm-ppp',
       label: 'Monitoring SPM PPP',
       icon: <Receipt className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{spmPppCount > 0 ? `${spmPppCount}` : 'PPP'}</span>,
-      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+      activeColor: 'bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400/50'
     },
     {
       id: 'pengelolaan-up',
       label: 'Pengelolaan UP/TUP',
       icon: <CreditCard className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">UP</span>,
-      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+      activeColor: 'bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-400/50'
     },
     {
       id: 'transaksi-kkp',
       label: 'Transaksi KKP / GUP',
       icon: <CreditCard className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">KKP</span>,
-      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+      activeColor: 'bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-400/50'
     },
     {
       id: 'transaksi-digipay',
       label: 'Transaksi Digipay',
       icon: <ShoppingBag className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Digipay</span>,
-      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+      activeColor: 'bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white shadow-lg shadow-teal-600/30 ring-2 ring-teal-400/50'
     },
     {
       id: 'kelola-satker',
       label: 'Kelola Data Satker',
       icon: <Building2 className="w-4 h-4 text-sky-300" />,
       badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">{masterSatkers.length} Satker</span>,
-      activeColor: 'bg-sky-600 text-white shadow-lg shadow-sky-600/30 ring-1 ring-sky-400/40'
+      activeColor: 'bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-700 text-white shadow-lg shadow-blue-700/30 ring-2 ring-blue-400/50'
     },
     {
       id: 'sertifikasi',
@@ -312,14 +312,14 @@ export const Header: React.FC<HeaderProps> = ({
           {sertifikasiUnapprovedCount} Belum
         </span>
       ) : undefined,
-      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+      activeColor: 'bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 text-white shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/50'
     },
     {
       id: 'per5-analisis',
       label: 'Analisis PER-5/PB/2024',
       icon: <Calculator className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">PER-5</span>,
-      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white shadow-lg shadow-green-600/30 ring-2 ring-green-400/50'
     },
     {
       id: 'announcements',
@@ -330,91 +330,91 @@ export const Header: React.FC<HeaderProps> = ({
           {announcementsCount > 0 ? `${announcementsCount}` : 'Info'}
         </span>
       ),
-      activeColor: 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+      activeColor: 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 text-white shadow-lg shadow-amber-500/30 ring-2 ring-amber-400/50'
     },
     {
       id: 'materi-slide',
       label: 'Materi Slide',
       icon: <Presentation className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Slide</span>,
-      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+      activeColor: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400/50'
     },
     {
       id: 'portal-link',
       label: '🔗 Link Sosialisasi',
       icon: <Link2 className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Sosialisasi</span>,
-      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/50'
     },
     {
       id: 'pengetahuan',
       label: 'Juknis dan Pengetahuan Perbendaharaan',
       icon: <BookOpen className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Juknis</span>,
-      activeColor: 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 ring-1 ring-indigo-400/40'
+      activeColor: 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-600/30 ring-2 ring-cyan-400/50'
     },
     {
       id: 'aduan',
       label: 'Lapor Aduan Satker',
       icon: <LifeBuoy className="w-4 h-4 text-rose-300" />,
       badge: <span className="bg-rose-950 text-rose-200 border border-rose-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Lapor</span>,
-      activeColor: 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 ring-1 ring-rose-400/40'
+      activeColor: 'bg-gradient-to-r from-rose-600 via-red-600 to-pink-600 text-white shadow-lg shadow-rose-600/30 ring-2 ring-rose-400/50'
     },
     {
       id: 'presensi',
       label: '📋 Presensi Online',
       icon: <ClipboardCheck className="w-4 h-4 text-teal-300" />,
       badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Absen</span>,
-      activeColor: 'bg-teal-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
+      activeColor: 'bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-lg shadow-teal-600/30 ring-2 ring-teal-400/50'
     },
     {
       id: 'konfirmasi-kehadiran',
       label: '🤝 Konfirmasi Kehadiran',
       icon: <UserCheck className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">RSVP Satker</span>,
-      activeColor: 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/50'
     },
     {
       id: 'pendaftaran-user-sakti',
       label: '📝 Pendaftaran User SAKTI',
       icon: <FileSpreadsheet className="w-4 h-4 text-teal-300" />,
       badge: <span className="bg-teal-950 text-teal-200 border border-teal-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">User SAKTI</span>,
-      activeColor: 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-600/30 ring-1 ring-teal-400/40'
+      activeColor: 'bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white shadow-lg shadow-teal-600/30 ring-2 ring-teal-400/50'
     },
     {
       id: 'rekonsiliasi',
       label: '📊 Rekonsiliasi',
       icon: <FileSpreadsheet className="w-4 h-4 text-blue-300" />,
       badge: <span className="bg-blue-950 text-blue-200 border border-blue-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Kepatuhan</span>,
-      activeColor: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/30 ring-1 ring-blue-400/40'
+      activeColor: 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-700 text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-400/50'
     },
     {
       id: 'lpj',
       label: '📋 Monitoring LPJ',
       icon: <FileSpreadsheet className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">LPJ SAKTI</span>,
-      activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-emerald-600 via-teal-600 to-green-700 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/50'
     },
     {
       id: 'gaji-induk',
       label: '💰 Gaji Induk (PNS & PPPK)',
       icon: <Coins className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Gaji Induk</span>,
-      activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-amber-600 via-yellow-600 to-orange-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400/50'
     },
     {
       id: 'monitoring-haicso',
       label: '🎫 Monitoring Tiket HAICSO',
       icon: <Ticket className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">HAICSO</span>,
-      activeColor: 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg shadow-amber-600/30 ring-1 ring-amber-400/40'
+      activeColor: 'bg-gradient-to-r from-orange-600 via-red-600 to-amber-600 text-white shadow-lg shadow-orange-600/30 ring-2 ring-orange-400/50'
     },
     {
       id: 'kontrak',
       label: '📑 Monitoring Data Kontrak',
       icon: <FileSpreadsheet className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">KPPN</span>,
-      activeColor: 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-lg shadow-emerald-600/30 ring-1 ring-emerald-400/40'
+      activeColor: 'bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 text-white shadow-lg shadow-indigo-700/30 ring-2 ring-indigo-400/50'
     }
   ];
 
@@ -787,9 +787,7 @@ export const Header: React.FC<HeaderProps> = ({
                 const isDisabledForSatker = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
 
                 const activeStyle = isActive
-                  ? (themeSettings?.preset && themeSettings.preset !== 'default_kppn'
-                      ? `${activePreset.activeTabClass} ${themeSettings.activeTabGlow !== false ? 'shadow-lg ring-2 ring-white/30' : ''}`
-                      : t.activeColor)
+                  ? `${t.activeColor} ${themeSettings?.activeTabGlow !== false ? 'scale-[1.02]' : ''}`
                   : t.id === 'admin'
                     ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-amber-300 border-2 border-amber-500/70 hover:border-amber-400 hover:text-white shadow-md font-black ring-1 ring-amber-500/30 hover:scale-102'
                     : isDark 

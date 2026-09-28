@@ -594,16 +594,16 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
       {/* Editor Main Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-700 pb-3">
         {[
-          { id: 'edisi', label: '📅 Update Tiap Bulan (Presets)', icon: Calendar },
-          { id: 'foto', label: '📸 Galeri & Upload Foto (13 Spot)', icon: Camera },
-          { id: 'identitas', label: '🏛️ Cover, Edisi & Sambutan (Hal 1-4)', icon: User },
-          { id: 'anggaran', label: '📊 Kinerja Belanja & K/L (Hal 5-7)', icon: FileText },
-          { id: 'semarang_data', label: '🏢 Data KPPN Semarang I (Hal 8-12)', icon: Building2 },
-          { id: 'wawancara', label: '🤝 TKD & Wawancara Satker (Hal 13-15)', icon: HeartHandshake },
-          { id: 'sarwasarwi', label: '🏃 Sarwa Sarwi KPPN (Hal 16-19)', icon: Award },
-          { id: 'pagelaran', label: '🎪 Opini & Pagelaran Budaya (Hal 20-21)', icon: Compass },
-          { id: 'teropong', label: '🏛️ Teropong Semarang (Hal 22)', icon: MapPin },
-          { id: 'integritas', label: '🛡️ Integritas, TTS & Kontak (Hal 23-24)', icon: Phone }
+          { id: 'edisi', label: '📅 Update Tiap Bulan (Presets)', icon: Calendar, color: 'from-blue-600 to-indigo-600 border-blue-300 ring-blue-400/50' },
+          { id: 'foto', label: '📸 Galeri & Upload Foto (13 Spot)', icon: Camera, color: 'from-purple-600 to-pink-600 border-purple-300 ring-purple-400/50' },
+          { id: 'identitas', label: '🏛️ Cover, Edisi & Sambutan (Hal 1-4)', icon: User, color: 'from-amber-600 to-orange-600 border-amber-300 ring-amber-400/50' },
+          { id: 'anggaran', label: '📊 Kinerja Belanja & K/L (Hal 5-7)', icon: FileText, color: 'from-emerald-600 to-teal-600 border-emerald-300 ring-emerald-400/50' },
+          { id: 'semarang_data', label: '🏢 Data KPPN Semarang I (Hal 8-12)', icon: Building2, color: 'from-sky-600 to-blue-700 border-sky-300 ring-sky-400/50' },
+          { id: 'wawancara', label: '🤝 TKD & Wawancara Satker (Hal 13-15)', icon: HeartHandshake, color: 'from-rose-600 to-pink-600 border-rose-300 ring-rose-400/50' },
+          { id: 'sarwasarwi', label: '🏃 Sarwa Sarwi KPPN (Hal 16-19)', icon: Award, color: 'from-yellow-600 to-amber-600 border-amber-300 ring-amber-400/50' },
+          { id: 'pagelaran', label: '🎪 Opini & Pagelaran Budaya (Hal 20-21)', icon: Compass, color: 'from-violet-600 to-purple-700 border-violet-300 ring-violet-400/50' },
+          { id: 'teropong', label: '🏛️ Teropong Semarang (Hal 22)', icon: MapPin, color: 'from-cyan-600 to-teal-600 border-cyan-300 ring-cyan-400/50' },
+          { id: 'integritas', label: '🛡️ Integritas, TTS & Kontak (Hal 23-24)', icon: Phone, color: 'from-red-600 to-rose-700 border-rose-300 ring-rose-400/50' }
         ].map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -611,10 +611,10 @@ export const BuletinDataStudioEditor: React.FC<BuletinDataStudioEditorProps> = (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                 isActive
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/40'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? `bg-gradient-to-r ${tab.color} text-white shadow-lg shadow-indigo-600/20 ring-2 scale-[1.02]`
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />

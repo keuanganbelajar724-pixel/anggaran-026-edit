@@ -781,15 +781,15 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
         <div className="flex flex-wrap items-center gap-2.5 mt-6 pt-4 border-t border-white/15">
           <button
             onClick={() => setActiveSubTab('juknis_table')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer border ${
               activeSubTab === 'juknis_table'
-                ? 'bg-cyan-400 text-slate-950 shadow-lg font-black ring-2 ring-white/50'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-500/30 border-cyan-300 ring-2 ring-cyan-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
             <FileSpreadsheet className="w-4 h-4" />
             <span>1. Direktori Format &amp; Juknis Resmi (Tabel)</span>
-            <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+            <span className="bg-slate-950/80 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {juknisList.length}
             </span>
             {subTabVisibility.showFormatJuknis ? (
@@ -805,15 +805,15 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
 
           <button
             onClick={() => setActiveSubTab('knowledge_articles')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer border ${
               activeSubTab === 'knowledge_articles'
-                ? 'bg-cyan-400 text-slate-950 shadow-lg font-black ring-2 ring-white/50'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 text-white shadow-lg shadow-purple-500/30 border-purple-300 ring-2 ring-purple-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
             <FileText className="w-4 h-4" />
             <span>2. Artikel &amp; Petunjuk Interaktif (Knowledge Base)</span>
-            <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+            <span className="bg-slate-950/80 text-purple-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {knowledgeList.length}
             </span>
             {subTabVisibility.showArtikelPanduan ? (
@@ -829,15 +829,15 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
 
           <button
             onClick={() => setActiveSubTab('spm_format')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer border ${
               activeSubTab === 'spm_format'
-                ? 'bg-cyan-400 text-slate-950 shadow-lg font-black ring-2 ring-white/50'
-                : 'bg-white/10 text-white hover:bg-white/20'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg shadow-emerald-500/30 border-emerald-300 ring-2 ring-emerald-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
             <BookOpen className="w-4 h-4" />
             <span>3. Format Uraian SPM &amp; Dokumen Pendukung SAKTI</span>
-            <span className="bg-slate-950 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+            <span className="bg-slate-950/80 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
               {spmList.length}
             </span>
             {subTabVisibility.showUraianSpm ? (

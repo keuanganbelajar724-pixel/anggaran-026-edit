@@ -393,39 +393,39 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
           <button
             type="button"
             onClick={() => setActiveSubTab('menus')}
-            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 border ${
               activeSubTab === 'menus'
-                ? 'bg-sky-500 text-slate-950 shadow-md font-black'
-                : 'bg-white/10 text-white/90 hover:bg-white/20'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border-blue-300 ring-2 ring-blue-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white/90 border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-4 h-4 text-white" />
             <span>1. Daftar Menu &amp; Submenu ({localConfig.items?.length || 0})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('theme')}
-            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 border ${
               activeSubTab === 'theme'
-                ? 'bg-sky-500 text-slate-950 shadow-md font-black'
-                : 'bg-white/10 text-white/90 hover:bg-white/20'
+                ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white shadow-lg shadow-purple-500/30 border-purple-300 ring-2 ring-purple-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white/90 border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
-            <Palette className="w-4 h-4" />
+            <Palette className="w-4 h-4 text-white" />
             <span>2. Setting Tema Warna &amp; Tata Letak</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('preview')}
-            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+            className={`px-4 py-2.5 rounded-xl font-black transition-all cursor-pointer flex items-center gap-2 shrink-0 border ${
               activeSubTab === 'preview'
-                ? 'bg-sky-500 text-slate-950 shadow-md font-black'
-                : 'bg-white/10 text-white/90 hover:bg-white/20'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg shadow-emerald-500/30 border-emerald-300 ring-2 ring-emerald-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white/90 border-white/15 hover:bg-white/20 hover:border-white/30'
             }`}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-4 h-4 text-white" />
             <span>3. Simulasi &amp; Live Preview</span>
           </button>
         </div>

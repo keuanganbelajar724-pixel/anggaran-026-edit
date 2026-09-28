@@ -548,11 +548,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       {showAdminPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-amber-500 shrink-0" />
-                      <span>PIN Standar: <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-amber-600 dark:text-amber-400 font-mono font-bold">kppn026</code></span>
-                    </p>
+                  <div className="flex items-center justify-end mt-2 pt-1 border-t border-slate-100 dark:border-slate-800/80">
                     <button
                       type="button"
                       onClick={() => {

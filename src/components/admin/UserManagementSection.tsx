@@ -376,26 +376,26 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         <button
           type="button"
           onClick={() => setSubTab('users')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border ${
             subTab === 'users'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 text-white shadow-lg shadow-indigo-600/30 border-indigo-300 ring-2 ring-indigo-400/50 scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400 hover:bg-indigo-50/50'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className={`w-4 h-4 ${subTab === 'users' ? 'text-white' : 'text-indigo-600 dark:text-indigo-400'}`} />
           <span>Kelola Pengguna ({totalUsers})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setSubTab('email_gateway')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border ${
             subTab === 'email_gateway'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-lg shadow-orange-500/30 border-orange-300 ring-2 ring-orange-400/50 scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-400 hover:bg-amber-50/50'
           }`}
         >
-          <Mail className="w-4 h-4" />
+          <Mail className={`w-4 h-4 ${subTab === 'email_gateway' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
           <span>Gateway Email OTP (Brevo / Resend / Gmail)</span>
         </button>
       </div>

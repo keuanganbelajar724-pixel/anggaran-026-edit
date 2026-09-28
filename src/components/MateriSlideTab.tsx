@@ -38,13 +38,19 @@ import {
   ArrowUp,
   ExternalLink,
   ShieldAlert,
+  ShieldCheck,
+  CheckCircle2,
   KeyRound,
   Eye,
   EyeOff,
   Globe,
-  Scan
+  Scan,
+  Crown,
+  LogOut,
+  AlertCircle
 } from 'lucide-react';
-import { PresentationMaterial, AppTheme, DashboardConfig } from '../types';
+import { PresentationMaterial, AppTheme, DashboardConfig, NavigationTab } from '../types';
+import { AppUser } from '../types/user';
 import { PdfSlideViewer } from './PdfSlideViewer';
 import { PaginationControl } from './PaginationControl';
 
@@ -52,6 +58,11 @@ interface MateriSlideTabProps {
   materials?: PresentationMaterial[];
   theme?: AppTheme;
   dashboardConfig?: DashboardConfig;
+  isAdminAuthenticated?: boolean;
+  currentUser?: AppUser | null;
+  onOpenLoginModal?: () => void;
+  scope?: 'UMUM' | 'INTERNAL';
+  onNavigateTab?: (tab: NavigationTab) => void;
 }
 
 type AnnotationTool = 'pointer' | 'hand' | 'laser' | 'pen' | 'highlighter';
@@ -63,15 +74,146 @@ interface DrawingStroke {
   points: { x: number; y: number }[];
 }
 
-// Default fallback materials if none provided by Admin
-const DEFAULT_MATERIALS: PresentationMaterial[] = [];
+// Default fallback materials for Public and Internal KPPN
+const DEFAULT_MATERIALS: PresentationMaterial[] = [
+  // 1. UMUM / PUBLIK (Dapat diakses seluruh Satker Mitra)
+  {
+    id: 'mat-umum-per5-ikpa',
+    title: 'Panduan Peningkatan Nilai IKPA 2025 & Reformulasi PER-5/PB/2024',
+    category: 'PER-5 & IKPA',
+    description: 'Paparan komprehensif 8 indikator IKPA, formula deviasi Hal III DIPA, percepatan penyerapan anggaran, dan mitigasi dispensasi SPM bagi seluruh Satker.',
+    presenter: 'Seksi MSKI KPPN Semarang I',
+    date: '2026-09-15',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_ikpa_per5/preview',
+    type: 'google_slides',
+    slideCount: 32,
+    isPinned: true,
+    isActive: true,
+    importance: 'Sangat Penting',
+    accessType: 'UMUM',
+    tags: ['IKPA', 'PER-5', 'Deviasi Hal III', 'Capaian Output']
+  },
+  {
+    id: 'mat-umum-sakti-digitalisasi',
+    title: 'Bimtek Digitalisasi Transaksi: Optimalisasi KKP Domestik & Digipay Satu',
+    category: 'SAKTI & Juknis',
+    description: 'Panduan praktis pendaftaran KKP, mekanisme belanja pengadaan barang/jasa via Marketplace Digipay, dan percepatan penyelesaian tagihan belanja modal.',
+    presenter: 'Tim Pembina SAKTI KPPN Semarang I',
+    date: '2026-09-08',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_kkp_digipay/preview',
+    type: 'google_slides',
+    slideCount: 28,
+    isPinned: false,
+    isActive: true,
+    importance: 'Penting',
+    accessType: 'UMUM',
+    tags: ['KKP', 'Digipay Satu', 'SAKTI', 'Bendahara']
+  },
+  {
+    id: 'mat-umum-rekon-lpj',
+    title: 'Pedoman Rekonsiliasi Laporan Keuangan & Monitoring Kepatuhan LPJ Bendahara',
+    category: 'Laporan Keuangan',
+    description: 'Modul rekonsiliasi data belanja SAKTI vs SPAN, penanganan to-do list, penutupan periode pelaporan, serta tata cara penyampaian LPJ Bendahara tepat waktu.',
+    presenter: 'Seksi Vera KPPN Semarang I',
+    date: '2026-08-28',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_rekon_lpj/preview',
+    type: 'google_slides',
+    slideCount: 24,
+    isPinned: false,
+    isActive: true,
+    importance: 'Penting',
+    accessType: 'UMUM',
+    tags: ['Rekonsiliasi', 'LPJ Bendahara', 'Laporan Keuangan', 'Vera']
+  },
+  // 2. KHUSUS INTERNAL KPPN (Satker TIDAK BISA BUKA / TERPROTEKSI)
+  {
+    id: 'mat-internal-rakor-pimpinan',
+    title: 'Bahan Rapat Dinas Pimpinan: Evaluasi Komprehensif Kinerja & Anomali Satker Mitra',
+    category: 'PER-5 & IKPA',
+    description: 'Dokumen strategis internal: analisis tren deviasi belanja 50 satker, profil risiko dispensasi SPM akhir triwulan, dan matriks intervensi peringatan dini.',
+    presenter: 'Kepala Seksi MSKI & Tim Analis KPPN',
+    date: '2026-09-22',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_internal_rakor/preview',
+    type: 'google_slides',
+    slideCount: 45,
+    isPinned: true,
+    isActive: true,
+    importance: 'Sangat Penting',
+    accessType: 'INTERNAL',
+    tags: ['Internal KPPN', 'Rapat Pimpinan', 'Evaluasi Kinerja', 'Rahasia']
+  },
+  {
+    id: 'mat-internal-peta-risiko',
+    title: 'Peta Strategis & Matriks Pembinaan Khusus Satker Berkinerja Rendah (Red Flags)',
+    category: 'Umum',
+    description: 'Pemetaan satker dengan nilai IKPA di bawah target nasional, evaluasi keterlambatan SPM, tindak lanjut pengaduan HAICSO, dan jadwal asistensi tatap muka.',
+    presenter: 'Tim Monev Internal KPPN Semarang I',
+    date: '2026-09-18',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_internal_redflags/preview',
+    type: 'google_slides',
+    slideCount: 36,
+    isPinned: true,
+    isActive: true,
+    importance: 'Sangat Penting',
+    accessType: 'INTERNAL',
+    tags: ['Internal KPPN', 'Red Flags', 'Pembinaan Satker', 'Monev']
+  },
+  {
+    id: 'mat-internal-sop-pera',
+    title: 'Standar Operasional Prosedur (SOP) Pengujian Substantif SPM & Validasi SP2D',
+    category: 'Mekanisme SP2D',
+    description: 'Pedoman verifikasi dokumen tagihan SPM, validasi supplier, kepatuhan batas waktu penerbitan SP2D, serta mitigasi risiko fraud pada sistem SPAN.',
+    presenter: 'Seksi Pencairan Dana (Pera) KPPN',
+    date: '2026-09-10',
+    embedUrl: 'https://docs.google.com/presentation/d/1_sample_internal_sop_pera/preview',
+    type: 'google_slides',
+    slideCount: 30,
+    isPinned: false,
+    isActive: true,
+    importance: 'Penting',
+    accessType: 'INTERNAL',
+    tags: ['Internal KPPN', 'SOP Pera', 'Validasi SPM', 'SP2D']
+  }
+];
 
 export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
   materials: propsMaterials,
   theme = 'light',
-  dashboardConfig
+  dashboardConfig,
+  isAdminAuthenticated = false,
+  currentUser = null,
+  onOpenLoginModal,
+  scope,
+  onNavigateTab
 }) => {
   const isDark = theme === 'dark';
+  // Sub-Tab internal: 'PUBLIK' (Slide Umum Satker) vs 'INTERNAL' (Slide Khusus Internal KPPN)
+  const [slideSubTab, setSlideSubTab] = useState<'PUBLIK' | 'INTERNAL'>('PUBLIK');
+  const activeScope: 'UMUM' | 'INTERNAL' = scope || (slideSubTab === 'INTERNAL' ? 'INTERNAL' : 'UMUM');
+
+  useEffect(() => {
+    if (scope) {
+      setSlideSubTab(scope === 'INTERNAL' ? 'INTERNAL' : 'PUBLIK');
+    }
+  }, [scope]);
+
+  // Internal Session Unlock State (Stored in session storage so refresh keeps internal session alive)
+  const [isInternalSessionUnlocked, setIsInternalSessionUnlocked] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('kppn_slide_internal_unlocked') === 'true';
+    }
+    return false;
+  });
+
+  // Internal Security Gate verification state
+  const [gatePasswordInput, setGatePasswordInput] = useState<string>('');
+  const [gateErrorMsg, setGateErrorMsg] = useState<string | null>(null);
+  const [showGatePassword, setShowGatePassword] = useState<boolean>(false);
+  const [isVerifyingGate, setIsVerifyingGate] = useState<boolean>(false);
+
+  // Determine whether current viewer has authorized internal clearance
+  const isUserInternal = Boolean(isAdminAuthenticated || currentUser);
+  const hasInternalAccess = isUserInternal || isInternalSessionUnlocked;
   
   // Combine material sources
   const displayMaterials = (propsMaterials && propsMaterials.length > 0)
@@ -80,15 +222,18 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     ? dashboardConfig.presentationMaterials
     : DEFAULT_MATERIALS;
 
+  // Real-time counts
+  const totalUmumCount = displayMaterials.filter(m => m.isActive !== false && m.accessType !== 'INTERNAL').length;
+  const totalInternalCount = displayMaterials.filter(m => m.isActive !== false && m.accessType === 'INTERNAL').length;
+
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [filterImportance, setFilterImportance] = useState<string>('ALL');
-  const [filterAccessType, setFilterAccessType] = useState<'ALL' | 'UMUM' | 'INTERNAL'>('ALL');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(6);
 
-  // Internal Password Verification State
+  // Internal Password Verification State (for single material prompt fallback)
   const [unlockedMaterialIds, setUnlockedMaterialIds] = useState<Set<string>>(new Set());
   const [promptPasswordMaterial, setPromptPasswordMaterial] = useState<PresentationMaterial | null>(null);
   const [inputPassword, setInputPassword] = useState<string>('');
@@ -190,11 +335,11 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     // Hide inactive materials unless specified
     if (item.isActive === false) return false;
 
-    // Filter by Access Type (Umum vs Internal)
-    if (filterAccessType === 'UMUM' && item.accessType === 'INTERNAL') {
+    // Strict Scope Separation (Satker can NEVER see internal slides)
+    if (slideSubTab === 'PUBLIK' && item.accessType === 'INTERNAL') {
       return false;
     }
-    if (filterAccessType === 'INTERNAL' && item.accessType !== 'INTERNAL') {
+    if (slideSubTab === 'INTERNAL' && item.accessType !== 'INTERNAL') {
       return false;
     }
 
@@ -232,6 +377,12 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
 
   // Handle clicking on a material card
   const handleOpenMaterial = (material: PresentationMaterial) => {
+    // If user has internal authorization, open directly without password barrier
+    if (material.accessType === 'INTERNAL' && hasInternalAccess) {
+      setActiveSlideShow(material);
+      return;
+    }
+
     // If Internal and not yet unlocked in this session
     if (material.accessType === 'INTERNAL' && !unlockedMaterialIds.has(material.id)) {
       setPromptPasswordMaterial(material);
@@ -250,16 +401,13 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     e.preventDefault();
     if (!promptPasswordMaterial) return;
 
-    const correctPassword = promptPasswordMaterial.password || 'kppn026';
+    const correctPassword = promptPasswordMaterial.password;
     const entered = inputPassword.trim();
-
     const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
 
-    // Support defined password or master bypass (centralized admin password or default 'kppn026')
     if (
-      entered === correctPassword ||
-      entered === currentAdminPin ||
-      entered === 'kppn026'
+      (correctPassword && entered === correctPassword) ||
+      (currentAdminPin && entered === currentAdminPin)
     ) {
       setUnlockedMaterialIds(prev => new Set(prev).add(promptPasswordMaterial.id));
       const targetMat = promptPasswordMaterial;
@@ -269,6 +417,40 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
     } else {
       setPasswordError('Password slide internal salah. Silakan periksa kembali kata sandi atau hubungi Admin KPPN.');
     }
+  };
+
+  // Handle submitting internal security clearance gate
+  const handleVerifyGate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsVerifyingGate(true);
+    setGateErrorMsg(null);
+
+    const entered = gatePasswordInput.trim();
+    const currentAdminPin = (typeof localStorage !== 'undefined' && localStorage.getItem('kppn_admin_pin')) || 'kppn026';
+
+    setTimeout(() => {
+      if (currentAdminPin && entered === currentAdminPin) {
+        setIsInternalSessionUnlocked(true);
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('kppn_slide_internal_unlocked', 'true');
+        }
+        setGatePasswordInput('');
+        setGateErrorMsg(null);
+      } else {
+        setGateErrorMsg('PIN / Kredensial Akses Internal KPPN tidak valid. Pastikan Anda memasukkan kode dinas yang benar.');
+      }
+      setIsVerifyingGate(false);
+    }, 250);
+  };
+
+  // Handle locking internal session
+  const handleLockInternalSession = () => {
+    setIsInternalSessionUnlocked(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('kppn_slide_internal_unlocked');
+    }
+    setUnlockedMaterialIds(new Set());
+    setActiveSlideShow(null);
   };
 
   // Reset presenter tools state when opening a new slide show
@@ -611,53 +793,373 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
 
   const totalSlides = detectedPdfPages || activeSlideShow?.slideCount || 30;
 
+  // Render Component View
   return (
     <div className="space-y-6 sm:space-y-8 pb-12">
-      {/* Top Banner / Header */}
-      <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl relative overflow-hidden ${
-        isDark
-          ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-slate-800 text-white'
-          : 'bg-gradient-to-r from-indigo-900 via-slate-900 to-sky-900 border-indigo-200 text-white shadow-indigo-900/10'
+      {/* 0. SUB-TAB NAVIGATOR: Slide Publik vs Slide Internal KPPN (Satu Menu, Dua Tab di Dalamnya) */}
+      <div className={`p-3 sm:p-4 rounded-3xl border shadow-lg transition-all ${
+        isDark ? 'bg-slate-900/95 border-slate-800' : 'bg-white border-slate-200'
       }`}>
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-indigo-500/10 to-transparent pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Sub-Tab Selector Buttons */}
+          <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800/80 w-full md:w-auto">
+            <button
+              type="button"
+              onClick={() => {
+                setSlideSubTab('PUBLIK');
+                setCurrentPage(1);
+              }}
+              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+                slideSubTab === 'PUBLIK'
+                  ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-400/40 scale-[1.01]'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-900'
+              }`}
+            >
+              <Globe className={`w-4 h-4 shrink-0 ${slideSubTab === 'PUBLIK' ? 'text-white' : 'text-indigo-500'}`} />
+              <span>Slide Publik (Satker &amp; Mitra)</span>
+              <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
+                slideSubTab === 'PUBLIK' ? 'bg-white/20 text-white' : 'bg-indigo-100 text-indigo-900 dark:bg-indigo-950 dark:text-indigo-300'
+              }`}>
+                {totalUmumCount} Slide
+              </span>
+            </button>
 
-        <div className="relative z-10 max-w-3xl space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] sm:text-xs font-black uppercase px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xs backdrop-blur-md">
-              <Presentation className="w-3.5 h-3.5 text-indigo-300" />
-              {dashboardConfig?.customTexts?.materiSlideBadge || 'Galeri Slide Show & Modul Perbendaharaan KPPN Semarang I'}
-            </span>
-
-            <span className="bg-amber-500/20 text-amber-200 border border-amber-500/40 text-[10px] sm:text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1">
-              <Lock className="w-3 h-3 text-amber-400" />
-              Dukungan Akses Umum &amp; Internal Terproteksi
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setSlideSubTab('INTERNAL');
+                setCurrentPage(1);
+              }}
+              className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black transition-all cursor-pointer ${
+                slideSubTab === 'INTERNAL'
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/30 ring-2 ring-amber-300 scale-[1.01]'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-slate-900'
+              }`}
+            >
+              <Lock className={`w-4 h-4 shrink-0 ${slideSubTab === 'INTERNAL' ? 'text-slate-950' : 'text-amber-500'}`} />
+              <span>Slide Khusus Internal KPPN</span>
+              <span className={`text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-bold ${
+                slideSubTab === 'INTERNAL' ? 'bg-slate-950/20 text-slate-950 font-black' : 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-300'
+              }`}>
+                {totalInternalCount} Slide
+              </span>
+              <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                hasInternalAccess ? 'bg-emerald-600 text-white shadow-xs' : 'bg-rose-600 text-white shadow-xs'
+              }`}>
+                {hasInternalAccess ? '✓ TERVERIFIKASI' : '🔒 TERKUNCI'}
+              </span>
+            </button>
           </div>
 
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight tracking-tight">
-            {dashboardConfig?.customTexts?.materiSlideTitle || 'Kumpulan Slide Presentation & PowerPoint'}
-          </h2>
-
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
-            {dashboardConfig?.customTexts?.materiSlideSubtitle || 'Pusat paparan sosialisasi, bimbingan teknis, dan modul PowerPoint perbendaharaan. Nikmati fitur Slide Show Layar Penuh (Native Fullscreen), Navigasi Slide, Zoom In/Out, serta Laser &amp; Pena Coret-Coret langsung di dashboard.'}
-          </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-indigo-200/90 font-bold">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>{filteredMaterials.length} Modul Aktif</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Maximize2 className="w-4 h-4 text-sky-400" />
-              <span>Dukungan Native Fullscreen HD</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Pencil className="w-4 h-4 text-emerald-400" />
-              <span>Laser Pointer &amp; Stabilo Coret Slide</span>
-            </div>
+          {/* Quick Sub-Tab Context Info Badge */}
+          <div className="flex items-center gap-2 px-1">
+            {slideSubTab === 'INTERNAL' ? (
+              hasInternalAccess ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Akses Internal Aktif ({currentUser ? currentUser.displayName : 'Pegawai Resmi KPPN'})</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLockInternalSession}
+                    className="p-1.5 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 dark:bg-slate-800 dark:hover:bg-rose-950/60 dark:text-slate-400 dark:hover:text-rose-300 border border-slate-300 dark:border-slate-700 transition-all cursor-pointer"
+                    title="Kunci kembali sesi internal"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+                  <ShieldAlert className="w-4 h-4 text-rose-600" />
+                  <span>Akses Terbatas Khusus Internal KPPN (Satker Terproteksi)</span>
+                </span>
+              )
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+                <Globe className="w-4 h-4 text-indigo-600" />
+                <span>Materi Terbuka Seluruh Satker Mitra &amp; Publik</span>
+              </span>
+            )}
           </div>
         </div>
       </div>
+
+      {/* GERBANG KEAMANAN INTERNAL (Jika user membuka tab internal tapi belum otentikasi) */}
+      {activeScope === 'INTERNAL' && !hasInternalAccess ? (
+        <div className="space-y-6 max-w-4xl mx-auto py-4 px-2">
+          {/* Security Gate Card */}
+          <div className={`p-8 sm:p-10 rounded-3xl border shadow-2xl relative overflow-hidden text-center space-y-6 ${
+            isDark 
+              ? 'bg-gradient-to-b from-slate-900 via-slate-900 to-amber-950/40 border-amber-500/40 text-slate-100 ring-1 ring-amber-500/20' 
+              : 'bg-gradient-to-b from-white via-white to-amber-50/60 border-amber-400 text-slate-800 shadow-amber-500/10 ring-1 ring-amber-400/30'
+          }`}>
+            {/* Lock Icon */}
+            <div className="relative inline-flex items-center justify-center">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-xl shadow-amber-500/30">
+                <Lock className="w-10 h-10 text-slate-950" />
+              </div>
+              <div className="absolute -top-1 -right-1 p-1.5 rounded-full bg-rose-600 text-white shadow-md">
+                <ShieldAlert className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="space-y-2 max-w-xl mx-auto">
+              <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 text-[11px] font-black uppercase px-3 py-1 rounded-full inline-flex items-center gap-1.5 tracking-wider">
+                <Lock className="w-3 h-3" />
+                Area Khusus Pejabat &amp; Pegawai KPPN
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+                Slide &amp; Dokumen Khusus Internal KPPN
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                Tab ini difungsikan khusus untuk menyimpan dokumen rapat dinas pimpinan, evaluasi kinerja 50 satker mitra, peta risiko monev IKPA, dan materi penting internal KPPN Semarang I.
+              </p>
+            </div>
+
+            {/* Warning banner for Satker */}
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-xs text-left max-w-xl mx-auto flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 text-rose-600 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-black text-rose-700 dark:text-rose-200">
+                  Pemberitahuan untuk Satker Mitra KPPN:
+                </p>
+                <p className="text-[11px] leading-relaxed opacity-90">
+                  Satker Mitra KPPN <strong>TIDAK MEMILIKI AKSES</strong> ke dokumen internal ini demi kerahasiaan evaluasi kinerja dinas. Seluruh materi bimtek, sosialisasi, dan regulasi resmi telah disediakan secara terbuka di tab <strong>Slide Publik</strong> di atas.
+                </p>
+              </div>
+            </div>
+
+            {/* Two path options */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto pt-2 text-left">
+              {/* Option 1: Back to Public Slides for Satker */}
+              <div className={`p-5 rounded-2xl border flex flex-col justify-between space-y-4 ${
+                isDark ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400">
+                    <Globe className="w-4 h-4" />
+                    <span>Untuk Satker Mitra KPPN</span>
+                  </div>
+                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    Slide Publik Satker
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Akses materi sosialisasi PER-5, petunjuk teknis SAKTI, modul rekonsiliasi, dan tutorial pencairan dana tanpa perlu login.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSlideSubTab('PUBLIK')}
+                  className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Presentation className="w-4 h-4" />
+                  <span>Beralih ke Tab Slide Publik Satker &rarr;</span>
+                </button>
+              </div>
+
+              {/* Option 2: Internal Staff Clearance Verification */}
+              <div className={`p-5 rounded-2xl border flex flex-col justify-between space-y-4 ${
+                isDark ? 'bg-amber-950/20 border-amber-500/30' : 'bg-amber-50/50 border-amber-300'
+              }`}>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-black text-amber-600 dark:text-amber-400">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Untuk Pegawai / Pejabat KPPN</span>
+                  </div>
+                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                    Otentikasi Akses Internal
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Masuk dengan akun pegawai resmi KPPN atau verifikasi kode kredensial dinas untuk membuka seluruh slide rahasia/penting.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  {onOpenLoginModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenLoginModal}
+                      className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Login Akun Pegawai KPPN</span>
+                    </button>
+                  )}
+
+                  {/* Quick PIN Verification Form */}
+                  <form onSubmit={handleVerifyGate} className="space-y-2 pt-1">
+                    <div className="relative">
+                      <input
+                        type={showGatePassword ? "text" : "password"}
+                        value={gatePasswordInput}
+                        onChange={(e) => {
+                          setGatePasswordInput(e.target.value);
+                          if (gateErrorMsg) setGateErrorMsg(null);
+                        }}
+                        placeholder="Masukkan PIN / Sandi Internal KPPN..."
+                        className={`w-full p-2 rounded-xl border text-xs font-mono font-bold pr-9 focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                          isDark ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGatePassword(!showGatePassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
+                      >
+                        {showGatePassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    {gateErrorMsg && (
+                      <p className="text-[11px] text-rose-500 font-bold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        <span>{gateErrorMsg}</span>
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isVerifyingGate || !gatePasswordInput.trim()}
+                      className="w-full py-2 px-3 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-amber-400 font-black text-[11px] border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>{isVerifyingGate ? 'Memverifikasi...' : 'Verifikasi Cepat PIN Internal'}</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Top Banner / Header (Scope-Aware) */}
+          {activeScope === 'INTERNAL' ? (
+            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl relative overflow-hidden ${
+              isDark
+                ? 'bg-gradient-to-r from-amber-950 via-slate-900 to-orange-950 border-amber-500/40 text-white'
+                : 'bg-gradient-to-r from-amber-900 via-slate-900 to-orange-900 border-amber-300 text-white shadow-amber-900/10'
+            }`}>
+              <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-amber-500/10 to-transparent pointer-events-none" />
+
+              <div className="relative z-10 max-w-4xl space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-amber-500 text-slate-950 border border-amber-400 text-[10px] sm:text-xs font-black uppercase px-3 py-1 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <Lock className="w-3.5 h-3.5" />
+                      🔒 PUSTAKA SLIDE KHUSUS INTERNAL KPPN SEMARANG I
+                    </span>
+
+                    <span className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[10px] sm:text-xs font-black px-3 py-1 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                      Akses Terverifikasi: {currentUser ? currentUser.displayName : (isAdminAuthenticated ? 'Super Admin KPPN' : 'Sesi Internal Pegawai')} (Satker Terblokir)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleLockInternalSession}
+                      className="px-3 py-1.5 rounded-xl bg-slate-950/80 hover:bg-slate-900 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Kunci Sesi Internal</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSlideSubTab('PUBLIK')}
+                      className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-sky-300" />
+                      <span>Lihat Slide Publik Satker</span>
+                    </button>
+                  </div>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight tracking-tight">
+                  Pustaka Slide Evaluasi &amp; Rapat Dinas Pimpinan
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium max-w-3xl">
+                  Koleksi slide penting, paparan rakor pimpinan KPPN Semarang I, analisis anomali kinerja 50 satker, serta materi strategis pembinaan internal. Dokumen ini aman dan terproteksi dari akses Satker.
+                </p>
+
+                <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-amber-200/90 font-bold">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-400" />
+                    <span>{filteredMaterials.length} Slide Internal Tersedia</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Maximize2 className="w-4 h-4 text-sky-400" />
+                    <span>Dukungan Native Fullscreen HD &amp; Presenter Mode</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Pencil className="w-4 h-4 text-emerald-400" />
+                    <span>Laser Pointer, Pena Coret &amp; Stabilo</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl relative overflow-hidden ${
+              isDark
+                ? 'bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border-slate-800 text-white'
+                : 'bg-gradient-to-r from-indigo-900 via-slate-900 to-sky-900 border-indigo-200 text-white shadow-indigo-900/10'
+            }`}>
+              <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-indigo-500/10 to-transparent pointer-events-none" />
+
+              <div className="relative z-10 max-w-4xl space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 text-[10px] sm:text-xs font-black uppercase px-3 py-1 rounded-full flex items-center gap-1.5 shadow-xs backdrop-blur-md">
+                      <Presentation className="w-3.5 h-3.5 text-indigo-300" />
+                      {dashboardConfig?.customTexts?.materiSlideBadge || 'Pustaka Slide & Modul Edukasi Satker KPPN Semarang I'}
+                    </span>
+
+                    <span className="bg-emerald-500/20 text-emerald-200 border border-emerald-500/40 text-[10px] sm:text-xs font-extrabold px-3 py-1 rounded-full flex items-center gap-1">
+                      <Globe className="w-3 h-3 text-emerald-400" />
+                      Bebas Akses Seluruh Satker Mitra
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSlideSubTab('INTERNAL')}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Slide Khusus Internal KPPN &rarr;</span>
+                  </button>
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black leading-tight tracking-tight">
+                  {dashboardConfig?.customTexts?.materiSlideTitle || 'Kumpulan Slide Presentation & PowerPoint'}
+                </h2>
+
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium max-w-3xl">
+              {dashboardConfig?.customTexts?.materiSlideSubtitle || 'Pusat paparan sosialisasi, bimbingan teknis, dan modul PowerPoint perbendaharaan. Nikmati fitur Slide Show Layar Penuh (Native Fullscreen), Navigasi Slide, Zoom In/Out, serta Laser &amp; Pena Coret-Coret langsung di dashboard.'}
+            </p>
+
+            <div className="pt-2 flex flex-wrap items-center gap-4 text-xs text-indigo-200/90 font-bold">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>{filteredMaterials.length} Modul Aktif Satker</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Maximize2 className="w-4 h-4 text-sky-400" />
+                <span>Dukungan Native Fullscreen HD</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Pencil className="w-4 h-4 text-emerald-400" />
+                <span>Laser Pointer &amp; Stabilo Coret Slide</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Control Panel: Search & Filters */}
       <div className={`p-4 sm:p-5 rounded-2xl border ${
@@ -670,7 +1172,7 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Cari materi PowerPoint, judul PER-5, atau kata kunci SAKTI..."
+              placeholder={activeScope === 'INTERNAL' ? "Cari slide rapat dinas, evaluasi satker, SOP Pera, materi rahasia..." : "Cari materi PowerPoint, judul PER-5, atau kata kunci SAKTI..."}
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
@@ -695,50 +1197,19 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
             )}
           </div>
 
-          {/* Access Type Filter (Umum vs Internal) */}
-          <div className="flex items-center gap-1.5 shrink-0 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <span className="text-[11px] font-extrabold text-slate-500 px-2 hidden sm:inline">Akses:</span>
-            <button
-              onClick={() => {
-                setFilterAccessType('ALL');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                filterAccessType === 'ALL'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              Semua
-            </button>
-            <button
-              onClick={() => {
-                setFilterAccessType('UMUM');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
-                filterAccessType === 'UMUM'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Globe className="w-3 h-3" />
-              <span>🌐 Umum</span>
-            </button>
-            <button
-              onClick={() => {
-                setFilterAccessType('INTERNAL');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer ${
-                filterAccessType === 'INTERNAL'
-                  ? 'bg-amber-500 text-slate-950 shadow-xs font-black'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-              }`}
-            >
-              <Lock className="w-3 h-3" />
-              <span>🔒 Internal</span>
-            </button>
+          {/* Scope Indicator Badge */}
+          <div className="flex items-center gap-2 shrink-0">
+            {activeScope === 'INTERNAL' ? (
+              <span className="text-xs font-black text-amber-900 dark:text-amber-200 bg-amber-500/15 border border-amber-500/40 px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs">
+                <Lock className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                <span>Pustaka Khusus Internal KPPN</span>
+              </span>
+            ) : (
+              <span className="text-xs font-black text-emerald-900 dark:text-emerald-200 bg-emerald-500/15 border border-emerald-500/40 px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-xs">
+                <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Slide Publik Satker</span>
+              </span>
+            )}
           </div>
 
           {/* Importance Priority Filter */}
@@ -930,13 +1401,13 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                     <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-slate-500 dark:text-slate-400">
                       {isInternal ? (
                         <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-bold">
-                          <Lock className="w-3 h-3" />
-                          {isUnlocked ? 'Telah Di-Unlock' : 'Perlu Password'}
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Internal Terverifikasi</span>
                         </span>
                       ) : (
                         <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-bold">
-                          <Globe className="w-3 h-3" />
-                          Bebas Akses
+                          <Globe className="w-3 h-3 text-emerald-500" />
+                          <span>Bebas Akses Satker</span>
                         </span>
                       )}
                     </div>
@@ -949,12 +1420,8 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
                           : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30'
                       }`}
                     >
-                      {isInternal ? (
-                        isUnlocked ? <Play className="w-3.5 h-3.5 fill-current" /> : <Lock className="w-3.5 h-3.5" />
-                      ) : (
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                      )}
-                      <span>{isInternal ? (isUnlocked ? 'Buka Slide Show' : 'Buka Slide (Password)') : 'Mulai Slide Show'}</span>
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{isInternal ? 'Buka Slide Internal' : 'Mulai Slide Show'}</span>
                     </button>
                   </div>
 
@@ -975,6 +1442,8 @@ export const MateriSlideTab: React.FC<MateriSlideTabProps> = ({
             className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
           />
         </div>
+      )}
+        </>
       )}
 
       {/* PASSWORD VERIFICATION MODAL FOR INTERNAL SLIDES */}

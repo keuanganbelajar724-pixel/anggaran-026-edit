@@ -3729,12 +3729,16 @@ export default function App() {
                 />
               )}
 
-              {/* Tab Materi Slide Presentation */}
+              {/* Tab Materi Slide Presentation (Publik & Slide Internal KPPN dalam satu menu) */}
               {activeTab === 'materi-slide' && (
                 <MateriSlideTab
                   materials={dashboardConfig.presentationMaterials}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
                 />
               )}
 
