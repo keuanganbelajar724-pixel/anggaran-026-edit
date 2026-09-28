@@ -1103,6 +1103,7 @@ export interface MenuVisibilityConfig {
   'presensi'?: boolean;
   'konfirmasi-kehadiran'?: boolean;
   'pengetahuan': boolean;
+  'quiz-cat'?: boolean;
   'aduan'?: boolean;
   'pendaftaran-user-sakti'?: boolean;
   'rekonsiliasi'?: boolean;
@@ -1522,6 +1523,7 @@ export type NavigationTab =
   | 'presensi'
   | 'konfirmasi-kehadiran'
   | 'pengetahuan'
+  | 'quiz-cat'
   | 'aduan'
   | 'pendaftaran-user-sakti'
   | 'rekonsiliasi'

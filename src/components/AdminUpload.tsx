@@ -72,6 +72,7 @@ import { AdvancedWhatIfAnalyticsSection } from './admin/AdvancedWhatIfAnalyticsS
 import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
 import { UserManagementSection } from './admin/UserManagementSection';
 import { SidebarManagementSection } from './admin/SidebarManagementSection';
+import { QuizCatAdminSection } from './admin/QuizCatAdminSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
 import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER, clearCurrentUser } from '../utils/userManager';
@@ -512,7 +513,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   const isDark = theme === 'dark';
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3673,6 +3674,26 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
             </span>
           </button>
+
+          {/* 21. Manajemen Quiz CAT (Khusus Super Admin) */}
+          {currentUser?.role !== 'pegawai' && (
+            <button
+              onClick={() => setAdminTab('quiz-cat')}
+              className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+                adminTab === 'quiz-cat'
+                  ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg border-2 border-amber-300 ring-4 ring-amber-400/40 scale-[1.03]'
+                  : 'bg-white/80 dark:bg-slate-800/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-amber-400 shadow-2xs hover:shadow-xs'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <HelpCircle className={`w-4 h-4 shrink-0 ${adminTab === 'quiz-cat' ? 'text-white' : 'text-amber-500'}`} />
+                <span className="truncate">21. Manajemen Kuis CAT &amp; Bank Soal</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-amber-400 text-slate-950">
+                ADMIN SUPER
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -11310,6 +11331,14 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             isDark={isDark}
           />
         )
+      )}
+
+      {/* 21. Manajemen Quiz CAT & Bank Soal (Khusus Super Admin) */}
+      {adminTab === 'quiz-cat' && (
+        <QuizCatAdminSection
+          currentUser={currentUser}
+          theme={theme}
+        />
       )}
 
       {/* Phone Number Monitoring Subtab */}
