@@ -3399,7 +3399,8 @@ export default function App() {
         onLogoutAdmin={handleLogoutAdmin}
         currentUser={currentUser}
         onOpenProfileModal={(tab) => {
-          setProfileModalInitialTab(tab || 'profile');
+          const isSuper = (currentUser?.role === 'superadmin') || isAdminAuthenticated;
+          setProfileModalInitialTab((!isSuper && tab === 'theme') ? 'profile' : (tab || 'profile'));
           setIsProfileModalOpen(true);
         }}
         onLoginSuccess={handleLoginSuccess}
@@ -3504,7 +3505,8 @@ export default function App() {
                     updatedAt: new Date().toISOString()
                   }) : null)}
                   onOpenProfileModal={(tab) => {
-                    setProfileModalInitialTab(tab || 'profile');
+                    const isSuper = (currentUser?.role === 'superadmin') || isAdminAuthenticated;
+                    setProfileModalInitialTab((!isSuper && tab === 'theme') ? 'profile' : (tab || 'profile'));
                     setIsProfileModalOpen(true);
                   }}
                   onOpenLoginModal={() => setIsLoginModalOpen(true)}
@@ -3537,7 +3539,8 @@ export default function App() {
                   onSetIsAdminAuthenticated={setIsAdminAuthenticated}
                   currentUser={currentUser}
                   onOpenProfileModal={(tab) => {
-                    setProfileModalInitialTab(tab || 'profile');
+                    const isSuper = (currentUser?.role === 'superadmin') || isAdminAuthenticated;
+                    setProfileModalInitialTab((!isSuper && tab === 'theme') ? 'profile' : (tab || 'profile'));
                     setIsProfileModalOpen(true);
                   }}
                   onOpenLoginModal={() => setIsLoginModalOpen(true)}

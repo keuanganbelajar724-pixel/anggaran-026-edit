@@ -47,7 +47,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   initialTab = 'profile'
 }) => {
   const isDark = theme === 'dark';
-  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'theme'>(initialTab);
+  const isSuperAdmin = currentUser?.role === 'superadmin';
+  const resolvedInitialTab = (!isSuperAdmin && initialTab === 'theme') ? 'profile' : initialTab;
+  const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'theme'>(resolvedInitialTab);
   const [bannerTheme, setBannerTheme] = useState<string>('kemenkeu_gold');
 
   // Profile Form States
@@ -95,9 +97,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         ? (typeof currentUser.bannerColorTheme === 'string' ? currentUser.bannerColorTheme : (currentUser.bannerColorTheme.presetId || 'kemenkeu_gold'))
         : getDefaultPresetId(currentUser.role === 'superadmin');
       setBannerTheme(userTheme);
-      setActiveTab(initialTab);
+      const safeTab = (!isSuperAdmin && initialTab === 'theme') ? 'profile' : initialTab;
+      setActiveTab(safeTab);
     }
-  }, [currentUser, isOpen, initialTab]);
+  }, [currentUser, isOpen, initialTab, isSuperAdmin]);
 
   // Handle Photo URL Input change and immediate normalize
   const handlePhotoUrlChange = (val: string) => {
@@ -112,8 +115,6 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   if (!isOpen || !currentUser) return null;
-
-  const isSuperAdmin = currentUser.role === 'superadmin';
 
   // Handle Saving Profile (Display Name, Greeting, Photo, Jabatan)
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -317,17 +318,19 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
               <User className="w-3.5 h-3.5" />
               <span>Profil &amp; Foto</span>
             </button>
-            <button
-              onClick={() => { setActiveTab('theme'); setStatusMessage(null); }}
-              className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                activeTab === 'theme'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Palette className="w-3.5 h-3.5" />
-              <span>Warna Banner</span>
-            </button>
+            {isSuperAdmin && (
+              <button
+                onClick={() => { setActiveTab('theme'); setStatusMessage(null); }}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeTab === 'theme'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Palette className="w-3.5 h-3.5" />
+                <span>Warna Banner</span>
+              </button>
+            )}
             <button
               onClick={() => { setActiveTab('password'); setStatusMessage(null); }}
               className={`flex-1 py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -594,8 +597,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           </form>
         )}
 
-        {/* Tab 2: Theme / Banner Color Customization */}
-        {activeTab === 'theme' && (
+        {/* Tab 2: Theme / Banner Color Customization - KHUSUS SUPER ADMIN */}
+        {isSuperAdmin && activeTab === 'theme' && (
           <div className="p-6 space-y-4">
             <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs">
               <p className="font-extrabold flex items-center gap-1.5 mb-1 text-sm">
