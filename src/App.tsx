@@ -703,7 +703,7 @@ export default function App() {
   // User Authentication & Role Management State (Session in memory only: starts null on reload / browser restart)
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
-  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'profile' | 'password'>('profile');
+  const [profileModalInitialTab, setProfileModalInitialTab] = useState<'profile' | 'password' | 'theme'>('profile');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
   // Global Admin Authentication State (Session in memory only: starts false on reload / browser restart)
@@ -3513,6 +3513,10 @@ export default function App() {
                   onNavigateToDashboard={() => setActiveTab('dashboard')}
                   theme={theme}
                   activeTab={activeTab}
+                  onUserUpdated={(updatedUser) => {
+                    persistCurrentUser(updatedUser);
+                    setCurrentUser(updatedUser);
+                  }}
                 />
               )}
 

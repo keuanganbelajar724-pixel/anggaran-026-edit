@@ -25,7 +25,8 @@ import {
   UserCheck,
   Mail,
   Phone,
-  Fingerprint
+  Fingerprint,
+  Palette
 } from 'lucide-react';
 import { AppUser, UserRole } from '../../types/user';
 import { AppTheme } from '../../types';
@@ -38,6 +39,7 @@ import {
   subscribeUsers 
 } from '../../utils/userManager';
 import { normalizeImageUrl } from '../../utils/imageUrlHelper';
+import { BANNER_THEME_PRESETS, getPresetById, getDefaultPresetId } from '../../utils/bannerThemePresets';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 import { useToast } from '../ToastNotification';
 import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
@@ -45,11 +47,13 @@ import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
 interface UserManagementSectionProps {
   currentUser: AppUser | null;
   theme?: AppTheme;
+  onUserUpdated?: (user: AppUser) => void;
 }
 
 export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
   currentUser,
-  theme = 'light'
+  theme = 'light',
+  onUserUpdated
 }) => {
   const isDark = theme === 'dark';
   const { showToast } = useToast();
@@ -62,6 +66,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [resettingPasswordUser, setResettingPasswordUser] = useState<AppUser | null>(null);
+  const [themePickerUser, setThemePickerUser] = useState<AppUser | null>(null);
 
   // Form State for Add User
   const [formData, setFormData] = useState({
@@ -75,7 +80,8 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
     noHp: '',
     photoUrl: '',
     customGreeting: '',
-    passwordRaw: ''
+    passwordRaw: '',
+    bannerColorTheme: 'emerald_mint'
   });
 
   const [formPhotoPreview, setFormPhotoPreview] = useState<string>('');
@@ -120,7 +126,8 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
       noHp: '',
       photoUrl: '',
       customGreeting: 'Halo Rekan Pegawai! Semangat melayani Satker hari ini',
-      passwordRaw: 'pegawai026'
+      passwordRaw: 'pegawai026',
+      bannerColorTheme: 'emerald_mint'
     });
     setFormPhotoPreview('');
     setFormImageError(false);
@@ -131,6 +138,10 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
   // Open Edit Modal
   const handleOpenEditModal = (user: AppUser) => {
     setEditingUser(user);
+    const userTheme = user.bannerColorTheme
+      ? (typeof user.bannerColorTheme === 'string' ? user.bannerColorTheme : (user.bannerColorTheme.presetId || 'kemenkeu_gold'))
+      : getDefaultPresetId(user.role === 'superadmin');
+
     setFormData({
       username: user.username,
       displayName: user.displayName,
@@ -142,11 +153,32 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
       noHp: user.noHp || '',
       photoUrl: user.photoUrl || '',
       customGreeting: user.customGreeting || '',
-      passwordRaw: user.passwordRaw || ''
+      passwordRaw: user.passwordRaw || '',
+      bannerColorTheme: userTheme
     });
     setFormPhotoPreview(user.photoUrl ? normalizeImageUrl(user.photoUrl) : '');
     setFormImageError(false);
     setShowPassword(false);
+  };
+
+  // Handle direct theme update for a user
+  const handleUpdateUserTheme = async (userId: string, newThemeId: string) => {
+    try {
+      const res = await updateUserProfile(userId, { bannerColorTheme: newThemeId });
+      if (res.success) {
+        setUsers(getStoredUsers());
+        if (currentUser && currentUser.id === userId && onUserUpdated && res.user) {
+          onUserUpdated(res.user);
+        }
+        const presetObj = getPresetById(newThemeId);
+        showToast(`Warna tema berhasil diubah ke "${presetObj.name.split('&')[0].trim()}"!`, 'success');
+        setThemePickerUser(null);
+      } else {
+        showToast(res.message || 'Gagal mengubah tema warna.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Terjadi kesalahan sistem.', 'error');
+    }
   };
 
   // Submit Add User
@@ -176,6 +208,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         photoUrl: formData.photoUrl.trim(),
         customGreeting: formData.customGreeting.trim() || `Hai, ${formData.displayName.trim()}!`,
         passwordRaw: formData.passwordRaw.trim(),
+        bannerColorTheme: formData.bannerColorTheme,
         isActive: true
       });
 
@@ -213,10 +246,15 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         email: formData.email.trim(),
         noHp: formData.noHp.trim(),
         photoUrl: formData.photoUrl.trim(),
-        customGreeting: formData.customGreeting.trim() || `Hai, ${formData.displayName.trim()}!`
+        customGreeting: formData.customGreeting.trim() || `Hai, ${formData.displayName.trim()}!`,
+        bannerColorTheme: formData.bannerColorTheme
       });
 
       if (res.success) {
+        setUsers(getStoredUsers());
+        if (currentUser && currentUser.id === editingUser.id && onUserUpdated && res.user) {
+          onUserUpdated(res.user);
+        }
         showToast(`Data pengguna "${formData.displayName}" berhasil diperbarui!`, 'success');
         setEditingUser(null);
       } else {
@@ -463,11 +501,15 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
         {filteredUsers.map((u) => {
           const isSuper = u.role === 'superadmin';
           const resolvedPhoto = u.photoUrl ? normalizeImageUrl(u.photoUrl) : '';
+          const themeId = u.bannerColorTheme
+            ? (typeof u.bannerColorTheme === 'string' ? u.bannerColorTheme : (u.bannerColorTheme.presetId || 'kemenkeu_gold'))
+            : getDefaultPresetId(isSuper);
+          const preset = getPresetById(themeId);
 
           return (
             <div
               key={u.id}
-              className={`rounded-3xl border p-5 shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4 ${
+              className={`rounded-3xl border p-5 shadow-sm transition-all duration-200 flex flex-col justify-between space-y-4 relative overflow-hidden ${
                 !u.isActive 
                   ? 'opacity-60 bg-slate-100 dark:bg-slate-900 border-slate-300 dark:border-slate-800' 
                   : isSuper
@@ -475,6 +517,9 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
               }`}
             >
+              {/* Top Accent Gradient Bar matching user's color theme */}
+              <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${preset.previewGradient}`} />
+
               {/* Top User Header */}
               <div className="flex items-start gap-3.5">
                 <div className={`w-14 h-14 rounded-2xl p-0.5 shrink-0 overflow-hidden border-2 ${
@@ -573,6 +618,29 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                   </div>
                 )}
 
+                {/* Banner Color Theme Indicator & Quick Edit */}
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-[11px]">
+                  <span className="flex items-center gap-1">
+                    <Palette className="w-3 h-3 text-amber-500" />
+                    <span>Warna Tema:</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold flex items-center gap-1.5 text-slate-800 dark:text-slate-200">
+                      <span className={`w-2.5 h-2.5 rounded-full bg-gradient-to-r ${preset.previewGradient}`} />
+                      <span>{preset.name.split('&')[0]}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setThemePickerUser(u)}
+                      className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer flex items-center gap-1"
+                      title="Ubah warna tema untuk pengguna ini"
+                    >
+                      <Palette className="w-2.5 h-2.5" />
+                      <span>Ubah</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Sapaan Preview */}
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 text-[11px]">
                   <span className="text-[10px] uppercase font-black tracking-wider text-slate-400 block mb-0.5">
@@ -595,6 +663,14 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
               <div className="flex items-center justify-between gap-2 pt-1">
                 <div className="flex items-center gap-1.5">
                   <button
+                    onClick={() => setThemePickerUser(u)}
+                    className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all cursor-pointer"
+                    title="Ganti Warna Banner & Tema User Ini"
+                  >
+                    <Palette className="w-4 h-4" />
+                  </button>
+
+                  <button
                     onClick={() => handleOpenEditModal(u)}
                     className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
                     title="Edit Profil & Sapaan"
@@ -604,7 +680,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
 
                   <button
                     onClick={() => { setResettingPasswordUser(u); setNewPasswordInput(''); }}
-                    className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all cursor-pointer"
+                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-all cursor-pointer"
                     title="Reset Password Akun"
                   >
                     <KeyRound className="w-4 h-4" />
@@ -1070,6 +1146,34 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                 )}
               </div>
 
+              {/* Pilihan Warna Tema Banner & Kartu */}
+              <div>
+                <label className="block text-xs font-extrabold uppercase tracking-wider mb-2 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Pilihan Warna Tema Banner &amp; Kartu</span>
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {BANNER_THEME_PRESETS.map((preset) => {
+                    const isSelected = formData.bannerColorTheme === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, bannerColorTheme: preset.id })}
+                        className={`p-2 rounded-xl text-left border cursor-pointer transition-all flex items-center gap-2 ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 ring-2 ring-indigo-500/30'
+                            : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 bg-slate-50/50 dark:bg-slate-900/50'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${preset.previewGradient} shrink-0 shadow-xs`} />
+                        <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">{preset.name.split('&')[0]}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
@@ -1148,6 +1252,89 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 4: Theme Color Picker for User */}
+      {themePickerUser && (
+        <div className="fixed inset-0 z-[99999] overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5">
+          <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl border border-indigo-300/80 dark:border-indigo-500/40 text-slate-900 dark:text-slate-100 shadow-2xl overflow-hidden my-8 animate-in fade-in duration-200">
+            <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 p-6 text-white flex items-center justify-between border-b border-indigo-500/30">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/40">
+                  <Palette className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black tracking-tight flex items-center gap-2">
+                    <span>Ganti Warna Banner &amp; Tema: @{themePickerUser.username}</span>
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Pilih skema warna tema kartu &amp; banner untuk {themePickerUser.displayName} ({themePickerUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai'})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setThemePickerUser(null)}
+                className="p-2 rounded-xl bg-slate-800/40 hover:bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {BANNER_THEME_PRESETS.map((preset) => {
+                  const currentThemeId = themePickerUser.bannerColorTheme
+                    ? (typeof themePickerUser.bannerColorTheme === 'string' ? themePickerUser.bannerColorTheme : (themePickerUser.bannerColorTheme.presetId || 'kemenkeu_gold'))
+                    : getDefaultPresetId(themePickerUser.role === 'superadmin');
+                  const isSelected = currentThemeId === preset.id;
+
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handleUpdateUserTheme(themePickerUser.id, preset.id)}
+                      className={`group relative text-left p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
+                        isSelected
+                          ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/50 shadow-md ring-2 ring-indigo-500/30 scale-[1.02]'
+                          : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 hover:border-indigo-300 dark:hover:border-indigo-700 hover:scale-[1.01]'
+                      }`}
+                    >
+                      <div className={`w-full h-8 rounded-xl bg-gradient-to-r ${preset.previewGradient} shadow-inner flex items-center justify-between px-3`}>
+                        <span className="text-[10px] font-black text-white drop-shadow-xs uppercase tracking-wider">
+                          {preset.tag}
+                        </span>
+                        {isSelected && (
+                          <div className="w-5 h-5 rounded-full bg-white text-indigo-700 flex items-center justify-center shadow-xs">
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div>
+                        <div className="font-black text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {preset.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                          {preset.subtitle}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 dark:bg-slate-950/60 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setThemePickerUser(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
           </div>
         </div>
       )}
