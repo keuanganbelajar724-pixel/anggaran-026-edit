@@ -3399,8 +3399,7 @@ export default function App() {
         onLogoutAdmin={handleLogoutAdmin}
         currentUser={currentUser}
         onOpenProfileModal={(tab) => {
-          const isSuper = (currentUser?.role === 'superadmin') || isAdminAuthenticated;
-          setProfileModalInitialTab((!isSuper && tab === 'theme') ? 'profile' : (tab || 'profile'));
+          setProfileModalInitialTab(tab || 'profile');
           setIsProfileModalOpen(true);
         }}
         onLoginSuccess={handleLoginSuccess}
@@ -3539,8 +3538,7 @@ export default function App() {
                   onSetIsAdminAuthenticated={setIsAdminAuthenticated}
                   currentUser={currentUser}
                   onOpenProfileModal={(tab) => {
-                    const isSuper = (currentUser?.role === 'superadmin') || isAdminAuthenticated;
-                    setProfileModalInitialTab((!isSuper && tab === 'theme') ? 'profile' : (tab || 'profile'));
+                    setProfileModalInitialTab(tab || 'profile');
                     setIsProfileModalOpen(true);
                   }}
                   onOpenLoginModal={() => setIsLoginModalOpen(true)}

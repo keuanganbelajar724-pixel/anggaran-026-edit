@@ -199,7 +199,8 @@ import {
   Coins,
   Ticket,
   UploadCloud,
-  LayoutGrid
+  LayoutGrid,
+  HelpCircle
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
