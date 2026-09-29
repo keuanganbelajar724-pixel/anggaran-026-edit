@@ -84,6 +84,7 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
   onUpdateSidebarConfig,
   isDark = false
 }) => {
+  const isTamu = currentUser?.role === 'tamu';
   const { addToast } = useToast();
 
   const [localConfig, setLocalConfig] = useState<SidebarConfig>(() => {
@@ -126,6 +127,10 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
 
   // Save handler
   const handleSaveConfig = (updated?: SidebarConfig) => {
+    if (isTamu) {
+      addToast('Akses Tamu Studi Banding bersifat Hanya Lihat (Read-Only). Perubahan sidebar tidak disimpan.', 'info');
+      return;
+    }
     const toSave = updated || localConfig;
     const finalConfig: SidebarConfig = {
       ...toSave,
@@ -139,6 +144,10 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
 
   // Reset to default standard KPPN
   const handleResetToDefault = () => {
+    if (isTamu) {
+      addToast('Akses Tamu Studi Banding bersifat Hanya Lihat (Read-Only).', 'info');
+      return;
+    }
     if (confirm('Kembalikan konfigurasi dan seluruh daftar aplikasi internal ke template standar resmi KPPN Semarang I?')) {
       const resetConfig: SidebarConfig = {
         ...INITIAL_SIDEBAR_CONFIG,
@@ -328,10 +337,17 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
         
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-xs font-black uppercase tracking-wider">
-              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
-              <span>MODUL KHUSUS ADMIN SUPER</span>
-            </div>
+            {isTamu ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/25 text-purple-200 border border-purple-400/40 text-xs font-black uppercase tracking-wider">
+                <Eye className="w-3.5 h-3.5 text-purple-300" />
+                <span>MODE TAMU STUDI BANDING (READ-ONLY)</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-400/30 text-xs font-black uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                <span>MODUL KHUSUS ADMIN SUPER</span>
+              </div>
+            )}
             
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
               Pengaturan Sidebar Aplikasi Internal KPPN

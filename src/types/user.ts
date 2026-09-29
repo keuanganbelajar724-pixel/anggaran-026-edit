@@ -1,4 +1,4 @@
-export type UserRole = 'superadmin' | 'pegawai';
+export type UserRole = 'superadmin' | 'pegawai' | 'tamu';
 
 export interface BannerColorTheme {
   presetId: string; // e.g. 'kemenkeu_gold' | 'emerald_mint' | 'sapphire_ocean' | 'custom'

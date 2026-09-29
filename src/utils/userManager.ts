@@ -45,9 +45,24 @@ export const DEFAULT_PEGAWAI_USER: AppUser = {
   lastLoginAt: undefined
 };
 
+export const DEFAULT_TAMU_USER: AppUser = {
+  id: 'user-tamu-studibanding-026',
+  username: 'tamu',
+  displayName: 'Tamu Studi Banding KPPN',
+  role: 'tamu',
+  jabatan: 'Akses Observasi Studi Banding (Read-Only)',
+  seksi: 'Studi Banding Eksternal',
+  customGreeting: 'Selamat Datang Rekan Tamu Studi Banding! Selamat menjelajahi sistem ANGKASA.',
+  passwordRaw: 'tamu026',
+  isActive: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: new Date().toISOString()
+};
+
 export const INITIAL_USERS_LIST: AppUser[] = [
   DEFAULT_SUPERADMIN_USER,
-  DEFAULT_PEGAWAI_USER
+  DEFAULT_PEGAWAI_USER,
+  DEFAULT_TAMU_USER
 ];
 
 /**
@@ -60,12 +75,17 @@ export function getStoredUsers(): AppUser[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Ensure at least one superadmin exists
+        // Ensure at least one superadmin and default tamu user exist
         const hasSuperAdmin = parsed.some(u => u.role === 'superadmin');
+        const hasTamu = parsed.some(u => u.role === 'tamu');
+        let result = parsed;
         if (!hasSuperAdmin) {
-          return [DEFAULT_SUPERADMIN_USER, ...parsed];
+          result = [DEFAULT_SUPERADMIN_USER, ...result];
         }
-        return parsed;
+        if (!hasTamu) {
+          result = [...result, DEFAULT_TAMU_USER];
+        }
+        return result;
       }
     }
   } catch (err) {
@@ -214,6 +234,19 @@ export function authenticateUser(
   const currentPin = (customAdminPin || localStorage.getItem('kppn_admin_pin') || 'kppn026').trim();
 
   const users = getStoredUsers();
+
+  // Mode Tamu (Studi Banding): Quick password 'tamu026' or username 'tamu'
+  if (cleanId === 'tamu026' || cleanPassword === 'tamu026' || (cleanId.toLowerCase() === 'tamu' && (!cleanPassword || cleanPassword === 'tamu026'))) {
+    setCurrentUser(DEFAULT_TAMU_USER);
+    recordAdminActivityLog(
+      'Login Sesi Tamu (Studi Banding)',
+      'AUTH',
+      'Tamu Studi Banding berhasil masuk sistem menggunakan password tamu026 (Akses Hanya Lihat / Read-Only).',
+      'SUCCESS',
+      DEFAULT_TAMU_USER.displayName
+    );
+    return { success: true, user: DEFAULT_TAMU_USER };
+  }
 
   // Mode 1: Quick PIN single-input login (if passwordInput is empty and cleanId matches PIN)
   if (!cleanPassword) {

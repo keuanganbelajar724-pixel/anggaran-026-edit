@@ -56,11 +56,12 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
   onUserUpdated
 }) => {
   const isDark = theme === 'dark';
+  const isTamu = currentUser?.role === 'tamu';
   const { showToast } = useToast();
   const [subTab, setSubTab] = useState<'users' | 'email_gateway'>('users');
   const [users, setUsers] = useState<AppUser[]>(() => getStoredUsers());
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'superadmin' | 'pegawai'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'superadmin' | 'pegawai' | 'tamu'>('ALL');
 
   // Modal States
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState<boolean>(false);
@@ -365,26 +366,42 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
-              <Crown className="w-3.5 h-3.5" />
-              <span>MODUL EKSKLUSIF ADMIN SUPER</span>
-            </div>
+            {isTamu ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/25 border border-purple-400/40 text-purple-200 text-xs font-black uppercase tracking-wider">
+                <Eye className="w-3.5 h-3.5 text-purple-300" />
+                <span>MODE OBSERVASI STUDI BANDING (READ-ONLY)</span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-amber-300 text-xs font-black uppercase tracking-wider">
+                <Crown className="w-3.5 h-3.5" />
+                <span>MODUL EKSKLUSIF ADMIN SUPER</span>
+              </div>
+            )}
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
               Manajemen Pengguna &amp; Akun Pegawai KPPN
             </h2>
             <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Buat dan kelola akun login untuk pegawai internal KPPN Semarang I. Pegawai yang dibuat dapat mengakses modul operasional KPPN tanpa akses ke Manajemen User &amp; Log Admin.
+              {isTamu 
+                ? 'Peninjauan struktur akun pengguna, pembagian kewenangan pegawai, dan konfigurasi profil sistem ANGKASA KPPN Semarang I untuk keperluan studi banding.' 
+                : 'Buat dan kelola akun login untuk pegawai internal KPPN Semarang I. Pegawai yang dibuat dapat mengakses modul operasional KPPN tanpa akses ke Manajemen User & Log Admin.'}
             </p>
           </div>
 
           <div className="shrink-0 flex items-center gap-3">
-            <button
-              onClick={handleOpenAddModal}
-              className="bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-400 hover:to-sky-400 text-white font-black text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-lg shadow-indigo-500/25 flex items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Tambah User Pegawai</span>
-            </button>
+            {isTamu ? (
+              <div className="bg-purple-900/60 border border-purple-500/50 text-purple-200 text-xs font-bold px-4 py-2.5 rounded-2xl flex items-center gap-2 shadow-md">
+                <Eye className="w-4 h-4 text-purple-300" />
+                <span>Akses Observasi (Hanya Lihat)</span>
+              </div>
+            ) : (
+              <button
+                onClick={handleOpenAddModal}
+                className="bg-gradient-to-r from-indigo-500 to-sky-500 hover:from-indigo-400 hover:to-sky-400 text-white font-black text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-lg shadow-indigo-500/25 flex items-center gap-2 cursor-pointer transition-all hover:scale-105 active:scale-95"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Tambah User Pegawai</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -661,51 +678,62 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => setThemePickerUser(u)}
-                    className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all cursor-pointer"
-                    title="Ganti Warna Banner & Tema User Ini"
-                  >
-                    <Palette className="w-4 h-4" />
-                  </button>
+                {isTamu ? (
+                  <div className="w-full py-1 text-center">
+                    <span className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 px-3 py-1.5 rounded-xl w-full">
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Mode Studi Banding (Hanya Lihat)</span>
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setThemePickerUser(u)}
+                        className="p-2 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-300 text-xs font-bold transition-all cursor-pointer"
+                        title="Ganti Warna Banner & Tema User Ini"
+                      >
+                        <Palette className="w-4 h-4" />
+                      </button>
 
-                  <button
-                    onClick={() => handleOpenEditModal(u)}
-                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
-                    title="Edit Profil & Sapaan"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                  </button>
+                      <button
+                        onClick={() => handleOpenEditModal(u)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                        title="Edit Profil & Sapaan"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
 
-                  <button
-                    onClick={() => { setResettingPasswordUser(u); setNewPasswordInput(''); }}
-                    className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-all cursor-pointer"
-                    title="Reset Password Akun"
-                  >
-                    <KeyRound className="w-4 h-4" />
-                  </button>
+                      <button
+                        onClick={() => { setResettingPasswordUser(u); setNewPasswordInput(''); }}
+                        className="p-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-all cursor-pointer"
+                        title="Reset Password Akun"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
 
-                  <button
-                    onClick={() => handleToggleActive(u)}
-                    className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      u.isActive 
-                        ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600' 
-                        : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600'
-                    }`}
-                    title={u.isActive ? "Nonaktifkan Akun" : "Aktifkan Akun"}
-                  >
-                    {u.isActive ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                  </button>
-                </div>
+                      <button
+                        onClick={() => handleToggleActive(u)}
+                        className={`p-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          u.isActive 
+                            ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600' 
+                            : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600'
+                        }`}
+                        title={u.isActive ? "Nonaktifkan Akun" : "Aktifkan Akun"}
+                      >
+                        {u.isActive ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                      </button>
+                    </div>
 
-                <button
-                  onClick={() => handleDeleteUser(u)}
-                  className="p-2 rounded-xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
-                  title="Hapus Akun Pengguna"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                    <button
+                      onClick={() => handleDeleteUser(u)}
+                      className="p-2 rounded-xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
+                      title="Hapus Akun Pengguna"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           );

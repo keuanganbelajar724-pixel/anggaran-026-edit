@@ -4,6 +4,7 @@ import App from './App';
 import './index.css';
 import { initRuntimeSecurityGuard } from './utils/security';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ToastProvider } from './components/ToastNotification';
 
 // Initialize defense guard
 initRuntimeSecurityGuard();
@@ -11,7 +12,9 @@ initRuntimeSecurityGuard();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </ErrorBoundary>
   </StrictMode>,
 );

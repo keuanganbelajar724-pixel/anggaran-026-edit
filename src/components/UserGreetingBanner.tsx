@@ -21,7 +21,8 @@ import {
   X,
   Paintbrush,
   Sun,
-  Moon
+  Moon,
+  Eye
 } from 'lucide-react';
 import { AppUser, AppTheme, NavigationTab, BannerColorTheme } from '../types';
 import { normalizeImageUrl } from '../utils/imageUrlHelper';
@@ -265,23 +266,37 @@ export const UserGreetingBanner: React.FC<UserGreetingBannerProps> = ({
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => onOpenProfileModal('profile')}
-                className={`absolute -bottom-1 -right-1 p-1 rounded-full text-slate-950 shadow-md hover:scale-110 transition-transform cursor-pointer ${
-                  isSuperAdmin ? 'bg-amber-400' : 'bg-emerald-400'
-                }`}
-                title="Ganti Foto Profil / Sapaan"
-              >
-                {isSuperAdmin ? <Crown className="w-3.5 h-3.5" /> : <BadgeCheck className="w-3.5 h-3.5" />}
-              </button>
+              {currentUser.role !== 'tamu' && (
+                <button
+                  onClick={() => onOpenProfileModal('profile')}
+                  className={`absolute -bottom-1 -right-1 p-1 rounded-full text-slate-950 shadow-md hover:scale-110 transition-transform cursor-pointer ${
+                    isSuperAdmin ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                  title="Ganti Foto Profil / Sapaan"
+                >
+                  {isSuperAdmin ? <Crown className="w-3.5 h-3.5" /> : <BadgeCheck className="w-3.5 h-3.5" />}
+                </button>
+              )}
             </div>
 
             {/* Title & Greeting Texts */}
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${badgeClass}`}>
-                  {isSuperAdmin ? <Crown className="w-3.5 h-3.5 text-amber-500" /> : <Building2 className="w-3.5 h-3.5 text-emerald-500" />}
-                  <span>{isSuperAdmin ? 'ADMIN SUPER KPPN' : 'PEGAWAI KPPN'}</span>
+                  {isSuperAdmin ? (
+                    <Crown className="w-3.5 h-3.5 text-amber-500" />
+                  ) : currentUser.role === 'tamu' ? (
+                    <Eye className="w-3.5 h-3.5 text-purple-400" />
+                  ) : (
+                    <Building2 className="w-3.5 h-3.5 text-emerald-500" />
+                  )}
+                  <span>
+                    {isSuperAdmin
+                      ? 'ADMIN SUPER KPPN'
+                      : currentUser.role === 'tamu'
+                        ? 'TAMU STUDI BANDING (READ-ONLY)'
+                        : 'PEGAWAI KPPN'}
+                  </span>
                 </span>
                 
                 <span className="text-[11px] font-mono font-bold opacity-75">

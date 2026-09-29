@@ -42,8 +42,7 @@ import {
   Ticket,
   Crown,
   Check,
-  LayoutGrid,
-  HelpCircle
+  LayoutGrid
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -355,13 +354,6 @@ export const Header: React.FC<HeaderProps> = ({
       activeColor: 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-600/30 ring-2 ring-cyan-400/50'
     },
     {
-      id: 'quiz-cat',
-      label: 'Simulasi Quiz CAT',
-      icon: <HelpCircle className="w-4 h-4 text-amber-300" />,
-      badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Quizizz CAT</span>,
-      activeColor: 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400/50'
-    },
-    {
       id: 'aduan',
       label: 'Lapor Aduan Satker',
       icon: <LifeBuoy className="w-4 h-4 text-rose-300" />,
@@ -611,10 +603,10 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   onClick={() => setIsAdminLoginModalOpen(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 via-indigo-600 to-emerald-600 hover:from-amber-400 hover:to-emerald-500 text-white shadow-md shadow-indigo-600/20 border border-amber-400/40 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95"
-                  title="Masuk sebagai Super Admin atau Pegawai KPPN Semarang I"
+                  title="Masuk sebagai Super Admin, Pegawai KPPN, atau Tamu Studi Banding"
                 >
                   <Lock className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Login Admin / Pegawai</span>
+                  <span>Login Portal (Admin / Tamu)</span>
                 </button>
               )}
             </div>
@@ -627,7 +619,7 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     onClick={() => onOpenProfileModal?.('profile')}
                     className="flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-xl bg-slate-900/90 hover:bg-slate-800 text-white border border-slate-700/80 transition-all cursor-pointer shadow-xs hover:border-amber-400/50"
-                    title={`Klik untuk Pengaturan Profil ${currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai'}`}
+                    title={`Profil: ${currentUser.displayName} (${currentUser.role})`}
                   >
                     {currentUser.photoUrl ? (
                       <img
@@ -639,7 +631,7 @@ export const Header: React.FC<HeaderProps> = ({
                         }}
                       />
                     ) : (
-                      <div className={`w-4 h-4 rounded-full ${currentUser.role === 'superadmin' ? 'bg-amber-500' : 'bg-emerald-500'} text-slate-950 font-black text-[9px] flex items-center justify-center`}>
+                      <div className={`w-4 h-4 rounded-full ${currentUser.role === 'superadmin' ? 'bg-amber-500 text-slate-950' : currentUser.role === 'tamu' ? 'bg-purple-600 text-white' : 'bg-emerald-500 text-slate-950'} font-black text-[9px] flex items-center justify-center`}>
                         {currentUser.displayName.charAt(0).toUpperCase()}
                       </div>
                     )}
@@ -648,15 +640,19 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                     {currentUser.role === 'superadmin' ? (
                       <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+                    ) : currentUser.role === 'tamu' ? (
+                      <Eye className="w-3 h-3 text-purple-400 shrink-0" />
                     ) : (
                       <UserCheck className="w-3 h-3 text-emerald-400 shrink-0" />
                     )}
                     <span className={`text-[9px] border px-1.5 py-0.2 rounded font-bold ${
                       currentUser.role === 'superadmin'
                         ? 'bg-amber-400/20 text-amber-300 border-amber-400/30'
-                        : 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30'
+                        : currentUser.role === 'tamu'
+                          ? 'bg-purple-400/20 text-purple-300 border-purple-400/30'
+                          : 'bg-emerald-400/20 text-emerald-300 border-emerald-400/30'
                     }`}>
-                      {currentUser.role === 'superadmin' ? 'Admin Super' : 'Pegawai'}
+                      {currentUser.role === 'superadmin' ? 'Admin Super' : currentUser.role === 'tamu' ? 'Tamu (Read-Only)' : 'Pegawai'}
                     </span>
                   </button>
                 )}
@@ -852,8 +848,8 @@ export const Header: React.FC<HeaderProps> = ({
           if (onLoginSuccess) {
             onLoginSuccess(user);
           }
-          // Only redirect to superadmin panel if user is superadmin
-          if (user.role === 'superadmin') {
+          // Redirect to admin panel if user is superadmin or tamu (study comparative)
+          if (user.role === 'superadmin' || user.role === 'tamu') {
             setActiveTab('admin');
           } else {
             if (activeTab === 'admin') {

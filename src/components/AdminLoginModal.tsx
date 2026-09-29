@@ -58,11 +58,12 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   theme = 'light'
 }) => {
   const isDark = theme === 'dark';
-  const [activeLoginTab, setActiveLoginTab] = useState<'superadmin' | 'pegawai'>('superadmin');
+  const [activeLoginTab, setActiveLoginTab] = useState<'superadmin' | 'pegawai' | 'tamu'>('superadmin');
   const [viewMode, setViewMode] = useState<'login' | 'forgot' | 'verify'>('login');
   const [adminPinInput, setAdminPinInput] = useState<string>('');
   const [usernameInput, setUsernameInput] = useState<string>('');
   const [passwordInput, setPasswordInput] = useState<string>('');
+  const [tamuPasswordInput, setTamuPasswordInput] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showAdminPin, setShowAdminPin] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -94,6 +95,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       setErrorMsg(null);
       setInfoMsg(null);
       setSuccessUser(null);
+      setTamuPasswordInput('');
       setViewMode('login');
       setEmailSendResult(null);
     }
@@ -299,6 +301,47 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       return;
     }
 
+    // Tamu Tab: Single Password Input (tamu026)
+    if (activeLoginTab === 'tamu') {
+      const cleanPass = tamuPasswordInput.trim();
+      if (!cleanPass) {
+        setErrorMsg('Harap masukkan Password Tamu (tamu026).');
+        return;
+      }
+
+      const result = authenticateUser('tamu', cleanPass);
+      if (result.success && result.user) {
+        resetFailedLoginAttempts();
+        createAdminSession();
+        setErrorMsg(null);
+        setSuccessUser(result.user);
+        setFailedCount(0);
+
+        if (onLoginSuccess) {
+          onLoginSuccess(result.user);
+        }
+
+        setTimeout(() => {
+          setSuccessUser(null);
+          setTamuPasswordInput('');
+          onClose();
+        }, 1100);
+      } else {
+        const lockStatus = recordFailedLoginAttempt();
+        setFailedCount(lockStatus.failedAttempts);
+
+        if (lockStatus.isLocked) {
+          setLockoutSeconds(lockStatus.remainingSeconds);
+          setErrorMsg(
+            `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik untuk mencegah serangan brute-force.`
+          );
+        } else {
+          setErrorMsg('Password Tamu salah. Harap ketik password: tamu026');
+        }
+      }
+      return;
+    }
+
     // Pegawai Tab: Username & Password
     const cleanUser = sanitizeInput(usernameInput).trim();
     const cleanPass = passwordInput.trim();
@@ -364,20 +407,26 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         <div className={`p-6 sm:p-7 text-white text-center relative overflow-hidden border-b transition-colors duration-300 ${
           activeLoginTab === 'superadmin'
             ? 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-amber-500/30'
-            : 'bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950 border-emerald-500/30'
+            : activeLoginTab === 'tamu'
+              ? 'bg-gradient-to-r from-slate-950 via-purple-950 to-indigo-950 border-purple-500/30'
+              : 'bg-gradient-to-r from-slate-950 via-slate-900 to-emerald-950 border-emerald-500/30'
         }`}>
           <div className={`absolute -top-10 -right-10 w-32 h-32 rounded-full blur-2xl pointer-events-none ${
-            activeLoginTab === 'superadmin' ? 'bg-amber-500/20' : 'bg-emerald-500/20'
+            activeLoginTab === 'superadmin' ? 'bg-amber-500/20' : activeLoginTab === 'tamu' ? 'bg-purple-500/25' : 'bg-emerald-500/20'
           }`} />
 
           <div className={`w-14 h-14 border rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-inner ${
             activeLoginTab === 'superadmin'
               ? 'bg-amber-500/20 border-amber-400/40 text-amber-400'
-              : 'bg-emerald-500/20 border-emerald-400/40 text-emerald-400'
+              : activeLoginTab === 'tamu'
+                ? 'bg-purple-500/20 border-purple-400/40 text-purple-300'
+                : 'bg-emerald-500/20 border-emerald-400/40 text-emerald-400'
           }`}>
             {viewMode === 'login' ? (
               activeLoginTab === 'superadmin' ? (
                 <Crown className="w-7 h-7 text-amber-400" />
+              ) : activeLoginTab === 'tamu' ? (
+                <Eye className="w-7 h-7 text-purple-300" />
               ) : (
                 <UserCheck className="w-7 h-7 text-emerald-400" />
               )
@@ -389,7 +438,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           <div className={`inline-flex items-center gap-1.5 border px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wide mb-2 ${
             activeLoginTab === 'superadmin'
               ? 'bg-amber-500/20 text-amber-300 border-amber-400/30'
-              : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
+              : activeLoginTab === 'tamu'
+                ? 'bg-purple-500/20 text-purple-300 border-purple-400/30'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30'
           }`}>
             <Building2 className="w-3.5 h-3.5" />
             KPPN SEMARANG I (026) • PORTAL RESMI
@@ -397,7 +448,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
           <h3 className="text-lg sm:text-xl font-black text-white tracking-tight">
             {viewMode === 'login' 
-              ? (activeLoginTab === 'superadmin' ? 'Login Khusus Super Admin' : 'Login Akun Pegawai KPPN') 
+              ? (activeLoginTab === 'superadmin' 
+                  ? 'Login Khusus Super Admin' 
+                  : activeLoginTab === 'tamu'
+                    ? 'Login Tamu Studi Banding'
+                    : 'Login Akun Pegawai KPPN') 
               : viewMode === 'forgot'
                 ? 'Pemulihan Kata Sandi Pegawai'
                 : 'Verifikasi OTP & Reset Sandi'}
@@ -406,13 +461,15 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             {viewMode === 'login'
               ? (activeLoginTab === 'superadmin' 
                   ? 'Akses tingkat tinggi Super Administrator KPPN Semarang I.' 
-                  : 'Akses masuk pegawai internal KPPN Semarang I untuk operasional perbendaharaan.')
+                  : activeLoginTab === 'tamu'
+                    ? 'Akses peninjauan dan observasi studi banding (Read-Only). Cukup isi password tamu.'
+                    : 'Akses masuk pegawai internal KPPN Semarang I untuk operasional perbendaharaan.')
               : viewMode === 'forgot'
                 ? 'Kirim kode OTP ke alamat email terdaftar untuk reset kata sandi mandiri.'
                 : `Kode OTP verifikasi resmi siap digunakan untuk akun dengan email ${maskedEmail || 'Anda'}.`}
           </p>
 
-          {/* Mode Switcher Tabs between Super Admin and Pegawai */}
+          {/* Mode Switcher Tabs between Super Admin, Pegawai, and Tamu */}
           {viewMode === 'login' && (
             <div className="flex items-center gap-1.5 mt-5 bg-slate-900/80 p-1 rounded-2xl border border-slate-700/60 max-w-sm mx-auto">
               <button
@@ -421,14 +478,14 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   setActiveLoginTab('superadmin');
                   setErrorMsg(null);
                 }}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeLoginTab === 'superadmin'
                     ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-slate-950 font-black shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <Crown className="w-3.5 h-3.5" />
-                <span>Super Admin</span>
+                <span className="truncate">Super Admin</span>
               </button>
 
               <button
@@ -437,14 +494,30 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   setActiveLoginTab('pegawai');
                   setErrorMsg(null);
                 }}
-                className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeLoginTab === 'pegawai'
                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-black shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5" />
-                <span>Pegawai KPPN</span>
+                <span className="truncate">Pegawai</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveLoginTab('tamu');
+                  setErrorMsg(null);
+                }}
+                className={`flex-1 py-2 px-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                  activeLoginTab === 'tamu'
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="truncate">Tamu</span>
               </button>
             </div>
           )}
@@ -473,7 +546,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto border ${
                   successUser.role === 'superadmin'
                     ? 'bg-amber-500/20 text-amber-500 border-amber-500/40'
-                    : 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
+                    : successUser.role === 'tamu'
+                      ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+                      : 'bg-emerald-500/20 text-emerald-500 border-emerald-500/40'
                 }`}>
                   <Check className="w-7 h-7 stroke-[3]" />
                 </div>
@@ -481,15 +556,17 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider mb-1 ${
                     successUser.role === 'superadmin'
                       ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
-                      : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
+                      : successUser.role === 'tamu'
+                        ? 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300'
+                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300'
                   }`}>
-                    {successUser.role === 'superadmin' ? '👑 Super Admin KPPN' : '🏛️ Pegawai KPPN'}
+                    {successUser.role === 'superadmin' ? '👑 Super Admin KPPN' : successUser.role === 'tamu' ? '👁️ Tamu Studi Banding' : '🏛️ Pegawai KPPN'}
                   </span>
                   <h4 className="text-base font-black text-slate-900 dark:text-white">
                     Selamat Datang, {successUser.displayName}!
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    {successUser.customGreeting || 'Membuka hak akses modul operasional perbendaharaan...'}
+                    {successUser.customGreeting || (successUser.role === 'tamu' ? 'Membuka hak akses observasi dan tinjauan modul admin...' : 'Membuka hak akses modul operasional perbendaharaan...')}
                   </p>
                 </div>
               </div>
@@ -579,6 +656,75 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 >
                   <Crown className="w-4 h-4 text-slate-950" />
                   <span>Masuk sebagai Super Admin</span>
+                </button>
+              </>
+            ) : activeLoginTab === 'tamu' ? (
+              /* TAB 3: TAMU STUDI BANDING LOGIN (HANYA PASSWORD tamu026) */
+              <>
+                <div className="p-3.5 rounded-2xl bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 text-purple-950 dark:text-purple-200 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-black text-[11px] uppercase tracking-wide">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <span>Akses Observasi Studi Banding (Read-Only)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Mode khusus bagi tamu dan peserta studi banding yang ingin melihat seluruh isian di menu Admin (Read-Only) tanpa izin mengubah atau mengunggah data.
+                  </p>
+                  <div className="pt-1 flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                    <span>🔑 Password Resmi Tamu:</span>
+                    <code className="bg-purple-200 dark:bg-purple-900/80 px-2 py-0.5 rounded font-mono font-black text-purple-900 dark:text-purple-100 tracking-wider">
+                      tamu026
+                    </code>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Password Tamu Studi Banding
+                    </label>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Masukkan password tamu (tamu026)..."
+                      value={tamuPasswordInput}
+                      onChange={(e) => {
+                        setTamuPasswordInput(e.target.value);
+                        if (errorMsg) setErrorMsg(null);
+                      }}
+                      disabled={isCurrentlyLocked}
+                      className="w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 text-xs font-mono font-bold rounded-xl pl-10 pr-10 py-3 border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      autoFocus
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+                    💡 Cukup ketik <strong className="text-purple-600 dark:text-purple-400 font-mono font-bold">tamu026</strong> untuk meninjau seluruh isian modul Admin.
+                  </p>
+                </div>
+
+                {errorMsg && (
+                  <div className="p-3 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 rounded-xl text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isCurrentlyLocked}
+                  className="w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 hover:from-purple-500 hover:to-indigo-500 disabled:bg-slate-600 text-white font-black text-xs py-3 rounded-xl shadow-md shadow-purple-600/20 hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:cursor-not-allowed"
+                >
+                  <Eye className="w-4 h-4 text-purple-200" />
+                  <span>Masuk sebagai Tamu (Lihat Isian Admin)</span>
                 </button>
               </>
             ) : (

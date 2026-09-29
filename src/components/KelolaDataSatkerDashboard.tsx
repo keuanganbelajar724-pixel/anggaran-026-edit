@@ -61,6 +61,7 @@ interface KelolaDataSatkerDashboardProps {
   satkers?: SatkerIKPA[];
   theme?: AppTheme;
   isAdminAuthenticated?: boolean;
+  isReadOnly?: boolean;
   onSaveMasterSatker: (satker: MasterSatker) => Promise<void> | void;
   onUpdateMasterSatkers: (satkers: MasterSatker[]) => void;
   onDeleteMasterSatker?: (id: string) => void;
@@ -75,7 +76,8 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   masterSatkers = [],
   satkers = [],
   theme = 'light',
-  isAdminAuthenticated = false,
+  isAdminAuthenticated: rawIsAdmin = false,
+  isReadOnly = false,
   onSaveMasterSatker,
   onUpdateMasterSatkers,
   onDeleteMasterSatker,
@@ -86,6 +88,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   onOpenReminder
 }) => {
   const isDark = theme === 'dark';
+  const isAdminAuthenticated = rawIsAdmin && !isReadOnly;
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -1254,7 +1257,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
         <div className="relative z-10 space-y-3">
           <div className="inline-flex items-center gap-2 bg-sky-500/20 border border-sky-400/40 text-sky-200 px-3.5 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-xs">
             <Building2 className="w-3.5 h-3.5 text-sky-400" />
-            <span>{isAdminAuthenticated ? 'ADMIN KELOLA DATA SATKER & PENGATURAN PASSWORD' : 'PORTAL PESERTA SATKER & PEMUTAKHIRAN DATA KONTAK'}</span>
+            <span>{isReadOnly ? 'MODE TAMU STUDI BANDING (HANYA LIHAT / READ-ONLY)' : isAdminAuthenticated ? 'ADMIN KELOLA DATA SATKER & PENGATURAN PASSWORD' : 'PORTAL PESERTA SATKER & PEMUTAKHIRAN DATA KONTAK'}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
             Kelola Data Satker, Kontak Pejabat &amp; Operator SAKTI
@@ -1391,6 +1394,24 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
           </div>
         </div>
       </div>
+
+      {/* Dedicated Tamu Notice if isReadOnly */}
+      {isReadOnly && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-purple-950/40 border-2 border-purple-500/40 text-purple-200 shadow-md flex items-center gap-3.5 animate-in fade-in duration-200">
+          <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0 text-purple-300">
+            <Eye className="w-5 h-5 text-purple-300" />
+          </div>
+          <div className="text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-white text-sm">Mode Observasi Tamu Studi Banding (Read-Only)</span>
+              <span className="text-[10px] bg-purple-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase">Hanya Lihat</span>
+            </div>
+            <p className="text-purple-200/90 mt-0.5">
+              Anda dapat melihat dan mencari seluruh data referensi satker, struktur kontak, serta informasi pejabat. Seluruh fungsi rekam, ubah, dan hapus data dinonaktifkan demi menjaga integritas data.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Upload Feedback */}
       {uploadFeedback && (

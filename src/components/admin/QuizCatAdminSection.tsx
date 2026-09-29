@@ -52,10 +52,11 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
 }) => {
   const isDark = theme === 'dark';
 
-  // STRICT ACCESS CONTROL: ONLY SUPER ADMIN CAN OPEN THIS TAB
+  // STRICT ACCESS CONTROL: ONLY SUPER ADMIN AND TAMU (READ-ONLY) CAN OPEN THIS TAB
   const isSuperAdmin = currentUser?.role === 'superadmin';
+  const isTamu = currentUser?.role === 'tamu';
 
-  if (!isSuperAdmin) {
+  if (!isSuperAdmin && !isTamu) {
     return (
       <div className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-3xl border border-rose-200 dark:border-rose-900 shadow-xl text-center space-y-4 max-w-xl mx-auto my-12 animate-in fade-in">
         <div className="w-16 h-16 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800">
@@ -65,7 +66,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
           Akses Khusus Super Admin
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          Modul manajemen dan konfigurasi paket soal kuis CAT hanya dapat diakses oleh Super Admin. Pegawai KPPN tidak memiliki wewenang untuk membuka, menambah, atau mengedit materi kuis ini.
+          Modul manajemen dan konfigurasi paket soal kuis CAT hanya dapat dikelola oleh Super Admin. Pegawai KPPN tidak memiliki wewenang untuk membuka, menambah, atau mengedit materi kuis ini.
         </p>
       </div>
     );
@@ -374,15 +375,24 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
       {/* Admin Module Header */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider mb-2">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-200" />
-            <span>Khusus Super Admin • KPPN Semarang I</span>
-          </div>
+          {isTamu ? (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-900/60 text-[10px] font-black uppercase tracking-wider mb-2 border border-purple-300/40">
+              <Eye className="w-3.5 h-3.5 text-purple-200" />
+              <span>Mode Tamu Studi Banding • Hanya Lihat (Read-Only)</span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider mb-2">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-200" />
+              <span>Khusus Super Admin • KPPN Semarang I</span>
+            </div>
+          )}
           <h2 className="text-xl sm:text-2xl font-black">
             Manajemen Paket &amp; Soal Kuis CAT
           </h2>
           <p className="text-xs text-amber-100/90 mt-1 max-w-2xl">
-            Input paket materi, kelola bank soal pilihan ganda (ABCD) secara manual atau via upload Excel (.xlsx), dan monitor rekap hasil ujian peserta.
+            {isTamu 
+              ? 'Tinjauan struktur paket materi ujian CAT, butir soal pilihan ganda (ABCD), kunci jawaban, dan rekapitulasi nilai untuk studi banding.' 
+              : 'Input paket materi, kelola bank soal pilihan ganda (ABCD) secara manual atau via upload Excel (.xlsx), dan monitor rekap hasil ujian peserta.'}
           </p>
         </div>
 
@@ -441,14 +451,16 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                 <span>Unduh Format Excel</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleOpenCreatePackage}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Buat Paket Soal Baru</span>
-              </button>
+              {!isTamu && (
+                <button
+                  type="button"
+                  onClick={handleOpenCreatePackage}
+                  className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Buat Paket Soal Baru</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -529,29 +541,33 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                           type="button"
                           onClick={() => handleOpenManageQuestions(pkg)}
                           className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1 transition-all shadow-xs cursor-pointer"
-                          title="Kelola butir soal dan kunci jawaban"
+                          title="Lihat butir soal dan kunci jawaban"
                         >
                           <BookOpen className="w-3.5 h-3.5" />
-                          <span>Kelola Soal</span>
+                          <span>{isTamu ? 'Lihat Soal' : 'Kelola Soal'}</span>
                         </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEditPackage(pkg)}
-                          className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
-                          title="Edit info paket"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
+                        {!isTamu && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditPackage(pkg)}
+                              className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+                              title="Edit info paket"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePackage(pkg.id)}
-                          className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-all cursor-pointer"
-                          title="Hapus paket"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePackage(pkg.id)}
+                              className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-all cursor-pointer"
+                              title="Hapus paket"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -743,26 +759,35 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                 <span>Unduh Format Excel</span>
               </button>
 
-              <label className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>{isUploadingExcel ? 'Membaca...' : 'Upload File Excel'}</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx, .xls"
-                  onChange={handleExcelFileChange}
-                  className="hidden"
-                />
-              </label>
+              {!isTamu ? (
+                <>
+                  <label className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>{isUploadingExcel ? 'Membaca...' : 'Upload File Excel'}</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx, .xls"
+                      onChange={handleExcelFileChange}
+                      className="hidden"
+                    />
+                  </label>
 
-              <button
-                type="button"
-                onClick={handleOpenAddQuestion}
-                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Soal Manual</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddQuestion}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Soal Manual</span>
+                  </button>
+                </>
+              ) : (
+                <div className="px-3 py-1.5 rounded-xl bg-purple-100 dark:bg-purple-950/60 border border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-300 font-bold text-xs flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Mode Tinjauan (Read-Only)</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -892,24 +917,26 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditQuestion(q)}
-                      className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
-                      title="Edit soal"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteQuestion(q.id)}
-                      className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-all cursor-pointer"
-                      title="Hapus soal"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {!isTamu && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditQuestion(q)}
+                        className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+                        title="Edit soal"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-all cursor-pointer"
+                        title="Hapus soal"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -512,6 +512,15 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onLoginSuccess
 }) => {
   const isDark = theme === 'dark';
+  const isTamu = currentUser?.role === 'tamu';
+
+  const notifyTamuReadOnly = (actionName: string = 'tindakan ini') => {
+    showToast({
+      type: 'warning',
+      title: 'Akses Tamu Studi Banding (Read-Only)',
+      message: `Sebagai Tamu Studi Banding, Anda tidak diizinkan melakukan ${actionName}. Fitur ini dinonaktifkan demi menjaga keamanan dan keaslian data operasional KPPN.`
+    });
+  };
 
   // Navigation inside Admin Panel
   const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat'>('upload');
@@ -759,6 +768,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       iconType?: 'trash' | 'warning' | 'shield' | 'check' | 'info' | 'sparkles' | 'reload';
     }
   ) => {
+    if (isTamu) {
+      notifyTamuReadOnly('operasi konfirmasi modifikasi atau penghapusan data ini');
+      return;
+    }
     if (typeof titleOrOptions === 'object' && titleOrOptions !== null) {
       setConfirmModal({
         isOpen: true,
@@ -811,6 +824,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   // Password Batch Upload Handler
   const handlePasswordBatchUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengunggah batch password satker');
+      if (e.target) e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -848,6 +866,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   // Broadcast Excel Custom Data Handler
   const handleBroadcastExcelUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengunggah file broadcast Excel');
+      if (e.target) e.target.value = '';
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -1560,6 +1583,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleSaveAnnouncement = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTamu) {
+      notifyTamuReadOnly('merekam atau memperbarui pengumuman');
+      return;
+    }
     if (!annForm.title.trim() || !annForm.content.trim()) {
       alert('Judul dan isi pengumuman tidak boleh kosong!');
       return;
@@ -1671,6 +1698,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteAnnouncement = (id: string) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus pengumuman');
+      return;
+    }
     requestConfirm(
       'Hapus Pengumuman',
       'Apakah Anda yakin ingin menghapus pengumuman ini dari portal?',
@@ -1768,6 +1799,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleSaveMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTamu) {
+      notifyTamuReadOnly('merekam atau memperbarui materi slide');
+      return;
+    }
     if (!matForm.title.trim() || !matForm.embedUrl.trim()) {
       alert('Judul dan Link Embed Google Slides / Drive wajib diisi.');
       return;
@@ -1873,6 +1908,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteMaterial = (id: string) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus materi slide');
+      return;
+    }
     requestConfirm(
       'Hapus Materi Slide',
       'Apakah Anda yakin ingin MENGHAPUS materi slide ini dari dashboard?',
@@ -1997,6 +2036,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   }, [masterSatkers]);
 
   const handleMasterSatkerFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengunggah master data satker');
+      if (e.target) e.target.value = '';
+      return;
+    }
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -2059,6 +2103,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteMasterSingle = (m: MasterSatker) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus master satker');
+      return;
+    }
     requestConfirm(
       'Hapus Master Satker',
       `Apakah Anda yakin ingin MENGHAPUS Master Satker "${m.namaSatker}" (${m.kodeSatker}) dari Master Data?\n\nJika dihapus, satker ini otomatis tidak akan muncul di Dashboard IKPA & Capaian Output.`,
@@ -2078,6 +2126,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteMasterBatch = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus batch master satker');
+      return;
+    }
     if (selectedMasterIds.length === 0) return;
     requestConfirm(
       'Hapus Batch Master Satker',
@@ -2101,6 +2153,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleBatchToggleActive = (activeState: boolean) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengubah status aktif master satker');
+      return;
+    }
     if (selectedMasterIds.length === 0) return;
     if (onUpdateMasterSatkers) {
       const idSet = new Set(selectedMasterIds);
@@ -2117,6 +2173,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
   const handleSaveMasterSatkerSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isTamu) {
+      notifyTamuReadOnly('menyimpan master satker');
+      return;
+    }
     if (!masterSatkerForm.kodeSatker || !masterSatkerForm.namaSatker) {
       alert('Kode Satker dan Nama Satker wajib diisi!');
       return;
@@ -2189,6 +2249,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteSingleSatker = (satker: SatkerIKPA) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus satker');
+      return;
+    }
     requestConfirm(
       'Hapus Data Satker',
       `Apakah Anda yakin ingin menghapus Satker "${satker.namaSatker}" (${satker.kodeSatker}) dari Dashboard?`,
@@ -2203,6 +2267,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteBatch = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus batch satker');
+      return;
+    }
     if (selectedSatkerIds.length === 0) return;
     requestConfirm(
       'Hapus Batch Satker',
@@ -2221,6 +2289,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleSaveEditedSatker = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('memperbarui data satker');
+      return;
+    }
     if (!editingSatker) return;
     const computedTotal = hitungTotalIKPA(editingSatker.indikator);
     const computedPredikat = getPredikatIKPA(computedTotal);
@@ -2243,6 +2315,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleCreateNewSatker = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('menambahkan satker baru');
+      return;
+    }
     if (!newSatkerForm.kodeSatker || !newSatkerForm.namaSatker) {
       alert('Mohon isi Kode Satker dan Nama Satker!');
       return;
@@ -2293,6 +2369,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengunggah file Excel');
+      if (e.target) e.target.value = '';
+      return;
+    }
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -2336,6 +2417,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const saveAndApplyHistoricalUploads = (newList: ExcelUploadHistory[]) => {
+    if (isTamu) {
+      notifyTamuReadOnly('mengubah arsip upload Excel');
+      return;
+    }
     const cleanList = deduplicateHistoricalUploads(newList);
     setHistoricalUploads(cleanList);
     try {
@@ -2357,6 +2442,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleApplyPejabat = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('menerapkan data pejabat sertifikasi');
+      return;
+    }
     if (previewPejabatList.length === 0) return;
     if (onUpdatePejabatList) {
       onUpdatePejabatList(previewPejabatList);
@@ -2396,6 +2485,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleApply = (overwriteActiveDashboard: boolean = true) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menerapkan data ke dashboard atau arsip');
+      return;
+    }
     if (previewSatkers.length === 0) return;
 
     const fileNameToUse = currentFileName || `Data_${excelCategory}_${uploadPeriode.replace(/\s+/g, '_')}.xlsx`;
@@ -2632,6 +2725,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleDeleteHistorical = (id: string) => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus arsip file Excel');
+      return;
+    }
     const target = historicalUploads.find(h => h.id === id);
     const newHistoryList = historicalUploads.filter(h => h.id !== id);
     const targetCat = target?.category || 'IKPA';
@@ -2744,6 +2841,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleClearAllHistory = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('menghapus seluruh arsip dan mengosongkan dashboard');
+      return;
+    }
     if (currentUser?.role === 'pegawai') {
       alert('Pemberitahuan: Fitur pengosongan data massal & arsip Excel dibatasi khusus untuk Super Administrator KPPN Semarang I demi keamanan data.');
       return;
@@ -2784,6 +2885,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   const handleClearEverything = () => {
+    if (isTamu) {
+      notifyTamuReadOnly('mereset total data dan arsip');
+      return;
+    }
     if (currentUser?.role === 'pegawai') {
       alert('Pemberitahuan: Fitur reset total data & arsip dibatasi khusus untuk Super Administrator KPPN Semarang I.');
       return;
@@ -3162,13 +3267,20 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
       
       {/* Top Admin Workspace Command Banner (Distinct Visual Styling) */}
       <div className={`p-6 sm:p-8 rounded-3xl text-white border-2 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6 ${
-        currentUser?.role === 'pegawai'
-          ? 'bg-gradient-to-r from-slate-950 via-teal-950 to-slate-900 border-emerald-500/40'
-          : 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-indigo-500/40'
+        currentUser?.role === 'tamu'
+          ? 'bg-gradient-to-r from-slate-950 via-purple-950 to-indigo-950 border-purple-500/40'
+          : currentUser?.role === 'pegawai'
+            ? 'bg-gradient-to-r from-slate-950 via-teal-950 to-slate-900 border-emerald-500/40'
+            : 'bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 border-indigo-500/40'
       }`}>
         <div className="relative z-10">
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            {currentUser?.role === 'pegawai' ? (
+            {currentUser?.role === 'tamu' ? (
+              <span className="inline-flex items-center gap-1.5 bg-purple-500/20 text-purple-300 border border-purple-500/40 px-3.5 py-1 rounded-full text-xs font-black shadow-xs">
+                <Eye className="w-4 h-4 text-purple-400" />
+                MODE TAMU STUDI BANDING (HANYA LIHAT / READ-ONLY)
+              </span>
+            ) : currentUser?.role === 'pegawai' ? (
               <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-3.5 py-1 rounded-full text-xs font-black shadow-xs">
                 <Building2 className="w-4 h-4 text-emerald-400" />
                 MODE OPERASIONAL PEGAWAI KPPN (Seksi MSKI)
@@ -3195,14 +3307,18 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             )}
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            {currentUser?.role === 'pegawai' 
-              ? 'Control Center Operasional Pegawai KPPN' 
-              : 'Control Center & Pengelolaan Data Admin Super'}
+            {currentUser?.role === 'tamu'
+              ? 'Control Center Admin (Akses Tamu Studi Banding)'
+              : currentUser?.role === 'pegawai' 
+                ? 'Control Center Operasional Pegawai KPPN' 
+                : 'Control Center & Pengelolaan Data Admin Super'}
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed">
-            {currentUser?.role === 'pegawai'
-              ? 'Pusat kerja operasional staf dan pelaksana KPPN Semarang I: Pengolahan file Excel SAKTI, monitoring capaian Satker, broadcast pengingat, tindak lanjut pengaduan, dan absensi kegiatan.'
-              : 'Pusat kendali penuh KPPN Semarang I: Pengolahan file Excel SAKTI mentah, broadcast WhatsApp pejabat, pengelolaan riwayat arsip, kelola pengguna & hak akses, serta kontrol visibilitas menu Satker.'}
+            {currentUser?.role === 'tamu'
+              ? 'Mode Observasi Khusus Studi Banding: Anda dapat melihat seluruh isian data, tata kelola satker, format bank soal CAT, dan konfigurasi admin secara transparan dalam mode baca saja (read-only) tanpa hak akses mengubah atau mengunggah data.'
+              : currentUser?.role === 'pegawai'
+                ? 'Pusat kerja operasional staf dan pelaksana KPPN Semarang I: Pengolahan file Excel SAKTI, monitoring capaian Satker, broadcast pengingat, tindak lanjut pengaduan, dan absensi kegiatan.'
+                : 'Pusat kendali penuh KPPN Semarang I: Pengolahan file Excel SAKTI mentah, broadcast WhatsApp pejabat, pengelolaan riwayat arsip, kelola pengguna & hak akses, serta kontrol visibilitas menu Satker.'}
           </p>
           {cloudSyncMessage && (
             <div className="mt-2.5 inline-flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/50 text-emerald-200 px-3.5 py-1.5 rounded-xl text-xs font-bold animate-fadeIn">
@@ -3243,6 +3359,33 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Dedicated Tamu Studi Banding Read-Only Notification Banner */}
+      {isTamu && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-purple-950/40 border-2 border-purple-500/40 text-purple-200 shadow-xl backdrop-blur-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0 text-purple-300 shadow-inner">
+              <Eye className="w-5 h-5 text-purple-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-white">Mode Observasi Tamu Studi Banding (Read-Only)</h4>
+                <span className="text-[10px] bg-purple-500 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider shadow-xs">
+                  Hanya Lihat
+                </span>
+              </div>
+              <p className="text-xs text-purple-200/90 mt-1 leading-relaxed">
+                Selamat datang rekan studi banding! Anda memiliki akses penuh untuk meninjau seluruh isian modul Admin (arsip data, konfigurasi satker, bank soal CAT, monitoring, dan manajemen sistem). Fasilitas unggah berkas (upload), pengubahan data, dan tombol simpan/hapus dinonaktifkan demi menjaga integritas data operasional KPPN Semarang I.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0 text-right hidden lg:block">
+            <span className="text-[11px] font-mono text-purple-300 bg-purple-900/60 border border-purple-700/60 px-3 py-1.5 rounded-xl font-bold">
+              Akun: @tamu (tamu026)
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Sub Navigation Bar for Admin - Rata Simetris 4 Baris Elegan & Ber-Border */}
       <div className="bg-slate-100/90 dark:bg-slate-900/90 p-2.5 sm:p-3 rounded-3xl border-2 border-slate-300/90 dark:border-slate-800 shadow-md space-y-2.5">
@@ -3649,9 +3792,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs ${
               currentUser?.role === 'pegawai'
                 ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
-                : 'bg-amber-400 text-slate-950'
+                : currentUser?.role === 'tamu'
+                  ? 'bg-purple-400 text-slate-950 font-bold'
+                  : 'bg-amber-400 text-slate-950'
             }`}>
-              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
+              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : currentUser?.role === 'tamu' ? 'TAMU (LIHAT)' : 'ADMIN SUPER'}
             </span>
           </button>
 
@@ -3670,9 +3815,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs ${
               currentUser?.role === 'pegawai'
                 ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
-                : 'bg-sky-400 text-slate-950'
+                : currentUser?.role === 'tamu'
+                  ? 'bg-purple-400 text-slate-950 font-bold'
+                  : 'bg-sky-400 text-slate-950'
             }`}>
-              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : 'ADMIN SUPER'}
+              {currentUser?.role === 'pegawai' ? '🔒 KHUSUS SUPERADMIN' : currentUser?.role === 'tamu' ? 'TAMU (LIHAT)' : 'ADMIN SUPER'}
             </span>
           </button>
 
@@ -3690,8 +3837,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 <HelpCircle className={`w-4 h-4 shrink-0 ${adminTab === 'quiz-cat' ? 'text-white' : 'text-amber-500'}`} />
                 <span className="truncate">21. Manajemen Kuis CAT &amp; Bank Soal</span>
               </div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-amber-400 text-slate-950">
-                ADMIN SUPER
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs ${
+                currentUser?.role === 'tamu' ? 'bg-purple-400 text-slate-950 font-bold' : 'bg-amber-400 text-slate-950'
+              }`}>
+                {currentUser?.role === 'tamu' ? 'TAMU (LIHAT)' : 'ADMIN SUPER'}
               </span>
             </button>
           )}
@@ -9177,6 +9326,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isTamu) {
+                      notifyTamuReadOnly('menyimpan konfigurasi tautan sosialisasi');
+                      return;
+                    }
                     const newConfig = { ...tempConfig };
                     onUpdateDashboardConfig(newConfig);
                     showToast('Seluruh konfigurasi sosialisasi tersimpan!', 'success');
@@ -10529,6 +10682,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (isTamu) {
+                                    notifyTamuReadOnly('menghapus data presensi');
+                                    return;
+                                  }
                                   if (confirm(`Hapus data presensi atas nama "${p.namaLengkap}"?`)) {
                                     if (onDeletePesertaPresensi) {
                                       onDeletePesertaPresensi(p.id);
@@ -10798,6 +10955,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       <button
                         type="button"
                         onClick={() => {
+                          if (isTamu) {
+                            notifyTamuReadOnly('menghapus kegiatan presensi');
+                            return;
+                          }
                           if (confirm(`Hapus kegiatan "${k.judulKegiatan}"? Semua data presensi kegiatan ini tetap tersimpan di database.`)) {
                             if (onDeletePresensiKegiatan) {
                               onDeletePresensiKegiatan(k.id);
@@ -11844,6 +12005,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
 
       {adminTab === 'upload' && (
         <div className="space-y-6">
+          {/* Tamu Observasi Notice on Upload Tab */}
+          {isTamu && (
+            <div className="p-4 sm:p-5 rounded-3xl bg-purple-950/40 border-2 border-purple-500/40 text-purple-200 shadow-md flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center shrink-0 text-purple-300">
+                <Eye className="w-5 h-5 text-purple-300" />
+              </div>
+              <div className="text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-white text-sm">Mode Observasi Tamu: Tab Upload Excel</span>
+                  <span className="text-[10px] bg-purple-400 text-slate-950 px-2 py-0.5 rounded-full font-black uppercase">Read-Only</span>
+                </div>
+                <p className="text-purple-200/90 mt-0.5">
+                  Anda dapat meninjau struktur 14 tab upload terisolasi, membaca instruksi kolom, melihat ringkasan data satker aktif, serta mengunduh template Excel resmi. Fasilitas unggah berkas dan pengosongan data dinonaktifkan.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Sub Navigation for Upload Categories: 3 Main Tabs + TUP */}
           <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">

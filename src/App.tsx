@@ -2684,8 +2684,11 @@ export default function App() {
     createAdminSession();
     setIsAdminAuthenticated(true);
     setIsLoginModalOpen(false);
-    // If regular pegawai logs in while on admin tab, safely route them to public dashboard
-    if (user.role === 'pegawai' && activeTab === 'admin') {
+    // If tamu logs in, route them directly to admin tab so they can observe admin entries
+    if (user.role === 'tamu') {
+      setActiveTab('admin');
+    } else if (user.role === 'pegawai' && activeTab === 'admin') {
+      // If regular pegawai logs in while on admin tab, safely route them to public dashboard
       setActiveTab('dashboard');
     }
   };
