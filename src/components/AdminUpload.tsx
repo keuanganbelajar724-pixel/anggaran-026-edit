@@ -11343,6 +11343,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           satkers={satkers}
           theme={theme}
           isAdminAuthenticated={isAdminAuthenticated}
+          currentUser={currentUser}
+          isReadOnly={currentUser?.role === 'tamu'}
           onSaveMasterSatker={onSaveMasterSatker || (() => {})}
           onUpdateMasterSatkers={onUpdateMasterSatkers || (() => {})}
           onDeleteMasterSatker={onDeleteMasterSatker}

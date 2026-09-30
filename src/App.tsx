@@ -3766,6 +3766,8 @@ export default function App() {
                   satkers={satkers}
                   theme={theme}
                   isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  isReadOnly={currentUser?.role === 'tamu'}
                   onSaveMasterSatker={handleSaveMasterSatker}
                   onUpdateMasterSatkers={handleUpdateMasterSatkers}
                   onDeleteMasterSatker={handleDeleteMasterSatker}

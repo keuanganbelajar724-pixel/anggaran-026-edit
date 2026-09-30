@@ -43,10 +43,11 @@ import {
   AtSign,
   Code,
   Terminal,
-  CheckCheck
+  CheckCheck,
+  ShieldAlert
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo, UserSaktiRecord } from '../types';
+import { MasterSatker, SatkerIKPA, AppTheme, PejabatDanOperator, PejabatRoleInfo, UserSaktiRecord, AppUser } from '../types';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
 import { getSatkerDefaultPassword, verifySatkerPassword, resolveKodeBA } from '../utils/satkerSecurity';
 import { PaginationControl } from './PaginationControl';
@@ -62,6 +63,7 @@ interface KelolaDataSatkerDashboardProps {
   theme?: AppTheme;
   isAdminAuthenticated?: boolean;
   isReadOnly?: boolean;
+  currentUser?: AppUser | null;
   onSaveMasterSatker: (satker: MasterSatker) => Promise<void> | void;
   onUpdateMasterSatkers: (satkers: MasterSatker[]) => void;
   onDeleteMasterSatker?: (id: string) => void;
@@ -78,6 +80,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   theme = 'light',
   isAdminAuthenticated: rawIsAdmin = false,
   isReadOnly = false,
+  currentUser = null,
   onSaveMasterSatker,
   onUpdateMasterSatkers,
   onDeleteMasterSatker,
@@ -88,7 +91,48 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   onOpenReminder
 }) => {
   const isDark = theme === 'dark';
-  const isAdminAuthenticated = rawIsAdmin && !isReadOnly;
+  const isTamu = currentUser?.role === 'tamu' || isReadOnly;
+  const isRealAdmin = rawIsAdmin && !isTamu;
+  const isAdminAuthenticated = isRealAdmin;
+
+  // Masking helpers for Guest (Tamu) to protect confidential data
+  const maskPhone = (phone?: string) => {
+    if (!phone) return '-';
+    if (!isTamu) return phone;
+    const clean = phone.replace(/[^0-9]/g, '');
+    if (clean.length <= 6) return '••••••';
+    return clean.slice(0, 4) + '-****-' + clean.slice(-3);
+  };
+
+  const maskEmail = (email?: string) => {
+    if (!email) return '-';
+    if (!isTamu) return email;
+    const parts = email.split('@');
+    if (parts.length !== 2) return '••••••@***';
+    const user = parts[0];
+    const domain = parts[1];
+    return (user.length > 2 ? user.slice(0, 2) : user.slice(0, 1)) + '***@' + domain;
+  };
+
+  const maskNip = (nip?: string) => {
+    if (!nip) return '-';
+    if (!isTamu) return nip;
+    if (nip.length <= 6) return '••••••';
+    return nip.slice(0, 4) + '********' + nip.slice(-4);
+  };
+
+  const maskNama = (nama?: string) => {
+    if (!nama) return '';
+    if (!isTamu) return nama;
+    const words = nama.trim().split(/\s+/);
+    return words.map(w => w.length > 2 ? w.slice(0, 2) + '*'.repeat(Math.min(w.length - 2, 4)) : w).join(' ');
+  };
+
+  const maskAddress = (alamat?: string) => {
+    if (!alamat) return '-';
+    if (!isTamu) return alamat;
+    return '•••••••••••••••••••• (Disensor untuk Tamu)';
+  };
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -226,7 +270,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const triggerToast = (msg: string) => {
+  const triggerToast = (msg: string, _type?: 'success' | 'error' | 'warning' | 'info' | string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3800);
   };
@@ -250,6 +294,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
   };
 
   const handleSaveQuickEmail = async () => {
+    if (isTamu) {
+      triggerToast('Tamu studi banding tidak diizinkan mengubah email satker.', 'error');
+      return;
+    }
     if (!quickEmailModal.satker) return;
     const cleanEmail = quickEmailModal.emailValue.trim();
     const updatedSatker: MasterSatker = {
@@ -478,14 +526,102 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
       passwordSatker: satker.passwordSatker || getSatkerDefaultPassword(satker)
     });
 
-    // Admin bypass: If admin is authenticated, unlock immediately
-    if (isAdminAuthenticated) {
+    // Admin / Tamu bypass:
+    // If real admin: unlock immediately for editing
+    // If tamu: unlock form in read-only observation mode with all data masked
+    // If satker (not admin, not tamu): require satker password
+    if (isRealAdmin || isTamu) {
       setIsPasswordUnlocked(true);
     } else {
       setIsPasswordUnlocked(false);
     }
 
     setIsPejabatModalOpen(true);
+  };
+
+  // Helper to render role cards in Pejabat Modal with full Tamu sensor protection
+  const renderRoleCard = (
+    key: 'kpa' | 'ppk' | 'ppspm' | 'bendahara' | 'operatorPembayaran' | 'operatorKomitmen' | 'operatorGaji' | 'operatorPelaporan',
+    roleTitle: string,
+    roleNumber: number,
+    colorScheme: 'sky' | 'indigo' = 'sky'
+  ) => {
+    const roleData = pejabatFormData[key];
+    const isIndigo = colorScheme === 'indigo';
+    const titleColor = isIndigo ? 'text-indigo-600 dark:text-indigo-400' : 'text-sky-600 dark:text-sky-400';
+    const displayNama = isTamu ? maskNama(roleData.nama) : roleData.nama;
+    const displayHp = isTamu ? maskPhone(roleData.noHp) : (roleData.noHp || '');
+    const displayEmail = isTamu ? maskEmail(roleData.email) : (roleData.email || '');
+
+    return (
+      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
+        <div className="flex items-center justify-between">
+          <span className={`font-extrabold ${titleColor} block text-xs`}>
+            {roleNumber}. {roleTitle}
+          </span>
+          {isTamu && (
+            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+              <Lock className="w-2.5 h-2.5 text-amber-500" />
+              <span>Disensor</span>
+            </span>
+          )}
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+            {isTamu && <Lock className="w-2.5 h-2.5 inline mr-1 text-amber-500" />} Nama Lengkap {roleTitle} {isTamu ? '(Disensor)' : ''}:
+          </label>
+          <input
+            type="text"
+            placeholder={`Nama Lengkap ${roleTitle}`}
+            value={displayNama}
+            disabled={isTamu}
+            readOnly={isTamu}
+            onChange={(e) => setPejabatFormData({ ...pejabatFormData, [key]: { ...roleData, nama: e.target.value } })}
+            className={`w-full text-xs rounded-xl p-2 border ${
+              isTamu 
+                ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 font-mono' 
+                : isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+            }`}
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+            {isTamu && <Lock className="w-2.5 h-2.5 inline mr-1 text-amber-500" />} Nomor WhatsApp / HP {roleTitle} {isTamu ? '(Disensor)' : ''}:
+          </label>
+          <input
+            type="text"
+            placeholder="081234567890"
+            value={displayHp}
+            disabled={isTamu}
+            readOnly={isTamu}
+            onChange={(e) => setPejabatFormData({ ...pejabatFormData, [key]: { ...roleData, noHp: e.target.value } })}
+            className={`w-full font-mono text-xs rounded-xl p-2 border ${
+              isTamu 
+                ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700' 
+                : isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+            }`}
+          />
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+            {isTamu && <Lock className="w-2.5 h-2.5 inline mr-1 text-amber-500" />} Email {roleTitle} (Notifikasi / API) {isTamu ? '(Disensor)' : ''}:
+          </label>
+          <input
+            type={isTamu ? "text" : "email"}
+            placeholder={`${key}@satker.go.id`}
+            value={displayEmail}
+            disabled={isTamu}
+            readOnly={isTamu}
+            onChange={(e) => setPejabatFormData({ ...pejabatFormData, [key]: { ...roleData, email: e.target.value } })}
+            className={`w-full text-xs rounded-xl p-2 border ${
+              isTamu 
+                ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 font-mono' 
+                : isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+            }`}
+          />
+        </div>
+      </div>
+    );
   };
 
   // Verify Satker Password
@@ -514,6 +650,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   // Save Quick Password (Admin Only)
   const handleSaveQuickPassword = async () => {
+    if (isTamu) {
+      triggerToast('Tamu studi banding tidak diizinkan mengubah password satker.', 'error');
+      return;
+    }
     if (!quickPasswordModal.satker) return;
     const newPass = quickPasswordModal.passwordValue.trim() || getSatkerDefaultPassword(quickPasswordModal.satker);
     const updatedSatker: MasterSatker = {
@@ -529,6 +669,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   // Save Pejabat & Operator Data
   const handleSavePejabatData = async () => {
+    if (isTamu) {
+      triggerToast('Tamu studi banding tidak diizinkan mengubah kontak pejabat satker.', 'error');
+      return;
+    }
     if (!selectedSatkerForPejabat) return;
 
     // Helper format nomor hp
@@ -628,6 +772,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   // Bulk Apply Default Passwords ([KodeSatker]_[KodeBA]) for All Satkers
   const handleBulkSetDefaultPasswords = () => {
+    if (isTamu) {
+      triggerToast('Tamu studi banding tidak diizinkan mereset password satker.', 'error');
+      return;
+    }
     setConfirmModal({
       isOpen: true,
       title: 'Terapkan Password Default Massal ([KodeSatker]_[KodeBA])?',
@@ -651,6 +799,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
   // Export Satker Credentials & Contacts to Excel (Including Emails for API & blast)
   const handleExportAccountsToExcel = () => {
+    if (isTamu) {
+      triggerToast('Tamu studi banding tidak diizinkan mengekspor kredensial rahasia satker.', 'error');
+      return;
+    }
     const exportData = masterSatkers.map((m, idx) => {
       const p = m.pejabatOperator || {};
       const defaultPw = getSatkerDefaultPassword(m);
@@ -1687,15 +1839,17 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               ))}
             </select>
 
-            <button
-              type="button"
-              onClick={() => setIsApiEmailModalOpen(true)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
-              title="Buka format payload dan daftar alamat email untuk API Email"
-            >
-              <AtSign className="w-3.5 h-3.5 text-indigo-500" />
-              <span>Daftar Email API</span>
-            </button>
+            {!isTamu && (
+              <button
+                type="button"
+                onClick={() => setIsApiEmailModalOpen(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
+                title="Buka format payload dan daftar alamat email untuk API Email"
+              >
+                <AtSign className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Daftar Email API</span>
+              </button>
+            )}
           </div>
 
           {selectedIds.length > 0 && (
@@ -1740,7 +1894,14 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
               <span>Daftar Master Satker &amp; Status Pengisian Kontak Pejabat ({filteredSatkers.length} Satker)</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Klik tombol <strong className="text-sky-600 dark:text-sky-400">Isi / Kelola Kontak Pejabat</strong> untuk mengisi data KPA, PPK, PPSPM, Bendahara, dan 4 Operator Satker.
+              {isTamu ? (
+                <span className="text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1.5 mt-0.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Mode Tamu / Studi Banding: Seluruh data kontak dan password satker disensor otomatis demi keamanan privasi. Klik <strong>Lihat Kontak (Disensor)</strong> untuk melihat struktur rincian pejabat.</span>
+                </span>
+              ) : (
+                <>Klik tombol <strong className="text-sky-600 dark:text-sky-400">Isi / Kelola Kontak Pejabat</strong> untuk mengisi data KPA, PPK, PPSPM, Bendahara, dan 4 Operator Satker.</>
+              )}
             </p>
           </div>
 
@@ -1895,26 +2056,38 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                         {currentEmail ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
-                              <a
-                                href={`mailto:${currentEmail}`}
-                                className="inline-flex items-center gap-1.5 font-mono font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900/60 px-2 py-1 rounded-lg text-[11px] transition-colors truncate max-w-[200px] border border-sky-200/60 dark:border-sky-800/60"
-                                title={`Kirim email ke ${currentEmail}`}
-                              >
-                                <Mail className="w-3 h-3 shrink-0 text-sky-500" />
-                                <span className="truncate">{currentEmail}</span>
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyText(currentEmail, `Email ${satker.kodeSatker}`)}
-                                className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
-                                title="Salin alamat email"
-                              >
-                                {copiedText === currentEmail ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </button>
+                              {isTamu ? (
+                                <span
+                                  className="inline-flex items-center gap-1.5 font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/80 px-2 py-1 rounded-lg text-[11px] truncate max-w-[200px] border border-slate-200 dark:border-slate-700"
+                                  title="Email resmi disensor untuk akun Tamu"
+                                >
+                                  <Mail className="w-3 h-3 shrink-0 text-slate-400" />
+                                  <span className="truncate">{maskEmail(currentEmail)}</span>
+                                </span>
+                              ) : (
+                                <>
+                                  <a
+                                    href={`mailto:${currentEmail}`}
+                                    className="inline-flex items-center gap-1.5 font-mono font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/70 hover:bg-sky-100 dark:hover:bg-sky-900/60 px-2 py-1 rounded-lg text-[11px] transition-colors truncate max-w-[200px] border border-sky-200/60 dark:border-sky-800/60"
+                                    title={`Kirim email ke ${currentEmail}`}
+                                  >
+                                    <Mail className="w-3 h-3 shrink-0 text-sky-500" />
+                                    <span className="truncate">{currentEmail}</span>
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyText(currentEmail, `Email ${satker.kodeSatker}`)}
+                                    className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors cursor-pointer shrink-0"
+                                    title="Salin alamat email"
+                                  >
+                                    {copiedText === currentEmail ? (
+                                      <Check className="w-3 h-3 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </>
+                              )}
                               {isAdminAuthenticated && (
                                 <button
                                   type="button"
@@ -1930,7 +2103,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             {roleEmails.length > 0 && (
                               <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 font-medium">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                <span>+{roleEmails.length} email pejabat/operator</span>
+                                <span>+{roleEmails.length} email pejabat/operator {isTamu ? '(disensor)' : ''}</span>
                               </div>
                             )}
                           </div>
@@ -1976,17 +2149,31 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
                           {satker.noHpPic ? (
                             <div className="flex items-center gap-2">
-                              <a
-                                href={`https://wa.me/${satker.noHpPic?.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 px-2 py-0.5 rounded-md text-[11px] transition-colors"
-                              >
-                                <Phone className="w-3 h-3" />
-                                <span>{satker.noHpPic}</span>
-                                <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
-                              </a>
-                              {satker.namaPic && <span className="text-[11px] text-slate-500 truncate max-w-[120px]">({satker.namaPic})</span>}
+                              {isTamu ? (
+                                <span
+                                  className="inline-flex items-center gap-1 font-mono font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md text-[11px] border border-slate-200 dark:border-slate-700"
+                                  title="Nomor HP disensor untuk akun Tamu"
+                                >
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  <span>{maskPhone(satker.noHpPic)}</span>
+                                </span>
+                              ) : (
+                                <a
+                                  href={`https://wa.me/${satker.noHpPic?.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 px-2 py-0.5 rounded-md text-[11px] transition-colors"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  <span>{satker.noHpPic}</span>
+                                  <ExternalLink className="w-2.5 h-2.5 ml-0.5 opacity-70" />
+                                </a>
+                              )}
+                              {satker.namaPic && (
+                                <span className="text-[11px] text-slate-500 truncate max-w-[120px]">
+                                  ({isTamu ? maskNama(satker.namaPic) : satker.namaPic})
+                                </span>
+                              )}
                             </div>
                           ) : (
                             <div className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
@@ -2033,32 +2220,39 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                                     <div key={usr.id} className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-[11px]">
                                       <div className="min-w-0 flex-1">
                                         <div className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                                          {usr.namaLengkap}
+                                          {isTamu ? maskNama(usr.namaLengkap) : usr.namaLengkap}
                                         </div>
                                         <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                                           {usr.jabatanPerbendaharaan || usr.peranJabatan || (usr.roles && usr.roles.length > 0 ? usr.roles[0] : 'Operator SAKTI')}
                                         </div>
                                       </div>
                                       {usr.noHp ? (
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <a
-                                            href={waUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] transition-colors"
-                                            title={`Kirim pesan WhatsApp ke ${usr.namaLengkap} (${usr.noHp})`}
-                                          >
-                                            <MessageSquare className="w-2.5 h-2.5" />
-                                            <span>{usr.noHp}</span>
-                                          </a>
-                                          <a
-                                            href={telUrl}
-                                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
-                                            title="Panggil nomor telepon"
-                                          >
-                                            <Phone className="w-2.5 h-2.5" />
-                                          </a>
-                                        </div>
+                                        isTamu ? (
+                                          <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 dark:border-slate-700">
+                                            <Phone className="w-2.5 h-2.5 text-slate-400" />
+                                            <span>{maskPhone(usr.noHp)}</span>
+                                          </span>
+                                        ) : (
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <a
+                                              href={waUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1 font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                                              title={`Kirim pesan WhatsApp ke ${usr.namaLengkap} (${usr.noHp})`}
+                                            >
+                                              <MessageSquare className="w-2.5 h-2.5" />
+                                              <span>{usr.noHp}</span>
+                                            </a>
+                                            <a
+                                              href={telUrl}
+                                              className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                                              title="Panggil nomor telepon"
+                                            >
+                                              <Phone className="w-2.5 h-2.5" />
+                                            </a>
+                                          </div>
+                                        )
                                       ) : (
                                         <span className="text-[10px] text-slate-400 italic shrink-0">No HP -</span>
                                       )}
@@ -2068,7 +2262,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
                                 {saktiUsers.length > 2 && (
                                   <div className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold pl-1">
-                                    +{saktiUsers.length - 2} kontak lainnya (buka rincian)
+                                    +{saktiUsers.length - 2} kontak lainnya {isTamu ? '(disensor)' : '(buka rincian)'}
                                   </div>
                                 )}
                               </div>
@@ -2094,10 +2288,15 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             </button>
                           </div>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
-                            <Lock className="w-3 h-3 text-amber-500" />
-                            <span>Terlindungi</span>
-                          </span>
+                          <div className="inline-flex flex-col items-center gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                              <Lock className="w-3 h-3 text-amber-500" />
+                              <span>Terlindungi</span>
+                            </span>
+                            <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
+                              Hubungi Admin KPPN
+                            </span>
+                          </div>
                         )}
                       </td>
 
@@ -2107,11 +2306,19 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                           <button
                             type="button"
                             onClick={() => handleOpenPejabatModal(satker)}
-                            className="bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-                            title="Buka form pengisian kontak KPA, PPK, PPSPM, Bendahara & Operator Satker"
+                            className={`font-extrabold text-xs px-3 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                              isTamu
+                                ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/20'
+                                : 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20'
+                            }`}
+                            title={
+                              isTamu
+                                ? "Buka rincian kontak pejabat (Mode Tamu: Data Disensor)"
+                                : "Buka form pengisian kontak KPA, PPK, PPSPM, Bendahara & Operator Satker"
+                            }
                           >
-                            <User className="w-3.5 h-3.5" />
-                            <span>Isi / Kelola Kontak</span>
+                            {isTamu ? <ShieldAlert className="w-3.5 h-3.5 text-amber-200" /> : <User className="w-3.5 h-3.5" />}
+                            <span>{isTamu ? "Lihat Kontak (Disensor)" : "Isi / Kelola Kontak"}</span>
                           </button>
 
                           {isAdminAuthenticated && (
@@ -2255,19 +2462,40 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                 <div className="space-y-6 text-xs">
                   
                   {/* Status Banner */}
-                  <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-4 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <div>
-                        <span className="font-extrabold text-emerald-900 dark:text-emerald-200 block text-xs">
-                          Akses Terbuka &amp; Terverifikasi
-                        </span>
-                        <span className="text-[11px] text-emerald-700 dark:text-emerald-300">
-                          Data kontak ini digunakan oleh KPPN Semarang I untuk koordinasi monev IKPA, pengingat Capaian Output, dan WhatsApp Gateway.
-                        </span>
+                  {isTamu ? (
+                    <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/80 p-4 rounded-2xl flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                        <ShieldAlert className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-black text-amber-950 dark:text-amber-200 text-xs uppercase tracking-wide">
+                            Mode Tamu / Studi Banding — Data Rahasia Terproteksi &amp; Disensor
+                          </span>
+                          <span className="text-[10px] bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 font-extrabold px-2.5 py-0.5 rounded-full border border-amber-300 dark:border-amber-700">
+                            Akses Read-Only
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 mt-1 leading-relaxed">
+                          Sesuai standar operasional keamanan dan perlindungan privasi data Satker mitra KPPN Semarang I, seluruh informasi kontak rahasia (Nama Lengkap, Nomor HP/WhatsApp, NIP, Email Resmi, Alamat, dan Password Satker) disensor secara otomatis. Tamu studi banding tidak dapat melihat data sensitif maupun mengubah isian kontak satker.
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-4 rounded-2xl flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="font-extrabold text-emerald-900 dark:text-emerald-200 block text-xs">
+                            Akses Terbuka &amp; Terverifikasi
+                          </span>
+                          <span className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                            Data kontak ini digunakan oleh KPPN Semarang I untuk koordinasi monev IKPA, pengingat Capaian Output, dan WhatsApp Gateway.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Section A: 4 Pejabat Utama Perbendaharaan */}
                   <div className="space-y-3">
@@ -2279,161 +2507,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* 1. KPA */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sky-600 dark:text-sky-400 block text-xs">
-                            1. Kuasa Pengguna Anggaran (KPA)
-                          </span>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Lengkap KPA:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Lengkap KPA"
-                            value={pejabatFormData.kpa.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, kpa: { ...pejabatFormData.kpa, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP KPA:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.kpa.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, kpa: { ...pejabatFormData.kpa, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email KPA (Notifikasi / API):</label>
-                          <input
-                            type="email"
-                            placeholder="kpa@satker.go.id"
-                            value={pejabatFormData.kpa.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, kpa: { ...pejabatFormData.kpa, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 2. PPK */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sky-600 dark:text-sky-400 block text-xs">
-                            2. Pejabat Pembuat Komitmen (PPK)
-                          </span>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Lengkap PPK:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Lengkap PPK"
-                            value={pejabatFormData.ppk.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppk: { ...pejabatFormData.ppk, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP PPK:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.ppk.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppk: { ...pejabatFormData.ppk, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email PPK (Notifikasi / API):</label>
-                          <input
-                            type="email"
-                            placeholder="ppk@satker.go.id"
-                            value={pejabatFormData.ppk.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppk: { ...pejabatFormData.ppk, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 3. PPSPM */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sky-600 dark:text-sky-400 block text-xs">
-                            3. Pejabat Penandatangan SPM (PPSPM)
-                          </span>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Lengkap PPSPM:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Lengkap PPSPM"
-                            value={pejabatFormData.ppspm.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppspm: { ...pejabatFormData.ppspm, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP PPSPM:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.ppspm.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppspm: { ...pejabatFormData.ppspm, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email PPSPM (Notifikasi / API):</label>
-                          <input
-                            type="email"
-                            placeholder="ppspm@satker.go.id"
-                            value={pejabatFormData.ppspm.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, ppspm: { ...pejabatFormData.ppspm, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* 4. Bendahara Pengeluaran */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-sky-600 dark:text-sky-400 block text-xs">
-                            4. Bendahara Pengeluaran
-                          </span>
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Lengkap Bendahara:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Lengkap Bendahara Pengeluaran"
-                            value={pejabatFormData.bendahara.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, bendahara: { ...pejabatFormData.bendahara, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP Bendahara:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.bendahara.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, bendahara: { ...pejabatFormData.bendahara, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Bendahara (Notifikasi / API):</label>
-                          <input
-                            type="email"
-                            placeholder="bendahara@satker.go.id"
-                            value={pejabatFormData.bendahara.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, bendahara: { ...pejabatFormData.bendahara, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
+                      {renderRoleCard('kpa', 'Kuasa Pengguna Anggaran (KPA)', 1, 'sky')}
+                      {renderRoleCard('ppk', 'Pejabat Pembuat Komitmen (PPK)', 2, 'sky')}
+                      {renderRoleCard('ppspm', 'Pejabat Penandatangan SPM (PPSPM)', 3, 'sky')}
+                      {renderRoleCard('bendahara', 'Bendahara Pengeluaran', 4, 'sky')}
                     </div>
                   </div>
 
@@ -2447,153 +2524,10 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Operator Pembayaran */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <span className="font-extrabold text-indigo-600 dark:text-indigo-400 block text-xs">
-                          5. Operator Pembayaran (SPM / SP2D)
-                        </span>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Operator Pembayaran:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Operator Pembayaran"
-                            value={pejabatFormData.operatorPembayaran.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPembayaran: { ...pejabatFormData.operatorPembayaran, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP Operator Pembayaran:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.operatorPembayaran.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPembayaran: { ...pejabatFormData.operatorPembayaran, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Pembayaran:</label>
-                          <input
-                            type="email"
-                            placeholder="op.bayar@satker.go.id"
-                            value={pejabatFormData.operatorPembayaran.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPembayaran: { ...pejabatFormData.operatorPembayaran, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Operator Komitmen */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <span className="font-extrabold text-indigo-600 dark:text-indigo-400 block text-xs">
-                          6. Operator Komitmen (Kontrak &amp; BAST)
-                        </span>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Operator Komitmen:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Operator Komitmen"
-                            value={pejabatFormData.operatorKomitmen.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorKomitmen: { ...pejabatFormData.operatorKomitmen, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP Operator Komitmen:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.operatorKomitmen.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorKomitmen: { ...pejabatFormData.operatorKomitmen, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Komitmen:</label>
-                          <input
-                            type="email"
-                            placeholder="op.komitmen@satker.go.id"
-                            value={pejabatFormData.operatorKomitmen.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorKomitmen: { ...pejabatFormData.operatorKomitmen, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Operator Gaji */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <span className="font-extrabold text-indigo-600 dark:text-indigo-400 block text-xs">
-                          7. Operator Gaji (PPABP / GPP)
-                        </span>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Operator Gaji:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Operator Gaji"
-                            value={pejabatFormData.operatorGaji.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorGaji: { ...pejabatFormData.operatorGaji, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP Operator Gaji:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.operatorGaji.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorGaji: { ...pejabatFormData.operatorGaji, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Gaji:</label>
-                          <input
-                            type="email"
-                            placeholder="op.gaji@satker.go.id"
-                            value={pejabatFormData.operatorGaji.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorGaji: { ...pejabatFormData.operatorGaji, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Operator Pelaporan */}
-                      <div className={`p-4 rounded-2xl border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'} space-y-2.5`}>
-                        <span className="font-extrabold text-indigo-600 dark:text-indigo-400 block text-xs">
-                          8. Operator Pelaporan / Capaian Output (GLP)
-                        </span>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nama Operator Pelaporan:</label>
-                          <input
-                            type="text"
-                            placeholder="Nama Operator Pelaporan SAKTI"
-                            value={pejabatFormData.operatorPelaporan.nama}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPelaporan: { ...pejabatFormData.operatorPelaporan, nama: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Nomor WhatsApp / HP Operator Pelaporan:</label>
-                          <input
-                            type="text"
-                            placeholder="081234567890"
-                            value={pejabatFormData.operatorPelaporan.noHp || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPelaporan: { ...pejabatFormData.operatorPelaporan, noHp: e.target.value } })}
-                            className={`w-full font-mono text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Operator Pelaporan:</label>
-                          <input
-                            type="email"
-                            placeholder="op.pelaporan@satker.go.id"
-                            value={pejabatFormData.operatorPelaporan.email || ''}
-                            onChange={(e) => setPejabatFormData({ ...pejabatFormData, operatorPelaporan: { ...pejabatFormData.operatorPelaporan, email: e.target.value } })}
-                            className={`w-full text-xs rounded-xl p-2 border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
-                          />
-                        </div>
-                      </div>
+                      {renderRoleCard('operatorPembayaran', 'Operator Pembayaran (SPM / SP2D)', 5, 'indigo')}
+                      {renderRoleCard('operatorKomitmen', 'Operator Komitmen (Kontrak & BAST)', 6, 'indigo')}
+                      {renderRoleCard('operatorGaji', 'Operator Gaji (PPABP / GPP)', 7, 'indigo')}
+                      {renderRoleCard('operatorPelaporan', 'Operator Pelaporan / Capaian Output (GLP)', 8, 'indigo')}
                     </div>
                   </div>
 
@@ -2616,7 +2550,7 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                       <div className="space-y-1">
                         <p className="font-bold">Kolom Tambahan Kontak Cadangan KPPN:</p>
                         <p className="text-slate-600 dark:text-slate-400 text-[10px] leading-relaxed">
-                          Kolom ini disinkronkan otomatis dari menu <strong>Pendaftaran User SAKTI</strong> untuk Satker <strong>{selectedSatkerForPejabat?.kodeSatker}</strong>. Apabila Satker belum mengisi kolom permanen (KPA, PPK, PPSPM, Bendahara, Operator) di atas, KPPN memiliki opsi menghubungi kontak dari pendaftaran user di bawah ini. Perubahan data atau penghapusan di Pendaftaran SAKTI akan otomatis terhubung realtime di kolom ini.
+                          Kolom ini disinkronkan otomatis dari menu <strong>Pendaftaran User SAKTI</strong> untuk Satker <strong>{selectedSatkerForPejabat?.kodeSatker}</strong>. Apabila Satker belum mengisi kolom permanen (KPA, PPK, PPSPM, Bendahara, Operator) di atas, KPPN memiliki opsi menghubungi kontak dari pendaftaran user di bawah ini. {isTamu ? 'Khusus akun Tamu, seluruh nomor HP, NIP, dan email disensor.' : ''}
                         </p>
                       </div>
                     </div>
@@ -2647,11 +2581,11 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                                     Pengguna SAKTI #{uIdx + 1}
                                   </span>
                                   <h5 className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
-                                    {usr.namaLengkap}
+                                    {isTamu ? maskNama(usr.namaLengkap) : usr.namaLengkap}
                                   </h5>
                                   <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
                                     {usr.jabatanPerbendaharaan || usr.peranJabatan || usr.jabatan || 'Pejabat/Operator SAKTI'}
-                                    {usr.nip ? ` • NIP: ${usr.nip}` : ''}
+                                    {usr.nip ? ` • NIP: ${isTamu ? maskNip(usr.nip) : usr.nip}` : ''}
                                   </p>
                                 </div>
                                 <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
@@ -2678,30 +2612,37 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                                 <div>
                                   <span className="text-[9px] text-slate-400 block">Nomor WhatsApp / HP:</span>
                                   <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
-                                    {usr.noHp || '-'}
+                                    {isTamu ? maskPhone(usr.noHp) : (usr.noHp || '-')}
                                   </span>
                                 </div>
 
                                 {usr.noHp ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <a
-                                      href={waUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer"
-                                      title="Kirim pesan WhatsApp"
-                                    >
-                                      <MessageSquare className="w-3 h-3" />
-                                      <span>WhatsApp</span>
-                                    </a>
-                                    <a
-                                      href={telUrl}
-                                      className="inline-flex items-center gap-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] p-1.5 rounded-lg transition-colors cursor-pointer"
-                                      title="Hubungi Telepon"
-                                    >
-                                      <Phone className="w-3 h-3" />
-                                    </a>
-                                  </div>
+                                  isTamu ? (
+                                    <span className="inline-flex items-center gap-1 font-mono font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-[10px] border border-slate-200 dark:border-slate-700">
+                                      <Lock className="w-2.5 h-2.5 text-amber-500" />
+                                      <span>Disensor</span>
+                                    </span>
+                                  ) : (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <a
+                                        href={waUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg shadow-xs transition-all cursor-pointer"
+                                        title="Kirim pesan WhatsApp"
+                                      >
+                                        <MessageSquare className="w-3 h-3" />
+                                        <span>WhatsApp</span>
+                                      </a>
+                                      <a
+                                        href={telUrl}
+                                        className="inline-flex items-center gap-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-[10px] p-1.5 rounded-lg transition-colors cursor-pointer"
+                                        title="Hubungi Telepon"
+                                      >
+                                        <Phone className="w-3 h-3" />
+                                      </a>
+                                    </div>
+                                  )
                                 ) : (
                                   <span className="text-[10px] text-slate-400 italic">Tidak ada nomor</span>
                                 )}
@@ -2712,67 +2653,71 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                                   <div className="min-w-0 flex-1">
                                     <span className="text-[9px] text-slate-400 block">Email Pengguna:</span>
                                     <span className="font-mono text-[11px] text-sky-600 dark:text-sky-400 truncate block">
-                                      {usr.email}
+                                      {isTamu ? maskEmail(usr.email) : usr.email}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <a
-                                      href={`mailto:${usr.email}`}
-                                      className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-[10px] px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 transition-colors"
-                                      title="Kirim email"
-                                    >
-                                      <Mail className="w-3 h-3 text-sky-500" />
-                                      <span>Email</span>
-                                    </a>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleCopyText(usr.email!, `Email ${usr.namaLengkap}`)}
-                                      className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
-                                      title="Salin alamat email"
-                                    >
-                                      <Copy className="w-3 h-3" />
-                                    </button>
-                                  </div>
+                                  {!isTamu && (
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <a
+                                        href={`mailto:${usr.email}`}
+                                        className="inline-flex items-center gap-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold text-[10px] px-2 py-1 rounded-lg border border-sky-200 dark:border-sky-800 transition-colors"
+                                        title="Kirim email"
+                                      >
+                                        <Mail className="w-3 h-3 text-sky-500" />
+                                        <span>Email</span>
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopyText(usr.email!, `Email ${usr.namaLengkap}`)}
+                                        className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                                        title="Salin alamat email"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
                               )}
 
-                              {/* Quick Apply to Permanent Fields above */}
-                              <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
-                                <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
-                                  Terapkan Kontak Ini ke Form Permanen:
-                                </span>
-                                <div className="flex flex-wrap gap-1">
-                                  {[
-                                    { key: 'kpa', label: 'KPA' },
-                                    { key: 'ppk', label: 'PPK' },
-                                    { key: 'ppspm', label: 'PPSPM' },
-                                    { key: 'bendahara', label: 'Bendahara' },
-                                    { key: 'operatorPembayaran', label: 'Op. Bayar' },
-                                    { key: 'operatorKomitmen', label: 'Op. Komitmen' }
-                                  ].map((target) => (
-                                    <button
-                                      key={target.key}
-                                      type="button"
-                                      onClick={() => {
-                                        setPejabatFormData(prev => ({
-                                          ...prev,
-                                          [target.key]: {
-                                            nama: usr.namaLengkap,
-                                            noHp: usr.noHp || '',
-                                            nip: usr.nip || '',
-                                            email: usr.email || ''
-                                          }
-                                        }));
-                                        setCopyFeedbackToast(`Kontak "${usr.namaLengkap}" berhasil disalin ke kolom permanen ${target.label}`);
-                                      }}
-                                      className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200/80 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-slate-800 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                                      title={`Salin data ${usr.namaLengkap} ke kolom permanen ${target.label}`}
-                                    >
-                                      + {target.label}
-                                    </button>
-                                  ))}
+                              {/* Quick Apply to Permanent Fields above (Hidden for Tamu) */}
+                              {!isTamu && (
+                                <div className="pt-2 border-t border-dashed border-slate-200 dark:border-slate-800">
+                                  <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
+                                    Terapkan Kontak Ini ke Form Permanen:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {[
+                                      { key: 'kpa', label: 'KPA' },
+                                      { key: 'ppk', label: 'PPK' },
+                                      { key: 'ppspm', label: 'PPSPM' },
+                                      { key: 'bendahara', label: 'Bendahara' },
+                                      { key: 'operatorPembayaran', label: 'Op. Bayar' },
+                                      { key: 'operatorKomitmen', label: 'Op. Komitmen' }
+                                    ].map((target) => (
+                                      <button
+                                        key={target.key}
+                                        type="button"
+                                        onClick={() => {
+                                          setPejabatFormData(prev => ({
+                                            ...prev,
+                                            [target.key]: {
+                                              nama: usr.namaLengkap,
+                                              noHp: usr.noHp || '',
+                                              nip: usr.nip || '',
+                                              email: usr.email || ''
+                                            }
+                                          }));
+                                          setCopyFeedbackToast(`Kontak "${usr.namaLengkap}" berhasil disalin ke kolom permanen ${target.label}`);
+                                        }}
+                                        className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200/80 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-slate-800 dark:hover:bg-emerald-950 dark:hover:text-emerald-300 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                        title={`Salin data ${usr.namaLengkap} ke kolom permanen ${target.label}`}
+                                      >
+                                        + {target.label}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           );
                         })}
@@ -2801,13 +2746,21 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Email Resmi Satker:</label>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          {isTamu && <Lock className="w-2.5 h-2.5 inline mr-1 text-amber-500" />} Email Resmi Satker {isTamu ? '(Disensor)' : ''}:
+                        </label>
                         <input
-                          type="email"
+                          type={isTamu ? "text" : "email"}
                           placeholder="satker@kemenkeu.go.id"
-                          value={pejabatFormData.emailPic}
+                          value={isTamu ? maskEmail(pejabatFormData.emailPic) : pejabatFormData.emailPic}
+                          disabled={isTamu}
+                          readOnly={isTamu}
                           onChange={(e) => setPejabatFormData({ ...pejabatFormData, emailPic: e.target.value })}
-                          className={`w-full text-xs rounded-xl p-2.5 border ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                          className={`w-full text-xs rounded-xl p-2.5 border ${
+                            isTamu 
+                              ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 font-mono' 
+                              : isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+                          }`}
                         />
                       </div>
 
@@ -2838,6 +2791,26 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                             className={`w-full font-mono text-xs rounded-xl p-2.5 border ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
                           />
                         </div>
+                      ) : isTamu ? (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                            Status Keamanan Password:
+                          </label>
+                          <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+                            isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <Lock className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span className="text-xs font-semibold font-mono">•••••••••••• (Rahasia Satker)</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                              Hubungi Admin KPPN
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                            Kredensial password dilindungi. Akun Tamu tidak dapat melihat atau mengubah password satker.
+                          </p>
+                        </div>
                       ) : (
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
@@ -2854,13 +2827,21 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">Alamat Lengkap Kantor Satker:</label>
+                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                        {isTamu && <Lock className="w-2.5 h-2.5 inline mr-1 text-amber-500" />} Alamat Lengkap Kantor Satker {isTamu ? '(Disensor)' : ''}:
+                      </label>
                       <input
                         type="text"
                         placeholder="Alamat kantor satker"
-                        value={pejabatFormData.alamatSatker}
+                        value={isTamu ? maskAddress(pejabatFormData.alamatSatker) : pejabatFormData.alamatSatker}
+                        disabled={isTamu}
+                        readOnly={isTamu}
                         onChange={(e) => setPejabatFormData({ ...pejabatFormData, alamatSatker: e.target.value })}
-                        className={`w-full text-xs rounded-xl p-2.5 border ${isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'}`}
+                        className={`w-full text-xs rounded-xl p-2.5 border ${
+                          isTamu 
+                            ? 'bg-slate-100 dark:bg-slate-800/80 text-slate-500 cursor-not-allowed border-slate-300 dark:border-slate-700 font-mono' 
+                            : isDark ? 'bg-slate-950 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-300'
+                        }`}
                       />
                     </div>
                   </div>
@@ -2872,23 +2853,41 @@ export const KelolaDataSatkerDashboard: React.FC<KelolaDataSatkerDashboardProps>
 
             {/* Modal Footer */}
             {isPasswordUnlocked && (
-              <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3 bg-slate-50 dark:bg-slate-950/80 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setIsPejabatModalOpen(false)}
-                  className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
-                >
-                  Batal
-                </button>
+              <div className="p-4 sm:p-5 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/80 shrink-0">
+                {isTamu ? (
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                      <ShieldAlert className="w-4 h-4 shrink-0" />
+                      <span>Mode Tamu / Studi Banding: Hak Akses Baca Terproteksi (Read-Only &amp; Disensor)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPejabatModalOpen(false)}
+                      className="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-6 py-2.5 rounded-xl cursor-pointer transition-colors active:scale-95"
+                    >
+                      Tutup
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-end gap-3 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setIsPejabatModalOpen(false)}
+                      className="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl cursor-pointer"
+                    >
+                      Batal
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={handleSavePejabatData}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Seluruh Data Pejabat &amp; Kontak</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePejabatData}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Simpan Seluruh Data Pejabat &amp; Kontak</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
