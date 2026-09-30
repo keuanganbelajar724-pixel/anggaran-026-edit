@@ -4570,7 +4570,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'lpj',
                         'gaji-induk',
                         'monitoring-haicso',
-                        'kontrak'
+                        'kontrak',
+                        'quiz-cat'
                       ];
                       const newCfg = {
                         ...tempConfig,
@@ -4842,7 +4843,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'lpj': { label: '📋 Monitoring LPJ Bendahara', desc: 'Monitoring penyampaian LPJ Bendahara SAKTI, status pengiriman, verifikasi & cetak PDF', category: 'LPJ Bendahara', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' },
-                    'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' }
+                    'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' },
+                    'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4870,7 +4872,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'lpj',
                     'gaji-induk',
                     'monitoring-haicso',
-                    'kontrak'
+                    'kontrak',
+                    'quiz-cat'
                   ];
 
                   // Build unified order without guide
@@ -11500,6 +11503,11 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         <QuizCatAdminSection
           currentUser={currentUser}
           theme={theme}
+          dashboardConfig={tempConfig}
+          onUpdateDashboardConfig={(cfg) => {
+            setTempConfig(cfg);
+            onUpdateDashboardConfig(cfg);
+          }}
         />
       )}
 

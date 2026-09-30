@@ -28,7 +28,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { QuizPackage, QuizQuestion, QuizResultRecord, QuizAudience } from '../../types/quiz';
-import { AppUser, AppTheme } from '../../types';
+import { AppUser, AppTheme, DashboardConfig } from '../../types';
 import { 
   getQuizPackages, 
   saveQuizPackage, 
@@ -42,13 +42,17 @@ import {
 interface QuizCatAdminSectionProps {
   currentUser: AppUser | null;
   theme?: AppTheme;
+  dashboardConfig?: DashboardConfig;
+  onUpdateDashboardConfig?: (newConfig: DashboardConfig) => void;
 }
 
 type AdminSubView = 'PACKAGES_LIST' | 'PACKAGE_FORM' | 'MANAGE_QUESTIONS' | 'RESULTS_LEADERBOARD';
 
 export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   currentUser,
-  theme = 'light'
+  theme = 'light',
+  dashboardConfig,
+  onUpdateDashboardConfig
 }) => {
   const isDark = theme === 'dark';
 
@@ -90,6 +94,34 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   const [pkgDuration, setPkgDuration] = useState<number>(15);
   const [pkgPassingGrade, setPkgPassingGrade] = useState<number>(70);
   const [pkgIsActive, setPkgIsActive] = useState<boolean>(true);
+
+  // Satker Module Access Toggle
+  const isQuizActiveForSatker = dashboardConfig?.menuVisibility?.['quiz-cat'] !== false;
+
+  const handleToggleSatkerModuleAccess = (activate: boolean) => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
+    if (!dashboardConfig || !onUpdateDashboardConfig) {
+      showToast('Konfigurasi dashboard tidak tersedia.', 'error');
+      return;
+    }
+    const updatedCfg: DashboardConfig = {
+      ...dashboardConfig,
+      menuVisibility: {
+        ...(dashboardConfig.menuVisibility || {}),
+        'quiz-cat': activate
+      } as any
+    };
+    onUpdateDashboardConfig(updatedCfg);
+    showToast(
+      activate
+        ? 'Modul Kuis CAT 🟢 Berhasil Diaktifkan! Sekarang tampil di dashboard dan navigasi Satker.'
+        : 'Modul Kuis CAT 🔴 Berhasil Dinonaktifkan! Disembunyikan dari dashboard dan navigasi Satker.',
+      'success'
+    );
+  };
 
   // Manual Question Form State
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState<boolean>(false);
@@ -152,6 +184,10 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   // Save Package Form
   const handleSavePackageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
     if (!pkgTitle.trim()) {
       showToast('Judul paket materi tidak boleh kosong.', 'error');
       return;
@@ -179,6 +215,10 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
 
   // Delete Package
   const handleDeletePackage = (pkgId: string) => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
     if (!window.confirm('Apakah Anda yakin ingin menghapus paket materi kuis ini beserta seluruh soalnya?')) return;
     const updated = deleteQuizPackage(pkgId);
     setPackages(updated);
@@ -187,6 +227,10 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
 
   // Toggle Active status
   const handleTogglePackageActive = (pkg: QuizPackage) => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
     const updatedPkg = { ...pkg, isActive: !pkg.isActive };
     const updated = saveQuizPackage(updatedPkg);
     setPackages(updated);
@@ -229,6 +273,10 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   // Save Question (Manual)
   const handleSaveQuestionSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
     if (!editingPackage) return;
 
     if (!qText.trim() || !qOptionA.trim() || !qOptionB.trim() || !qOptionC.trim() || !qOptionD.trim()) {
@@ -286,6 +334,10 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
 
   // Delete Single Question
   const handleDeleteQuestion = (questionId: string) => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
     if (!editingPackage) return;
     if (!window.confirm('Hapus butir soal ini?')) return;
 
@@ -420,6 +472,78 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
           >
             🏆 Rekap Hasil ({results.length})
           </button>
+        </div>
+      </div>
+
+      {/* Satker Access Control Card */}
+      <div className={`p-4 sm:p-5 rounded-3xl border shadow-md transition-all ${
+        isQuizActiveForSatker
+          ? isDark 
+            ? 'bg-slate-900/90 border-emerald-800/80 text-slate-100' 
+            : 'bg-emerald-50/80 border-emerald-200 text-slate-900'
+          : isDark 
+            ? 'bg-slate-900/90 border-rose-800/80 text-slate-100' 
+            : 'bg-rose-50/80 border-rose-200 text-slate-900'
+      }`}>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-md ${
+              isQuizActiveForSatker
+                ? 'bg-emerald-500 text-white shadow-emerald-500/20'
+                : 'bg-rose-500 text-white shadow-rose-500/20'
+            }`}>
+              {isQuizActiveForSatker ? <CheckCircle2 className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Visibilitas Modul di Dashboard Satker:
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wide flex items-center gap-1.5 shadow-2xs ${
+                  isQuizActiveForSatker
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-rose-600 text-white'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full bg-white ${isQuizActiveForSatker ? 'animate-pulse' : ''}`} />
+                  {isQuizActiveForSatker ? '🟢 Aktif (Tampil di Satker)' : '🔴 Nonaktif (Disembunyikan)'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl">
+                {isQuizActiveForSatker
+                  ? 'Modul kuis CAT sedang aktif untuk Satuan Kerja. Seluruh satker mitra dapat melihat tab menu kuis di navigasi utama, banner ajakan di beranda, dan mengerjakan seluruh paket soal kuis aktif.'
+                  : 'Modul kuis CAT sedang dinonaktifkan untuk Satuan Kerja. Menu kuis disembunyikan dari navigasi satker dan akses modul dikunci sementara.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 self-start md:self-center">
+            <button
+              type="button"
+              onClick={() => handleToggleSatkerModuleAccess(true)}
+              disabled={isQuizActiveForSatker}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                isQuizActiveForSatker
+                  ? 'bg-emerald-600 text-white opacity-95 ring-2 ring-emerald-400/50 cursor-default'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>Aktifkan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleToggleSatkerModuleAccess(false)}
+              disabled={!isQuizActiveForSatker}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                !isQuizActiveForSatker
+                  ? 'bg-rose-600 text-white opacity-95 ring-2 ring-rose-400/50 cursor-default'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-rose-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Nonaktifkan</span>
+            </button>
+          </div>
         </div>
       </div>
 

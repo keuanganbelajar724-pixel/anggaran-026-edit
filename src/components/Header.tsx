@@ -5,6 +5,7 @@ import {
   FileSpreadsheet, 
   Send, 
   BookOpen, 
+  HelpCircle,
   Building2, 
   ShieldCheck,
   Search,
@@ -352,6 +353,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <BookOpen className="w-4 h-4 text-indigo-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Juknis</span>,
       activeColor: 'bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-cyan-600/30 ring-2 ring-cyan-400/50'
+    },
+    {
+      id: 'quiz-cat',
+      label: '🎯 Kuis CAT & Uji Kompetensi',
+      icon: <HelpCircle className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Kuis CAT</span>,
+      activeColor: 'bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400/50'
     },
     {
       id: 'aduan',

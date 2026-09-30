@@ -85,6 +85,7 @@ import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
 import { PengetahuanSaktiView } from './components/PengetahuanSaktiView';
+import { QuizCatView } from './components/quiz/QuizCatView';
 import { LaporAduanView } from './components/LaporAduanView';
 import { AdminUpload } from './components/AdminUpload';
 import { ReminderGenerator } from './components/ReminderGenerator';
@@ -187,6 +188,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'sertifikasi': true,
   'per5-analisis': true,
   'pengetahuan': true,
+  'quiz-cat': true,
   'announcements': true,
   'materi-slide': true,
   'portal-link': true,
@@ -196,6 +198,8 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'rekonsiliasi': true,
   'lpj': true,
   'gaji-induk': true,
+  'monitoring-haicso': true,
+  'kontrak': true,
   'aduan': true,
   'reminder': true,
   'guide': true,
@@ -1145,6 +1149,7 @@ export default function App() {
           'portal-link',
           'announcements',
           'pengetahuan',
+          'quiz-cat',
           'presensi',
           'monitoring-haicso',
           'kontrak',
@@ -3520,6 +3525,7 @@ export default function App() {
                       'portal-link',
                       'announcements',
                       'pengetahuan',
+                      'quiz-cat',
                       'presensi',
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
@@ -3588,6 +3594,7 @@ export default function App() {
                   onGoToUpload={() => setActiveTab('admin')}
                   onGoToCapaianOutput={() => setActiveTab('capaian-output')}
                   onGoToDeviasiHal3={() => setActiveTab('deviasi-hal3')}
+                  onGoToQuizCat={dashboardConfig.menuVisibility?.['quiz-cat'] !== false ? () => setActiveTab('quiz-cat') : undefined}
                   dashboardConfig={dashboardConfig}
                   onUpdateDashboardConfig={handleUpdateDashboardConfig}
                   theme={theme}
@@ -4121,6 +4128,18 @@ export default function App() {
                   onNavigateToAdminTab={() => {
                     setActiveTab('admin');
                   }}
+                />
+              )}
+
+              {/* Tab Portal Kuis & Uji Kompetensi CAT */}
+              {activeTab === 'quiz-cat' && (
+                <QuizCatView
+                  currentUser={currentUser}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  theme={theme}
+                  masterSatkers={masterSatkers}
+                  onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  onNavigateToAdmin={() => setActiveTab('admin')}
                 />
               )}
 
