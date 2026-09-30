@@ -98,7 +98,7 @@ import { AccessibilityWidget } from './components/AccessibilityWidget';
 import { InternalAppSidebar } from './components/InternalAppSidebar';
 import { INITIAL_SIDEBAR_CONFIG } from './data/initialSidebarData';
 
-import { ToastProvider } from './components/ToastNotification';
+import { ToastProvider, useToast } from './components/ToastNotification';
 import { trackPageView } from './utils/trafficTracker';
 
 const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
@@ -712,6 +712,21 @@ export default function App() {
     return localStorage.getItem('kppn_admin_pin') || 'kppn026';
   });
 
+  const { showToast } = useToast();
+  const isTamu = currentUser?.role === 'tamu';
+
+  const notifyTamuBlocked = (actionDescription: string = 'mengubah data'): boolean => {
+    if (currentUser?.role === 'tamu') {
+      showToast({
+        type: 'warning',
+        title: 'Akses Tamu Terbatas (Read-Only)',
+        message: `Akun Tamu Studi Banding hanya memiliki hak akses peninjauan (Read-Only). Anda tidak diizinkan untuk ${actionDescription} demi menjaga keamanan & integritas data.`
+      });
+      return true;
+    }
+    return false;
+  };
+
   // High-Grade Session Security: Clear persistent tokens and ensure cold starts / refreshes start logged out
   useEffect(() => {
     try {
@@ -759,6 +774,7 @@ export default function App() {
     newRecords: MonitoringRekonsiliasiRecord[],
     newUploads: MonitoringRekonsiliasiUploadBatch[]
   ) => {
+    if (notifyTamuBlocked('memperbarui data monitoring rekonsiliasi')) return;
     setRekonsiliasiRecords(newRecords);
     setRekonsiliasiUploads(newUploads);
     try {
@@ -827,6 +843,7 @@ export default function App() {
     newRecords: MonitoringLPJRecord[],
     newUploads: LPJUploadBatch[]
   ) => {
+    if (notifyTamuBlocked('memperbarui data monitoring LPJ')) return;
     setLpjRecords(newRecords);
     setLpjUploads(newUploads);
     try {
@@ -868,6 +885,7 @@ export default function App() {
     newRecords: SPMGajiRecord[],
     newUploads: SPMGajiUploadBatch[]
   ) => {
+    if (notifyTamuBlocked('memperbarui data monitoring gaji induk')) return;
     setGajiIndukRecords(newRecords);
     setGajiIndukUploads(newUploads);
     try {
@@ -992,6 +1010,7 @@ export default function App() {
     newTickets: HAICSOTicket[],
     newBatches?: HAICSOUploadBatch[]
   ) => {
+    if (notifyTamuBlocked('memperbarui data tiket HAI CSO')) return;
     setHaicsoTickets(newTickets);
     if (newBatches) setHaicsoBatches(newBatches);
     try {
@@ -1003,6 +1022,7 @@ export default function App() {
   };
 
   const handleUpdateHaiCsoSettings = (newSettings: HAICSODashboardSettings) => {
+    if (notifyTamuBlocked('mengubah konfigurasi HAI CSO')) return;
     setHaicsoSettings(newSettings);
     try {
       safeLocalStorageSet('kppn_haicso_settings', JSON.stringify(newSettings));
@@ -1069,6 +1089,7 @@ export default function App() {
     newRecords: KontrakMonitoringRecord[],
     newBatches: KontrakUploadBatch[]
   ) => {
+    if (notifyTamuBlocked('memperbarui data monitoring kontrak')) return;
     setKontrakRecords(newRecords);
     setKontrakBatches(newBatches);
 
@@ -2066,6 +2087,7 @@ export default function App() {
 
   // Master Satker Handlers - Protected & Deep Merge (Anti-Data Loss)
   const handleUpdateMasterSatkers = (newList: MasterSatker[]) => {
+    if (notifyTamuBlocked('memperbarui daftar master satker')) return;
     // Smart merge with existing masterSatkers to never lose phone numbers, passwords, or contacts
     const existingMasterMap = new Map<string, MasterSatker>();
     masterSatkers.forEach(m => {
@@ -2149,6 +2171,7 @@ export default function App() {
   };
 
   const handleSaveMasterSatker = (item: MasterSatker) => {
+    if (notifyTamuBlocked('menyimpan data master satker')) return;
     const exists = masterSatkers.some(m => m.kodeSatker === item.kodeSatker || m.id === item.id);
     const updated = exists
       ? masterSatkers.map(m => (m.kodeSatker === item.kodeSatker || m.id === item.id) ? { ...m, ...item, updatedAt: new Date().toISOString() } : m)
@@ -2179,16 +2202,19 @@ export default function App() {
   };
 
   const handleDeleteMasterSatker = (_idOrKode: string) => {
+    if (notifyTamuBlocked('menghapus master satker')) return;
     // Protected against deletion per user requirement (Update-Only Policy)
     console.info("Master Satker is protected against deletion.");
   };
 
   const handleDeleteBatchMasterSatkers = (_idsOrKodes: string[]) => {
+    if (notifyTamuBlocked('menghapus kumpulan master satker')) return;
     // Protected against deletion per user requirement (Update-Only Policy)
     console.info("Master Satker is protected against deletion.");
   };
 
   const handleToggleActiveMasterSatker = (idOrKode: string, active?: boolean) => {
+    if (notifyTamuBlocked('mengubah status aktif master satker')) return;
     const updated = masterSatkers.map(m => {
       if (m.id === idOrKode || m.kodeSatker === idOrKode) {
         const nextActive = active !== undefined ? active : !m.isActive;
@@ -2200,6 +2226,7 @@ export default function App() {
   };
 
   const handleSavePesertaPresensi = (newPeserta: PesertaPresensi) => {
+    if (notifyTamuBlocked('merekam presensi peserta')) return;
     const updated = [newPeserta, ...presensiPesertaList];
     setPresensiPesertaList(updated);
     safeLocalStorageSet('kppn_presensi_peserta', JSON.stringify(updated));
@@ -2207,6 +2234,7 @@ export default function App() {
   };
 
   const handleDeletePesertaPresensi = (pesertaId: string) => {
+    if (notifyTamuBlocked('menghapus presensi peserta')) return;
     const updated = presensiPesertaList.filter(p => p.id !== pesertaId);
     setPresensiPesertaList(updated);
     safeLocalStorageSet('kppn_presensi_peserta', JSON.stringify(updated));
@@ -2214,6 +2242,7 @@ export default function App() {
   };
 
   const handleSavePresensiKegiatan = (kegiatan: PresensiKegiatan) => {
+    if (notifyTamuBlocked('merekam atau memperbarui kegiatan presensi')) return;
     const exists = presensiKegiatanList.some(k => k.id === kegiatan.id);
     const updated = exists 
       ? presensiKegiatanList.map(k => k.id === kegiatan.id ? kegiatan : k)
@@ -2226,6 +2255,7 @@ export default function App() {
   };
 
   const handleDeletePresensiKegiatan = (kegiatanId: string) => {
+    if (notifyTamuBlocked('menghapus kegiatan presensi')) return;
     const updated = presensiKegiatanList.filter(k => k.id !== kegiatanId);
     setPresensiKegiatanList(updated);
     safeLocalStorageSet('kppn_presensi_kegiatan', JSON.stringify(updated));
@@ -2235,6 +2265,7 @@ export default function App() {
 
   // Konfirmasi Kehadiran Handlers
   const handleSaveKonfirmasiKegiatan = (kegiatan: UndanganKonfirmasiKegiatan) => {
+    if (notifyTamuBlocked('merekam kegiatan konfirmasi')) return;
     const exists = konfirmasiKegiatanList.some(k => k.id === kegiatan.id);
     const updated = exists
       ? konfirmasiKegiatanList.map(k => k.id === kegiatan.id ? kegiatan : k)
@@ -2246,6 +2277,7 @@ export default function App() {
   };
 
   const handleDeleteKonfirmasiKegiatan = (kegiatanId: string) => {
+    if (notifyTamuBlocked('menghapus kegiatan konfirmasi')) return;
     const updated = konfirmasiKegiatanList.filter(k => k.id !== kegiatanId);
     setKonfirmasiKegiatanList(updated);
     safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(updated));
@@ -2254,6 +2286,7 @@ export default function App() {
   };
 
   const handleSaveKonfirmasiKehadiran = (record: KonfirmasiKehadiranRecord) => {
+    if (notifyTamuBlocked('merekam konfirmasi kehadiran')) return;
     // Crucial: check both kodeSatker AND pejabatTarget so that PPK and PPSPM (or other roles) do not overwrite each other!
     const isSameTargetRecord = (k: KonfirmasiKehadiranRecord) =>
       k.id === record.id ||
@@ -2270,6 +2303,7 @@ export default function App() {
   };
 
   const handleClearAllKonfirmasiKehadiran = () => {
+    if (notifyTamuBlocked('menghapus seluruh konfirmasi kehadiran')) return;
     setKonfirmasiKehadiranList([]);
     safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify([]));
     setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: [], updatedAt: new Date().toISOString() }, { merge: true })
@@ -2277,6 +2311,7 @@ export default function App() {
   };
 
   const handleDeleteKonfirmasiKehadiran = (recordId: string) => {
+    if (notifyTamuBlocked('menghapus konfirmasi kehadiran')) return;
     const updated = konfirmasiKehadiranList.filter(k => k.id !== recordId);
     setKonfirmasiKehadiranList(updated);
     safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(updated));
@@ -2285,6 +2320,7 @@ export default function App() {
   };
 
   const handleUpdatePejabatList = (newList: PejabatSertifikasi[]) => {
+    if (notifyTamuBlocked('memperbarui data pejabat sertifikasi')) return;
     setPejabatSertifikasiList(newList);
     syncPejabatToFirebase(newList);
   };
@@ -2293,6 +2329,7 @@ export default function App() {
     newList: PejabatSertifikasi[],
     satkerPejabatMap?: Record<string, any>
   ) => {
+    if (notifyTamuBlocked('memperbarui data pejabat perbendaharaan')) return;
     setPejabatPerbendaharaanSatkerList(newList);
     safeLocalStorageSet('kppn_pejabat_perbendaharaan_satker_data', JSON.stringify(newList));
     syncPejabatPerbendaharaanToFirebase(newList);
@@ -2365,6 +2402,7 @@ export default function App() {
   };
 
   const handleUpdateAdminPin = (newPin: string) => {
+    if (notifyTamuBlocked('mengubah PIN admin')) return;
     setAdminPin(newPin);
     safeLocalStorageSet('kppn_admin_pin', newPin);
     fetch('/api/data/settings', {
@@ -2381,6 +2419,7 @@ export default function App() {
   };
 
   const handleUpdateDashboardConfig = (newConfig: DashboardConfig) => {
+    if (notifyTamuBlocked('mengubah pengaturan dashboard')) return;
     setDashboardConfig(newConfig);
     try {
       safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(newConfig));
@@ -2480,6 +2519,7 @@ export default function App() {
   };
 
   const handleUpdatePengelolaanUP = (newList: PengelolaanUPRecord[]) => {
+    if (notifyTamuBlocked('memperbarui data pengelolaan UP')) return;
     const sanitized = compactPengelolaanUPForFirestore(newList);
     setPengelolaanUPList(sanitized);
     try {
@@ -2513,6 +2553,7 @@ export default function App() {
   }, [transaksiKkpList]);
 
   const handleUpdateTransaksiKKP = (newList: TransaksiKKPRecord[]) => {
+    if (notifyTamuBlocked('memperbarui data transaksi KKP')) return;
     const listToSave = Array.isArray(newList) ? newList : [];
     setTransaksiKkpList(listToSave);
     try {
@@ -2563,6 +2604,7 @@ export default function App() {
   }, [transaksiDigipayList]);
 
   const handleUpdateTransaksiDigipay = (newList: DigipayRecord[]) => {
+    if (notifyTamuBlocked('memperbarui data transaksi Digipay')) return;
     setTransaksiDigipayList(newList);
     try {
       const compacted = compactDigipayForFirestore(newList);
@@ -2599,6 +2641,7 @@ export default function App() {
   }, [deviasiHal3List]);
 
   const handleUpdateDeviasiHal3 = (newList: DeviasiHal3Record[]) => {
+    if (notifyTamuBlocked('memperbarui data deviasi Hal III')) return;
     const listToSave = Array.isArray(newList) ? newList : [];
     setDeviasiHal3List(listToSave);
     try {
@@ -2636,6 +2679,7 @@ export default function App() {
   }, [spmPppList]);
 
   const handleUpdateSPMPPP = (newList: SPMPPPRecord[]) => {
+    if (notifyTamuBlocked('memperbarui data SPM PPP')) return;
     const listToSave = Array.isArray(newList) ? newList : [];
     setSpmPppList(listToSave);
     try {
@@ -2827,6 +2871,7 @@ export default function App() {
   };
 
   const handleResetData = () => {
+    if (notifyTamuBlocked('mereset data satker ke bawaan')) return;
     setSatkers(INITIAL_SATKER_DATA);
     syncSatkersToFirebase(INITIAL_SATKER_DATA);
     setLastUpdateDate(new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }));
@@ -3019,11 +3064,13 @@ export default function App() {
   };
 
   const handleClearAllMasterSatkers = () => {
+    if (notifyTamuBlocked('mengosongkan direktori master satker')) return;
     // Protected against deletion per user requirement (Update-Only Policy)
     console.info("Master Satker directory is protected against deletion.");
   };
 
   const handleClearAllSatkers = () => {
+    if (notifyTamuBlocked('mengosongkan data satker dan arsip')) return;
     // Clear only transient calculation and upload data, strictly PRESERVING Master Satkers directory & saved contacts
     setSatkers([]);
     setPejabatSertifikasiList([]);
@@ -3048,6 +3095,7 @@ export default function App() {
   };
 
   const handleApplyNewSatkers = (newSatkers: SatkerIKPA[], appendMode: boolean, targetTab: NavigationTab = 'dashboard') => {
+    if (notifyTamuBlocked('mengunggah atau memperbarui data satker')) return;
     let result: SatkerIKPA[] = [];
     if (appendMode) {
       result = [...newSatkers, ...satkers];
@@ -3230,6 +3278,7 @@ export default function App() {
   };
 
   const handleUpdateSatker = (updatedSatker: SatkerIKPA) => {
+    if (notifyTamuBlocked('memperbarui data satker')) return;
     const updatedList = satkers.map(s => s.id === updatedSatker.id ? updatedSatker : s);
     setSatkers(updatedList);
     syncSatkersToFirebase(updatedList);
@@ -3239,6 +3288,7 @@ export default function App() {
   };
 
   const handleDeleteSatker = (id: string) => {
+    if (notifyTamuBlocked('menghapus data satker')) return;
     const updatedList = satkers.filter(s => s.id !== id);
     setSatkers(updatedList);
     syncSatkersToFirebase(updatedList);
@@ -3248,6 +3298,7 @@ export default function App() {
   };
 
   const handleDeleteBatchSatkers = (ids: string[]) => {
+    if (notifyTamuBlocked('menghapus beberapa data satker')) return;
     const updatedList = satkers.filter(s => !ids.includes(s.id));
     setSatkers(updatedList);
     syncSatkersToFirebase(updatedList);
@@ -3257,6 +3308,7 @@ export default function App() {
   };
 
   const handleUploadMyIntress = async (file: File) => {
+    if (notifyTamuBlocked('mengunggah data realisasi My InTress')) return;
     try {
       const result = await processMyIntressExcel(file);
       if (!result.records || result.records.length === 0) {
@@ -3285,6 +3337,7 @@ export default function App() {
   };
 
   const handleResetDefaultMyIntress = async () => {
+    if (notifyTamuBlocked('mereset data My InTress ke bawaan')) return;
     const defaultData = INITIAL_MY_INTRESS_DATA || [];
     setMyIntressRecords(defaultData);
     safeLocalStorageSet('kppn_my_intress_records', JSON.stringify(defaultData));
@@ -3304,6 +3357,7 @@ export default function App() {
   };
 
   const handleAddSatker = (newSatker: SatkerIKPA) => {
+    if (notifyTamuBlocked('menambahkan satker baru')) return;
     const updatedList = [newSatker, ...satkers];
     setSatkers(updatedList);
     syncSatkersToFirebase(updatedList);

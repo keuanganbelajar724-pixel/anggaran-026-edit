@@ -301,11 +301,11 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       return;
     }
 
-    // Tamu Tab: Single Password Input (tamu026)
+    // Tamu Tab: Single Password Input
     if (activeLoginTab === 'tamu') {
       const cleanPass = tamuPasswordInput.trim();
       if (!cleanPass) {
-        setErrorMsg('Harap masukkan Password Tamu (tamu026).');
+        setErrorMsg('Harap masukkan Password Tamu Studi Banding.');
         return;
       }
 
@@ -336,7 +336,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             `Terlalu banyak percobaan gagal (${lockStatus.failedAttempts}x). Akses dikunci selama ${lockStatus.remainingSeconds} detik untuk mencegah serangan brute-force.`
           );
         } else {
-          setErrorMsg('Password Tamu salah. Harap ketik password: tamu026');
+          setErrorMsg('Password Tamu salah. Silakan hubungi Admin KPPN jika memerlukan bantuan akses.');
         }
       }
       return;
@@ -659,7 +659,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 </button>
               </>
             ) : activeLoginTab === 'tamu' ? (
-              /* TAB 3: TAMU STUDI BANDING LOGIN (HANYA PASSWORD tamu026) */
+              /* TAB 3: TAMU STUDI BANDING LOGIN */
               <>
                 <div className="p-3.5 rounded-2xl bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200/80 dark:border-purple-800/60 text-purple-950 dark:text-purple-200 text-xs space-y-1.5">
                   <div className="flex items-center gap-1.5 font-black text-[11px] uppercase tracking-wide">
@@ -669,11 +669,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
                     Mode khusus bagi tamu dan peserta studi banding yang ingin melihat seluruh isian di menu Admin (Read-Only) tanpa izin mengubah atau mengunggah data.
                   </p>
-                  <div className="pt-1 flex items-center gap-1.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
-                    <span>🔑 Password Resmi Tamu:</span>
-                    <code className="bg-purple-200 dark:bg-purple-900/80 px-2 py-0.5 rounded font-mono font-black text-purple-900 dark:text-purple-100 tracking-wider">
-                      tamu026
-                    </code>
+                  <div className="pt-1 flex items-center gap-1.5 text-[11px] font-semibold text-purple-700 dark:text-purple-300">
+                    <HelpCircle className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                    <span>Untuk mendapatkan password akses tamu, silakan hubungi Admin KPPN Semarang I.</span>
                   </div>
                 </div>
 
@@ -687,7 +685,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                     <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Masukkan password tamu (tamu026)..."
+                      placeholder="Masukkan password tamu studi banding..."
                       value={tamuPasswordInput}
                       onChange={(e) => {
                         setTamuPasswordInput(e.target.value);
@@ -706,8 +704,9 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
-                    💡 Cukup ketik <strong className="text-purple-600 dark:text-purple-400 font-mono font-bold">tamu026</strong> untuk meninjau seluruh isian modul Admin.
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 flex items-center gap-1">
+                    <span>💡</span>
+                    <span>Silakan hubungi Admin KPPN untuk mendapatkan password akses observasi tamu.</span>
                   </p>
                 </div>
 

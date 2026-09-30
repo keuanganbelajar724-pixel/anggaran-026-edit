@@ -34,6 +34,7 @@ interface CatatanDiskusiDetailReaderModalProps {
   onDelete: (id: string) => void;
   onQuickStatusChange: (id: string, status: StatusTindakLanjutDiskusi) => void;
   theme?: AppTheme;
+  isReadOnly?: boolean;
 }
 
 const STATUS_CONFIGS: Record<StatusTindakLanjutDiskusi, { color: string; badge: string; bg: string; border: string }> = {
@@ -70,7 +71,8 @@ export const CatatanDiskusiDetailReaderModal: React.FC<CatatanDiskusiDetailReade
   onEdit,
   onDelete,
   onQuickStatusChange,
-  theme = 'light'
+  theme = 'light',
+  isReadOnly = false
 }) => {
   const isDark = theme === 'dark';
   const [copied, setCopied] = useState(false);

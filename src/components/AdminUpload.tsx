@@ -3381,7 +3381,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           </div>
           <div className="shrink-0 text-right hidden lg:block">
             <span className="text-[11px] font-mono text-purple-300 bg-purple-900/60 border border-purple-700/60 px-3 py-1.5 rounded-xl font-bold">
-              Akun: @tamu (tamu026)
+              Akun: @tamu (Tamu Studi Banding)
             </span>
           </div>
         </div>
