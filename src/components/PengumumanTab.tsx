@@ -26,7 +26,9 @@ import {
   Check,
   RotateCw,
   Printer,
-  BookOpen
+  BookOpen,
+  Send,
+  Share2
 } from 'lucide-react';
 
 interface PengumumanTabProps {
@@ -243,6 +245,17 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
     navigator.clipboard.writeText(text);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
+  };
+
+  const handleShareWhatsApp = (item: Announcement) => {
+    const text = `*PENGUMUMAN KPPN SEMARANG I (026)*\n\n📢 *${item.title}*\n📅 Tanggal: ${item.date} | Oleh: ${item.author}\n\n${item.content}\n\n🔗 Akses Portal: ${window.location.href}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleShareTelegram = (item: Announcement) => {
+    const text = `*PENGUMUMAN KPPN SEMARANG I (026)*\n\n📢 *${item.title}*\n📅 Tanggal: ${item.date} | Oleh: ${item.author}\n\n${item.content}`;
+    const docUrl = item.linkUrl || item.attachmentUrl || window.location.href;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(docUrl)}&text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const categories = ['ALL', 'Penting', 'Batas Waktu', 'Surat Edaran', 'Jadwal', 'Sistem'];
@@ -733,6 +746,28 @@ KPPN Semarang I - Pengolahan Data & Layanan Informasi Satker
                         <span className="hidden sm:inline">Unduh (.TXT)</span>
                       </button>
                     )}
+
+                    {/* Share WhatsApp */}
+                    <button
+                      type="button"
+                      onClick={() => handleShareWhatsApp(selectedAnnouncement)}
+                      className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Bagikan Pengumuman via WhatsApp"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">WhatsApp</span>
+                    </button>
+
+                    {/* Share Telegram */}
+                    <button
+                      type="button"
+                      onClick={() => handleShareTelegram(selectedAnnouncement)}
+                      className="px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Bagikan Pengumuman via Telegram"
+                    >
+                      <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                      <span className="hidden md:inline">Telegram</span>
+                    </button>
 
                     {/* Fullscreen Expansion Modal */}
                     {currentPreviewUrl && (

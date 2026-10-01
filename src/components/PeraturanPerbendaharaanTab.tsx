@@ -38,7 +38,9 @@ import {
   HelpCircle,
   Maximize2,
   LayoutGrid,
-  Columns
+  Columns,
+  Send,
+  Mail
 } from 'lucide-react';
 import { 
   PeraturanPerbendaharaanItem, 
@@ -358,6 +360,24 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
     link.click();
     document.body.removeChild(link);
     showToast(`Membuka unduhan: ${item.nomor}`, 'info');
+  };
+
+  // Share Regulation to WhatsApp
+  const handleShareWhatsApp = (item: PeraturanPerbendaharaanItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const docUrl = item.fileUrl || item.jdihUrl || window.location.href;
+    const text = `*INFO REGULASI PERBENDAHARAAN - KPPN SEMARANG I*\n\n📜 *${item.nomor}*\n📖 ${item.judul}\n📅 Tahun: ${item.tahun} | Status: ${item.status}\n\n🔗 Akses Dokumen: ${docUrl}\n\n_Disampaikan melalui Portal Pintar KPPN Semarang I_`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+    showToast('Membuka WhatsApp untuk berbagi regulasi', 'info');
+  };
+
+  // Share Regulation to Telegram
+  const handleShareTelegram = (item: PeraturanPerbendaharaanItem, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const docUrl = item.fileUrl || item.jdihUrl || window.location.href;
+    const text = `*INFO REGULASI PERBENDAHARAAN - KPPN SEMARANG I*\n\n📜 *${item.nomor}*\n📖 ${item.judul}\n📅 Tahun: ${item.tahun} | Status: ${item.status}\n\n_Disampaikan melalui Portal Pintar KPPN Semarang I_`;
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(docUrl)}&text=${encodeURIComponent(text)}`, '_blank');
+    showToast('Membuka Telegram untuk berbagi regulasi', 'info');
   };
 
   // Admin: Open Create Modal
@@ -1091,6 +1111,28 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
                             <span className="hidden sm:inline">Salin</span>
                           </>
                         )}
+                      </button>
+
+                      {/* Share WhatsApp */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleShareWhatsApp(selectedPeraturan, e)}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Bagikan Regulasi via WhatsApp"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">WhatsApp</span>
+                      </button>
+
+                      {/* Share Telegram */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleShareTelegram(selectedPeraturan, e)}
+                        className="px-2.5 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Bagikan Regulasi via Telegram"
+                      >
+                        <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                        <span className="hidden md:inline">Telegram</span>
                       </button>
 
                       {/* Fullscreen Expansion Button */}

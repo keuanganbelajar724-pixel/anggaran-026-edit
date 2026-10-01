@@ -43,6 +43,7 @@ import { BANNER_THEME_PRESETS, getPresetById, getDefaultPresetId } from '../../u
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 import { useToast } from '../ToastNotification';
 import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
+import { TelegramGatewayConfigCard } from './TelegramGatewayConfigCard';
 
 interface UserManagementSectionProps {
   currentUser: AppUser | null;
@@ -58,7 +59,7 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
   const isDark = theme === 'dark';
   const isTamu = currentUser?.role === 'tamu';
   const { showToast } = useToast();
-  const [subTab, setSubTab] = useState<'users' | 'email_gateway'>('users');
+  const [subTab, setSubTab] = useState<'users' | 'email_gateway' | 'telegram_gateway'>('users');
   const [users, setUsers] = useState<AppUser[]>(() => getStoredUsers());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'superadmin' | 'pegawai' | 'tamu'>('ALL');
@@ -451,7 +452,20 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
           }`}
         >
           <Mail className={`w-4 h-4 ${subTab === 'email_gateway' ? 'text-white' : 'text-amber-600 dark:text-amber-400'}`} />
-          <span>Gateway Email OTP (Brevo / Resend / Gmail)</span>
+          <span>Gateway Email (Brevo / Resend / Gmail)</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSubTab('telegram_gateway')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border ${
+            subTab === 'telegram_gateway'
+              ? 'bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-600 text-white shadow-lg shadow-sky-500/30 border-sky-300 ring-2 ring-sky-400/50 scale-[1.02]'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-sky-400 hover:bg-sky-50/50'
+          }`}
+        >
+          <Send className={`w-4 h-4 rotate-[-20deg] ${subTab === 'telegram_gateway' ? 'text-white' : 'text-sky-600 dark:text-sky-400'}`} />
+          <span>Gateway Bot Telegram API</span>
         </button>
       </div>
 
@@ -459,6 +473,13 @@ export const UserManagementSection: React.FC<UserManagementSectionProps> = ({
       {subTab === 'email_gateway' && (
         <EmailGatewayConfigCard 
           currentUserEmail={currentUser?.email} 
+          theme={theme === 'dark' ? 'dark' : 'light'} 
+        />
+      )}
+
+      {/* VIEW B: TELEGRAM GATEWAY CONFIGURATION */}
+      {subTab === 'telegram_gateway' && (
+        <TelegramGatewayConfigCard 
           theme={theme === 'dark' ? 'dark' : 'light'} 
         />
       )}

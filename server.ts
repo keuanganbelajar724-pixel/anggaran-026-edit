@@ -14,6 +14,14 @@ import {
   buildBroadcastEmailHtml,
   EmailConfig 
 } from './server_email';
+import {
+  loadTelegramConfig,
+  saveTelegramConfig,
+  getPublicTelegramStatus,
+  sendTelegramMessage,
+  verifyTelegramBot,
+  TelegramServerConfig
+} from './server_telegram';
 
 dotenv.config();
 
@@ -460,6 +468,144 @@ async function startServer() {
       res.status(500).json({
         success: false,
         error: e?.message || 'Gagal mengirim email broadcast.'
+      });
+    }
+  });
+
+  // ==========================================
+  // TELEGRAM BOT API GATEWAY ENDPOINTS
+  // ==========================================
+  let telegramConfig: TelegramServerConfig = loadTelegramConfig();
+
+  app.get('/api/telegram/config', (_req, res) => {
+    res.json({
+      status: 'ok',
+      config: getPublicTelegramStatus(telegramConfig)
+    });
+  });
+
+  app.post('/api/telegram/config', async (req, res) => {
+    try {
+      const body = req.body || {};
+      const updated: TelegramServerConfig = {
+        ...telegramConfig,
+        botToken: body.botToken && !body.botToken.includes('••••') ? body.botToken.trim() : telegramConfig.botToken,
+        botUsername: body.botUsername !== undefined ? body.botUsername.trim() : telegramConfig.botUsername,
+        botName: body.botName !== undefined ? body.botName.trim() : telegramConfig.botName,
+        defaultChatId: body.defaultChatId !== undefined ? body.defaultChatId.trim() : telegramConfig.defaultChatId,
+        channelOrGroupId: body.channelOrGroupId !== undefined ? body.channelOrGroupId.trim() : telegramConfig.channelOrGroupId,
+        parseMode: body.parseMode || telegramConfig.parseMode,
+        testChatId: body.testChatId !== undefined ? body.testChatId.trim() : telegramConfig.testChatId
+      };
+
+      if (body.botToken && !body.botToken.includes('••••') && body.botToken.includes(':')) {
+        const verifyRes = await verifyTelegramBot(body.botToken);
+        if (verifyRes.ok && verifyRes.result) {
+          if (verifyRes.result.username) updated.botUsername = verifyRes.result.username;
+          if (verifyRes.result.firstName) updated.botName = verifyRes.result.firstName;
+        }
+      }
+
+      telegramConfig = saveTelegramConfig(updated);
+      res.json({
+        status: 'ok',
+        message: 'Konfigurasi Telegram Gateway berhasil disimpan',
+        config: getPublicTelegramStatus(telegramConfig)
+      });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/telegram/test', async (req, res) => {
+    try {
+      const { testChatId, configOverride } = req.body || {};
+      const activeConfig: TelegramServerConfig = {
+        ...telegramConfig,
+        ...(configOverride || {})
+      };
+
+      if (configOverride?.botToken && !configOverride.botToken.includes('••••')) {
+        activeConfig.botToken = configOverride.botToken.trim();
+      } else {
+        activeConfig.botToken = telegramConfig.botToken;
+      }
+
+      const targetChat = (testChatId || activeConfig.testChatId || activeConfig.defaultChatId || '').trim();
+      if (!targetChat) {
+        return res.status(400).json({ success: false, error: 'Chat ID atau username channel tujuan tidak boleh kosong.' });
+      }
+
+      const text = `<b>🟢 UJI COBA KONEKSI TELEGRAM GATEWAY BERHASIL!</b>\n\n` +
+        `Sistem: <b>ANGKASA - KPPN Semarang I (026)</b>\n` +
+        `Waktu: <code>${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} WIB</code>\n\n` +
+        `<i>Pesan ini menandakan bot Telegram telah terhubung sempurna dan siap digunakan untuk siaran jarkom masif ke seluruh Satker mitra.</i>`;
+
+      const result = await sendTelegramMessage(activeConfig, {
+        chatId: targetChat,
+        text,
+        parseMode: activeConfig.parseMode || 'HTML'
+      });
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: `Pesan uji coba Telegram berhasil terkirim ke ${targetChat}!`,
+          messageId: result.messageId
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'Telegram Bot API menolak pengiriman pesan uji coba.'
+        });
+      }
+    } catch (e: any) {
+      res.status(500).json({
+        success: false,
+        error: e?.message || 'Gagal mengirim pesan uji coba Telegram.'
+      });
+    }
+  });
+
+  app.post('/api/telegram/send', async (req, res) => {
+    try {
+      const { chatId, text, parseMode, configOverride } = req.body || {};
+      if (!chatId) {
+        return res.status(400).json({ success: false, error: 'Chat ID / Username Telegram tujuan tidak boleh kosong.' });
+      }
+      if (!text) {
+        return res.status(400).json({ success: false, error: 'Isi teks pesan Telegram tidak boleh kosong.' });
+      }
+
+      let activeConfig: TelegramServerConfig = { ...telegramConfig };
+      if (configOverride && typeof configOverride === 'object') {
+        const clean = { ...configOverride };
+        if (clean.botToken?.includes('••••')) delete clean.botToken;
+        activeConfig = { ...activeConfig, ...clean };
+      }
+
+      const sendResult = await sendTelegramMessage(activeConfig, {
+        chatId,
+        text,
+        parseMode: parseMode || activeConfig.parseMode || 'HTML'
+      });
+
+      if (sendResult.success) {
+        res.json({
+          success: true,
+          message: `Pesan Telegram berhasil terkirim ke ${chatId}!`,
+          messageId: sendResult.messageId
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: sendResult.error || 'Gagal mengirim pesan Telegram.'
+        });
+      }
+    } catch (e: any) {
+      res.status(500).json({
+        success: false,
+        error: e?.message || 'Gagal mengirim pesan broadcast Telegram.'
       });
     }
   });

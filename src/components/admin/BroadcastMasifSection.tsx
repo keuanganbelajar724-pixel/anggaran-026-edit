@@ -77,8 +77,11 @@ import { BroadcastGroupSection } from './BroadcastGroupSection';
 import { EmailGatewayConfigCard } from './EmailGatewayConfigCard';
 import { EmailGatewayPublicStatus } from '../../types/email';
 import { getEmailGatewayStatus, sendBroadcastEmail, testSendEmail } from '../../services/emailGatewayService';
+import { TelegramGatewayConfigCard } from './TelegramGatewayConfigCard';
+import { TelegramGatewayPublicStatus } from '../../types/telegram';
+import { getTelegramGatewayStatus, sendBroadcastTelegram, testSendTelegram } from '../../services/telegramGatewayService';
 
-export type BroadcastChannel = 'WHATSAPP' | 'EMAIL' | 'HYBRID';
+export type BroadcastChannel = 'WHATSAPP' | 'EMAIL' | 'TELEGRAM' | 'HYBRID';
 
 export interface DeliveryTrackerRecord {
   status: 'PENDING' | 'SUCCESS' | 'FAILED';
@@ -87,6 +90,7 @@ export interface DeliveryTrackerRecord {
   channel?: BroadcastChannel;
   waStatus?: 'SUCCESS' | 'FAILED' | 'SKIPPED';
   emailStatus?: 'SUCCESS' | 'FAILED' | 'SKIPPED';
+  telegramStatus?: 'SUCCESS' | 'FAILED' | 'SKIPPED';
 }
 
 interface BroadcastMasifSectionProps {
@@ -218,13 +222,20 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   }, [deliveryTrackerMap]);
 
-  // Communication Channel State (WhatsApp vs Email Resmi vs Multi-Kanal Hybrid)
+  // Communication Channel State (WhatsApp vs Email Resmi vs Telegram Bot vs Multi-Kanal Hybrid)
   const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel>(() => {
     try {
       const saved = localStorage.getItem('kppn_broadcast_channel_preference');
-      if (saved === 'WHATSAPP' || saved === 'EMAIL' || saved === 'HYBRID') return saved;
+      if (saved === 'WHATSAPP' || saved === 'EMAIL' || saved === 'TELEGRAM' || saved === 'HYBRID') return saved;
     } catch {}
     return 'WHATSAPP';
+  });
+
+  // Hybrid multi-channel selection
+  const [hybridChannels, setHybridChannels] = useState<{ wa: boolean; email: boolean; telegram: boolean }>({
+    wa: true,
+    email: true,
+    telegram: true
   });
 
   const [emailSubjectTemplate, setEmailSubjectTemplate] = useState<string>(
@@ -232,9 +243,13 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   );
 
   const [emailGatewayStatus, setEmailGatewayStatus] = useState<EmailGatewayPublicStatus | null>(null);
-  const [gatewayConfigTab, setGatewayConfigTab] = useState<'WHATSAPP' | 'EMAIL'>('WHATSAPP');
+  const [telegramGatewayStatus, setTelegramGatewayStatus] = useState<TelegramGatewayPublicStatus | null>(null);
+  const [gatewayConfigTab, setGatewayConfigTab] = useState<'WHATSAPP' | 'EMAIL' | 'TELEGRAM'>('WHATSAPP');
   const [testEmailRecipient, setTestEmailRecipient] = useState<string>('mybabo.official@gmail.com');
   const [isTestingEmail, setIsTestingEmail] = useState<boolean>(false);
+  const [testTelegramChatId, setTestTelegramChatId] = useState<string>('');
+  const [isTestingTelegram, setIsTestingTelegram] = useState<boolean>(false);
+
   const [quickSingleEmailModal, setQuickSingleEmailModal] = useState<{
     id: string;
     satkerNama: string;
@@ -263,8 +278,20 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   };
 
+  const refreshTelegramGatewayStatus = async () => {
+    try {
+      const data = await getTelegramGatewayStatus();
+      if (data?.status) {
+        setTelegramGatewayStatus(data.status);
+      }
+    } catch (e) {
+      console.warn('Gagal memuat status gateway telegram:', e);
+    }
+  };
+
   useEffect(() => {
     refreshEmailGatewayStatus();
+    refreshTelegramGatewayStatus();
   }, []);
 
   // Confirmation Dialog States (In-App Modals - immune to iframe confirm/alert restrictions)
@@ -276,9 +303,9 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
   const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
 
   const [unselectedRecipientIds, setUnselectedRecipientIds] = useState<string[]>([]);
-  const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; pejabatEmail?: string; renderedMessage?: string }>>({});
+  const [recipientOverrides, setRecipientOverrides] = useState<Record<string, { pejabatNama?: string; pejabatNoHp?: string; pejabatEmail?: string; telegramChatId?: string; telegramPic?: string; renderedMessage?: string }>>({});
   const [recipientSearchQuery, setRecipientSearchQuery] = useState<string>('');
-  const [contactStatusFilter, setContactStatusFilter] = useState<'ALL' | 'WITH_PHONE' | 'NO_PHONE' | 'WITH_EMAIL' | 'NO_EMAIL' | 'READY_CURRENT'>('ALL');
+  const [contactStatusFilter, setContactStatusFilter] = useState<'ALL' | 'WITH_PHONE' | 'NO_PHONE' | 'WITH_EMAIL' | 'NO_EMAIL' | 'WITH_TELEGRAM' | 'NO_TELEGRAM' | 'READY_CURRENT'>('ALL');
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
   const [showBulkContactModal, setShowBulkContactModal] = useState<boolean>(false);
   const [bulkContactInputText, setBulkContactInputText] = useState<string>('');
@@ -620,6 +647,8 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       pejabatNoHp: string;
       pejabatEmail: string;
       satkerEmail: string;
+      telegramChatId: string;
+      telegramPic: string;
       renderedSubject: string;
       renderedMessage: string;
       nilaiIkpa: number;
@@ -644,10 +673,23 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         ''
       ).trim();
 
+      const satkerTgChatId = (
+        masterSatker?.telegramChatId ||
+        (s as any).telegramChatId ||
+        ''
+      ).trim();
+      const satkerTgPic = (
+        masterSatker?.telegramPic ||
+        (s as any).telegramPic ||
+        ''
+      ).trim();
+
       selectedBroadcastRoles.forEach(roleKey => {
         let pejabatNama = '';
         let pejabatNoHp = '';
         let pejabatEmail = '';
+        let telegramChatId = satkerTgChatId;
+        let telegramPic = satkerTgPic;
 
         // Extract real contact information if recorded in Satker or Pejabat data
         if (roleKey === 'kpa') {
@@ -707,6 +749,12 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           if (override.pejabatEmail !== undefined) {
             pejabatEmail = override.pejabatEmail.trim();
           }
+          if (override.telegramChatId !== undefined) {
+            telegramChatId = override.telegramChatId.trim();
+          }
+          if (override.telegramPic !== undefined) {
+            telegramPic = override.telegramPic.trim();
+          }
         }
 
         const displayPejabatNama = pejabatNama || `Pejabat / ${roleLabelMap[roleKey] || roleKey}`;
@@ -756,6 +804,8 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
           pejabatNoHp,
           pejabatEmail,
           satkerEmail,
+          telegramChatId,
+          telegramPic,
           renderedSubject,
           renderedMessage: text,
           nilaiIkpa: s.nilaiTotalIKPA,
@@ -775,31 +825,42 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     const withoutPhone = total - withPhone;
     const withEmail = calculatedRecipients.filter(r => r.pejabatEmail && r.pejabatEmail.includes('@')).length;
     const withoutEmail = total - withEmail;
+    const withTelegram = calculatedRecipients.filter(r => Boolean(r.telegramChatId || r.telegramPic || telegramGatewayStatus?.defaultChatId)).length;
+    const withoutTelegram = total - withTelegram;
     const readyCurrent = calculatedRecipients.filter(r => {
       const hasP = Boolean(r.pejabatNoHp && r.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
       const hasE = Boolean(r.pejabatEmail && r.pejabatEmail.includes('@'));
+      const hasT = Boolean(r.telegramChatId || r.telegramPic || telegramGatewayStatus?.defaultChatId);
       if (broadcastChannel === 'WHATSAPP') return hasP;
       if (broadcastChannel === 'EMAIL') return hasE;
-      return hasP || hasE;
+      if (broadcastChannel === 'TELEGRAM') return hasT;
+      return (hybridChannels.wa && hasP) || (hybridChannels.email && hasE) || (hybridChannels.telegram && hasT) || (hasP || hasE || hasT);
     }).length;
-    return { total, withPhone, withoutPhone, withEmail, withoutEmail, readyCurrent };
-  }, [calculatedRecipients, broadcastChannel]);
+    return { total, withPhone, withoutPhone, withEmail, withoutEmail, withTelegram, withoutTelegram, readyCurrent };
+  }, [calculatedRecipients, broadcastChannel, telegramGatewayStatus, hybridChannels]);
 
   // Filtered Recipients by Search Bar & Contact Status Filter
   const filteredRecipients = useMemo(() => {
     return calculatedRecipients.filter(rec => {
       const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
       const hasEmail = Boolean(rec.pejabatEmail && rec.pejabatEmail.includes('@'));
+      const hasTelegram = Boolean(rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId);
 
       // 1. Contact Status Filter
       if (contactStatusFilter === 'WITH_PHONE' && !hasPhone) return false;
       if (contactStatusFilter === 'NO_PHONE' && hasPhone) return false;
       if (contactStatusFilter === 'WITH_EMAIL' && !hasEmail) return false;
       if (contactStatusFilter === 'NO_EMAIL' && hasEmail) return false;
+      if (contactStatusFilter === 'WITH_TELEGRAM' && !hasTelegram) return false;
+      if (contactStatusFilter === 'NO_TELEGRAM' && hasTelegram) return false;
       if (contactStatusFilter === 'READY_CURRENT') {
         if (broadcastChannel === 'WHATSAPP' && !hasPhone) return false;
         if (broadcastChannel === 'EMAIL' && !hasEmail) return false;
-        if (broadcastChannel === 'HYBRID' && !hasPhone && !hasEmail) return false;
+        if (broadcastChannel === 'TELEGRAM' && !hasTelegram) return false;
+        if (broadcastChannel === 'HYBRID') {
+          const matched = (hybridChannels.wa && hasPhone) || (hybridChannels.email && hasEmail) || (hybridChannels.telegram && hasTelegram);
+          if (!matched && !hasPhone && !hasEmail && !hasTelegram) return false;
+        }
       }
 
       // 2. Search Query Filter
@@ -811,10 +872,12 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         rec.pejabatNama.toLowerCase().includes(q) ||
         rec.pejabatNoHp.toLowerCase().includes(q) ||
         rec.pejabatEmail.toLowerCase().includes(q) ||
+        (rec.telegramChatId && rec.telegramChatId.toLowerCase().includes(q)) ||
+        (rec.telegramPic && rec.telegramPic.toLowerCase().includes(q)) ||
         rec.roleLabel.toLowerCase().includes(q)
       );
     });
-  }, [calculatedRecipients, recipientSearchQuery, contactStatusFilter, broadcastChannel]);
+  }, [calculatedRecipients, recipientSearchQuery, contactStatusFilter, broadcastChannel, telegramGatewayStatus, hybridChannels]);
 
   const selectedRecipients = useMemo(() => {
     return filteredRecipients.filter(r => !unselectedRecipientIds.includes(r.id));
@@ -1184,6 +1247,98 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     }
   };
 
+  // Dispatch single Telegram message via Bot API
+  const sendSingleTelegramMessage = async (
+    targetChatId: string,
+    text: string,
+    satkerNama: string,
+    satkerKode: string,
+    roleLabel: string
+  ): Promise<{ success: boolean; note: string }> => {
+    let cleanChatId = targetChatId ? targetChatId.trim() : '';
+    if (!cleanChatId) {
+      cleanChatId = telegramGatewayStatus?.defaultChatId?.trim() || telegramGatewayStatus?.channelOrGroupId?.trim() || '';
+    }
+
+    if (!cleanChatId) {
+      return { success: false, note: 'Chat ID / Username Telegram penerima kosong' };
+    }
+
+    try {
+      const res = await sendBroadcastTelegram(cleanChatId, text);
+      if (res.success) {
+        return {
+          success: true,
+          note: `Telegram Terkirim (${res.chatId || cleanChatId})`
+        };
+      } else {
+        return {
+          success: false,
+          note: `Telegram Gagal: ${res.error || res.message}`
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        note: `Telegram Error: ${err.message || 'Gagal koneksi gateway'}`
+      };
+    }
+  };
+
+  // Test Telegram Gateway Connection
+  const handleTestTelegramConnection = async () => {
+    const targetChat = testTelegramChatId.trim() || telegramGatewayStatus?.defaultChatId?.trim() || telegramGatewayStatus?.channelOrGroupId?.trim();
+    if (!targetChat) {
+      if (showToast) {
+        showToast({
+          type: 'warning',
+          title: 'Chat ID Telegram Kosong',
+          message: 'Harap masukkan Chat ID atau Username Telegram (@username / ID numerik) tujuan uji coba.'
+        });
+      } else {
+        alert('Harap masukkan Chat ID / Username Telegram tujuan uji coba.');
+      }
+      return;
+    }
+
+    setIsTestingTelegram(true);
+    setBroadcastLogs(prev => [`[TEST TELEGRAM] Mengirim pesan uji coba ke ${targetChat}...`, ...prev]);
+
+    try {
+      const res = await testSendTelegram(targetChat);
+      setIsTestingTelegram(false);
+      if (res.success) {
+        setBroadcastLogs(prev => [`[TEST TELEGRAM SUCCESS] 🟢 ${res.message}`, ...prev]);
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'Tes Bot Telegram Berhasil',
+            message: res.message
+          });
+        }
+      } else {
+        setBroadcastLogs(prev => [`[TEST TELEGRAM FAILED] 🔴 ${res.message || res.error}`, ...prev]);
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Tes Bot Telegram Gagal',
+            message: res.message || res.error || 'Periksa Bot Token Telegram atau izin chat bot.'
+          });
+        }
+      }
+    } catch (err: any) {
+      setIsTestingTelegram(false);
+      setBroadcastLogs(prev => [`[TEST TELEGRAM ERROR] 🔴 ${err.message}`, ...prev]);
+      if (showToast) {
+        showToast({
+          type: 'error',
+          title: 'Kendala Jaringan Telegram',
+          message: err.message
+        });
+      }
+    }
+  };
+
   // Tracked Delivery Recipient List combining calculated recipients, selection, and live delivery status
   const trackedDeliveryList = useMemo(() => {
     return calculatedRecipients.map(rec => {
@@ -1191,7 +1346,14 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
       const isSelected = !unselectedRecipientIds.includes(rec.id);
       const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
       const hasEmail = Boolean(rec.pejabatEmail && rec.pejabatEmail.includes('@'));
-      const isReadyForChannel = broadcastChannel === 'WHATSAPP' ? hasPhone : broadcastChannel === 'EMAIL' ? hasEmail : (hasPhone || hasEmail);
+      const hasTelegram = Boolean(rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId);
+      const isReadyForChannel = broadcastChannel === 'WHATSAPP' 
+        ? hasPhone 
+        : broadcastChannel === 'EMAIL' 
+          ? hasEmail 
+          : broadcastChannel === 'TELEGRAM' 
+            ? hasTelegram 
+            : ((hybridChannels.wa && hasPhone) || (hybridChannels.email && hasEmail) || (hybridChannels.telegram && hasTelegram) || (hasPhone || hasEmail || hasTelegram));
       const hasExecuted = Boolean(tracker && (tracker.status === 'SUCCESS' || tracker.status === 'FAILED'));
 
       return {
@@ -1199,6 +1361,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         isSelected,
         hasPhone,
         hasEmail,
+        hasTelegram,
         isReadyForChannel,
         hasExecuted,
         status: tracker?.status || 'PENDING',
@@ -1207,7 +1370,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
         channel: tracker?.channel
       };
     });
-  }, [calculatedRecipients, deliveryTrackerMap, unselectedRecipientIds, broadcastChannel]);
+  }, [calculatedRecipients, deliveryTrackerMap, unselectedRecipientIds, broadcastChannel, telegramGatewayStatus, hybridChannels]);
 
   // Overall Tracker Statistics based on active trackerScope
   const trackerStats = useMemo(() => {
@@ -1445,7 +1608,9 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           title: 'Tidak Ada Penerima',
           message: broadcastChannel === 'EMAIL' 
             ? 'Pilih minimal satu penerima broadcast yang memiliki alamat email.'
-            : 'Pilih minimal satu penerima broadcast yang siap dikirim.'
+            : broadcastChannel === 'TELEGRAM'
+              ? 'Pilih minimal satu penerima broadcast yang memiliki akun/chat ID Telegram.'
+              : 'Pilih minimal satu penerima broadcast yang siap dikirim.'
         });
       } else {
         alert('Tidak ada penerima broadcast yang terpilih.');
@@ -1454,7 +1619,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     }
 
     // Validate WhatsApp Gateway if channel uses WhatsApp
-    if (broadcastChannel === 'WHATSAPP' || broadcastChannel === 'HYBRID') {
+    if (broadcastChannel === 'WHATSAPP' || (broadcastChannel === 'HYBRID' && hybridChannels.wa)) {
       if (waGatewayProvider !== 'simulasi' && waGatewayProvider !== 'wa_me_link' && !waGatewayToken.trim() && waGatewayProvider !== 'custom_api') {
         if (showToast) {
           showToast({
@@ -1470,13 +1635,26 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     }
 
     // Validate Email Gateway if channel uses Email
-    if (broadcastChannel === 'EMAIL') {
+    if (broadcastChannel === 'EMAIL' || (broadcastChannel === 'HYBRID' && hybridChannels.email)) {
       if (!emailGatewayStatus?.isConfigured) {
         if (showToast) {
           showToast({
             type: 'warning',
             title: 'Gateway Email Belum Lengkap',
             message: 'Konfigurasi Gateway Email (Brevo / Resend / SMTP Gmail) belum aktif. Silakan lengkapi di tab Pengaturan Gateway Email.'
+          });
+        }
+      }
+    }
+
+    // Validate Telegram Gateway if channel uses Telegram
+    if (broadcastChannel === 'TELEGRAM' || (broadcastChannel === 'HYBRID' && hybridChannels.telegram)) {
+      if (!telegramGatewayStatus?.isConfigured) {
+        if (showToast) {
+          showToast({
+            type: 'warning',
+            title: 'Gateway Telegram Belum Lengkap',
+            message: 'Bot Token Telegram belum dikonfigurasi. Silakan lengkapi di tab Pengaturan Gateway Telegram.'
           });
         }
       }
@@ -1506,7 +1684,9 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
       ? `WhatsApp (${waGatewayProvider.toUpperCase()})` 
       : broadcastChannel === 'EMAIL'
         ? `Email Gateway (${emailGatewayStatus?.provider?.toUpperCase() || 'SERVER'})`
-        : `Multi-Kanal Hybrid (WA + Email)`;
+        : broadcastChannel === 'TELEGRAM'
+          ? `Telegram Bot (${telegramGatewayStatus?.botUsername || '@bot'})`
+          : `Multi-Kanal Hybrid (${[hybridChannels.wa ? 'WA' : '', hybridChannels.email ? 'Email' : '', hybridChannels.telegram ? 'Telegram' : ''].filter(Boolean).join(' + ') || 'WA+Email+Telegram'})`;
 
     setBroadcastLogs([`[SYSTEM] Memulai antrean broadcast masif ke ${recipients.length} Pejabat Satker via Moda '${channelLabel}'...`]);
 
@@ -1651,27 +1831,97 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
             ...prev.slice(0, 150)
           ]);
         }
-      } else {
-        // HYBRID MODE (WA + EMAIL SEKALIGUS)
-        const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
-        const targetEmail = rec.pejabatEmail || rec.satkerEmail;
-        const hasEmail = Boolean(targetEmail && targetEmail.includes('@'));
-
-        if (!hasPhone && !hasEmail) {
+      } else if (broadcastChannel === 'TELEGRAM') {
+        const targetTg = rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId || telegramGatewayStatus?.channelOrGroupId || '';
+        if (!targetTg) {
           failCount++;
           setDeliveryTrackerMap(prev => ({
             ...prev,
             [rec.id]: {
               status: 'FAILED',
               sentAt: nowTimestamp,
-              note: 'No. HP dan Email keduanya kosong',
-              channel: 'HYBRID',
-              waStatus: 'SKIPPED',
-              emailStatus: 'SKIPPED'
+              note: 'Chat ID / Username Telegram Satker belum terisi & default bot belum diatur',
+              channel: 'TELEGRAM',
+              telegramStatus: 'FAILED'
             }
           }));
           setBroadcastLogs(prev => [
-            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (Kontak Kosong) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama}`,
+            `[${nowTimestamp}] [TG] GAGAL 🔴 (Chat ID Kosong) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} (${rec.satkerKode})`,
+            ...prev.slice(0, 150)
+          ]);
+          setSentStats({ success: successCount, failed: failCount, total: recipients.length });
+          continue;
+        }
+
+        const result = await sendSingleTelegramMessage(
+          targetTg,
+          rec.renderedMessage,
+          rec.satkerNama,
+          rec.satkerKode,
+          rec.roleLabel
+        );
+
+        if (result.success) {
+          successCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'SUCCESS',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'TELEGRAM',
+              telegramStatus: 'SUCCESS'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [TG] TERKIRIM 🟢 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama} | Target: ${targetTg}`,
+            ...prev.slice(0, 150)
+          ]);
+        } else {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: result.note,
+              channel: 'TELEGRAM',
+              telegramStatus: 'FAILED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [TG] GAGAL 🔴 (${result.note}) -> ${rec.roleLabel} (${rec.pejabatNama}) | Target: ${targetTg}`,
+            ...prev.slice(0, 150)
+          ]);
+        }
+      } else {
+        // HYBRID MODE (KOMBINASI MULTI-KANAL: WA, EMAIL, & TELEGRAM)
+        const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
+        const targetEmail = rec.pejabatEmail || rec.satkerEmail;
+        const hasEmail = Boolean(targetEmail && targetEmail.includes('@'));
+        const targetTg = rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId || telegramGatewayStatus?.channelOrGroupId || '';
+        const hasTelegram = Boolean(targetTg);
+
+        const shouldSendWa = hybridChannels.wa && hasPhone;
+        const shouldSendEmail = hybridChannels.email && hasEmail;
+        const shouldSendTg = hybridChannels.telegram && hasTelegram;
+
+        if (!shouldSendWa && !shouldSendEmail && !shouldSendTg) {
+          failCount++;
+          setDeliveryTrackerMap(prev => ({
+            ...prev,
+            [rec.id]: {
+              status: 'FAILED',
+              sentAt: nowTimestamp,
+              note: 'Tidak ada kanal aktif yang kontak tujuannya tersedia',
+              channel: 'HYBRID',
+              waStatus: 'SKIPPED',
+              emailStatus: 'SKIPPED',
+              telegramStatus: 'SKIPPED'
+            }
+          }));
+          setBroadcastLogs(prev => [
+            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (Kontak Kosong untuk kanal terpilih) -> ${rec.roleLabel} (${rec.pejabatNama}) | Satker: ${rec.satkerNama}`,
             ...prev.slice(0, 150)
           ]);
           setSentStats({ success: successCount, failed: failCount, total: recipients.length });
@@ -1679,16 +1929,16 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         }
 
         let waSuccess = false;
-        let waNote = 'No HP kosong';
-        if (hasPhone) {
+        let waNote = 'Dilewati';
+        if (shouldSendWa) {
           const waRes = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
           waSuccess = waRes.success;
           waNote = waRes.note;
         }
 
         let emailSuccess = false;
-        let emailNote = 'Email kosong';
-        if (hasEmail) {
+        let emailNote = 'Dilewati';
+        if (shouldSendEmail) {
           const emailRes = await sendSingleEmailMessage(
             targetEmail,
             rec.pejabatNama,
@@ -1702,7 +1952,27 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           emailNote = emailRes.note;
         }
 
-        const isOverallSuccess = waSuccess || emailSuccess;
+        let tgSuccess = false;
+        let tgNote = 'Dilewati';
+        if (shouldSendTg) {
+          const tgRes = await sendSingleTelegramMessage(
+            targetTg,
+            rec.renderedMessage,
+            rec.satkerNama,
+            rec.satkerKode,
+            rec.roleLabel
+          );
+          tgSuccess = tgRes.success;
+          tgNote = tgRes.note;
+        }
+
+        const isOverallSuccess = waSuccess || emailSuccess || tgSuccess;
+        const notes = [
+          hybridChannels.wa ? `WA: ${waSuccess ? '✓ ' + waNote : '✗ ' + waNote}` : null,
+          hybridChannels.email ? `Email: ${emailSuccess ? '✓ ' + emailNote : '✗ ' + emailNote}` : null,
+          hybridChannels.telegram ? `TG: ${tgSuccess ? '✓ ' + tgNote : '✗ ' + tgNote}` : null
+        ].filter(Boolean).join(' | ');
+
         if (isOverallSuccess) {
           successCount++;
           setDeliveryTrackerMap(prev => ({
@@ -1710,14 +1980,15 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
             [rec.id]: {
               status: 'SUCCESS',
               sentAt: nowTimestamp,
-              note: `WA: ${waSuccess ? '✓ ' + waNote : '✗ ' + waNote} | Email: ${emailSuccess ? '✓ ' + emailNote : '✗ ' + emailNote}`,
+              note: notes,
               channel: 'HYBRID',
-              waStatus: hasPhone ? (waSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
-              emailStatus: hasEmail ? (emailSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
+              waStatus: shouldSendWa ? (waSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
+              emailStatus: shouldSendEmail ? (emailSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
+              telegramStatus: shouldSendTg ? (tgSuccess ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
             }
           }));
           setBroadcastLogs(prev => [
-            `[${nowTimestamp}] [HYBRID] TERKIRIM 🟢 (WA: ${waSuccess ? '✓' : '✗'}, Email: ${emailSuccess ? '✓' : '✗'}) -> ${rec.roleLabel} (${rec.pejabatNama})`,
+            `[${nowTimestamp}] [HYBRID] TERKIRIM 🟢 (${notes}) -> ${rec.roleLabel} (${rec.pejabatNama})`,
             ...prev.slice(0, 150)
           ]);
         } else {
@@ -1727,14 +1998,15 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
             [rec.id]: {
               status: 'FAILED',
               sentAt: nowTimestamp,
-              note: `WA: ${waNote} | Email: ${emailNote}`,
+              note: notes,
               channel: 'HYBRID',
-              waStatus: hasPhone ? 'FAILED' : 'SKIPPED',
-              emailStatus: hasEmail ? 'FAILED' : 'SKIPPED'
+              waStatus: shouldSendWa ? 'FAILED' : 'SKIPPED',
+              emailStatus: shouldSendEmail ? 'FAILED' : 'SKIPPED',
+              telegramStatus: shouldSendTg ? 'FAILED' : 'SKIPPED'
             }
           }));
           setBroadcastLogs(prev => [
-            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (WA & Email gagal) -> ${rec.roleLabel} (${rec.pejabatNama})`,
+            `[${nowTimestamp}] [HYBRID] GAGAL 🔴 (${notes}) -> ${rec.roleLabel} (${rec.pejabatNama})`,
             ...prev.slice(0, 150)
           ]);
         }
@@ -1950,20 +2222,84 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           });
         }
       }
+    } else if (channelToUse === 'TELEGRAM') {
+      const targetTg = rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId || telegramGatewayStatus?.channelOrGroupId || '';
+      if (!targetTg) {
+        if (showToast) {
+          showToast({
+            type: 'warning',
+            title: 'Chat ID Telegram Kosong',
+            message: 'Chat ID / Username Telegram satker masih kosong.'
+          });
+        } else {
+          alert('Chat ID Telegram satker masih kosong.');
+        }
+        return;
+      }
+
+      setBroadcastLogs(prev => [`[RETRY SINGLE TELEGRAM] Mengirim ulang Telegram ke ${rec.pejabatNama} (${rec.satkerNama}) -> ${targetTg}...`, ...prev]);
+      const result = await sendSingleTelegramMessage(
+        targetTg,
+        rec.renderedMessage,
+        rec.satkerNama,
+        rec.satkerKode,
+        rec.roleLabel
+      );
+
+      if (result.success) {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'SUCCESS',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'TELEGRAM',
+            telegramStatus: 'SUCCESS'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'success',
+            title: 'Telegram Terkirim Ulang',
+            message: `Telegram berhasil dikirim ke ${targetTg} (${rec.satkerNama}).`
+          });
+        }
+      } else {
+        setDeliveryTrackerMap(prev => ({
+          ...prev,
+          [rec.id]: {
+            status: 'FAILED',
+            sentAt: nowTimestamp,
+            note: result.note,
+            channel: 'TELEGRAM',
+            telegramStatus: 'FAILED'
+          }
+        }));
+        if (showToast) {
+          showToast({
+            type: 'error',
+            title: 'Kirim Ulang Telegram Gagal',
+            message: result.note
+          });
+        }
+      }
     } else {
-      // Hybrid retry
+      // Hybrid retry (WA + Email + Telegram)
       const hasPhone = Boolean(rec.pejabatNoHp && rec.pejabatNoHp.replace(/[^0-9]/g, '').length >= 8);
       const targetEmail = rec.pejabatEmail || rec.satkerEmail;
       const hasEmail = Boolean(targetEmail && targetEmail.includes('@'));
+      const targetTg = rec.telegramChatId || rec.telegramPic || telegramGatewayStatus?.defaultChatId || telegramGatewayStatus?.channelOrGroupId || '';
+      const hasTelegram = Boolean(targetTg);
 
       let waOk = false;
       let emailOk = false;
+      let tgOk = false;
 
-      if (hasPhone) {
+      if (hasPhone && hybridChannels.wa) {
         const res = await sendSingleWaMessage(rec.pejabatNoHp, rec.renderedMessage);
         waOk = res.success;
       }
-      if (hasEmail) {
+      if (hasEmail && hybridChannels.email) {
         const res = await sendSingleEmailMessage(
           targetEmail,
           rec.pejabatNama,
@@ -1975,24 +2311,41 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         );
         emailOk = res.success;
       }
+      if (hasTelegram && hybridChannels.telegram) {
+        const res = await sendSingleTelegramMessage(
+          targetTg,
+          rec.renderedMessage,
+          rec.satkerNama,
+          rec.satkerKode,
+          rec.roleLabel
+        );
+        tgOk = res.success;
+      }
 
-      if (waOk || emailOk) {
+      if (waOk || emailOk || tgOk) {
+        const notes = [
+          hybridChannels.wa ? `WA: ${waOk ? '✓' : '✗'}` : null,
+          hybridChannels.email ? `Email: ${emailOk ? '✓' : '✗'}` : null,
+          hybridChannels.telegram ? `TG: ${tgOk ? '✓' : '✗'}` : null
+        ].filter(Boolean).join(' | ');
+
         setDeliveryTrackerMap(prev => ({
           ...prev,
           [rec.id]: {
             status: 'SUCCESS',
             sentAt: nowTimestamp,
-            note: `Terkirim Ulang (WA: ${waOk ? '✓' : '✗'}, Email: ${emailOk ? '✓' : '✗'})`,
+            note: `Terkirim Ulang (${notes})`,
             channel: 'HYBRID',
             waStatus: hasPhone ? (waOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
-            emailStatus: hasEmail ? (emailOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
+            emailStatus: hasEmail ? (emailOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED',
+            telegramStatus: hasTelegram ? (tgOk ? 'SUCCESS' : 'FAILED') : 'SKIPPED'
           }
         }));
         if (showToast) {
           showToast({
             type: 'success',
             title: 'Kirim Ulang Hybrid Selesai',
-            message: `WA: ${waOk ? 'Sukses' : 'Gagal'}, Email: ${emailOk ? 'Sukses' : 'Gagal'}.`
+            message: `Hasil: ${notes}.`
           });
         }
       } else {
@@ -2001,7 +2354,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           [rec.id]: {
             status: 'FAILED',
             sentAt: nowTimestamp,
-            note: 'Kirim ulang WA & Email keduanya gagal',
+            note: 'Kirim ulang semua kanal terpilih gagal',
             channel: 'HYBRID'
           }
         }));
@@ -2252,7 +2605,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
         {broadcastSubTab === 'COMPOSE' ? (
           <>
-            {/* Moda Pengiriman Utama (Communication Channel Selector): WhatsApp vs Email Resmi vs Multi-Kanal Hybrid */}
+            {/* Moda Pengiriman Utama (Communication Channel Selector): WhatsApp vs Email Resmi vs Telegram Bot vs Multi-Kanal Hybrid */}
             <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-4 sm:p-5 rounded-3xl shadow-lg border border-indigo-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className={`p-3 rounded-2xl shrink-0 ${
@@ -2260,12 +2613,16 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                     ? 'bg-emerald-600/30 text-emerald-400 border border-emerald-500/40' 
                     : broadcastChannel === 'EMAIL'
                       ? 'bg-blue-600/30 text-blue-400 border border-blue-500/40'
-                      : 'bg-gradient-to-br from-amber-500/30 to-purple-500/30 text-amber-300 border border-amber-500/40'
+                      : broadcastChannel === 'TELEGRAM'
+                        ? 'bg-sky-600/30 text-sky-400 border border-sky-500/40'
+                        : 'bg-gradient-to-br from-amber-500/30 to-purple-500/30 text-amber-300 border border-amber-500/40'
                 }`}>
                   {broadcastChannel === 'WHATSAPP' ? (
                     <Send className="w-6 h-6" />
                   ) : broadcastChannel === 'EMAIL' ? (
                     <Mail className="w-6 h-6" />
+                  ) : broadcastChannel === 'TELEGRAM' ? (
+                    <Send className="w-6 h-6 rotate-[-20deg]" />
                   ) : (
                     <Zap className="w-6 h-6" />
                   )}
@@ -2280,27 +2637,31 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                         ? 'bg-emerald-500 text-slate-950'
                         : broadcastChannel === 'EMAIL'
                           ? 'bg-blue-500 text-white'
-                          : 'bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950'
+                          : broadcastChannel === 'TELEGRAM'
+                            ? 'bg-sky-500 text-slate-950'
+                            : 'bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950'
                     }`}>
                       {broadcastChannel === 'WHATSAPP' && '🟢 WhatsApp Gateway'}
                       {broadcastChannel === 'EMAIL' && '✉️ Email Gateway (Resmi)'}
-                      {broadcastChannel === 'HYBRID' && '⚡ Multi-Kanal (WA + Email)'}
+                      {broadcastChannel === 'TELEGRAM' && '✈️ Bot Telegram API'}
+                      {broadcastChannel === 'HYBRID' && '⚡ Multi-Kanal (WA + Email + Telegram)'}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-300 mt-1 max-w-xl leading-relaxed">
                     {broadcastChannel === 'WHATSAPP' && 'Pesan dikirimkan langsung secara 1-on-1 ke nomor WhatsApp/HP pejabat atau operator satker via Gateway WA.'}
                     {broadcastChannel === 'EMAIL' && 'Pesan dikirimkan resmi ke alamat email satker/pejabat via Gateway Email (Brevo / Resend / SMTP). Solusi andal ketika nomor WhatsApp rawan terblokir!'}
-                    {broadcastChannel === 'HYBRID' && 'Kirimkan pesan ke nomor WhatsApp sekaligus tembuskan ke Email Resmi Satker. Memastikan informasi monev sampai 100% tanpa risiko terputus!'}
+                    {broadcastChannel === 'TELEGRAM' && 'Pesan disiarkan ke Chat ID PIC Satker, username Telegram, atau kanal/grup Telegram koordinasi perbendaharaan.'}
+                    {broadcastChannel === 'HYBRID' && 'Kirimkan pesan ke beberapa kanal sekaligus (WhatsApp, Email, dan Telegram). Menjamin informasi monev sampai 100%!'}
                   </p>
                 </div>
               </div>
 
-              {/* 3 Pills Selector */}
-              <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-indigo-500/30 shrink-0">
+              {/* 4 Pills Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-2xl border border-indigo-500/30 shrink-0 flex-wrap sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => setBroadcastChannel('WHATSAPP')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                     broadcastChannel === 'WHATSAPP'
                       ? 'bg-emerald-600 text-white shadow-md ring-2 ring-emerald-400/40'
                       : 'text-slate-400 hover:text-white hover:bg-white/10'
@@ -2313,36 +2674,92 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                 <button
                   type="button"
                   onClick={() => setBroadcastChannel('EMAIL')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                     broadcastChannel === 'EMAIL'
                       ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-400/40'
                       : 'text-slate-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span>Email Resmi</span>
-                  <span className="bg-blue-400/20 text-blue-300 text-[9px] px-1.5 py-0.2 rounded font-mono">
-                    Anti-Blokir
-                  </span>
+                  <span>Email</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBroadcastChannel('TELEGRAM')}
+                  className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                    broadcastChannel === 'TELEGRAM'
+                      ? 'bg-sky-600 text-white shadow-md ring-2 ring-sky-400/40'
+                      : 'text-slate-400 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                  <span>Telegram</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setBroadcastChannel('HYBRID')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
                     broadcastChannel === 'HYBRID'
                       ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md ring-2 ring-amber-400/40'
                       : 'text-slate-400 hover:text-white hover:bg-white/10'
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5" />
-                  <span>WA + Email</span>
+                  <span>Hybrid</span>
                   <span className="bg-amber-400 text-slate-950 text-[9px] px-1.5 py-0.2 rounded font-black">
-                    Hybrid
+                    Multi
                   </span>
                 </button>
               </div>
             </div>
+
+            {/* Hybrid Multi-Channel Active Checkbox Row */}
+            {broadcastChannel === 'HYBRID' && (
+              <div className="bg-indigo-950/40 border border-indigo-500/30 p-3 sm:p-4 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-amber-400" />
+                  <span className="font-extrabold text-slate-800 dark:text-slate-200">
+                    Kanal Pengiriman yang Aktif Dikirimi Sekaligus:
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-bold text-emerald-700 dark:text-emerald-300">
+                    <input
+                      type="checkbox"
+                      checked={hybridChannels.wa}
+                      onChange={(e) => setHybridChannels(prev => ({ ...prev, wa: e.target.checked }))}
+                      className="rounded text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <Send className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer font-bold text-blue-700 dark:text-blue-300">
+                    <input
+                      type="checkbox"
+                      checked={hybridChannels.email}
+                      onChange={(e) => setHybridChannels(prev => ({ ...prev, email: e.target.checked }))}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Email Resmi</span>
+                  </label>
+
+                  <label className="flex items-center gap-1.5 cursor-pointer font-bold text-sky-700 dark:text-sky-300">
+                    <input
+                      type="checkbox"
+                      checked={hybridChannels.telegram}
+                      onChange={(e) => setHybridChannels(prev => ({ ...prev, telegram: e.target.checked }))}
+                      className="rounded text-sky-600 focus:ring-sky-500"
+                    />
+                    <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                    <span>Bot Telegram</span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Email Subject & Gateway Status Card (Only shown if Email or Hybrid is selected) */}
             {(broadcastChannel === 'EMAIL' || broadcastChannel === 'HYBRID') && (
@@ -2417,6 +2834,79 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Telegram Bot & Gateway Status Card (Only shown if Telegram or Hybrid is selected) */}
+            {(broadcastChannel === 'TELEGRAM' || broadcastChannel === 'HYBRID') && (
+              <div className="bg-sky-50/80 dark:bg-sky-950/40 p-4 sm:p-5 rounded-3xl border-2 border-sky-300/80 dark:border-sky-800 space-y-3.5 animate-fadeIn">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-200 dark:border-sky-900 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-sky-600 text-white shadow-xs">
+                      <Send className="w-4 h-4 rotate-[-20deg]" />
+                    </div>
+                    <div>
+                      <h5 className="font-black text-xs sm:text-sm text-sky-950 dark:text-sky-100 flex items-center gap-2">
+                        <span>Konfigurasi &amp; Status Bot Telegram API</span>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          telegramGatewayStatus?.isConfigured 
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/60' 
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300/60'
+                        }`}>
+                          {telegramGatewayStatus?.isConfigured 
+                            ? `🟢 Bot ${telegramGatewayStatus.botUsername || '@bot'} Siap Kirim` 
+                            : '🟡 Bot Belum Dikonfigurasi (Token Kosong)'}
+                        </span>
+                      </h5>
+                      <p className="text-[11px] text-sky-800/80 dark:text-sky-300/80 mt-0.5">
+                        Pesan broadcast otomatis diteruskan ke Chat ID / Username PIC Satker, atau disiarkan ke Grup Telegram Satker Mitra.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGatewayConfigTab('TELEGRAM');
+                        const el = document.getElementById('gateway-settings-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-300 font-bold text-xs hover:bg-sky-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <span>Buka Pengaturan Bot Telegram</span>
+                      <ChevronRight className="w-3.5 h-3.5 text-sky-500" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Test Telegram Chat */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2 flex-1 flex-wrap sm:flex-nowrap">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 shrink-0">Uji Coba Kirim Bot:</span>
+                    <input
+                      type="text"
+                      value={testTelegramChatId}
+                      onChange={(e) => setTestTelegramChatId(e.target.value)}
+                      placeholder="Masukkan Chat ID (@user / ID grup / ID akun)..."
+                      className="p-2 rounded-xl border border-sky-300 dark:border-sky-700 bg-white dark:bg-slate-900 text-xs font-mono w-full sm:w-72 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={isTestingTelegram}
+                      onClick={handleTestTelegramConnection}
+                      className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      <span>{isTestingTelegram ? 'Menguji...' : 'Tes Kirim Telegram'}</span>
+                    </button>
+                  </div>
+                  {telegramGatewayStatus?.defaultChatId && (
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                      Default Target: <strong>{telegramGatewayStatus.defaultChatId}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -2663,8 +3153,72 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
 
         </div>
 
-        {/* 2. WhatsApp Gateway Provider, Token Storage & Advanced Anti-Ban Settings */}
-        <div className="bg-gradient-to-br from-emerald-950/20 via-teal-950/10 to-slate-950/30 dark:bg-emerald-950/40 p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/30 space-y-5 text-xs">
+        {/* 2. Communication Gateway Settings: WhatsApp vs Email vs Telegram */}
+        <div id="gateway-settings-section" className="space-y-4">
+          <div className="bg-white dark:bg-slate-900 p-3 sm:p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs">
+                <KeyRound className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <span>2. Pengaturan Gateway &amp; Kunci API Komunikasi</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Konfigurasikan jalur koneksi pesan WhatsApp (Fonnte), Email resmi (Brevo/SMTP), dan Bot Telegram API.
+                </p>
+              </div>
+            </div>
+
+            {/* 3 Gateway Tabs */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setGatewayConfigTab('WHATSAPP')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  gatewayConfigTab === 'WHATSAPP'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Gateway WhatsApp</span>
+                <span className={`w-2 h-2 rounded-full ${gatewayConnectionStatus === 'CONNECTED' ? 'bg-emerald-300 animate-pulse' : 'bg-rose-400'}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGatewayConfigTab('EMAIL')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  gatewayConfigTab === 'EMAIL'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Gateway Email</span>
+                <span className={`w-2 h-2 rounded-full ${emailGatewayStatus?.isConfigured ? 'bg-emerald-300' : 'bg-amber-400'}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGatewayConfigTab('TELEGRAM')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                  gatewayConfigTab === 'TELEGRAM'
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                }`}
+              >
+                <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                <span>Gateway Bot Telegram</span>
+                <span className={`w-2 h-2 rounded-full ${telegramGatewayStatus?.isConfigured ? 'bg-emerald-300' : 'bg-amber-400'}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* TAB 1: WHATSAPP GATEWAY */}
+          {gatewayConfigTab === 'WHATSAPP' && (
+            <div className="bg-gradient-to-br from-emerald-950/20 via-teal-950/10 to-slate-950/30 dark:bg-emerald-950/40 p-5 sm:p-6 rounded-3xl border-2 border-emerald-500/30 space-y-5 text-xs animate-fadeIn">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/20 pb-4">
             <div className="flex items-center gap-3">
@@ -2993,8 +3547,32 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           </div>
 
         </div>
+      )}
 
-        {/* 3. Template Editor & Dynamic Placeholders */}
+      {/* TAB 2: EMAIL GATEWAY */}
+      {gatewayConfigTab === 'EMAIL' && (
+        <div className="animate-fadeIn">
+          <EmailGatewayConfigCard 
+            currentUserEmail={undefined} 
+            theme={isDark ? 'dark' : 'light'} 
+          />
+        </div>
+      )}
+
+      {gatewayConfigTab === 'TELEGRAM' && (
+        <div className="animate-fadeIn">
+          <TelegramGatewayConfigCard
+            onConfigSaved={() => {
+              refreshTelegramGatewayStatus();
+            }}
+            theme={isDark ? 'dark' : 'light'}
+          />
+        </div>
+      )}
+
+    </div>
+
+    {/* 3. Template Editor & Dynamic Placeholders */}
         <div className="bg-slate-50 dark:bg-slate-950/80 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 text-xs">
           
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">

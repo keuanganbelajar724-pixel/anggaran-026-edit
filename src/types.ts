@@ -14,6 +14,8 @@ export interface MasterSatker {
   emailPic?: string;
   emailSatker?: string; // Email resmi Satker untuk integrasi API & notifikasi
   email?: string;       // Alias email serbaguna untuk API
+  telegramPic?: string; // Username / Akun Telegram PIC Satker (misal: @picsatker)
+  telegramChatId?: string; // Chat ID Telegram Satker atau grup Satker
   alamatSatker?: string;
   catatan?: string;
   pejabatOperator?: PejabatDanOperator;
@@ -1448,6 +1450,7 @@ export interface DashboardConfig {
   tabOrder?: NavigationTab[];
   waDeviceStatus?: WhatsAppDeviceStatus;
   waGatewayConfig?: WhatsAppGatewayConfig;
+  telegramGatewayConfig?: import('./types/telegram').TelegramGatewayConfig;
   broadcastSettings?: BroadcastSettings;
   helpdeskPhone?: string;
   helpdeskJamLayanan?: string;
