@@ -8,7 +8,9 @@ import {
 import { AppUser } from '../../types/user';
 import { 
   INITIAL_SIDEBAR_CONFIG, 
-  SIDEBAR_THEME_PRESETS 
+  SIDEBAR_THEME_PRESETS,
+  SAMPLE_SIDEBAR_ITEMS,
+  DUMMY_SIDEBAR_APP_IDS
 } from '../../data/initialSidebarData';
 import { 
   renderSidebarIcon 
@@ -88,12 +90,14 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
   const { addToast } = useToast();
 
   const [localConfig, setLocalConfig] = useState<SidebarConfig>(() => {
+    let items = sidebarConfig?.items || [];
+    if (items.length > 0 && items.every(item => DUMMY_SIDEBAR_APP_IDS.has(item.id))) {
+      items = [];
+    }
     return {
       ...INITIAL_SIDEBAR_CONFIG,
       ...sidebarConfig,
-      items: sidebarConfig?.items && sidebarConfig.items.length > 0 
-        ? sidebarConfig.items 
-        : INITIAL_SIDEBAR_CONFIG.items
+      items
     };
   });
 
@@ -142,22 +146,47 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
     addToast('Konfigurasi Sidebar Aplikasi Internal berhasil disimpan!', 'success');
   };
 
-  // Reset to default standard KPPN
-  const handleResetToDefault = () => {
+  // Kosongkan seluruh daftar aplikasi
+  const handleClearAllMenus = () => {
     if (isTamu) {
       addToast('Akses Tamu Studi Banding bersifat Hanya Lihat (Read-Only).', 'info');
       return;
     }
-    if (confirm('Kembalikan konfigurasi dan seluruh daftar aplikasi internal ke template standar resmi KPPN Semarang I?')) {
-      const resetConfig: SidebarConfig = {
-        ...INITIAL_SIDEBAR_CONFIG,
+    if (confirm('Kosongkan seluruh daftar menu aplikasi internal? Anda dapat mengisinya sendiri dari awal sesuai kebutuhan satker.')) {
+      const clearedConfig: SidebarConfig = {
+        ...localConfig,
+        items: [],
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser?.displayName || 'Superadmin'
       };
-      setLocalConfig(resetConfig);
-      onUpdateSidebarConfig(resetConfig);
-      addToast('Sidebar berhasil dikembalikan ke template standar KPPN!', 'info');
+      setLocalConfig(clearedConfig);
+      onUpdateSidebarConfig(clearedConfig);
+      addToast('Seluruh daftar aplikasi internal telah dikosongkan. Silakan isi secara mandiri.', 'info');
     }
+  };
+
+  // Muat contoh template aplikasi standar
+  const handleLoadSampleMenus = () => {
+    if (isTamu) {
+      addToast('Akses Tamu Studi Banding bersifat Hanya Lihat (Read-Only).', 'info');
+      return;
+    }
+    if (confirm('Muat contoh menu aplikasi internal standar KPPN (SAKTI, SPAN, OM-SPAN, Digipay, dsb.) sebagai referensi?')) {
+      const sampleConfig: SidebarConfig = {
+        ...localConfig,
+        items: SAMPLE_SIDEBAR_ITEMS,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser?.displayName || 'Superadmin'
+      };
+      setLocalConfig(sampleConfig);
+      onUpdateSidebarConfig(sampleConfig);
+      addToast('Contoh menu aplikasi internal berhasil dimuat.', 'success');
+    }
+  };
+
+  // Reset to default standard KPPN
+  const handleResetToDefault = () => {
+    handleClearAllMenus();
   };
 
   // Menu item helpers
@@ -392,15 +421,17 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
               </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleResetToDefault}
-              className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/20 flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
-              title="Kembalikan ke susunan menu standar DJPb / Kemenkeu"
-            >
-              <RotateCcw className="w-4 h-4 text-amber-300" />
-              <span>Reset Standar KPPN</span>
-            </button>
+            {localConfig.items && localConfig.items.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAllMenus}
+                className="px-4 py-3 rounded-2xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-xs font-bold transition-all border border-rose-500/40 flex items-center gap-2 cursor-pointer w-full sm:w-auto justify-center"
+                title="Hapus / Kosongkan seluruh daftar aplikasi internal"
+              >
+                <Trash2 className="w-4 h-4 text-rose-300" />
+                <span>Kosongkan Semua Aplikasi</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -461,14 +492,36 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleOpenAddMenu}
-              className="bg-sky-600 hover:bg-sky-500 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Menu Aplikasi Baru</span>
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {localConfig.items && localConfig.items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllMenus}
+                  className="bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/80 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-black text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  title="Hapus / Kosongkan seluruh daftar aplikasi dummy"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Kosongkan Semua Aplikasi</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleLoadSampleMenus}
+                className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                title="Muat contoh template aplikasi resmi KPPN"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Muat Contoh</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenAddMenu}
+                className="bg-sky-600 hover:bg-sky-500 text-white font-black text-xs px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Menu Aplikasi Baru</span>
+              </button>
+            </div>
           </div>
 
           {/* Menus List */}
@@ -655,17 +708,34 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
                 );
               })
             ) : (
-              <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 text-slate-400">
-                <Layers className="w-10 h-10 mx-auto text-slate-400 opacity-50 mb-2" />
-                <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Belum ada menu aplikasi internal yang dibuat</p>
-                <button
-                  type="button"
-                  onClick={handleResetToDefault}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 text-white font-bold text-xs"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Muat Template Aplikasi Standar KPPN</span>
-                </button>
+              <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-3xl border border-dashed border-slate-300 dark:border-slate-800 text-slate-400 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mx-auto">
+                  <Layers className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-black text-slate-800 dark:text-slate-200">Daftar Menu Aplikasi Masih Kosong</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                    Data dummy aplikasi telah dibersihkan agar Anda dapat mengisinya sendiri sesuai kebutuhan satuan kerja.
+                  </p>
+                </div>
+                <div className="pt-2 flex items-center justify-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddMenu}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-black text-xs shadow-md cursor-pointer transition-transform active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Tambah Aplikasi Baru</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleMenus}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-200 dark:border-slate-700 hover:bg-slate-200 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Muat Contoh Standar</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

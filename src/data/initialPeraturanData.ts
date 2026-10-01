@@ -1,6 +1,35 @@
 import { PeraturanPerbendaharaanItem } from '../types';
 
-export const INITIAL_PERATURAN_LIST: PeraturanPerbendaharaanItem[] = [
+/**
+ * Default initial list is now empty as requested by user ("tidak usah ada data dummy biar diisi sendiri").
+ * Admin can add regulations manually or click "Muat Contoh Regulasi" if needed.
+ */
+export const INITIAL_PERATURAN_LIST: PeraturanPerbendaharaanItem[] = [];
+
+export const DUMMY_REGULATION_IDS = new Set<string>([
+  'reg-pmk-62-2023',
+  'reg-pmk-210-2022',
+  'reg-pmk-89-2023',
+  'reg-pmk-109-2023',
+  'reg-pmk-178-2022',
+  'reg-pmk-39-2024',
+  'reg-pmk-49-2023',
+  'reg-pmk-181-2022',
+  'reg-pmk-213-2022',
+  'reg-pmk-119-2023',
+  'reg-per-13-2024',
+  'reg-per-5-2024',
+  'reg-per-1-2023',
+  'reg-per-8-2023',
+  'reg-per-21-2022',
+  'reg-uu-1-2004',
+  'reg-pp-45-2013',
+  'reg-se-35-2023',
+  'reg-pmk-190-2012',
+  'reg-per-5-2022'
+]);
+
+export const SAMPLE_PERATURAN_LIST: PeraturanPerbendaharaanItem[] = [
   {
     id: 'reg-pmk-62-2023',
     nomor: 'PMK No. 62 Tahun 2023',

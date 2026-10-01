@@ -97,7 +97,7 @@ import { UserGreetingBanner } from './components/UserGreetingBanner';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
 import { InternalAppSidebar } from './components/InternalAppSidebar';
-import { INITIAL_SIDEBAR_CONFIG } from './data/initialSidebarData';
+import { INITIAL_SIDEBAR_CONFIG, DUMMY_SIDEBAR_APP_IDS } from './data/initialSidebarData';
 
 import { ToastProvider, useToast } from './components/ToastNotification';
 import { trackPageView } from './utils/trafficTracker';
@@ -381,7 +381,21 @@ export default function App() {
         realisasiAnggaranConfig: savedConfig.realisasiAnggaranConfig
           ? { ...DEFAULT_REALISASI_ANGGARAN_CONFIG, ...savedConfig.realisasiAnggaranConfig }
           : DEFAULT_REALISASI_ANGGARAN_CONFIG,
-        sidebarConfig: savedConfig.sidebarConfig || INITIAL_SIDEBAR_CONFIG
+        sidebarConfig: (() => {
+          const cfg = savedConfig.sidebarConfig;
+          if (!cfg) return INITIAL_SIDEBAR_CONFIG;
+          try {
+            const clearedFlag = localStorage.getItem('kppn_sidebar_dummy_cleared_v1');
+            if (!clearedFlag) {
+              localStorage.setItem('kppn_sidebar_dummy_cleared_v1', 'true');
+              return { ...cfg, items: [] };
+            }
+          } catch {}
+          if (Array.isArray(cfg.items) && cfg.items.every(item => DUMMY_SIDEBAR_APP_IDS.has(item.id))) {
+            return { ...cfg, items: [] };
+          }
+          return cfg;
+        })()
       };
     }
 

@@ -56,7 +56,7 @@ import {
 import { INITIAL_KNOWLEDGE_ITEMS } from '../data/initialKnowledgeData';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../data/initialJuknisData';
 import { INITIAL_URAIAN_SPM_SAKTI_LIST } from '../data/initialUraianSpmData';
-import { INITIAL_PERATURAN_LIST } from '../data/initialPeraturanData';
+import { INITIAL_PERATURAN_LIST, DUMMY_REGULATION_IDS } from '../data/initialPeraturanData';
 import { UraianSpmSaktiView } from './UraianSpmSaktiView';
 import { PeraturanPerbendaharaanTab } from './PeraturanPerbendaharaanTab';
 import { db, doc, onSnapshot, setDoc } from '../lib/firebase';
@@ -100,11 +100,20 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   // Peraturan Perbendaharaan List State (for count badge)
   const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
     if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+        return [];
+      }
       return dashboardConfig.peraturanPerbendaharaanList;
     }
     try {
       const saved = localStorage.getItem('kppn_peraturan_list');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          if (parsed.every(p => DUMMY_REGULATION_IDS.has(p.id))) return [];
+          return parsed;
+        }
+      }
     } catch (e) {
       console.warn(e);
     }
@@ -112,7 +121,11 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   });
 
   useEffect(() => {
-    if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+    if (dashboardConfig?.peraturanPerbendaharaanList) {
+      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+        setPeraturanList([]);
+        return;
+      }
       setPeraturanList(dashboardConfig.peraturanPerbendaharaanList);
     }
   }, [dashboardConfig?.peraturanPerbendaharaanList]);

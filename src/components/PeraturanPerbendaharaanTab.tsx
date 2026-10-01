@@ -51,7 +51,11 @@ import {
   AppUser, 
   NavigationTab 
 } from '../types';
-import { INITIAL_PERATURAN_LIST } from '../data/initialPeraturanData';
+import { 
+  INITIAL_PERATURAN_LIST, 
+  SAMPLE_PERATURAN_LIST, 
+  DUMMY_REGULATION_IDS 
+} from '../data/initialPeraturanData';
 import { safeLocalStorageSet } from '../utils/safeStorage';
 import { useToast } from './ToastNotification';
 import { ModernConfirmModal, ConfirmModalState } from './ModernConfirmModal';
@@ -129,14 +133,43 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
   const isTamu = currentUser?.role === 'tamu';
   const isRealAdmin = isAdminAuthenticated && !isTamu;
 
-  // Local state for regulations list
+  // Local state for regulations list (Initialized empty so user can fill in real regulations)
   const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
+    try {
+      const dummyCleared = localStorage.getItem('kppn_peraturan_dummy_cleared_v3');
+      if (!dummyCleared) {
+        localStorage.setItem('kppn_peraturan_dummy_cleared_v3', 'true');
+        // Clear cached dummy regulations
+        const raw = localStorage.getItem('kppn_peraturan_list');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+            localStorage.removeItem('kppn_peraturan_list');
+            return [];
+          }
+        }
+        localStorage.removeItem('kppn_peraturan_list');
+        return [];
+      }
+    } catch {}
+
     if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+        return [];
+      }
       return dashboardConfig.peraturanPerbendaharaanList;
     }
     try {
       const saved = localStorage.getItem('kppn_peraturan_list');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          if (parsed.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+            return [];
+          }
+          return parsed;
+        }
+      }
     } catch (e) {
       console.warn('Error reading saved regulations:', e);
     }
@@ -145,7 +178,12 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
 
   // Sync with dashboardConfig updates
   useEffect(() => {
-    if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+    if (dashboardConfig?.peraturanPerbendaharaanList) {
+      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
+        // If config has old dummy items, set empty
+        setPeraturanList([]);
+        return;
+      }
       setPeraturanList(dashboardConfig.peraturanPerbendaharaanList);
     }
   }, [dashboardConfig?.peraturanPerbendaharaanList]);
@@ -492,18 +530,39 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
     });
   };
 
-  // Admin: Reset to initial default
-  const handleResetToDefault = () => {
+  // Admin: Kosongkan Seluruh Data Regulasi (Wipe / Clear)
+  const handleClearAllRegulations = () => {
     setConfirmModal({
       isOpen: true,
-      title: 'Reset ke Data Standar',
-      message: 'Apakah Anda ingin mengembalikan seluruh katalog regulasi perbendaharaan ke data default KPPN Semarang I? Data kustom Anda akan ditimpa.',
-      confirmText: 'Ya, Reset',
+      title: 'Kosongkan Seluruh Katalog Regulasi',
+      message: 'Apakah Anda yakin ingin menghapus seluruh data regulasi saat ini? Daftar regulasi akan menjadi kosong sehingga Anda dapat mengisinya sendiri dari awal sesuai regulasi resmi.',
+      confirmText: 'Ya, Kosongkan Semua',
+      cancelText: 'Batal',
+      variant: 'danger',
+      onConfirm: () => {
+        savePeraturanList([]);
+        setSelectedPeraturan(null);
+        showToast('Seluruh data regulasi berhasil dikosongkan. Silakan isi data secara mandiri.', 'info');
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // Admin: Muat Contoh Template Regulasi (Optional)
+  const handleLoadSampleRegulations = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Muat Contoh Regulasi Standar',
+      message: 'Apakah Anda ingin memuat contoh regulasi perbendaharaan standar (PMK dan PER-DJPb) sebagai referensi? Anda tetap dapat mengedit atau menghapusnya kapan saja.',
+      confirmText: 'Ya, Muat Contoh',
       cancelText: 'Batal',
       variant: 'warning',
       onConfirm: () => {
-        savePeraturanList(INITIAL_PERATURAN_LIST);
-        showToast('Data regulasi berhasil dikembalikan ke standar awal.', 'success');
+        savePeraturanList(SAMPLE_PERATURAN_LIST);
+        if (SAMPLE_PERATURAN_LIST.length > 0) {
+          setSelectedPeraturan(SAMPLE_PERATURAN_LIST[0]);
+        }
+        showToast('Contoh regulasi perbendaharaan berhasil dimuat.', 'success');
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -688,20 +747,31 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleOpenCreateModal}
-              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Tambah Baru</span>
             </button>
+            {peraturanList.length > 0 && (
+              <button
+                onClick={handleClearAllRegulations}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/80 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 font-black text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Kosongkan seluruh data regulasi agar Anda dapat mengisinya sendiri"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Kosongkan Semua Data</span>
+              </button>
+            )}
             <button
-              onClick={handleResetToDefault}
+              onClick={handleLoadSampleRegulations}
               className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Muat contoh regulasi standar PMK & PER sebagai referensi"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Standar</span>
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Muat Contoh</span>
             </button>
           </div>
         </div>
@@ -858,7 +928,33 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
 
             {/* Items List (Cards with Active Selection & Instant Preview Button) */}
             <div className="space-y-3">
-              {paginatedList.length === 0 ? (
+              {peraturanList.length === 0 ? (
+                <div className={`p-8 sm:p-10 rounded-3xl border text-center space-y-3 shadow-xs ${
+                  isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
+                }`}>
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 w-fit mx-auto">
+                    <Scale className="w-10 h-10" />
+                  </div>
+                  <h4 className="font-black text-base text-slate-900 dark:text-white">
+                    Katalog Regulasi Masih Kosong
+                  </h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                    Data dummy telah dinonaktifkan agar Anda dapat mengisi regulasi resmi secara mandiri.
+                  </p>
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                    {isRealAdmin && (
+                      <button
+                        type="button"
+                        onClick={handleOpenCreateModal}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center gap-1.5 shadow-md cursor-pointer transition-transform active:scale-95"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tambah Regulasi Sekarang</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : paginatedList.length === 0 ? (
                 <div className={`p-8 rounded-2xl border text-center space-y-2 ${
                   isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-200 text-slate-600'
                 }`}>
@@ -1558,16 +1654,32 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
 
               </div>
             ) : (
-              <div className={`p-12 rounded-3xl border text-center space-y-3 ${
+              <div className={`p-10 sm:p-14 rounded-3xl border text-center space-y-3 shadow-xs ${
                 isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-300 text-slate-500'
               }`}>
-                <FileText className="w-12 h-12 mx-auto text-slate-400 opacity-60" />
+                <div className="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 w-fit mx-auto">
+                  <FileText className="w-10 h-10 opacity-70" />
+                </div>
                 <h4 className="font-black text-base text-slate-800 dark:text-slate-200">
-                  Pilih Regulasi untuk Menampilkan Pratinjau
+                  {peraturanList.length === 0 ? 'Ruang Pratinjau Dokumen Siap Digunakan' : 'Pilih Regulasi untuk Menampilkan Pratinjau'}
                 </h4>
                 <p className="text-xs max-w-sm mx-auto leading-relaxed">
-                  Pilih salah satu peraturan di kolom kiri untuk membaca naskah resmi PDF, ringkasan pokok, dan implikasi SAKTI secara langsung.
+                  {peraturanList.length === 0
+                    ? 'Setelah Anda menambahkan regulasi baru, dokumen PDF dan lembar ringkasannya akan langsung muncul di panel ini (seperti fitur Pengumuman).'
+                    : 'Pilih salah satu peraturan di kolom kiri untuk membaca naskah resmi PDF, ringkasan pokok, dan implikasi SAKTI secara langsung.'}
                 </p>
+                {peraturanList.length === 0 && isRealAdmin && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenCreateModal}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black inline-flex items-center gap-1.5 shadow-md cursor-pointer transition-transform active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>+ Tambah Regulasi Pertama</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1647,82 +1759,112 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {sortedList.map((item) => (
-              <div
-                key={item.id}
-                className={`p-5 rounded-3xl border transition-all flex flex-col justify-between space-y-4 hover:shadow-lg relative overflow-hidden ${
-                  isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-300 hover:border-slate-400'
-                }`}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${getCategoryBadgeClass(item.kategori)}`}>
-                      {item.kategori}
-                    </span>
-                    {getStatusBadge(item.status)}
-                  </div>
-
-                  <h3 className={`text-base font-black leading-snug ${isDark ? 'text-white' : 'text-slate-950'}`}>
-                    {item.nomor}
-                  </h3>
-
-                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
-                    {item.judul}
-                  </p>
-
-                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed font-medium">
-                    {item.ringkasan}
-                  </p>
-
-                  {/* Topics */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    {(item.topik || []).slice(0, 3).map(t => (
-                      <span key={t} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        #{t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Footer Buttons */}
-                <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-2">
+          {sortedList.length === 0 ? (
+            <div className={`p-10 sm:p-14 rounded-3xl border text-center space-y-3 shadow-xs ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
+            }`}>
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 w-fit mx-auto">
+                <Scale className="w-10 h-10" />
+              </div>
+              <h4 className="font-black text-base text-slate-900 dark:text-white">
+                {peraturanList.length === 0 ? 'Katalog Regulasi Masih Kosong' : 'Tidak Ada Regulasi yang Sesuai Filter'}
+              </h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto leading-relaxed">
+                {peraturanList.length === 0
+                  ? 'Data dummy telah dinonaktifkan agar Anda dapat mengisi regulasi resmi secara mandiri.'
+                  : 'Coba ubah kata kunci pencarian atau bersihkan filter di atas.'}
+              </p>
+              {peraturanList.length === 0 && isRealAdmin && (
+                <div className="pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedPeraturan(item);
-                      setDisplayLayout('split');
-                      setActivePreviewSubTab('dokumen');
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    onClick={handleOpenCreateModal}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black inline-flex items-center gap-1.5 shadow-md cursor-pointer transition-transform active:scale-95"
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>Preview Satker</span>
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Regulasi Sekarang</span>
                   </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {sortedList.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-5 rounded-3xl border transition-all flex flex-col justify-between space-y-4 hover:shadow-lg relative overflow-hidden ${
+                    isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-300 hover:border-slate-400'
+                  }`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${getCategoryBadgeClass(item.kategori)}`}>
+                        {item.kategori}
+                      </span>
+                      {getStatusBadge(item.status)}
+                    </div>
 
-                  <div className="flex items-center gap-1.5">
+                    <h3 className={`text-base font-black leading-snug ${isDark ? 'text-white' : 'text-slate-950'}`}>
+                      {item.nomor}
+                    </h3>
+
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
+                      {item.judul}
+                    </p>
+
+                    <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3 leading-relaxed font-medium">
+                      {item.ringkasan}
+                    </p>
+
+                    {/* Topics */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      {(item.topik || []).slice(0, 3).map(t => (
+                        <span key={t} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Footer Buttons */}
+                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-2">
                     <button
                       type="button"
-                      onClick={(e) => handleCopyCitation(item, e)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
-                      title="Salin Dasar Hukum"
+                      onClick={() => {
+                        setSelectedPeraturan(item);
+                        setDisplayLayout('split');
+                        setActivePreviewSubTab('dokumen');
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
-                      {copiedId === item.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Satker</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={(e) => handleDownloadPdf(item, e)}
-                      className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
-                      title="Unduh PDF"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyCitation(item, e)}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                        title="Salin Dasar Hukum"
+                      >
+                        {copiedId === item.id ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => handleDownloadPdf(item, e)}
+                        className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors"
+                        title="Unduh PDF"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

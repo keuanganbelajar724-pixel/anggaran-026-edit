@@ -620,7 +620,32 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
 
         {/* Menu Items List */}
         <div className="flex-1 overflow-y-auto p-3.5 space-y-2.5">
-          {filteredItems.length === 0 ? (
+          {activeItems.length === 0 ? (
+            <div className="py-14 px-6 text-center text-slate-400 space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+                <Layers className="w-6 h-6 opacity-70" />
+              </div>
+              <h4 className="text-sm font-black text-white">Belum Ada Aplikasi Ditambahkan</h4>
+              <p className="text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                Daftar pintasan aplikasi KPPN saat ini kosong. Anda dapat mengisi aplikasi resmi secara mandiri sesuai kebutuhan satker.
+              </p>
+              {isAdminAuthenticated && onOpenSettings && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      onOpenSettings();
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-black text-xs inline-flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                    <span>+ Kelola &amp; Tambah Aplikasi</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : filteredItems.length === 0 ? (
             <div className="py-12 text-center text-slate-400 space-y-2">
               <Layers className="w-10 h-10 mx-auto text-slate-600 opacity-60" />
               <p className="text-xs font-bold text-slate-300">Aplikasi tidak ditemukan</p>
