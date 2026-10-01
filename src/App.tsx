@@ -85,7 +85,6 @@ import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
 import { PengetahuanSaktiView } from './components/PengetahuanSaktiView';
-import { PeraturanPerbendaharaanTab } from './components/PeraturanPerbendaharaanTab';
 import { QuizCatView } from './components/quiz/QuizCatView';
 import { LaporAduanView } from './components/LaporAduanView';
 import { AdminUpload } from './components/AdminUpload';
@@ -1152,7 +1151,6 @@ export default function App() {
           'portal-link',
           'announcements',
           'pengetahuan',
-          'peraturan-perbendaharaan',
           'quiz-cat',
           'presensi',
           'monitoring-haicso',
@@ -3529,7 +3527,6 @@ export default function App() {
                       'portal-link',
                       'announcements',
                       'pengetahuan',
-                      'peraturan-perbendaharaan',
                       'quiz-cat',
                       'presensi',
                       'pendaftaran-user-sakti',
@@ -4125,28 +4122,36 @@ export default function App() {
                 />
               )}
 
-              {/* Tab Pusat Pengetahuan & Juknis SAKTI */}
+              {/* Tab Pusat Pengetahuan & Juknis SAKTI (Termasuk Sub-Tab Peraturan Perbendaharaan) */}
               {activeTab === 'pengetahuan' && (
                 <PengetahuanSaktiView
                   isAdminAuthenticated={isAdminAuthenticated}
                   onAuthenticateAdmin={handleAuthenticateAdmin}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  currentUser={currentUser}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
                   onNavigateToAdminTab={() => {
                     setActiveTab('admin');
                   }}
                 />
               )}
 
-              {/* Tab Peraturan Perbendaharaan & Keuangan Negara */}
+              {/* Redirection / Legacy Support for Tab Peraturan Perbendaharaan -> Juknis & Pengetahuan */}
               {activeTab === 'peraturan-perbendaharaan' && (
-                <PeraturanPerbendaharaanTab
+                <PengetahuanSaktiView
                   isAdminAuthenticated={isAdminAuthenticated}
-                  currentUser={currentUser}
+                  onAuthenticateAdmin={handleAuthenticateAdmin}
                   theme={theme}
                   dashboardConfig={dashboardConfig}
+                  currentUser={currentUser}
                   onUpdateDashboardConfig={handleUpdateDashboardConfig}
                   onNavigateTab={(tab) => setActiveTab(tab)}
+                  initialSubTab="peraturan"
+                  onNavigateToAdminTab={() => {
+                    setActiveTab('admin');
+                  }}
                 />
               )}
 

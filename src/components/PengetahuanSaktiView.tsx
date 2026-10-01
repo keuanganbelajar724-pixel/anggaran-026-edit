@@ -71,6 +71,7 @@ interface PengetahuanSaktiViewProps {
   currentUser?: AppUser | null;
   onUpdateDashboardConfig?: (newConfig: DashboardConfig) => void;
   onNavigateTab?: (tab: NavigationTab) => void;
+  initialSubTab?: 'tabel_juknis' | 'artikel_panduan' | 'spm_format' | 'peraturan';
 }
 
 export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
@@ -81,13 +82,20 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   onNavigateToAdminTab,
   currentUser,
   onUpdateDashboardConfig,
-  onNavigateTab
+  onNavigateTab,
+  initialSubTab
 }) => {
   const isDark = theme === 'dark';
   const { showToast } = useToast();
 
   // Active Public View Mode: 'tabel_juknis' vs 'artikel_panduan' vs 'spm_format' vs 'peraturan'
-  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format' | 'peraturan'>('tabel_juknis');
+  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format' | 'peraturan'>(initialSubTab || 'tabel_juknis');
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveViewMode(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   // Peraturan Perbendaharaan List State (for count badge)
   const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
@@ -698,11 +706,28 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
               </button>
             )}
 
+            {realtimeVisibility.showPeraturan !== false && (
+              <button
+                onClick={() => setActiveViewMode('peraturan')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer ${
+                  activeViewMode === 'peraturan'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700'
+                }`}
+              >
+                <Scale className="w-4 h-4 text-emerald-300" />
+                <span>4. Peraturan Perbendaharaan (PMK, PER-DJPb, PP/UU)</span>
+                <span className="bg-white/20 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+                  {peraturanList.length}
+                </span>
+              </button>
+            )}
+
             {/* Single View Indicator if only 1 tab is visible */}
             {Object.values(realtimeVisibility).filter(Boolean).length === 1 && (
               <div className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-400/30 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Mode Tampilan Dikonfigurasi Admin: <b>{activeViewMode === 'tabel_juknis' ? 'Format & Juknis' : activeViewMode === 'artikel_panduan' ? 'Artikel Edukasi' : 'Format Uraian SPM'}</b></span>
+                <span>Mode Tampilan Dikonfigurasi Admin: <b>{activeViewMode === 'tabel_juknis' ? 'Format & Juknis' : activeViewMode === 'artikel_panduan' ? 'Artikel Edukasi' : activeViewMode === 'spm_format' ? 'Format Uraian SPM' : 'Peraturan Perbendaharaan'}</b></span>
               </div>
             )}
           </div>
@@ -1288,6 +1313,20 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
           isAdmin={false}
           theme={theme}
           uraianList={spmList}
+        />
+      )}
+
+      {/* =========================================================================
+          VIEW MODE 4: PERATURAN PERBENDAHARAAN TERKINI (PMK, PER-DJPB, PP/UU) (DASHBOARD PUBLIK & PREVIEW SATKER)
+          ========================================================================= */}
+      {activeViewMode === 'peraturan' && (
+        <PeraturanPerbendaharaanTab
+          isAdminAuthenticated={isAdminAuthenticated}
+          currentUser={currentUser}
+          theme={theme}
+          dashboardConfig={dashboardConfig}
+          onUpdateDashboardConfig={onUpdateDashboardConfig}
+          onNavigateTab={onNavigateTab}
         />
       )}
 
