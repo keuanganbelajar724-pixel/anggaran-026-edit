@@ -33,7 +33,8 @@ import {
   Square,
   Upload,
   ArrowUpDown,
-  Pin
+  Pin,
+  Scale
 } from 'lucide-react';
 import {
   JuknisBlangkoItem,
@@ -43,12 +44,15 @@ import {
   AppTheme,
   DashboardConfig,
   UraianSpmSaktiItem,
-  JuknisSubTabVisibility
+  JuknisSubTabVisibility,
+  PeraturanPerbendaharaanItem
 } from '../../types';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../../data/initialJuknisData';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../../data/initialKnowledgeData';
 import { INITIAL_URAIAN_SPM_SAKTI_LIST } from '../../data/initialUraianSpmData';
+import { INITIAL_PERATURAN_LIST } from '../../data/initialPeraturanData';
 import { UraianSpmSaktiView } from '../UraianSpmSaktiView';
+import { PeraturanPerbendaharaanTab } from '../PeraturanPerbendaharaanTab';
 import { ModernConfirmModal, ConfirmModalState } from '../ModernConfirmModal';
 import { useToast } from '../ToastNotification';
 import { db, doc, onSnapshot, setDoc } from '../../lib/firebase';
@@ -69,8 +73,28 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
   const isDark = theme === 'dark';
   const { showToast } = useToast();
 
-  // Active Admin Sub-Tab: 'juknis_table' (Direktori Blangko & Juknis) vs 'knowledge_articles' (Artikel & Petunjuk Interaktif) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
-  const [activeSubTab, setActiveSubTab] = useState<'juknis_table' | 'knowledge_articles' | 'spm_format'>('juknis_table');
+  // Active Admin Sub-Tab: 'juknis_table' vs 'knowledge_articles' vs 'spm_format' vs 'peraturan'
+  const [activeSubTab, setActiveSubTab] = useState<'juknis_table' | 'knowledge_articles' | 'spm_format' | 'peraturan'>('juknis_table');
+
+  // Peraturan Perbendaharaan List State
+  const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
+    if (dashboardConfig.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      return dashboardConfig.peraturanPerbendaharaanList;
+    }
+    try {
+      const saved = localStorage.getItem('kppn_peraturan_list');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn(e);
+    }
+    return INITIAL_PERATURAN_LIST;
+  });
+
+  useEffect(() => {
+    if (dashboardConfig.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      setPeraturanList(dashboardConfig.peraturanPerbendaharaanList);
+    }
+  }, [dashboardConfig.peraturanPerbendaharaanList]);
 
   // =========================================================================
   // SUB-TAB VISIBILITY DI DASHBOARD SATKER (JUKNIS & PENGETAHUAN PERBENDAHARAAN)
@@ -78,7 +102,8 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
   const subTabVisibility: JuknisSubTabVisibility = dashboardConfig.juknisSubTabVisibility || {
     showFormatJuknis: true,
     showArtikelPanduan: true,
-    showUraianSpm: true
+    showUraianSpm: true,
+    showPeraturan: true
   };
 
   const handleUpdateVisibility = (newVis: JuknisSubTabVisibility, alertMsg?: string) => {
@@ -125,25 +150,34 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
       ...subTabVisibility,
       [key]: nextVal
     };
-    const tabName = key === 'showFormatJuknis' ? 'Format & Juknis' : key === 'showArtikelPanduan' ? 'Artikel Edukasi' : 'Format Uraian SPM';
+    const tabName = key === 'showFormatJuknis' 
+      ? 'Format & Juknis' 
+      : key === 'showArtikelPanduan' 
+        ? 'Artikel Edukasi' 
+        : key === 'showUraianSpm' 
+          ? 'Format Uraian SPM' 
+          : 'Peraturan Perbendaharaan';
     handleUpdateVisibility(newVis, `Sub-tab "${tabName}" sekarang ${nextVal ? 'DITAMPILKAN' : 'DISEMBUNYIKAN'} di dashboard satker.`);
   };
 
-  const handleSetPresetVisibility = (preset: 'all' | 'juknis_only' | 'artikel_only' | 'spm_only') => {
+  const handleSetPresetVisibility = (preset: 'all' | 'juknis_only' | 'artikel_only' | 'spm_only' | 'peraturan_only') => {
     let newVis: JuknisSubTabVisibility;
     let desc = '';
     if (preset === 'all') {
-      newVis = { showFormatJuknis: true, showArtikelPanduan: true, showUraianSpm: true };
-      desc = 'Ketiga sub-tab (Format/Juknis, Artikel Edukasi, dan Format SPM) sekarang DITAMPILKAN di dashboard satker.';
+      newVis = { showFormatJuknis: true, showArtikelPanduan: true, showUraianSpm: true, showPeraturan: true };
+      desc = 'Seluruh 4 sub-tab (Format/Juknis, Artikel Edukasi, Format SPM, dan Peraturan Perbendaharaan) sekarang DITAMPILKAN di dashboard satker.';
     } else if (preset === 'juknis_only') {
-      newVis = { showFormatJuknis: true, showArtikelPanduan: false, showUraianSpm: false };
+      newVis = { showFormatJuknis: true, showArtikelPanduan: false, showUraianSpm: false, showPeraturan: false };
       desc = 'Hanya sub-tab "1. Direktori Format & Juknis" yang DITAMPILKAN ke satker.';
     } else if (preset === 'artikel_only') {
-      newVis = { showFormatJuknis: false, showArtikelPanduan: true, showUraianSpm: false };
+      newVis = { showFormatJuknis: false, showArtikelPanduan: true, showUraianSpm: false, showPeraturan: false };
       desc = 'Hanya sub-tab "2. Artikel & Petunjuk Interaktif" yang DITAMPILKAN ke satker.';
-    } else {
-      newVis = { showFormatJuknis: false, showArtikelPanduan: false, showUraianSpm: true };
+    } else if (preset === 'spm_only') {
+      newVis = { showFormatJuknis: false, showArtikelPanduan: false, showUraianSpm: true, showPeraturan: false };
       desc = 'Hanya sub-tab "3. Format Uraian SPM & Dokumen Pendukung" yang DITAMPILKAN ke satker.';
+    } else {
+      newVis = { showFormatJuknis: false, showArtikelPanduan: false, showUraianSpm: false, showPeraturan: true };
+      desc = 'Hanya sub-tab "4. Peraturan Perbendaharaan" yang DITAMPILKAN ke satker.';
     }
     handleUpdateVisibility(newVis, desc);
   };
@@ -774,6 +808,14 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
                 Format SPM
               </span>
             </div>
+            <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-center min-w-[100px]">
+              <span className="text-xl font-black text-amber-300 font-mono block">
+                {peraturanList.length}
+              </span>
+              <span className="text-[10px] uppercase font-bold text-slate-200">
+                Peraturan
+              </span>
+            </div>
           </div>
         </div>
 
@@ -850,6 +892,30 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
               </span>
             )}
           </button>
+
+          <button
+            onClick={() => setActiveSubTab('peraturan')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs sm:text-sm transition-all cursor-pointer border ${
+              activeSubTab === 'peraturan'
+                ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-white shadow-lg shadow-emerald-500/30 border-emerald-300 ring-2 ring-emerald-400/50 scale-[1.02]'
+                : 'bg-white/10 text-white border-white/15 hover:bg-white/20 hover:border-white/30'
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+            <span>4. Peraturan Perbendaharaan (PMK, PER-DJPb, PP/UU)</span>
+            <span className="bg-slate-950/80 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full font-mono font-bold">
+              {peraturanList.length}
+            </span>
+            {subTabVisibility.showPeraturan !== false ? (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 border border-emerald-400/40">
+                Tampil di Satker
+              </span>
+            ) : (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/30 text-rose-200 border border-rose-400/40 line-through">
+                Tersembunyi
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -888,7 +954,7 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
               className="px-3 py-1.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-all cursor-pointer flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Tampilkan Semua (3 Tab)</span>
+              <span>Tampilkan Semua (4 Tab)</span>
             </button>
             <button
               onClick={() => handleSetPresetVisibility('juknis_only')}
@@ -908,11 +974,17 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             >
               Hanya Format SPM
             </button>
+            <button
+              onClick={() => handleSetPresetVisibility('peraturan_only')}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 shadow-xs transition-all cursor-pointer"
+            >
+              Hanya Peraturan
+            </button>
           </div>
         </div>
 
-        {/* 3 Interactive Toggle Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+        {/* 4 Interactive Toggle Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4">
           
           {/* Card 1: Format & Juknis Resmi */}
           <div className={`p-4 rounded-2xl border transition-all relative ${
@@ -1106,6 +1178,70 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
             </div>
           </div>
 
+          {/* Card 4: Peraturan Perbendaharaan Terkini */}
+          <div className={`p-4 rounded-2xl border transition-all relative ${
+            subTabVisibility.showPeraturan !== false
+              ? 'bg-emerald-500/10 border-emerald-400 dark:border-emerald-500/70 shadow-md shadow-emerald-500/10'
+              : 'bg-slate-100 dark:bg-slate-900/60 border-slate-300 dark:border-slate-800 opacity-60'
+          }`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className={`p-2.5 rounded-xl ${
+                  subTabVisibility.showPeraturan !== false
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-slate-300 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                }`}>
+                  <Scale className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-mono font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                      Sub-Tab #4
+                    </span>
+                    <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 font-mono">
+                      {peraturanList.length} Aturan
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                    Peraturan Perbendaharaan
+                  </h4>
+                </div>
+              </div>
+
+              {/* Toggle Button */}
+              <button
+                onClick={() => handleToggleSubTab('showPeraturan')}
+                className={`p-2 rounded-xl transition-all cursor-pointer flex items-center gap-1 text-xs font-black shadow-xs ${
+                  subTabVisibility.showPeraturan !== false
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                }`}
+                title="Klik untuk mengubah status tampil ke satker"
+              >
+                {subTabVisibility.showPeraturan !== false ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    <span>Aktif</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-4 h-4 text-slate-500" />
+                    <span>Mati</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-2.5 leading-relaxed font-medium">
+              Direktori regulasi keuangan negara &amp; perbendaharaan terkini (PMK, PER-DJPb, PP, UU, SBM, juknis LLAT) dengan ringkasan &amp; preview satker.
+            </p>
+            <div className="mt-3 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+              <span className="text-slate-500 font-medium">Status Satker:</span>
+              <span className={`font-black ${subTabVisibility.showPeraturan !== false ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                {subTabVisibility.showPeraturan !== false ? '✅ Terlihat oleh Satker' : '❌ Disembunyikan'}
+              </span>
+            </div>
+          </div>
+
         </div>
 
         {/* Live Summary Bar */}
@@ -1113,11 +1249,11 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-500 dark:text-slate-400">Ringkasan Tampilan Satker Saat Ini:</span>
             <span className="font-extrabold text-blue-600 dark:text-cyan-400">
-              {Object.values(subTabVisibility).filter(Boolean).length === 3 
-                ? 'Semua 3 Sub-Tab Aktif' 
+              {Object.values(subTabVisibility).filter(Boolean).length === 4 
+                ? 'Semua 4 Sub-Tab DITAMPILKAN' 
                 : Object.values(subTabVisibility).filter(Boolean).length === 1
-                ? `Hanya 1 Sub-Tab Aktif (${subTabVisibility.showFormatJuknis ? 'Format & Juknis' : subTabVisibility.showArtikelPanduan ? 'Artikel Edukasi' : 'Format Uraian SPM'})`
-                : '2 Sub-Tab Aktif'}
+                ? `Hanya 1 Sub-Tab Aktif (${subTabVisibility.showFormatJuknis ? 'Format & Juknis' : subTabVisibility.showArtikelPanduan ? 'Artikel Edukasi' : subTabVisibility.showUraianSpm ? 'Format Uraian SPM' : 'Peraturan Perbendaharaan'})`
+                : `${Object.values(subTabVisibility).filter(Boolean).length} Sub-Tab Aktif`}
             </span>
           </div>
           <div className="text-[11px] text-slate-500 dark:text-slate-400 italic">
@@ -1766,6 +1902,18 @@ export const KelolaPengetahuanJuknisSection: React.FC<KelolaPengetahuanJuknisSec
           onResetPreset={() => {
             saveSpmList(INITIAL_URAIAN_SPM_SAKTI_LIST, 'Acuan standar baku uraian SPM resmi DJPb berhasil dimuat.');
           }}
+        />
+      )}
+
+      {/* =========================================================================
+          TAB 4: PERATURAN PERBENDAHARAAN TERKINI (PMK, PER-DJPB, PP/UU, SE) (ADMIN VIEW)
+          ========================================================================= */}
+      {activeSubTab === 'peraturan' && (
+        <PeraturanPerbendaharaanTab
+          isAdminAuthenticated={isAdminAuthenticated}
+          theme={theme}
+          dashboardConfig={dashboardConfig}
+          onUpdateDashboardConfig={onUpdateDashboardConfig}
         />
       )}
 

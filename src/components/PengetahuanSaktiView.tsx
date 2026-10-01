@@ -37,7 +37,8 @@ import {
   FolderArchive,
   Sliders,
   Eye,
-  EyeOff
+  EyeOff,
+  Scale
 } from 'lucide-react';
 import { 
   KnowledgeItem, 
@@ -47,12 +48,17 @@ import {
   DashboardConfig, 
   JuknisBlangkoItem,
   UraianSpmSaktiItem,
-  JuknisSubTabVisibility
+  JuknisSubTabVisibility,
+  PeraturanPerbendaharaanItem,
+  AppUser,
+  NavigationTab
 } from '../types';
 import { INITIAL_KNOWLEDGE_ITEMS } from '../data/initialKnowledgeData';
 import { INITIAL_JUKNIS_BLANGKO_LIST, JUKNIS_APPLICATION_CATEGORIES } from '../data/initialJuknisData';
 import { INITIAL_URAIAN_SPM_SAKTI_LIST } from '../data/initialUraianSpmData';
+import { INITIAL_PERATURAN_LIST } from '../data/initialPeraturanData';
 import { UraianSpmSaktiView } from './UraianSpmSaktiView';
+import { PeraturanPerbendaharaanTab } from './PeraturanPerbendaharaanTab';
 import { db, doc, onSnapshot, setDoc } from '../lib/firebase';
 import { PaginationControl } from './PaginationControl';
 
@@ -62,6 +68,9 @@ interface PengetahuanSaktiViewProps {
   theme: AppTheme;
   dashboardConfig?: DashboardConfig;
   onNavigateToAdminTab?: (tabKey: string) => void;
+  currentUser?: AppUser | null;
+  onUpdateDashboardConfig?: (newConfig: DashboardConfig) => void;
+  onNavigateTab?: (tab: NavigationTab) => void;
 }
 
 export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
@@ -69,13 +78,36 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
   onAuthenticateAdmin,
   theme,
   dashboardConfig,
-  onNavigateToAdminTab
+  onNavigateToAdminTab,
+  currentUser,
+  onUpdateDashboardConfig,
+  onNavigateTab
 }) => {
   const isDark = theme === 'dark';
   const { showToast } = useToast();
 
-  // Active Public View Mode: 'tabel_juknis' (Direktori Tabel Format/Blangko Kemenkeu) vs 'artikel_panduan' (Panduan Interaktif & Video) vs 'spm_format' (Format Uraian SPM & Dokumen Pendukung)
-  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format'>('tabel_juknis');
+  // Active Public View Mode: 'tabel_juknis' vs 'artikel_panduan' vs 'spm_format' vs 'peraturan'
+  const [activeViewMode, setActiveViewMode] = useState<'tabel_juknis' | 'artikel_panduan' | 'spm_format' | 'peraturan'>('tabel_juknis');
+
+  // Peraturan Perbendaharaan List State (for count badge)
+  const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
+    if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      return dashboardConfig.peraturanPerbendaharaanList;
+    }
+    try {
+      const saved = localStorage.getItem('kppn_peraturan_list');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn(e);
+    }
+    return INITIAL_PERATURAN_LIST;
+  });
+
+  useEffect(() => {
+    if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
+      setPeraturanList(dashboardConfig.peraturanPerbendaharaanList);
+    }
+  }, [dashboardConfig?.peraturanPerbendaharaanList]);
 
   // =========================================================================
   // SUB-TAB VISIBILITY DI DASHBOARD SATKER (REALTIME SYNC)
@@ -93,7 +125,8 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
     return {
       showFormatJuknis: true,
       showArtikelPanduan: true,
-      showUraianSpm: true
+      showUraianSpm: true,
+      showPeraturan: true
     };
   });
 
@@ -126,16 +159,24 @@ export const PengetahuanSaktiView: React.FC<PengetahuanSaktiViewProps> = ({
     const isJuknisEnabled = realtimeVisibility.showFormatJuknis !== false;
     const isArtikelEnabled = realtimeVisibility.showArtikelPanduan !== false;
     const isSpmEnabled = realtimeVisibility.showUraianSpm !== false;
+    const isPeraturanEnabled = realtimeVisibility.showPeraturan !== false;
 
     if (activeViewMode === 'tabel_juknis' && !isJuknisEnabled) {
       if (isArtikelEnabled) setActiveViewMode('artikel_panduan');
       else if (isSpmEnabled) setActiveViewMode('spm_format');
+      else if (isPeraturanEnabled) setActiveViewMode('peraturan');
     } else if (activeViewMode === 'artikel_panduan' && !isArtikelEnabled) {
       if (isJuknisEnabled) setActiveViewMode('tabel_juknis');
       else if (isSpmEnabled) setActiveViewMode('spm_format');
+      else if (isPeraturanEnabled) setActiveViewMode('peraturan');
     } else if (activeViewMode === 'spm_format' && !isSpmEnabled) {
       if (isJuknisEnabled) setActiveViewMode('tabel_juknis');
       else if (isArtikelEnabled) setActiveViewMode('artikel_panduan');
+      else if (isPeraturanEnabled) setActiveViewMode('peraturan');
+    } else if (activeViewMode === 'peraturan' && !isPeraturanEnabled) {
+      if (isJuknisEnabled) setActiveViewMode('tabel_juknis');
+      else if (isArtikelEnabled) setActiveViewMode('artikel_panduan');
+      else if (isSpmEnabled) setActiveViewMode('spm_format');
     }
   }, [realtimeVisibility, activeViewMode]);
 

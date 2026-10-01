@@ -43,7 +43,8 @@ import {
   Ticket,
   Crown,
   Check,
-  LayoutGrid
+  LayoutGrid,
+  Scale
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';

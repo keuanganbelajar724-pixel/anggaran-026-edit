@@ -85,6 +85,7 @@ import { RedFlagsView } from './components/RedFlagsView';
 import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
 import { PengetahuanSaktiView } from './components/PengetahuanSaktiView';
+import { PeraturanPerbendaharaanTab } from './components/PeraturanPerbendaharaanTab';
 import { QuizCatView } from './components/quiz/QuizCatView';
 import { LaporAduanView } from './components/LaporAduanView';
 import { AdminUpload } from './components/AdminUpload';
@@ -188,6 +189,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'sertifikasi': true,
   'per5-analisis': true,
   'pengetahuan': true,
+  'peraturan-perbendaharaan': true,
   'quiz-cat': true,
   'announcements': true,
   'materi-slide': true,
@@ -448,6 +450,7 @@ export default function App() {
       pengetahuan: '07 Agustus 2026',
       announcements: '07 Agustus 2026',
       aduan: '07 Agustus 2026',
+      peraturan: '07 Agustus 2026',
       gajiInduk: '07 Agustus 2026 - 09:00 WIB'
     },
     customTexts: {
@@ -1149,6 +1152,7 @@ export default function App() {
           'portal-link',
           'announcements',
           'pengetahuan',
+          'peraturan-perbendaharaan',
           'quiz-cat',
           'presensi',
           'monitoring-haicso',
@@ -3525,6 +3529,7 @@ export default function App() {
                       'portal-link',
                       'announcements',
                       'pengetahuan',
+                      'peraturan-perbendaharaan',
                       'quiz-cat',
                       'presensi',
                       'pendaftaran-user-sakti',
@@ -4130,6 +4135,18 @@ export default function App() {
                   onNavigateToAdminTab={() => {
                     setActiveTab('admin');
                   }}
+                />
+              )}
+
+              {/* Tab Peraturan Perbendaharaan & Keuangan Negara */}
+              {activeTab === 'peraturan-perbendaharaan' && (
+                <PeraturanPerbendaharaanTab
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  theme={theme}
+                  dashboardConfig={dashboardConfig}
+                  onUpdateDashboardConfig={handleUpdateDashboardConfig}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
                 />
               )}
 

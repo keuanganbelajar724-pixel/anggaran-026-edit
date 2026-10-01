@@ -768,6 +768,36 @@ export interface SocializationLink {
   clickCount?: number;
 }
 
+export type KategoriPeraturan = 'PMK' | 'PER-DJPb' | 'PP / UU' | 'KEP / SE' | 'JUKNIS';
+export type StatusPeraturan = 'Berlaku' | 'Mengubah' | 'Dicabut';
+
+export interface PeraturanPerbendaharaanItem {
+  id: string;
+  nomor: string;                // e.g. "PMK No. 62 Tahun 2023"
+  tahun: number;                // e.g. 2023
+  judul: string;                // Judul lengkap peraturan
+  kategori: KategoriPeraturan;  // PMK, PER-DJPb, PP / UU, KEP / SE, JUKNIS
+  topik: string[];              // ['IKPA', 'Perencanaan & Pelaksanaan Anggaran']
+  tanggalDitetapkan?: string;   // e.g. "2023-06-12"
+  tanggalBerlaku?: string;      // e.g. "2023-06-12"
+  status: StatusPeraturan;      // 'Berlaku' | 'Mengubah' | 'Dicabut'
+  keteranganStatus?: string;    // e.g. "Mencabut PMK 190/PMK.05/2012"
+  ringkasan: string;            // Ringkasan eksekutif
+  poinPenting: string[];        // 3-6 Poin implementasi krusial bagi Satker
+  fileUrl?: string;             // URL download PDF dokumen
+  jdihUrl?: string;             // URL resmi JDIH Kemenkeu
+  penyusun?: string;            // e.g. "Kementerian Keuangan RI / Ditjen Perbendaharaan"
+  isFeatured?: boolean;         // Pin / highlight regulasi utama
+  palingSeringDicari?: boolean; // Label populer
+  implikasiSatker?: {
+    kpa?: string;
+    ppk?: string;
+    ppspm?: string;
+    bendahara?: string;
+  };
+  saktiModulTerkait?: string[]; // e.g. ['Pembayaran', 'Komitmen', 'Bendahara', 'Pelaporan']
+}
+
 export interface KegiatanSosialisasi {
   id: string;
   judulKegiatan: string;
@@ -1111,6 +1141,7 @@ export interface MenuVisibilityConfig {
   'gaji-induk'?: boolean;
   'monitoring-haicso'?: boolean;
   'kontrak'?: boolean;
+  'peraturan-perbendaharaan'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1451,6 +1482,7 @@ export interface DashboardConfig {
     lpj?: string;
     gajiInduk?: string;
     haicso?: string;
+    peraturan?: string;
   };
   customTexts?: DashboardCustomTexts;
   historicalUploads?: ExcelUploadHistory[];
@@ -1491,6 +1523,7 @@ export interface DashboardConfig {
   juknisBlangkoList?: JuknisBlangkoItem[];
   knowledgeItems?: KnowledgeItem[];
   uraianSpmList?: UraianSpmSaktiItem[];
+  peraturanPerbendaharaanList?: PeraturanPerbendaharaanItem[];
   juknisSubTabVisibility?: JuknisSubTabVisibility;
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
   perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
@@ -1501,6 +1534,7 @@ export interface JuknisSubTabVisibility {
   showFormatJuknis: boolean;     // 1. Direktori Format & Juknis Resmi (Tabel)
   showArtikelPanduan: boolean;   // 2. Artikel & Petunjuk Interaktif (Knowledge Base)
   showUraianSpm: boolean;        // 3. Format Uraian SPM & Dokumen Pendukung SAKTI
+  showPeraturan?: boolean;       // 4. Peraturan Perbendaharaan (PMK, PER-DJPb, PP/UU)
 }
 
 export type NavigationTab = 
@@ -1531,6 +1565,7 @@ export type NavigationTab =
   | 'gaji-induk'
   | 'monitoring-haicso'
   | 'kontrak'
+  | 'peraturan-perbendaharaan'
   | 'admin' 
   | 'reminder' 
   | 'guide';
