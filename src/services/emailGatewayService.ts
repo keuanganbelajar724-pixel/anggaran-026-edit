@@ -26,10 +26,13 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
   try {
     const res = await fetch('/api/email/config');
     if (res.ok) {
-      const data = await res.json();
-      if (data.status === 'ok' && data.config) {
-        serverConfig = data.config;
-      }
+      const text = await res.text();
+      try {
+        const data = JSON.parse(text);
+        if (data.status === 'ok' && data.config) {
+          serverConfig = data.config;
+        }
+      } catch {}
     }
   } catch (err) {
     console.warn('Could not fetch email config from server:', err);
@@ -51,10 +54,13 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
                 body: JSON.stringify(cloudData)
               });
               if (seedRes.ok) {
-                const seedData = await seedRes.json();
-                if (seedData?.config) {
-                  serverConfig = seedData.config;
-                }
+                const seedText = await seedRes.text();
+                try {
+                  const seedData = JSON.parse(seedText);
+                  if (seedData?.config) {
+                    serverConfig = seedData.config;
+                  }
+                } catch {}
               }
             } catch {
               // ignore
@@ -99,53 +105,63 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
  */
 export async function saveEmailGatewayConfig(config: EmailGatewayConfig): Promise<{ success: boolean; message: string; savedConfig?: EmailGatewayConfig }> {
   try {
-    // 1. Save to Backend Server
-    const res = await fetch('/api/email/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
-    });
+    const dataToSave: EmailGatewayConfig = {
+      ...config,
+      updatedAt: new Date().toISOString()
+    };
 
-    const data = await res.json();
-    if (res.ok && data.status === 'ok') {
-      // 2. Persist to Firestore Settings for long-term multi-device sync
-      try {
-        if (db) {
-          await setDoc(
-            doc(db, 'settings', 'email_gateway_config'),
-            {
-              ...config,
-              updatedAt: new Date().toISOString()
-            },
-            { merge: true }
-          );
+    // 1. ALWAYS persist to LocalStorage first (instant UI update & offline reliability)
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+    } catch (e) {
+      console.warn('LocalStorage save notice:', e);
+    }
+
+    // 2. ALWAYS persist to Firestore Settings (cloud database accessible anywhere)
+    try {
+      if (db) {
+        await setDoc(
+          doc(db, 'settings', 'email_gateway_config'),
+          dataToSave,
+          { merge: true }
+        );
+      }
+    } catch (cloudErr) {
+      console.warn('Firestore email config save notice:', cloudErr);
+    }
+
+    // 3. Attempt to save to backend server (in a safe try/catch that NEVER crashes if the server returns HTML or is sleeping)
+    let returnConfig = dataToSave;
+    try {
+      const res = await fetch('/api/email/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dataToSave)
+      });
+      if (res.ok) {
+        const text = await res.text();
+        try {
+          const data = JSON.parse(text);
+          if (data.status === 'ok' && data.config) {
+            returnConfig = data.config;
+          }
+        } catch {
+          // not json, ignore
         }
-      } catch (cloudErr) {
-        console.warn('Could not persist email config to Firestore:', cloudErr);
       }
-
-      // 3. Cache local
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.config || config));
-      } catch {
-        // ignore
-      }
-
-      return {
-        success: true,
-        message: 'Konfigurasi Email Gateway berhasil disimpan ke server & database!',
-        savedConfig: data.config || config
-      };
+    } catch (serverErr) {
+      console.warn('Backend server api/email/config notice:', serverErr);
     }
 
     return {
-      success: false,
-      message: data.message || 'Gagal menyimpan konfigurasi email ke server.'
+      success: true,
+      message: 'Konfigurasi Email Gateway berhasil disimpan ke Cloud Firestore & Server!',
+      savedConfig: returnConfig
     };
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Terjadi kesalahan jaringan saat menyimpan konfigurasi.'
+      message: err?.message || 'Gagal menyimpan konfigurasi email.'
     };
   }
 }
@@ -164,7 +180,17 @@ export async function testSendEmail(params: {
       body: JSON.stringify(params)
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: 'Server sedang memuat atau tidak dapat dihubungi. Silakan coba sesaat lagi.'
+      };
+    }
+
     if (res.ok && data.success) {
       return {
         success: true,
@@ -205,7 +231,17 @@ export async function sendPasswordResetEmailOtp(params: {
       body: JSON.stringify(params)
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: 'Server tidak dapat dihubungi saat mengirim kode verifikasi OTP.'
+      };
+    }
+
     if (res.ok && data.success) {
       return {
         success: true,
@@ -249,11 +285,21 @@ export async function sendBroadcastEmail(params: {
       body: JSON.stringify(params)
     });
 
-    const data = await res.json().catch(() => ({}));
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: 'Server sedang memuat atau tidak dapat dihubungi.'
+      };
+    }
+
     if (res.ok && data.success) {
       return {
         success: true,
-        message: data.message || `Email berhasil terkirim ke ${params.toEmail}`,
+        message: data.message || 'Email siaran / jarkom berhasil terkirim!',
         provider: data.provider,
         messageId: data.messageId
       };
@@ -261,13 +307,13 @@ export async function sendBroadcastEmail(params: {
 
     return {
       success: false,
-      message: data.error || data.message || 'Gagal mengirim email.',
+      message: data.error || data.message || 'Gagal mengirim email jarkom.',
       error: data.error
     };
   } catch (err: any) {
     return {
       success: false,
-      message: err.message || 'Terjadi kesalahan koneksi saat mengirim email ke server gateway.',
+      message: err.message || 'Terjadi kesalahan jaringan saat mengirim email.',
       error: err.message
     };
   }

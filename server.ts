@@ -12,22 +12,22 @@ import {
   buildOtpEmailHtml, 
   buildTestEmailHtml, 
   buildBroadcastEmailHtml,
-  EmailConfig 
-} from './server_email';
+  type EmailConfig 
+} from './server_email.ts';
 import {
   loadTelegramConfig,
   saveTelegramConfig,
   getPublicTelegramStatus,
   sendTelegramMessage,
   verifyTelegramBot,
-  TelegramServerConfig
-} from './server_telegram';
+  type TelegramServerConfig
+} from './server_telegram.ts';
 
 dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '20mb' }));
 
@@ -1158,7 +1158,8 @@ async function startServer() {
   // Vite middleware in dev, static files in production
   const distPath = path.join(process.cwd(), 'dist');
   const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
-  const isProduction = process.env.NODE_ENV === 'production' && hasDist;
+  const isDevScript = process.env.npm_lifecycle_event === 'dev' || process.argv.includes('--dev');
+  const isProduction = (process.env.NODE_ENV === 'production' || !isDevScript) && hasDist;
 
   if (!isProduction) {
     const vite = await createViteServer({
