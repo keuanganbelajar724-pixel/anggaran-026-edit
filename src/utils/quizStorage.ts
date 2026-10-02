@@ -1,9 +1,105 @@
 import * as XLSX from 'xlsx';
 import { QuizPackage, QuizQuestion, QuizResultRecord, QuizAudience } from '../types/quiz';
 import { safeLocalStorageGet, safeLocalStorageSet } from './safeStorage';
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  writeBatch 
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const QUIZ_PACKAGES_STORAGE_KEY = 'kppn_quiz_packages_v1';
 const QUIZ_RESULTS_STORAGE_KEY = 'kppn_quiz_results_v1';
+const FIRESTORE_PACKAGES_COLLECTION = 'quiz_packages';
+const FIRESTORE_RESULTS_COLLECTION = 'quiz_results';
+
+/**
+ * Checks whether a quiz package is currently open, scheduled for future, or expired.
+ */
+export function checkPackageScheduleStatus(pkg: QuizPackage): {
+  isOpen: boolean;
+  status: 'ACTIVE' | 'NOT_STARTED' | 'EXPIRED' | 'INACTIVE';
+  label: string;
+  details: string;
+  badgeColor: string;
+} {
+  if (!pkg.isActive) {
+    return {
+      isOpen: false,
+      status: 'INACTIVE',
+      label: 'Nonaktif',
+      details: 'Paket ditutup manual oleh Administrator.',
+      badgeColor: 'bg-slate-500/20 text-slate-500 border-slate-400/40'
+    };
+  }
+
+  if (!pkg.isScheduled || (!pkg.startAt && !pkg.endAt)) {
+    return {
+      isOpen: true,
+      status: 'ACTIVE',
+      label: 'Dibuka Bebas',
+      details: 'Kuis terbuka setiap saat tanpa batasan waktu mulai/selesai.',
+      badgeColor: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
+    };
+  }
+
+  const now = new Date().getTime();
+  const startTime = pkg.startAt ? new Date(pkg.startAt).getTime() : 0;
+  const endTime = pkg.endAt ? new Date(pkg.endAt).getTime() : Infinity;
+
+  if (startTime > 0 && now < startTime) {
+    const startDateFormatted = new Date(pkg.startAt!).toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return {
+      isOpen: false,
+      status: 'NOT_STARTED',
+      label: 'Belum Dibuka',
+      details: `Kuis baru akan dibuka pada ${startDateFormatted} WIB.`,
+      badgeColor: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40'
+    };
+  }
+
+  if (endTime < Infinity && now > endTime) {
+    const endDateFormatted = new Date(pkg.endAt!).toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return {
+      isOpen: false,
+      status: 'EXPIRED',
+      label: 'Sudah Ditutup',
+      details: `Batas waktu pengerjaan telah berakhir pada ${endDateFormatted} WIB.`,
+      badgeColor: 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/40'
+    };
+  }
+
+  const endDateFormatted = pkg.endAt ? new Date(pkg.endAt).toLocaleString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  }) : '';
+
+  return {
+    isOpen: true,
+    status: 'ACTIVE',
+    label: 'Sedang Berlangsung',
+    details: endDateFormatted ? `Terbuka s.d. ${endDateFormatted} WIB` : 'Terbuka saat ini',
+    badgeColor: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40'
+  };
+}
 
 // Seed Initial Quiz Packages
 export const SEED_QUIZ_PACKAGES: QuizPackage[] = [
@@ -291,7 +387,7 @@ export const SEED_QUIZ_PACKAGES: QuizPackage[] = [
   }
 ];
 
-// Load All Packages
+// Load All Packages from Local Cache
 export function getQuizPackages(): QuizPackage[] {
   const raw = safeLocalStorageGet(QUIZ_PACKAGES_STORAGE_KEY);
   if (!raw) {
@@ -309,8 +405,55 @@ export function getQuizPackages(): QuizPackage[] {
   return SEED_QUIZ_PACKAGES;
 }
 
-// Save Single Package
-export function saveQuizPackage(pkg: QuizPackage): QuizPackage[] {
+// Subscribe to Quiz Packages in Real-Time (Firestore + Local fallback)
+export function subscribeToQuizPackages(callback: (packages: QuizPackage[]) => void): () => void {
+  // 1. Immediately invoke with cached packages
+  const cached = getQuizPackages();
+  callback(cached);
+
+  if (!db) {
+    return () => {};
+  }
+
+  try {
+    const colRef = collection(db, FIRESTORE_PACKAGES_COLLECTION);
+    const unsubscribe = onSnapshot(colRef, async (snapshot) => {
+      if (!snapshot.empty) {
+        const cloudPackages: QuizPackage[] = [];
+        snapshot.forEach(docSnap => {
+          cloudPackages.push(docSnap.data() as QuizPackage);
+        });
+        cloudPackages.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        safeLocalStorageSet(QUIZ_PACKAGES_STORAGE_KEY, JSON.stringify(cloudPackages));
+        callback(cloudPackages);
+      } else {
+        // Seed default packages to Firestore if collection is empty
+        try {
+          const batch = writeBatch(db);
+          SEED_QUIZ_PACKAGES.forEach(pkg => {
+            const docRef = doc(db, FIRESTORE_PACKAGES_COLLECTION, pkg.id);
+            batch.set(docRef, pkg);
+          });
+          await batch.commit();
+        } catch (seedErr) {
+          console.warn('[QuizStorage] Could not seed packages to Firestore:', seedErr);
+        }
+        callback(cached);
+      }
+    }, (error) => {
+      console.warn('[QuizStorage] Firestore packages listener notice:', error);
+      callback(getQuizPackages());
+    });
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('[QuizStorage] Error subscribing to packages:', err);
+    return () => {};
+  }
+}
+
+// Save Single Package (Local + Cloud Firestore)
+export async function saveQuizPackage(pkg: QuizPackage): Promise<QuizPackage[]> {
   const packages = getQuizPackages();
   const existingIdx = packages.findIndex(p => p.id === pkg.id);
   const now = new Date().toISOString();
@@ -329,35 +472,254 @@ export function saveQuizPackage(pkg: QuizPackage): QuizPackage[] {
     updatedList = [updatedPkg, ...packages];
   }
 
+  // 1. Save local
   safeLocalStorageSet(QUIZ_PACKAGES_STORAGE_KEY, JSON.stringify(updatedList));
+
+  // 2. Save to Firestore
+  if (db) {
+    try {
+      await setDoc(doc(db, FIRESTORE_PACKAGES_COLLECTION, updatedPkg.id), updatedPkg, { merge: true });
+    } catch (err) {
+      console.warn('[QuizStorage] Could not save package to Firestore:', err);
+    }
+  }
+
   return updatedList;
 }
 
-// Delete Package
-export function deleteQuizPackage(packageId: string): QuizPackage[] {
+// Delete Package (Local + Cloud Firestore)
+export async function deleteQuizPackage(packageId: string): Promise<QuizPackage[]> {
   const packages = getQuizPackages();
   const updatedList = packages.filter(p => p.id !== packageId);
   safeLocalStorageSet(QUIZ_PACKAGES_STORAGE_KEY, JSON.stringify(updatedList));
+
+  if (db) {
+    try {
+      await deleteDoc(doc(db, FIRESTORE_PACKAGES_COLLECTION, packageId));
+    } catch (err) {
+      console.warn('[QuizStorage] Could not delete package from Firestore:', err);
+    }
+  }
+
   return updatedList;
 }
 
-// Results Storage
+const QUIZ_DELETED_RESULTS_KEY = 'kppn_deleted_quiz_result_ids_v1';
+
+function getDeletedResultIds(): Set<string> {
+  const raw = safeLocalStorageGet(QUIZ_DELETED_RESULTS_KEY);
+  if (!raw) return new Set();
+  try {
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function addDeletedResultIds(ids: string[]): void {
+  const current = getDeletedResultIds();
+  ids.forEach(id => current.add(id));
+  safeLocalStorageSet(QUIZ_DELETED_RESULTS_KEY, JSON.stringify(Array.from(current).slice(-2000)));
+}
+
+/**
+ * Ranks quiz results based on CAT competition rules:
+ * 1. Score (highest first)
+ * 2. Completion speed / timeSpentSeconds (fastest first for ties)
+ * 3. Submission date (earliest first)
+ */
+export function rankQuizResults(results: QuizResultRecord[]): (QuizResultRecord & { rank: number })[] {
+  const sorted = [...results].sort((a, b) => {
+    // 1. Highest score
+    if ((b.score || 0) !== (a.score || 0)) {
+      return (b.score || 0) - (a.score || 0);
+    }
+    // 2. Fastest speed (lowest timeSpentSeconds)
+    if ((a.timeSpentSeconds || 0) !== (b.timeSpentSeconds || 0)) {
+      return (a.timeSpentSeconds || 0) - (b.timeSpentSeconds || 0);
+    }
+    // 3. Earliest submission
+    return new Date(a.completedAt || 0).getTime() - new Date(b.completedAt || 0).getTime();
+  });
+
+  return sorted.map((r, idx) => ({
+    ...r,
+    rank: idx + 1
+  }));
+}
+
+// Quick helper to update schedule and active window for an exam package
+export async function updatePackageSchedule(
+  packageId: string,
+  schedule: { isScheduled: boolean; startAt?: string; endAt?: string; isActive?: boolean }
+): Promise<QuizPackage[]> {
+  const packages = getQuizPackages();
+  const pkg = packages.find(p => p.id === packageId);
+  if (!pkg) return packages;
+  const updatedPkg: QuizPackage = {
+    ...pkg,
+    ...schedule,
+    updatedAt: new Date().toISOString()
+  };
+  return await saveQuizPackage(updatedPkg);
+}
+
+// Results Storage: Load from Local Cache
 export function getQuizResults(): QuizResultRecord[] {
   const raw = safeLocalStorageGet(QUIZ_RESULTS_STORAGE_KEY);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    const deleted = getDeletedResultIds();
+    return parsed.filter(r => r && r.id && !deleted.has(r.id));
   } catch (err) {
     console.error('[QuizStorage] Error parsing results:', err);
     return [];
   }
 }
 
-export function saveQuizResult(result: QuizResultRecord): QuizResultRecord[] {
+// Subscribe to Quiz Results in Real-Time (Firestore + Local fallback)
+export function subscribeToQuizResults(callback: (results: QuizResultRecord[]) => void): () => void {
+  // 1. Immediately provide cached results
+  const cached = getQuizResults();
+  callback(cached);
+
+  // 2. Custom local window event listener (for intra-session immediate updates)
+  const handleLocalUpdate = () => {
+    callback(getQuizResults());
+  };
+  window.addEventListener('kppn_quiz_results_updated', handleLocalUpdate);
+
+  if (!db) {
+    return () => {
+      window.removeEventListener('kppn_quiz_results_updated', handleLocalUpdate);
+    };
+  }
+
+  try {
+    const colRef = collection(db, FIRESTORE_RESULTS_COLLECTION);
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const deletedIds = getDeletedResultIds();
+      const cloudResults: QuizResultRecord[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id && !deletedIds.has(data.id)) {
+          cloudResults.push(data as QuizResultRecord);
+        }
+      });
+
+      // Merge with local results so recent submissions never disappear
+      const localResults = getQuizResults();
+      const mergedMap = new Map<string, QuizResultRecord>();
+      localResults.forEach(r => {
+        if (r && r.id && !deletedIds.has(r.id)) mergedMap.set(r.id, r);
+      });
+      cloudResults.forEach(r => {
+        if (r && r.id && !deletedIds.has(r.id)) mergedMap.set(r.id, r);
+      });
+
+      const combined = Array.from(mergedMap.values());
+      // Sort newest first for default list
+      combined.sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime());
+      
+      // Update local cache with latest merged results
+      safeLocalStorageSet(QUIZ_RESULTS_STORAGE_KEY, JSON.stringify(combined.slice(0, 1000)));
+      callback(combined);
+    }, (error) => {
+      console.warn('[QuizStorage] Firestore results listener notice:', error);
+      callback(getQuizResults());
+    });
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('kppn_quiz_results_updated', handleLocalUpdate);
+    };
+  } catch (err) {
+    console.warn('[QuizStorage] Error subscribing to results:', err);
+    return () => {
+      window.removeEventListener('kppn_quiz_results_updated', handleLocalUpdate);
+    };
+  }
+}
+
+// Save Quiz Result (Local + Cloud Firestore for cross-device & real-time sync)
+export async function saveQuizResult(result: QuizResultRecord): Promise<QuizResultRecord[]> {
   const results = getQuizResults();
-  const updated = [result, ...results].slice(0, 500); // keep last 500 records
+  const filtered = results.filter(r => r.id !== result.id);
+  const updated = [result, ...filtered].slice(0, 1000);
+  
+  // 1. Save local immediately
   safeLocalStorageSet(QUIZ_RESULTS_STORAGE_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('kppn_quiz_results_updated'));
+
+  // 2. Save to Firestore Cloud Collection
+  if (db) {
+    try {
+      await setDoc(doc(db, FIRESTORE_RESULTS_COLLECTION, result.id), result, { merge: true });
+    } catch (err) {
+      console.warn('[QuizStorage] Could not persist quiz result to Firestore:', err);
+    }
+  }
+
+  return updated;
+}
+
+// Delete a single Quiz Result by ID
+export async function deleteQuizResult(resultId: string): Promise<QuizResultRecord[]> {
+  addDeletedResultIds([resultId]);
+  const results = getQuizResults();
+  const updated = results.filter(r => r.id !== resultId);
+  safeLocalStorageSet(QUIZ_RESULTS_STORAGE_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('kppn_quiz_results_updated'));
+
+  if (db) {
+    try {
+      await deleteDoc(doc(db, FIRESTORE_RESULTS_COLLECTION, resultId));
+    } catch (err) {
+      console.warn('[QuizStorage] Could not delete result from Firestore:', err);
+    }
+  }
+
+  return updated;
+}
+
+// Clear all Quiz Results (optionally filtered by packageId to reset a specific exam contest)
+export async function clearAllQuizResults(packageId?: string): Promise<QuizResultRecord[]> {
+  const results = getQuizResults();
+  let updated: QuizResultRecord[];
+  let toDeleteIds: string[] = [];
+
+  if (packageId) {
+    toDeleteIds = results.filter(r => r.packageId === packageId).map(r => r.id);
+    updated = results.filter(r => r.packageId !== packageId);
+  } else {
+    toDeleteIds = results.map(r => r.id);
+    updated = [];
+  }
+
+  addDeletedResultIds(toDeleteIds);
+  safeLocalStorageSet(QUIZ_RESULTS_STORAGE_KEY, JSON.stringify(updated));
+  window.dispatchEvent(new CustomEvent('kppn_quiz_results_updated'));
+
+  if (db) {
+    try {
+      // Delete in batches of 400
+      const batchSize = 400;
+      for (let i = 0; i < toDeleteIds.length; i += batchSize) {
+        const batch = writeBatch(db);
+        const chunk = toDeleteIds.slice(i, i + batchSize);
+        chunk.forEach(id => {
+          batch.delete(doc(db, FIRESTORE_RESULTS_COLLECTION, id));
+        });
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn('[QuizStorage] Could not clear results from Firestore:', err);
+    }
+  }
+
   return updated;
 }
 

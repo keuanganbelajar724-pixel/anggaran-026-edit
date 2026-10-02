@@ -30,11 +30,21 @@ import {
   Download,
   Info,
   Layers,
-  ArrowRight
+  ArrowRight,
+  Medal,
+  Crown,
+  Calendar
 } from 'lucide-react';
 import { QuizPackage, QuizQuestion, QuizUserAnswer, QuizResultRecord, QuizAudience } from '../../types/quiz';
 import { AppUser, AppTheme, MasterSatker } from '../../types';
-import { getQuizPackages, saveQuizResult } from '../../utils/quizStorage';
+import { 
+  getQuizPackages, 
+  subscribeToQuizPackages, 
+  saveQuizResult, 
+  checkPackageScheduleStatus,
+  subscribeToQuizResults,
+  rankQuizResults 
+} from '../../utils/quizStorage';
 
 interface QuizCatViewProps {
   currentUser: AppUser | null;
@@ -83,11 +93,22 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   // Exam Result State
   const [latestResult, setLatestResult] = useState<QuizResultRecord | null>(null);
   const [resultFilterTab, setResultFilterTab] = useState<'all' | 'correct' | 'wrong' | 'unanswered'>('all');
+  const [allResults, setAllResults] = useState<QuizResultRecord[]>([]);
+  const [showLeaderboardModal, setShowLeaderboardModal] = useState<boolean>(false);
+  const [leaderboardPackageId, setLeaderboardPackageId] = useState<string>('ALL');
 
-  // Load packages
+  // Load packages and subscribe to real-time updates
   useEffect(() => {
-    const list = getQuizPackages();
-    setPackages(list);
+    const unsubPackages = subscribeToQuizPackages(list => {
+      setPackages(list);
+    });
+    const unsubResults = subscribeToQuizResults(list => {
+      setAllResults(list);
+    });
+    return () => {
+      unsubPackages();
+      unsubResults();
+    };
   }, []);
 
   // Pre-fill user data if logged in
@@ -235,7 +256,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   };
 
   // Finish and compute score
-  const handleFinishExam = () => {
+  const handleFinishExam = async () => {
     if (!activePackage) return;
     setIsConfirmSubmitOpen(false);
 
@@ -300,9 +321,15 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
       answers: answerReviewList
     };
 
-    saveQuizResult(resultRecord);
     setLatestResult(resultRecord);
     setCurrentStep('EXAM_RESULT');
+
+    try {
+      const updated = await saveQuizResult(resultRecord);
+      setAllResults(updated);
+    } catch (err) {
+      console.warn('[QuizCatView] Error saving result:', err);
+    }
   };
 
   // Counts for current in-progress exam
@@ -325,6 +352,218 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   // Current question object
   const currentQuestion = activePackage?.questions[currentQuestionIdx];
   const currentAnswerObj = currentQuestion ? userAnswers[currentQuestion.id] : null;
+
+  // Ranked results for leaderboard modal
+  const modalRankedResults = useMemo(() => {
+    let list = allResults;
+    if (leaderboardPackageId !== 'ALL') {
+      list = list.filter(r => r.packageId === leaderboardPackageId);
+    }
+    return rankQuizResults(list);
+  }, [allResults, leaderboardPackageId]);
+
+  // Leaderboard & Podium Modal Component
+  const renderLeaderboardModal = () => {
+    if (!showLeaderboardModal) return null;
+
+    const top1 = modalRankedResults[0] || null;
+    const top2 = modalRankedResults[1] || null;
+    const top3 = modalRankedResults[2] || null;
+    const activePkgObj = packages.find(p => p.id === leaderboardPackageId);
+
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+        <div className={`w-full max-w-4xl max-h-[90vh] rounded-3xl border shadow-2xl flex flex-col overflow-hidden ${
+          isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+        }`}>
+          {/* Modal Header */}
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-600/10">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2.5 rounded-2xl bg-amber-500 text-slate-950 shadow-md">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-base leading-tight">
+                  🏆 Klasemen Juara &amp; Peringkat Kuis CAT
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {activePkgObj ? activePkgObj.title : 'Seluruh Paket Latihan Kuis KPPN Semarang I'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={leaderboardPackageId}
+                onChange={e => setLeaderboardPackageId(e.target.value)}
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+              >
+                <option value="ALL">Semua Paket ({allResults.length} peserta)</option>
+                {packages.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} ({allResults.filter(r => r.packageId === p.id).length})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={() => setShowLeaderboardModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-5 sm:p-6 overflow-y-auto space-y-6">
+            {/* Podium Top 3 */}
+            {modalRankedResults.length > 0 ? (
+              <div className="space-y-3">
+                <div className="text-xs font-black uppercase tracking-wider text-slate-400 text-center">
+                  Podium Penghargaan Juara
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  {/* Juara 2 (Perak) */}
+                  <div className={`p-4 rounded-2xl border text-center space-y-1.5 sm:order-1 ${
+                    top2 ? 'bg-slate-100/80 dark:bg-slate-800/80 border-slate-300 dark:border-slate-700 shadow-sm' : 'border-dashed border-slate-200 dark:border-slate-800 opacity-50'
+                  }`}>
+                    <div className="w-10 h-10 rounded-xl bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-100 mx-auto flex items-center justify-center text-lg font-black">
+                      🥈
+                    </div>
+                    <div className="text-[10px] font-black uppercase text-slate-500">Juara 2 (Perak)</div>
+                    {top2 ? (
+                      <>
+                        <div className="font-black text-sm truncate" title={top2.participantName}>{top2.participantName}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{top2.satkerOrUnit}</div>
+                        <div className="text-xl font-black font-mono text-slate-700 dark:text-slate-200 pt-1">{top2.score}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Waktu: {Math.floor((top2.timeSpentSeconds || 0) / 60)}m {(top2.timeSpentSeconds || 0) % 60}d
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-slate-400 py-3">-</div>
+                    )}
+                  </div>
+
+                  {/* Juara 1 (Emas) */}
+                  <div className={`p-5 rounded-3xl border-2 text-center space-y-2 sm:order-2 shadow-xl sm:-translate-y-2 ${
+                    top1 ? 'bg-gradient-to-b from-amber-500/20 to-amber-600/5 border-amber-400 dark:border-amber-500' : 'border-dashed border-slate-200 dark:border-slate-800 opacity-50'
+                  }`}>
+                    <div className="w-14 h-14 rounded-2xl bg-amber-400 text-slate-950 mx-auto flex items-center justify-center text-2xl font-black shadow-lg shadow-amber-500/30">
+                      🥇
+                    </div>
+                    <div className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Juara 1 (Emas)</div>
+                    {top1 ? (
+                      <>
+                        <div className="font-black text-base truncate" title={top1.participantName}>{top1.participantName}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-300 truncate">{top1.satkerOrUnit}</div>
+                        <div className="text-3xl font-black font-mono text-amber-500 pt-1">{top1.score}</div>
+                        <div className="text-xs text-emerald-600 dark:text-emerald-400 font-mono font-bold">
+                          Waktu: {Math.floor((top1.timeSpentSeconds || 0) / 60)}m {(top1.timeSpentSeconds || 0) % 60}d
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-slate-400 py-4">-</div>
+                    )}
+                  </div>
+
+                  {/* Juara 3 (Perunggu) */}
+                  <div className={`p-4 rounded-2xl border text-center space-y-1.5 sm:order-3 ${
+                    top3 ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800/40 shadow-sm' : 'border-dashed border-slate-200 dark:border-slate-800 opacity-50'
+                  }`}>
+                    <div className="w-10 h-10 rounded-xl bg-orange-200 dark:bg-orange-900/60 text-orange-900 dark:text-orange-200 mx-auto flex items-center justify-center text-lg font-black">
+                      🥉
+                    </div>
+                    <div className="text-[10px] font-black uppercase text-orange-600 dark:text-orange-400">Juara 3 (Perunggu)</div>
+                    {top3 ? (
+                      <>
+                        <div className="font-black text-sm truncate" title={top3.participantName}>{top3.participantName}</div>
+                        <div className="text-[11px] text-slate-500 truncate">{top3.satkerOrUnit}</div>
+                        <div className="text-xl font-black font-mono text-orange-600 dark:text-orange-400 pt-1">{top3.score}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Waktu: {Math.floor((top3.timeSpentSeconds || 0) / 60)}m {(top3.timeSpentSeconds || 0) % 60}d
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-xs text-slate-400 py-3">-</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* Leaderboard Table */}
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="max-h-72 overflow-y-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3 text-center w-16">Peringkat</th>
+                      <th className="py-2.5 px-3">Nama Peserta</th>
+                      <th className="py-2.5 px-3">Satker / Unit</th>
+                      <th className="py-2.5 px-3">Paket Ujian</th>
+                      <th className="py-2.5 px-3 text-center">Skor</th>
+                      <th className="py-2.5 px-3 text-center">Durasi</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                    {modalRankedResults.map((r) => {
+                      const rankNum = r.rank || 1;
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                          <td className="py-2.5 px-3 text-center">
+                            {rankNum === 1 ? '🥇 #1' : rankNum === 2 ? '🥈 #2' : rankNum === 3 ? '🥉 #3' : `#${rankNum}`}
+                          </td>
+                          <td className="py-2.5 px-3 font-bold">{r.participantName}</td>
+                          <td className="py-2.5 px-3 text-slate-500">{r.satkerOrUnit}</td>
+                          <td className="py-2.5 px-3 text-slate-500 truncate max-w-[140px]">{r.packageTitle}</td>
+                          <td className="py-2.5 px-3 text-center font-mono font-black text-amber-500">{r.score}</td>
+                          <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-500">
+                            {Math.floor((r.timeSpentSeconds || 0) / 60)}m {(r.timeSpentSeconds || 0) % 60}d
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                              r.passed
+                                ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                            }`}>
+                              {r.passed ? 'LULUS' : 'GAGAL'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {modalRankedResults.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-400">
+                          Belum ada peserta yang menyelesaikan kuis pada paket ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50 dark:bg-slate-900">
+            <button
+              type="button"
+              onClick={() => setShowLeaderboardModal(false)}
+              className="px-5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold text-xs cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // ==========================================================================
   // RENDER 1: SELEKSI PAKET & REGISTRASI UJIAN CAT
@@ -457,15 +696,29 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             </button>
           </div>
 
-          <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari materi kuis..."
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-            />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setLeaderboardPackageId('ALL');
+                setShowLeaderboardModal(true);
+              }}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+            >
+              <Trophy className="w-4 h-4" />
+              <span>🏆 Papan Juara ({allResults.length})</span>
+            </button>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Cari materi kuis..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+              />
+            </div>
           </div>
         </div>
 
@@ -474,13 +727,15 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
           {filteredPackages.map(pkg => {
             const isInternal = pkg.targetAudience === 'kppn_internal';
             const isLocked = isInternal && !isInternalKppnUser;
+            const scheduleInfo = checkPackageScheduleStatus(pkg);
+            const canStart = !isLocked && scheduleInfo.isOpen;
 
             return (
               <div
                 key={pkg.id}
                 className={`relative flex flex-col justify-between rounded-3xl border-2 transition-all p-5 shadow-md ${
-                  isLocked 
-                    ? 'border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 opacity-85'
+                  isLocked || !scheduleInfo.isOpen
+                    ? 'border-dashed border-slate-300 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/40 opacity-90'
                     : isDark
                       ? 'border-slate-800 bg-slate-900 hover:border-amber-500/50 hover:shadow-xl'
                       : 'border-slate-200 bg-white hover:border-amber-400 hover:shadow-xl'
@@ -493,26 +748,50 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                       {pkg.category}
                     </span>
 
-                    {isInternal ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
-                        {isLocked ? <Lock className="w-3 h-3 text-indigo-500" /> : <Unlock className="w-3 h-3 text-indigo-400" />}
-                        <span>Internal KPPN</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                        <Building2 className="w-3 h-3 text-emerald-500" />
-                        <span>Mitra Satker</span>
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      {pkg.isScheduled && (
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border ${scheduleInfo.badgeColor}`}>
+                          {scheduleInfo.label}
+                        </span>
+                      )}
+
+                      {isInternal ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                          {isLocked ? <Lock className="w-3 h-3 text-indigo-500" /> : <Unlock className="w-3 h-3 text-indigo-400" />}
+                          <span>Internal KPPN</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                          <Building2 className="w-3 h-3 text-emerald-500" />
+                          <span>Mitra Satker</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <h3 className="font-black text-base leading-snug text-slate-900 dark:text-white mb-2">
                     {pkg.title}
                   </h3>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 line-clamp-3">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3 line-clamp-3">
                     {pkg.description}
                   </p>
+
+                  {/* Scheduled Date Notice if configured */}
+                  {pkg.isScheduled && (
+                    <div className="mb-3 p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[11px] space-y-0.5">
+                      <div className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Periode Buka Ujian:</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                        {pkg.startAt ? new Date(pkg.startAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Kapan saja'} s.d. {pkg.endAt ? new Date(pkg.endAt).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Tidak terbatas'} WIB
+                      </div>
+                      <div className="text-[10px] font-bold text-amber-600 dark:text-amber-400 pt-0.5">
+                        {scheduleInfo.details}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -557,6 +836,15 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                         </button>
                       )}
                     </div>
+                  ) : !scheduleInfo.isOpen ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full py-3 px-4 rounded-xl bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>{scheduleInfo.status === 'NOT_STARTED' ? '⏳ Belum Dibuka' : '🔒 Ujian Ditutup'}</span>
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -567,6 +855,19 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                       <span>Mulai Simulasi CAT</span>
                     </button>
                   )}
+
+                  {/* Button to view this package's leaderboard */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLeaderboardPackageId(pkg.id);
+                      setShowLeaderboardModal(true);
+                    }}
+                    className="w-full mt-2 py-1.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-amber-500/10 text-slate-600 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Lihat Juara Paket Ini ({allResults.filter(r => r.packageId === pkg.id).length})</span>
+                  </button>
                 </div>
               </div>
             );
@@ -580,6 +881,9 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Coba gunakan kata kunci lain atau pilih tab filter audiens yang berbeda.</p>
           </div>
         )}
+
+        {/* Global Leaderboard Modal */}
+        {renderLeaderboardModal()}
       </div>
     );
   }
@@ -969,8 +1273,62 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
               </div>
             </div>
 
+            {/* Rank / Juara Competition Indicator */}
+            {(() => {
+              const packageResults = allResults.filter(r => r.packageId === latestResult.packageId);
+              const combinedList = packageResults.some(r => r.id === latestResult.id) ? packageResults : [latestResult, ...packageResults];
+              const rankedList = rankQuizResults(combinedList);
+              const myRankObj = rankedList.find(r => r.id === latestResult.id);
+              const myRank = myRankObj?.rank || 1;
+              const totalContestants = rankedList.length;
+
+              return (
+                <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-center space-y-1.5 shadow-md">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {myRank === 1 ? (
+                      <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md">
+                        🥇 JUARA 1 (EMAS)
+                      </span>
+                    ) : myRank === 2 ? (
+                      <span className="px-3 py-1 rounded-full bg-slate-300 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md">
+                        🥈 JUARA 2 (PERAK)
+                      </span>
+                    ) : myRank === 3 ? (
+                      <span className="px-3 py-1 rounded-full bg-orange-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-md">
+                        🥉 JUARA 3 (PERUNGGU)
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-200 font-black text-xs border border-white/20">
+                        Peringkat #{myRank}
+                      </span>
+                    )}
+                    <span className="text-xs text-slate-200 font-bold">
+                      dari total <strong>{totalContestants}</strong> peserta kuis
+                    </span>
+                  </div>
+                  {myRank <= 3 && (
+                    <p className="text-xs font-black text-amber-300">
+                      🎉 Selamat! Anda menempati posisi Podium 3 Besar Pemenang Ujian Ini!
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Actions */}
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setLeaderboardPackageId(latestResult.packageId);
+                  setShowLeaderboardModal(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 font-black text-xs shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trophy className="w-4 h-4" />
+                <span>🏆 Cek Podium &amp; Peringkat Juara</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1158,6 +1516,9 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             })}
           </div>
         </div>
+
+        {/* Global Leaderboard Modal */}
+        {renderLeaderboardModal()}
       </div>
     );
   }

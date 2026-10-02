@@ -30,16 +30,20 @@ import {
   BookmarkPlus,
   BookOpen,
   HelpCircle,
-  Play
+  Play,
+  Mail
 } from 'lucide-react';
 import { generateGeminiContent, getClientStoredApiKey } from '../services/geminiService';
 import { REMINDER_TEMPLATES } from '../data/reminderTemplates';
 import { TemplateMessage, MasterSatker } from '../types';
 
+export type BroadcastChannel = 'WHATSAPP' | 'EMAIL' | 'TELEGRAM' | 'HYBRID';
+
 interface BroadcastTemplateLibraryModalProps {
   isOpen: boolean;
   onClose: () => void;
   masterSatkers?: MasterSatker[];
+  channel?: BroadcastChannel;
   onApplyTemplate?: (templateText: string) => void;
   showToast?: (opts: { type: 'success' | 'error' | 'warning' | 'info'; title: string; message: string }) => void;
   theme?: string;
@@ -79,6 +83,7 @@ export const BroadcastTemplateLibraryModal: React.FC<BroadcastTemplateLibraryMod
   isOpen,
   onClose,
   masterSatkers = [],
+  channel = 'WHATSAPP',
   onApplyTemplate,
   showToast,
   theme,
@@ -739,22 +744,48 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-6xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden my-auto">
         
         {/* Modal Header with Mode Switcher */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 dark:from-rose-950/40 dark:via-amber-950/40 dark:to-indigo-950/40">
+        <div className={`px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          channel === 'EMAIL' 
+            ? 'bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-blue-500/10 dark:from-blue-950/40 dark:via-indigo-950/40 dark:to-blue-950/40' 
+            : channel === 'TELEGRAM'
+              ? 'bg-gradient-to-r from-sky-500/10 via-blue-500/10 to-sky-500/10 dark:from-sky-950/40 dark:via-blue-950/40 dark:to-sky-950/40'
+              : 'bg-gradient-to-r from-rose-500/10 via-amber-500/10 to-indigo-500/10 dark:from-rose-950/40 dark:via-amber-950/40 dark:to-indigo-950/40'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-tr from-rose-600 via-purple-600 to-indigo-600 text-white rounded-2xl shadow-md">
-              <Sparkles className="w-5 h-5 text-amber-300" />
+            <div className={`p-2.5 rounded-2xl shadow-md text-white ${
+              channel === 'EMAIL'
+                ? 'bg-gradient-to-tr from-blue-600 to-indigo-600'
+                : channel === 'TELEGRAM'
+                  ? 'bg-gradient-to-tr from-sky-500 to-blue-600'
+                  : 'bg-gradient-to-tr from-emerald-600 via-teal-600 to-indigo-600'
+            }`}>
+              {channel === 'EMAIL' ? <Mail className="w-5 h-5 text-white" /> :
+               channel === 'TELEGRAM' ? <Send className="w-5 h-5 text-white rotate-[-20deg]" /> :
+               <Sparkles className="w-5 h-5 text-amber-300" />}
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100">
-                  Katalog Template &amp; Generator AI Broadcast WhatsApp
+                  {channel === 'EMAIL' && 'Katalog Template & Generator AI Broadcast Email Resmi'}
+                  {channel === 'TELEGRAM' && 'Katalog Template & Generator AI Broadcast Bot Telegram'}
+                  {channel === 'WHATSAPP' && 'Katalog Template & Generator AI Broadcast WhatsApp'}
+                  {channel === 'HYBRID' && 'Katalog Template & Generator AI Broadcast Multi-Kanal'}
                 </h3>
-                <span className="bg-gradient-to-r from-indigo-600 to-rose-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs">
-                  Gemini 3.7 Flash + Portal Mandiri
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shadow-xs text-white ${
+                  channel === 'EMAIL' ? 'bg-gradient-to-r from-blue-600 to-indigo-600' :
+                  channel === 'TELEGRAM' ? 'bg-gradient-to-r from-sky-500 to-blue-600' :
+                  'bg-gradient-to-r from-indigo-600 to-rose-600'
+                }`}>
+                  {channel === 'EMAIL' && '✉️ Format Surat Kedinasan DJPb'}
+                  {channel === 'TELEGRAM' && '✈️ Bot Telegram Markdown'}
+                  {channel === 'WHATSAPP' && '🟢 WhatsApp Gateway API'}
+                  {channel === 'HYBRID' && '⚡ Multi-Kanal Hybrid'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Koleksi template siap salin &amp; Asisten AI untuk membuat pesan broadcast perbendaharaan dalam hitungan detik.
+                {channel === 'EMAIL' && 'Koleksi draft nota dinas resmi & Generator AI untuk komunikasi email Satker perbendaharaan.'}
+                {channel === 'TELEGRAM' && 'Koleksi format siaran bot Telegram & Generator AI siap kirim ke Chat ID atau grup koordinasi Satker.'}
+                {(channel === 'WHATSAPP' || channel === 'HYBRID') && 'Koleksi template siap salin & Asisten AI untuk membuat pesan broadcast perbendaharaan dalam hitungan detik.'}
               </p>
             </div>
           </div>
@@ -1015,58 +1046,165 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                   </div>
                 </div>
 
-                {/* WhatsApp Mockup Preview Box */}
+                {/* Dynamic Preview Box (WhatsApp / Email / Telegram) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                      <MessageSquare className="w-4 h-4" />
-                      Preview Tampilan Pesan WhatsApp (Siap Kirim):
+                    <span className={`flex items-center gap-1.5 ${
+                      channel === 'EMAIL' ? 'text-blue-600 dark:text-blue-400' :
+                      channel === 'TELEGRAM' ? 'text-sky-600 dark:text-sky-400' :
+                      'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {channel === 'EMAIL' ? <Mail className="w-4 h-4" /> :
+                       channel === 'TELEGRAM' ? <Send className="w-4 h-4 rotate-[-20deg]" /> :
+                       <MessageSquare className="w-4 h-4" />}
+                      <span>
+                        {channel === 'EMAIL' && 'Preview Tampilan Email Resmi Satker (Siap Kirim):'}
+                        {channel === 'TELEGRAM' && 'Preview Tampilan Pesan Bot Telegram (Siap Kirim):'}
+                        {(channel === 'WHATSAPP' || channel === 'HYBRID') && 'Preview Tampilan Pesan WhatsApp (Siap Kirim):'}
+                      </span>
                     </span>
                     <span className="font-mono text-[11px] text-slate-400">
                       Tautan Aktif: anggaran-026.my.id
                     </span>
                   </div>
 
-                  <div className="bg-[#e5ddd5] dark:bg-slate-950 p-4 sm:p-5 rounded-3xl border border-slate-300 dark:border-slate-800 shadow-inner max-h-[360px] overflow-y-auto space-y-3">
-                    
-                    {/* WhatsApp Rich Link Preview Card Simulation */}
-                    <div className="bg-[#f0f2f5] dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-sm max-w-sm ml-auto">
-                      <div className="w-full h-24 bg-slate-900 overflow-hidden relative flex items-center justify-center">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/80 via-purple-900/70 to-slate-900 z-0" />
-                        <div className="relative z-10 text-center px-4">
-                          <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">KPPN SEMARANG I (026)</span>
-                          <h5 className="text-white font-black text-xs leading-tight mt-0.5">ANGKASA V3.2 - Portal Akselerasi &amp; Juknis Satker</h5>
-                          <span className="text-[9px] text-slate-300 block mt-1 font-mono">anggaran-026.my.id</span>
+                  {channel === 'EMAIL' ? (
+                    /* EMAIL CLIENT MOCKUP */
+                    <div className="bg-slate-100 dark:bg-slate-950 p-4 sm:p-5 rounded-3xl border border-blue-200 dark:border-blue-900 shadow-inner max-h-[380px] overflow-y-auto space-y-3 font-sans">
+                      {/* Email Header Bar */}
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-blue-300 dark:border-blue-800 shadow-sm space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                          <span className="text-slate-400 font-bold">Dari:</span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 font-mono text-[11px]">
+                            KPPN Semarang I &lt;anggaran026@kemenkeu.go.id&gt;
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                          <span className="text-slate-400 font-bold">Kepada:</span>
+                          <span className="font-semibold text-blue-600 dark:text-blue-400 font-mono text-[11px]">
+                            Satuan Kerja Mitra DJPb &lt;satker@kemenkeu.go.id&gt;
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-slate-400 font-bold">Subjek:</span>
+                          <span className="font-black text-slate-900 dark:text-white">
+                            [PEMBERITAHUAN MONEV] {selectedTemplate.judul} - KPPN Semarang I
+                          </span>
                         </div>
                       </div>
-                      <div className="p-2.5 bg-white dark:bg-slate-800 text-[11px]">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
-                          ANGKASA - Aplikasi Navigasi Keuangan &amp; Akselerasi Satuan Kerja
-                        </span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
-                          Monitoring IKPA, Capaian Output SAKTI, Batas Waktu UP/TUP, Juknis &amp; Blangko Resmi.
-                        </span>
+
+                      {/* Official DJPb Letterhead Banner */}
+                      <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl p-4 text-white text-center shadow-md">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">KEMENTERIAN KEUANGAN REPUBLIK INDONESIA</span>
+                        <h5 className="font-black text-xs sm:text-sm mt-0.5">DIREKTORAT JENDERAL PERBENDAHARAAN - KPPN SEMARANG I</h5>
+                        <span className="text-[9px] text-blue-200 block mt-1 font-mono">Portal Akselerasi: https://anggaran-026.my.id</span>
+                      </div>
+
+                      {/* Email Body Content */}
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 shadow-md text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap select-text border border-blue-100 dark:border-blue-900">
+                        {renderedWaText}
+                      </div>
+
+                      {/* Official Footer Signature */}
+                      <div className="bg-blue-50/70 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-200 dark:border-blue-900 text-[11px] text-blue-900 dark:text-blue-300 space-y-0.5">
+                        <span className="font-bold block">Seksi Manajemen Satker &amp; Kepatuhan Internal (MSKI)</span>
+                        <span>Kantor Pelayanan Perbendaharaan Negara Semarang I</span>
                       </div>
                     </div>
+                  ) : channel === 'TELEGRAM' ? (
+                    /* TELEGRAM CLIENT MOCKUP */
+                    <div className="bg-[#0e1621] text-white p-4 sm:p-5 rounded-3xl border border-sky-800 shadow-inner max-h-[380px] overflow-y-auto space-y-3 font-sans">
+                      {/* Telegram Top Channel Bar */}
+                      <div className="flex items-center gap-3 bg-[#17212b] p-3 rounded-2xl border border-sky-900/60">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-400 to-blue-600 flex items-center justify-center font-black text-white text-sm shadow-sm shrink-0">
+                          TG
+                        </div>
+                        <div className="min-w-0">
+                          <h6 className="font-black text-xs text-white truncate flex items-center gap-1.5">
+                            <span>KPPN Semarang I Official Bot</span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-500/20 text-sky-400 font-mono font-bold">bot</span>
+                          </h6>
+                          <span className="text-[10px] text-sky-400 font-mono">@kppn026_bot • online</span>
+                        </div>
+                      </div>
 
-                    {/* Main Bubble Message Text */}
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-md text-xs font-sans text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap select-text border border-emerald-500/20">
-                      {renderedWaText}
+                      {/* Telegram Speech Bubble */}
+                      <div className="bg-[#182533] p-4 rounded-2xl rounded-tl-sm border border-sky-800/40 text-xs text-slate-100 leading-relaxed whitespace-pre-wrap shadow-md max-w-lg">
+                        {renderedWaText}
+                        <div className="text-right text-[10px] text-slate-400 font-mono mt-2 pt-1 border-t border-slate-700/50 flex items-center justify-end gap-1">
+                          <span>{new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+                          <span className="text-sky-400 font-black">✓✓</span>
+                        </div>
+                      </div>
+
+                      {/* Telegram Inline Button Preview */}
+                      <div className="max-w-lg">
+                        <a
+                          href="https://anggaran-026.my.id"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-center py-2 px-3 rounded-xl bg-[#2b5278] hover:bg-[#34628f] text-white text-xs font-bold transition-all shadow-sm"
+                        >
+                          🌐 Buka Portal Mandiri Satker (anggaran-026.my.id)
+                        </a>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    /* WHATSAPP CLIENT MOCKUP */
+                    <div className="bg-[#e5ddd5] dark:bg-slate-950 p-4 sm:p-5 rounded-3xl border border-slate-300 dark:border-slate-800 shadow-inner max-h-[360px] overflow-y-auto space-y-3">
+                      {/* WhatsApp Rich Link Preview Card Simulation */}
+                      <div className="bg-[#f0f2f5] dark:bg-slate-800/90 rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-700 shadow-sm max-w-sm ml-auto">
+                        <div className="w-full h-24 bg-slate-900 overflow-hidden relative flex items-center justify-center">
+                          <div className="absolute inset-0 bg-gradient-to-tr from-indigo-900/80 via-purple-900/70 to-slate-900 z-0" />
+                          <div className="relative z-10 text-center px-4">
+                            <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">KPPN SEMARANG I (026)</span>
+                            <h5 className="text-white font-black text-xs leading-tight mt-0.5">ANGKASA V3.2 - Portal Akselerasi &amp; Juknis Satker</h5>
+                            <span className="text-[9px] text-slate-300 block mt-1 font-mono">anggaran-026.my.id</span>
+                          </div>
+                        </div>
+                        <div className="p-2.5 bg-white dark:bg-slate-800 text-[11px]">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">
+                            ANGKASA - Aplikasi Navigasi Keuangan &amp; Akselerasi Satuan Kerja
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate">
+                            Monitoring IKPA, Capaian Output SAKTI, Batas Waktu UP/TUP, Juknis &amp; Blangko Resmi.
+                          </span>
+                        </div>
+                      </div>
 
-                  {/* WA Link Card Tip */}
-                  <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-200 dark:border-emerald-800/60 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      {/* Main Bubble Message Text */}
+                      <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-md text-xs font-sans text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap select-text border border-emerald-500/20">
+                        {renderedWaText}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Channel Tip */}
+                  <div className={`p-2.5 rounded-xl border text-[11px] flex items-start gap-2 ${
+                    channel === 'EMAIL' 
+                      ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60 text-blue-800 dark:text-blue-300' 
+                      : channel === 'TELEGRAM'
+                        ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/60 text-sky-800 dark:text-sky-300'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300'
+                  }`}>
+                    <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
                     <div>
-                      <strong>Tips Tampilan Banner WhatsApp:</strong> Saat mem-<em>paste</em> teks ke WhatsApp, <strong>tunggu 2-3 detik</strong> sebelum menekan tombol kirim agar thumbnail web <code>https://anggaran-026.my.id</code> muncul otomatis.
+                      {channel === 'EMAIL' && (
+                        <span><strong>Format Email Resmi:</strong> Pesan ini dikirim dengan kop resmi Kemenkeu/DJPb ke inbox pejabat/operator Satker. Subjek dan badan email otomatis dienkode standar RFC kedinasan.</span>
+                      )}
+                      {channel === 'TELEGRAM' && (
+                        <span><strong>Format Bot Telegram:</strong> Pesan disiarkan instan ke Chat ID / Grup Satker dengan rendering markdown yang rapi dan bebas risiko blokir nomor HP.</span>
+                      )}
+                      {(channel === 'WHATSAPP' || channel === 'HYBRID') && (
+                        <span><strong>Tips Tampilan Banner WhatsApp:</strong> Saat mem-<em>paste</em> teks ke WhatsApp, <strong>tunggu 2-3 detik</strong> sebelum menekan tombol kirim agar thumbnail web <code>https://anggaran-026.my.id</code> muncul otomatis.</span>
+                      )}
                     </div>
                   </div>
                 </div>
 
               </div>
 
-              {/* Bottom Bar: Quick Share to WA Web */}
+              {/* Bottom Bar: Action link per channel */}
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2 text-slate-500 text-[11px]">
                   <Globe className="w-4 h-4 text-sky-500" />
@@ -1074,15 +1212,35 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(renderedWaText)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition-all"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Buka Langsung di WhatsApp Web</span>
-                  </a>
+                  {channel === 'EMAIL' ? (
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent(`[PEMBERITAHUAN MONEV] ${selectedTemplate.judul} - KPPN Semarang I`)}&body=${encodeURIComponent(renderedWaText)}`}
+                      className="px-4 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Buka di Aplikasi Email (Mailto)</span>
+                    </a>
+                  ) : channel === 'TELEGRAM' ? (
+                    <a
+                      href={`https://t.me/share/url?url=${encodeURIComponent('https://anggaran-026.my.id')}&text=${encodeURIComponent(renderedWaText)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl text-xs font-black bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                      <span>Buka di Telegram Web</span>
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(renderedWaText)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Buka di WhatsApp Web</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -1338,8 +1496,16 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                       <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
                         HASIL GENERATOR AI: {generatedTemplateCategory}
                       </span>
-                      <span className="px-2 py-0.2 rounded-full text-[9px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                        Siap Kirim WhatsApp
+                      <span className={`px-2 py-0.2 rounded-full text-[9px] font-black border ${
+                        channel === 'EMAIL' 
+                          ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' 
+                          : channel === 'TELEGRAM'
+                            ? 'bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                            : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                      }`}>
+                        {channel === 'EMAIL' ? '✉️ Siap Kirim Email' :
+                         channel === 'TELEGRAM' ? '✈️ Siap Kirim Telegram' :
+                         '🟢 Siap Kirim WhatsApp'}
                       </span>
                     </div>
                     <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-slate-100 mt-0.5">
@@ -1377,7 +1543,13 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                         type="button"
                         onClick={() => handleApplyToBroadcast(generatedTemplateContent)}
                         disabled={!generatedTemplateContent}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                        className={`px-4 py-2 rounded-xl text-white font-black text-xs shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 disabled:opacity-50 ${
+                          channel === 'EMAIL' 
+                            ? 'bg-blue-600 hover:bg-blue-500' 
+                            : channel === 'TELEGRAM'
+                              ? 'bg-sky-600 hover:bg-sky-500'
+                              : 'bg-emerald-600 hover:bg-emerald-500'
+                        }`}
                         title="Pasang template hasil AI ini ke Editor Broadcast Utama"
                       >
                         <Zap className="w-3.5 h-3.5 text-amber-300" />
@@ -1387,12 +1559,22 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                   </div>
                 </div>
 
-                {/* Editable Content Box / WhatsApp Mockup */}
+                {/* Editable Content Box / Dynamic Channel Mockup */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-                    <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-                      <MessageSquare className="w-4 h-4" />
-                      Preview Pesan WhatsApp (Dapat Diedit Langsung):
+                    <span className={`flex items-center gap-1.5 ${
+                      channel === 'EMAIL' ? 'text-blue-600 dark:text-blue-400' :
+                      channel === 'TELEGRAM' ? 'text-sky-600 dark:text-sky-400' :
+                      'text-emerald-600 dark:text-emerald-400'
+                    }`}>
+                      {channel === 'EMAIL' ? <Mail className="w-4 h-4" /> :
+                       channel === 'TELEGRAM' ? <Send className="w-4 h-4 rotate-[-20deg]" /> :
+                       <MessageSquare className="w-4 h-4" />}
+                      <span>
+                        {channel === 'EMAIL' && 'Preview Pesan Email Resmi (Dapat Diedit Langsung):'}
+                        {channel === 'TELEGRAM' && 'Preview Pesan Telegram Bot (Dapat Diedit Langsung):'}
+                        {(channel === 'WHATSAPP' || channel === 'HYBRID') && 'Preview Pesan WhatsApp (Dapat Diedit Langsung):'}
+                      </span>
                     </span>
                     <span className="text-[10px] text-slate-400">
                       {generatedTemplateContent.length} karakter
@@ -1408,16 +1590,22 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                     className="w-full p-4 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-mono text-xs text-slate-900 dark:text-slate-100 leading-relaxed focus:ring-2 focus:ring-indigo-500 focus:outline-none shadow-inner resize-y max-h-[380px]"
                   />
 
-                  {/* WhatsApp Rich Link Preview Card */}
-                  <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-between gap-3 text-xs">
+                  {/* Channel Rich Preview Card */}
+                  <div className={`p-3 rounded-2xl border flex items-center justify-between gap-3 text-xs ${
+                    channel === 'EMAIL' 
+                      ? 'bg-blue-50/60 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/60' 
+                      : channel === 'TELEGRAM'
+                        ? 'bg-sky-50/60 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/60'
+                        : 'bg-indigo-50/60 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60'
+                  }`}>
                     <div className="flex items-center gap-2">
                       <Globe className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <span className="text-indigo-900 dark:text-indigo-200 text-[11px]">
+                      <span className="text-slate-800 dark:text-slate-200 text-[11px]">
                         Tautan Portal Mandiri Tersemat: <strong>https://anggaran-026.my.id</strong>
                       </span>
                     </div>
                     <span className="text-[10px] bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full font-bold border border-indigo-200 dark:border-indigo-800 shrink-0">
-                      Auto Rich Link WA
+                      {channel === 'EMAIL' ? 'Lampiran Tautan Web' : channel === 'TELEGRAM' ? 'Auto Bot Link' : 'Auto Rich Link WA'}
                     </span>
                   </div>
                 </div>
@@ -1432,17 +1620,41 @@ PENTING: Jangan tulis kalimat prompt ini di hasil akhir. Langsung buatkan isi pe
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(renderedGeneratedWaText || generatedTemplateContent)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition-all ${
-                      !generatedTemplateContent ? 'opacity-50 pointer-events-none' : ''
-                    }`}
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    <span>Kirim Lewat WhatsApp Web</span>
-                  </a>
+                  {channel === 'EMAIL' ? (
+                    <a
+                      href={`mailto:?subject=${encodeURIComponent(generatedTemplateTitle || 'Pemberitahuan Monev KPPN Semarang I')}&body=${encodeURIComponent(renderedGeneratedWaText || generatedTemplateContent)}`}
+                      className={`px-4 py-2 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-sm transition-all ${
+                        !generatedTemplateContent ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Kirim Lewat Aplikasi Email</span>
+                    </a>
+                  ) : channel === 'TELEGRAM' ? (
+                    <a
+                      href={`https://t.me/share/url?url=${encodeURIComponent('https://anggaran-026.my.id')}&text=${encodeURIComponent(renderedGeneratedWaText || generatedTemplateContent)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`px-4 py-2 rounded-xl text-xs font-black bg-sky-600 hover:bg-sky-500 text-white flex items-center gap-1.5 shadow-sm transition-all ${
+                        !generatedTemplateContent ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                      <span>Kirim Lewat Telegram Web</span>
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(renderedGeneratedWaText || generatedTemplateContent)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`px-4 py-2 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-sm transition-all ${
+                        !generatedTemplateContent ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>Kirim Lewat WhatsApp Web</span>
+                    </a>
+                  )}
                 </div>
               </div>
 

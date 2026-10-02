@@ -26,6 +26,9 @@ export interface QuizPackage {
   createdAt: string;
   updatedAt: string;
   accessPin?: string; // Optional PIN for internal tests
+  isScheduled?: boolean; // Apakah dibuka dengan jadwal waktu tertentu
+  startAt?: string; // Tanggal & Jam Mulai Dibuka (ISO string / YYYY-MM-DDTHH:mm)
+  endAt?: string; // Tanggal & Jam Ditutup (ISO string / YYYY-MM-DDTHH:mm)
 }
 
 export interface QuizUserAnswer {

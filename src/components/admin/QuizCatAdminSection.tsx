@@ -3,6 +3,7 @@ import {
   HelpCircle, 
   Plus, 
   Trash2, 
+  Trash,
   Edit3, 
   FileSpreadsheet, 
   Download, 
@@ -25,7 +26,13 @@ import {
   CheckCircle2, 
   BookOpen, 
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  Trophy,
+  Crown,
+  Medal,
+  Calendar,
+  RefreshCw,
+  Maximize2
 } from 'lucide-react';
 import { QuizPackage, QuizQuestion, QuizResultRecord, QuizAudience } from '../../types/quiz';
 import { AppUser, AppTheme, DashboardConfig } from '../../types';
@@ -34,9 +41,17 @@ import {
   saveQuizPackage, 
   deleteQuizPackage, 
   getQuizResults, 
+  saveQuizResult,
+  deleteQuizResult,
+  clearAllQuizResults,
+  subscribeToQuizPackages,
+  subscribeToQuizResults,
+  checkPackageScheduleStatus,
   generateQuizExcelTemplate, 
   parseQuizQuestionsFromExcel,
-  exportQuizResultsToExcel 
+  exportQuizResultsToExcel,
+  rankQuizResults,
+  updatePackageSchedule
 } from '../../utils/quizStorage';
 
 interface QuizCatAdminSectionProps {
@@ -94,6 +109,46 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   const [pkgDuration, setPkgDuration] = useState<number>(15);
   const [pkgPassingGrade, setPkgPassingGrade] = useState<number>(70);
   const [pkgIsActive, setPkgIsActive] = useState<boolean>(true);
+  const [pkgIsScheduled, setPkgIsScheduled] = useState<boolean>(false);
+  const [pkgStartAt, setPkgStartAt] = useState<string>('');
+  const [pkgEndAt, setPkgEndAt] = useState<string>('');
+
+  // Results & Leaderboard Management State
+  const [selectedResultPackageId, setSelectedResultPackageId] = useState<string>('ALL');
+  const [showCelebrationPodiumModal, setShowCelebrationPodiumModal] = useState<boolean>(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    mode: 'SINGLE' | 'PACKAGE' | 'ALL';
+    targetId?: string;
+    targetTitle?: string;
+    targetName?: string;
+  } | null>(null);
+
+  // Quick Schedule Modal State (buka dari kapan sampai kapan)
+  const [quickScheduleModal, setQuickScheduleModal] = useState<{
+    isOpen: boolean;
+    pkg: QuizPackage | null;
+    isScheduled: boolean;
+    startAt: string;
+    endAt: string;
+  } | null>(null);
+
+  const handleSaveQuickSchedule = async () => {
+    if (!quickScheduleModal || !quickScheduleModal.pkg) return;
+    try {
+      const updated = await updatePackageSchedule(quickScheduleModal.pkg.id, {
+        isScheduled: quickScheduleModal.isScheduled,
+        startAt: quickScheduleModal.startAt || undefined,
+        endAt: quickScheduleModal.endAt || undefined
+      });
+      setPackages(updated);
+      showToast(`Jadwal kuis "${quickScheduleModal.pkg.title}" berhasil disimpan!`, 'success');
+    } catch (err: any) {
+      showToast(`Gagal menyimpan jadwal: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setQuickScheduleModal(null);
+    }
+  };
 
   // Satker Module Access Toggle
   const isQuizActiveForSatker = dashboardConfig?.menuVisibility?.['quiz-cat'] !== false;
@@ -140,15 +195,19 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   const [excelPreviewQuestions, setExcelPreviewQuestions] = useState<QuizQuestion[] | null>(null);
   const [excelErrors, setExcelErrors] = useState<string[]>([]);
 
-  // Load data
+  // Real-time synchronization for packages and participant submissions
   useEffect(() => {
-    loadAllData();
+    const unsubPackages = subscribeToQuizPackages(cloudPackages => {
+      setPackages(cloudPackages);
+    });
+    const unsubResults = subscribeToQuizResults(cloudResults => {
+      setResults(cloudResults);
+    });
+    return () => {
+      unsubPackages();
+      unsubResults();
+    };
   }, []);
-
-  const loadAllData = () => {
-    setPackages(getQuizPackages());
-    setResults(getQuizResults());
-  };
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setFeedbackMsg({ text, type });
@@ -165,6 +224,9 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     setPkgDuration(15);
     setPkgPassingGrade(70);
     setPkgIsActive(true);
+    setPkgIsScheduled(false);
+    setPkgStartAt('');
+    setPkgEndAt('');
     setSubView('PACKAGE_FORM');
   };
 
@@ -178,11 +240,14 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     setPkgDuration(pkg.durationMinutes);
     setPkgPassingGrade(pkg.passingGrade);
     setPkgIsActive(pkg.isActive);
+    setPkgIsScheduled(pkg.isScheduled || false);
+    setPkgStartAt(pkg.startAt || '');
+    setPkgEndAt(pkg.endAt || '');
     setSubView('PACKAGE_FORM');
   };
 
   // Save Package Form
-  const handleSavePackageSubmit = (e: React.FormEvent) => {
+  const handleSavePackageSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTamu) {
       showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
@@ -204,35 +269,64 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
       isActive: pkgIsActive,
       questions: editingPackage ? editingPackage.questions : [],
       createdAt: editingPackage ? editingPackage.createdAt : new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      isScheduled: pkgIsScheduled,
+      startAt: pkgIsScheduled && pkgStartAt ? pkgStartAt : undefined,
+      endAt: pkgIsScheduled && pkgEndAt ? pkgEndAt : undefined
     };
 
-    const updated = saveQuizPackage(newPkg);
+    const updated = await saveQuizPackage(newPkg);
     setPackages(updated);
     showToast(editingPackage ? 'Paket soal berhasil diperbarui!' : 'Paket soal baru berhasil dibuat!');
     setSubView('PACKAGES_LIST');
   };
 
   // Delete Package
-  const handleDeletePackage = (pkgId: string) => {
+  const handleDeletePackage = async (pkgId: string) => {
     if (isTamu) {
       showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
       return;
     }
     if (!window.confirm('Apakah Anda yakin ingin menghapus paket materi kuis ini beserta seluruh soalnya?')) return;
-    const updated = deleteQuizPackage(pkgId);
+    const updated = await deleteQuizPackage(pkgId);
     setPackages(updated);
     showToast('Paket soal berhasil dihapus.');
   };
 
+  // Results Deletion Handler (Single / Package / All)
+  const confirmExecuteDeletion = async () => {
+    if (!deleteConfirmModal) return;
+    const { mode, targetId, targetTitle } = deleteConfirmModal;
+
+    try {
+      if (mode === 'SINGLE' && targetId) {
+        const updated = await deleteQuizResult(targetId);
+        setResults(updated);
+        showToast('Hasil ujian peserta berhasil dihapus.', 'success');
+      } else if (mode === 'PACKAGE' && targetId) {
+        const updated = await clearAllQuizResults(targetId);
+        setResults(updated);
+        showToast(`Hasil kuis paket "${targetTitle || ''}" berhasil dibersihkan!`, 'success');
+      } else if (mode === 'ALL') {
+        const updated = await clearAllQuizResults();
+        setResults(updated);
+        showToast('Seluruh riwayat hasil kuis berhasil dihapus bersih.', 'success');
+      }
+    } catch (err: any) {
+      showToast(`Gagal menghapus hasil: ${err?.message || 'Terjadi kesalahan'}`, 'error');
+    } finally {
+      setDeleteConfirmModal(null);
+    }
+  };
+
   // Toggle Active status
-  const handleTogglePackageActive = (pkg: QuizPackage) => {
+  const handleTogglePackageActive = async (pkg: QuizPackage) => {
     if (isTamu) {
       showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
       return;
     }
     const updatedPkg = { ...pkg, isActive: !pkg.isActive };
-    const updated = saveQuizPackage(updatedPkg);
+    const updated = await saveQuizPackage(updatedPkg);
     setPackages(updated);
     showToast(`Paket "${pkg.title}" status sekarang: ${updatedPkg.isActive ? 'Aktif' : 'Nonaktif'}`);
   };
@@ -271,7 +365,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   };
 
   // Save Question (Manual)
-  const handleSaveQuestionSubmit = (e: React.FormEvent) => {
+  const handleSaveQuestionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isTamu) {
       showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
@@ -325,7 +419,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     updatedQuestions = updatedQuestions.map((q, idx) => ({ ...q, number: idx + 1 }));
 
     const updatedPkg = { ...editingPackage, questions: updatedQuestions };
-    const allUpdated = saveQuizPackage(updatedPkg);
+    const allUpdated = await saveQuizPackage(updatedPkg);
     setPackages(allUpdated);
     setEditingPackage(updatedPkg);
     setIsQuestionModalOpen(false);
@@ -333,7 +427,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   };
 
   // Delete Single Question
-  const handleDeleteQuestion = (questionId: string) => {
+  const handleDeleteQuestion = async (questionId: string) => {
     if (isTamu) {
       showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
       return;
@@ -345,7 +439,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     const reindexed = remaining.map((q, idx) => ({ ...q, number: idx + 1 }));
 
     const updatedPkg = { ...editingPackage, questions: reindexed };
-    const allUpdated = saveQuizPackage(updatedPkg);
+    const allUpdated = await saveQuizPackage(updatedPkg);
     setPackages(allUpdated);
     setEditingPackage(updatedPkg);
     showToast('Butir soal berhasil dihapus.');
@@ -374,7 +468,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   };
 
   // Confirm and Append Excel Questions to Package
-  const handleConfirmImportExcel = (mode: 'APPEND' | 'REPLACE') => {
+  const handleConfirmImportExcel = async (mode: 'APPEND' | 'REPLACE') => {
     if (!editingPackage || !excelPreviewQuestions) return;
 
     let finalQuestions: QuizQuestion[];
@@ -386,7 +480,7 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     }
 
     const updatedPkg = { ...editingPackage, questions: finalQuestions };
-    const allUpdated = saveQuizPackage(updatedPkg);
+    const allUpdated = await saveQuizPackage(updatedPkg);
     setPackages(allUpdated);
     setEditingPackage(updatedPkg);
     setExcelPreviewQuestions(null);
@@ -395,20 +489,28 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     showToast(`Berhasil mengimpor soal ke dalam paket "${editingPackage.title}"!`);
   };
 
-  // Filtered results
-  const filteredResults = useMemo(() => {
-    return results.filter(r => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        return (
-          r.participantName.toLowerCase().includes(q) ||
-          r.satkerOrUnit.toLowerCase().includes(q) ||
-          r.packageTitle.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [results, searchQuery]);
+  // Selected Package Object
+  const selectedPackageObj = useMemo(() => {
+    if (selectedResultPackageId === 'ALL') return null;
+    return packages.find(p => p.id === selectedResultPackageId) || null;
+  }, [packages, selectedResultPackageId]);
+
+  // Filtered and Ranked results based on Selected Package and Search Query
+  const rankedResults = useMemo(() => {
+    let list = results;
+    if (selectedResultPackageId !== 'ALL') {
+      list = list.filter(r => r.packageId === selectedResultPackageId);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(r =>
+        r.participantName.toLowerCase().includes(q) ||
+        r.satkerOrUnit.toLowerCase().includes(q) ||
+        r.packageTitle.toLowerCase().includes(q)
+      );
+    }
+    return rankQuizResults(list);
+  }, [results, selectedResultPackageId, searchQuery]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -643,6 +745,51 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                           <span className="font-black text-emerald-600">{pkg.passingGrade}%</span>
                         </div>
                       </div>
+
+                      {/* Package Schedule Status */}
+                      {(() => {
+                        const sched = checkPackageScheduleStatus(pkg);
+                        return (
+                          <div className="mb-3 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 flex items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <div className="truncate">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${sched.badgeColor}`}>
+                                    {sched.label}
+                                  </span>
+                                  {pkg.isScheduled && (
+                                    <span className="text-[9px] font-mono text-slate-400">
+                                      {pkg.startAt ? new Date(pkg.startAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : 'Kapan saja'}
+                                      {pkg.endAt ? ` - ${new Date(pkg.endAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}` : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5" title={sched.details}>
+                                  {sched.details}
+                                </span>
+                              </div>
+                            </div>
+                            {!isTamu && (
+                              <button
+                                type="button"
+                                onClick={() => setQuickScheduleModal({
+                                  isOpen: true,
+                                  pkg,
+                                  isScheduled: Boolean(pkg.isScheduled),
+                                  startAt: pkg.startAt || '',
+                                  endAt: pkg.endAt || ''
+                                })}
+                                className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-black text-[10px] border border-amber-500/30 shrink-0 cursor-pointer transition-all flex items-center gap-1"
+                                title="Atur jadwal buka/tutup kuis latihan"
+                              >
+                                <Clock className="w-3 h-3" />
+                                <span>Atur Jadwal</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
@@ -822,6 +969,57 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                   <option value="0">Draft / Nonaktif</option>
                 </select>
               </div>
+            </div>
+
+            {/* Scheduling Options */}
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-500" />
+                  <span className="font-black text-xs text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    Jadwal Waktu Kuis Dibuka &amp; Ditutup Otomatis
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pkgIsScheduled}
+                    onChange={e => setPkgIsScheduled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                Jika diaktifkan, kuis hanya dapat dibuka dan dikerjakan peserta pada rentang tanggal &amp; jam yang Anda tentukan di bawah ini.
+              </p>
+
+              {pkgIsScheduled && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-amber-500/20">
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                      Waktu Mulai Dibuka
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={pkgStartAt}
+                      onChange={e => setPkgStartAt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                      Waktu Selesai Ditutup
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={pkgEndAt}
+                      onChange={e => setPkgEndAt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
@@ -1226,96 +1424,706 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
       {/* 4. RESULTS & LEADERBOARD REKAP */}
       {/* ===================================================================== */}
       {subView === 'RESULTS_LEADERBOARD' && (
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Cari peserta / satker..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-              />
+        <div className="space-y-6">
+          {/* Top Control Bar: Package Selector, Search, Podium, Export, and Delete Memory Options */}
+          <div className={`p-5 rounded-3xl border shadow-md space-y-4 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
+                {/* Package Filter Selector */}
+                <div className="min-w-[260px]">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Filter Paket Ujian:
+                  </label>
+                  <select
+                    value={selectedResultPackageId}
+                    onChange={e => setSelectedResultPackageId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-black text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="ALL">🏆 Seluruh Paket Kuis ({results.length} total peserta)</option>
+                    {packages.map(p => {
+                      const count = results.filter(r => r.packageId === p.id).length;
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {p.title} ({count} peserta)
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Cari Nama / Satker:
+                  </label>
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Cari peserta / satker / unit..."
+                      className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
+                <button
+                  type="button"
+                  disabled={rankedResults.length === 0}
+                  onClick={() => setShowCelebrationPodiumModal(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-all"
+                >
+                  <Trophy className="w-4 h-4" />
+                  <span>🎉 Tampilkan Podium Juara</span>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={rankedResults.length === 0}
+                  onClick={() => exportQuizResultsToExcel(rankedResults)}
+                  className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Ekspor Excel ({rankedResults.length})</span>
+                </button>
+
+                {!isTamu && results.length > 0 && (
+                  <>
+                    {selectedResultPackageId !== 'ALL' && (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmModal({
+                          isOpen: true,
+                          mode: 'PACKAGE',
+                          targetId: selectedResultPackageId,
+                          targetTitle: selectedPackageObj?.title
+                        })}
+                        className="px-3.5 py-2.5 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30 font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                        title="Bersihkan riwayat hasil paket kuis ini untuk menghemat memori"
+                      >
+                        <Trash className="w-3.5 h-3.5" />
+                        <span>Bersihkan Hasil Paket Ini</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirmModal({
+                        isOpen: true,
+                        mode: 'ALL'
+                      })}
+                      className="px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-rose-100 dark:bg-slate-800 dark:hover:bg-rose-950/60 text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 border border-slate-300 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                      title="Hapus seluruh riwayat hasil untuk menghemat memori penyimpanan"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Hapus Semua Hasil</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
-            <button
-              type="button"
-              disabled={results.length === 0}
-              onClick={() => exportQuizResultsToExcel(filteredResults)}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Ekspor Hasil ke Excel ({filteredResults.length})</span>
-            </button>
+            {/* Hint Notice */}
+            <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800/80">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Peringkat diurutkan otomatis: Skor Tertinggi &rarr; Durasi Tercepat &rarr; Waktu Selesai Terawal.
+              </span>
+              <span className="hidden sm:inline text-slate-400">
+                Fitur hapus hasil disediakan agar tidak membebani memori browser.
+              </span>
+            </div>
           </div>
 
+          {/* ========================================================= */}
+          {/* PODIUM JUARA 1, 2, 3 CARDS */}
+          {/* ========================================================= */}
+          {rankedResults.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black flex items-center gap-2 text-slate-900 dark:text-white">
+                  <Trophy className="w-4 h-4 text-amber-500" />
+                  <span>Podium Pemenang Juara 1, 2, dan 3</span>
+                  {selectedPackageObj && (
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                      • {selectedPackageObj.title}
+                    </span>
+                  )}
+                </h3>
+                <span className="text-xs font-bold text-slate-400">
+                  {rankedResults.length} peserta berkompetisi
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* JUARA 2 - PERAK (Left) */}
+                <div className={`p-5 rounded-3xl border-2 flex flex-col justify-between relative overflow-hidden transition-all shadow-md ${
+                  rankedResults[1]
+                    ? isDark ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-slate-400/40 text-white' : 'bg-gradient-to-b from-slate-100 to-white border-slate-300 text-slate-900'
+                    : isDark ? 'bg-slate-900/40 border-dashed border-slate-800 text-slate-500' : 'bg-slate-50 border-dashed border-slate-200 text-slate-400'
+                }`}>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-black uppercase tracking-wider">
+                      <Medal className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                      <span>🥈 Juara 2 (Perak)</span>
+                    </div>
+                    <span className="text-3xl font-black text-slate-400 font-mono">#2</span>
+                  </div>
+
+                  {rankedResults[1] ? (
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-base font-black truncate" title={rankedResults[1].participantName}>
+                          {rankedResults[1].participantName}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {rankedResults[1].satkerOrUnit}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold">Skor Akhir</span>
+                          <span className="text-2xl font-black text-slate-700 dark:text-slate-200 font-mono">
+                            {rankedResults[1].score}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-bold">Durasi Waktu</span>
+                          <span className="text-xs font-black font-mono text-slate-600 dark:text-slate-300">
+                            {Math.floor((rankedResults[1].timeSpentSeconds || 0) / 60)}m {(rankedResults[1].timeSpentSeconds || 0) % 60}d
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs">Belum ada peraih juara 2</div>
+                  )}
+                </div>
+
+                {/* JUARA 1 - EMAS (Center & Elevated) */}
+                <div className={`p-6 rounded-3xl border-2 flex flex-col justify-between relative overflow-hidden transition-all shadow-xl md:-translate-y-2 ${
+                  rankedResults[0]
+                    ? 'bg-gradient-to-b from-amber-500/20 via-amber-600/10 to-transparent border-amber-400/80 shadow-amber-500/10'
+                    : isDark ? 'bg-slate-900/40 border-dashed border-slate-800 text-slate-500' : 'bg-slate-50 border-dashed border-slate-200 text-slate-400'
+                } ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                      <Crown className="w-3.5 h-3.5 text-amber-950 fill-amber-950" />
+                      <span>🥇 Juara 1 (Emas)</span>
+                    </div>
+                    <span className="text-4xl font-black text-amber-500 font-mono">#1</span>
+                  </div>
+
+                  {rankedResults[0] ? (
+                    <div className="space-y-3">
+                      <div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-amber-500 block mb-0.5">
+                          PEMENANG UTAMA
+                        </span>
+                        <h4 className="text-lg font-black truncate" title={rankedResults[0].participantName}>
+                          {rankedResults[0].participantName}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {rankedResults[0].satkerOrUnit}
+                        </p>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">Skor Sempurna</span>
+                          <span className="text-3xl font-black text-amber-500 font-mono">
+                            {rankedResults[0].score}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-bold">Waktu Rekor</span>
+                          <span className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">
+                            {Math.floor((rankedResults[0].timeSpentSeconds || 0) / 60)}m {(rankedResults[0].timeSpentSeconds || 0) % 60}d
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs">Belum ada peraih juara 1</div>
+                  )}
+                </div>
+
+                {/* JUARA 3 - PERUNGGU (Right) */}
+                <div className={`p-5 rounded-3xl border-2 flex flex-col justify-between relative overflow-hidden transition-all shadow-md ${
+                  rankedResults[2]
+                    ? isDark ? 'bg-gradient-to-b from-orange-950/20 to-slate-900 border-orange-500/30 text-white' : 'bg-gradient-to-b from-amber-50 to-white border-orange-300 text-slate-900'
+                    : isDark ? 'bg-slate-900/40 border-dashed border-slate-800 text-slate-500' : 'bg-slate-50 border-dashed border-slate-200 text-slate-400'
+                }`}>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-200 dark:bg-orange-950/80 text-orange-900 dark:text-orange-200 text-[10px] font-black uppercase tracking-wider border border-orange-300 dark:border-orange-800">
+                      <Medal className="w-3.5 h-3.5 text-orange-700 dark:text-orange-400" />
+                      <span>🥉 Juara 3 (Perunggu)</span>
+                    </div>
+                    <span className="text-3xl font-black text-orange-400 font-mono">#3</span>
+                  </div>
+
+                  {rankedResults[2] ? (
+                    <div className="space-y-3">
+                      <div>
+                        <h4 className="text-base font-black truncate" title={rankedResults[2].participantName}>
+                          {rankedResults[2].participantName}
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {rankedResults[2].satkerOrUnit}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-white/40 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold">Skor Akhir</span>
+                          <span className="text-2xl font-black text-orange-600 dark:text-orange-400 font-mono">
+                            {rankedResults[2].score}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-bold">Durasi Waktu</span>
+                          <span className="text-xs font-black font-mono text-slate-600 dark:text-slate-300">
+                            {Math.floor((rankedResults[2].timeSpentSeconds || 0) / 60)}m {(rankedResults[2].timeSpentSeconds || 0) % 60}d
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center text-xs">Belum ada peraih juara 3</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* TABEL PERINGKAT & REKAP SELURUH PESERTA */}
+          {/* ========================================================= */}
           <div className={`rounded-3xl border overflow-hidden shadow-lg ${
             isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
           }`}>
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <h4 className="font-black text-xs uppercase tracking-wider text-slate-500">
+                Daftar Peringkat Lengkap ({rankedResults.length} Peserta)
+              </h4>
+              <span className="text-xs text-slate-400">
+                Peringkat 1 s.d. {rankedResults.length}
+              </span>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700 font-black">
-                    <th className="py-3 px-4 w-12 text-center">No</th>
+                    <th className="py-3 px-4 w-20 text-center">Peringkat</th>
                     <th className="py-3 px-4">Nama Peserta</th>
                     <th className="py-3 px-4">Satker / Unit</th>
                     <th className="py-3 px-4">Paket Ujian</th>
                     <th className="py-3 px-4 text-center">Benar / Salah</th>
-                    <th className="py-3 px-4 text-center">Skor Akhir</th>
+                    <th className="py-3 px-4 text-center">Skor</th>
+                    <th className="py-3 px-4 text-center">Durasi</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4">Waktu Ujian</th>
+                    {!isTamu && <th className="py-3 px-4 text-center w-16">Aksi</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {filteredResults.map((r, idx) => (
-                    <tr key={r.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4 text-center font-mono text-slate-400 font-bold">{idx + 1}</td>
-                      <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                        {r.participantName}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                        {r.satkerOrUnit}
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={r.packageTitle}>
-                        {r.packageTitle}
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono">
-                        <span className="text-emerald-600 font-bold">{r.correctCount}</span> / <span className="text-rose-500 font-bold">{r.wrongCount}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center font-mono font-black text-sm text-amber-500">
-                        {r.score}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                          r.passed
-                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40'
-                            : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40'
-                        }`}>
-                          {r.passed ? 'LULUS' : 'GAGAL'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-[11px] text-slate-400">
-                        {new Date(r.completedAt).toLocaleDateString('id-ID', {
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </td>
-                    </tr>
-                  ))}
+                  {rankedResults.map((r) => {
+                    const rankNum = r.rank || 1;
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 text-center">
+                          {rankNum === 1 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] shadow-xs">
+                              🥇 #1
+                            </span>
+                          ) : rankNum === 2 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-300 dark:bg-slate-600 text-slate-900 dark:text-white font-black text-[11px]">
+                              🥈 #2
+                            </span>
+                          ) : rankNum === 3 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-300 dark:bg-orange-800 text-orange-950 dark:text-orange-100 font-black text-[11px]">
+                              🥉 #3
+                            </span>
+                          ) : (
+                            <span className="font-mono text-slate-400 font-bold">#{rankNum}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                          {r.participantName}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                          {r.satkerOrUnit}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={r.packageTitle}>
+                          {r.packageTitle}
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono">
+                          <span className="text-emerald-600 font-bold">{r.correctCount}</span> / <span className="text-rose-500 font-bold">{r.wrongCount}</span>
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono font-black text-sm text-amber-500">
+                          {r.score}
+                        </td>
+                        <td className="py-3 px-4 text-center font-mono text-[11px] text-slate-500">
+                          {Math.floor((r.timeSpentSeconds || 0) / 60)}m {(r.timeSpentSeconds || 0) % 60}d
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                            r.passed
+                              ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40'
+                              : 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40'
+                          }`}>
+                            {r.passed ? 'LULUS' : 'GAGAL'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-[11px] text-slate-400">
+                          {new Date(r.completedAt).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        {!isTamu && (
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmModal({
+                                isOpen: true,
+                                mode: 'SINGLE',
+                                targetId: r.id,
+                                targetName: r.participantName,
+                                targetTitle: r.packageTitle
+                              })}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                              title="Hapus riwayat peserta ini untuk hemat memori"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
 
-                  {filteredResults.length === 0 && (
+                  {rankedResults.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-slate-400">
-                        Belum ada riwayat hasil simulasi kuis CAT yang tercatat.
+                      <td colSpan={isTamu ? 9 : 10} className="py-12 text-center text-slate-400">
+                        Belum ada riwayat hasil simulasi kuis CAT yang tercatat untuk filter ini.
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 1: ATUR JADWAL BUKA / TUTUP KUIS LATIHAN */}
+      {/* ===================================================================== */}
+      {quickScheduleModal && quickScheduleModal.pkg && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-lg rounded-3xl border shadow-2xl p-6 space-y-5 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base">Atur Jadwal Buka / Tutup Kuis</h3>
+                  <p className="text-xs text-slate-500 truncate max-w-xs">{quickScheduleModal.pkg.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickScheduleModal(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 leading-relaxed">
+                Tentukan kapan latihan kuis ini dibuka dan ditutup. Peserta hanya bisa mengerjakan di rentang waktu yang diizinkan.
+              </div>
+
+              {/* Checkbox toggle scheduling */}
+              <label className="flex items-center gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <input
+                  type="checkbox"
+                  checked={quickScheduleModal.isScheduled}
+                  onChange={e => setQuickScheduleModal({ ...quickScheduleModal, isScheduled: e.target.checked })}
+                  className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                />
+                <div>
+                  <span className="font-black block text-slate-900 dark:text-white">Aktifkan Pembatasan Jadwal Waktu</span>
+                  <span className="text-[11px] text-slate-500">Jika tidak dicentang, kuis terbuka bebas setiap saat.</span>
+                </div>
+              </label>
+
+              {quickScheduleModal.isScheduled && (
+                <div className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 animate-in fade-in duration-150">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Waktu Mulai Dibuka:
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={quickScheduleModal.startAt}
+                      onChange={e => setQuickScheduleModal({ ...quickScheduleModal, startAt: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Waktu Selesai Ditutup:
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={quickScheduleModal.endAt}
+                      onChange={e => setQuickScheduleModal({ ...quickScheduleModal, endAt: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold"
+                    />
+                  </div>
+
+                  {/* Preset Buttons */}
+                  <div>
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                      Pintasan Jadwal Cepat:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          const in1Hour = new Date(now.getTime() + 60 * 60 * 1000);
+                          const toLocalISO = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                          setQuickScheduleModal({
+                            ...quickScheduleModal,
+                            startAt: toLocalISO(now),
+                            endAt: toLocalISO(in1Hour)
+                          });
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-amber-500 hover:text-slate-950 text-[11px] font-bold cursor-pointer transition-all"
+                      >
+                        ⚡ 1 Jam Sekarang
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const now = new Date();
+                          const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0);
+                          const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 17, 0);
+                          const toLocalISO = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                          setQuickScheduleModal({
+                            ...quickScheduleModal,
+                            startAt: toLocalISO(startOfDay),
+                            endAt: toLocalISO(endOfDay)
+                          });
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-amber-500 hover:text-slate-950 text-[11px] font-bold cursor-pointer transition-all"
+                      >
+                        📅 Hari Ini (08.00 - 17.00)
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setQuickScheduleModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickSchedule}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md cursor-pointer flex items-center gap-1.5 transition-all"
+              >
+                <Check className="w-4 h-4" />
+                <span>Simpan Jadwal Kuis</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 2: KONFIRMASI HAPUS HASIL (OPTIMASI MEMORI) */}
+      {/* ===================================================================== */}
+      {deleteConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className={`w-full max-w-md rounded-3xl border shadow-2xl p-6 space-y-4 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-base">Hapus Riwayat Hasil Kuis</h3>
+                <p className="text-xs text-slate-500">Optimasi Memori Browser &amp; Database</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-900 dark:text-rose-200 text-xs leading-relaxed space-y-1.5">
+              {deleteConfirmModal.mode === 'SINGLE' && (
+                <p>
+                  Apakah Anda yakin ingin menghapus hasil kuis peserta <strong className="underline">{deleteConfirmModal.targetName}</strong> pada paket "{deleteConfirmModal.targetTitle}"?
+                </p>
+              )}
+              {deleteConfirmModal.mode === 'PACKAGE' && (
+                <p>
+                  Apakah Anda yakin ingin membersihkan <strong>seluruh hasil kuis</strong> untuk paket <strong className="underline">{deleteConfirmModal.targetTitle}</strong>? Klasemen paket ini akan di-reset kembali ke nol.
+                </p>
+              )}
+              {deleteConfirmModal.mode === 'ALL' && (
+                <p>
+                  ⚠️ <strong>Peringatan Bersih Total:</strong> Tindakan ini akan menghapus <strong>seluruh riwayat hasil kuis semua paket</strong> ({results.length} hasil). Sangat berguna sebelum memulai sesi latihan kuis baru di KPPN.
+                </p>
+              )}
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold pt-1">
+                Data yang dihapus akan segera membebaskan ruang memori penyimpanan.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmModal(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={confirmExecuteDeletion}
+                className="px-5 py-2 rounded-xl text-xs font-black bg-rose-600 hover:bg-rose-500 text-white shadow-md cursor-pointer flex items-center gap-1.5 transition-all"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Ya, Hapus Sekarang</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL 3: PERAYAAN PODIUM JUARA (POPUP FULLSCREEN) */}
+      {/* ===================================================================== */}
+      {showCelebrationPodiumModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-3xl rounded-3xl bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 border border-amber-500/40 shadow-2xl p-6 sm:p-8 text-white space-y-6 relative overflow-hidden">
+            {/* Header Fanfare */}
+            <div className="text-center space-y-2 relative z-10">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black uppercase tracking-widest shadow-lg">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                <span>PAPAN JUARA KUIS CAT KPPN SEMARANG I</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black bg-gradient-to-r from-amber-200 via-amber-400 to-orange-400 bg-clip-text text-transparent">
+                🏆 Podium Penghargaan Pemenang Kuis
+              </h2>
+              <p className="text-xs text-slate-400 max-w-lg mx-auto">
+                {selectedPackageObj ? selectedPackageObj.title : 'Seluruh Materi Ujian & Kompetisi Kuis'}
+              </p>
+            </div>
+
+            {/* Visual Podium 1, 2, 3 */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 relative z-10 items-end">
+              {/* JUARA 2 - PERAK */}
+              <div className="p-4 rounded-3xl bg-slate-800/80 border border-slate-400/40 text-center space-y-2 shadow-lg sm:order-1">
+                <div className="w-12 h-12 rounded-2xl bg-slate-700 text-slate-200 mx-auto flex items-center justify-center font-black text-xl shadow-md">
+                  🥈
+                </div>
+                <div className="text-xs font-black uppercase text-slate-300">Juara 2 (Perak)</div>
+                {rankedResults[1] ? (
+                  <>
+                    <div className="text-sm font-black truncate">{rankedResults[1].participantName}</div>
+                    <div className="text-[11px] text-slate-400 truncate">{rankedResults[1].satkerOrUnit}</div>
+                    <div className="pt-2">
+                      <span className="text-2xl font-black font-mono text-slate-200">{rankedResults[1].score}</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        Waktu: {Math.floor((rankedResults[1].timeSpentSeconds || 0) / 60)}m {(rankedResults[1].timeSpentSeconds || 0) % 60}d
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-slate-500 py-4">Belum Ada Peserta</div>
+                )}
+              </div>
+
+              {/* JUARA 1 - EMAS */}
+              <div className="p-6 rounded-3xl bg-gradient-to-b from-amber-500/30 to-amber-950/40 border-2 border-amber-400 text-center space-y-3 shadow-2xl sm:order-2 sm:-translate-y-3">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-400 to-amber-300 text-slate-950 mx-auto flex items-center justify-center text-3xl shadow-xl shadow-amber-500/30">
+                  🥇
+                </div>
+                <div className="text-xs font-black uppercase tracking-widest text-amber-300">Juara 1 (Emas)</div>
+                {rankedResults[0] ? (
+                  <>
+                    <div className="text-base font-black truncate text-white">{rankedResults[0].participantName}</div>
+                    <div className="text-xs text-amber-200/80 truncate">{rankedResults[0].satkerOrUnit}</div>
+                    <div className="pt-2">
+                      <span className="text-4xl font-black font-mono text-amber-400">{rankedResults[0].score}</span>
+                      <span className="text-xs text-amber-200/80 block mt-1 font-mono">
+                        Waktu: {Math.floor((rankedResults[0].timeSpentSeconds || 0) / 60)}m {(rankedResults[0].timeSpentSeconds || 0) % 60}d
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-slate-500 py-4">Belum Ada Peserta</div>
+                )}
+              </div>
+
+              {/* JUARA 3 - PERUNGGU */}
+              <div className="p-4 rounded-3xl bg-slate-800/80 border border-orange-500/40 text-center space-y-2 shadow-lg sm:order-3">
+                <div className="w-12 h-12 rounded-2xl bg-orange-950/80 text-orange-200 mx-auto flex items-center justify-center font-black text-xl shadow-md border border-orange-700">
+                  🥉
+                </div>
+                <div className="text-xs font-black uppercase text-orange-300">Juara 3 (Perunggu)</div>
+                {rankedResults[2] ? (
+                  <>
+                    <div className="text-sm font-black truncate">{rankedResults[2].participantName}</div>
+                    <div className="text-[11px] text-slate-400 truncate">{rankedResults[2].satkerOrUnit}</div>
+                    <div className="pt-2">
+                      <span className="text-2xl font-black font-mono text-orange-400">{rankedResults[2].score}</span>
+                      <span className="text-[10px] text-slate-400 block">
+                        Waktu: {Math.floor((rankedResults[2].timeSpentSeconds || 0) / 60)}m {(rankedResults[2].timeSpentSeconds || 0) % 60}d
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-xs text-slate-500 py-4">Belum Ada Peserta</div>
+                )}
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <div className="text-center pt-2 relative z-10">
+              <button
+                type="button"
+                onClick={() => setShowCelebrationPodiumModal(false)}
+                className="px-6 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-black text-xs transition-all cursor-pointer"
+              >
+                Tutup Tampilan Podium
+              </button>
             </div>
           </div>
         </div>
