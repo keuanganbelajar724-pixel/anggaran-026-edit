@@ -1447,6 +1447,7 @@ export interface DashboardConfig {
   presentationMaterials?: PresentationMaterial[];
   kegiatanSosialisasi?: KegiatanSosialisasi[];
   menuVisibility?: MenuVisibilityConfig;
+  defaultActiveTab?: NavigationTab;
   tabOrder?: NavigationTab[];
   waDeviceStatus?: WhatsAppDeviceStatus;
   waGatewayConfig?: WhatsAppGatewayConfig;

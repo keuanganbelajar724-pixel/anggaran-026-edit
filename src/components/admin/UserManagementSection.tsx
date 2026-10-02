@@ -24,6 +24,7 @@ import {
   BadgeCheck,
   UserCheck,
   Mail,
+  Send,
   Phone,
   Fingerprint,
   Palette

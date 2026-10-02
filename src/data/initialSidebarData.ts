@@ -270,6 +270,57 @@ export const INITIAL_SIDEBAR_CONFIG: SidebarConfig = {
   items: []
 };
 
+/**
+ * Filter out any dummy / sample default apps completely so user can manage own real apps
+ */
+export function filterDummyApps(items?: SidebarMenuItem[] | null): SidebarMenuItem[] {
+  if (!Array.isArray(items)) return [];
+  return items.filter(item => {
+    if (!item) return false;
+    if (DUMMY_SIDEBAR_APP_IDS.has(item.id)) return false;
+    if (
+      item.id === 'app-sakti' ||
+      item.id === 'app-span' ||
+      item.id === 'app-haicso' ||
+      item.id === 'app-digipay' ||
+      item.id === 'app-sprint' ||
+      item.id === 'app-simaspati' ||
+      item.id === 'app-banking-cms' ||
+      item.id === 'app-internal-kemenkeu'
+    ) {
+      return false;
+    }
+    const titleLower = (item.title || '').toLowerCase();
+    if (
+      titleLower.includes('sakti (sistem aplikasi') ||
+      titleLower.includes('span & om-span') ||
+      titleLower.includes('hai djpb service desk') ||
+      titleLower.includes('digipay satu') ||
+      titleLower.includes('sprint (sistem') ||
+      titleLower.includes('simaspati') ||
+      titleLower.includes('perbankan & cms') ||
+      titleLower.includes('portal kemenkeu satu')
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Sanitize and ensure sidebar config never contains dummy apps
+ */
+export function sanitizeSidebarConfig(config?: Partial<SidebarConfig> | null): SidebarConfig {
+  const base: SidebarConfig = {
+    ...INITIAL_SIDEBAR_CONFIG,
+    ...(config || {})
+  };
+  return {
+    ...base,
+    items: filterDummyApps(base.items)
+  };
+}
+
 export const SIDEBAR_THEME_PRESETS: Record<string, {
   name: string;
   description: string;

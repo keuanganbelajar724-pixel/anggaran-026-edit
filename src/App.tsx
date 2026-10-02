@@ -97,7 +97,8 @@ import { UserGreetingBanner } from './components/UserGreetingBanner';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
 import { InternalAppSidebar } from './components/InternalAppSidebar';
-import { INITIAL_SIDEBAR_CONFIG, DUMMY_SIDEBAR_APP_IDS } from './data/initialSidebarData';
+import { INITIAL_SIDEBAR_CONFIG, DUMMY_SIDEBAR_APP_IDS, sanitizeSidebarConfig, filterDummyApps } from './data/initialSidebarData';
+import { INITIAL_PERATURAN_LIST, sanitizePeraturanList } from './data/initialPeraturanData';
 
 import { ToastProvider, useToast } from './components/ToastNotification';
 import { trackPageView } from './utils/trafficTracker';
@@ -117,61 +118,7 @@ export const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
   customTitle: 'DAFTAR HADIR PESERTA KEGIATAN'
 };
 
-const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [
-  {
-    id: 'kegiatan-demo-1',
-    judulKegiatan: 'Sosialisasi & Bimtek Akselerasi IKPA & Capaian Output SAKTI 2026',
-    subJudul: 'KPPN Semarang I • Seksi MSKI',
-    tanggal: '15 Agustus 2026',
-    jam: '08:30 - 12:00 WIB',
-    lokasi: 'Aula KPPN Semarang I / Zoom Meeting Hybrid',
-    deskripsi: 'Penyampaian strategi peningkatan nilai IKPA, panduan pengisian Capaian Output SAKTI, dan petunjuk teknis PER-5/PB/2024.',
-    isActive: true,
-    isFeatured: true,
-    links: [
-      {
-        id: 'link-1',
-        judulLink: '📝 Presensi & Absensi Online Peserta Sosialisasi',
-        url: 'https://forms.google.com/',
-        deskripsi: 'Wajib diisi oleh seluruh peserta KPA/PPK/PPSPM mitra KPPN Semarang I.',
-        badge: 'Wajib',
-        iconType: 'presence',
-        isHighlight: true,
-        isActive: true
-      },
-      {
-        id: 'link-2',
-        judulLink: '📊 Unduh Slide Paparan & Materi Presentasi PDF',
-        url: 'https://drive.google.com/',
-        deskripsi: 'Bahan tayang paparan narasumber, juknis SAKTI, dan pedoman teknis.',
-        badge: 'Drive PDF',
-        iconType: 'pdf',
-        isHighlight: false,
-        isActive: true
-      },
-      {
-        id: 'link-3',
-        judulLink: '📹 Ruang Virtual Zoom Meeting Hybrid',
-        url: 'https://zoom.us/',
-        deskripsi: 'Akses masuk virtual room bagi peserta online yang mengikuti secara hybrid.',
-        badge: 'Live Zoom',
-        iconType: 'zoom',
-        isHighlight: true,
-        isActive: true
-      },
-      {
-        id: 'link-4',
-        judulLink: '📋 Form Evaluasi & Feedback Kepuasan Sosialisasi',
-        url: 'https://forms.google.com/',
-        deskripsi: 'Mohon berkenan mengisi umpan balik penilaian layanan kegiatan KPPN Semarang I.',
-        badge: 'Feedback',
-        iconType: 'form',
-        isHighlight: false,
-        isActive: true
-      }
-    ]
-  }
-];
+const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [];
 
 export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'dashboard': true,
@@ -250,15 +197,23 @@ export default function App() {
           if (t && t !== 'admin') return t;
         }
         let menuVis: any = null;
+        let defaultTab: NavigationTab = 'capaian-output';
         try {
           const localMenu = localStorage.getItem('kppn_menu_visibility');
           if (localMenu) menuVis = JSON.parse(localMenu);
+          const localCfg = localStorage.getItem('kppn_dashboard_config');
+          if (localCfg) {
+            const parsedCfg = JSON.parse(localCfg);
+            if (parsedCfg?.defaultActiveTab) defaultTab = parsedCfg.defaultActiveTab;
+          }
         } catch (e) {}
 
         const saved = localStorage.getItem('kppn_active_tab') as NavigationTab;
-        if (saved && saved !== 'admin') {
+        const hasManualSwitch = sessionStorage.getItem('kppn_manual_tab_switch') === 'true';
+
+        if (saved && saved !== 'admin' && hasManualSwitch) {
           if (menuVis && menuVis[saved] === false) {
-            return 'capaian-output';
+            return defaultTab;
           }
           if (menuVis && menuVis[saved] === true) {
             return saved;
@@ -267,9 +222,10 @@ export default function App() {
             return saved;
           }
         }
+        return defaultTab;
       }
     } catch (e) {}
-    return 'dashboard';
+    return 'capaian-output';
   });
 
   useEffect(() => {
@@ -370,9 +326,9 @@ export default function App() {
           ? savedConfig.aduanList 
           : [],
         historicalUploads: savedHist || (Array.isArray(savedConfig.historicalUploads) ? deduplicateHistoricalUploads(savedConfig.historicalUploads) : []),
-        kegiatanSosialisasi: Array.isArray(savedConfig.kegiatanSosialisasi) && savedConfig.kegiatanSosialisasi.length > 0 
-          ? savedConfig.kegiatanSosialisasi 
-          : INITIAL_KEGIATAN_SOSIALISASI,
+        kegiatanSosialisasi: Array.isArray(savedConfig.kegiatanSosialisasi) 
+          ? savedConfig.kegiatanSosialisasi.filter((k: any) => k && k.id !== 'kegiatan-demo-1')
+          : [],
         menuVisibility: {
           ...DEFAULT_MENU_VISIBILITY,
           ...savedConfig.menuVisibility,
@@ -381,21 +337,8 @@ export default function App() {
         realisasiAnggaranConfig: savedConfig.realisasiAnggaranConfig
           ? { ...DEFAULT_REALISASI_ANGGARAN_CONFIG, ...savedConfig.realisasiAnggaranConfig }
           : DEFAULT_REALISASI_ANGGARAN_CONFIG,
-        sidebarConfig: (() => {
-          const cfg = savedConfig.sidebarConfig;
-          if (!cfg) return INITIAL_SIDEBAR_CONFIG;
-          try {
-            const clearedFlag = localStorage.getItem('kppn_sidebar_dummy_cleared_v1');
-            if (!clearedFlag) {
-              localStorage.setItem('kppn_sidebar_dummy_cleared_v1', 'true');
-              return { ...cfg, items: [] };
-            }
-          } catch {}
-          if (Array.isArray(cfg.items) && cfg.items.every(item => DUMMY_SIDEBAR_APP_IDS.has(item.id))) {
-            return { ...cfg, items: [] };
-          }
-          return cfg;
-        })()
+        sidebarConfig: sanitizeSidebarConfig(savedConfig.sidebarConfig),
+        peraturanPerbendaharaanList: sanitizePeraturanList(savedConfig.peraturanPerbendaharaanList)
       };
     }
 
@@ -422,6 +365,7 @@ export default function App() {
       presensiPrintConfig: initialPresensiPrint,
       realisasiAnggaranConfig: DEFAULT_REALISASI_ANGGARAN_CONFIG,
       sidebarConfig: INITIAL_SIDEBAR_CONFIG,
+      peraturanPerbendaharaanList: [],
       menuVisibility: {
         ...DEFAULT_MENU_VISIBILITY,
         ...(savedMenuVisibility || {})
@@ -1204,19 +1148,42 @@ export default function App() {
           const incomingSlideShow = data.dashboardConfig.slideShowConfig
             ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
             : undefined;
+          const cleanSidebar = sanitizeSidebarConfig(data.dashboardConfig.sidebarConfig);
+          const cleanPeraturan = sanitizePeraturanList(data.dashboardConfig.peraturanPerbendaharaanList);
+          const cleanKegiatan = (data.dashboardConfig.kegiatanSosialisasi || []).filter((k: any) => k && k.id !== 'kegiatan-demo-1');
+
           const cleanDashboardConfig = {
             ...data.dashboardConfig,
-            slideShowConfig: incomingSlideShow
+            slideShowConfig: incomingSlideShow,
+            sidebarConfig: cleanSidebar,
+            peraturanPerbendaharaanList: cleanPeraturan,
+            kegiatanSosialisasi: cleanKegiatan
           };
           if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
             cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
           }
+
+          // Auto-purge any stale dummy sidebar items or regulations from Firestore
+          const rawSidebarLen = data.dashboardConfig.sidebarConfig?.items?.length || 0;
+          const rawPeraturanLen = data.dashboardConfig.peraturanPerbendaharaanList?.length || 0;
+          if (rawSidebarLen !== cleanSidebar.items.length || rawPeraturanLen !== cleanPeraturan.length) {
+            setDoc(doc(db, 'settings', 'global'), {
+              dashboardConfig: {
+                sidebarConfig: cleanSidebar,
+                peraturanPerbendaharaanList: cleanPeraturan
+              }
+            }, { merge: true }).catch(() => {});
+          }
+
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
             const updated = {
               ...prev,
               ...cleanDashboardConfig,
               slideShowConfig: mergedSlideShow,
+              sidebarConfig: cleanSidebar,
+              peraturanPerbendaharaanList: cleanPeraturan,
+              kegiatanSosialisasi: cleanKegiatan,
               announcements: Array.isArray(cleanDashboardConfig.announcements)
                 ? cleanDashboardConfig.announcements
                 : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
@@ -1230,6 +1197,12 @@ export default function App() {
           });
           if (cleanDashboardConfig.menuVisibility) {
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+          }
+          if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
+            const def = cleanDashboardConfig.defaultActiveTab;
+            if (!cleanDashboardConfig.menuVisibility || cleanDashboardConfig.menuVisibility[def as keyof MenuVisibilityConfig] !== false) {
+              setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
+            }
           }
         }
       };
@@ -1676,6 +1649,34 @@ export default function App() {
               .catch(err => console.warn("Notice purging dummy konfirmasi kehadiran:", err));
           }
         }
+
+        // Purge dummy sidebar apps and regulations from localStorage cache
+        localStorage.removeItem('kppn_peraturan_list');
+        localStorage.removeItem('kppn_sidebar_config');
+        const rawSavedDash = safeLocalStorageGet('kppn_dashboard_config');
+        if (rawSavedDash) {
+          const parsedDash = JSON.parse(rawSavedDash);
+          if (parsedDash) {
+            let modified = false;
+            if (parsedDash.sidebarConfig) {
+              const cleaned = sanitizeSidebarConfig(parsedDash.sidebarConfig);
+              if (cleaned.items.length !== (parsedDash.sidebarConfig.items?.length || 0)) {
+                parsedDash.sidebarConfig = cleaned;
+                modified = true;
+              }
+            }
+            if (parsedDash.peraturanPerbendaharaanList) {
+              const cleanedP = sanitizePeraturanList(parsedDash.peraturanPerbendaharaanList);
+              if (cleanedP.length !== (parsedDash.peraturanPerbendaharaanList?.length || 0)) {
+                parsedDash.peraturanPerbendaharaanList = cleanedP;
+                modified = true;
+              }
+            }
+            if (modified) {
+              safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(parsedDash));
+            }
+          }
+        }
       } catch (_) {}
 
       // 2. Realtime Settings & Dashboard Config
@@ -1690,19 +1691,42 @@ export default function App() {
             const incomingSlideShow = data.dashboardConfig.slideShowConfig
               ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
               : undefined;
+            const cleanSidebar = sanitizeSidebarConfig(data.dashboardConfig.sidebarConfig);
+            const cleanPeraturan = sanitizePeraturanList(data.dashboardConfig.peraturanPerbendaharaanList);
+            const cleanKegiatan = (data.dashboardConfig.kegiatanSosialisasi || []).filter((k: any) => k && k.id !== 'kegiatan-demo-1');
+
             const cleanDashboardConfig = {
               ...data.dashboardConfig,
-              slideShowConfig: incomingSlideShow
+              slideShowConfig: incomingSlideShow,
+              sidebarConfig: cleanSidebar,
+              peraturanPerbendaharaanList: cleanPeraturan,
+              kegiatanSosialisasi: cleanKegiatan
             };
             if (cleanDashboardConfig.customTexts?.dashboardSubtitle?.includes('deteksi dini deviasi Halaman III DIPA')) {
               cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
             }
+
+            // Sync clean state to Firestore if dummy data was present
+            const rawSidebarLen = data.dashboardConfig.sidebarConfig?.items?.length || 0;
+            const rawPeraturanLen = data.dashboardConfig.peraturanPerbendaharaanList?.length || 0;
+            if (rawSidebarLen !== cleanSidebar.items.length || rawPeraturanLen !== cleanPeraturan.length) {
+              setDoc(doc(db, 'settings', 'global'), {
+                dashboardConfig: {
+                  sidebarConfig: cleanSidebar,
+                  peraturanPerbendaharaanList: cleanPeraturan
+                }
+              }, { merge: true }).catch(() => {});
+            }
+
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
               const updated = {
                 ...prev,
                 ...cleanDashboardConfig,
                 slideShowConfig: mergedSlideShow,
+                sidebarConfig: cleanSidebar,
+                peraturanPerbendaharaanList: cleanPeraturan,
+                kegiatanSosialisasi: cleanKegiatan,
                 historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
               };
               if (JSON.stringify(updated) === JSON.stringify(prev)) {
@@ -1713,6 +1737,12 @@ export default function App() {
             });
             if (cleanDashboardConfig.menuVisibility) {
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+            }
+            if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
+              const def = cleanDashboardConfig.defaultActiveTab;
+              if (!cleanDashboardConfig.menuVisibility || cleanDashboardConfig.menuVisibility[def as keyof MenuVisibilityConfig] !== false) {
+                setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
+              }
             }
           }
         }

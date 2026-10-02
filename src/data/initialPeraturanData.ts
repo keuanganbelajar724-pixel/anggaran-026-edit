@@ -29,6 +29,52 @@ export const DUMMY_REGULATION_IDS = new Set<string>([
   'reg-per-5-2022'
 ]);
 
+/**
+ * Filter out any dummy sample regulations completely so user can manage own real regulations
+ */
+export function sanitizePeraturanList(list?: PeraturanPerbendaharaanItem[] | null): PeraturanPerbendaharaanItem[] {
+  if (!Array.isArray(list)) return [];
+  return list.filter(item => {
+    if (!item) return false;
+    if (DUMMY_REGULATION_IDS.has(item.id)) return false;
+    if (
+      item.id?.startsWith('reg-pmk-') ||
+      item.id?.startsWith('reg-per-') ||
+      item.id?.startsWith('reg-uu-') ||
+      item.id?.startsWith('reg-pp-') ||
+      item.id?.startsWith('reg-se-')
+    ) {
+      return false;
+    }
+    const nomorLower = (item.nomor || '').toLowerCase();
+    if (
+      nomorLower.includes('pmk no. 62') ||
+      nomorLower.includes('pmk no. 210') ||
+      nomorLower.includes('pmk no. 89') ||
+      nomorLower.includes('pmk no. 109') ||
+      nomorLower.includes('pmk no. 178') ||
+      nomorLower.includes('pmk no. 39') ||
+      nomorLower.includes('pmk no. 49') ||
+      nomorLower.includes('pmk no. 181') ||
+      nomorLower.includes('pmk no. 213') ||
+      nomorLower.includes('pmk no. 119') ||
+      nomorLower.includes('per-13/pb') ||
+      nomorLower.includes('per-5/pb/2024') ||
+      nomorLower.includes('per-1/pb') ||
+      nomorLower.includes('per-8/pb') ||
+      nomorLower.includes('per-21/pb') ||
+      nomorLower.includes('uu no. 1') ||
+      nomorLower.includes('pp no. 45') ||
+      nomorLower.includes('se-35/pb') ||
+      nomorLower.includes('pmk no. 190') ||
+      nomorLower.includes('per-5/pb/2022')
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export const SAMPLE_PERATURAN_LIST: PeraturanPerbendaharaanItem[] = [
   {
     id: 'reg-pmk-62-2023',

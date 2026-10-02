@@ -17,6 +17,7 @@ export interface TelegramGatewayPublicStatus {
   botName?: string;
   defaultChatId?: string;
   channelOrGroupId?: string;
+  testChatId?: string;
   parseMode?: 'HTML' | 'MarkdownV2' | 'Markdown';
   isConfigured: boolean;
   botTokenMasked?: string;

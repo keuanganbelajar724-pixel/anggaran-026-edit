@@ -54,7 +54,8 @@ import {
 import { 
   INITIAL_PERATURAN_LIST, 
   SAMPLE_PERATURAN_LIST, 
-  DUMMY_REGULATION_IDS 
+  DUMMY_REGULATION_IDS,
+  sanitizePeraturanList
 } from '../data/initialPeraturanData';
 import { safeLocalStorageSet } from '../utils/safeStorage';
 import { useToast } from './ToastNotification';
@@ -133,58 +134,29 @@ export const PeraturanPerbendaharaanTab: React.FC<PeraturanPerbendaharaanTabProp
   const isTamu = currentUser?.role === 'tamu';
   const isRealAdmin = isAdminAuthenticated && !isTamu;
 
-  // Local state for regulations list (Initialized empty so user can fill in real regulations)
+  // Local state for regulations list (Initialized clean so user can fill in real regulations)
   const [peraturanList, setPeraturanList] = useState<PeraturanPerbendaharaanItem[]>(() => {
-    try {
-      const dummyCleared = localStorage.getItem('kppn_peraturan_dummy_cleared_v3');
-      if (!dummyCleared) {
-        localStorage.setItem('kppn_peraturan_dummy_cleared_v3', 'true');
-        // Clear cached dummy regulations
-        const raw = localStorage.getItem('kppn_peraturan_list');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
-            localStorage.removeItem('kppn_peraturan_list');
-            return [];
-          }
-        }
-        localStorage.removeItem('kppn_peraturan_list');
-        return [];
-      }
-    } catch {}
-
     if (dashboardConfig?.peraturanPerbendaharaanList && dashboardConfig.peraturanPerbendaharaanList.length > 0) {
-      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
-        return [];
-      }
-      return dashboardConfig.peraturanPerbendaharaanList;
+      const clean = sanitizePeraturanList(dashboardConfig.peraturanPerbendaharaanList);
+      if (clean.length > 0) return clean;
     }
     try {
       const saved = localStorage.getItem('kppn_peraturan_list');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          if (parsed.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
-            return [];
-          }
-          return parsed;
-        }
+        const clean = sanitizePeraturanList(parsed);
+        if (clean.length > 0) return clean;
       }
     } catch (e) {
       console.warn('Error reading saved regulations:', e);
     }
-    return INITIAL_PERATURAN_LIST;
+    return [];
   });
 
   // Sync with dashboardConfig updates
   useEffect(() => {
     if (dashboardConfig?.peraturanPerbendaharaanList) {
-      if (dashboardConfig.peraturanPerbendaharaanList.every(p => DUMMY_REGULATION_IDS.has(p.id))) {
-        // If config has old dummy items, set empty
-        setPeraturanList([]);
-        return;
-      }
-      setPeraturanList(dashboardConfig.peraturanPerbendaharaanList);
+      setPeraturanList(sanitizePeraturanList(dashboardConfig.peraturanPerbendaharaanList));
     }
   }, [dashboardConfig?.peraturanPerbendaharaanList]);
 

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { SidebarConfig, SidebarMenuItem, SidebarSubmenuItem } from '../types/sidebar';
 import { AppUser } from '../types/user';
-import { INITIAL_SIDEBAR_CONFIG, SIDEBAR_THEME_PRESETS } from '../data/initialSidebarData';
+import { INITIAL_SIDEBAR_CONFIG, SIDEBAR_THEME_PRESETS, filterDummyApps } from '../data/initialSidebarData';
 
 interface InternalAppSidebarProps {
   config?: SidebarConfig;
@@ -210,7 +210,7 @@ export const InternalAppSidebar: React.FC<InternalAppSidebarProps> = ({
   }, [config?.widthMode]);
 
   const activeItems = useMemo(() => {
-    return (config?.items || []).filter(item => item.isActive !== false);
+    return filterDummyApps(config?.items).filter(item => item.isActive !== false);
   }, [config?.items]);
 
   // Categories list

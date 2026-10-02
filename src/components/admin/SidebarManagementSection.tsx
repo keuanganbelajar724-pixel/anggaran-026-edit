@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   SidebarConfig, 
   SidebarMenuItem, 
@@ -10,7 +10,9 @@ import {
   INITIAL_SIDEBAR_CONFIG, 
   SIDEBAR_THEME_PRESETS,
   SAMPLE_SIDEBAR_ITEMS,
-  DUMMY_SIDEBAR_APP_IDS
+  DUMMY_SIDEBAR_APP_IDS,
+  filterDummyApps,
+  sanitizeSidebarConfig
 } from '../../data/initialSidebarData';
 import { 
   renderSidebarIcon 
@@ -90,16 +92,15 @@ export const SidebarManagementSection: React.FC<SidebarManagementSectionProps> =
   const { addToast } = useToast();
 
   const [localConfig, setLocalConfig] = useState<SidebarConfig>(() => {
-    let items = sidebarConfig?.items || [];
-    if (items.length > 0 && items.every(item => DUMMY_SIDEBAR_APP_IDS.has(item.id))) {
-      items = [];
-    }
-    return {
-      ...INITIAL_SIDEBAR_CONFIG,
-      ...sidebarConfig,
-      items
-    };
+    return sanitizeSidebarConfig(sidebarConfig);
   });
+
+  // Sync state if prop changes from Firestore or parent
+  useEffect(() => {
+    if (sidebarConfig) {
+      setLocalConfig(sanitizeSidebarConfig(sidebarConfig));
+    }
+  }, [sidebarConfig]);
 
   const [activeSubTab, setActiveSubTab] = useState<'menus' | 'theme' | 'preview'>('menus');
 

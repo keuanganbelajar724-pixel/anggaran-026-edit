@@ -44,23 +44,7 @@ interface PresensiOnlineViewProps {
   onGoToAdmin?: () => void;
 }
 
-export const INITIAL_DEFAULT_KEGIATAN: PresensiKegiatan[] = [
-  {
-    id: 'kegiatan-presensi-1',
-    judulKegiatan: 'Sosialisasi & Bimtek Akselerasi IKPA & Capaian Output SAKTI TA 2026',
-    subJudul: 'Penyampaian Strategi Kinerja Anggaran & Reformasi PER-5/PB/2024',
-    tanggal: '15 Agustus 2026',
-    jamMulai: '08:30',
-    jamSelesai: '12:00 WIB',
-    jenis: 'Hybrid',
-    lokasi: 'Aula Lantai 2 KPPN Semarang I / Zoom Meeting Hybrid',
-    deskripsi: 'Wajib dihadiri oleh KPA/PPK/PPSPM dan Pejabat/Operator Satker lingkup pembayaran KPPN Semarang I (026).',
-    penyelenggara: 'Seksi MSKI KPPN Semarang I',
-    isActive: true,
-    isLocked: false,
-    createdAt: new Date().toISOString()
-  }
-];
+export const INITIAL_DEFAULT_KEGIATAN: PresensiKegiatan[] = [];
 
 export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
   kegiatanList = INITIAL_DEFAULT_KEGIATAN,
@@ -73,8 +57,8 @@ export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
 }) => {
   const isDark = theme === 'dark';
 
-  // Active Events Filter
-  const events = kegiatanList.length > 0 ? kegiatanList : INITIAL_DEFAULT_KEGIATAN;
+  // Active Events Filter (Clean out dummy demo event)
+  const events = (kegiatanList || []).filter(e => e && e.id !== 'kegiatan-presensi-1');
   const activeEvents = events.filter(e => e.isActive);
   
   const [selectedEventId, setSelectedEventId] = useState<string>(() => {
@@ -82,7 +66,7 @@ export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
   });
 
   // Ensure valid selection
-  const currentEvent = events.find(e => e.id === selectedEventId) || activeEvents[0] || events[0];
+  const currentEvent = events.find(e => e.id === selectedEventId) || activeEvents[0] || events[0] || null;
 
   // Participant Form State (Strictly clean & simplified)
   const [namaLengkap, setNamaLengkap] = useState('');
@@ -449,7 +433,28 @@ export const PresensiOnlineView: React.FC<PresensiOnlineViewProps> = ({
       </div>
 
       {/* Main Attendance Form */}
-      {currentEvent?.isLocked ? (
+      {!currentEvent ? (
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-10 border border-slate-200 dark:border-slate-800 text-center space-y-3">
+          <div className="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400 flex items-center justify-center mx-auto border border-teal-200 dark:border-teal-800">
+            <Calendar className="w-7 h-7 opacity-80" />
+          </div>
+          <h3 className="text-base font-black text-slate-900 dark:text-white">Belum Ada Agenda Presensi Aktif</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            Daftar kegiatan presensi saat ini masih kosong. Admin dapat menambahkan agenda kegiatan baru dan membuka sesi presensi melalui menu Panel Admin Presensi.
+          </p>
+          {onGoToAdmin && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onGoToAdmin}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black shadow-md cursor-pointer transition-all"
+              >
+                + Buka Panel Admin Presensi
+              </button>
+            </div>
+          )}
+        </div>
+      ) : currentEvent.isLocked ? (
         <div className="bg-rose-50 dark:bg-rose-950/40 rounded-3xl p-8 border-2 border-rose-200 dark:border-rose-800 text-center space-y-3">
           <div className="w-14 h-14 rounded-full bg-rose-100 dark:bg-rose-900 text-rose-600 dark:text-rose-300 flex items-center justify-center mx-auto">
             <Lock className="w-7 h-7" />

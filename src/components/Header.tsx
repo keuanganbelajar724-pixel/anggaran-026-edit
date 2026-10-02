@@ -51,6 +51,7 @@ import { AdminLoginModal } from './AdminLoginModal';
 import { AndroidInstallModal } from './AndroidInstallModal';
 import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
 import { getThemePreset } from '../utils/themeUtils';
+import { filterDummyApps } from '../data/initialSidebarData';
 
 interface HeaderProps {
   activeTab: NavigationTab;
@@ -224,6 +225,9 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleTabClick = (tabId: NavigationTab) => {
+    try {
+      sessionStorage.setItem('kppn_manual_tab_switch', 'true');
+    } catch (e) {}
     setActiveTab(tabId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -676,7 +680,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <LayoutGrid className="w-3.5 h-3.5 text-sky-400" />
                   <span className="hidden sm:inline">Aplikasi KPPN</span>
                   <span className="bg-sky-500/20 text-sky-300 font-mono text-[9px] font-black px-1.5 py-0.2 rounded-md border border-sky-400/30">
-                    {dashboardConfig?.sidebarConfig?.items?.filter(i => i.isActive !== false)?.length || 0}
+                    {filterDummyApps(dashboardConfig?.sidebarConfig?.items).filter(i => i.isActive !== false).length}
                   </span>
                 </button>
 
