@@ -399,7 +399,8 @@ async function startServer() {
         messageId: result.messageId
       });
     } catch (e: any) {
-      res.status(500).json({
+      console.warn('[Email Test Notice]:', e?.message || e);
+      res.status(200).json({
         success: false,
         error: e?.message || 'Gagal mengirim email uji coba.'
       });
@@ -421,11 +422,11 @@ async function startServer() {
       } = req.body || {};
 
       if (!toEmail || !toEmail.includes('@')) {
-        return res.status(400).json({ success: false, error: 'Alamat email tujuan tidak valid.' });
+        return res.status(200).json({ success: false, error: 'Alamat email tujuan tidak valid.' });
       }
 
       if (!messageText && !customHtml) {
-        return res.status(400).json({ success: false, error: 'Isi pesan email tidak boleh kosong.' });
+        return res.status(200).json({ success: false, error: 'Isi pesan email tidak boleh kosong.' });
       }
 
       let activeConfig: EmailConfig = { ...emailConfig };
@@ -464,8 +465,8 @@ async function startServer() {
         messageId: sendResult.messageId
       });
     } catch (e: any) {
-      console.error('Failed to send broadcast email:', e);
-      res.status(500).json({
+      console.warn('[Email Broadcast Notice]:', e?.message || e);
+      res.status(200).json({
         success: false,
         error: e?.message || 'Gagal mengirim email broadcast.'
       });
@@ -651,8 +652,8 @@ async function startServer() {
         messageId: sendResult.messageId
       });
     } catch (e: any) {
-      console.error('Failed to send OTP email:', e);
-      res.status(500).json({
+      console.warn('[Email OTP Notice]:', e?.message || e);
+      res.status(200).json({
         success: false,
         error: e?.message || 'Gagal mengirimkan email OTP verifikasi.'
       });

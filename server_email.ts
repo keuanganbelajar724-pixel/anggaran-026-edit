@@ -121,8 +121,8 @@ async function sendViaBrevo(
     throw new Error('API Key Brevo belum diisi. Harap masukkan API Key Brevo di menu Manajemen User Admin Super.');
   }
 
-  if (cleanKey.includes('••••') || cleanKey.includes('***')) {
-    throw new Error('API Key Brevo yang terkirim masih berupa teks sensor/masking. Harap masukkan kembali API Key Brevo asli Anda (diawali dengan xkeysib-...).');
+  if (cleanKey.includes('••••') || cleanKey.includes('***') || cleanKey.includes('test-12345678')) {
+    throw new Error('API Key Brevo belum dikonfigurasi dengan kunci asli. Harap buka Pengaturan Gateway di Manajemen User dan simpan API Key Brevo v3 aktif Anda (diawali dengan xkeysib-...).');
   }
 
   const endpoint = 'https://api.brevo.com/v3/smtp/email';
@@ -167,7 +167,8 @@ async function sendViaBrevo(
     
     // Provide user-friendly guidance based on Brevo error codes
     if (response.status === 401) {
-      throw new Error(`Koneksi Brevo Ditolak (401 Unauthorized): API Key Brevo tidak valid atau telah dicabut. Pastikan Anda menyalin API Key v3 lengkap dari menu SMTP & API di https://app.brevo.com.`);
+      const detail = jsonRes?.message ? ` (${jsonRes.message})` : '';
+      throw new Error(`Koneksi Brevo Ditolak (401 Unauthorized)${detail}: API Key Brevo tidak dikenali ("Key not found") atau belum aktif. Silakan buka https://app.brevo.com -> Menu Profil (kanan atas) -> SMTP & API -> Tab "API Keys", buat kunci baru dengan tombol "Generate a new API key", lalu simpan kunci baru tersebut di Pengaturan Gateway.`);
     }
 
     if (response.status === 400 && (

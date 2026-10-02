@@ -17,11 +17,50 @@ const DEFAULT_CONFIG: EmailGatewayConfig = {
 
 const LOCAL_STORAGE_KEY = 'kppn_email_gateway_config_cache';
 
+function maskApiKey(key?: string): string {
+  if (!key) return '';
+  const clean = key.trim();
+  if (clean.length <= 6) return '****';
+  return `${clean.slice(0, 3)}••••••••${clean.slice(-4)}`;
+}
+
+export function buildPublicEmailStatus(cfg: Partial<EmailGatewayConfig>): EmailGatewayPublicStatus {
+  const provider = cfg.provider || 'brevo';
+  const cleanBrevo = (cfg.brevoApiKey || '').trim();
+  const cleanResend = (cfg.resendApiKey || '').trim();
+  const cleanSmtpUser = (cfg.smtpUser || '').trim();
+  const cleanSmtpPass = (cfg.smtpPass || '').trim();
+
+  const isBrevoConfigured = Boolean(cleanBrevo.length > 8 && !cleanBrevo.includes('test-12345678') && !cleanBrevo.includes('••••'));
+  const isResendConfigured = Boolean(cleanResend.length > 8 && !cleanResend.includes('••••'));
+  const isSmtpConfigured = Boolean(cleanSmtpUser && cleanSmtpPass && !cleanSmtpPass.includes('••••'));
+
+  const isConfigured = 
+    (provider === 'brevo' && isBrevoConfigured) ||
+    (provider === 'resend' && isResendConfigured) ||
+    (provider === 'smtp' && isSmtpConfigured);
+
+  return {
+    provider,
+    senderName: cfg.senderName || 'KPPN Semarang I - Sistem ANGKASA',
+    senderEmail: cfg.senderEmail || 'kppn026.semarang@gmail.com',
+    isConfigured,
+    brevoApiKeyMasked: isBrevoConfigured ? maskApiKey(cleanBrevo) : '',
+    resendApiKeyMasked: isResendConfigured ? maskApiKey(cleanResend) : '',
+    smtpHost: cfg.smtpHost || 'smtp.gmail.com',
+    smtpPort: cfg.smtpPort || 465,
+    smtpUser: cfg.smtpUser || '',
+    smtpPassMasked: isSmtpConfigured ? '••••••••••••••••' : '',
+    updatedAt: cfg.updatedAt || new Date().toISOString()
+  };
+}
+
 /**
  * Get current Email Gateway configuration status (Server + Firestore fallback)
  */
 export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayConfig; status: EmailGatewayPublicStatus }> {
   let serverConfig: EmailGatewayPublicStatus | null = null;
+  let rawConfig: EmailGatewayConfig | null = null;
 
   try {
     const res = await fetch('/api/email/config');
@@ -30,7 +69,10 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
       try {
         const data = JSON.parse(text);
         if (data.status === 'ok' && data.config) {
-          serverConfig = data.config;
+          // If server returns dummy test key from old cache, ignore it
+          if (!data.config.brevoApiKeyMasked?.endsWith('5678') || data.config.brevoApiKeyMasked?.length > 15) {
+            serverConfig = data.config;
+          }
         }
       } catch {}
     }
@@ -46,22 +88,17 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
         if (snap && typeof snap.exists === 'function' && snap.exists()) {
           const cloudData = snap.data() as Partial<EmailGatewayConfig>;
           if (cloudData && (cloudData.brevoApiKey || cloudData.resendApiKey || (cloudData.smtpUser && cloudData.smtpPass))) {
-            // Re-seed backend server with cloud data
+            // Build verified public status directly from cloud database
+            serverConfig = buildPublicEmailStatus(cloudData);
+            rawConfig = { ...DEFAULT_CONFIG, ...cloudData };
+
+            // Re-seed backend server with cloud data in background
             try {
-              const seedRes = await fetch('/api/email/config', {
+              fetch('/api/email/config', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(cloudData)
-              });
-              if (seedRes.ok) {
-                const seedText = await seedRes.text();
-                try {
-                  const seedData = JSON.parse(seedText);
-                  if (seedData?.config) {
-                    serverConfig = seedData.config;
-                  }
-                } catch {}
-              }
+              }).catch(() => {});
             } catch {
               // ignore
             }
@@ -73,6 +110,24 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
     }
   }
 
+  // Fallback to local storage
+  if (!serverConfig || !serverConfig.isConfigured) {
+    try {
+      const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed.brevoApiKey || parsed.resendApiKey || (parsed.smtpUser && parsed.smtpPass)) {
+          serverConfig = buildPublicEmailStatus(parsed);
+          rawConfig = { ...DEFAULT_CONFIG, ...parsed };
+        } else if (parsed.isConfigured && (parsed.brevoApiKeyMasked || parsed.smtpPassMasked)) {
+          serverConfig = parsed;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   if (serverConfig) {
     // Cache local backup
     try {
@@ -81,20 +136,9 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
       // ignore
     }
     return {
-      config: serverConfig as any,
+      config: (rawConfig || serverConfig) as any,
       status: serverConfig
     };
-  }
-
-  // Fallback to local storage
-  try {
-    const local = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (local) {
-      const parsed = JSON.parse(local);
-      return { config: parsed, status: parsed };
-    }
-  } catch {
-    // ignore
   }
 
   return { config: DEFAULT_CONFIG, status: { ...DEFAULT_CONFIG, isConfigured: false } };
@@ -105,14 +149,22 @@ export async function getEmailGatewayStatus(): Promise<{ config: EmailGatewayCon
  */
 export async function saveEmailGatewayConfig(config: EmailGatewayConfig): Promise<{ success: boolean; message: string; savedConfig?: EmailGatewayConfig }> {
   try {
+    // Discard any dummy test key so it never gets saved
+    const cleanBrevo = (config.brevoApiKey || '').trim();
+    const finalBrevo = cleanBrevo.includes('test-12345678') ? '' : cleanBrevo;
+
     const dataToSave: EmailGatewayConfig = {
       ...config,
+      brevoApiKey: finalBrevo,
       updatedAt: new Date().toISOString()
     };
 
+    const publicStatus = buildPublicEmailStatus(dataToSave);
+
     // 1. ALWAYS persist to LocalStorage first (instant UI update & offline reliability)
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dataToSave));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(publicStatus));
+      localStorage.setItem('email_gateway_raw_config', JSON.stringify(dataToSave));
     } catch (e) {
       console.warn('LocalStorage save notice:', e);
     }
@@ -131,7 +183,7 @@ export async function saveEmailGatewayConfig(config: EmailGatewayConfig): Promis
     }
 
     // 3. Attempt to save to backend server (in a safe try/catch that NEVER crashes if the server returns HTML or is sleeping)
-    let returnConfig = dataToSave;
+    let returnStatus: any = publicStatus;
     try {
       const res = await fetch('/api/email/config', {
         method: 'POST',
@@ -143,7 +195,7 @@ export async function saveEmailGatewayConfig(config: EmailGatewayConfig): Promis
         try {
           const data = JSON.parse(text);
           if (data.status === 'ok' && data.config) {
-            returnConfig = data.config;
+            returnStatus = data.config;
           }
         } catch {
           // not json, ignore
@@ -156,7 +208,7 @@ export async function saveEmailGatewayConfig(config: EmailGatewayConfig): Promis
     return {
       success: true,
       message: 'Konfigurasi Email Gateway berhasil disimpan ke Cloud Firestore & Server!',
-      savedConfig: returnConfig
+      savedConfig: returnStatus
     };
   } catch (err: any) {
     return {
@@ -174,10 +226,23 @@ export async function testSendEmail(params: {
   configOverride?: Partial<EmailGatewayConfig>;
 }): Promise<EmailSendResult> {
   try {
+    let override = params.configOverride;
+    if (!override) {
+      try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (local) {
+          override = JSON.parse(local);
+        }
+      } catch {}
+    }
+
     const res = await fetch('/api/email/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify({
+        ...params,
+        configOverride: override
+      })
     });
 
     const text = await res.text();
@@ -279,10 +344,25 @@ export async function sendBroadcastEmail(params: {
   configOverride?: Partial<EmailGatewayConfig>;
 }): Promise<EmailSendResult> {
   try {
+    let override = params.configOverride;
+    if (!override) {
+      try {
+        const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (local) {
+          override = JSON.parse(local);
+        }
+      } catch {}
+    }
+
+    const payload = {
+      ...params,
+      configOverride: override
+    };
+
     const res = await fetch('/api/email/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params)
+      body: JSON.stringify(payload)
     });
 
     const text = await res.text();

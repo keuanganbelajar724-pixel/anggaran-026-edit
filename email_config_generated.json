@@ -1,13 +1,12 @@
 {
   "provider": "brevo",
   "senderName": "KPPN Semarang I - Sistem ANGKASA",
-  "senderEmail": "kppn026.semarang@gmail.com",
-  "brevoApiKey": "xkeysib-test-12345678",
+  "senderEmail": "muslimkafa991@gmail.com",
+  "brevoApiKey": "",
   "resendApiKey": "",
   "smtpHost": "smtp.gmail.com",
   "smtpPort": 465,
   "smtpSecure": true,
   "smtpUser": "",
-  "smtpPass": "",
-  "updatedAt": "2026-10-02T08:28:01.202Z"
+  "smtpPass": ""
 }

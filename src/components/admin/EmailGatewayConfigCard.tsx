@@ -419,17 +419,29 @@ export const EmailGatewayConfigCard: React.FC<EmailGatewayConfigCardProps> = ({
             </div>
 
             {/* Status if already configured on server */}
-            {status?.brevoApiKeyMasked && (
+            {status?.brevoApiKeyMasked && !status.brevoApiKeyMasked.endsWith('5678') && (
               <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs space-y-1">
                 <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span>Kunci Aktif Tersimpan di Server: </span>
+                  <span>Kunci Aktif Tersimpan di Server &amp; Database: </span>
                   <code className="bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded text-emerald-900 dark:text-emerald-200 font-mono text-[11px]">
                     {status.brevoApiKeyMasked}
                   </code>
                 </div>
                 <p className="text-[10px] text-emerald-700 dark:text-emerald-400 leading-relaxed pl-6">
-                  ✓ Kunci asli Anda tersimpan lengkap dan utuh di server &amp; database Firestore. Tampilan disamarkan (masking) otomatis semata-mata untuk perlindungan keamanan kredensial agar tidak terekspos.
+                  ✓ Kunci asli Anda tersimpan aman dan utuh di server &amp; database Firestore. Tampilan disamarkan (masking) otomatis untuk perlindungan keamanan kredensial.
+                </p>
+              </div>
+            )}
+
+            {status?.brevoApiKeyMasked?.endsWith('5678') && (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs space-y-1">
+                <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Kunci Uji Coba Terdeteksi ({status.brevoApiKeyMasked})</span>
+                </div>
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 pl-6 leading-relaxed">
+                  Kunci yang tersimpan saat ini adalah kunci pengujian sementara sehingga koneksi ke Brevo ditolak (401). Silakan masukkan <strong>API Key Brevo v3 asli</strong> Anda dari akun Brevo di bawah ini, lalu klik <strong>"Simpan Konfigurasi Gateway"</strong>.
                 </p>
               </div>
             )}

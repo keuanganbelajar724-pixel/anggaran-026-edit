@@ -299,6 +299,7 @@ export const BroadcastMasifSection: React.FC<BroadcastMasifSectionProps> = ({
     isOpen: boolean;
     recipients: typeof selectedRecipients;
     isRetry?: boolean;
+    channel: BroadcastChannel;
   } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState<boolean>(false);
 
@@ -1598,7 +1599,11 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
   };
 
   // Mass Broadcast Engine: Opens in-app confirmation modal (100% reliable across iframes & devices)
-  const handleStartMassBroadcast = (customRecipientList?: typeof selectedRecipients) => {
+  const handleStartMassBroadcast = (customRecipientList?: typeof selectedRecipients, forcedChannel?: BroadcastChannel) => {
+    if (forcedChannel) {
+      setBroadcastChannel(forcedChannel);
+    }
+    const activeChannel = forcedChannel || broadcastChannel;
     const recipients = Array.isArray(customRecipientList) ? customRecipientList : selectedRecipients;
 
     if (!recipients || recipients.length === 0) {
@@ -1606,9 +1611,9 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         showToast({
           type: 'warning',
           title: 'Tidak Ada Penerima',
-          message: broadcastChannel === 'EMAIL' 
+          message: activeChannel === 'EMAIL' 
             ? 'Pilih minimal satu penerima broadcast yang memiliki alamat email.'
-            : broadcastChannel === 'TELEGRAM'
+            : activeChannel === 'TELEGRAM'
               ? 'Pilih minimal satu penerima broadcast yang memiliki akun/chat ID Telegram.'
               : 'Pilih minimal satu penerima broadcast yang siap dikirim.'
         });
@@ -1619,7 +1624,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     }
 
     // Validate WhatsApp Gateway if channel uses WhatsApp
-    if (broadcastChannel === 'WHATSAPP' || (broadcastChannel === 'HYBRID' && hybridChannels.wa)) {
+    if (activeChannel === 'WHATSAPP' || (activeChannel === 'HYBRID' && hybridChannels.wa)) {
       if (waGatewayProvider !== 'simulasi' && waGatewayProvider !== 'wa_me_link' && !waGatewayToken.trim() && waGatewayProvider !== 'custom_api') {
         if (showToast) {
           showToast({
@@ -1635,7 +1640,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     }
 
     // Validate Email Gateway if channel uses Email
-    if (broadcastChannel === 'EMAIL' || (broadcastChannel === 'HYBRID' && hybridChannels.email)) {
+    if (activeChannel === 'EMAIL' || (activeChannel === 'HYBRID' && hybridChannels.email)) {
       if (!emailGatewayStatus?.isConfigured) {
         if (showToast) {
           showToast({
@@ -1648,7 +1653,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     }
 
     // Validate Telegram Gateway if channel uses Telegram
-    if (broadcastChannel === 'TELEGRAM' || (broadcastChannel === 'HYBRID' && hybridChannels.telegram)) {
+    if (activeChannel === 'TELEGRAM' || (activeChannel === 'HYBRID' && hybridChannels.telegram)) {
       if (!telegramGatewayStatus?.isConfigured) {
         if (showToast) {
           showToast({
@@ -1667,7 +1672,8 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
     setBroadcastConfirmModal({
       isOpen: true,
       recipients,
-      isRetry: !!customRecipientList
+      isRetry: !!customRecipientList,
+      channel: activeChannel
     });
   };
 
@@ -3804,6 +3810,86 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
         {/* 4. Interactive Calculated Recipient Table & Dispatch Console */}
         <div className="space-y-4 pt-2">
           
+          {/* Quick Channel Chooser: Broadcast via WA, Email, or Telegram */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5">
+                PILIH METODE / KANAL BROADCAST MASIF:
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setBroadcastChannel('WHATSAPP')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    broadcastChannel === 'WHATSAPP'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Broadcast Masif via WA</span>
+                  {broadcastChannel === 'WHATSAPP' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBroadcastChannel('EMAIL')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    broadcastChannel === 'EMAIL'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Broadcast Masif via Email</span>
+                  {broadcastChannel === 'EMAIL' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBroadcastChannel('TELEGRAM')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                    broadcastChannel === 'TELEGRAM'
+                      ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30 ring-2 ring-sky-400/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Send className="w-3.5 h-3.5 rotate-[-20deg]" />
+                  <span>Broadcast Masif via Telegram</span>
+                  {broadcastChannel === 'TELEGRAM' && <span className="w-2 h-2 rounded-full bg-white animate-pulse" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBroadcastChannel('HYBRID')}
+                  className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                    broadcastChannel === 'HYBRID'
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-600 text-white shadow-md ring-2 ring-amber-400/50'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Multi-Kanal Hybrid</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-right hidden lg:block">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 block">Kanal Aktif:</span>
+              <span className={`text-xs font-black uppercase tracking-wider ${
+                broadcastChannel === 'WHATSAPP' ? 'text-emerald-600 dark:text-emerald-400' :
+                broadcastChannel === 'EMAIL' ? 'text-blue-600 dark:text-blue-400' :
+                broadcastChannel === 'TELEGRAM' ? 'text-sky-600 dark:text-sky-400' :
+                'text-amber-600 dark:text-amber-400'
+              }`}>
+                {broadcastChannel === 'WHATSAPP' && 'WhatsApp Personal'}
+                {broadcastChannel === 'EMAIL' && 'Email Resmi (Brevo/SMTP)'}
+                {broadcastChannel === 'TELEGRAM' && 'Telegram Bot API'}
+                {broadcastChannel === 'HYBRID' && 'Multi-Kanal Serentak'}
+              </span>
+            </div>
+          </div>
+          
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -3823,7 +3909,7 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
             </div>
 
             {/* Main Action Dispatch Button */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
               {isSendingBroadcast && (
                 <button
                   type="button"
@@ -3835,20 +3921,33 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
                 </button>
               )}
 
+              {/* Dynamic Dispatch Button Matching Selected Channel */}
               <button
                 disabled={isSendingBroadcast || selectedCount === 0}
                 onClick={() => handleStartMassBroadcast()}
-                className={`px-6 py-3 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
+                className={`px-5 py-3 rounded-2xl font-black text-xs text-white shadow-xl flex items-center justify-center gap-2 cursor-pointer transition-all ${
                   isSendingBroadcast || selectedCount === 0
                     ? 'bg-slate-400 cursor-not-allowed shadow-none'
-                    : 'bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 hover:from-rose-500 hover:to-amber-500 shadow-rose-600/30 active:scale-98'
+                    : broadcastChannel === 'WHATSAPP'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30 active:scale-98'
+                      : broadcastChannel === 'EMAIL'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/30 active:scale-98'
+                        : broadcastChannel === 'TELEGRAM'
+                          ? 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-sky-600/30 active:scale-98'
+                          : 'bg-gradient-to-r from-rose-600 via-amber-500 to-rose-600 hover:from-rose-500 hover:to-amber-400 shadow-rose-600/30 active:scale-98'
                 }`}
               >
-                <Send className="w-4 h-4" />
+                {broadcastChannel === 'EMAIL' ? <Mail className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                 <span>
                   {isSendingBroadcast 
                     ? `Mengirim... (${sentStats.success + sentStats.failed}/${sentStats.total})` 
-                    : `Kirim Broadcast Masif Sekarang (${selectedCount} Penerima)`}
+                    : broadcastChannel === 'WHATSAPP'
+                      ? `Kirim Broadcast Masif via WA (${selectedCount} Penerima)`
+                      : broadcastChannel === 'EMAIL'
+                        ? `Kirim Broadcast Masif via Email (${selectedCount} Penerima)`
+                        : broadcastChannel === 'TELEGRAM'
+                          ? `Kirim Broadcast Masif via Telegram (${selectedCount} Penerima)`
+                          : `Kirim Broadcast Masif Multi-Kanal (${selectedCount} Penerima)`}
                 </span>
               </button>
             </div>
@@ -4077,8 +4176,12 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
           {broadcastLogs.length > 0 && (
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
               <div className="text-[11px] font-bold text-slate-400 flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-emerald-400 font-mono">
-                  <Activity className="w-3.5 h-3.5" /> LOG KONSOL PENGIRIMAN WHATSAPP ({sentStats.success} Sukses / {sentStats.failed} Gagal):
+                <span className={`flex items-center gap-1.5 font-mono ${
+                  broadcastChannel === 'WHATSAPP' ? 'text-emerald-400' :
+                  broadcastChannel === 'EMAIL' ? 'text-blue-400' :
+                  broadcastChannel === 'TELEGRAM' ? 'text-sky-400' : 'text-amber-400'
+                }`}>
+                  <Activity className="w-3.5 h-3.5" /> LOG KONSOL PENGIRIMAN {broadcastChannel === 'WHATSAPP' ? 'WHATSAPP' : broadcastChannel === 'EMAIL' ? 'EMAIL RESMI' : broadcastChannel === 'TELEGRAM' ? 'TELEGRAM BOT' : 'MULTI-KANAL HYBRID'} ({sentStats.success} Sukses / {sentStats.failed} Gagal):
                 </span>
                 <button onClick={() => setBroadcastLogs([])} className="text-slate-500 hover:text-slate-300 text-[10px]">
                   Bersihkan Log
@@ -5198,116 +5301,243 @@ Mohon koordinasi intensif bersama PPK, PPSPM, Bendahara, dan Operator SAKTI guna
       )}
 
       {/* Modal In-App Konfirmasi Eksekusi Broadcast Masif (100% Reliable di iFrame / Web) */}
-      {broadcastConfirmModal && broadcastConfirmModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full space-y-5 shadow-2xl animate-fadeIn">
-            <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-rose-500 to-amber-500 text-white rounded-2xl shadow-md">
-                  <Send className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-black text-base text-slate-900 dark:text-slate-100">
-                    Konfirmasi Pengiriman Broadcast
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {broadcastConfirmModal.isRetry ? 'Kirim ulang antrean terpilih' : 'Pengiriman pesan notifikasi WhatsApp resmi'}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setBroadcastConfirmModal(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {broadcastConfirmModal && broadcastConfirmModal.isOpen && (() => {
+        const modalChannel = broadcastConfirmModal.channel || broadcastChannel;
+        const recipientCount = broadcastConfirmModal.recipients.length;
+        const singleRec = recipientCount === 1 ? broadcastConfirmModal.recipients[0] : null;
 
-            {/* Information Grid */}
-            <div className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Target Penerima</span>
-                  <span className="text-base font-black text-rose-600 dark:text-rose-400">
-                    {broadcastConfirmModal.recipients.length} Pejabat / Satker
-                  </span>
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full space-y-5 shadow-2xl animate-fadeIn">
+              
+              {/* Header with Dynamic Channel Branding */}
+              <div className="flex items-start justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-3 rounded-2xl shadow-md text-white ${
+                    modalChannel === 'EMAIL'
+                      ? 'bg-gradient-to-br from-blue-600 to-indigo-600'
+                      : modalChannel === 'TELEGRAM'
+                        ? 'bg-gradient-to-br from-sky-500 to-blue-600'
+                        : modalChannel === 'WHATSAPP'
+                          ? 'bg-gradient-to-br from-emerald-600 to-teal-600'
+                          : 'bg-gradient-to-br from-amber-500 to-rose-600'
+                  }`}>
+                    {modalChannel === 'EMAIL' && <Mail className="w-5 h-5" />}
+                    {modalChannel === 'TELEGRAM' && <Send className="w-5 h-5 rotate-[-20deg]" />}
+                    {modalChannel === 'WHATSAPP' && <Send className="w-5 h-5" />}
+                    {modalChannel === 'HYBRID' && <Zap className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <h4 className="font-black text-base text-slate-900 dark:text-slate-100">
+                      {modalChannel === 'EMAIL' && 'Konfirmasi Broadcast Email Resmi'}
+                      {modalChannel === 'TELEGRAM' && 'Konfirmasi Broadcast Telegram Bot'}
+                      {modalChannel === 'WHATSAPP' && 'Konfirmasi Broadcast WhatsApp Masif'}
+                      {modalChannel === 'HYBRID' && 'Konfirmasi Broadcast Multi-Kanal'}
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {broadcastConfirmModal.isRetry
+                        ? 'Kirim ulang antrean pesan terpilih'
+                        : modalChannel === 'EMAIL'
+                          ? 'Pengiriman nota dinas/monev resmi ke alamat email satker'
+                          : modalChannel === 'TELEGRAM'
+                            ? 'Pengiriman notifikasi otomatis langsung ke Chat ID Telegram Satker'
+                            : modalChannel === 'WHATSAPP'
+                              ? 'Pengiriman pesan notifikasi WhatsApp resmi'
+                              : 'Pengiriman pesan serentak ke WhatsApp, Email, dan Telegram'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Gateway Aktif</span>
-                  <span className="font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    {waGatewayProvider.toUpperCase()} API
-                  </span>
-                </div>
+                <button
+                  onClick={() => setBroadcastConfirmModal(null)}
+                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Recipient Preview */}
-              {broadcastConfirmModal.recipients.length === 1 ? (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 p-3.5 rounded-2xl space-y-1">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 block">
-                    Penerima Tunggal:
-                  </span>
-                  <div className="font-extrabold text-slate-900 dark:text-slate-100">
-                    {broadcastConfirmModal.recipients[0].satkerNama} ({broadcastConfirmModal.recipients[0].satkerKode})
+              {/* Information Grid */}
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Target Penerima</span>
+                    <span className="text-base font-black text-rose-600 dark:text-rose-400">
+                      {recipientCount} Pejabat / Satker
+                    </span>
                   </div>
-                  <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                    {broadcastConfirmModal.recipients[0].roleLabel}: <strong>{broadcastConfirmModal.recipients[0].pejabatNama || 'Pejabat Satker'}</strong>
-                  </div>
-                  <div className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs">
-                    No. WhatsApp: {broadcastConfirmModal.recipients[0].pejabatNoHp || 'KOSONG'}
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Gateway Aktif</span>
+                    <span className={`font-extrabold flex items-center gap-1.5 mt-0.5 truncate ${
+                      modalChannel === 'EMAIL' ? 'text-blue-600 dark:text-blue-400' :
+                      modalChannel === 'TELEGRAM' ? 'text-sky-600 dark:text-sky-400' :
+                      modalChannel === 'WHATSAPP' ? 'text-emerald-600 dark:text-emerald-400' :
+                      'text-amber-600 dark:text-amber-400'
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${
+                        modalChannel === 'EMAIL' ? 'bg-blue-500' :
+                        modalChannel === 'TELEGRAM' ? 'bg-sky-500' :
+                        modalChannel === 'WHATSAPP' ? 'bg-emerald-500' :
+                        'bg-amber-500'
+                      }`} />
+                      {modalChannel === 'EMAIL' && `${emailGatewayStatus?.provider?.toUpperCase() || 'SERVER'} EMAIL`}
+                      {modalChannel === 'TELEGRAM' && `${telegramGatewayStatus?.botUsername || 'TELEGRAM BOT'}`}
+                      {modalChannel === 'WHATSAPP' && `${waGatewayProvider.toUpperCase()} API`}
+                      {modalChannel === 'HYBRID' && 'MULTI-GATEWAY'}
+                    </span>
                   </div>
                 </div>
-              ) : (
-                <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
-                    Sampel Penerima Antrean:
-                  </span>
-                  <div className="space-y-1 max-h-24 overflow-y-auto">
-                    {broadcastConfirmModal.recipients.slice(0, 3).map((r, i) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300">
-                        <span className="truncate max-w-[240px] font-semibold">• {r.satkerNama} ({r.roleLabel})</span>
-                        <span className="font-mono text-[10px] text-slate-500">{r.pejabatNoHp || 'No HP -'}</span>
+
+                {/* Recipient Preview */}
+                {singleRec ? (
+                  <div className={`p-3.5 rounded-2xl space-y-1 border ${
+                    modalChannel === 'EMAIL'
+                      ? 'bg-blue-500/10 border-blue-500/20'
+                      : modalChannel === 'TELEGRAM'
+                        ? 'bg-sky-500/10 border-sky-500/20'
+                        : modalChannel === 'WHATSAPP'
+                          ? 'bg-emerald-500/10 border-emerald-500/20'
+                          : 'bg-amber-500/10 border-amber-500/20'
+                  }`}>
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wider block ${
+                      modalChannel === 'EMAIL' ? 'text-blue-800 dark:text-blue-300' :
+                      modalChannel === 'TELEGRAM' ? 'text-sky-800 dark:text-sky-300' :
+                      modalChannel === 'WHATSAPP' ? 'text-emerald-800 dark:text-emerald-300' :
+                      'text-amber-800 dark:text-amber-300'
+                    }`}>
+                      Penerima Tunggal:
+                    </span>
+                    <div className="font-extrabold text-slate-900 dark:text-slate-100">
+                      {singleRec.satkerNama} ({singleRec.satkerKode})
+                    </div>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                      {singleRec.roleLabel}: <strong>{singleRec.pejabatNama || 'Pejabat Satker'}</strong>
+                    </div>
+
+                    {modalChannel === 'EMAIL' && (
+                      <div className="font-mono font-bold text-blue-700 dark:text-blue-400 text-xs pt-0.5">
+                        Alamat Email: {singleRec.pejabatEmail || singleRec.satkerEmail || '⚠️ BELUM DIISI (KOSONG)'}
                       </div>
-                    ))}
-                    {broadcastConfirmModal.recipients.length > 3 && (
-                      <div className="text-[10px] font-bold text-rose-500 text-center pt-0.5">
-                        + {broadcastConfirmModal.recipients.length - 3} penerima lainnya dalam antrean
+                    )}
+                    {modalChannel === 'TELEGRAM' && (
+                      <div className="font-mono font-bold text-sky-700 dark:text-sky-400 text-xs pt-0.5">
+                        Chat ID / PIC: {singleRec.telegramChatId || singleRec.telegramPic || '⚠️ BELUM DIISI (KOSONG)'}
+                      </div>
+                    )}
+                    {modalChannel === 'WHATSAPP' && (
+                      <div className="font-mono font-bold text-emerald-700 dark:text-emerald-400 text-xs pt-0.5">
+                        No. WhatsApp: {singleRec.pejabatNoHp || '⚠️ BELUM DIISI (KOSONG)'}
+                      </div>
+                    )}
+                    {modalChannel === 'HYBRID' && (
+                      <div className="font-mono text-[11px] text-slate-700 dark:text-slate-300 space-y-0.5 pt-0.5">
+                        <div>WA: <span className="font-bold text-emerald-600">{singleRec.pejabatNoHp || '-'}</span></div>
+                        <div>Email: <span className="font-bold text-blue-600">{singleRec.pejabatEmail || singleRec.satkerEmail || '-'}</span></div>
+                        <div>TG: <span className="font-bold text-sky-600">{singleRec.telegramChatId || '-'}</span></div>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                      Sampel Penerima Antrean:
+                    </span>
+                    <div className="space-y-1 max-h-24 overflow-y-auto">
+                      {broadcastConfirmModal.recipients.slice(0, 3).map((r, i) => (
+                        <div key={i} className="flex items-center justify-between text-[11px] text-slate-700 dark:text-slate-300">
+                          <span className="truncate max-w-[220px] font-semibold">• {r.satkerNama} ({r.roleLabel})</span>
+                          <span className="font-mono text-[10px] text-slate-500 truncate max-w-[150px]">
+                            {modalChannel === 'EMAIL'
+                              ? (r.pejabatEmail || r.satkerEmail || 'Email Kosong')
+                              : modalChannel === 'TELEGRAM'
+                                ? (r.telegramChatId || r.telegramPic || 'Chat ID -')
+                                : (r.pejabatNoHp || 'No HP -')}
+                          </span>
+                        </div>
+                      ))}
+                      {recipientCount > 3 && (
+                        <div className="text-[10px] font-bold text-rose-500 text-center pt-0.5">
+                          + {recipientCount - 3} penerima lainnya dalam antrean
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
-              {/* Anti-Ban & Throttling Security Notice */}
-              <div className="bg-slate-100 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                  <strong>Proteksi Anti-Blokir Aktif:</strong> Jeda {(delayBetweenMs / 1000).toFixed(1)}s antar pesan {useRandomJitter ? '+ Smart Jitter' : ''} {batchPauseSize > 0 ? `dan Cooldown tiap ${batchPauseSize} pesan.` : '.'} Estimasi total: ±{Math.max(1, Math.round(broadcastConfirmModal.recipients.length * (delayBetweenMs / 1000 + (useRandomJitter ? 1.5 : 0))))} detik.
-                </div>
+                {/* Specific Notice / Security Box per Channel */}
+                {modalChannel === 'EMAIL' && (
+                  <div className="bg-blue-50 dark:bg-blue-950/40 p-3 rounded-2xl border border-blue-200 dark:border-blue-800/60 flex items-start gap-2.5">
+                    <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <strong>Pengiriman Email Resmi:</strong> Dokumen/nota dinas dikirim langsung ke alamat email Satker menggunakan draf resmi Sistem ANGKASA KPPN Semarang I.
+                    </div>
+                  </div>
+                )}
+
+                {modalChannel === 'TELEGRAM' && (
+                  <div className="bg-sky-50 dark:bg-sky-950/40 p-3 rounded-2xl border border-sky-200 dark:border-sky-800/60 flex items-start gap-2.5">
+                    <Send className="w-4 h-4 text-sky-600 rotate-[-20deg] shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <strong>Pengiriman Telegram Bot:</strong> Notifikasi monev akan langsung dikirimkan oleh Bot Telegram resmi ke akun Telegram petugas/pejabat satker.
+                    </div>
+                  </div>
+                )}
+
+                {modalChannel === 'WHATSAPP' && (
+                  <div className="bg-slate-100 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <strong>Proteksi Anti-Blokir Aktif:</strong> Jeda {(delayBetweenMs / 1000).toFixed(1)}s antar pesan {useRandomJitter ? '+ Smart Jitter' : ''} {batchPauseSize > 0 ? `dan Cooldown tiap ${batchPauseSize} pesan.` : '.'} Estimasi total: ±{Math.max(1, Math.round(recipientCount * (delayBetweenMs / 1000 + (useRandomJitter ? 1.5 : 0))))} detik.
+                    </div>
+                  </div>
+                )}
+
+                {modalChannel === 'HYBRID' && (
+                  <div className="bg-amber-50 dark:bg-amber-950/40 p-3 rounded-2xl border border-amber-200 dark:border-amber-800/60 flex items-start gap-2.5">
+                    <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <strong>Pengiriman Multi-Kanal:</strong> Menyiarkan pesan secara serentak ke WhatsApp, Email, dan Telegram untuk memastikan informasi tersampaikan 100%.
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setBroadcastConfirmModal(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => executeMassBroadcastDirectly(broadcastConfirmModal.recipients)}
+                  className={`px-6 py-2.5 rounded-xl text-xs font-black text-white shadow-lg cursor-pointer flex items-center gap-2 transition-all ${
+                    modalChannel === 'EMAIL'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/30'
+                      : modalChannel === 'TELEGRAM'
+                        ? 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-sky-600/30'
+                        : modalChannel === 'WHATSAPP'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
+                          : 'bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 shadow-rose-600/30'
+                  }`}
+                >
+                  {modalChannel === 'EMAIL' && <Mail className="w-4 h-4" />}
+                  {modalChannel === 'TELEGRAM' && <Send className="w-4 h-4 rotate-[-20deg]" />}
+                  {modalChannel === 'WHATSAPP' && <Send className="w-4 h-4" />}
+                  {modalChannel === 'HYBRID' && <Zap className="w-4 h-4" />}
+                  <span>
+                    {modalChannel === 'EMAIL' && '🚀 Ya, Mulai Kirim Email Sekarang'}
+                    {modalChannel === 'TELEGRAM' && '🚀 Ya, Mulai Kirim Telegram Sekarang'}
+                    {modalChannel === 'WHATSAPP' && '🚀 Ya, Mulai Kirim WhatsApp Sekarang'}
+                    {modalChannel === 'HYBRID' && '🚀 Ya, Mulai Kirim Multi-Kanal Sekarang'}
+                  </span>
+                </button>
               </div>
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setBroadcastConfirmModal(null)}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => executeMassBroadcastDirectly(broadcastConfirmModal.recipients)}
-                className="px-6 py-2.5 rounded-xl text-xs font-black bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white shadow-lg shadow-rose-600/30 cursor-pointer flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                <span>🚀 Ya, Mulai Kirim Sekarang</span>
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal Konfirmasi Reset Status Delivery Tracker */}
       {showResetConfirmModal && (
