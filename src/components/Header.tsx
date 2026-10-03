@@ -44,7 +44,8 @@ import {
   Crown,
   Check,
   LayoutGrid,
-  Scale
+  Scale,
+  ClipboardList
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -428,6 +429,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <FileSpreadsheet className="w-4 h-4 text-emerald-300" />,
       badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">KPPN</span>,
       activeColor: 'bg-gradient-to-r from-indigo-700 via-purple-700 to-blue-700 text-white shadow-lg shadow-indigo-700/30 ring-2 ring-indigo-400/50'
+    },
+    {
+      id: 'formulir-survei',
+      label: '📝 Formulir & Survei (Google Form)',
+      icon: <ClipboardList className="w-4 h-4 text-sky-300" />,
+      badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Google Form</span>,
+      activeColor: 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-sky-600/30 ring-2 ring-sky-400/50'
     }
   ];
 

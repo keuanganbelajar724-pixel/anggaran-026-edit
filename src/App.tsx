@@ -86,6 +86,7 @@ import { SertifikasiPejabatView } from './components/SertifikasiPejabatView';
 import { Per5AnalisisView } from './components/Per5AnalisisView';
 import { PengetahuanSaktiView } from './components/PengetahuanSaktiView';
 import { QuizCatView } from './components/quiz/QuizCatView';
+import { FormSurveyModule } from './components/forms/FormSurveyModule';
 import { LaporAduanView } from './components/LaporAduanView';
 import { AdminUpload } from './components/AdminUpload';
 import { ReminderGenerator } from './components/ReminderGenerator';
@@ -4207,6 +4208,19 @@ export default function App() {
                   theme={theme}
                   masterSatkers={masterSatkers}
                   onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  onNavigateToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab Formulir & Survei Kuesioner (Google Form Reader & In-App Builder) */}
+              {activeTab === 'formulir-survei' && (
+                <FormSurveyModule
+                  currentUser={currentUser}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  theme={theme}
+                  masterSatkers={masterSatkers}
+                  onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                  isDashboardActive={dashboardConfig.menuVisibility?.['formulir-survei'] ?? true}
                   onNavigateToAdmin={() => setActiveTab('admin')}
                 />
               )}

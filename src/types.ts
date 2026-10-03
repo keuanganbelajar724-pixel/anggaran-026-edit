@@ -1144,6 +1144,7 @@ export interface MenuVisibilityConfig {
   'monitoring-haicso'?: boolean;
   'kontrak'?: boolean;
   'peraturan-perbendaharaan'?: boolean;
+  'formulir-survei'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1570,6 +1571,7 @@ export type NavigationTab =
   | 'monitoring-haicso'
   | 'kontrak'
   | 'peraturan-perbendaharaan'
+  | 'formulir-survei'
   | 'admin' 
   | 'reminder' 
   | 'guide';

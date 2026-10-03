@@ -73,6 +73,7 @@ import { KonfirmasiAdminSection } from './admin/KonfirmasiAdminSection';
 import { UserManagementSection } from './admin/UserManagementSection';
 import { SidebarManagementSection } from './admin/SidebarManagementSection';
 import { QuizCatAdminSection } from './admin/QuizCatAdminSection';
+import { FormSurveyAdminSection } from './admin/FormSurveyAdminSection';
 import { KelolaDataSatkerDashboard } from './KelolaDataSatkerDashboard';
 import { UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, AppUser } from '../types';
 import { getStoredUsers, updateUserProfile, authenticateUser, DEFAULT_SUPERADMIN_USER, clearCurrentUser } from '../utils/userManager';
@@ -178,6 +179,7 @@ import {
   Database,
   Printer,
   ClipboardCheck,
+  ClipboardList,
   PenTool,
   Unlock,
   FileDown,
@@ -523,12 +525,12 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat' | 'formulir-survei'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
-  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk, HAICSO, Kontrak)
-  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk' | 'haicso' | 'kontrak'>('ikpa');
+  // Dedicated Upload Sub-Tabs (IKPA, Output, Sertifikasi, TUP, KKP, Digipay, Deviasi Hal 3, SPM PPP, Pejabat IKPA, Rekonsiliasi, LPJ, Gaji Induk, HAICSO, Kontrak, Formulir & Google Form)
+  const [uploadSubTab, setUploadSubTab] = useState<'ikpa' | 'output' | 'sertifikasi' | 'tup' | 'kkp' | 'digipay' | 'deviasi-hal3' | 'spm-ppp' | 'pejabat-ikpa' | 'rekonsiliasi' | 'lpj' | 'gaji-induk' | 'haicso' | 'kontrak' | 'formulir-survei'>('ikpa');
 
   // Presensi Admin State
   const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
@@ -3844,6 +3846,26 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </span>
             </button>
           )}
+
+          {/* 22. Manajemen Formulir & Google Form (Khusus Admin) */}
+          {currentUser?.role !== 'pegawai' && (
+            <button
+              onClick={() => setAdminTab('formulir-survei')}
+              className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+                adminTab === 'formulir-survei'
+                  ? 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 text-white shadow-lg border-2 border-sky-300 ring-4 ring-sky-400/40 scale-[1.03]'
+                  : 'bg-white/80 dark:bg-slate-800/80 text-sky-900 dark:text-sky-300 border border-sky-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-sky-400 shadow-2xs hover:shadow-xs'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 truncate">
+                <ClipboardList className={`w-4 h-4 shrink-0 ${adminTab === 'formulir-survei' ? 'text-white' : 'text-sky-500'}`} />
+                <span className="truncate">22. Formulir &amp; Google Form</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-emerald-400 text-slate-950 font-bold">
+                GOOGLE FORM
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -4763,7 +4785,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'lpj': 'Monitoring LPJ',
                       'gaji-induk': 'Gaji Induk (PNS & PPPK)',
                       'monitoring-haicso': '🎫 Tiket HAICSO',
-                      'kontrak': '📑 Data Kontrak'
+                      'kontrak': '📑 Data Kontrak',
+                      'quiz-cat': '🎯 Kuis CAT & Kompetensi',
+                      'formulir-survei': '📝 Formulir & Survei (Google Form)'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -4791,7 +4815,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'lpj',
                       'gaji-induk',
                       'monitoring-haicso',
-                      'kontrak'
+                      'kontrak',
+                      'quiz-cat',
+                      'formulir-survei'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4844,7 +4870,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'gaji-induk': { label: '💰 Monitoring Gaji Induk (PNS & PPPK)', desc: 'Monitoring penyampaian SPM Gaji Induk PNS & PPPK (Juni, Juli, Agustus), riwayat bulanan, selisih & deviasi nominal', category: 'Gaji Induk', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' },
                     'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' },
-                    'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' }
+                    'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'formulir-survei': { label: '📝 Formulir & Survei (Google Form)', desc: 'Kuesioner survei kepuasan layanan & integritas Satker, pembaca respon Google Form & grafik otomatis', category: 'Survei', badgeColor: 'bg-sky-100 text-sky-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4873,7 +4900,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'gaji-induk',
                     'monitoring-haicso',
                     'kontrak',
-                    'quiz-cat'
+                    'quiz-cat',
+                    'formulir-survei'
                   ];
 
                   // Build unified order without guide
@@ -5032,6 +5060,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                                 'lpj': true,
                                 'gaji-induk': true,
                                 'monitoring-haicso': true,
+                                'kontrak': true,
+                                'quiz-cat': true,
+                                'formulir-survei': true,
                                 'aduan': true,
                                 'reminder': true,
                                 'guide': false
@@ -11513,6 +11544,29 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         />
       )}
 
+      {/* 22. Manajemen Formulir, Kuesioner & Google Form (Khusus Admin) */}
+      {adminTab === 'formulir-survei' && (
+        <FormSurveyAdminSection
+          currentUser={currentUser}
+          theme={theme}
+          masterSatkers={masterSatkers}
+          isDashboardActive={tempConfig?.menuVisibility?.['formulir-survei'] ?? true}
+          onToggleDashboardActive={async (active) => {
+            const updatedConfig = {
+              ...tempConfig,
+              menuVisibility: {
+                ...tempConfig.menuVisibility,
+                'formulir-survei': active
+              }
+            };
+            setTempConfig(updatedConfig);
+            if (onUpdateDashboardConfig) {
+              onUpdateDashboardConfig(updatedConfig);
+            }
+          }}
+        />
+      )}
+
       {/* Phone Number Monitoring Subtab */}
       {adminTab === 'pejabat-hp' && (
         <div className="space-y-6">
@@ -12400,6 +12454,33 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                   {kontrakRecords.length > 0 ? `${kontrakRecords.length} Kontrak` : '0 Kontrak (Siap Upload)'}
                 </div>
               </button>
+
+              {/* 15. Formulir & Google Form Sub-Tab Card */}
+              <button
+                type="button"
+                onClick={() => setUploadSubTab('formulir-survei')}
+                className={`flex flex-col justify-between h-full min-h-[148px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${
+                  uploadSubTab === 'formulir-survei'
+                    ? 'bg-gradient-to-br from-sky-700 via-blue-700 to-indigo-800 text-white border-2 border-sky-300 ring-4 ring-sky-400/40 shadow-xl scale-[1.02]'
+                    : 'bg-white/80 dark:bg-slate-900/80 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:bg-sky-50/60 dark:hover:bg-slate-800/80 hover:border-sky-300 shadow-2xs hover:shadow-xs'
+                }`}
+              >
+                <div>
+                  <div className={`flex items-center gap-2 font-extrabold text-sm ${uploadSubTab === 'formulir-survei' ? 'text-white' : 'text-sky-800 dark:text-sky-300'}`}>
+                    <ClipboardList className={`w-5 h-5 shrink-0 ${uploadSubTab === 'formulir-survei' ? 'text-white' : 'text-sky-600'}`} />
+                    <span>15. Formulir &amp; Google Form</span>
+                  </div>
+                  <p className={`text-[11px] mt-1 line-clamp-2 ${uploadSubTab === 'formulir-survei' ? 'text-white/85' : 'text-slate-500 dark:text-slate-400'}`}>
+                    Impor file Google Form (.xlsx/.csv), Form Builder, Olah Respon Satker &amp; Visualisasi Grafik Otomatis.
+                  </p>
+                </div>
+                <div className={`mt-auto pt-2 text-[10px] font-mono font-bold border-t flex items-center justify-between ${
+                  uploadSubTab === 'formulir-survei' ? 'text-sky-100 border-white/20' : 'text-sky-700 dark:text-sky-400 border-slate-200/80 dark:border-slate-800'
+                }`}>
+                  <span>{tempConfig.menuVisibility?.['formulir-survei'] !== false ? '🟢 Aktif di Satker' : '🔴 Nonaktif'}</span>
+                  <span>Pusat Olah Data</span>
+                </div>
+              </button>
             </div>
           </div>
 
@@ -12658,6 +12739,29 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               }}
               onGoToMonitoring={() => onNavigateTab?.('kontrak')}
               isDark={isDark}
+            />
+          )}
+
+          {/* 15. Manajemen Formulir, Kuesioner & Google Form */}
+          {uploadSubTab === 'formulir-survei' && (
+            <FormSurveyAdminSection
+              currentUser={currentUser}
+              theme={theme}
+              masterSatkers={masterSatkers}
+              isDashboardActive={tempConfig?.menuVisibility?.['formulir-survei'] ?? true}
+              onToggleDashboardActive={async (active) => {
+                const updatedConfig = {
+                  ...tempConfig,
+                  menuVisibility: {
+                    ...tempConfig.menuVisibility,
+                    'formulir-survei': active
+                  }
+                };
+                setTempConfig(updatedConfig);
+                if (onUpdateDashboardConfig) {
+                  onUpdateDashboardConfig(updatedConfig);
+                }
+              }}
             />
           )}
         </div>
