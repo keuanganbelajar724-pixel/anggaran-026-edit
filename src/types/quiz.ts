@@ -29,6 +29,16 @@ export interface QuizPackage {
   isScheduled?: boolean; // Apakah dibuka dengan jadwal waktu tertentu
   startAt?: string; // Tanggal & Jam Mulai Dibuka (ISO string / YYYY-MM-DDTHH:mm)
   endAt?: string; // Tanggal & Jam Ditutup (ISO string / YYYY-MM-DDTHH:mm)
+  // Enhanced Uji Kompetensi CAT Features
+  shuffleQuestions?: boolean; // Acak urutan butir soal
+  shuffleOptions?: boolean; // Acak susunan pilihan jawaban (A, B, C, D)
+  requireToken?: boolean; // Wajibkan Token Ujian CAT Resmi
+  examToken?: string; // Token akses ujian (misal: "KPPN026", "CAT2026")
+  strictProctoring?: boolean; // Aktifkan pengawasan integritas & anti pindah tab
+  maxTabSwitches?: number; // Batas maksimal pindah tab sebelum auto-submit / peringatan (default: 3)
+  showExplanationImmediately?: boolean; // Apakah pembahasan langsung tampil saat selesai (default: true)
+  maxAttempts?: number; // Batas jumlah pengerjaan (1 = Resmi 1 Kali, 0 = Latihan Bebas)
+  certificateEnabled?: boolean; // Izinkan unduh e-Sertifikat Kelulusan resmi
 }
 
 export interface QuizUserAnswer {
@@ -69,4 +79,49 @@ export interface QuizResultRecord {
   timeSpentSeconds: number;
   completedAt: string;
   answers: QuizAnswerReviewItem[];
+  // Enhanced Proctoring & Certification
+  tabSwitchCount?: number;
+  integrityStatus?: 'TERPERCAYA' | 'PERINGATAN' | 'INDIKASI_PELANGGARAN';
+  certificateNo?: string;
+  tokenUsed?: string;
+  rank?: number;
 }
+
+/**
+ * Local storage session state for auto-save and emergency recovery
+ */
+export interface QuizActiveSession {
+  packageId: string;
+  packageTitle: string;
+  participantName: string;
+  participantSatker: string;
+  nipOrNik?: string;
+  userAnswers: Record<string, { answer: 'A' | 'B' | 'C' | 'D' | null; isDoubt: boolean }>;
+  timeLeftSeconds: number;
+  examStartTime: number;
+  currentQuestionIdx: number;
+  tabSwitchCount: number;
+  orderedQuestionIds: string[];
+  lastSavedAt: string;
+}
+
+/**
+ * Psychometrics item analysis for admin
+ */
+export interface QuestionItemAnalysis {
+  questionId: string;
+  questionNumber: number;
+  questionText: string;
+  correctAnswer: string;
+  totalAnswered: number;
+  correctCount: number;
+  correctPercentage: number;
+  optionDistribution: {
+    A: number;
+    B: number;
+    C: number;
+    D: number;
+  };
+  difficultyLevel: 'MUDAH' | 'SEDANG' | 'SULIT';
+}
+

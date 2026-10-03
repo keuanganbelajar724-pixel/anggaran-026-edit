@@ -24,7 +24,16 @@ import {
   MessageSquare,
   ThumbsUp,
   PieChart,
-  Lock
+  Lock,
+  Link2,
+  RefreshCw,
+  Printer,
+  QrCode,
+  Tablet,
+  ExternalLink,
+  Award,
+  TrendingUp,
+  Share2
 } from 'lucide-react';
 import { 
   KppnForm, 
@@ -47,9 +56,18 @@ import {
   computeFormAnalytics, 
   exportFormResponsesToExcel,
   importGoogleFormData,
-  resetToOfficialDefaultFormsAndResponses
+  resetToOfficialDefaultFormsAndResponses,
+  syncFormFromGoogleSheetUrl
 } from '../../utils/formStorage';
-import { parseGoogleFormFile, parseGoogleFormPastedText } from '../../utils/googleFormParser';
+import { 
+  parseGoogleFormFile, 
+  parseGoogleFormPastedText,
+  fetchGoogleSheetCsvData,
+  OFFICIAL_GOVERNMENT_TEMPLATES
+} from '../../utils/googleFormParser';
+import { FormOfficialReportModal } from '../forms/FormOfficialReportModal';
+import { FormQrShareModal } from '../forms/FormQrShareModal';
+import { FormKioskModal } from '../forms/FormKioskModal';
 
 interface FormSurveyAdminSectionProps {
   currentUser?: AppUser | null;
@@ -84,15 +102,23 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
   const [chartViewModes, setChartViewModes] = useState<Record<string, 'BAR' | 'DONUT' | 'TABLE'>>({});
 
   // Google Form Import States
-  const [gformImportMode, setGformImportMode] = useState<'FILE' | 'PASTE'>('FILE');
+  const [gformImportMode, setGformImportMode] = useState<'URL' | 'FILE' | 'PASTE' | 'TEMPLATES'>('URL');
+  const [gformSpreadsheetUrl, setGformSpreadsheetUrl] = useState<string>('');
   const [pastedSpreadsheetData, setPastedSpreadsheetData] = useState<string>('');
   const [gformCustomTitle, setGformCustomTitle] = useState<string>('');
   const [isImportLoading, setIsImportLoading] = useState<boolean>(false);
+  const [isSyncingLiveUrl, setIsSyncingLiveUrl] = useState<boolean>(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('tpl_skm_permenpan');
   const [importPreview, setImportPreview] = useState<{
     form: KppnForm;
     responses: FormResponseRecord[];
     summary: { totalRows: number; detectedQuestionsCount: number; detectedSatkersCount: number; filename?: string };
   } | null>(null);
+
+  // Modal States
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [isQrShareModalOpen, setIsQrShareModalOpen] = useState<boolean>(false);
+  const [isKioskModalOpen, setIsKioskModalOpen] = useState<boolean>(false);
 
   // Form Builder State
   const [isBuilderModalOpen, setIsBuilderModalOpen] = useState<boolean>(false);
@@ -103,6 +129,8 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
   const [formAudience, setFormAudience] = useState<'ALL' | 'satker' | 'kppn_internal'>('satker');
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
   const [formPublicStats, setFormPublicStats] = useState<boolean>(true);
+  const [formGoogleSheetUrl, setFormGoogleSheetUrl] = useState<string>('');
+  const [formSkmPeriod, setFormSkmPeriod] = useState<string>('');
   const [formFields, setFormFields] = useState<FormField[]>([]);
 
   // Delete Confirm Modal
@@ -158,6 +186,129 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
   }, [responses, currentSelectedForm, searchRespondent]);
 
   // Google Form Import Handlers
+  const handleFetchGoogleSheetUrl = async () => {
+    if (!gformSpreadsheetUrl.trim()) {
+      showToast('Masukkan link/tautan Google Sheets atau Form terlebih dahulu.', 'error');
+      return;
+    }
+    setIsImportLoading(true);
+    try {
+      const csvText = await fetchGoogleSheetCsvData(gformSpreadsheetUrl.trim());
+      const result = parseGoogleFormPastedText(csvText, gformCustomTitle.trim() || undefined);
+      result.form.googleSheetUrl = gformSpreadsheetUrl.trim();
+      result.form.lastSyncedAt = new Date().toISOString();
+      setImportPreview(result);
+      setGformCustomTitle(result.form.title);
+      showToast(`Berhasil membaca data dari Google Sheets! Ditemukan ${result.summary.totalRows} baris respon dan ${result.summary.detectedQuestionsCount} pertanyaan.`, 'success');
+    } catch (err: any) {
+      showToast(`Gagal menarik spreadsheet: ${err.message || 'Error'}`, 'error');
+    } finally {
+      setIsImportLoading(false);
+    }
+  };
+
+  const handleSyncCurrentFormLive = async () => {
+    if (!currentSelectedForm || !currentSelectedForm.googleSheetUrl) return;
+    setIsSyncingLiveUrl(true);
+    try {
+      const res = await syncFormFromGoogleSheetUrl(currentSelectedForm);
+      showToast(`Sinkronisasi berhasil! Ditambahkan ${res.addedResponsesCount} respon baru dari Google Sheets (Total: ${res.totalResponses} respon).`, 'success');
+    } catch (err: any) {
+      showToast(`Gagal sinkronisasi: ${err.message || 'Error'}`, 'error');
+    } finally {
+      setIsSyncingLiveUrl(false);
+    }
+  };
+
+  const handleDeployOfficialTemplate = async (templateId: string) => {
+    const tpl = OFFICIAL_GOVERNMENT_TEMPLATES.find(t => t.id === templateId);
+    if (!tpl) return;
+
+    const newForm: KppnForm = {
+      id: `form_official_${Date.now()}`,
+      title: tpl.name,
+      description: tpl.description,
+      category: tpl.category,
+      targetAudience: 'satker',
+      isActive: true,
+      isPublicStatsVisible: true,
+      allowMultipleSubmissions: false,
+      isOfficialSkm: tpl.isOfficialSkm,
+      skmPeriod: 'Triwulan I 2026',
+      fields: tpl.fields,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const sampleSatkersList = masterSatkers.slice(0, 18);
+    const demoResponses: FormResponseRecord[] = sampleSatkersList.map((stk, idx) => ({
+      id: `resp_tpl_${newForm.id}_${idx + 1}`,
+      formId: newForm.id,
+      formTitle: newForm.title,
+      respondentName: stk.namaPic || `Pejabat Perbendaharaan ${stk.kodeSatker}`,
+      respondentSatker: stk.namaSatker,
+      respondentSatkerKode: stk.kodeSatker,
+      respondentEmail: stk.emailSatker || `${stk.kodeSatker}@kemenkeu.go.id`,
+      respondentNoHp: stk.noHpPic || '081234567890',
+      submittedAt: new Date(Date.now() - (idx * 3600000 * 3)).toISOString(),
+      answers: newForm.fields.map(f => {
+        let val: any = 5;
+        if (f.type === 'RATING') {
+          val = (idx % 5 === 0) ? 4 : 5;
+        } else if (f.type === 'YES_NO') {
+          val = f.id.includes('1') ? 'Tidak' : 'Ya';
+        } else if (f.type === 'MULTIPLE_CHOICE') {
+          val = f.options?.[0]?.label || 'Sangat Cukup';
+        } else {
+          val = `Pelayanan perbendaharaan dan koordinasi dengan KPPN Semarang I sangat memuaskan bagi satker ${stk.namaSatker}.`;
+        }
+        return {
+          fieldId: f.id,
+          fieldLabel: f.label,
+          fieldType: f.type,
+          value: val
+        };
+      })
+    }));
+
+    await importGoogleFormData(newForm, demoResponses);
+    setSelectedFormId(newForm.id);
+    setSubTab('CHARTS');
+    showToast(`Template resmi "${newForm.title}" berhasil diterapkan dan siap digunakan!`, 'success');
+  };
+
+  const handleChangePreviewFieldType = (fieldId: string, newType: FormFieldType) => {
+    if (!importPreview) return;
+    setImportPreview({
+      ...importPreview,
+      form: {
+        ...importPreview.form,
+        fields: importPreview.form.fields.map(f => {
+          if (f.id === fieldId) {
+            return {
+              ...f,
+              type: newType,
+              minRating: newType === 'RATING' ? 1 : undefined,
+              maxRating: newType === 'RATING' ? 5 : undefined
+            };
+          }
+          return f;
+        })
+      }
+    });
+  };
+
+  const handleRemovePreviewField = (fieldId: string) => {
+    if (!importPreview) return;
+    setImportPreview({
+      ...importPreview,
+      form: {
+        ...importPreview.form,
+        fields: importPreview.form.fields.filter(f => f.id !== fieldId)
+      }
+    });
+  };
+
   const handleFileUploadGoogleForm = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -299,6 +450,8 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
     setFormAudience('satker');
     setFormIsActive(true);
     setFormPublicStats(true);
+    setFormGoogleSheetUrl('');
+    setFormSkmPeriod('Triwulan I 2026');
     setFormFields([
       {
         id: `f_${Date.now()}_1`,
@@ -340,6 +493,8 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
     setFormAudience(form.targetAudience);
     setFormIsActive(form.isActive);
     setFormPublicStats(form.isPublicStatsVisible);
+    setFormGoogleSheetUrl(form.googleSheetUrl || '');
+    setFormSkmPeriod(form.skmPeriod || '');
     setFormFields(form.fields);
     setIsBuilderModalOpen(true);
   };
@@ -389,6 +544,8 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
       isActive: formIsActive,
       isPublicStatsVisible: formPublicStats,
       allowMultipleSubmissions: formCat === 'PENDAFTARAN_BIMTEK',
+      googleSheetUrl: formGoogleSheetUrl.trim() || undefined,
+      skmPeriod: formSkmPeriod.trim() || undefined,
       fields: formFields,
       createdAt: editingFormId ? (forms.find(f => f.id === editingFormId)?.createdAt || new Date().toISOString()) : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -644,20 +801,81 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              {currentSelectedForm && (
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              {currentSelectedForm?.googleSheetUrl && (
                 <button
                   type="button"
-                  disabled={!analyticsSummary || analyticsSummary.totalResponses === 0}
-                  onClick={() => exportFormResponsesToExcel(currentSelectedForm, responses)}
-                  className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-all"
+                  disabled={isSyncingLiveUrl}
+                  onClick={handleSyncCurrentFormLive}
+                  className="px-3.5 py-2.5 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                  title={`Tersinkron ke: ${currentSelectedForm.googleSheetUrl}`}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Ekspor Analitik ke Excel</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingLiveUrl ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingLiveUrl ? 'Menyinkronkan...' : 'Sinkronkan Live Sheets'}</span>
                 </button>
+              )}
+
+              {currentSelectedForm && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="px-3.5 py-2.5 rounded-2xl bg-sky-600 hover:bg-sky-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95"
+                    title="Cetak Laporan Resmi Format Dinas KPPN / Permenpan RB"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Laporan Resmi (BAP)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsQrShareModalOpen(true)}
+                    className="px-3.5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95"
+                    title="Buat QR Code Meja CSO & Link WhatsApp Satker"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    <span>QR Meja &amp; Tautan</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsKioskModalOpen(true)}
+                    className="px-3.5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95"
+                    title="Buka Layar Penuh Tablet Kiosk untuk Front Office KPPN"
+                  >
+                    <Tablet className="w-3.5 h-3.5" />
+                    <span>Mode Kiosk Tablet</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={!analyticsSummary || analyticsSummary.totalResponses === 0}
+                    onClick={() => exportFormResponsesToExcel(currentSelectedForm, responses)}
+                    className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Ekspor Excel</span>
+                  </button>
+                </>
               )}
             </div>
           </div>
+
+          {/* Linked Google Sheet Status Badge */}
+          {currentSelectedForm?.googleSheetUrl && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                <Link2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span className="font-bold">
+                  Terhubung ke Google Sheets Live:{' '}
+                  <span className="font-mono underline truncate max-w-xs inline-block align-bottom">{currentSelectedForm.googleSheetUrl}</span>
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 font-mono">
+                Terakhir Sinkron: {currentSelectedForm.lastSyncedAt ? new Date(currentSelectedForm.lastSyncedAt).toLocaleString('id-ID') : 'Belum pernah'}
+              </span>
+            </div>
+          )}
 
           {analyticsSummary && (
             <div className="space-y-6">
@@ -696,7 +914,7 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
                       {currentSelectedForm?.isActive ? '🟢 Aktif Dibuka' : '🔴 Ditutup'}
                     </span>
                     <span className="text-[10px] text-slate-400">
-                      Transparansi Satker: {currentSelectedForm?.isPublicStatsVisible ? 'Ya' : 'Hanya Admin'}
+                      Transparansi: {currentSelectedForm?.isPublicStatsVisible ? 'Publik Satker' : 'Internal Admin'}
                     </span>
                   </div>
                   <div className="p-3 bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-2xl">
@@ -706,19 +924,128 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
 
                 <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-black uppercase text-slate-500 block">Update Terakhir</span>
-                    <span className="text-xs font-black text-slate-700 dark:text-slate-300 mt-1 block font-mono">
-                      {analyticsSummary.latestSubmission 
-                        ? new Date(analyticsSummary.latestSubmission).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                        : 'Belum ada'}
+                    <span className="text-[10px] font-black uppercase text-slate-500 block">Indeks Kepuasan (IKM)</span>
+                    <span className="text-2xl font-black text-amber-500 font-mono mt-1 block">
+                      {analyticsSummary.ikmAnalytics ? `${analyticsSummary.ikmAnalytics.ikmConversion}` : 'N/A'}
                     </span>
-                    <span className="text-[10px] text-slate-400">Sinkronisasi otomatis</span>
+                    <span className="text-[10px] font-black text-emerald-600">
+                      {analyticsSummary.ikmAnalytics ? `Mutu: ${analyticsSummary.ikmAnalytics.grade} (${analyticsSummary.ikmAnalytics.predikat})` : 'Butuh Rating'}
+                    </span>
                   </div>
                   <div className="p-3 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl">
-                    <Sparkles className="w-6 h-6" />
+                    <Award className="w-6 h-6" />
                   </div>
                 </div>
               </div>
+
+              {/* INDEKS KEPUASAN MASYARAKAT (IKM) SCORECARD */}
+              {analyticsSummary.ikmAnalytics && (
+                <div className={`p-6 rounded-3xl border-2 shadow-lg space-y-4 ${
+                  isDark ? 'bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border-indigo-900/60' : 'bg-gradient-to-br from-white via-indigo-50/40 to-sky-50/60 border-indigo-200'
+                }`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-200/40 dark:border-indigo-800/40 pb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold">
+                        <Award className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
+                          <span>Indeks Kepuasan Masyarakat (IKM) Permenpan-RB 14/2017</span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                            Mutu: {analyticsSummary.ikmAnalytics.grade}
+                          </span>
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Kalkulasi bobot rata-rata tertimbang (NRR) dari {analyticsSummary.ikmAnalytics.totalElements} indikator penilaian
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-sm hover:scale-105 transition-all"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Cetak BAP Resmi</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">NRR Tertimbang</span>
+                      <span className="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1 block">
+                        {analyticsSummary.ikmAnalytics.nrrTotal.toFixed(3)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Skala 1 - 5</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Nilai Konversi IKM</span>
+                      <span className="text-2xl font-black text-sky-600 dark:text-sky-400 font-mono mt-1 block">
+                        {analyticsSummary.ikmAnalytics.ikmConversion.toFixed(2)}
+                      </span>
+                      <span className="text-[10px] text-slate-400">Skala 25 - 100</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Mutu Pelayanan</span>
+                      <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-1 block">
+                        {analyticsSummary.ikmAnalytics.grade}
+                      </span>
+                      <span className="text-[10px] text-emerald-600 font-black">{analyticsSummary.ikmAnalytics.predikat}</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Kategori Penilaian</span>
+                      <span className="text-xs font-black text-slate-800 dark:text-slate-200 mt-2 block leading-snug">
+                        {analyticsSummary.ikmAnalytics.kategoriMutuText}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SENTIMENT & FEEDBACK WORD CLOUD */}
+              {analyticsSummary.sentimentSummary && analyticsSummary.sentimentSummary.topKeywords.length > 0 && (
+                <div className={`p-5 rounded-3xl border shadow-md space-y-3 ${
+                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-emerald-500" />
+                      <span>Analisis Sentimen &amp; Kata Kunci Saran Satker</span>
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 font-bold">
+                        {analyticsSummary.sentimentSummary.positiveCount} Apresiasi Positif
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-600 font-bold">
+                        {analyticsSummary.sentimentSummary.constructiveCount} Masukan Konstruktif
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {analyticsSummary.sentimentSummary.topKeywords.map((item, idx) => (
+                      <span 
+                        key={item.word}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all ${
+                          idx === 0 
+                            ? 'bg-sky-500 text-white shadow-xs' 
+                            : idx < 3 
+                              ? 'bg-sky-500/20 text-sky-700 dark:text-sky-300' 
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        #{item.word} <span className="opacity-70 font-mono text-[10px]">({item.count})</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* AUTOMATIC VISUAL CHARTS & PERCENTAGES PER QUESTION */}
               <div className="space-y-6">
@@ -1194,35 +1521,115 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
             </div>
 
             {/* Import Mode Switcher */}
-            <div className="flex items-center gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setGformImportMode('URL')}
+                className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  gformImportMode === 'URL'
+                    ? 'bg-white dark:bg-slate-700 text-sky-600 dark:text-sky-300 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                <span>Link Live Sheets</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setGformImportMode('FILE')}
-                className={`flex-1 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   gformImportMode === 'FILE'
                     ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>Upload File Excel (.xlsx / .csv)</span>
+                <span>Upload Excel</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setGformImportMode('PASTE')}
-                className={`flex-1 py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   gformImportMode === 'PASTE'
                     ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-300 shadow-xs'
                     : 'text-slate-600 dark:text-slate-400'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>Paste Teks Spreadsheet</span>
+                <span>Paste Teks</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGformImportMode('TEMPLATES')}
+                className={`py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  gformImportMode === 'TEMPLATES'
+                    ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400'
+                }`}
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>Template Resmi</span>
               </button>
             </div>
 
-            {/* Mode FILE */}
+            {/* Mode 1: URL LIVE SYNC */}
+            {gformImportMode === 'URL' && (
+              <div className="space-y-4 p-5 rounded-2xl bg-sky-50/50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-800/60">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black uppercase text-sky-800 dark:text-sky-300 flex items-center gap-1.5">
+                    <Link2 className="w-4 h-4 text-sky-600" />
+                    <span>Sinkronisasi Otomatis Tautan Google Sheets / Form</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Tempelkan tautan spreadsheet Google Form respon Anda. Sistem akan langsung mengunduh baris jawaban secara online dan menghubungkan pembaruan data secara berkala.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Tautan Google Sheets / Google Form:
+                  </label>
+                  <input
+                    type="url"
+                    value={gformSpreadsheetUrl}
+                    onChange={e => setGformSpreadsheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-1">
+                    Pastikan file Google Sheet diatur: <em>"Siapa saja dengan link dapat melihat" (Anyone with the link can view)</em>.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Judul Kuesioner (Opsional):
+                  </label>
+                  <input
+                    type="text"
+                    value={gformCustomTitle}
+                    onChange={e => setGformCustomTitle(e.target.value)}
+                    placeholder="Contoh: Survei Kepuasan Triwulan I 2026 KPPN Semarang I..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFetchGoogleSheetUrl}
+                  disabled={isImportLoading || !gformSpreadsheetUrl.trim()}
+                  className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer transition-all hover:scale-[1.01] active:scale-98"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isImportLoading ? 'animate-spin' : ''}`} />
+                  <span>{isImportLoading ? 'Menghubungi Server Google...' : 'Tarik Data Live & Deteksi Pertanyaan'}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Mode 2: FILE UPLOAD */}
             {gformImportMode === 'FILE' && (
               <div className="border-2 border-dashed border-emerald-500/40 rounded-3xl p-8 text-center bg-emerald-500/5 hover:bg-emerald-500/10 transition-all relative">
                 <input
@@ -1246,7 +1653,7 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
               </div>
             )}
 
-            {/* Mode PASTE */}
+            {/* Mode 3: PASTE TEXT */}
             {gformImportMode === 'PASTE' && (
               <div className="space-y-3">
                 <div>
@@ -1287,6 +1694,56 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
               </div>
             )}
 
+            {/* Mode 4: OFFICIAL GOVERNMENT TEMPLATES */}
+            {gformImportMode === 'TEMPLATES' && (
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <h4 className="text-xs font-black uppercase text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-indigo-500" />
+                    <span>Template Standar Resmi Kemenkeu &amp; Permenpan-RB</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Terapkan instrumen survei standar kepuasan masyarakat (SKM 9 Unsur), Zona Integritas WBK/WBBM, atau evaluasi bimbingan teknis satker dengan 1 klik.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {OFFICIAL_GOVERNMENT_TEMPLATES.map(tpl => (
+                    <div 
+                      key={tpl.id}
+                      className="p-4 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/40 dark:bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                            {tpl.badge}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 font-mono">
+                            {tpl.fields.length} Indikator
+                          </span>
+                        </div>
+                        <h5 className="font-black text-sm text-slate-900 dark:text-white">
+                          {tpl.name}
+                        </h5>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                          {tpl.description}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeployOfficialTemplate(tpl.id)}
+                        className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs shrink-0 cursor-pointer shadow-md flex items-center justify-center gap-1.5 hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Terapkan Template</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Instant Sample Trial Button */}
             <div className="p-4 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="space-y-0.5 text-center sm:text-left">
@@ -1309,13 +1766,13 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
               </button>
             </div>
 
-            {/* Detected Preview Results */}
+            {/* Detected Preview Results with Interactive Column Mapper */}
             {importPreview && (
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in slide-in-from-bottom-2">
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Kolom Google Form Berhasil Terbaca!</span>
+                    <span>Kolom Google Form Berhasil Terbaca &amp; Siap Dipetakan!</span>
                   </span>
                   <span className="text-[10px] font-bold text-slate-400 font-mono">
                     {importPreview.summary.totalRows} Responden
@@ -1341,7 +1798,7 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">Pertanyaan</span>
-                    <span className="font-black text-sky-600 text-sm font-mono">{importPreview.summary.detectedQuestionsCount} Butir</span>
+                    <span className="font-black text-sky-600 text-sm font-mono">{importPreview.form.fields.length} Butir</span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">Satker Terlibat</span>
@@ -1349,24 +1806,73 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
                   </div>
                 </div>
 
-                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                  <span className="text-[10px] font-bold text-slate-400 block">Daftar Pertanyaan Terdeteksi:</span>
-                  {importPreview.form.fields.map((f, i) => (
-                    <div key={f.id} className="text-xs p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <span className="truncate max-w-[340px] font-medium" title={f.label}>
-                        #{i + 1}. {f.label}
-                      </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shrink-0 font-mono">
-                        {f.type}
-                      </span>
-                    </div>
-                  ))}
+                {/* Smart Interactive Column Mapping Table */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase text-slate-500">
+                      Pemetaan Tipe Soal &amp; Label Pertanyaan:
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Anda dapat mengubah tipe data atau menghapus kolom yang tidak relevan
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {importPreview.form.fields.map((f, i) => (
+                      <div 
+                        key={f.id} 
+                        className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="font-mono text-slate-400 font-bold shrink-0">#{i + 1}</span>
+                          <input
+                            type="text"
+                            value={f.label}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setImportPreview({
+                                ...importPreview,
+                                form: {
+                                  ...importPreview.form,
+                                  fields: importPreview.form.fields.map(fl => fl.id === f.id ? { ...fl, label: val } : fl)
+                                }
+                              });
+                            }}
+                            className="w-full px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-xs font-semibold text-slate-800 dark:text-slate-200"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 justify-end">
+                          <select
+                            value={f.type}
+                            onChange={e => handleChangePreviewFieldType(f.id, e.target.value as FormFieldType)}
+                            className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-sky-600 dark:text-sky-400 cursor-pointer"
+                          >
+                            <option value="RATING">⭐ Rating (1-5)</option>
+                            <option value="MULTIPLE_CHOICE">🥧 Pilihan Ganda</option>
+                            <option value="YES_NO">👍 Ya / Tidak</option>
+                            <option value="PARAGRAPH">💬 Uraian Panjang</option>
+                            <option value="SHORT_TEXT">📝 Teks Singkat</option>
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePreviewField(f.id)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                            title="Abaikan kolom ini"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSaveImportedGoogleForm}
-                  className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer hover:scale-102 active:scale-98 transition-all"
+                  className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.01] active:scale-98 transition-all"
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>Simpan &amp; Susun Grafik Otomatis Sekarang</span>
@@ -1531,6 +2037,34 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
                       <option value="EVALUASI_IKPA">Evaluasi Capaian IKPA</option>
                       <option value="UMUM">Formulir Umum</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Periode Survei / Tahun (Opsional):
+                    </label>
+                    <input
+                      type="text"
+                      value={formSkmPeriod}
+                      onChange={e => setFormSkmPeriod(e.target.value)}
+                      placeholder="Contoh: Triwulan I 2026..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Tautan Google Sheets Live (Opsional):
+                    </label>
+                    <input
+                      type="url"
+                      value={formGoogleSheetUrl}
+                      onChange={e => setFormGoogleSheetUrl(e.target.value)}
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
+                    />
                   </div>
 
                   <div className="flex items-center gap-4 pt-5">
@@ -1716,6 +2250,35 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Official Executive Report Modal */}
+      {isReportModalOpen && currentSelectedForm && (
+        <FormOfficialReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          form={currentSelectedForm}
+          responses={responses}
+        />
+      )}
+
+      {/* QR Code & Share Modal */}
+      {isQrShareModalOpen && currentSelectedForm && (
+        <FormQrShareModal
+          isOpen={isQrShareModalOpen}
+          onClose={() => setIsQrShareModalOpen(false)}
+          form={currentSelectedForm}
+        />
+      )}
+
+      {/* Front Office Kiosk Tablet Mode Modal */}
+      {isKioskModalOpen && currentSelectedForm && (
+        <FormKioskModal
+          isOpen={isKioskModalOpen}
+          onClose={() => setIsKioskModalOpen(false)}
+          form={currentSelectedForm}
+          masterSatkers={masterSatkers}
+        />
       )}
     </div>
   );

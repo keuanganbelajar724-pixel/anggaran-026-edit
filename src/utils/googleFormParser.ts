@@ -71,6 +71,79 @@ export function detectFieldTypeFromValues(values: any[]): { type: FormFieldType;
 }
 
 /**
+ * Converts any Google Sheets URL (edit, share, pubhtml) into a direct CSV export URL
+ */
+export function convertToGoogleSheetCsvUrl(rawUrl: string): string {
+  const url = rawUrl.trim();
+  if (!url) return '';
+
+  // Case 1: Already a direct CSV link or pub output=csv
+  if (url.includes('format=csv') || url.includes('output=csv')) {
+    return url;
+  }
+
+  // Case 2: Standard Google Sheets URL (https://docs.google.com/spreadsheets/d/{ID}/edit#gid=0 or ?usp=sharing)
+  const docIdMatch = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (docIdMatch && docIdMatch[1]) {
+    const docId = docIdMatch[1];
+    
+    // Check if there is a gid parameter (sheet index)
+    const gidMatch = url.match(/gid=([0-9]+)/);
+    const gidParam = gidMatch ? `&gid=${gidMatch[1]}` : '&gid=0';
+
+    // If published URL: /spreadsheets/d/e/{ID}/pubhtml
+    if (url.includes('/spreadsheets/d/e/')) {
+      return `https://docs.google.com/spreadsheets/d/e/${docId}/pub?output=csv`;
+    }
+
+    return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv${gidParam}`;
+  }
+
+  return url;
+}
+
+/**
+ * Fetches Google Sheets CSV data safely via backend proxy or direct fetch
+ */
+export async function fetchGoogleSheetCsvData(rawUrl: string): Promise<string> {
+  const csvUrl = convertToGoogleSheetCsvUrl(rawUrl);
+  if (!csvUrl) {
+    throw new Error('URL Google Sheets tidak valid.');
+  }
+
+  // Try fetching via backend proxy to bypass CORS
+  try {
+    const proxyUrl = `/api/proxy/google-sheet?url=${encodeURIComponent(csvUrl)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.trim().length > 10) {
+        return text;
+      }
+    }
+  } catch (proxyErr) {
+    console.warn('[GoogleFormParser] Proxy fetch failed, attempting direct fetch:', proxyErr);
+  }
+
+  // Direct fetch fallback
+  try {
+    const directRes = await fetch(csvUrl);
+    if (!directRes.ok) {
+      throw new Error(`Google Sheets mengembalikan HTTP ${directRes.status}: ${directRes.statusText}`);
+    }
+    const text = await directRes.text();
+    if (!text || text.trim().length < 10) {
+      throw new Error('Spreadsheet kosong atau tidak memiliki baris data.');
+    }
+    return text;
+  } catch (directErr: any) {
+    throw new Error(
+      `Gagal mengambil data dari Google Sheets. Pastikan dokumen sudah disetel ke "Siapa saja dengan link dapat melihat" (Anyone with the link can view) atau gunakan fitur "File > Bagikan > Publikasikan ke Web > format CSV". Detail: ${directErr?.message || directErr}`
+    );
+  }
+}
+
+/**
  * Parses Google Form Responses Excel (.xlsx, .xls) or CSV
  */
 export async function parseGoogleFormFile(file: File): Promise<GoogleFormParseResult> {
@@ -97,6 +170,288 @@ export function parseGoogleFormPastedText(text: string, title?: string): GoogleF
   });
 
   return parseGoogleFormRawMatrix(lines, title || 'Import Google Form Spreadsheet');
+}
+
+/**
+ * Official Standard Government Templates (Ditjen Perbendaharaan & Permenpan-RB)
+ */
+export const OFFICIAL_GOVERNMENT_TEMPLATES: Array<{
+  id: string;
+  name: string;
+  badge: string;
+  category: any;
+  description: string;
+  isOfficialSkm?: boolean;
+  fields: any[];
+}> = [
+  {
+    id: 'tpl_skm_permenpan',
+    name: 'Survei Kepuasan Masyarakat (SKM) Standar Permenpan RB No. 14/2017',
+    badge: 'Resmi Kemenkeu & Kemenpan-RB',
+    category: 'SURVEI_LAYANAN',
+    isOfficialSkm: true,
+    description: 'Format kuesioner resmi 9 Unsur Pelayanan Publik (Persyaratan, Prosedur, Waktu, Biaya, Produk Spesifikasi, Kompetensi, Perilaku Petugas, Sarpras, Pengaduan) dengan kalkulasi Nilai IKM & Konversi Mutu Pelayanan (A/B/C/D).',
+    fields: [
+      {
+        id: 'u1_persyaratan',
+        type: 'RATING',
+        label: '1. Kesesuaian Persyaratan Pelayanan Pencairan SP2D / Konsultasi',
+        description: 'Kemudahan dan kesesuaian persyaratan yang diwajibkan KPPN',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Sangat Rumit)',
+        maxRatingLabel: '5 (Sangat Sesuai/Mudah)'
+      },
+      {
+        id: 'u2_prosedur',
+        type: 'RATING',
+        label: '2. Kemudahan Prosedur & Alur Pelayanan (Online & Tatap Muka)',
+        description: 'Kejelasan alur tahapan pengajuan dokumen dan respon helpdesk',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Sangat Berbelit)',
+        maxRatingLabel: '5 (Sangat Mudah/Jelas)'
+      },
+      {
+        id: 'u3_kecepatan',
+        type: 'RATING',
+        label: '3. Kecepatan Waktu Penyelesaian Layanan & Penerbitan SP2D',
+        description: 'Ketepatan norma waktu (SLA 1 jam / hari yang sama)',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Sangat Lambat)',
+        maxRatingLabel: '5 (Sangat Cepat)'
+      },
+      {
+        id: 'u4_biaya',
+        type: 'RATING',
+        label: '4. Kepastian Bebas Biaya (Biaya/Tarif Rp0 - Tanpa Pungutan)',
+        description: 'Seluruh pelayanan perbendaharaan diberikan tanpa dipungut biaya',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Ada Pungutan)',
+        maxRatingLabel: '5 (Pasti Bebas Biaya)'
+      },
+      {
+        id: 'u5_produk',
+        type: 'RATING',
+        label: '5. Kesesuaian Produk Pelayanan (SP2D, SKPP, LPJ, Pengesahan)',
+        description: 'Akurasi dan kepastian hasil keluaran yang diterbitkan KPPN',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Tidak Sesuai)',
+        maxRatingLabel: '5 (Sangat Tepat/Akurat)'
+      },
+      {
+        id: 'u6_kompetensi',
+        type: 'RATING',
+        label: '6. Kompetensi & Pemahaman Regulasi Petugas Layanan / CSO KPPN',
+        description: 'Kemampuan petugas dalam menyelesaikan kendala satker',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Kurang Cakap)',
+        maxRatingLabel: '5 (Sangat Kompeten)'
+      },
+      {
+        id: 'u7_perilaku',
+        type: 'RATING',
+        label: '7. Perilaku, Kesopanan, dan Keramahan Petugas Pelayanan',
+        description: 'Sikap melayani dengan ramah, adil, sopan, dan solutif',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Kurang Sopan)',
+        maxRatingLabel: '5 (Sangat Ramah & Sopan)'
+      },
+      {
+        id: 'u8_sarpras',
+        type: 'RATING',
+        label: '8. Kualitas Sarana, Prasarana & Kenyamanan Front Office / Online',
+        description: 'Kenyamanan ruang tunggu CSO, sistem antrean, dan website ANGKASA',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Kurang Memadai)',
+        maxRatingLabel: '5 (Sangat Nyaman/Lengkap)'
+      },
+      {
+        id: 'u9_pengaduan',
+        type: 'RATING',
+        label: '9. Penanganan Konsultasi, Pengaduan, dan Respon Saran Satker',
+        description: 'Kecepatan dan kejelasan respon bila satker menyampaikan keluhan',
+        required: true,
+        minRating: 1,
+        maxRating: 5,
+        minRatingLabel: '1 (Lambat/Tidak Tuntas)',
+        maxRatingLabel: '5 (Sangat Cepat & Tuntas)'
+      },
+      {
+        id: 'u10_saran',
+        type: 'PARAGRAPH',
+        label: 'Kritik, Saran, dan Harapan Peningkatan Mutu Pelayanan KPPN',
+        description: 'Masukan konstruktif untuk evaluasi manajemen perbendaharaan',
+        required: false,
+        placeholder: 'Tuliskan masukan atau apresiasi Anda untuk KPPN Semarang I...'
+      }
+    ]
+  },
+  {
+    id: 'tpl_spak_wbk',
+    name: 'Survei Persepsi Anti-Korupsi (SPAK) & Integritas Zona WBK/WBBM',
+    badge: 'Penilaian WBBM / ZI',
+    category: 'SURVEI_LAYANAN',
+    description: 'Instrumen survei penguatan Zona Integritas KPPN untuk memastikan zero gratifikasi, tidak ada diskriminasi, tidak ada calo, dan integritas penuh.',
+    fields: [
+      {
+        id: 'spak_1',
+        type: 'YES_NO',
+        label: 'Apakah Anda pernah diminta imbalan, uang lelah, atau hadiah dalam pengurusan dokumen di KPPN?',
+        required: true
+      },
+      {
+        id: 'spak_2',
+        type: 'YES_NO',
+        label: 'Apakah petugas KPPN menolak dengan tegas pemberian bingkisan/hadiah/gratifikasi dari satker?',
+        required: true
+      },
+      {
+        id: 'spak_3',
+        type: 'RATING',
+        label: 'Tingkat Transparansi Informasi Informasi Antrean dan Status Pencairan Dana SP2D',
+        description: 'Skala 1 (Tertutup) s.d 5 (Sangat Terbuka & Real-Time)',
+        required: true,
+        minRating: 1,
+        maxRating: 5
+      },
+      {
+        id: 'spak_4',
+        type: 'MULTIPLE_CHOICE',
+        label: 'Kanal Saluran Pengaduan Dugaan Pelanggaran / Gratifikasi yang Anda Ketahui',
+        required: true,
+        options: [
+          { id: 'c1', label: 'WISE Kemenkeu (wise.kemenkeu.go.id)' },
+          { id: 'c2', label: 'SIPANDU Ditjen Perbendaharaan' },
+          { id: 'c3', label: 'SPAN-LAPOR!' },
+          { id: 'c4', label: 'Helpdesk Khusus Pengaduan KPPN' }
+        ]
+      },
+      {
+        id: 'spak_feedback',
+        type: 'PARAGRAPH',
+        label: 'Pernyataan / Testimoni Terkait Integritas Layanan KPPN Semarang I',
+        required: false
+      }
+    ]
+  },
+  {
+    id: 'tpl_bimtek_sakti',
+    name: 'Evaluasi Bimbingan Teknis (Bimtek) & Sosialisasi SAKTI / IKPA',
+    badge: 'Edukasi Satker',
+    category: 'EVALUASI_IKPA',
+    description: 'Format kuesioner evaluasi pasca-bimbingan teknis perbendaharaan untuk mengukur efektivitas narasumber, materi, dan pemahaman satker.',
+    fields: [
+      {
+        id: 'bt_materi',
+        type: 'RATING',
+        label: 'Relevansi & Manfaat Materi Bimtek Terhadap Tugas Perbendaharaan Satker',
+        required: true,
+        minRating: 1,
+        maxRating: 5
+      },
+      {
+        id: 'bt_narasumber',
+        type: 'RATING',
+        label: 'Penguasaan Materi dan Kejelasan Penyampaian Oleh Narasumber KPPN',
+        required: true,
+        minRating: 1,
+        maxRating: 5
+      },
+      {
+        id: 'bt_fasilitas',
+        type: 'RATING',
+        label: 'Kualitas Media Pelaksanaan (Ruang Aula / Zoom Online & Audio Visual)',
+        required: true,
+        minRating: 1,
+        maxRating: 5
+      },
+      {
+        id: 'bt_duration',
+        type: 'MULTIPLE_CHOICE',
+        label: 'Kesesuaian Durasi Waktu Pemaparan dan Sesi Tanya Jawab',
+        required: true,
+        options: [
+          { id: 'bto1', label: 'Sangat Cukup dan Pas' },
+          { id: 'bto2', label: 'Kurang Lama pada Sesi Praktik/Simulasi' },
+          { id: 'bto3', label: 'Terlalu Panjang' }
+        ]
+      },
+      {
+        id: 'bt_topik_lanjutan',
+        type: 'PARAGRAPH',
+        label: 'Topik Materi / Modul SAKTI Apa yang Paling Anda Butuhkan untuk Bimtek Berikutnya?',
+        required: false
+      }
+    ]
+  }
+];
+
+/**
+ * Heuristic Sentiment & Word Frequency Analysis for Feedback Text
+ */
+export function extractFeedbackSentiments(textList: string[]): {
+  positiveCount: number;
+  constructiveCount: number;
+  topKeywords: Array<{ word: string; count: number }>;
+} {
+  const positiveWords = ['baik', 'bagus', 'cepat', 'ramah', 'puas', 'mantap', 'terbantu', 'profesional', 'jelas', 'inovatif', 'hebat', 'terima kasih', 'sopan', 'sempurna', 'keren', 'mudah'];
+  const constructiveWords = ['mohon', 'perlu', 'kurang', 'tingkatkan', 'lambat', 'kendala', 'antre', 'antrian', 'server', 'error', 'tolong', 'sulit', 'ditambah', 'perbaiki'];
+  const stopWords = new Set(['dan', 'yang', 'di', 'ke', 'dari', 'untuk', 'pada', 'dengan', 'ini', 'itu', 'adalah', 'kppn', 'satker', 'saya', 'kami', 'bisa', 'akan', 'agar', 'juga', 'sudah', 'lebih', 'semarang', 'pelayanan', 'layanan']);
+
+  let positiveCount = 0;
+  let constructiveCount = 0;
+  const wordFrequency: Record<string, number> = {};
+
+  textList.forEach(raw => {
+    const lower = raw.toLowerCase();
+    let isPos = false;
+    let isConst = false;
+
+    positiveWords.forEach(pw => {
+      if (lower.includes(pw)) isPos = true;
+    });
+    constructiveWords.forEach(cw => {
+      if (lower.includes(cw)) isConst = true;
+    });
+
+    if (isPos && !isConst) positiveCount++;
+    else if (isConst) constructiveCount++;
+    else if (isPos) positiveCount++;
+
+    // Tokenize
+    const tokens = lower.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/);
+    tokens.forEach(tok => {
+      if (tok.length >= 4 && !stopWords.has(tok)) {
+        wordFrequency[tok] = (wordFrequency[tok] || 0) + 1;
+      }
+    });
+  });
+
+  const topKeywords = Object.entries(wordFrequency)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([word, count]) => ({ word, count }));
+
+  return {
+    positiveCount,
+    constructiveCount,
+    topKeywords
+  };
 }
 
 /**

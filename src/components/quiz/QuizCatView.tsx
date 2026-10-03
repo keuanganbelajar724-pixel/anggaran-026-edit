@@ -33,9 +33,25 @@ import {
   ArrowRight,
   Medal,
   Crown,
-  Calendar
+  Calendar,
+  Maximize2,
+  Minimize2,
+  Type,
+  ShieldAlert,
+  Volume2,
+  VolumeX,
+  KeyRound,
+  Printer,
+  FileCheck
 } from 'lucide-react';
-import { QuizPackage, QuizQuestion, QuizUserAnswer, QuizResultRecord, QuizAudience } from '../../types/quiz';
+import { 
+  QuizPackage, 
+  QuizQuestion, 
+  QuizUserAnswer, 
+  QuizResultRecord, 
+  QuizAudience,
+  QuizActiveSession
+} from '../../types/quiz';
 import { AppUser, AppTheme, MasterSatker } from '../../types';
 import { 
   getQuizPackages, 
@@ -43,8 +59,14 @@ import {
   saveQuizResult, 
   checkPackageScheduleStatus,
   subscribeToQuizResults,
-  rankQuizResults 
+  rankQuizResults,
+  saveActiveExamSession,
+  getActiveExamSession,
+  clearActiveExamSession,
+  generateCertificateNumber,
+  playExamChime
 } from '../../utils/quizStorage';
+import { QuizCertificateModal } from './QuizCertificateModal';
 
 interface QuizCatViewProps {
   currentUser: AppUser | null;
@@ -77,6 +99,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   // Exam flow states
   const [currentStep, setCurrentStep] = useState<ExamStep>('SELECT_PACKAGE');
   const [activePackage, setActivePackage] = useState<QuizPackage | null>(null);
+  const [orderedQuestions, setOrderedQuestions] = useState<QuizQuestion[]>([]);
 
   // Participant Registration
   const [participantName, setParticipantName] = useState<string>('');
@@ -90,12 +113,35 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   const [isConfirmSubmitOpen, setIsConfirmSubmitOpen] = useState<boolean>(false);
   const [examStartTime, setExamStartTime] = useState<number>(0);
 
+  // Advanced CAT & Proctoring State
+  const [tabSwitchCount, setTabSwitchCount] = useState<number>(0);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xl'>('normal');
+  const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
+
+  // Exam Token Modal State
+  const [tokenModalPkg, setTokenModalPkg] = useState<QuizPackage | null>(null);
+  const [enteredToken, setEnteredToken] = useState<string>('');
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
+  // Session Recovery State
+  const [pendingResumeSession, setPendingResumeSession] = useState<QuizActiveSession | null>(null);
+
   // Exam Result State
   const [latestResult, setLatestResult] = useState<QuizResultRecord | null>(null);
   const [resultFilterTab, setResultFilterTab] = useState<'all' | 'correct' | 'wrong' | 'unanswered'>('all');
   const [allResults, setAllResults] = useState<QuizResultRecord[]>([]);
   const [showLeaderboardModal, setShowLeaderboardModal] = useState<boolean>(false);
   const [leaderboardPackageId, setLeaderboardPackageId] = useState<string>('ALL');
+
+  // Certificate Modal State
+  const [certificateResult, setCertificateResult] = useState<QuizResultRecord | null>(null);
+  const [showCertificateModal, setShowCertificateModal] = useState<boolean>(false);
+
+  // Chime trigger trackers
+  const fiveMinAlertTriggered = useRef(false);
+  const oneMinAlertTriggered = useRef(false);
 
   // Load packages and subscribe to real-time updates
   useEffect(() => {
@@ -123,7 +169,65 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     }
   }, [currentUser]);
 
-  // Timer countdown
+  // Check saved session on mount
+  useEffect(() => {
+    if (currentStep === 'SELECT_PACKAGE') {
+      const saved = getActiveExamSession();
+      if (saved && saved.timeLeftSeconds > 10) {
+        setPendingResumeSession(saved);
+      }
+    }
+  }, [packages, currentStep]);
+
+  // Auto-Save active exam state to localStorage
+  useEffect(() => {
+    if (currentStep !== 'IN_EXAM' || !activePackage) return;
+    const session: QuizActiveSession = {
+      packageId: activePackage.id,
+      packageTitle: activePackage.title,
+      participantName,
+      participantSatker,
+      userAnswers,
+      timeLeftSeconds,
+      examStartTime,
+      currentQuestionIdx,
+      tabSwitchCount,
+      orderedQuestionIds: orderedQuestions.map(q => q.id),
+      lastSavedAt: new Date().toISOString()
+    };
+    saveActiveExamSession(session);
+  }, [currentStep, activePackage, userAnswers, timeLeftSeconds, currentQuestionIdx, tabSwitchCount, orderedQuestions, participantName, participantSatker, examStartTime]);
+
+  // Proctoring: Detect Tab Switching & Window Blur
+  useEffect(() => {
+    if (currentStep !== 'IN_EXAM' || !activePackage) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setTabSwitchCount(prev => {
+          const next = prev + 1;
+          if (!isSoundMuted) playExamChime('warning');
+          setShowTabSwitchWarning(true);
+
+          const maxSwitches = activePackage.maxTabSwitches || 5;
+          if (activePackage.strictProctoring && next >= maxSwitches) {
+            // Auto submit due to excessive violation
+            setTimeout(() => {
+              handleFinishExam(true);
+            }, 600);
+          }
+          return next;
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentStep, activePackage, isSoundMuted]);
+
+  // Timer countdown and sound alerts
   useEffect(() => {
     if (currentStep !== 'IN_EXAM') return;
 
@@ -131,6 +235,18 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
       // Time is up! Auto submit
       handleFinishExam();
       return;
+    }
+
+    // Audio chime at 5 min
+    if (timeLeftSeconds === 300 && !fiveMinAlertTriggered.current) {
+      fiveMinAlertTriggered.current = true;
+      if (!isSoundMuted) playExamChime('warning');
+    }
+
+    // Audio chime at 1 min
+    if (timeLeftSeconds === 60 && !oneMinAlertTriggered.current) {
+      oneMinAlertTriggered.current = true;
+      if (!isSoundMuted) playExamChime('urgent');
     }
 
     const timer = setInterval(() => {
@@ -145,7 +261,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentStep, timeLeftSeconds]);
+  }, [currentStep, timeLeftSeconds, isSoundMuted]);
 
   // Filtered packages
   const filteredPackages = useMemo(() => {
@@ -168,8 +284,19 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Start exam handler
-  const handleStartExam = (pkg: QuizPackage) => {
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      }
+    }
+  };
+
+  // Handler to start exam or prompt for token
+  const handlePreStartExam = (pkg: QuizPackage) => {
     // Check permission for KPPN Internal packages
     if (pkg.targetAudience === 'kppn_internal' && !isInternalKppnUser) {
       setRegError('Paket Ujian ini dikhususkan untuk Pegawai Internal KPPN. Satker mitra tidak memiliki akses membuka paket ini. Silakan Login Pegawai untuk melanjutkan.');
@@ -187,13 +314,63 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     }
 
     if (!pkg.questions || pkg.questions.length === 0) {
-      setRegError('Paket ujian ini belum memiliki soal aktif.');
+      setRegError('Paket ujian ini belum memiliki butir soal aktif.');
       return;
     }
 
+    // Check if token is required
+    if (pkg.requireToken && pkg.examToken) {
+      setTokenModalPkg(pkg);
+      setEnteredToken('');
+      setTokenError(null);
+      return;
+    }
+
+    // Start immediately
+    executeStartExam(pkg);
+  };
+
+  // Verify token
+  const handleVerifyTokenAndStart = () => {
+    if (!tokenModalPkg) return;
+    const requiredToken = tokenModalPkg.examToken?.trim().toUpperCase();
+    const entered = enteredToken.trim().toUpperCase();
+
+    if (!entered) {
+      setTokenError('Masukkan Token Ujian resmi yang diberikan pengawas.');
+      return;
+    }
+
+    if (entered !== requiredToken) {
+      setTokenError('Token Ujian tidak sesuai. Pastikan huruf kapital dan angka telah benar.');
+      return;
+    }
+
+    const pkgToStart = tokenModalPkg;
+    setTokenModalPkg(null);
+    executeStartExam(pkgToStart, entered);
+  };
+
+  // Execute start exam
+  const executeStartExam = (pkg: QuizPackage, tokenUsed?: string) => {
     setRegError(null);
     setActivePackage(pkg);
     setCurrentQuestionIdx(0);
+    setTabSwitchCount(0);
+    setShowTabSwitchWarning(false);
+    fiveMinAlertTriggered.current = false;
+    oneMinAlertTriggered.current = false;
+
+    // Handle Question Shuffling
+    let initialQuestionList = [...pkg.questions];
+    if (pkg.shuffleQuestions) {
+      // Fisher-Yates shuffle
+      for (let i = initialQuestionList.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [initialQuestionList[i], initialQuestionList[j]] = [initialQuestionList[j], initialQuestionList[i]];
+      }
+    }
+    setOrderedQuestions(initialQuestionList);
 
     // Initialize answer state
     const initialAnswers: Record<string, { answer: 'A' | 'B' | 'C' | 'D' | null; isDoubt: boolean }> = {};
@@ -206,6 +383,46 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     setTimeLeftSeconds(totalSeconds);
     setExamStartTime(Date.now());
     setCurrentStep('IN_EXAM');
+  };
+
+  // Resume saved exam session
+  const handleResumeSavedSession = () => {
+    if (!pendingResumeSession) return;
+    const targetPkg = packages.find(p => p.id === pendingResumeSession.packageId);
+    if (!targetPkg) {
+      clearActiveExamSession();
+      setPendingResumeSession(null);
+      return;
+    }
+
+    setActivePackage(targetPkg);
+    setParticipantName(pendingResumeSession.participantName);
+    setParticipantSatker(pendingResumeSession.participantSatker);
+    setUserAnswers(pendingResumeSession.userAnswers);
+    setTimeLeftSeconds(pendingResumeSession.timeLeftSeconds);
+    setExamStartTime(pendingResumeSession.examStartTime);
+    setCurrentQuestionIdx(pendingResumeSession.currentQuestionIdx || 0);
+    setTabSwitchCount(pendingResumeSession.tabSwitchCount || 0);
+
+    // Reconstruct ordered questions
+    if (pendingResumeSession.orderedQuestionIds && pendingResumeSession.orderedQuestionIds.length > 0) {
+      const map = new Map(targetPkg.questions.map(q => [q.id, q]));
+      const restored = pendingResumeSession.orderedQuestionIds
+        .map(id => map.get(id))
+        .filter(Boolean) as QuizQuestion[];
+      setOrderedQuestions(restored.length > 0 ? restored : targetPkg.questions);
+    } else {
+      setOrderedQuestions(targetPkg.questions);
+    }
+
+    setPendingResumeSession(null);
+    setCurrentStep('IN_EXAM');
+  };
+
+  // Discard saved exam session
+  const handleDiscardSavedSession = () => {
+    clearActiveExamSession();
+    setPendingResumeSession(null);
   };
 
   // Answer selection
@@ -244,7 +461,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   // Next / Previous
   const handleNextQuestion = () => {
     if (!activePackage) return;
-    if (currentQuestionIdx < activePackage.questions.length - 1) {
+    if (currentQuestionIdx < orderedQuestions.length - 1) {
       setCurrentQuestionIdx(prev => prev + 1);
     }
   };
@@ -256,9 +473,12 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   };
 
   // Finish and compute score
-  const handleFinishExam = async () => {
+  const handleFinishExam = async (forcedViolation = false) => {
     if (!activePackage) return;
     setIsConfirmSubmitOpen(false);
+
+    // Clear saved active session from storage
+    clearActiveExamSession();
 
     const timeSpent = Math.max(1, Math.round((Date.now() - examStartTime) / 1000));
 
@@ -266,7 +486,9 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     let wrongCount = 0;
     let unansweredCount = 0;
 
-    const answerReviewList = activePackage.questions.map(q => {
+    const questionsToReview = orderedQuestions.length > 0 ? orderedQuestions : activePackage.questions;
+
+    const answerReviewList = questionsToReview.map(q => {
       const userAnsObj = userAnswers[q.id];
       const selected = userAnsObj?.answer || null;
       const isCorrect = selected === q.correctAnswer;
@@ -293,7 +515,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
       };
     });
 
-    const totalQuestions = activePackage.questions.length;
+    const totalQuestions = questionsToReview.length;
     const score = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
     const passed = score >= (activePackage.passingGrade || 70);
 
@@ -301,8 +523,20 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     if (currentUser?.role === 'superadmin') roleType = 'superadmin';
     else if (currentUser?.role === 'pegawai') roleType = 'pegawai';
 
+    const resultId = `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const certNumber = passed && (activePackage.certificateEnabled !== false)
+      ? generateCertificateNumber(resultId, allResults.length + 1)
+      : undefined;
+
+    let integrityStatus: 'TERPERCAYA' | 'PERINGATAN' | 'INDIKASI_PELANGGARAN' = 'TERPERCAYA';
+    if (forcedViolation || tabSwitchCount >= 4) {
+      integrityStatus = 'INDIKASI_PELANGGARAN';
+    } else if (tabSwitchCount >= 1) {
+      integrityStatus = 'PERINGATAN';
+    }
+
     const resultRecord: QuizResultRecord = {
-      id: `res_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: resultId,
       packageId: activePackage.id,
       packageTitle: activePackage.title,
       category: activePackage.category,
@@ -318,11 +552,18 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
       passed,
       timeSpentSeconds: timeSpent,
       completedAt: new Date().toISOString(),
-      answers: answerReviewList
+      answers: answerReviewList,
+      tabSwitchCount,
+      integrityStatus,
+      certificateNo: certNumber
     };
 
     setLatestResult(resultRecord);
     setCurrentStep('EXAM_RESULT');
+
+    if (passed && !isSoundMuted) {
+      playExamChime('success');
+    }
 
     try {
       const updated = await saveQuizResult(resultRecord);
@@ -339,7 +580,8 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     let doubts = 0;
     let unanswered = 0;
 
-    activePackage.questions.forEach(q => {
+    const list = orderedQuestions.length > 0 ? orderedQuestions : activePackage.questions;
+    list.forEach(q => {
       const a = userAnswers[q.id];
       if (a?.isDoubt) doubts++;
       if (a?.answer) answered++;
@@ -347,10 +589,10 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     });
 
     return { answered, doubts, unanswered };
-  }, [activePackage, userAnswers]);
+  }, [activePackage, orderedQuestions, userAnswers]);
 
   // Current question object
-  const currentQuestion = activePackage?.questions[currentQuestionIdx];
+  const currentQuestion = orderedQuestions[currentQuestionIdx] || activePackage?.questions[currentQuestionIdx];
   const currentAnswerObj = currentQuestion ? userAnswers[currentQuestion.id] : null;
 
   // Ranked results for leaderboard modal
@@ -571,6 +813,51 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   if (currentStep === 'SELECT_PACKAGE') {
     return (
       <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-in fade-in duration-300">
+        {/* Sesi Pemulihan Terputus Banner (Session Recovery Banner) */}
+        {pendingResumeSession && (
+          <div className="p-4 sm:p-5 rounded-3xl bg-amber-500/15 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+                <Clock className="w-6 h-6 animate-spin" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    Sesi Ujian CAT Berjalan Ditemukan
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
+                    Sisa {Math.floor(pendingResumeSession.timeLeftSeconds / 60)} Menit
+                  </span>
+                </div>
+                <h4 className="font-black text-sm text-slate-900 dark:text-white mt-0.5">
+                  {pendingResumeSession.packageTitle}
+                </h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Peserta: <strong>{pendingResumeSession.participantName}</strong> • {pendingResumeSession.participantSatker}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={handleDiscardSavedSession}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-amber-500/20 cursor-pointer"
+              >
+                Hapus &amp; Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleResumeSavedSession}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all hover:scale-105 active:scale-95"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Lanjutkan Ujian Ini</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Hero Header */}
         <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-xl">
           <div className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
@@ -578,13 +865,13 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             <div className="space-y-2 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-black uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                <span>Simulasi Ujian Berbasis Komputer (CAT KPPN 026)</span>
+                <span>Portal Simulasi &amp; Uji Kompetensi Berbasis Komputer (CAT KPPN 026)</span>
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
-                Portal Kuis &amp; Uji Kompetensi Perbendaharaan
+                Simulasi Uji Kompetensi CAT &amp; Sertifikasi Perbendaharaan
               </h1>
               <p className="text-xs sm:text-sm text-amber-100/90 leading-relaxed">
-                Asah pemahaman regulasi IKPA, Capaian Output, modul SAKTI, dan SOP Perbendaharaan dengan sistem simulasi CAT interaktif layaknya ujian resmi BKN.
+                Platform pengujian kompetensi terstandarisasi layaknya sistem CAT BKN resmi. Dilengkapi sistem pengawasan integritas, anti-curang, e-Sertifikat Kelulusan Resmi, dan pembatasan jadwal terpusat KPPN.
               </p>
             </div>
 
@@ -596,7 +883,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                 className="bg-white text-amber-900 hover:bg-amber-50 font-black text-xs px-4 py-3 rounded-2xl shadow-lg flex items-center gap-2 transition-all hover:scale-105 active:scale-95 shrink-0 self-start md:self-center cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-amber-600" />
-                <span>Kelola Paket Soal di Admin</span>
+                <span>Kelola Bank Soal di Admin</span>
               </button>
             )}
           </div>
@@ -615,7 +902,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                 Identitas Peserta Ujian CAT
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Isi identitas Anda sebelum memilih dan memulai paket ujian di bawah ini.
+                Identitas ini akan tercetak resmi pada Berita Acara Ujian dan e-Sertifikat Kelulusan Anda.
               </p>
             </div>
           </div>
@@ -792,6 +1079,33 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                       </div>
                     </div>
                   )}
+
+                  {/* Badges for CAT Features */}
+                  <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                    {pkg.requireToken && (
+                      <span className="text-[9px] font-black px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                        <KeyRound className="w-3 h-3" />
+                        <span>Wajib Token</span>
+                      </span>
+                    )}
+                    {pkg.shuffleQuestions && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        🔀 Soal Acak
+                      </span>
+                    )}
+                    {pkg.strictProctoring !== false && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-700 dark:text-blue-300 flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3" />
+                        <span>Pengawasan Tab</span>
+                      </span>
+                    )}
+                    {pkg.certificateEnabled !== false && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                        <Award className="w-3 h-3" />
+                        <span>e-Sertifikat</span>
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -848,11 +1162,11 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleStartExam(pkg)}
+                      onClick={() => handlePreStartExam(pkg)}
                       className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Mulai Simulasi CAT</span>
+                      <span>{pkg.requireToken ? 'Masukkan Token & Mulai' : 'Mulai Simulasi CAT'}</span>
                     </button>
                   )}
 
@@ -874,6 +1188,66 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
           })}
         </div>
 
+        {/* Token Input Modal */}
+        {tokenModalPkg && (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+            <div className={`w-full max-w-md rounded-3xl p-6 border-2 shadow-2xl space-y-4 ${
+              isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+            }`}>
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-500 flex items-center justify-center mx-auto">
+                <KeyRound className="w-6 h-6" />
+              </div>
+
+              <div className="text-center space-y-1">
+                <h3 className="text-lg font-black">
+                  Masukkan Token Ujian CAT
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Paket <strong>{tokenModalPkg.title}</strong> dilindungi dengan Token Ujian Resmi dari Pengawas KPPN.
+                </p>
+              </div>
+
+              {tokenError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{tokenError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                  Token Ujian (Case-Insensitive):
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={enteredToken}
+                  onChange={e => { setEnteredToken(e.target.value); setTokenError(null); }}
+                  placeholder="Contoh: KPPN026 / CAT2026"
+                  className="w-full text-center tracking-widest font-mono text-lg font-black px-4 py-3 rounded-2xl border-2 border-amber-500 bg-amber-500/5 focus:ring-2 focus:ring-amber-500 focus:outline-hidden uppercase"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTokenModalPkg(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVerifyTokenAndStart}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md cursor-pointer"
+                >
+                  Verifikasi &amp; Mulai
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {filteredPackages.length === 0 && (
           <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
             <HelpCircle className="w-12 h-12 mx-auto text-slate-400 mb-3 opacity-60" />
@@ -889,7 +1263,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   }
 
   // ==========================================================================
-  // RENDER 2: SIMULASI UJIAN CAT AKTIF (PERSIS SEPERTI BKN CAT)
+  // RENDER 2: SIMULASI UJIAN CAT AKTIF (STANDAR UJI KOMPETENSI RESMI)
   // ==========================================================================
   if (currentStep === 'IN_EXAM' && activePackage && currentQuestion) {
     const isTimeUrgent = timeLeftSeconds < 180; // less than 3 minutes
@@ -898,12 +1272,21 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
     const isSelectedC = currentAnswerObj?.answer === 'C';
     const isSelectedD = currentAnswerObj?.answer === 'D';
 
+    const textFontSizeClass = fontSize === 'large' 
+      ? 'text-lg sm:text-xl' 
+      : fontSize === 'xl' 
+        ? 'text-xl sm:text-2xl' 
+        : 'text-base sm:text-lg';
+
     return (
-      <div className="space-y-4 max-w-7xl mx-auto pb-16 animate-in fade-in duration-200">
+      <div 
+        className="space-y-4 max-w-7xl mx-auto pb-16 animate-in fade-in duration-200 select-none"
+        onContextMenu={e => e.preventDefault()}
+      >
         {/* Top Exam Header Bar */}
         <div className="bg-slate-950 text-white rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-800 sticky top-3 z-30 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shrink-0 shadow-md">
               CAT
             </div>
             <div>
@@ -916,7 +1299,63 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end flex-wrap">
+            {/* Proctoring Tab Switch Alert Indicator */}
+            {tabSwitchCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-black animate-pulse">
+                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <span>Pelanggaran Tab: {tabSwitchCount}x</span>
+              </div>
+            )}
+
+            {/* Font Zoom Controls */}
+            <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs">
+              <button
+                type="button"
+                onClick={() => setFontSize('normal')}
+                className={`px-2 py-1 rounded-lg font-bold transition-all ${fontSize === 'normal' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                title="Ukuran teks normal"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize('large')}
+                className={`px-2 py-1 rounded-lg font-bold transition-all ${fontSize === 'large' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                title="Ukuran teks sedang"
+              >
+                A+
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize('xl')}
+                className={`px-2 py-1 rounded-lg font-bold transition-all ${fontSize === 'xl' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
+                title="Ukuran teks besar"
+              >
+                A++
+              </button>
+            </div>
+
+            {/* Audio Mute Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsSoundMuted(!isSoundMuted)}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer"
+              title={isSoundMuted ? 'Nyalakan Audio Timer' : 'Matikan Audio Timer'}
+            >
+              {isSoundMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            </button>
+
+            {/* Fullscreen Toggle */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer"
+              title={isFullscreen ? 'Keluar Layar Penuh' : 'Mode Layar Penuh Ujian CAT'}
+            >
+              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+            </button>
+
             {/* Countdown Timer */}
             <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-mono font-black text-sm sm:text-base border shadow-inner ${
               isTimeUrgent
@@ -939,6 +1378,40 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
           </div>
         </div>
 
+        {/* Tab Switch Warning Modal */}
+        {showTabSwitchWarning && (
+          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+            <div className="w-full max-w-md rounded-3xl p-6 border-2 border-rose-500 bg-slate-900 text-white shadow-2xl space-y-4 text-center">
+              <div className="w-16 h-16 rounded-3xl bg-rose-500/20 text-rose-500 border border-rose-500/40 flex items-center justify-center mx-auto animate-bounce">
+                <ShieldAlert className="w-9 h-9" />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-rose-400">
+                  PERINGATAN INTEGRITAS UJIAN CAT
+                </span>
+                <h3 className="text-lg font-black">
+                  Terdeteksi Berpindah Layar / Tab ({tabSwitchCount}x)
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Sistem pengawas merekam perpindahan jendela ini. Sesuai tata tertib ujian CAT resmi, peserta dilarang keras membuka browser lain, aplikasi chat, atau mesin pencari.
+                </p>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-[11px] text-rose-200">
+                Maksimal pelanggaran: <strong>{activePackage.maxTabSwitches || 5} kali</strong>. Jika melebihi, ujian akan otomatis dihentikan dan dicatat berstatus Pelanggaran.
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTabSwitchWarning(false)}
+                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md cursor-pointer transition-all"
+              >
+                Saya Mengerti, Kembali ke Soal
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Main Grid: Left Question, Right Number Palette */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Left Column: Soal & Opsi (Col 8) */}
@@ -953,7 +1426,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                     {currentQuestionIdx + 1}
                   </span>
                   <span className="font-extrabold text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                    Soal No. {currentQuestionIdx + 1} dari {activePackage.questions.length}
+                    Soal No. {currentQuestionIdx + 1} dari {orderedQuestions.length}
                   </span>
                 </div>
 
@@ -966,7 +1439,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
               </div>
 
               {/* Question Text */}
-              <div className="text-base sm:text-lg font-bold leading-relaxed text-slate-900 dark:text-white mb-6">
+              <div className={`font-bold leading-relaxed text-slate-900 dark:text-white mb-6 ${textFontSizeClass}`}>
                 {currentQuestion.questionText}
               </div>
 
@@ -997,7 +1470,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                     }`}>
                       {opt.key}
                     </span>
-                    <span className="text-sm font-semibold pt-1 leading-snug">
+                    <span className={`font-semibold pt-1 leading-snug ${fontSize === 'large' ? 'text-base' : fontSize === 'xl' ? 'text-lg' : 'text-sm'}`}>
                       {opt.text}
                     </span>
                   </button>
@@ -1054,7 +1527,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                 <button
                   type="button"
                   onClick={handleNextQuestion}
-                  disabled={currentQuestionIdx === activePackage.questions.length - 1}
+                  disabled={currentQuestionIdx === orderedQuestions.length - 1}
                   className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   <span>Selanjutnya</span>
@@ -1072,16 +1545,16 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-200 dark:border-slate-800">
                 <h3 className="font-black text-sm flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-500" />
-                  <span>Navigasi Nomor Soal</span>
+                  <span>Lembar Jawaban CAT</span>
                 </h3>
                 <span className="text-[11px] font-mono text-slate-500">
-                  {inExamSummary.answered}/{activePackage.questions.length} Selesai
+                  {inExamSummary.answered}/{orderedQuestions.length} Selesai
                 </span>
               </div>
 
               {/* Number Grid */}
               <div className="grid grid-cols-5 gap-2 max-h-[380px] overflow-y-auto pr-1">
-                {activePackage.questions.map((q, idx) => {
+                {orderedQuestions.map((q, idx) => {
                   const state = userAnswers[q.id];
                   const isCurrent = idx === currentQuestionIdx;
                   const isAnswered = Boolean(state?.answer);
@@ -1190,7 +1663,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={handleFinishExam}
+                  onClick={() => handleFinishExam()}
                   className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md cursor-pointer"
                 >
                   Kumpulkan Sekarang
@@ -1246,11 +1719,25 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             </div>
 
             {/* Score Number Display */}
-            <div className="py-4">
+            <div className="py-2">
               <span className="text-6xl sm:text-7xl font-black tracking-tight text-amber-400 font-mono">
                 {latestResult.score}
               </span>
               <span className="text-lg font-bold text-slate-400"> / 100</span>
+            </div>
+
+            {/* Integrity Status Badge */}
+            <div className="flex items-center justify-center gap-2">
+              <span className={`px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 ${
+                latestResult.integrityStatus === 'INDIKASI_PELANGGARAN'
+                  ? 'bg-rose-500/30 text-rose-300 border border-rose-500/50'
+                  : latestResult.integrityStatus === 'PERINGATAN'
+                    ? 'bg-amber-500/30 text-amber-300 border border-amber-500/50'
+                    : 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/50'
+              }`}>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Integritas: {latestResult.integrityStatus || 'TERPERCAYA'} (Pindah Tab: {latestResult.tabSwitchCount || 0}x)</span>
+              </span>
             </div>
 
             {/* Stats Pills */}
@@ -1315,8 +1802,22 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
               );
             })()}
 
-            {/* Actions */}
+            {/* Actions: e-Sertifikat, Papan Juara, Ulangi */}
             <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+              {isPassed && latestResult.certificateNo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCertificateResult(latestResult);
+                    setShowCertificateModal(true);
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg transition-all flex items-center gap-1.5 cursor-pointer hover:scale-105 active:scale-95"
+                >
+                  <Award className="w-4 h-4 text-slate-950" />
+                  <span>📜 Cetak e-Sertifikat Kelulusan Resmi</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => {
@@ -1332,7 +1833,7 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (activePackage) handleStartExam(activePackage);
+                  if (activePackage) executeStartExam(activePackage);
                 }}
                 className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               >
@@ -1354,171 +1855,191 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
           </div>
         </div>
 
-        {/* Pembahasan & Kunci Jawaban Lengkap */}
-        <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl ${
-          isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
-        }`}>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-200 dark:border-slate-800">
-            <div>
-              <h3 className="text-lg font-black flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-indigo-500" />
-                <span>Pembahasan &amp; Kunci Jawaban Lengkap</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Evaluasi jawaban Anda terhadap kunci jawaban resmi dan penjelasan materi edukatif.
-              </p>
-            </div>
-
-            {/* Filter Buttons */}
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setResultFilterTab('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  resultFilterTab === 'all'
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                Semua ({latestResult.answers.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setResultFilterTab('correct')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  resultFilterTab === 'correct'
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                Benar ({latestResult.correctCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setResultFilterTab('wrong')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  resultFilterTab === 'wrong'
-                    ? 'bg-rose-600 text-white'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                Salah ({latestResult.wrongCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setResultFilterTab('unanswered')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  resultFilterTab === 'unanswered'
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-600 dark:text-slate-400'
-                }`}
-              >
-                Kosong ({latestResult.unansweredCount})
-              </button>
-            </div>
+        {/* Pembahasan & Kunci Jawaban Lengkap (Respects pkg.showExplanationImmediately) */}
+        {activePackage?.showExplanationImmediately === false && !isSuperAdmin ? (
+          <div className="p-8 text-center rounded-3xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+            <Lock className="w-10 h-10 mx-auto text-amber-500" />
+            <h4 className="font-black text-base text-slate-900 dark:text-white">
+              Kunci Jawaban &amp; Pembahasan Ditutup Sementara
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Administrator menetapkan pembahasan butir soal untuk paket ujian ini akan dibuka setelah seluruh sesi ujian resmi ditutup secara serentak.
+            </p>
           </div>
+        ) : (
+          <div className={`p-6 sm:p-8 rounded-3xl border shadow-xl ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-200 dark:border-slate-800">
+              <div>
+                <h3 className="text-lg font-black flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-indigo-500" />
+                  <span>Pembahasan &amp; Kunci Jawaban Lengkap</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Evaluasi jawaban Anda terhadap kunci jawaban resmi dan penjelasan materi edukatif.
+                </p>
+              </div>
 
-          {/* List Review Soal */}
-          <div className="divide-y divide-slate-200 dark:divide-slate-800 mt-4">
-            {filteredAnswers.map((item, idx) => {
-              const isUnanswered = item.selectedAnswer === null;
+              {/* Filter Buttons */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setResultFilterTab('all')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    resultFilterTab === 'all'
+                      ? 'bg-indigo-600 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Semua ({latestResult.answers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultFilterTab('correct')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    resultFilterTab === 'correct'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Benar ({latestResult.correctCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultFilterTab('wrong')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    resultFilterTab === 'wrong'
+                      ? 'bg-rose-600 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Salah ({latestResult.wrongCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setResultFilterTab('unanswered')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    resultFilterTab === 'unanswered'
+                      ? 'bg-slate-700 text-white'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  Kosong ({latestResult.unansweredCount})
+                </button>
+              </div>
+            </div>
 
-              return (
-                <div key={item.questionId} className="py-6 first:pt-2 last:pb-2 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center">
-                        {idx + 1}
-                      </span>
-                      <span className="text-xs font-extrabold text-slate-500">
-                        Pertanyaan No. {idx + 1}
-                      </span>
+            {/* List Review Soal */}
+            <div className="divide-y divide-slate-200 dark:divide-slate-800 mt-4">
+              {filteredAnswers.map((item, idx) => {
+                const isUnanswered = item.selectedAnswer === null;
+
+                return (
+                  <div key={item.questionId} className="py-6 first:pt-2 last:pb-2 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-black text-xs flex items-center justify-center">
+                          {idx + 1}
+                        </span>
+                        <span className="text-xs font-extrabold text-slate-500">
+                          Pertanyaan No. {idx + 1}
+                        </span>
+                      </div>
+
+                      {/* Status Pill */}
+                      {isUnanswered ? (
+                        <span className="px-2.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold">
+                          Tidak Dijawab
+                        </span>
+                      ) : item.isCorrect ? (
+                        <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-black flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Jawaban Benar</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-black flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Jawaban Salah</span>
+                        </span>
+                      )}
                     </div>
 
-                    {/* Status Pill */}
-                    {isUnanswered ? (
-                      <span className="px-2.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px] font-bold">
-                        Tidak Dijawab
-                      </span>
-                    ) : item.isCorrect ? (
-                      <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-black flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Jawaban Benar</span>
-                      </span>
-                    ) : (
-                      <span className="px-2.5 py-0.5 rounded-md bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-black flex items-center gap-1">
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Jawaban Salah</span>
-                      </span>
+                    <p className="font-bold text-sm sm:text-base leading-relaxed text-slate-900 dark:text-white">
+                      {item.questionText}
+                    </p>
+
+                    {/* Options Comparison */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {[
+                        { key: 'A', text: item.optionA },
+                        { key: 'B', text: item.optionB },
+                        { key: 'C', text: item.optionC },
+                        { key: 'D', text: item.optionD }
+                      ].map(opt => {
+                        const isUserChoice = item.selectedAnswer === opt.key;
+                        const isKey = item.correctAnswer === opt.key;
+
+                        let pillStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300';
+                        if (isKey) {
+                          pillStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-bold';
+                        } else if (isUserChoice && !item.isCorrect) {
+                          pillStyle = 'border-rose-500 bg-rose-500/10 text-rose-800 dark:text-rose-300 line-through';
+                        }
+
+                        return (
+                          <div
+                            key={opt.key}
+                            className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${pillStyle}`}
+                          >
+                            <span className="flex items-center gap-2">
+                              <strong className="font-black">{opt.key}.</strong>
+                              <span>{opt.text}</span>
+                            </span>
+                            {isKey && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-black shrink-0">
+                                KUNCI
+                              </span>
+                            )}
+                            {isUserChoice && !isKey && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-600 text-white font-black shrink-0">
+                                PILIHAN ANDA
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Explanation Box */}
+                    {item.explanation && (
+                      <div className="p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 text-xs text-indigo-900 dark:text-indigo-200 space-y-1">
+                        <span className="font-black flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Pembahasan Materi:</span>
+                        </span>
+                        <p className="leading-relaxed">
+                          {item.explanation}
+                        </p>
+                      </div>
                     )}
                   </div>
-
-                  <p className="font-bold text-sm sm:text-base leading-relaxed text-slate-900 dark:text-white">
-                    {item.questionText}
-                  </p>
-
-                  {/* Options Comparison */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    {[
-                      { key: 'A', text: item.optionA },
-                      { key: 'B', text: item.optionB },
-                      { key: 'C', text: item.optionC },
-                      { key: 'D', text: item.optionD }
-                    ].map(opt => {
-                      const isUserChoice = item.selectedAnswer === opt.key;
-                      const isKey = item.correctAnswer === opt.key;
-
-                      let pillStyle = 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 text-slate-700 dark:text-slate-300';
-                      if (isKey) {
-                        pillStyle = 'border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-bold';
-                      } else if (isUserChoice && !item.isCorrect) {
-                        pillStyle = 'border-rose-500 bg-rose-500/10 text-rose-800 dark:text-rose-300 line-through';
-                      }
-
-                      return (
-                        <div
-                          key={opt.key}
-                          className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${pillStyle}`}
-                        >
-                          <span className="flex items-center gap-2">
-                            <strong className="font-black">{opt.key}.</strong>
-                            <span>{opt.text}</span>
-                          </span>
-                          {isKey && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-black shrink-0">
-                              KUNCI
-                            </span>
-                          )}
-                          {isUserChoice && !isKey && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-600 text-white font-black shrink-0">
-                              PILIHAN ANDA
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Explanation Box */}
-                  {item.explanation && (
-                    <div className="p-3.5 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 text-xs text-indigo-900 dark:text-indigo-200 space-y-1">
-                      <span className="font-black flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Pembahasan Materi:</span>
-                      </span>
-                      <p className="leading-relaxed">
-                        {item.explanation}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Global Leaderboard Modal */}
         {renderLeaderboardModal()}
+
+        {/* Certificate Modal */}
+        <QuizCertificateModal
+          isOpen={showCertificateModal}
+          onClose={() => setShowCertificateModal(false)}
+          result={certificateResult}
+          isDark={isDark}
+        />
       </div>
     );
   }

@@ -1,5 +1,12 @@
 import * as XLSX from 'xlsx';
-import { QuizPackage, QuizQuestion, QuizResultRecord, QuizAudience } from '../types/quiz';
+import { 
+  QuizPackage, 
+  QuizQuestion, 
+  QuizResultRecord, 
+  QuizAudience,
+  QuizActiveSession,
+  QuestionItemAnalysis
+} from '../types/quiz';
 import { safeLocalStorageGet, safeLocalStorageSet } from './safeStorage';
 import { 
   collection, 
@@ -924,7 +931,7 @@ export async function parseQuizQuestionsFromExcel(file: File): Promise<{
 }
 
 /**
- * Exports participants' quiz submissions to Excel
+ * Exports participants' quiz submissions to Excel with proctoring & certificate data
  */
 export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
   const wb = XLSX.utils.book_new();
@@ -932,6 +939,7 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
   const data = [
     [
       'No',
+      'Peringkat',
       'Nama Peserta',
       'Satker / Unit Kerja',
       'Paket Ujian CAT',
@@ -944,6 +952,9 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
       'Skor Akhir (0-100)',
       'Status Kelulusan',
       'Durasi Pengerjaan',
+      'Pelanggaran Pindah Tab',
+      'Integritas Ujian',
+      'No. Sertifikat Digital',
       'Waktu Selesai'
     ],
     ...results.map((r, idx) => {
@@ -951,6 +962,7 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
       const seconds = r.timeSpentSeconds % 60;
       return [
         idx + 1,
+        r.rank ? `#${r.rank}` : `#${idx + 1}`,
         r.participantName,
         r.satkerOrUnit,
         r.packageTitle,
@@ -963,6 +975,9 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
         r.score,
         r.passed ? 'LULUS' : 'TIDAK LULUS',
         `${minutes}m ${seconds}d`,
+        r.tabSwitchCount || 0,
+        r.integrityStatus || (r.tabSwitchCount && r.tabSwitchCount > 3 ? 'PERINGATAN' : 'TERPERCAYA'),
+        r.certificateNo || (r.passed ? `KPPN026/UKOM-CAT/${new Date(r.completedAt).getFullYear()}/${String(idx + 1).padStart(4, '0')}` : '-'),
         new Date(r.completedAt).toLocaleString('id-ID')
       ];
     })
@@ -971,6 +986,7 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [
     { wch: 6 },
+    { wch: 10 },
     { wch: 25 },
     { wch: 30 },
     { wch: 35 },
@@ -983,9 +999,174 @@ export function exportQuizResultsToExcel(results: QuizResultRecord[]): void {
     { wch: 18 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 20 },
+    { wch: 18 },
+    { wch: 30 },
     { wch: 22 }
   ];
 
   XLSX.utils.book_append_sheet(wb, ws, 'Hasil Ujian CAT');
-  XLSX.writeFile(wb, `Rekap_Hasil_Simulasi_CAT_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `Rekap_Hasil_Uji_Kompetensi_CAT_${new Date().toISOString().split('T')[0]}.xlsx`);
 }
+
+const ACTIVE_EXAM_SESSION_KEY = 'kppn_active_exam_session_v1';
+
+/**
+ * Saves current in-progress exam state to localStorage for session recovery
+ */
+export function saveActiveExamSession(session: QuizActiveSession): void {
+  try {
+    safeLocalStorageSet(ACTIVE_EXAM_SESSION_KEY, JSON.stringify(session));
+  } catch (err) {
+    console.warn('[saveActiveExamSession] Failed to persist session:', err);
+  }
+}
+
+/**
+ * Retrieves in-progress exam state from localStorage if available
+ */
+export function getActiveExamSession(packageId?: string): QuizActiveSession | null {
+  try {
+    const raw = safeLocalStorageGet(ACTIVE_EXAM_SESSION_KEY);
+    if (!raw) return null;
+    const session: QuizActiveSession = JSON.parse(raw);
+    if (packageId && session.packageId !== packageId) {
+      return null;
+    }
+    // Check if session hasn't expired (max 12 hours)
+    const ageMs = Date.now() - new Date(session.lastSavedAt || session.examStartTime).getTime();
+    if (ageMs > 12 * 60 * 60 * 1000) {
+      clearActiveExamSession();
+      return null;
+    }
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Clears saved exam session after submit or cancellation
+ */
+export function clearActiveExamSession(): void {
+  try {
+    localStorage.removeItem(ACTIVE_EXAM_SESSION_KEY);
+  } catch (err) {
+    console.warn('[clearActiveExamSession] Error:', err);
+  }
+}
+
+/**
+ * Generates official Digital Certificate Number for passed participants
+ */
+export function generateCertificateNumber(resultId: string, index = 1): string {
+  const year = new Date().getFullYear();
+  const shortId = resultId.replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+  const serial = String(index).padStart(4, '0');
+  return `KPPN026/UKOM-CAT/${year}/${serial}-${shortId}`;
+}
+
+/**
+ * Web Audio API synthesizer for clean sound alerts during exam (Timer warnings, complete)
+ * 100% offline, zero network requests, instant feedback
+ */
+export function playExamChime(type: 'warning' | 'urgent' | 'finish' | 'success'): void {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+
+    if (type === 'warning') {
+      // 5 min warning: Two gentle soft beeps
+      const now = ctx.currentTime;
+      [523.25, 659.25].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.15);
+        gain.gain.setValueAtTime(0.08, now + idx * 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.15 + 0.2);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.15);
+        osc.stop(now + idx * 0.15 + 0.22);
+      });
+    } else if (type === 'urgent') {
+      // 1 min warning: 3 quick alert tones
+      const now = ctx.currentTime;
+      [880, 880, 880].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.12, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.11);
+      });
+    } else if (type === 'success') {
+      // Fanfare chord for passed exam
+      const now = ctx.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+        gain.gain.setValueAtTime(0.1, now + idx * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.1);
+        osc.stop(now + idx * 0.1 + 0.45);
+      });
+    }
+  } catch (e) {
+    // Non-fatal if audio context blocked by browser autoplay policy
+  }
+}
+
+/**
+ * Calculates psychometric item analysis for admin
+ */
+export function calculateItemAnalysis(pkg: QuizPackage, results: QuizResultRecord[]): QuestionItemAnalysis[] {
+  const packageResults = results.filter(r => r.packageId === pkg.id);
+  
+  return pkg.questions.map((q, idx) => {
+    let correctCount = 0;
+    let totalAnswered = 0;
+    const optionDistribution = { A: 0, B: 0, C: 0, D: 0 };
+
+    packageResults.forEach(res => {
+      const ansObj = res.answers?.find(a => a.questionId === q.id);
+      if (ansObj) {
+        if (ansObj.selectedAnswer) {
+          totalAnswered++;
+          optionDistribution[ansObj.selectedAnswer] = (optionDistribution[ansObj.selectedAnswer] || 0) + 1;
+        }
+        if (ansObj.isCorrect) {
+          correctCount++;
+        }
+      }
+    });
+
+    const correctPercentage = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+    let difficultyLevel: 'MUDAH' | 'SEDANG' | 'SULIT' = 'SEDANG';
+    if (correctPercentage >= 75) difficultyLevel = 'MUDAH';
+    else if (correctPercentage < 40) difficultyLevel = 'SULIT';
+
+    return {
+      questionId: q.id,
+      questionNumber: idx + 1,
+      questionText: q.questionText,
+      correctAnswer: q.correctAnswer,
+      totalAnswered,
+      correctCount,
+      correctPercentage,
+      optionDistribution,
+      difficultyLevel
+    };
+  });
+}
+

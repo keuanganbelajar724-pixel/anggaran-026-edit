@@ -4,7 +4,9 @@ import {
   FormResponseRecord, 
   FormAnalyticsSummary, 
   FieldAnalyticsSummary,
-  FormField
+  FormField,
+  IkmAnalyticsSummary,
+  IkmElementScore
 } from '../types/form';
 import { safeLocalStorageGet, safeLocalStorageSet } from './safeStorage';
 import { 
@@ -17,6 +19,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { INITIAL_OFFICIAL_FORMS, INITIAL_OFFICIAL_RESPONSES } from '../data/initialFormData';
+import { 
+  extractFeedbackSentiments, 
+  fetchGoogleSheetCsvData, 
+  parseGoogleFormPastedText 
+} from './googleFormParser';
 
 const FORMS_STORAGE_KEY = 'kppn_custom_forms_v1';
 const RESPONSES_STORAGE_KEY = 'kppn_form_responses_v1';
@@ -432,13 +439,133 @@ export function computeFormAnalytics(form: KppnForm, responses: FormResponseReco
     };
   });
 
+  // Calculate IKM (Indeks Kepuasan Masyarakat Standar Permenpan RB) if there are rating fields
+  let ikmAnalytics: IkmAnalyticsSummary | undefined;
+  const ratingFields = fieldsAnalytics.filter(f => f.fieldType === 'RATING');
+
+  if (ratingFields.length > 0 && totalResponses > 0) {
+    const totalElements = ratingFields.length;
+    const weight = 1 / totalElements;
+
+    let totalWeighted = 0;
+    const elementScores: IkmElementScore[] = ratingFields.map((rf, idx) => {
+      const nrr = rf.averageRating || 0;
+      const nrrWeighted = Number((nrr * weight).toFixed(3));
+      totalWeighted += nrrWeighted;
+
+      return {
+        elementNumber: idx + 1,
+        fieldId: rf.fieldId,
+        elementName: rf.fieldLabel,
+        nrr,
+        nrrWeighted
+      };
+    });
+
+    // Permenpan-RB 14/2017: If 5-star scale, conversion is totalWeighted * 20 (max 100)
+    // If standard 4-star scale, conversion is totalWeighted * 25
+    const ikmConversion = Number((totalWeighted * 20).toFixed(2));
+
+    let grade: 'A' | 'B' | 'C' | 'D' = 'B';
+    let predikat: 'SANGAT BAIK' | 'BAIK' | 'KURANG BAIK' | 'TIDAK BAIK' = 'BAIK';
+    let kategoriMutuText = 'Pelayanan Baik';
+
+    if (ikmConversion >= 88.31) {
+      grade = 'A';
+      predikat = 'SANGAT BAIK';
+      kategoriMutuText = 'Mutu Pelayanan Prima & Sangat Memuaskan';
+    } else if (ikmConversion >= 76.61) {
+      grade = 'B';
+      predikat = 'BAIK';
+      kategoriMutuText = 'Mutu Pelayanan Baik & Terpercaya';
+    } else if (ikmConversion >= 65.00) {
+      grade = 'C';
+      predikat = 'KURANG BAIK';
+      kategoriMutuText = 'Mutu Pelayanan Perlu Peningkatan';
+    } else {
+      grade = 'D';
+      predikat = 'TIDAK BAIK';
+      kategoriMutuText = 'Mutu Pelayanan Tidak Memuaskan';
+    }
+
+    ikmAnalytics = {
+      totalElements,
+      elementScores,
+      nrrTotal: Number(totalWeighted.toFixed(3)),
+      ikmConversion,
+      grade,
+      predikat,
+      kategoriMutuText,
+      period: form.skmPeriod || 'Tahun 2026'
+    };
+  }
+
+  // Extract all text feedback for sentiment summary
+  const allTextAnswers: string[] = [];
+  fieldsAnalytics.forEach(f => {
+    if (f.textAnswers && f.textAnswers.length > 0) {
+      f.textAnswers.forEach(ta => {
+        if (ta.text) allTextAnswers.push(ta.text);
+      });
+    }
+  });
+
+  const sentimentSummary = allTextAnswers.length > 0
+    ? extractFeedbackSentiments(allTextAnswers)
+    : undefined;
+
   return {
     formId: form.id,
     formTitle: form.title,
     totalResponses,
     uniqueSatkersCount,
     latestSubmission,
-    fieldsAnalytics
+    fieldsAnalytics,
+    ikmAnalytics,
+    sentimentSummary
+  };
+}
+
+/**
+ * Synchronizes responses directly from a linked Google Sheet URL
+ */
+export async function syncFormFromGoogleSheetUrl(form: KppnForm): Promise<{ form: KppnForm; addedResponsesCount: number; totalResponses: number }> {
+  if (!form.googleSheetUrl) {
+    throw new Error('Formulir ini belum memiliki tautan Google Sheets yang terhubung.');
+  }
+
+  const csvText = await fetchGoogleSheetCsvData(form.googleSheetUrl);
+  const parsed = parseGoogleFormPastedText(csvText, form.title);
+
+  // Update existing form with lastSyncedAt
+  const updatedForm: KppnForm = {
+    ...form,
+    lastSyncedAt: new Date().toISOString()
+  };
+  await saveKppnForm(updatedForm);
+
+  // Merge responses: keep unique by respondentSatker + submittedAt or generate unique keys
+  const existingResponses = getFormResponses(form.id);
+  const existingKeys = new Set(existingResponses.map(r => `${r.respondentSatker}_${r.submittedAt}_${r.respondentName}`));
+
+  const newUniqueResponses = parsed.responses
+    .filter(r => !existingKeys.has(`${r.respondentSatker}_${r.submittedAt}_${r.respondentName}`))
+    .map(r => ({ ...r, formId: form.id, formTitle: form.title, source: 'GOOGLE_SHEET_SYNC' as const }));
+
+  if (newUniqueResponses.length > 0) {
+    const all = getFormResponses();
+    const otherFormResponses = all.filter(r => r.formId !== form.id);
+    const combined = [...newUniqueResponses, ...existingResponses, ...otherFormResponses].slice(0, 1000);
+    safeLocalStorageSet(RESPONSES_STORAGE_KEY, JSON.stringify(combined));
+    window.dispatchEvent(new CustomEvent('kppn_form_responses_updated'));
+  }
+
+  const totalResponses = existingResponses.length + newUniqueResponses.length;
+
+  return {
+    form: updatedForm,
+    addedResponsesCount: newUniqueResponses.length,
+    totalResponses
   };
 }
 

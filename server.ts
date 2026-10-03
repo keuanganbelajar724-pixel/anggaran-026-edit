@@ -56,6 +56,41 @@ async function startServer() {
     });
   });
 
+  // Google Sheets / Google Form Live CSV Proxy Endpoint
+  app.get('/api/proxy/google-sheet', async (req, res) => {
+    try {
+      const targetUrl = String(req.query.url || '');
+      if (!targetUrl) {
+        return res.status(400).json({ status: 'error', message: 'Parameter "url" wajib diisi' });
+      }
+
+      // Security check: Must be http or https
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+        return res.status(400).json({ status: 'error', message: 'Protokol URL tidak valid' });
+      }
+
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/csv,text/plain,application/vnd.ms-excel,*/*'
+        }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          status: 'error',
+          message: `Gagal mengunduh spreadsheet dari Google (HTTP ${response.status}: ${response.statusText}). Pastikan file Google Sheet diatur "Siapa saja dengan link dapat melihat" (Anyone with the link can view).`
+        });
+      }
+
+      const text = await response.text();
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.send(text);
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message || 'Gagal menghubungi server Google Sheets' });
+    }
+  });
+
   // Load initial baseline satkers if available
   let inMemorySatkers: any[] = [];
   try {
