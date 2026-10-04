@@ -5,7 +5,9 @@ import {
   QuizResultRecord, 
   QuizAudience,
   QuizActiveSession,
-  QuestionItemAnalysis
+  QuestionItemAnalysis,
+  MasterBankQuestion,
+  QuestionDifficulty
 } from '../types/quiz';
 import { safeLocalStorageGet, safeLocalStorageSet } from './safeStorage';
 import { 
@@ -18,11 +20,14 @@ import {
   writeBatch 
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { MASTER_QUIZ_BANK } from '../data/masterQuizBankData';
 
 const QUIZ_PACKAGES_STORAGE_KEY = 'kppn_quiz_packages_v1';
 const QUIZ_RESULTS_STORAGE_KEY = 'kppn_quiz_results_v1';
+const MASTER_QUIZ_BANK_STORAGE_KEY = 'kppn_master_quiz_bank_v1';
 const FIRESTORE_PACKAGES_COLLECTION = 'quiz_packages';
 const FIRESTORE_RESULTS_COLLECTION = 'quiz_results';
+const FIRESTORE_BANK_COLLECTION = 'master_quiz_bank';
 
 /**
  * Checks whether a quiz package is currently open, scheduled for future, or expired.
@@ -1168,5 +1173,340 @@ export function calculateItemAnalysis(pkg: QuizPackage, results: QuizResultRecor
       difficultyLevel
     };
   });
+}
+
+// ============================================================================
+// 6. MASTER BANK SOAL (CENTRAL REPOSITORY & PACKAGE IMPORT UTILITIES)
+// ============================================================================
+
+/**
+ * Retrieves the full master question bank from local cache or default seed
+ */
+export function getMasterQuizBank(): MasterBankQuestion[] {
+  const raw = safeLocalStorageGet(MASTER_QUIZ_BANK_STORAGE_KEY);
+  if (!raw) {
+    safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
+    return MASTER_QUIZ_BANK;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
+      return MASTER_QUIZ_BANK;
+    }
+    // If stored questions are fewer than the 520 authoritative master bank, automatically merge
+    if (parsed.length < MASTER_QUIZ_BANK.length) {
+      const existingIds = new Set(parsed.map((q: any) => q.id));
+      const missing = MASTER_QUIZ_BANK.filter(q => !existingIds.has(q.id));
+      const merged = [...parsed, ...missing].map((q, idx) => ({ ...q, number: idx + 1 }));
+      safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(merged));
+      return merged;
+    }
+    return parsed;
+  } catch (e) {
+    console.error('[QuizStorage] Error reading master quiz bank:', e);
+    return MASTER_QUIZ_BANK;
+  }
+}
+
+/**
+ * Saves the full master question bank and broadcasts updates
+ */
+export async function saveMasterQuizBank(questions: MasterBankQuestion[]): Promise<MasterBankQuestion[]> {
+  safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(questions));
+  window.dispatchEvent(new CustomEvent('kppn_master_bank_updated'));
+
+  if (db) {
+    try {
+      const batch = writeBatch(db);
+      questions.slice(0, 100).forEach(q => {
+        const ref = doc(db, FIRESTORE_BANK_COLLECTION, q.id);
+        batch.set(ref, q, { merge: true });
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn('[QuizStorage] Cloud bank save notice:', err);
+    }
+  }
+
+  return questions;
+}
+
+/**
+ * Real-time subscription to master quiz bank changes
+ */
+export function subscribeToMasterQuizBank(callback: (questions: MasterBankQuestion[]) => void): () => void {
+  callback(getMasterQuizBank());
+
+  const handleLocalUpdate = () => {
+    callback(getMasterQuizBank());
+  };
+  window.addEventListener('kppn_master_bank_updated', handleLocalUpdate);
+
+  if (!db) {
+    return () => window.removeEventListener('kppn_master_bank_updated', handleLocalUpdate);
+  }
+
+  try {
+    const colRef = collection(db, FIRESTORE_BANK_COLLECTION);
+    const unsubscribe = onSnapshot(colRef, (snapshot) => {
+      const cloudQuestions: MasterBankQuestion[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.id) cloudQuestions.push(data as MasterBankQuestion);
+      });
+
+      if (cloudQuestions.length > 0) {
+        if (cloudQuestions.length < MASTER_QUIZ_BANK.length) {
+          const cloudIds = new Set(cloudQuestions.map(q => q.id));
+          const missing = MASTER_QUIZ_BANK.filter(q => !cloudIds.has(q.id));
+          const merged = [...cloudQuestions, ...missing].map((q, idx) => ({ ...q, number: idx + 1 }));
+          safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(merged));
+          callback(merged);
+        } else {
+          safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(cloudQuestions));
+          callback(cloudQuestions);
+        }
+      } else {
+        callback(getMasterQuizBank());
+      }
+    }, (error) => {
+      console.warn('[QuizStorage] Firestore bank subscription notice:', error);
+      callback(getMasterQuizBank());
+    });
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('kppn_master_bank_updated', handleLocalUpdate);
+    };
+  } catch (err) {
+    console.warn('[QuizStorage] Error subscribing to master bank:', err);
+    return () => window.removeEventListener('kppn_master_bank_updated', handleLocalUpdate);
+  }
+}
+
+/**
+ * Adds or updates questions in the master bank
+ */
+export async function addQuestionsToMasterBank(newQuestions: MasterBankQuestion[]): Promise<MasterBankQuestion[]> {
+  const current = getMasterQuizBank();
+  const map = new Map<string, MasterBankQuestion>();
+  current.forEach(q => map.set(q.id, q));
+
+  newQuestions.forEach(nq => {
+    map.set(nq.id, nq);
+  });
+
+  const updated = Array.from(map.values()).map((q, idx) => ({
+    ...q,
+    number: idx + 1
+  }));
+
+  return await saveMasterQuizBank(updated);
+}
+
+/**
+ * Deletes a question from the master bank
+ */
+export async function deleteMasterBankQuestion(questionId: string): Promise<MasterBankQuestion[]> {
+  const current = getMasterQuizBank();
+  const updated = current
+    .filter(q => q.id !== questionId)
+    .map((q, idx) => ({ ...q, number: idx + 1 }));
+
+  await saveMasterQuizBank(updated);
+
+  if (db) {
+    try {
+      await deleteDoc(doc(db, FIRESTORE_BANK_COLLECTION, questionId));
+    } catch (e) {
+      console.warn('[QuizStorage] Error deleting question from cloud:', e);
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Resets the master quiz bank to default authoritative repository
+ */
+export async function resetMasterQuizBankToDefault(): Promise<MasterBankQuestion[]> {
+  safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
+  window.dispatchEvent(new CustomEvent('kppn_master_bank_updated'));
+  return MASTER_QUIZ_BANK;
+}
+
+/**
+ * Imports selected bank questions into an existing quiz package
+ */
+export async function importBankQuestionsIntoPackage(packageId: string, bankQuestionIds: string[]): Promise<QuizPackage | null> {
+  const packages = getQuizPackages();
+  const targetPkg = packages.find(p => p.id === packageId);
+  if (!targetPkg) return null;
+
+  const masterBank = getMasterQuizBank();
+  const selectedBankQuestions = masterBank.filter(bq => bankQuestionIds.includes(bq.id));
+
+  if (selectedBankQuestions.length === 0) return targetPkg;
+
+  // Existing question texts to avoid exact duplicates
+  const existingTexts = new Set(targetPkg.questions.map(q => q.questionText.trim().toLowerCase()));
+
+  const newQuestions: QuizQuestion[] = [];
+  let currentNum = targetPkg.questions.length + 1;
+
+  selectedBankQuestions.forEach(bq => {
+    if (!existingTexts.has(bq.questionText.trim().toLowerCase())) {
+      newQuestions.push({
+        id: `q_pkg_${targetPkg.id}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        number: currentNum++,
+        questionText: bq.questionText,
+        optionA: bq.optionA,
+        optionB: bq.optionB,
+        optionC: bq.optionC,
+        optionD: bq.optionD,
+        correctAnswer: bq.correctAnswer,
+        explanation: bq.explanation,
+        referenceRegulation: bq.referenceRegulation,
+        difficulty: bq.difficulty,
+        topic: bq.topic,
+        points: bq.points || 10
+      });
+    }
+  });
+
+  const updatedPkg: QuizPackage = {
+    ...targetPkg,
+    questions: [...targetPkg.questions, ...newQuestions],
+    updatedAt: new Date().toISOString()
+  };
+
+  await saveQuizPackage(updatedPkg);
+  return updatedPkg;
+}
+
+/**
+ * Automatically creates a balanced quiz package from the master bank
+ */
+export async function createQuickPackageFromBank(params: {
+  title: string;
+  category: string;
+  targetAudience: QuizAudience;
+  durationMinutes: number;
+  passingGrade?: number;
+  totalQuestionCount: number;
+  topicFilter?: string;
+  proctoringEnabled?: boolean;
+}): Promise<QuizPackage> {
+  const masterBank = getMasterQuizBank();
+  let pool = masterBank;
+
+  if (params.topicFilter && params.topicFilter !== 'ALL') {
+    pool = pool.filter(q => q.topic?.toLowerCase().includes(params.topicFilter!.toLowerCase()));
+  }
+
+  // Shuffle pool to pick questions randomly
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const picked = shuffled.slice(0, Math.min(params.totalQuestionCount, shuffled.length));
+
+  const packageId = `quiz_auto_${Date.now()}`;
+  const now = new Date().toISOString();
+
+  const newPackage: QuizPackage = {
+    id: packageId,
+    title: params.title,
+    description: `Paket kuis resmi disusun dari Bank Soal Terpusat KPPN Semarang I dengan komposisi materi mencakup tingkat kesulitan berjenjang. Total ${picked.length} butir soal.`,
+    category: params.category || 'IKPA & Regulasi 2026',
+    targetAudience: params.targetAudience || 'satker',
+    durationMinutes: params.durationMinutes || 15,
+    passingGrade: params.passingGrade || 70,
+    isActive: true,
+    shuffleQuestions: true,
+    shuffleOptions: true,
+    strictProctoring: params.proctoringEnabled ?? true,
+    maxTabSwitches: 3,
+    showExplanationImmediately: true,
+    certificateEnabled: true,
+    questions: picked.map((bq, idx) => ({
+      id: `q_${packageId}_${idx + 1}`,
+      number: idx + 1,
+      questionText: bq.questionText,
+      optionA: bq.optionA,
+      optionB: bq.optionB,
+      optionC: bq.optionC,
+      optionD: bq.optionD,
+      correctAnswer: bq.correctAnswer,
+      explanation: bq.explanation,
+      referenceRegulation: bq.referenceRegulation,
+      difficulty: bq.difficulty,
+      topic: bq.topic,
+      points: 10
+    })),
+    createdAt: now,
+    updatedAt: now
+  };
+
+  await saveQuizPackage(newPackage);
+  return newPackage;
+}
+
+/**
+ * Exports the full master question bank to an Excel file
+ */
+export function exportMasterBankToExcel(questions: MasterBankQuestion[]): void {
+  const wb = XLSX.utils.book_new();
+
+  const data = [
+    [
+      'No',
+      'Topik / Kategori',
+      'Tingkat Kesulitan',
+      'Pertanyaan',
+      'Pilihan A',
+      'Pilihan B',
+      'Pilihan C',
+      'Pilihan D',
+      'Kunci Jawaban',
+      'Pembahasan Lengkap',
+      'Dasar Hukum / Regulasi',
+      'Poin'
+    ],
+    ...questions.map((q, idx) => [
+      idx + 1,
+      q.topic || 'Umum',
+      q.difficulty || 'SEDANG',
+      q.questionText,
+      q.optionA,
+      q.optionB,
+      q.optionC,
+      q.optionD,
+      q.correctAnswer,
+      q.explanation || '-',
+      q.referenceRegulation || '-',
+      q.points || 10
+    ])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 25 },
+    { wch: 15 },
+    { wch: 60 },
+    { wch: 30 },
+    { wch: 30 },
+    { wch: 30 },
+    { wch: 30 },
+    { wch: 12 },
+    { wch: 65 },
+    { wch: 35 },
+    { wch: 8 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Bank Soal KPPN');
+
+  const filename = `Bank_Soal_CAT_KPPN_Semarang_I_${Date.now()}.xlsx`;
+  XLSX.writeFile(wb, filename);
 }
 

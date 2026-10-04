@@ -1,0 +1,185 @@
+import { RawQuestion } from './questionsIkpa';
+
+export const pbjQuestions: RawQuestion[] = [
+  // 1-15: Prinsip PBJ, Metode Pemilihan, Bentuk Kontrak
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Apakah regulasi induk yang mengatur Pengadaan Barang dan Jasa Pemerintah saat ini di Indonesia?',
+    optionA: 'Peraturan Presiden Nomor 16 Tahun 2018 jo Peraturan Presiden Nomor 12 Tahun 2021',
+    optionB: 'Kitab Undang-Undang Hukum Pidana (KUHP)',
+    optionC: 'Peraturan Menteri Ketenagakerjaan tentang Upah Minimum',
+    optionD: 'Undang-Undang Perseroan Terbatas',
+    correctAnswer: 'A',
+    explanation: 'Pengadaan Barang/Jasa Pemerintah (PBJP) diatur oleh Perpres No. 16 Tahun 2018 yang kemudian diubah dengan Perpres No. 12 Tahun 2021.',
+    referenceRegulation: 'Perpres No. 16/2018 jo Perpres No. 12/2021'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Manakah di bawah ini yang merupakan 7 (tujuh) prinsip dasar Pengadaan Barang/Jasa Pemerintah?',
+    optionA: 'Efisien, Efektif, Transparan, Terbuka, Bersaing, Adil, dan Akuntabel',
+    optionB: 'Mahal, Mewah, Eksklusif, Rahasia, Sepihak, Cepat, dan Bebas',
+    optionC: 'Sederhana, Santai, Lambat, Tertutup, Menyerah, Irit, dan Acuh',
+    optionD: 'Tradisional, Lisan, Bebas Pajak, Boros, Rutin, dan Berulang',
+    correctAnswer: 'A',
+    explanation: 'Pasal 6 Perpres 16/2018 menetapkan 7 prinsip PBJ: efisien, efektif, transparan, terbuka, bersaing, adil dan tidak diskriminatif, serta akuntabel.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 6'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Berapakah batas nilai pengadaan barang/pekerjaan konstruksi/jasa lainnya yang dapat dilaksanakan melalui metode Pengadaan Langsung oleh Pejabat Pengadaan?',
+    optionA: 'Paling banyak Rp200.000.000 (dua ratus juta rupiah)',
+    optionB: 'Paling banyak Rp50.000.000',
+    optionC: 'Paling banyak Rp1.000.000.000',
+    optionD: 'Paling banyak Rp10.000.000',
+    correctAnswer: 'A',
+    explanation: 'Sesuai Perpres 16/2018 jo Perpres 12/2021, Pengadaan Langsung untuk Barang, Pekerjaan Konstruksi, dan Jasa Lainnya dilakukan untuk nilai paling banyak Rp200 juta.',
+    referenceRegulation: 'Perpres No. 16/2018 jo Perpres No. 12/2021 Pasal 38 ayat (3)'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Metode pemilihan penyedia barang/jasa yang dilakukan melalui katalog elektronik (e-Katalog) yang dikelola oleh LKPP disebut...',
+    optionA: 'E-Purchasing',
+    optionB: 'Tender Terbuka Internasional',
+    optionC: 'Seleksi Sederhana',
+    optionD: 'Lelang Sitaan KPKNL',
+    correctAnswer: 'A',
+    explanation: 'E-purchasing adalah tata cara pembelian barang/jasa melalui katalog elektronik nasional, sektoral, maupun lokal yang diselenggarakan oleh LKPP.',
+    referenceRegulation: 'Perpres No. 16/2018 jo Perpres No. 12/2021 Pasal 38 ayat (1)'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Manakah bentuk perikatan/kontrak yang digunakan untuk pengadaan barang/jasa dengan nilai di atas Rp50.000.000 sampai dengan Rp200.000.000?',
+    optionA: 'Surat Perintah Kerja (SPK)',
+    optionB: 'Bukti Pembelian / Struk Kasir',
+    optionC: 'Kuitansi bermeterai',
+    optionD: 'Surat Perjanjian Kontrak Panjang',
+    correctAnswer: 'A',
+    explanation: 'Bentuk dokumen kontrak: Bukti Pembelian (s.d. Rp10 juta), Kuitansi (s.d. Rp50 juta), SPK (> Rp50 juta s.d. Rp200 juta), dan Surat Perjanjian (> Rp200 juta).',
+    referenceRegulation: 'Perpres No. 16/2018 jo Perpres No. 12/2021 Pasal 28'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'ANALISIS',
+    questionText: 'PPK melakukan pengadaan 10 unit laptop senilai total Rp120.000.000. PPK sengaja memecah paket pengadaan tersebut menjadi 3 kuitansi masing-masing Rp40.000.000 agar dapat menghindari pembuatan Surat Perintah Kerja (SPK) dan pengawasan KPPN. Bagaimanakah tinjauan regulasi tindakan ini?',
+    optionA: 'Merupakan pelanggaran larangan pemecahan pengadaan (larangan memecah paket untuk menghindari tender/ketentuan kontrak resmi)',
+    optionB: 'Tindakan cerdas dan diperbolehkan untuk efisiensi waktu',
+    optionC: 'Dianjurkan oleh aturan perbendaharaan',
+    optionD: 'Sah sepanjang toko komputer bersedia membuat 3 nota',
+    correctAnswer: 'A',
+    explanation: 'Pasal 20 Perpres 16/2018 secara eksplisit melarang PPK menyatukan atau memecah paket pengadaan untuk menghindari tender atau menghindari kewajiban bentuk kontrak yang sah.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 20 ayat (2) huruf d'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Berapakah besaran denda keterlambatan penyelesaian pekerjaan yang dikenakan kepada penyedia barang/jasa apabila terlambat menyelesaikan pekerjaan sesuai kontrak?',
+    optionA: '1/1000 (satu permil) per hari keterlambatan dari nilai kontrak atau nilai bagian kontrak yang belum diselesaikan (sebelum PPN)',
+    optionB: '10% per hari',
+    optionC: '50% dari total pagu DIPA',
+    optionD: 'Rp100.000 flat per bulan',
+    correctAnswer: 'A',
+    explanation: 'Sesuai klausul standar kontrak pemerintah (Perpres 16/2018 Pasal 79), denda keterlambatan adalah 1/1000 (satu permil) per hari dari nilai kontrak atau bagian kontrak sebelum PPN.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 79 ayat (4)'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'ANALISIS',
+    questionText: 'Kontrak renovasi gedung kantor senilai Rp500.000.000 (belum termasuk PPN) memiliki batas waktu penyelesaian 30 Oktober. Rekanan baru menyelesaikan pekerjaan dan menandatangani BAST pada 9 November (terlambat 10 hari kalender). Berapakah total denda keterlambatan yang wajib disetorkan/dipotong dari pembayaran rekanan?',
+    optionA: 'Rp5.000.000 (10 hari x 1/1000 x Rp500.000.000)',
+    optionB: 'Rp50.000.000',
+    optionC: 'Rp1.000.000',
+    optionD: 'Rp500.000',
+    correctAnswer: 'A',
+    explanation: 'Perhitungan denda: Hari keterlambatan x (1/1000) x Nilai Kontrak = 10 x 0,001 x Rp500.000.000 = Rp5.000.000. Denda ini disetor ke kas negara sebagai PNBP Pengesahan Denda Kontrak.',
+    referenceRegulation: 'Perpres No. 16/2018 & Juknis Pemotongan Denda SPAN-SAKTI'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Jaminan yang diterbitkan oleh Bank Umum / Asuransi yang wajib diserahkan oleh penyedia sebelum penandatanganan kontrak pengadaan barang/jasa bernilai di atas Rp200 juta adalah...',
+    optionA: 'Jaminan Pelaksanaan',
+    optionB: 'Jaminan Hari Tua (JHT)',
+    optionC: 'Jaminan Kesehatan Nasional',
+    optionD: 'Sertifikat Tanah Warisan',
+    correctAnswer: 'A',
+    explanation: 'Jaminan Pelaksanaan diberlakukan untuk kontrak bernilai di atas Rp200 juta guna menjamin kepatuhan rekanan menuntaskan pekerjaan sesuai kesepakatan kontrak.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 30'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Berapakah besaran nilai Jaminan Pelaksanaan standar untuk penawaran yang nilainya antara 80% sampai 100% dari nilai HPS?',
+    optionA: 'Sebesar 5% (lima persen) dari nilai kontrak',
+    optionB: 'Sebesar 50% dari nilai kontrak',
+    optionC: 'Sebesar 1% dari HPS',
+    optionD: 'Sebesar Rp100.000.000',
+    correctAnswer: 'A',
+    explanation: 'Jika harga penawaran berada di antara 80% hingga 100% HPS, besaran Jaminan Pelaksanaan adalah 5% dari nilai kontrak. Jika di bawah 80% HPS, jaminan dihitung 5% dari HPS.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 30 ayat (2)'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Pengadaan barang/jasa pemerintah yang direncanakan, dikerjakan, dan/atau diawasi sendiri oleh Kementerian/Lembaga/Pemerintah Daerah penanggung jawab anggaran atau instansi lain disebut...',
+    optionA: 'Pengadaan secara Swakelola',
+    optionB: 'Pengadaan melalui Vendor Swasta Asing',
+    optionC: 'Sistem Monopoli BUMN',
+    optionD: 'Lelang Sukarela',
+    correctAnswer: 'A',
+    explanation: 'Swakelola adalah cara memperoleh barang/jasa yang dikerjakan sendiri oleh K/L/PD, instansi pemerintah lain, ormas, atau kelompok masyarakat.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 1 angka 23 dan Pasal 18'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Swakelola Tipe II adalah pelaksanaan pekerjaan pengadaan swakelola yang direncanakan oleh satker penanggung jawab anggaran dan dilaksanakan oleh...',
+    optionA: 'Kementerian/Lembaga/Pemerintah Daerah lain sebagai pelaksana swakelola (misal satker bekerja sama dengan Balai Penelitian Kementerian PU atau Universitas Negeri)',
+    optionB: 'Satker penanggung jawab anggaran itu sendiri',
+    optionC: 'Organisasi Kemasyarakatan (Ormas)',
+    optionD: 'Kelompok Masyarakat (Pokmas) desa',
+    correctAnswer: 'A',
+    explanation: 'Tipe Swakelola: Tipe I (dikerjakan sendiri oleh K/L bersangkutan), Tipe II (dikerjakan instansi pemerintah lain), Tipe III (Ormas), Tipe IV (Kelompok Masyarakat).',
+    referenceRegulation: 'Perpres No. 16/2018 jo Perpres No. 12/2021 Pasal 18'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'ANALISIS',
+    questionText: 'Pekerjaan konstruksi gedung telah selesai dan BAST ditandatangani pada tanggal 1 Desember. Kontraktor masih memiliki kewajiban masa pemeliharaan (warranty/retensi) selama 6 bulan. Bagaimana tata cara pencairan 100% pembayaran pada akhir tahun?',
+    optionA: 'Pembayaran 100% dapat dicairkan dengan syarat rekanan menyerahkan Jaminan Pemeliharaan sebesar 5% dari nilai kontrak yang diterbitkan Bank Umum',
+    optionB: 'Uang 100% langsung diserahkan tanpa jaminan apapun',
+    optionC: 'Sisa uang 5% hangus tidak dapat dibayar selamanya',
+    optionD: 'Rekanan dipaksa menandatangani surat utang pribadi',
+    correctAnswer: 'A',
+    explanation: 'Pada akhir tahun anggaran, pencairan penuh (100%) atas pekerjaan dengan masa retensi dapat dilakukan apabila penyedia menyerahkan Jaminan Pemeliharaan senilai 5% kontrak.',
+    referenceRegulation: 'PMK tentang Pembayaran atas Beban APBN pada Akhir Tahun Anggaran (LLAT)'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'SEDANG',
+    questionText: 'Apakah fungsi utama Harga Perkiraan Sendiri (HPS) yang disusun dan ditetapkan oleh PPK?',
+    optionA: 'Sebagai alat menilai kewajaran harga penawaran dan batas tertinggi penawaran yang sah untuk pengadaan barang/pekerjaan konstruksi',
+    optionB: 'Sebagai dasar menentukan besaran suap penyedia',
+    optionC: 'Sebagai rahasia negara yang tidak boleh dibuka sampai akhir zaman',
+    optionD: 'Sebagai dokumen promosi wisata',
+    correctAnswer: 'A',
+    explanation: 'HPS berfungsi sebagai batas atas penawaran yang sah (kecuali tender konsultansi) dan instrumen menilai kewajaran harga serta perhitungan jaminan pelaksanaan.',
+    referenceRegulation: 'Perpres No. 16/2018 Pasal 26'
+  },
+  {
+    topic: 'Pengadaan Barang & Jasa Pemerintah',
+    difficulty: 'MUDAH',
+    questionText: 'Lembaga non-struktural pemerintah di tingkat pusat yang berwenang merumuskan kebijakan, mengembangkan sistem e-katalog, dan membina PBJ nasional adalah...',
+    optionA: 'LKPP (Lembaga Kebijakan Pengadaan Barang/Jasa Pemerintah)',
+    optionB: 'BMKG (Badan Meteorologi Klimatologi dan Geofisika)',
+    optionC: 'BNPB (Badan Nasional Penanggulangan Bencana)',
+    optionD: 'Komisi Pemilihan Umum (KPU)',
+    correctAnswer: 'A',
+    explanation: 'LKPP adalah lembaga pemerintah yang bertugas mengembangkan dan merumuskan kebijakan pengadaan barang/jasa pemerintah secara nasional.',
+    referenceRegulation: 'Perpres No. 106 Tahun 2007 tentang LKPP & Perpres 16/2018'
+  }
+];

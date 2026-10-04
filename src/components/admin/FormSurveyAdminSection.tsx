@@ -33,7 +33,8 @@ import {
   ExternalLink,
   Award,
   TrendingUp,
-  Share2
+  Share2,
+  BookOpen
 } from 'lucide-react';
 import { 
   KppnForm, 
@@ -68,6 +69,8 @@ import {
 import { FormOfficialReportModal } from '../forms/FormOfficialReportModal';
 import { FormQrShareModal } from '../forms/FormQrShareModal';
 import { FormKioskModal } from '../forms/FormKioskModal';
+import { QuestionBankHub } from '../forms/QuestionBankHub';
+import { QuestionBankSelectorModal } from '../forms/QuestionBankSelectorModal';
 
 interface FormSurveyAdminSectionProps {
   currentUser?: AppUser | null;
@@ -77,7 +80,7 @@ interface FormSurveyAdminSectionProps {
   onToggleDashboardActive?: (active: boolean) => void;
 }
 
-type AdminSubTab = 'CHARTS' | 'RESPONSES' | 'IMPORT_GFORM' | 'MANAGE_FORMS';
+type AdminSubTab = 'CHARTS' | 'RESPONSES' | 'IMPORT_GFORM' | 'QUESTION_BANK' | 'MANAGE_FORMS';
 
 export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
   currentUser,
@@ -119,6 +122,7 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isQrShareModalOpen, setIsQrShareModalOpen] = useState<boolean>(false);
   const [isKioskModalOpen, setIsKioskModalOpen] = useState<boolean>(false);
+  const [isQuestionBankSelectorOpen, setIsQuestionBankSelectorOpen] = useState<boolean>(false);
 
   // Form Builder State
   const [isBuilderModalOpen, setIsBuilderModalOpen] = useState<boolean>(false);
@@ -524,6 +528,11 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
     setFormFields(prev => prev.filter(f => f.id !== fieldId));
   };
 
+  const handleInsertFieldsFromQuestionBank = (fields: FormField[]) => {
+    setFormFields(prev => [...prev, ...fields]);
+    showToast(`${fields.length} butir soal berhasil disisipkan dari Bank Soal!`, 'success');
+  };
+
   const handleSaveFormBuilder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formTitle.trim()) {
@@ -764,6 +773,19 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
 
         <button
           type="button"
+          onClick={() => setSubTab('QUESTION_BANK')}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+            subTab === 'QUESTION_BANK'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border border-indigo-300/60 dark:border-indigo-800 hover:bg-indigo-100'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-indigo-500" />
+          <span>4. 📚 Bank Soal &amp; Referensi Pintar</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setSubTab('MANAGE_FORMS')}
           className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
             subTab === 'MANAGE_FORMS'
@@ -772,7 +794,7 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
           }`}
         >
           <ClipboardList className="w-4 h-4" />
-          <span>4. Kelola Form ({forms.length})</span>
+          <span>5. Kelola Form ({forms.length})</span>
         </button>
       </div>
 
@@ -1884,7 +1906,26 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
       )}
 
       {/* ===================================================================== */}
-      {/* SUB-TAB 4: KELOLA & BUAT FORMULIR (BUILDER) */}
+      {/* SUB-TAB 4: BANK SOAL & REFERENSI PINTAR */}
+      {/* ===================================================================== */}
+      {subTab === 'QUESTION_BANK' && (
+        <QuestionBankHub
+          onFormCreated={(newForm) => {
+            setForms(prev => [newForm, ...prev]);
+            setSelectedFormId(newForm.id);
+            setSubTab('MANAGE_FORMS');
+          }}
+          onSelectFormForBuilder={(formId) => {
+            const target = forms.find(f => f.id === formId);
+            if (target) {
+              handleOpenEditForm(target);
+            }
+          }}
+        />
+      )}
+
+      {/* ===================================================================== */}
+      {/* SUB-TAB 5: KELOLA & BUAT FORMULIR (BUILDER) */}
       {/* ===================================================================== */}
       {subTab === 'MANAGE_FORMS' && (
         <div className="space-y-4">
@@ -2091,6 +2132,15 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
+                      onClick={() => setIsQuestionBankSelectorOpen(true)}
+                      className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-transform"
+                      title="Pilih soal langsung dari Bank Soal & Pengetahuan Pintar"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>📚 Ambil dari Bank Soal</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleAddFieldToBuilder('RATING')}
                       className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 font-bold text-[10px] flex items-center gap-1 cursor-pointer"
                     >
@@ -2278,6 +2328,15 @@ export const FormSurveyAdminSection: React.FC<FormSurveyAdminSectionProps> = ({
           onClose={() => setIsKioskModalOpen(false)}
           form={currentSelectedForm}
           masterSatkers={masterSatkers}
+        />
+      )}
+
+      {/* Question Bank Selector Modal (for Form Builder) */}
+      {isQuestionBankSelectorOpen && (
+        <QuestionBankSelectorModal
+          isOpen={isQuestionBankSelectorOpen}
+          onClose={() => setIsQuestionBankSelectorOpen(false)}
+          onInsertFields={handleInsertFieldsFromQuestionBank}
         />
       )}
     </div>

@@ -15,7 +15,8 @@ import {
   QrCode,
   Share2,
   Award,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
 import { 
   KppnForm, 
@@ -28,6 +29,7 @@ import {
   saveFormResponse
 } from '../../utils/formStorage';
 import { FormQrShareModal } from './FormQrShareModal';
+import { QuestionBankHub } from './QuestionBankHub';
 
 interface FormSurveyModuleProps {
   currentUser: AppUser | null;
@@ -39,7 +41,7 @@ interface FormSurveyModuleProps {
   onNavigateToAdmin?: () => void;
 }
 
-type SatkerTab = 'FILL_FORM' | 'MY_HISTORY';
+type SatkerTab = 'FILL_FORM' | 'MY_HISTORY' | 'QUESTION_BANK';
 
 export const FormSurveyModule: React.FC<FormSurveyModuleProps> = ({
   currentUser,
@@ -309,6 +311,19 @@ export const FormSurveyModule: React.FC<FormSurveyModuleProps> = ({
           >
             <History className="w-3.5 h-3.5" />
             <span>2. Riwayat Jawaban ({mySubmissions.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveTab('QUESTION_BANK'); setActiveFillingForm(null); }}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'QUESTION_BANK'
+                ? 'bg-white text-slate-950 shadow-md'
+                : 'text-amber-200 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-300" />
+            <span>3. 📚 Bank Soal &amp; Ruang Belajar</span>
           </button>
         </div>
       </div>
@@ -809,6 +824,15 @@ export const FormSurveyModule: React.FC<FormSurveyModuleProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* VIEW 3: BANK SOAL & RUANG BELAJAR PINTAR (TRYOUT & PEMBAHASAN) */}
+      {/* ===================================================================== */}
+      {activeTab === 'QUESTION_BANK' && (
+        <div className="space-y-6">
+          <QuestionBankHub />
         </div>
       )}
 

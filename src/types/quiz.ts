@@ -1,4 +1,5 @@
 export type QuizAudience = 'satker' | 'kppn_internal' | 'all';
+export type QuestionDifficulty = 'MUDAH' | 'SEDANG' | 'ANALISIS';
 
 export interface QuizQuestion {
   id: string;
@@ -11,6 +12,15 @@ export interface QuizQuestion {
   correctAnswer: 'A' | 'B' | 'C' | 'D';
   explanation?: string;
   points?: number; // default: 10
+  topic?: string; // Kategori topik, e.g. "IKPA - Deviasi Hal III DIPA", "SAKTI - Modul Bendahara", "UP & TUP", "Regulasi APBN"
+  difficulty?: QuestionDifficulty; // 'MUDAH' | 'SEDANG' | 'ANALISIS'
+  referenceRegulation?: string; // Dasar hukum / regulasi (e.g. "Perdirjen Perbendaharaan No. PER-5/PB/2022")
+}
+
+export interface MasterBankQuestion extends QuizQuestion {
+  tags?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface QuizPackage {

@@ -39,14 +39,19 @@ import {
   KeyRound,
   RotateCcw,
   Printer,
-  FileText
+  FileText,
+  Scale,
+  Layers,
+  HelpCircle as QuestionIcon
 } from 'lucide-react';
 import { 
   QuizPackage, 
   QuizQuestion, 
   QuizResultRecord, 
   QuizAudience,
-  QuestionItemAnalysis 
+  QuestionItemAnalysis,
+  MasterBankQuestion,
+  QuestionDifficulty
 } from '../../types/quiz';
 import { AppUser, AppTheme, DashboardConfig } from '../../types';
 import { 
@@ -65,7 +70,16 @@ import {
   exportQuizResultsToExcel,
   rankQuizResults,
   updatePackageSchedule,
-  calculateItemAnalysis
+  calculateItemAnalysis,
+  getMasterQuizBank,
+  saveMasterQuizBank,
+  subscribeToMasterQuizBank,
+  addQuestionsToMasterBank,
+  deleteMasterBankQuestion,
+  resetMasterQuizBankToDefault,
+  importBankQuestionsIntoPackage,
+  createQuickPackageFromBank,
+  exportMasterBankToExcel
 } from '../../utils/quizStorage';
 import { QuizExamMinutesModal } from '../quiz/QuizExamMinutesModal';
 import { QuizCertificateModal } from '../quiz/QuizCertificateModal';
@@ -77,7 +91,7 @@ interface QuizCatAdminSectionProps {
   onUpdateDashboardConfig?: (newConfig: DashboardConfig) => void;
 }
 
-type AdminSubView = 'PACKAGES_LIST' | 'PACKAGE_FORM' | 'MANAGE_QUESTIONS' | 'RESULTS_LEADERBOARD' | 'LIVE_PROCTORING' | 'ITEM_ANALYSIS';
+type AdminSubView = 'PACKAGES_LIST' | 'PACKAGE_FORM' | 'MANAGE_QUESTIONS' | 'RESULTS_LEADERBOARD' | 'LIVE_PROCTORING' | 'ITEM_ANALYSIS' | 'MASTER_BANK';
 
 export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   currentUser,
@@ -234,6 +248,32 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
   const [excelErrors, setExcelErrors] = useState<string[]>([]);
 
   // Real-time synchronization for packages and participant submissions
+  const [masterBankQuestions, setMasterBankQuestions] = useState<MasterBankQuestion[]>(() => getMasterQuizBank());
+  const [bankDifficultyFilter, setBankDifficultyFilter] = useState<'ALL' | QuestionDifficulty>('ALL');
+  const [bankTopicFilter, setBankTopicFilter] = useState<string>('ALL');
+  const [bankSearchQuery, setBankSearchQuery] = useState<string>('');
+  const [bankPage, setBankPage] = useState<number>(1);
+  const [bankPageSize, setBankPageSize] = useState<number>(25);
+  const [expandedBankExplanationIds, setExpandedBankExplanationIds] = useState<Set<string>>(new Set());
+  const [selectedBankQuestionIds, setSelectedBankQuestionIds] = useState<Set<string>>(new Set());
+  const [targetPackageForImport, setTargetPackageForImport] = useState<string>('');
+  const [isBankSelectorModalOpen, setIsBankSelectorModalOpen] = useState<boolean>(false);
+
+  // Master Bank Manual Question Modal State
+  const [isMasterBankModalOpen, setIsMasterBankModalOpen] = useState<boolean>(false);
+  const [editingMasterQuestionId, setEditingMasterQuestionId] = useState<string | null>(null);
+  const [mbqText, setMbqText] = useState<string>('');
+  const [mbqTopic, setMbqTopic] = useState<string>('Indikator IKPA 2026');
+  const [mbqDifficulty, setMbqDifficulty] = useState<QuestionDifficulty>('SEDANG');
+  const [mbqOptionA, setMbqOptionA] = useState<string>('');
+  const [mbqOptionB, setMbqOptionB] = useState<string>('');
+  const [mbqOptionC, setMbqOptionC] = useState<string>('');
+  const [mbqOptionD, setMbqOptionD] = useState<string>('');
+  const [mbqCorrect, setMbqCorrect] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [mbqExplanation, setMbqExplanation] = useState<string>('');
+  const [mbqRegulation, setMbqRegulation] = useState<string>('');
+  const [mbqPoints, setMbqPoints] = useState<number>(10);
+
   useEffect(() => {
     const unsubPackages = subscribeToQuizPackages(cloudPackages => {
       setPackages(cloudPackages);
@@ -241,9 +281,13 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     const unsubResults = subscribeToQuizResults(cloudResults => {
       setResults(cloudResults);
     });
+    const unsubBank = subscribeToMasterQuizBank(cloudBank => {
+      setMasterBankQuestions(cloudBank);
+    });
     return () => {
       unsubPackages();
       unsubResults();
+      unsubBank();
     };
   }, []);
 
@@ -568,6 +612,162 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     showToast(`Berhasil mengimpor soal ke dalam paket "${editingPackage.title}"!`);
   };
 
+  // Master Bank Operations Handlers
+  const handleOpenAddMasterQuestion = () => {
+    setEditingMasterQuestionId(null);
+    setMbqText('');
+    setMbqTopic('Indikator IKPA 2026');
+    setMbqDifficulty('SEDANG');
+    setMbqOptionA('');
+    setMbqOptionB('');
+    setMbqOptionC('');
+    setMbqOptionD('');
+    setMbqCorrect('A');
+    setMbqExplanation('');
+    setMbqRegulation('');
+    setMbqPoints(10);
+    setIsMasterBankModalOpen(true);
+  };
+
+  const handleOpenEditMasterQuestion = (q: MasterBankQuestion) => {
+    setEditingMasterQuestionId(q.id);
+    setMbqText(q.questionText);
+    setMbqTopic(q.topic || 'Indikator IKPA 2026');
+    setMbqDifficulty(q.difficulty || 'SEDANG');
+    setMbqOptionA(q.optionA);
+    setMbqOptionB(q.optionB);
+    setMbqOptionC(q.optionC);
+    setMbqOptionD(q.optionD);
+    setMbqCorrect(q.correctAnswer);
+    setMbqExplanation(q.explanation || '');
+    setMbqRegulation(q.referenceRegulation || '');
+    setMbqPoints(q.points || 10);
+    setIsMasterBankModalOpen(true);
+  };
+
+  const handleSaveMasterQuestion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
+    if (!mbqText.trim() || !mbqOptionA.trim() || !mbqOptionB.trim() || !mbqOptionC.trim() || !mbqOptionD.trim()) {
+      showToast('Seluruh teks pertanyaan dan opsi A, B, C, D wajib diisi!', 'error');
+      return;
+    }
+
+    const itemToSave: MasterBankQuestion = {
+      id: editingMasterQuestionId || `mbq_manual_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      number: editingMasterQuestionId ? (masterBankQuestions.find(q => q.id === editingMasterQuestionId)?.number || masterBankQuestions.length) : masterBankQuestions.length + 1,
+      questionText: mbqText.trim(),
+      topic: mbqTopic.trim(),
+      difficulty: mbqDifficulty,
+      optionA: mbqOptionA.trim(),
+      optionB: mbqOptionB.trim(),
+      optionC: mbqOptionC.trim(),
+      optionD: mbqOptionD.trim(),
+      correctAnswer: mbqCorrect,
+      explanation: mbqExplanation.trim() || undefined,
+      referenceRegulation: mbqRegulation.trim() || undefined,
+      points: Number(mbqPoints) || 10,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updated = await addQuestionsToMasterBank([itemToSave]);
+    setMasterBankQuestions(updated);
+    setIsMasterBankModalOpen(false);
+    showToast(editingMasterQuestionId ? 'Soal di Bank Soal berhasil diperbarui!' : 'Soal baru berhasil ditambahkan secara manual ke Bank Soal!', 'success');
+  };
+
+  const handleDeleteMasterQuestion = async (questionId: string) => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
+    if (!window.confirm('Hapus butir soal ini dari Bank Soal Master?')) return;
+    const updated = await deleteMasterBankQuestion(questionId);
+    setMasterBankQuestions(updated);
+    showToast('Butir soal berhasil dihapus dari Bank Soal Master.', 'success');
+  };
+
+  const handleResetMasterBank = async () => {
+    if (isTamu) {
+      showToast('Tamu studi banding hanya memiliki hak akses lihat (Read-Only).', 'error');
+      return;
+    }
+    if (!window.confirm('Reset seluruh Bank Soal Master ke standar kurikulum resmi perbendaharaan Kemenkeu? Seluruh soal standar akan dipulihkan.')) return;
+    const defs = await resetMasterQuizBankToDefault();
+    setMasterBankQuestions(defs);
+    showToast('Bank Soal Master berhasil dipulihkan ke standar resmi Kemenkeu!', 'success');
+  };
+
+  const handleImportSelectedQuestionsIntoTargetPackage = async (packageId: string) => {
+    if (!packageId) {
+      showToast('Pilih paket kuis tujuan terlebih dahulu.', 'error');
+      return;
+    }
+    if (selectedBankQuestionIds.size === 0) {
+      showToast('Pilih minimal 1 butir soal yang ingin dimasukkan ke paket.', 'error');
+      return;
+    }
+    const updatedPkg = await importBankQuestionsIntoPackage(packageId, Array.from(selectedBankQuestionIds));
+    if (updatedPkg) {
+      setPackages(prev => prev.map(p => p.id === updatedPkg.id ? updatedPkg : p));
+      if (editingPackage && editingPackage.id === updatedPkg.id) {
+        setEditingPackage(updatedPkg);
+      }
+      showToast(`Berhasil memasukkan ${selectedBankQuestionIds.size} butir soal ke dalam paket "${updatedPkg.title}"!`, 'success');
+      setSelectedBankQuestionIds(new Set());
+      setIsBankSelectorModalOpen(false);
+    }
+  };
+
+  const handleCreatePackageFromSelected = async () => {
+    if (selectedBankQuestionIds.size === 0) {
+      showToast('Pilih minimal 1 butir soal untuk membuat paket kuis baru.', 'error');
+      return;
+    }
+    const selectedList = masterBankQuestions.filter(q => selectedBankQuestionIds.has(q.id));
+    const newPkgId = `quiz_pkg_${Date.now()}`;
+    const newPkg: QuizPackage = {
+      id: newPkgId,
+      title: `Paket Kuis CAT - ${selectedList[0]?.topic || 'Perbendaharaan'} (${selectedList.length} Soal)`,
+      description: `Paket kuis disusun dari ${selectedList.length} butir soal pilihan Bank Soal Master KPPN Semarang I.`,
+      category: selectedList[0]?.topic || 'IKPA & SAKTI',
+      targetAudience: 'satker',
+      durationMinutes: Math.max(10, Math.round(selectedList.length * 1.5)),
+      passingGrade: 70,
+      isActive: true,
+      strictProctoring: true,
+      maxTabSwitches: 3,
+      showExplanationImmediately: true,
+      certificateEnabled: true,
+      questions: selectedList.map((q, idx) => ({
+        id: `q_${newPkgId}_${idx + 1}`,
+        number: idx + 1,
+        questionText: q.questionText,
+        optionA: q.optionA,
+        optionB: q.optionB,
+        optionC: q.optionC,
+        optionD: q.optionD,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        referenceRegulation: q.referenceRegulation,
+        difficulty: q.difficulty,
+        topic: q.topic,
+        points: q.points || 10
+      })),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    const updated = await saveQuizPackage(newPkg);
+    setPackages(updated);
+    setSelectedBankQuestionIds(new Set());
+    setSubView('PACKAGES_LIST');
+    showToast(`Paket kuis baru "${newPkg.title}" berhasil dibuat!`, 'success');
+  };
+
   // Selected Package Object
   const selectedPackageObj = useMemo(() => {
     if (selectedResultPackageId === 'ALL') return null;
@@ -617,6 +817,50 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
     return calculateItemAnalysis(itemAnalysisPackage, results);
   }, [itemAnalysisPackage, results]);
 
+  // Master Bank Computed Memo
+  const filteredMasterBankQuestions = useMemo(() => {
+    return masterBankQuestions.filter(q => {
+      if (bankDifficultyFilter !== 'ALL' && q.difficulty !== bankDifficultyFilter) return false;
+      if (bankTopicFilter !== 'ALL' && q.topic !== bankTopicFilter) return false;
+      if (bankSearchQuery.trim()) {
+        const query = bankSearchQuery.toLowerCase();
+        const inQuestion = q.questionText.toLowerCase().includes(query);
+        const inTopic = q.topic ? q.topic.toLowerCase().includes(query) : false;
+        const inExpl = q.explanation ? q.explanation.toLowerCase().includes(query) : false;
+        const inReg = q.referenceRegulation ? q.referenceRegulation.toLowerCase().includes(query) : false;
+        if (!inQuestion && !inTopic && !inExpl && !inReg) return false;
+      }
+      return true;
+    });
+  }, [masterBankQuestions, bankDifficultyFilter, bankTopicFilter, bankSearchQuery]);
+
+  const uniqueBankTopics = useMemo(() => {
+    const set = new Set<string>();
+    masterBankQuestions.forEach(q => {
+      if (q.topic) set.add(q.topic);
+    });
+    return Array.from(set);
+  }, [masterBankQuestions]);
+
+  const bankStats = useMemo(() => {
+    const total = masterBankQuestions.length;
+    const mudah = masterBankQuestions.filter(q => q.difficulty === 'MUDAH').length;
+    const sedang = masterBankQuestions.filter(q => q.difficulty === 'SEDANG').length;
+    const analisis = masterBankQuestions.filter(q => q.difficulty === 'ANALISIS').length;
+    return { total, mudah, sedang, analisis };
+  }, [masterBankQuestions]);
+
+  const totalBankPages = useMemo(() => {
+    if (bankPageSize === -1) return 1;
+    return Math.ceil(filteredMasterBankQuestions.length / bankPageSize) || 1;
+  }, [filteredMasterBankQuestions.length, bankPageSize]);
+
+  const paginatedBankQuestions = useMemo(() => {
+    if (bankPageSize === -1) return filteredMasterBankQuestions;
+    const start = (bankPage - 1) * bankPageSize;
+    return filteredMasterBankQuestions.slice(start, start + bankPageSize);
+  }, [filteredMasterBankQuestions, bankPage, bankPageSize]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Toast Notification */}
@@ -661,12 +905,24 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
             type="button"
             onClick={() => { setSubView('PACKAGES_LIST'); setEditingPackage(null); }}
             className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-              subView === 'PACKAGES_LIST' || subView === 'PACKAGE_FORM' || subView === 'MANAGE_QUESTIONS'
+              subView === 'PACKAGES_LIST' || subView === 'PACKAGE_FORM'
                 ? 'bg-white text-slate-950 shadow-md'
                 : 'text-amber-100 hover:text-white'
             }`}
           >
-            📚 Bank Soal ({packages.length})
+            📦 Paket Ujian ({packages.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSubView('MASTER_BANK'); setEditingPackage(null); }}
+            className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+              subView === 'MASTER_BANK'
+                ? 'bg-white text-slate-950 shadow-md'
+                : 'text-amber-100 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-amber-500" />
+            <span>📖 Master Bank Soal ({masterBankQuestions.length})</span>
           </button>
           <button
             type="button"
@@ -800,7 +1056,29 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setSubView('MASTER_BANK')}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                title="Buka Bank Soal Master resmi lengkap dengan pembahasan & referensi regulasi"
+              >
+                <BookOpen className="w-4 h-4 text-amber-300" />
+                <span>Buka Master Bank Soal ({masterBankQuestions.length} Soal)</span>
+              </button>
+
+              {!isTamu && (
+                <button
+                  type="button"
+                  onClick={handleOpenAddMasterQuestion}
+                  className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                  title="Tambah soal baru secara manual ke Bank Soal Master"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Tambah Soal Manual</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => generateQuizExcelTemplate('Master_Template')}
@@ -1376,6 +1654,19 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
 
                   <button
                     type="button"
+                    onClick={() => {
+                      setSelectedBankQuestionIds(new Set());
+                      setIsBankSelectorModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                    title="Ambil soal langsung dari Bank Soal Master untuk paket ini"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>📚 Ambil dari Bank Soal ({masterBankQuestions.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={handleOpenAddQuestion}
                     className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-1.5 transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
                   >
@@ -1693,6 +1984,509 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* 3B. MASTER BANK SOAL & REFERENSI PENGETAHUAN PERBENDAHARAAN */}
+      {/* ===================================================================== */}
+      {subView === 'MASTER_BANK' && (
+        <div className="space-y-6">
+          {/* Hero Banner for Master Bank */}
+          <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-indigo-900 via-sky-950 to-slate-900 text-white shadow-xl border border-indigo-500/30 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/30 text-indigo-300 border border-indigo-400/30">
+                      Treasury Knowledge Repository
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
+                      Standar Kemenkeu &amp; DJPb
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2.5 text-white">
+                    <BookOpen className="w-6 h-6 text-amber-400" />
+                    <span>Master Bank Soal &amp; Referensi Pengetahuan Perbendaharaan</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 max-w-3xl leading-relaxed">
+                    Koleksi lengkap butir soal terstandarisasi untuk ujian CAT, sertifikasi satker, dan evaluasi kepatuhan internal, 
+                    lengkap dengan opsi ABCD, kunci jawaban, pembahasan mendalam, dan dasar hukum regulasi resmi.
+                  </p>
+                </div>
+
+                {/* Quick actions in banner */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {!isTamu && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddMasterQuestion}
+                      className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-500/25 cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                    >
+                      <Plus className="w-4 h-4 stroke-[3]" />
+                      <span>+ Tambah Soal Manual ke Bank Soal</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => exportMasterBankToExcel(masterBankQuestions)}
+                    className="px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/15 text-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer border border-white/20 transition-colors"
+                    title="Unduh seluruh bank soal dalam format Microsoft Excel"
+                  >
+                    <Download className="w-4 h-4 text-emerald-400" />
+                    <span>Unduh Excel</span>
+                  </button>
+                  {!isTamu && (
+                    <button
+                      type="button"
+                      onClick={handleResetMasterBank}
+                      className="px-3 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Reset ke kurikulum standar resmi"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset Standar</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <span className="text-[10px] font-bold text-slate-400 block">Total Koleksi Bank Soal</span>
+                  <span className="text-xl sm:text-2xl font-black text-white">{bankStats.total} Butir</span>
+                  <span className="text-[10px] text-sky-400 block mt-0.5">{uniqueBankTopics.length} Topik Regulasi</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-sm">
+                  <span className="text-[10px] font-bold text-emerald-300 block">🟢 Tingkat Mudah (Gampang)</span>
+                  <span className="text-xl sm:text-2xl font-black text-emerald-200">{bankStats.mudah} Butir</span>
+                  <span className="text-[10px] text-emerald-400 block mt-0.5">Pemahaman &amp; Konsep Dasar</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 backdrop-blur-sm">
+                  <span className="text-[10px] font-bold text-amber-300 block">🟡 Tingkat Sedang (Prosedural)</span>
+                  <span className="text-xl sm:text-2xl font-black text-amber-200">{bankStats.sedang} Butir</span>
+                  <span className="text-[10px] text-amber-400 block mt-0.5">Aplikasi &amp; Aturan Teknis</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 backdrop-blur-sm">
+                  <span className="text-[10px] font-bold text-purple-300 block">🔴 Analisis Kasus HOTS</span>
+                  <span className="text-xl sm:text-2xl font-black text-purple-200">{bankStats.analisis} Butir</span>
+                  <span className="text-[10px] text-purple-400 block mt-0.5">Studi Kasus &amp; Hitungan</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter & Search Bar */}
+          <div className={`p-4 rounded-2xl border space-y-3 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={bankSearchQuery}
+                onChange={e => {
+                  setBankSearchQuery(e.target.value);
+                  setBankPage(1);
+                }}
+                placeholder="Cari kata kunci soal: SPM, SP2D, Deviasi, Halaman III, SAKTI, PPh, BAST, Retur, LLAT..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              {/* Difficulty Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">Tingkat:</span>
+                <button
+                  type="button"
+                  onClick={() => { setBankDifficultyFilter('ALL'); setBankPage(1); }}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    bankDifficultyFilter === 'ALL'
+                      ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100'
+                  }`}
+                >
+                  Semua ({masterBankQuestions.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBankDifficultyFilter('MUDAH'); setBankPage(1); }}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    bankDifficultyFilter === 'MUDAH'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50'
+                  }`}
+                >
+                  🟢 Mudah ({bankStats.mudah})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBankDifficultyFilter('SEDANG'); setBankPage(1); }}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    bankDifficultyFilter === 'SEDANG'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50'
+                  }`}
+                >
+                  🟡 Sedang ({bankStats.sedang})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setBankDifficultyFilter('ANALISIS'); setBankPage(1); }}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    bankDifficultyFilter === 'ANALISIS'
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-400 hover:bg-purple-50'
+                  }`}
+                >
+                  🔴 Analisis HOTS ({bankStats.analisis})
+                </button>
+              </div>
+
+              {/* Topic Select & Select All */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">Topik:</span>
+                  <select
+                    value={bankTopicFilter}
+                    onChange={e => {
+                      setBankTopicFilter(e.target.value);
+                      setBankPage(1);
+                    }}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none"
+                  >
+                    <option value="ALL">Semua Topik ({uniqueBankTopics.length})</option>
+                    {uniqueBankTopics.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedBankQuestionIds.size === filteredMasterBankQuestions.length && filteredMasterBankQuestions.length > 0) {
+                      setSelectedBankQuestionIds(new Set());
+                    } else {
+                      setSelectedBankQuestionIds(new Set(filteredMasterBankQuestions.map(q => q.id)));
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  {selectedBankQuestionIds.size === filteredMasterBankQuestions.length && filteredMasterBankQuestions.length > 0
+                    ? 'Batal Pilih Semua'
+                    : `Pilih Semua (${filteredMasterBankQuestions.length})`}
+                </button>
+              </div>
+            </div>
+
+            {/* Pagination & Page Size Toolbar */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 font-bold text-[11px]">
+                <span>
+                  Menampilkan {filteredMasterBankQuestions.length === 0 ? 0 : (bankPageSize === -1 ? 1 : (bankPage - 1) * bankPageSize + 1)} - {bankPageSize === -1 ? filteredMasterBankQuestions.length : Math.min(bankPage * bankPageSize, filteredMasterBankQuestions.length)} dari <strong className="text-indigo-600 dark:text-indigo-400">{filteredMasterBankQuestions.length} butir soal</strong>
+                </span>
+                {totalBankPages > 1 && (
+                  <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-[10px]">
+                    Hal. {bankPage} / {totalBankPages}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-[11px]">
+                  <span className="text-slate-500">Tampilkan:</span>
+                  <select
+                    value={bankPageSize}
+                    onChange={e => {
+                      setBankPageSize(Number(e.target.value));
+                      setBankPage(1);
+                    }}
+                    className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                  >
+                    <option value={25}>25 soal</option>
+                    <option value={50}>50 soal</option>
+                    <option value={100}>100 soal</option>
+                    <option value={-1}>Semua ({filteredMasterBankQuestions.length})</option>
+                  </select>
+                </div>
+
+                {totalBankPages > 1 && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={bankPage <= 1}
+                      onClick={() => setBankPage(p => Math.max(1, p - 1))}
+                      className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-bold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      ← Sebelumnya
+                    </button>
+                    <button
+                      type="button"
+                      disabled={bankPage >= totalBankPages}
+                      onClick={() => setBankPage(p => Math.min(totalBankPages, p + 1))}
+                      className="px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-700 text-xs font-bold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    >
+                      Selanjutnya →
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Master Bank Question List */}
+          <div className="space-y-4">
+            {filteredMasterBankQuestions.length === 0 ? (
+              <div className="p-12 text-center rounded-3xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+                <QuestionIcon className="w-12 h-12 mx-auto mb-3 text-slate-400 opacity-40" />
+                <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300">Tidak ada soal yang sesuai dengan filter</h4>
+                <p className="text-xs text-slate-400 mt-1">Gunakan kata kunci pencarian yang lebih umum atau pilih Semua Tingkat.</p>
+              </div>
+            ) : (
+              filteredMasterBankQuestions.map((q, idx) => {
+                const isSelected = selectedBankQuestionIds.has(q.id);
+                const isExp = expandedBankExplanationIds.has(q.id);
+
+                return (
+                  <div
+                    key={q.id}
+                    className={`p-5 rounded-3xl border-2 transition-all space-y-3.5 ${
+                      isSelected
+                        ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 shadow-md ring-1 ring-indigo-500'
+                        : isDark
+                          ? 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Header: Checkbox, Number, Topic, Difficulty, and Edit/Delete Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBankQuestionIds(prev => {
+                              const next = new Set(prev);
+                              if (next.has(q.id)) next.delete(q.id);
+                              else next.add(q.id);
+                              return next;
+                            });
+                          }}
+                          className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'border-2 border-slate-300 dark:border-slate-700 hover:border-indigo-500 bg-white dark:bg-slate-800'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </button>
+
+                        <span className="font-mono text-xs font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                          #{idx + 1}
+                        </span>
+
+                        {q.difficulty === 'MUDAH' && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            🟢 Mudah (Dasar)
+                          </span>
+                        )}
+                        {q.difficulty === 'SEDANG' && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            🟡 Sedang (Prosedural)
+                          </span>
+                        )}
+                        {q.difficulty === 'ANALISIS' && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-300 dark:border-purple-800 flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 text-purple-600 dark:text-purple-400" />
+                            🔴 Analisis HOTS
+                          </span>
+                        )}
+
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                          • {q.topic || 'Umum'}
+                        </span>
+                      </div>
+
+                      {/* Card Action Controls */}
+                      <div className="flex items-center gap-2">
+                        {!isTamu && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditMasterQuestion(q)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                              title="Edit butir soal ini"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMasterQuestion(q.id)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                              title="Hapus butir soal dari bank"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Question Text */}
+                    <div className="text-sm font-black text-slate-900 dark:text-white leading-relaxed">
+                      {q.questionText}
+                    </div>
+
+                    {/* Options Grid (A, B, C, D) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {[
+                        { key: 'A', text: q.optionA },
+                        { key: 'B', text: q.optionB },
+                        { key: 'C', text: q.optionC },
+                        { key: 'D', text: q.optionD }
+                      ].map(opt => {
+                        const isCorrect = q.correctAnswer === opt.key;
+                        return (
+                          <div
+                            key={opt.key}
+                            className={`p-3 rounded-2xl border flex items-start gap-2.5 transition-all ${
+                              isCorrect
+                                ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 font-bold'
+                                : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                              isCorrect
+                                ? 'bg-emerald-600 text-white shadow-sm'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}>
+                              {opt.key}
+                            </span>
+                            <span className="flex-1 leading-relaxed">{opt.text}</span>
+                            {isCorrect && (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Accordion: Explanation & Legal Basis */}
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedBankExplanationIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(q.id)) next.delete(q.id);
+                            else next.add(q.id);
+                            return next;
+                          });
+                        }}
+                        className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1.5 cursor-pointer py-1"
+                      >
+                        {isExp ? <ChevronRight className="w-4 h-4 rotate-90 transition-transform" /> : <ChevronRight className="w-4 h-4 transition-transform" />}
+                        <span>{isExp ? 'Tutup Pembahasan & Dasar Hukum' : '💡 Buka Pembahasan Mendalam & ⚖️ Dasar Hukum Regulasi'}</span>
+                      </button>
+
+                      {isExp && (
+                        <div className="mt-2.5 p-4 rounded-2xl bg-gradient-to-br from-indigo-50/60 to-sky-50/40 dark:from-slate-800/80 dark:to-slate-800/40 border border-indigo-200/60 dark:border-slate-700 text-xs space-y-2.5 animate-in fade-in duration-150">
+                          <div>
+                            <span className="font-black text-indigo-900 dark:text-indigo-300 block mb-0.5">
+                              💡 Pembahasan Komprehensif:
+                            </span>
+                            <p className="text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-line">
+                              {q.explanation || 'Pembahasan materi untuk butir soal ini.'}
+                            </p>
+                          </div>
+
+                          {q.referenceRegulation && (
+                            <div className="pt-2 border-t border-indigo-200/50 dark:border-slate-700">
+                              <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1 mb-0.5">
+                                <Scale className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                <span>Dasar Hukum &amp; Regulasi Resmi:</span>
+                              </span>
+                              <p className="text-slate-600 dark:text-slate-400 font-mono text-[11px]">
+                                {q.referenceRegulation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Floating Action Bar when questions are selected */}
+          {selectedBankQuestionIds.size > 0 && (
+            <div className="sticky bottom-4 z-40 p-4 rounded-3xl bg-slate-950 text-white shadow-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-4 animate-in slide-in-from-bottom-4">
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-full bg-amber-500 text-slate-950 font-black flex items-center justify-center text-xs">
+                  {selectedBankQuestionIds.size}
+                </span>
+                <div>
+                  <span className="font-black text-xs block text-white">
+                    {selectedBankQuestionIds.size} butir soal dipilih dari Bank Soal
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Dapat disisipkan ke paket kuis yang ada atau langsung dijadikan paket kuis baru
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {packages.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={targetPackageForImport}
+                      onChange={e => setTargetPackageForImport(e.target.value)}
+                      className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-white focus:outline-none"
+                    >
+                      <option value="">-- Pilih Paket Kuis Tujuan --</option>
+                      {packages.map(p => (
+                        <option key={p.id} value={p.id}>{p.title}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      type="button"
+                      disabled={!targetPackageForImport}
+                      onClick={() => handleImportSelectedQuestionsIntoTargetPackage(targetPackageForImport)}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Masukkan ke Paket</span>
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCreatePackageFromSelected}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Jadikan Paket Baru</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedBankQuestionIds(new Set())}
+                  className="p-2 text-slate-400 hover:text-white"
+                  title="Batalkan pilihan"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
           )}
@@ -2914,6 +3708,373 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
               >
                 Reset Sesi Ujian
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: TAMBAH / EDIT SOAL MANUAL KE MASTER BANK SOAL */}
+      {isMasterBankModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className={`w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-3xl p-6 border shadow-2xl space-y-4 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">
+                    {editingMasterQuestionId ? 'Edit Butir Soal Bank Soal' : 'Tambah Soal Manual ke Bank Soal'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Input materi soal perbendaharaan lengkap dengan pilihan ABCD, kunci, pembahasan, dan dasar hukum.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMasterBankModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveMasterQuestion} className="space-y-4">
+              {/* Topik & Tingkat Kesulitan */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    Topik / Kategori Bidang: <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={mbqTopic}
+                    onChange={e => setMbqTopic(e.target.value)}
+                    placeholder="Contoh: Indikator IKPA 2026 / SAKTI Pembayaran"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-semibold text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    Tingkat Kesulitan: <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={mbqDifficulty}
+                    onChange={e => setMbqDifficulty(e.target.value as QuestionDifficulty)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-black text-slate-900 dark:text-white"
+                  >
+                    <option value="MUDAH">🟢 Mudah (Gampang / Konseptual)</option>
+                    <option value="SEDANG">🟡 Sedang (Prosedural / Aturan)</option>
+                    <option value="ANALISIS">🔴 Analisis HOTS (Kasus / Hitungan)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Teks Pertanyaan */}
+              <div>
+                <label className="block text-xs font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                  Kalimat Pertanyaan: <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={mbqText}
+                  onChange={e => setMbqText(e.target.value)}
+                  placeholder="Tuliskan butir soal atau narasi kasus..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white font-medium"
+                />
+              </div>
+
+              {/* Opsi Jawaban A, B, C, D */}
+              <div className="space-y-2 text-xs">
+                <label className="block font-black uppercase text-slate-600 dark:text-slate-400">
+                  Pilihan Jawaban (A, B, C, D): <span className="text-rose-500">*</span>
+                </label>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <span className="font-black text-slate-500 mb-0.5 block">Pilihan A:</span>
+                    <input
+                      type="text"
+                      required
+                      value={mbqOptionA}
+                      onChange={e => setMbqOptionA(e.target.value)}
+                      placeholder="Teks opsi A..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-500 mb-0.5 block">Pilihan B:</span>
+                    <input
+                      type="text"
+                      required
+                      value={mbqOptionB}
+                      onChange={e => setMbqOptionB(e.target.value)}
+                      placeholder="Teks opsi B..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-500 mb-0.5 block">Pilihan C:</span>
+                    <input
+                      type="text"
+                      required
+                      value={mbqOptionC}
+                      onChange={e => setMbqOptionC(e.target.value)}
+                      placeholder="Teks opsi C..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-500 mb-0.5 block">Pilihan D:</span>
+                    <input
+                      type="text"
+                      required
+                      value={mbqOptionD}
+                      onChange={e => setMbqOptionD(e.target.value)}
+                      placeholder="Teks opsi D..."
+                      className="w-full px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Kunci Jawaban */}
+              <div>
+                <label className="block text-xs font-black uppercase text-slate-600 dark:text-slate-400 mb-1.5">
+                  Kunci Jawaban yang Benar: <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['A', 'B', 'C', 'D'] as const).map(k => (
+                    <label
+                      key={k}
+                      className={`p-2.5 rounded-xl border-2 text-center text-xs font-black cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                        mbqCorrect === k
+                          ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                          : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="mbqCorrectChoice"
+                        checked={mbqCorrect === k}
+                        onChange={() => setMbqCorrect(k)}
+                        className="hidden"
+                      />
+                      <span>Opsi {k} Benar</span>
+                      {mbqCorrect === k && <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pembahasan & Dasar Hukum */}
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    💡 Pembahasan Mendalam (Agar Satker &amp; Peserta Lebih Pintar):
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={mbqExplanation}
+                    onChange={e => setMbqExplanation(e.target.value)}
+                    placeholder="Uraikan analisa ilmiah mengapa kunci jawaban tersebut benar dan penjelasan logikanya..."
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                    ⚖️ Dasar Hukum &amp; Referensi Regulasi Resmi:
+                  </label>
+                  <input
+                    type="text"
+                    value={mbqRegulation}
+                    onChange={e => setMbqRegulation(e.target.value)}
+                    placeholder="Contoh: Perdirjen Perbendaharaan No. PER-5/PB/2022 Lampiran I"
+                    className="w-full px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsMasterBankModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md cursor-pointer transition-all"
+                >
+                  {editingMasterQuestionId ? 'Perbarui Soal di Bank' : 'Simpan ke Bank Soal'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: PEMILIH SOAL BANK KE DALAM PAKET (UNTUK MANAGE_QUESTIONS) */}
+      {isBankSelectorModalOpen && editingPackage && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+          <div className={`w-full max-w-3xl max-h-[90vh] flex flex-col rounded-3xl border shadow-2xl overflow-hidden ${
+            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+          }`}>
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-sky-50 dark:from-slate-800/80 dark:to-slate-900">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black">
+                    Pilih Butir Soal dari Master Bank Soal
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Paket Tujuan: <strong className="text-indigo-600 dark:text-indigo-400">{editingPackage.title}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsBankSelectorModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Filter Bar */}
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-500">Tingkat:</span>
+                <select
+                  value={bankDifficultyFilter}
+                  onChange={e => setBankDifficultyFilter(e.target.value as any)}
+                  className="px-2.5 py-1 rounded-lg font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                >
+                  <option value="ALL">Semua Tingkat</option>
+                  <option value="MUDAH">🟢 Mudah (Gampang)</option>
+                  <option value="SEDANG">🟡 Sedang (Prosedural)</option>
+                  <option value="ANALISIS">🔴 Analisis HOTS</option>
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const existingTexts = new Set((editingPackage.questions || []).map(q => q.questionText.trim().toLowerCase()));
+                  const available = filteredMasterBankQuestions.filter(q => !existingTexts.has(q.questionText.trim().toLowerCase()));
+                  if (selectedBankQuestionIds.size === available.length && available.length > 0) {
+                    setSelectedBankQuestionIds(new Set());
+                  } else {
+                    setSelectedBankQuestionIds(new Set(available.map(q => q.id)));
+                  }
+                }}
+                className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 underline cursor-pointer"
+              >
+                Pilih Semua yang Belum Ada di Paket
+              </button>
+            </div>
+
+            {/* Question List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {filteredMasterBankQuestions.map((q, qIdx) => {
+                const existingTexts = new Set((editingPackage.questions || []).map(item => item.questionText.trim().toLowerCase()));
+                const isAlreadyInPackage = existingTexts.has(q.questionText.trim().toLowerCase());
+                const isSelected = selectedBankQuestionIds.has(q.id);
+
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => {
+                      if (isAlreadyInPackage) return;
+                      setSelectedBankQuestionIds(prev => {
+                        const next = new Set(prev);
+                        if (next.has(q.id)) next.delete(q.id);
+                        else next.add(q.id);
+                        return next;
+                      });
+                    }}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      isAlreadyInPackage
+                        ? 'opacity-50 bg-slate-100 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 cursor-not-allowed'
+                        : isSelected
+                          ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 ring-1 ring-indigo-500'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2.5">
+                        <input
+                          type="checkbox"
+                          disabled={isAlreadyInPackage}
+                          checked={isSelected || isAlreadyInPackage}
+                          onChange={() => {}}
+                          className="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                            <span className="font-mono font-black text-slate-500">#{qIdx + 1}</span>
+                            <span className="px-2 py-0.5 rounded-md font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              {q.topic}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md font-bold text-slate-600">
+                              {q.difficulty}
+                            </span>
+                            {isAlreadyInPackage && (
+                              <span className="px-2 py-0.5 rounded-md font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                ✓ Sudah Ada di Paket
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs font-bold leading-relaxed">{q.questionText}</p>
+                          <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                            <span>Kunci: <strong>Opsi {q.correctAnswer}</strong></span>
+                            {q.referenceRegulation && (
+                              <span>• Regulasi: {q.referenceRegulation}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between gap-3">
+              <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                {selectedBankQuestionIds.size} butir soal dipilih
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBankSelectorModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedBankQuestionIds.size === 0}
+                  onClick={() => handleImportSelectedQuestionsIntoTargetPackage(editingPackage.id)}
+                  className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-black text-xs shadow-md cursor-pointer transition-all"
+                >
+                  Sisipkan ke Paket Ini
+                </button>
+              </div>
             </div>
           </div>
         </div>

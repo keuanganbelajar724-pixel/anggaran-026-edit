@@ -1,0 +1,247 @@
+import { RawQuestion } from './questionsIkpa';
+
+export const pejabatQuestions: RawQuestion[] = [
+  // 1-15: KPA, PPK, PPSPM
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Siapakah yang bertindak sebagai Pengguna Anggaran (PA) pada Kementerian Negara / Lembaga?',
+    optionA: 'Menteri atau Pimpinan Lembaga bersangkutan',
+    optionB: 'Menteri Keuangan selaku BUN',
+    optionC: 'Direktur Jenderal Perbendaharaan',
+    optionD: 'Kepala Bagian Keuangan Satker',
+    correctAnswer: 'A',
+    explanation: 'Sesuai UU No. 17/2003 dan UU No. 1/2004, Menteri/Pimpinan Lembaga adalah Pengguna Anggaran (PA) atas bagian anggaran kementerian/lembaga yang dipimpinnya.',
+    referenceRegulation: 'UU No. 17/2003 Pasal 6 & UU No. 1/2004 Pasal 4'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Pejabat yang memperoleh pendelegasian wewenang dari Pengguna Anggaran untuk melaksanakan DIPA pada tingkat Satuan Kerja adalah...',
+    optionA: 'Kuasa Pengguna Anggaran (KPA)',
+    optionB: 'Auditor Utama BPK',
+    optionC: 'Inspektur Jenderal',
+    optionD: 'Kepala Subbagian Umum Pemerintah Daerah',
+    correctAnswer: 'A',
+    explanation: 'Kuasa Pengguna Anggaran (KPA) adalah pejabat yang memperoleh kuasa dari PA untuk melaksanakan sebagian kewenangan dan tanggung jawab penggunaan anggaran pada Satker berkenaan.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 1 angka 6 dan Pasal 5'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Manakah di bawah ini yang merupakan salah satu tugas dan wewenang utama Kuasa Pengguna Anggaran (KPA)?',
+    optionA: 'Menetapkan PPK, menetapkan PPSPM, menetapkan Bendahara Pengeluaran/Penerimaan, dan mengawasi pelaksanaan anggaran satker',
+    optionB: 'Mencetak uang kertas Rupiah di percetakan',
+    optionC: 'Menyetujui pinjaman luar negeri pemerintah',
+    optionD: 'Menetapkan suku bunga kredit perbankan nasional',
+    correctAnswer: 'A',
+    explanation: 'KPA berwenang menetapkan pejabat pengelola perbendaharaan di satkernya (PPK, PPSPM, Bendahara) dan bertanggung jawab atas pencapaian kinerja pelaksanaan anggaran.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 5 ayat (2)'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'ANALISIS',
+    questionText: 'Dalam kondisi keterbatasan sumber daya manusia pada satker kecil dengan jumlah pegawai sangat terbatas, apakah KPA diperbolehkan merangkap jabatan sebagai Pejabat Pembuat Komitmen (PPK)?',
+    optionA: 'Boleh, KPA dapat merangkap sebagai PPK sepanjang tidak merangkap sebagai PPSPM atau Bendahara',
+    optionB: 'Sama sekali dilarang dan satker harus dibekukan',
+    optionC: 'Boleh, bahkan boleh merangkap Bendahara sekaligus',
+    optionD: 'Hanya boleh jika disetujui gubernur',
+    correctAnswer: 'A',
+    explanation: 'KPA diperbolehkan merangkap jabatan sebagai PPK dalam kondisi keterbatasan SDM, namun dilarang keras merangkap sebagai PPSPM atau Bendahara guna menjaga prinsip independensi pengujian kas.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 9 ayat (2)'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Pejabat perbendaharaan yang memiliki kewenangan melakukan tindakan yang mengakibatkan pengeluaran anggaran belanja negara (membuat komitmen/kontrak) adalah...',
+    optionA: 'Pejabat Pembuat Komitmen (PPK)',
+    optionB: 'Bendahara Pengeluaran',
+    optionC: 'Pejabat Penandatangan SPM',
+    optionD: 'Petugas Kebersihan',
+    correctAnswer: 'A',
+    explanation: 'PPK adalah pejabat yang diberi kewenangan oleh PA/KPA untuk mengambil keputusan dan/atau melakukan tindakan yang dapat mengakibatkan pengeluaran atas beban APBN.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 1 angka 8 dan Pasal 11'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Apakah wewenang Pejabat Pembuat Komitmen (PPK) dalam alur penerbitan dokumen pembayaran?',
+    optionA: 'Menguji kebenaran materiil tagihan, menguji perhitungan prestasi pekerjaan, dan menerbitkan Surat Permintaan Pembayaran (SPP)',
+    optionB: 'Menerbitkan SP2D ke rekening bank rekanan',
+    optionC: 'Mengaudit laporan keuangan BPK',
+    optionD: 'Menyetorkan pajak penghasilan pegawai secara pribadi',
+    correctAnswer: 'A',
+    explanation: 'PPK bertanggung jawab penuh atas kebenaran materiil tagihan, kesesuaian fisik pekerjaan, dan menerbitkan SPP beserta dokumen pendukung untuk diajukan ke PPSPM.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 13'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'ANALISIS',
+    questionText: 'Sebuah pekerjaan pengadaan komputer telah selesai 100%, namun spesifikasi prosesor komputer yang dikirim rekanan lebih rendah dari yang tercantum dalam kontrak. PPK tetap menandatangani BAST dan menerbitkan SPP lunas. Bagaimanakah pertanggungjawaban hukum PPK?',
+    optionA: 'PPK bertanggung jawab penuh secara materiil dan hukum atas kerugian negara yang timbul akibat penerimaan barang tidak sesuai spesifikasi kontrak',
+    optionB: 'PPK bebas dari tanggung jawab karena sudah ada persetujuan kepala kantor',
+    optionC: 'Tanggung jawab beralih kepada petugas pengantar barang',
+    optionD: 'Tidak ada tanggung jawab hukum selama barang bisa menyala',
+    correctAnswer: 'A',
+    explanation: 'PPK memikul tanggung jawab materiil mutlak atas keabsahan dan kebenaran barang/jasa yang diterima. Membayar barang yang tidak sesuai kontrak melanggar hukum perbendaharaan dan memicu kerugian negara.',
+    referenceRegulation: 'UU No. 1/2004 Pasal 18 & PMK 190/PMK.05/2012'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Tugas utama Pejabat Penandatangan SPM (PPSPM) adalah...',
+    optionA: 'Melakukan pengujian formal dan kelengkapan dokumen SPP, menguji ketersediaan pagu, dan menerbitkan SPM',
+    optionB: 'Menandatangani kontrak pengadaan dengan kontraktor',
+    optionC: 'Menyimpan uang tunai di brankas satker',
+    optionD: 'Membeli makanan rapat di warung',
+    correctAnswer: 'A',
+    explanation: 'PPSPM bertindak sebagai ordonator internal satker yang menguji kelengkapan dokumen tagihan dan memastikan pagu DIPA mencukupi sebelum menerbitkan SPM ke KPPN.',
+    referenceRegulation: 'PMK 190/PMK.05/2012 Pasal 14'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Sertifikasi kompetensi resmi yang wajib dimiliki oleh Pejabat Pembuat Komitmen (PPK) pada Satuan Kerja pengelola APBN disebut...',
+    optionA: 'Sertifikat Kompetensi PPK (SNT-PPK) yang teregistrasi di Kementerian Keuangan',
+    optionB: 'Surat Izin Mengemudi C',
+    optionC: 'Kartu Tanda Anggota Pramuka',
+    optionD: 'Sertifikat Kursus Mengetik',
+    correctAnswer: 'A',
+    explanation: 'Sesuai regulasi standardisasi kompetensi pengelola keuangan APBN, pejabat PPK dan PPSPM wajib memiliki Sertifikat Kompetensi terdaftar dari Kementerian Keuangan.',
+    referenceRegulation: 'PMK No. 211/PMK.05/2019 tentang Tata Cara Penilaian Kompetensi bagi PPK dan PPSPM'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Apakah PPSPM diperbolehkan merangkap jabatan sebagai Bendahara Pengeluaran?',
+    optionA: 'Dilarang keras, bendahara tidak boleh merangkap sebagai PPSPM atau PPK',
+    optionB: 'Boleh jika bendahara adalah sarjana ekonomi',
+    optionC: 'Boleh jika disetujui oleh rekanan pengadaan',
+    optionD: 'Boleh jika kantor sedang sepi',
+    correctAnswer: 'A',
+    explanation: 'Larangan perangkapan jabatan bendahara dengan ordonator (PPSPM) dan komitmen (PPK) adalah prinsip fundamental perbendaharaan negara untuk menghindari fraud.',
+    referenceRegulation: 'UU No. 1/2004 Pasal 10 & PMK 190/PMK.05/2012'
+  },
+
+  // 11-25: Bendahara Pengeluaran & Penerimaan, PPABP, Jabatan Fungsional
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Orang yang ditunjuk untuk menerima, menyimpan, membayarkan, menatausahakan, dan mempertanggungjawabkan uang untuk keperluan belanja negara dalam pelaksanaan APBN adalah...',
+    optionA: 'Bendahara Pengeluaran',
+    optionB: 'Petugas Pajak Pratama',
+    optionC: 'Direktur Jenderal Anggaran',
+    optionD: 'Kepala Desa',
+    correctAnswer: 'A',
+    explanation: 'Definisi Bendahara Pengeluaran menurut UU 1/2004 adalah orang yang ditunjuk menerima, menyimpan, membayarkan, menatausahakan, dan mempertanggungjawabkan uang untuk keperluan belanja negara.',
+    referenceRegulation: 'UU No. 1/2004 tentang Perbendaharaan Negara Pasal 1 angka 14'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Sertifikasi kompetensi profesi yang wajib dimiliki oleh seorang Bendahara Pengeluaran instansi pemerintah pusat disebut...',
+    optionA: 'Sertifikat Bendahara Negara Tersertifikasi (BNT)',
+    optionB: 'Sertifikat Pilot Penerbangan',
+    optionC: 'Sertifikat Pelatih Olahraga',
+    optionD: 'Sertifikat Akuntan Publik Internasional',
+    correctAnswer: 'A',
+    explanation: 'Berdasarkan Perpres No. 7/2016 dan PMK terkait, setiap bendahara pada satuan kerja pengelola APBN wajib memiliki sertifikat Bendahara Negara Tersertifikasi (BNT) dari Kemenkeu.',
+    referenceRegulation: 'Perpres No. 7 Tahun 2016 & PMK No. 128/PMK.05/2017'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'ANALISIS',
+    questionText: 'Seorang Bendahara Pengeluaran mengalami kekurangan kas fisik di brankas sebesar Rp25.000.000 akibat kelalaian mencatat pengeluaran. Prosedur hukum pertanggungjawaban apa yang dikenakan?',
+    optionA: 'Penyelesaian Tuntutan Ganti Rugi (TGR) di mana bendahara wajib mengganti kerugian negara tersebut secara pribadi',
+    optionB: 'Kekurangan kas dihapuskan otomatis sebagai uang hilang',
+    optionC: 'Kekurangan kas diganti dari kas negara melalui SPM GUP',
+    optionD: 'Pegawai satker iuran sukarela',
+    correctAnswer: 'A',
+    explanation: 'Bendahara memiliki tanggung jawab fungsional dan pribadi (kebendaharaan). Kekurangan kas akibat kelalaian bendahara diselesaikan melalui mekanisme Tuntutan Perbendaharaan / Tuntutan Ganti Rugi (TGR).',
+    referenceRegulation: 'UU No. 1/2004 Bab Tuntutan Perbendaharaan & BPK RI Regulation'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Petugas Pengelolaan Administrasi Belanja Pegawai (PPABP) bertugas membantu PPK dan KPA dalam...',
+    optionA: 'Mengelola data kepegawaian, memproses aplikasi perhitungan gaji/tunjangan (GPP), dan menyusun daftar gaji induk, kekurangan gaji, uang makan, serta uang lembur',
+    optionB: 'Membeli perlengkapan alat berat konstruksi',
+    optionC: 'Menjual barang inventaris bekas',
+    optionD: 'Menghakimi perselisihan sengketa tanah',
+    correctAnswer: 'A',
+    explanation: 'PPABP mengelola administrasi belanja pegawai: update data mutasi keluarga, kenaikan pangkat/gaji berkala, perekaman SK pensiun, serta perhitungan daftar gaji dan uang makan pegawai.',
+    referenceRegulation: 'Perdirjen Perbendaharaan tentang Petunjuk Pelaksanaan Pembayaran Gaji Induk'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Dua Jabatan Fungsional di bidang perbendaharaan negara yang dibina oleh Direktorat Jenderal Perbendaharaan Kementerian Keuangan adalah...',
+    optionA: 'Analis Pengelolaan Keuangan APBN (Keahlian) dan Pranata Keuangan APBN (Keterampilan)',
+    optionB: 'Jaksa Penuntut Umum dan Hakim Anggota',
+    optionC: 'Diplomat Madya dan Konsuler Utama',
+    optionD: 'Polisi Pamong Praja dan Pemadam Kebakaran',
+    correctAnswer: 'A',
+    explanation: 'Kemenkeu membina dua rumpun jabatan fungsional perbendaharaan nasional: JF Analis Pengelolaan Keuangan APBN (kategori keahlian) dan JF Pranata Keuangan APBN (kategori keterampilan).',
+    referenceRegulation: 'Permenpan-RB No. 53 & 54 Tahun 2018'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Apakah Bendahara Penerimaan diperbolehkan menyimpan uang hasil pemungutan PNBP di rekening kas dinasnya melebihi batas waktu yang ditentukan?',
+    optionA: 'Tidak boleh, seluruh penerimaan PNBP wajib disetorkan ke Kas Negara secara periodik sesuai ketentuan (misal setiap hari kerja atau paling lambat hari kerja berikutnya)',
+    optionB: 'Boleh disimpan selamanya untuk dana cadangan',
+    optionC: 'Boleh dipinjamkan kepada pihak ketiga dengan bunga komersial',
+    optionD: 'Boleh digunakan langsung untuk membeli kendaraan dinas',
+    correctAnswer: 'A',
+    explanation: 'Penerimaan Negara Bukan Pajak (PNBP) wajib disetorkan langsung ke Kas Negara secara tertib dan tidak boleh diendapkan di rekening penampungan melebihi batas regulasi.',
+    referenceRegulation: 'UU No. 9 Tahun 2018 tentang Penerimaan Negara Bukan Pajak (PNBP)'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'ANALISIS',
+    questionText: 'KPA menugaskan seorang staf honorer (Pegawai Pemerintah Non-Pegawai Negeri / PPNPN) sebagai Bendahara Pengeluaran Satker melalui SK KPA. Bagaimana status keabsahan penunjukan tersebut menurut undang-undang?',
+    optionA: 'Cacat hukum dan dilarang, karena jabatan Bendahara Pengeluaran wajib diemban oleh Pegawai Negeri Sipil (PNS) yang telah memiliki sertifikat bendahara',
+    optionB: 'Sah-sah saja asalkan honorer tersebut jujur',
+    optionC: 'Boleh jika disetujui ketua RT',
+    optionD: 'Diperbolehkan untuk masa jabatan 5 tahun',
+    correctAnswer: 'A',
+    explanation: 'Sesuai UU No. 1/2004 dan PMK 162/2013, bendahara adalah pejabat fungsional yang berstatus Pegawai Negeri Sipil (PNS) dan tidak boleh dijabat oleh tenaga honorer/kontrak.',
+    referenceRegulation: 'UU No. 1/2004 Pasal 10 & PMK No. 162/PMK.05/2013'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'MUDAH',
+    questionText: 'Pemeriksaan kas bendahara secara mendadak (cash opname / uji petik fisik brankas) wajib dilakukan oleh KPA sekurang-kurangnya...',
+    optionA: 'Sekurang-kurangnya 1 (satu) kali dalam 3 (tiga) bulan',
+    optionB: '1 kali dalam 10 tahun',
+    optionC: 'Hanya jika bendahara melarikan diri',
+    optionD: 'Tidak pernah dilakukan',
+    correctAnswer: 'A',
+    explanation: 'PMK 162/PMK.05/2013 mewajibkan KPA atau pejabat yang ditunjuk melakukan pemeriksaan kas (cash opname) sekurang-kurangnya satu kali dalam tiga bulan dan dituangkan dalam Berita Acara Pemeriksaan Kas.',
+    referenceRegulation: 'PMK No. 162/PMK.05/2013 Pasal 31'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'SEDANG',
+    questionText: 'Jika Bendahara Pengeluaran berhalangan tetap atau dipindahtugaskan (mutasi), apa yang wajib dilaksanakan sebelum pejabat baru menjalankan tugas?',
+    optionA: 'Serah terima jabatan bendahara yang dituangkan dalam Berita Acara Serah Terima Jabatan disertai penutupan BKU dan cash opname fisik kas/bank',
+    optionB: 'Langsung menyerahkan kunci brankas tanpa dokumen',
+    optionC: 'Mengosongkan saldo kas dan membagikannya ke staf',
+    optionD: 'Menghapus file pembukuan komputer',
+    correctAnswer: 'A',
+    explanation: 'Pergantian bendahara wajib disertai Berita Acara Serah Terima (BAST) Jabatan Bendahara, verifikasi saldo kas, rekening koran bank, serta penutupan buku kas bersama pejabat lama dan baru.',
+    referenceRegulation: 'PMK No. 162/PMK.05/2013 Pasal 33'
+  },
+  {
+    topic: 'Pejabat Perbendaharaan Negara',
+    difficulty: 'ANALISIS',
+    questionText: 'PPK menolak menandatangani kuitansi honorarium panitia karena terdapat dugaan manipulasi tanda tangan kehadiran peserta rapat. Namun KPA memerintahkan PPK secara lisan untuk tetap mencairkan dana. Sikap apa yang harus diambil PPK?',
+    optionA: 'Tetap menolak memproses pembayaran dan meminta instruksi tertulis secara resmi dari KPA, serta mencatat keberatan tertulis atas risiko ketidakabsahan dokumen',
+    optionB: 'Langsung mematuhi perintah lisan tanpa bukti',
+    optionC: 'Menyetujui pembayaran lalu mengundurkan diri',
+    optionD: 'Memalsukan seluruh berkas rapat',
+    correctAnswer: 'A',
+    explanation: 'PPK memikul tanggung jawab hukum materiil. Jika terdapat perintah KPA yang bertentangan dengan fakta pengujian, PPK berhak meminta instruksi tertulis resmi atau menolak pengeluaran yang tidak sah.',
+    referenceRegulation: 'UU No. 1/2004 & Prinsip Akuntabilitas Keuangan Negara'
+  }
+];
