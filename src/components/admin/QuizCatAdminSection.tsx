@@ -2249,7 +2249,8 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
                 <p className="text-xs text-slate-400 mt-1">Gunakan kata kunci pencarian yang lebih umum atau pilih Semua Tingkat.</p>
               </div>
             ) : (
-              filteredMasterBankQuestions.map((q, idx) => {
+              paginatedBankQuestions.map((q, pIdx) => {
+                const idx = (bankPageSize === -1 ? 0 : (bankPage - 1) * bankPageSize) + pIdx;
                 const isSelected = selectedBankQuestionIds.has(q.id);
                 const isExp = expandedBankExplanationIds.has(q.id);
 
@@ -2426,6 +2427,74 @@ export const QuizCatAdminSection: React.FC<QuizCatAdminSectionProps> = ({
               })
             )}
           </div>
+
+          {/* Bottom Pagination Controls */}
+          {totalBankPages > 1 && (
+            <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 text-xs ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}>
+              <span className="font-bold text-slate-500">
+                Halaman {bankPage} dari {totalBankPages} ({filteredMasterBankQuestions.length} total soal)
+              </span>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={bankPage <= 1}
+                  onClick={() => {
+                    setBankPage(p => Math.max(1, p - 1));
+                    window.scrollTo({ top: 400, behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  ← Halaman Sebelumnya
+                </button>
+
+                {/* Direct Page Jump Buttons */}
+                <div className="hidden sm:flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalBankPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalBankPages > 5) {
+                      if (bankPage > 3 && bankPage < totalBankPages - 2) {
+                        pageNum = bankPage - 2 + i;
+                      } else if (bankPage >= totalBankPages - 2) {
+                        pageNum = totalBankPages - 4 + i;
+                      }
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => {
+                          setBankPage(pageNum);
+                          window.scrollTo({ top: 400, behavior: 'smooth' });
+                        }}
+                        className={`w-8 h-8 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                          bankPage === pageNum
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={bankPage >= totalBankPages}
+                  onClick={() => {
+                    setBankPage(p => Math.min(totalBankPages, p + 1));
+                    window.scrollTo({ top: 400, behavior: 'smooth' });
+                  }}
+                  className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold disabled:opacity-40 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  Halaman Berikutnya →
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Floating Action Bar when questions are selected */}
           {selectedBankQuestionIds.size > 0 && (

@@ -67,6 +67,7 @@ import {
   playExamChime
 } from '../../utils/quizStorage';
 import { QuizCertificateModal } from './QuizCertificateModal';
+import { QuizPracticeView } from './QuizPracticeView';
 
 interface QuizCatViewProps {
   currentUser: AppUser | null;
@@ -90,6 +91,10 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   const isDark = theme === 'dark';
   const isSuperAdmin = currentUser?.role === 'superadmin' || isAdminAuthenticated;
   const isInternalKppnUser = isSuperAdmin || currentUser?.role === 'pegawai';
+
+  // Portal Mode: 'CAT_EXAM' (Simulasi Ujian CAT Resmi) vs 'PRACTICE_MODE' (Latihan Soal & Pembahasan Langsung)
+  const [activePortalTab, setActivePortalTab] = useState<'CAT_EXAM' | 'PRACTICE_MODE'>('CAT_EXAM');
+  const [selectedPracticePackageId, setSelectedPracticePackageId] = useState<string | null>(null);
 
   // Packages state
   const [packages, setPackages] = useState<QuizPackage[]>([]);
@@ -808,6 +813,24 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
   };
 
   // ==========================================================================
+  // RENDER 0: TAB LATIHAN SOAL & BELAJAR MANDIRI (JAWABAN LANGSUNG MUNCUL)
+  // ==========================================================================
+  if (activePortalTab === 'PRACTICE_MODE') {
+    return (
+      <QuizPracticeView
+        currentUser={currentUser}
+        theme={theme}
+        packages={packages}
+        initialPackageId={selectedPracticePackageId}
+        onExitPractice={() => {
+          setActivePortalTab('CAT_EXAM');
+          setSelectedPracticePackageId(null);
+        }}
+      />
+    );
+  }
+
+  // ==========================================================================
   // RENDER 1: SELEKSI PAKET & REGISTRASI UJIAN CAT
   // ==========================================================================
   if (currentStep === 'SELECT_PACKAGE') {
@@ -857,6 +880,43 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             </div>
           </div>
         )}
+
+        {/* Master Portal Mode Switcher: Simulasi Ujian CAT vs Latihan Soal Mandiri */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-2.5 rounded-3xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActivePortalTab('CAT_EXAM')}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 cursor-pointer ${
+                activePortalTab === 'CAT_EXAM'
+                  ? 'bg-amber-500 text-slate-950 shadow-md'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Trophy className="w-4 h-4" />
+              <span>🎯 Simulasi Ujian CAT (Resmi)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPracticePackageId(null);
+                setActivePortalTab('PRACTICE_MODE');
+              }}
+              className="px-4 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <BookOpen className="w-4 h-4 text-emerald-200" />
+              <span>💡 Tab Latihan Soal &amp; Belajar Mandiri (Jawaban Langsung)</span>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-400 text-slate-950 text-[10px] font-black uppercase">
+                Bebas Login Satker
+              </span>
+            </button>
+          </div>
+
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pr-3 hidden lg:inline">
+            ✨ Setiap 1 pertanyaan selesai langsung muncul kunci &amp; pembahasan lengkap!
+          </span>
+        </div>
 
         {/* Hero Header */}
         <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white shadow-xl">
@@ -980,6 +1040,21 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
             >
               <ShieldCheck className="w-3.5 h-3.5" />
               <span>🏛️ KPPN Internal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPracticePackageId(null);
+                setActivePortalTab('PRACTICE_MODE');
+              }}
+              className="px-3.5 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md hover:scale-105 active:scale-95 cursor-pointer ml-1"
+              title="Buka Ruang Belajar & Latihan Soal dengan Pembahasan Langsung"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-emerald-200" />
+              <span>💡 Tab Latihan Soal</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-300 text-slate-950 text-[9px] font-black uppercase">
+                Baru
+              </span>
             </button>
           </div>
 
@@ -1149,25 +1224,66 @@ export const QuizCatView: React.FC<QuizCatViewProps> = ({
                           <span>Login Pegawai KPPN</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPracticePackageId(pkg.id);
+                          setActivePortalTab('PRACTICE_MODE');
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-indigo-400/40 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                        <span>💡 Buka Latihan (Dengan Password)</span>
+                      </button>
                     </div>
                   ) : !scheduleInfo.isOpen ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full py-3 px-4 rounded-xl bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      <Lock className="w-3.5 h-3.5" />
-                      <span>{scheduleInfo.status === 'NOT_STARTED' ? '⏳ Belum Dibuka' : '🔒 Ujian Ditutup'}</span>
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-3 px-4 rounded-xl bg-slate-300 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black text-xs cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>{scheduleInfo.status === 'NOT_STARTED' ? '⏳ Belum Dibuka' : '🔒 Ujian Ditutup'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPracticePackageId(pkg.id);
+                          setActivePortalTab('PRACTICE_MODE');
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-emerald-500/50 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>💡 Latihan Soal Bebas Waktu</span>
+                      </button>
+                    </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => handlePreStartExam(pkg)}
-                      className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>{pkg.requireToken ? 'Masukkan Token & Mulai' : 'Mulai Simulasi CAT'}</span>
-                    </button>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePreStartExam(pkg)}
+                        className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all shadow-md hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-current" />
+                        <span>{pkg.requireToken ? 'Masukkan Token & Mulai' : 'Mulai Simulasi CAT'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPracticePackageId(pkg.id);
+                          setActivePortalTab('PRACTICE_MODE');
+                        }}
+                        className="w-full py-2 px-3 rounded-xl border border-emerald-500/50 bg-emerald-50/60 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        title="Belajar mandiri santai tanpa waktu & jawaban langsung muncul"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>💡 Latihan Soal (Jawaban Langsung)</span>
+                      </button>
+                    </div>
                   )}
 
                   {/* Button to view this package's leaderboard */}
