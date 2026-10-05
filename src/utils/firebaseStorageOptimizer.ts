@@ -187,9 +187,52 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
       return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
     });
 
+    // Capaian Output Anti-Downgrade Protection:
+    // If local has valid reported Capaian Output (>0% or 'Sudah Terlaporkan') and server has 0 / 'Belum Terlaporkan',
+    // do NOT downgrade local data.
+    const localIsCaputReported = localS.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(localS.indikator?.capaianOutput) > 0);
+    const serverIsCaputReported = serverS.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(serverS.indikator?.capaianOutput) > 0);
+
+    let effectiveStatusCapaianOutput = serverS.statusCapaianOutput || 'Belum Terlaporkan';
+    let effectiveCapaianOutputScore = Number(serverS.indikator?.capaianOutput) || 0;
+    let effectiveHasCaput = !!(serverS.hasCapaianOutputData || localS.hasCapaianOutputData);
+
+    if (localIsCaputReported && !serverIsCaputReported) {
+      // Local has fresh reporting data that server has not yet caught up with
+      effectiveStatusCapaianOutput = localS.statusCapaianOutput || 'Sudah Terlaporkan';
+      effectiveCapaianOutputScore = Number(localS.indikator?.capaianOutput) || 100;
+      effectiveHasCaput = true;
+    } else if (serverIsCaputReported) {
+      effectiveStatusCapaianOutput = serverS.statusCapaianOutput;
+      effectiveCapaianOutputScore = Number(serverS.indikator?.capaianOutput) || (serverS.statusCapaianOutput === 'Sudah Terlaporkan' ? 100 : 0);
+      effectiveHasCaput = true;
+    } else if (localS.statusCapaianOutput) {
+      effectiveStatusCapaianOutput = localS.statusCapaianOutput;
+      effectiveCapaianOutputScore = Number(localS.indikator?.capaianOutput) || 0;
+    }
+
+    // Indikator merging - keep valid scores
+    const mergedIndikator = {
+      revisiDipa: (serverS.indikator?.revisiDipa ?? 0) > 0 ? serverS.indikator.revisiDipa : (localS.indikator?.revisiDipa ?? 0),
+      deviasiHal3Dipa: (serverS.indikator?.deviasiHal3Dipa ?? 0) > 0 ? serverS.indikator.deviasiHal3Dipa : (localS.indikator?.deviasiHal3Dipa ?? 0),
+      penyerapanAnggaran: (serverS.indikator?.penyerapanAnggaran ?? 0) > 0 ? serverS.indikator.penyerapanAnggaran : (localS.indikator?.penyerapanAnggaran ?? 0),
+      belanjaKontraktual: (serverS.indikator?.belanjaKontraktual ?? 0) > 0 ? serverS.indikator.belanjaKontraktual : (localS.indikator?.belanjaKontraktual ?? 0),
+      penyelesaianTagihan: (serverS.indikator?.penyelesaianTagihan ?? 0) > 0 ? serverS.indikator.penyelesaianTagihan : (localS.indikator?.penyelesaianTagihan ?? 0),
+      pengelolaanUpTup: (serverS.indikator?.pengelolaanUpTup ?? 0) > 0 ? serverS.indikator.pengelolaanUpTup : (localS.indikator?.pengelolaanUpTup ?? 0),
+      dispensasiSpm: (serverS.indikator?.dispensasiSpm ?? 0) > 0 ? serverS.indikator.dispensasiSpm : (localS.indikator?.dispensasiSpm ?? 0),
+      capaianOutput: effectiveCapaianOutputScore
+    };
+
     const res: any = {
       ...localS,
-      ...serverS, // Server overrides local for all live metrics, indicators & Capaian Output status
+      ...serverS, // Server provides authoritative base data
+      hasCapaianOutputData: effectiveHasCaput,
+      statusCapaianOutput: effectiveStatusCapaianOutput,
+      indikator: mergedIndikator,
+      nilaiTotalIKPA: (Number(serverS.nilaiTotalIKPA) > 0) ? serverS.nilaiTotalIKPA : ((Number(localS.nilaiTotalIKPA) > 0) ? localS.nilaiTotalIKPA : 0),
+      paguAnggaran: (Number(serverS.paguAnggaran) > 0) ? serverS.paguAnggaran : (localS.paguAnggaran || 0),
+      realisasiAnggaran: (Number(serverS.realisasiAnggaran) > 0) ? serverS.realisasiAnggaran : (localS.realisasiAnggaran || 0),
+      persenPenyerapan: (Number(serverS.persenPenyerapan) > 0) ? serverS.persenPenyerapan : (localS.persenPenyerapan || 0),
       riwayatBulanan: (serverS.riwayatBulanan && serverS.riwayatBulanan.length > 0)
         ? serverS.riwayatBulanan
         : (mergedHistory.length > 0 ? mergedHistory : (localS.riwayatBulanan || [])),

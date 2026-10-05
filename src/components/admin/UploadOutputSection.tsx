@@ -125,24 +125,31 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     const fileNameToUse = currentFileName || `Laporan_Capaian_Output_${uploadPeriode.replace(/\s+/g, '_')}.xlsx`;
 
     // Gabungkan data Capaian Output ke Satker yang sudah ada tanpa merusak indikator IKPA lainnya
-    const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
+    const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker?.trim() || '', p]));
     const mergedSatkers = satkers.map(currentSatker => {
-      const foundInPreview = previewMap.get(currentSatker.kodeSatker);
+      const cleanKode = currentSatker.kodeSatker?.trim() || '';
+      const foundInPreview = previewMap.get(cleanKode);
 
       if (foundInPreview) {
+        const score = typeof foundInPreview.indikator?.capaianOutput === 'number' && foundInPreview.indikator.capaianOutput > 0
+          ? foundInPreview.indikator.capaianOutput
+          : (foundInPreview.statusCapaianOutput === 'Sudah Terlaporkan' ? 100 : 0);
+
         return {
           ...currentSatker,
           hasCapaianOutputData: true,
           statusCapaianOutput: foundInPreview.statusCapaianOutput,
           indikator: {
             ...currentSatker.indikator,
-            capaianOutput: foundInPreview.indikator.capaianOutput
+            capaianOutput: score
           },
           periodeUpdate: uploadPeriode
         };
       }
       return currentSatker;
     });
+
+    const activeMergedCaput = mergedSatkers.filter(s => s.hasCapaianOutputData);
 
     const newHistoryItem: ExcelUploadHistory = {
       id: `hist-caput-${Date.now()}`,
@@ -153,7 +160,7 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
       satkerCount: previewSatkers.length,
       averageIKPA: 0,
       notes: uploadNotes.trim() || 'Upload Data Capaian Output SAKTI',
-      satkersData: previewSatkers,
+      satkersData: activeMergedCaput.length > 0 ? activeMergedCaput : previewSatkers,
       category: 'CAPAIAN_OUTPUT',
       isActive: overwriteActive
     };

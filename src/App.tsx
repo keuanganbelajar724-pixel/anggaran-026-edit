@@ -1359,10 +1359,11 @@ export default function App() {
             }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
           }
 
-          // If satkers is empty or has no IKPA satkers, reconstruct from historical archives or initial baseline
+          // If satkers is empty or has no IKPA satkers and no Capaian Output, reconstruct from historical archives or initial baseline
           setSatkers(curr => {
             const hasIKPA = curr.some(s => s.hasIKPAData === true || (s.hasIKPAData !== false && (Number(s.nilaiTotalIKPA) > 0 || Number(s.paguAnggaran) > 0)));
-            if (curr.length === 0 || !hasIKPA) {
+            const hasCaput = curr.some(s => s.hasCapaianOutputData === true || s.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(s.indikator?.capaianOutput) > 0));
+            if (curr.length === 0 || (!hasIKPA && !hasCaput)) {
               if (combined.length > 0) {
                 const reconstructed = mergeHistoricalUploadsToSatkers(combined);
                 if (reconstructed.length > 0) {
@@ -1845,6 +1846,15 @@ export default function App() {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
+            // Guard: ignore stale snapshots if local user just uploaded data in the last 2.5 seconds
+            const localUpdatedAt = localStorage.getItem('kppn_satker_data_updatedAt');
+            if (localUpdatedAt && data.updatedAt) {
+              const localTime = new Date(localUpdatedAt).getTime();
+              const serverTime = new Date(data.updatedAt).getTime();
+              if (localTime > serverTime + 2500) {
+                return;
+              }
+            }
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));

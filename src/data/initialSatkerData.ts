@@ -205,10 +205,18 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
       const caputMatch = caputMap.get(kode);
       const hasCaput = Boolean(activeCaputHistory && caputMatch);
 
+      const existingCaputVal = Number(existing?.indikator?.capaianOutput) || 0;
+      const matchedCaputVal = hasCaput ? (Number(caputMatch.indikator?.capaianOutput) || (caputMatch.statusCapaianOutput === 'Sudah Terlaporkan' ? 100 : 0)) : 0;
+      const finalCaputVal = hasCaput ? matchedCaputVal : existingCaputVal;
+
       const mergedIndikator = {
         ...effectiveIndikator,
-        capaianOutput: hasCaput ? (Number(caputMatch.indikator?.capaianOutput) || 0) : 0
+        capaianOutput: finalCaputVal
       };
+
+      const finalStatusCaput = hasCaput 
+        ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') 
+        : (existing?.statusCapaianOutput || 'Belum Terlaporkan');
 
       const mergedSatker: SatkerIKPA = {
         ...(existing || {}),
@@ -218,13 +226,13 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         namaSatker: s.namaSatker || existing?.namaSatker || kode,
         kementerianLembaga: s.kementerianLembaga || existing?.kementerianLembaga || '-',
         hasIKPAData: true,
-        hasCapaianOutputData: hasCaput,
+        hasCapaianOutputData: hasCaput || Boolean(existing?.hasCapaianOutputData) || finalStatusCaput === 'Sudah Terlaporkan' || finalCaputVal > 0,
         nilaiTotalIKPA: Number.isFinite(finalIKPA) ? finalIKPA : 0,
         predikat: s.predikat || (existing?.predikat) || getPredikatIKPA(finalIKPA),
         paguAnggaran: Number(s.paguAnggaran) || Number(existing?.paguAnggaran) || 0,
         realisasiAnggaran: Number(s.realisasiAnggaran) || Number(existing?.realisasiAnggaran) || 0,
         persenPenyerapan: Number(s.persenPenyerapan) || Number(existing?.persenPenyerapan) || 0,
-        statusCapaianOutput: hasCaput ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') : 'Belum Terlaporkan',
+        statusCapaianOutput: finalStatusCaput,
         periodeUpdate: effectivePeriode,
         indikator: mergedIndikator,
         riwayatBulanan: mergedHistory

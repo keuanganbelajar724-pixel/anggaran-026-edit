@@ -214,17 +214,47 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
         if (isCaputFormat && caputHeaderRow !== -1) {
           // Column E = index 4 (Kode Satker)
           // Column F = index 5 (Nama Satuan Kerja)
-          // Column O = index 14 (Status Penyampaian)
+          // Column O = index 14 (Status Penyampaian / % Data)
           let colKode = 4;
           let colNama = 5;
           let colPersen = 14;
           
           if (matrix[caputHeaderRow]) {
             matrix[caputHeaderRow].forEach((colVal: any, cIdx: number) => {
-              const cStr = String(colVal).toLowerCase();
-              if (cStr.includes('kode satker') || cStr.includes('kdsatker') || (cStr.includes('kode') && !cStr.includes('koderincian'))) colKode = cIdx;
-              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('satuan kerja') || cStr === 'nama') colNama = cIdx;
-              if (cStr.includes('status penyampaian') || cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('status')) colPersen = cIdx;
+              const cStr = String(colVal).toLowerCase().trim();
+              if (
+                cStr.includes('kode satker') || 
+                cStr === 'kdsatker' || 
+                cStr === 'kd_satker' || 
+                (cStr.includes('kode') && !cStr.includes('koderincian') && !cStr.includes('kro') && !cStr.includes('ro'))
+              ) {
+                colKode = cIdx;
+              }
+              if (
+                cStr.includes('nama satker') || 
+                cStr === 'nmsatker' || 
+                cStr === 'nm_satker' || 
+                cStr.includes('satuan kerja') || 
+                cStr === 'nama' ||
+                cStr.includes('uraian satker')
+              ) {
+                colNama = cIdx;
+              }
+              if (
+                cStr.includes('status penyampaian') || 
+                cStr.includes('data masuk') || 
+                cStr.includes('upload') || 
+                cStr.includes('capaian output') ||
+                cStr.includes('progres') ||
+                cStr.includes('progress') ||
+                cStr.includes('persen') ||
+                cStr.includes('%') ||
+                cStr.includes('terlaporkan') ||
+                cStr.includes('lapor') ||
+                cStr.includes('status')
+              ) {
+                colPersen = cIdx;
+              }
             });
           }
 
@@ -266,6 +296,8 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               const lowerStatus = rawStatusStr.toLowerCase();
 
               const isZeroPercent = 
+                !rawStatusStr ||
+                rawStatusStr === '-' ||
                 lowerStatus === '0%' || 
                 lowerStatus === '0' || 
                 lowerStatus === '0.00%' || 
@@ -273,6 +305,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                 lowerStatus === '0.0%' || 
                 lowerStatus.includes('0%') || 
                 lowerStatus.includes('belum') || 
+                lowerStatus.includes('tidak') ||
                 parseFormattedNumber(rawStatusStr, -1) === 0;
 
               let statusCapaianOutput: SatkerIKPA['statusCapaianOutput'] = 'Sudah Terlaporkan';
@@ -285,7 +318,8 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               } else {
                 statusCapaianOutput = 'Sudah Terlaporkan';
                 const parsedVal = parseFormattedNumber(rawStatusStr, 100);
-                capaianOutputScore = (parsedVal > 0 && parsedVal <= 100) ? parsedVal : 100;
+                const adjustedVal = (parsedVal > 0 && parsedVal <= 1) ? parsedVal * 100 : parsedVal;
+                capaianOutputScore = (adjustedVal > 0 && adjustedVal <= 100) ? adjustedVal : 100;
                 terlaporkanCaputCount++;
               }
 
