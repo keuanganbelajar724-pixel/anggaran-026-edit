@@ -38,6 +38,7 @@ import {
   Radio,
   Smartphone,
   RefreshCw,
+  Upload,
   PieChart,
   Coins,
   Ticket,
@@ -85,6 +86,7 @@ interface HeaderProps {
   onOpenAdminSlideShow?: () => void;
   dashboardConfig?: DashboardConfig;
   onForceCloudSync?: () => void;
+  onPushLocalToCloud?: () => void;
   isCloudSyncing?: boolean;
 }
 
@@ -119,6 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAdminSlideShow,
   dashboardConfig,
   onForceCloudSync,
+  onPushLocalToCloud,
   isCloudSyncing = false
 }) => {
   const isDark = theme === 'dark';
@@ -605,17 +608,31 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">Android</span>
               </button>
 
-              {/* Force Cloud Sync Button */}
+              {/* Force Cloud Sync Button (Tarik dari Cloud) */}
               {onForceCloudSync && (
                 <button
                   type="button"
                   onClick={onForceCloudSync}
                   disabled={isCloudSyncing}
                   className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95 disabled:opacity-50"
-                  title="Sinkronkan data dengan Firebase Firestore Cloud Database"
+                  title="Tarik data terbaru dari Firebase Cloud Database"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-                  <span className="hidden md:inline">{isCloudSyncing ? 'Sinkron...' : 'Cloud'}</span>
+                  <span className="hidden md:inline">{isCloudSyncing ? 'Sinkron...' : 'Tarik Cloud'}</span>
+                </button>
+              )}
+
+              {/* Push Local Data to Cloud Button (Unggah ke Cloud) */}
+              {onPushLocalToCloud && (
+                <button
+                  type="button"
+                  onClick={onPushLocalToCloud}
+                  disabled={isCloudSyncing}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-black rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95 disabled:opacity-50"
+                  title="Unggah seluruh data lokal aktif di browser ini ke Cloud Firestore agar tampil di Google AI dan perangkat lain"
+                >
+                  <Upload className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-bounce' : ''}`} />
+                  <span className="hidden md:inline">Kirim Cloud</span>
                 </button>
               )}
 

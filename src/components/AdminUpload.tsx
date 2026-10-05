@@ -291,6 +291,7 @@ interface AdminUploadProps {
   ) => void;
   onClearKontrak?: () => void;
   onForceCloudSync?: () => void;
+  onPushLocalToCloud?: () => void;
   isCloudSyncing?: boolean;
   cloudSyncMessage?: string | null;
   onNavigateTab?: (tab: NavigationTab) => void;
@@ -500,6 +501,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onApplyKontrak,
   onClearKontrak,
   onForceCloudSync,
+  onPushLocalToCloud,
   isCloudSyncing = false,
   cloudSyncMessage = null,
   onNavigateTab,
@@ -3339,7 +3341,19 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               title="Tarik data terbaru dari Firebase Cloud Database untuk menyelaraskan dengan semua perangkat"
             >
               <RefreshCw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Sinkronkan Cloud'}</span>
+              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Tarik dari Cloud'}</span>
+            </button>
+          )}
+
+          {onPushLocalToCloud && (
+            <button
+              onClick={onPushLocalToCloud}
+              disabled={isCloudSyncing}
+              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95 border border-indigo-400/40"
+              title="Unggah dan simpan seluruh data lokal aktif di browser ini ke Cloud Firestore agar langsung berubah di Google AI Studio dan semua perangkat lain"
+            >
+              <Upload className={`w-4 h-4 ${isCloudSyncing ? 'animate-bounce' : ''}`} />
+              <span>{isCloudSyncing ? 'Mengunggah...' : 'Unggah ke Cloud'}</span>
             </button>
           )}
 

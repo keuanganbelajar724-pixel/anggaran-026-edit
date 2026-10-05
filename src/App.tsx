@@ -743,8 +743,13 @@ export default function App() {
     setRekonsiliasiRecords(newRecords);
     setRekonsiliasiUploads(newUploads);
     try {
-      localStorage.setItem('kppn_rekonsiliasi_records', JSON.stringify(newRecords));
-      localStorage.setItem('kppn_rekonsiliasi_uploads', JSON.stringify(newUploads));
+      safeLocalStorageSet('kppn_rekonsiliasi_records', JSON.stringify(newRecords));
+      safeLocalStorageSet('kppn_rekonsiliasi_uploads', JSON.stringify(newUploads));
+      setDoc(doc(db, 'data', 'rekonsiliasi'), {
+        records: newRecords,
+        uploads: newUploads,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn("Error syncing rekonsiliasi to Firebase:", err));
     } catch (e) {
       console.warn('Error saving rekonsiliasi data:', e);
     }
@@ -812,8 +817,13 @@ export default function App() {
     setLpjRecords(newRecords);
     setLpjUploads(newUploads);
     try {
-      localStorage.setItem('kppn_lpj_records', JSON.stringify(newRecords));
-      localStorage.setItem('kppn_lpj_uploads', JSON.stringify(newUploads));
+      safeLocalStorageSet('kppn_lpj_records', JSON.stringify(newRecords));
+      safeLocalStorageSet('kppn_lpj_uploads', JSON.stringify(newUploads));
+      setDoc(doc(db, 'data', 'lpj_bendahara'), {
+        records: newRecords,
+        uploads: newUploads,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn("Error syncing lpj to Firebase:", err));
     } catch (e) {
       console.warn('Error saving lpj data:', e);
     }
@@ -1553,6 +1563,36 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore Gaji Induk fetch notice:", err));
 
+      // Rekonsiliasi Initial Cloud Fetch
+      getDoc(doc(db, 'data', 'rekonsiliasi')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.records) && data.records.length > 0) {
+            setRekonsiliasiRecords(data.records);
+            safeLocalStorageSet('kppn_rekonsiliasi_records', JSON.stringify(data.records));
+          }
+          if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+            setRekonsiliasiUploads(data.uploads);
+            safeLocalStorageSet('kppn_rekonsiliasi_uploads', JSON.stringify(data.uploads));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Rekonsiliasi fetch notice:", err));
+
+      // LPJ Bendahara Initial Cloud Fetch
+      getDoc(doc(db, 'data', 'lpj_bendahara')).then(snap => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.records) && data.records.length > 0) {
+            setLpjRecords(data.records);
+            safeLocalStorageSet('kppn_lpj_records', JSON.stringify(data.records));
+          }
+          if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+            setLpjUploads(data.uploads);
+            safeLocalStorageSet('kppn_lpj_uploads', JSON.stringify(data.uploads));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore LPJ fetch notice:", err));
+
       // Kontrak Monitoring Initial Load: Check IndexedDB first for fast local restore
       getLargeDataset<KontrakMonitoringRecord[]>('kppn_kontrak_records').then(idbRecs => {
         if (idbRecs && Array.isArray(idbRecs) && idbRecs.length > 0) {
@@ -2023,6 +2063,40 @@ export default function App() {
         console.warn("Firebase Kontrak listener notice:", error);
       });
 
+      // 14. Realtime Rekonsiliasi Data
+      const unsubRekonsiliasi = onSnapshot(doc(db, 'data', 'rekonsiliasi'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.records)) {
+            setRekonsiliasiRecords(data.records);
+            safeLocalStorageSet('kppn_rekonsiliasi_records', JSON.stringify(data.records));
+          }
+          if (Array.isArray(data.uploads)) {
+            setRekonsiliasiUploads(data.uploads);
+            safeLocalStorageSet('kppn_rekonsiliasi_uploads', JSON.stringify(data.uploads));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Rekonsiliasi listener notice:", error);
+      });
+
+      // 15. Realtime LPJ Bendahara Data
+      const unsubLPJ = onSnapshot(doc(db, 'data', 'lpj_bendahara'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.records)) {
+            setLpjRecords(data.records);
+            safeLocalStorageSet('kppn_lpj_records', JSON.stringify(data.records));
+          }
+          if (Array.isArray(data.uploads)) {
+            setLpjUploads(data.uploads);
+            safeLocalStorageSet('kppn_lpj_uploads', JSON.stringify(data.uploads));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase LPJ listener notice:", error);
+      });
+
       const unsubUsers = subscribeUsers((users) => {
         const active = getCurrentUser();
         if (active) {
@@ -2069,6 +2143,8 @@ export default function App() {
         unsubSintesa();
         unsubMyIntress();
         unsubKontrak();
+        unsubRekonsiliasi();
+        unsubLPJ();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -2374,6 +2450,7 @@ export default function App() {
   const handleUpdatePejabatList = (newList: PejabatSertifikasi[]) => {
     if (notifyTamuBlocked('memperbarui data pejabat sertifikasi')) return;
     setPejabatSertifikasiList(newList);
+    safeLocalStorageSet('kppn_pejabat_data', JSON.stringify(newList));
     syncPejabatToFirebase(newList);
   };
 
@@ -3104,12 +3181,115 @@ export default function App() {
         }
       }
 
+      // 13. Fetch Rekonsiliasi
+      const rekonSnap = await getDoc(doc(db, 'data', 'rekonsiliasi'));
+      if (rekonSnap.exists()) {
+        const data = rekonSnap.data();
+        if (Array.isArray(data.records) && data.records.length > 0) {
+          setRekonsiliasiRecords(data.records);
+          safeLocalStorageSet('kppn_rekonsiliasi_records', JSON.stringify(data.records));
+        }
+        if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+          setRekonsiliasiUploads(data.uploads);
+          safeLocalStorageSet('kppn_rekonsiliasi_uploads', JSON.stringify(data.uploads));
+        }
+      }
+
+      // 14. Fetch LPJ Bendahara
+      const lpjSnap = await getDoc(doc(db, 'data', 'lpj_bendahara'));
+      if (lpjSnap.exists()) {
+        const data = lpjSnap.data();
+        if (Array.isArray(data.records) && data.records.length > 0) {
+          setLpjRecords(data.records);
+          safeLocalStorageSet('kppn_lpj_records', JSON.stringify(data.records));
+        }
+        if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+          setLpjUploads(data.uploads);
+          safeLocalStorageSet('kppn_lpj_uploads', JSON.stringify(data.uploads));
+        }
+      }
+
       setCloudSyncMessage(`Sinkronisasi Cloud Berhasil! Terhubung ke Firestore (${satkerCount || satkers.length} Satker, ${caputBelumCount || 17} Belum Caput).`);
       setTimeout(() => setCloudSyncMessage(null), 6000);
     } catch (e: any) {
       console.error("Force Cloud Sync error:", e);
       setCloudSyncMessage(`Catatan sinkronisasi: ${e?.message || 'Data lokal tetap aktif.'}`);
       setTimeout(() => setCloudSyncMessage(null), 6000);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
+
+  const handlePushLocalToCloud = async () => {
+    if (notifyTamuBlocked('mengunggah seluruh data lokal ke Cloud Database')) return;
+    setIsCloudSyncing(true);
+    try {
+      // 1. Push Satkers (Capaian Output & IKPA)
+      const compactedSatkers = compactSatkersForFirestore(satkers);
+      await setDoc(doc(db, 'data', 'satkers'), { 
+        list: compactedSatkers, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+
+      // 2. Push Master Satkers
+      await setDoc(doc(db, 'data', 'master_satkers'), { 
+        list: masterSatkers, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+
+      // 3. Push Rekonsiliasi
+      await setDoc(doc(db, 'data', 'rekonsiliasi'), {
+        records: rekonsiliasiRecords,
+        uploads: rekonsiliasiUploads,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 4. Push LPJ Bendahara
+      await setDoc(doc(db, 'data', 'lpj_bendahara'), {
+        records: lpjRecords,
+        uploads: lpjUploads,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 5. Push Pejabat Sertifikasi
+      await setDoc(doc(db, 'data', 'pejabat'), { 
+        list: pejabatSertifikasiList, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+
+      // 6. Push Pejabat Perbendaharaan Satker
+      const compactedPejabat = compactPejabatForFirestore(pejabatPerbendaharaanSatkerList);
+      await setDoc(doc(db, 'data', 'pejabat_perbendaharaan'), { 
+        list: compactedPejabat, 
+        updatedAt: new Date().toISOString() 
+      }, { merge: true });
+
+      // 7. Push Deviasi Hal III
+      const compactedDeviasi = compactDeviasiHal3ForFirestore(deviasiHal3List);
+      await setDoc(doc(db, 'data', 'deviasi_hal3'), {
+        list: compactedDeviasi,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // 8. Push SPM PPP
+      await setDoc(doc(db, 'data', 'spm_ppp'), {
+        list: spmPppList,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      // Dual-sync to server backup API
+      fetch('/api/data/satkers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ list: compactedSatkers }),
+      }).catch(err => console.warn("Error syncing satkers to server API:", err));
+
+      setCloudSyncMessage(`Berhasil Mengunggah ke Cloud! Data aktif (${satkers.length} Satker) telah tersimpan di Firestore dan otomatis tampil di Google AI & semua perangkat lain.`);
+      setTimeout(() => setCloudSyncMessage(null), 7000);
+    } catch (e: any) {
+      console.error("Push Local to Cloud error:", e);
+      setCloudSyncMessage(`Gagal mengunggah ke Cloud: ${e?.message || 'Periksa koneksi.'}`);
+      setTimeout(() => setCloudSyncMessage(null), 7000);
     } finally {
       setIsCloudSyncing(false);
     }
@@ -3517,6 +3697,7 @@ export default function App() {
         onOpenAdminSlideShow={() => setActiveTab('admin')}
         dashboardConfig={dashboardConfig}
         onForceCloudSync={handleForceCloudSync}
+        onPushLocalToCloud={handlePushLocalToCloud}
         isCloudSyncing={isCloudSyncing}
       />
 
@@ -4099,6 +4280,7 @@ export default function App() {
                   onDeletePesertaPresensi={handleDeletePesertaPresensi}
                   onClearMasterSatkers={handleClearAllMasterSatkers}
                   onForceCloudSync={handleForceCloudSync}
+                  onPushLocalToCloud={handlePushLocalToCloud}
                   isCloudSyncing={isCloudSyncing}
                   cloudSyncMessage={cloudSyncMessage}
                   onNavigateTab={(tab) => setActiveTab(tab)}
