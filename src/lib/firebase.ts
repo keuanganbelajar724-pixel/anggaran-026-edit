@@ -239,20 +239,11 @@ export async function getDoc<T = any>(
 function sanitizeFirestorePayload(val: any): any {
   if (val === undefined) return null;
   if (val === null) return null;
-  if (typeof val !== 'object') return val;
-  if (val instanceof Date) return val;
-  if (Array.isArray(val)) {
-    return val
-      .filter((item) => item !== undefined)
-      .map((item) => sanitizeFirestorePayload(item));
+  try {
+    return JSON.parse(JSON.stringify(val, (_k, v) => (v === undefined ? null : v)));
+  } catch {
+    return val;
   }
-  const clean: Record<string, any> = {};
-  for (const [k, v] of Object.entries(val)) {
-    if (v !== undefined) {
-      clean[k] = sanitizeFirestorePayload(v);
-    }
-  }
-  return clean;
 }
 
 // Direct, reliable setDoc wrapper with circuit breaker, undefined sanitizer, and write stream protection

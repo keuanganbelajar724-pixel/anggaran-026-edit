@@ -1263,8 +1263,21 @@ export default function App() {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
+              const serverUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+              const localUpdatedAtStr = safeLocalStorageGet('kppn_satker_data_updatedAt');
+              const localUpdatedAt = localUpdatedAtStr ? new Date(localUpdatedAtStr).getTime() : 0;
+
+              // If local data in browser is newer than server, auto-propagate to Firestore immediately
+              if (localUpdatedAt > serverUpdatedAt && currentLocal.length > 0) {
+                syncSatkersToFirebase(currentLocal);
+                return currentLocal;
+              }
+
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+              if (data.updatedAt) {
+                safeLocalStorageSet('kppn_satker_data_updatedAt', data.updatedAt);
+              }
               return merged;
             });
             return;
@@ -1831,14 +1844,27 @@ export default function App() {
         console.warn("Firebase historical uploads listener notice:", error);
       });
 
-      // 3. Realtime Satkers Data
+      // 3. Realtime Satkers Data (Instant bidirectional sync between Deployment & Google AI)
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
+              const serverUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+              const localUpdatedAtStr = safeLocalStorageGet('kppn_satker_data_updatedAt');
+              const localUpdatedAt = localUpdatedAtStr ? new Date(localUpdatedAtStr).getTime() : 0;
+
+              // If local in browser has unpushed updates that are newer, push up
+              if (localUpdatedAt > serverUpdatedAt && currentLocal.length > 0) {
+                syncSatkersToFirebase(currentLocal);
+                return currentLocal;
+              }
+
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+              if (data.updatedAt) {
+                safeLocalStorageSet('kppn_satker_data_updatedAt', data.updatedAt);
+              }
               return merged;
             });
           }
@@ -2097,6 +2123,23 @@ export default function App() {
         console.warn("Firebase LPJ listener notice:", error);
       });
 
+      // 16. Realtime Gaji Induk Data
+      const unsubGajiInduk = onSnapshot(doc(db, 'data', 'gaji_induk'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.uploads) && data.uploads.length > 0) {
+            setGajiIndukUploads(data.uploads);
+            safeLocalStorageSet('kppn_gaji_induk_uploads', JSON.stringify(data.uploads));
+          }
+          if (Array.isArray(data.records) && data.records.length > 0) {
+            setGajiIndukRecords(data.records);
+            safeLocalStorageSet('kppn_gaji_induk_records', JSON.stringify(data.records));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Gaji Induk listener notice:", error);
+      });
+
       const unsubUsers = subscribeUsers((users) => {
         const active = getCurrentUser();
         if (active) {
@@ -2145,18 +2188,20 @@ export default function App() {
         unsubKontrak();
         unsubRekonsiliasi();
         unsubLPJ();
+        unsubGajiInduk();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
     }
   }, []);
 
-  // Sync Helpers to Firebase Cloud Database with automatic compaction
-  const syncSatkersToFirebase = (newList: SatkerIKPA[]) => {
+  // Sync Helpers to Firebase Cloud Database with automatic compaction & instant propagation
+  const syncSatkersToFirebase = async (newList: SatkerIKPA[]) => {
     try {
       const compacted = compactSatkersForFirestore(newList);
-      setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true })
-        .catch(err => console.warn("Error syncing satkers to Firebase:", err));
+      const now = new Date().toISOString();
+      safeLocalStorageSet('kppn_satker_data_updatedAt', now);
+      await setDoc(doc(db, 'data', 'satkers'), { list: compacted, updatedAt: now }, { merge: true });
 
       // Dual-sync to server-side backup API
       fetch('/api/data/satkers', {
@@ -2169,29 +2214,29 @@ export default function App() {
     }
   };
 
-  const syncMasterSatkersToFirebase = (newList: MasterSatker[]) => {
+  const syncMasterSatkersToFirebase = async (newList: MasterSatker[]) => {
     try {
-      setDoc(doc(db, 'data', 'master_satkers'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
-        .catch(err => console.warn("Error syncing master satkers to Firebase:", err));
+      const now = new Date().toISOString();
+      await setDoc(doc(db, 'data', 'master_satkers'), { list: newList, updatedAt: now }, { merge: true });
     } catch (e) {
       console.warn("Error syncing master satkers to Firebase:", e);
     }
   };
 
-  const syncPejabatToFirebase = (newList: PejabatSertifikasi[]) => {
+  const syncPejabatToFirebase = async (newList: PejabatSertifikasi[]) => {
     try {
-      setDoc(doc(db, 'data', 'pejabat'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
-        .catch(err => console.warn("Error syncing pejabat to Firebase:", err));
+      const now = new Date().toISOString();
+      await setDoc(doc(db, 'data', 'pejabat'), { list: newList, updatedAt: now }, { merge: true });
     } catch (e) {
       console.warn("Error syncing pejabat to Firebase:", e);
     }
   };
 
-  const syncPejabatPerbendaharaanToFirebase = (newList: PejabatSertifikasi[]) => {
+  const syncPejabatPerbendaharaanToFirebase = async (newList: PejabatSertifikasi[]) => {
     try {
       const compacted = compactPejabatForFirestore(newList);
-      setDoc(doc(db, 'data', 'pejabat_perbendaharaan'), { list: compacted, updatedAt: new Date().toISOString() }, { merge: true })
-        .catch(err => console.warn("Error syncing pejabat perbendaharaan to Firebase:", err));
+      const now = new Date().toISOString();
+      await setDoc(doc(db, 'data', 'pejabat_perbendaharaan'), { list: compacted, updatedAt: now }, { merge: true });
 
       // Dual-sync to server-side backup API
       fetch('/api/data/pejabat_perbendaharaan', {
@@ -2204,10 +2249,10 @@ export default function App() {
     }
   };
 
-  const syncPresensiToFirebase = (newList: PesertaPresensi[]) => {
+  const syncPresensiToFirebase = async (newList: PesertaPresensi[]) => {
     try {
-      setDoc(doc(db, 'data', 'presensi_peserta'), { list: newList, updatedAt: new Date().toISOString() }, { merge: true })
-        .catch(err => console.warn("Error syncing presensi to Firebase:", err));
+      const now = new Date().toISOString();
+      await setDoc(doc(db, 'data', 'presensi_peserta'), { list: newList, updatedAt: now }, { merge: true });
     } catch (e) {
       console.warn("Error syncing presensi to Firebase:", e);
     }

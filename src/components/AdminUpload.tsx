@@ -3333,29 +3333,13 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3 shrink-0 relative z-10">
-          {onForceCloudSync && (
-            <button
-              onClick={onForceCloudSync}
-              disabled={isCloudSyncing}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95 border border-emerald-400/40"
-              title="Tarik data terbaru dari Firebase Cloud Database untuk menyelaraskan dengan semua perangkat"
-            >
-              <RefreshCw className={`w-4 h-4 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-              <span>{isCloudSyncing ? 'Menyinkronkan...' : 'Tarik dari Cloud'}</span>
-            </button>
-          )}
-
-          {onPushLocalToCloud && (
-            <button
-              onClick={onPushLocalToCloud}
-              disabled={isCloudSyncing}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-black text-xs sm:text-sm px-4 py-2.5 rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95 border border-indigo-400/40"
-              title="Unggah dan simpan seluruh data lokal aktif di browser ini ke Cloud Firestore agar langsung berubah di Google AI Studio dan semua perangkat lain"
-            >
-              <Upload className={`w-4 h-4 ${isCloudSyncing ? 'animate-bounce' : ''}`} />
-              <span>{isCloudSyncing ? 'Mengunggah...' : 'Unggah ke Cloud'}</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold shadow-md select-none">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span>Cloud Realtime Aktif</span>
+          </div>
 
           <button
             onClick={downloadExcelTemplate}

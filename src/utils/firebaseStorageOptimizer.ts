@@ -45,15 +45,15 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
   if (!Array.isArray(satkers)) return [];
   return satkers.map(s => {
     // Keep only non-empty, useful data
-    return {
-      id: s.id,
+    const item: any = {
+      id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${Math.random().toString(36).slice(2, 7)}`),
       kodeSatker: s.kodeSatker || '',
       namaSatker: s.namaSatker || '',
       kementerianLembaga: s.kementerianLembaga || '',
       unitEselon1: s.unitEselon1 || '',
-      paguAnggaran: s.paguAnggaran || 0,
-      realisasiAnggaran: s.realisasiAnggaran || 0,
-      persenPenyerapan: s.persenPenyerapan || 0,
+      paguAnggaran: Number(s.paguAnggaran) || 0,
+      realisasiAnggaran: Number(s.realisasiAnggaran) || 0,
+      persenPenyerapan: Number(s.persenPenyerapan) || 0,
       statusCapaianOutput: s.statusCapaianOutput || 'Belum Terlaporkan',
       indikator: s.indikator || {
         revisiDipa: 0,
@@ -65,7 +65,7 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
         dispensasiSpm: 0,
         capaianOutput: 0
       },
-      nilaiTotalIKPA: s.nilaiTotalIKPA || 0,
+      nilaiTotalIKPA: Number(s.nilaiTotalIKPA) || 0,
       predikat: s.predikat || 'Cukup',
       hasIKPAData: s.hasIKPAData !== false,
       hasCapaianOutputData: !!s.hasCapaianOutputData,
@@ -76,10 +76,9 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
       passwordSatker: s.passwordSatker || '',
       alamatSatker: s.alamatSatker || '',
       periodeUpdate: s.periodeUpdate || '',
-      pejabatOperator: s.pejabatOperator || undefined,
       riwayatBulanan: Array.isArray(s.riwayatBulanan)
         ? s.riwayatBulanan.map(r => ({
-            bulan: r.bulan,
+            bulan: r.bulan || '',
             nilaiIKPA: r.nilaiIKPA ?? 0,
             capaianOutput: r.capaianOutput ?? 0,
             deviasiHal3Dipa: r.deviasiHal3Dipa ?? 0,
@@ -92,6 +91,10 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
           }))
         : []
     };
+    if (s.pejabatOperator) {
+      item.pejabatOperator = s.pejabatOperator;
+    }
+    return JSON.parse(JSON.stringify(item));
   });
 }
 
@@ -100,48 +103,52 @@ export function compactSatkersForFirestore(satkers: SatkerIKPA[]): any[] {
  */
 export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHistory[]): any[] {
   if (!Array.isArray(histories)) return [];
-  return histories.map(h => ({
-    id: h.id,
-    fileName: h.fileName,
-    periode: h.periode,
-    uploadDate: h.uploadDate,
-    uploadedBy: h.uploadedBy,
-    satkerCount: h.satkerCount,
-    averageIKPA: h.averageIKPA,
-    notes: h.notes || '',
-    category: h.category || 'IKPA',
-    isActive: !!h.isActive,
-    satkersData: Array.isArray(h.satkersData)
-      ? h.satkersData.map((s: any) => ({
-          id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : undefined),
-          kodeSatker: s.kodeSatker || '',
-          namaSatker: s.namaSatker || '',
-          nilaiTotalIKPA: s.nilaiTotalIKPA ?? 0,
-          predikat: s.predikat || 'Cukup',
-          paguAnggaran: s.paguAnggaran || 0,
-          realisasiAnggaran: s.realisasiAnggaran || 0,
-          statusCapaianOutput: s.statusCapaianOutput || 'Belum Terlaporkan',
-          indikator: s.indikator || {
-            revisiDipa: 0,
-            deviasiHal3Dipa: 0,
-            penyerapanAnggaran: 0,
-            belanjaKontraktual: 0,
-            penyelesaianTagihan: 0,
-            pengelolaanUpTup: 0,
-            dispensasiSpm: 0,
-            capaianOutput: 0
-          },
-          hasIKPAData: s.hasIKPAData !== false,
-          hasCapaianOutputData: !!s.hasCapaianOutputData,
-          periodeUpdate: s.periodeUpdate || h.periode || 's.d. Agustus 2026'
-        }))
-      : []
-  }));
+  return histories.map(h => {
+    const item: any = {
+      id: h.id || `hist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      fileName: h.fileName || 'Upload.xlsx',
+      periode: h.periode || '',
+      uploadDate: h.uploadDate || '',
+      uploadedBy: h.uploadedBy || 'Admin',
+      satkerCount: Number(h.satkerCount) || 0,
+      averageIKPA: Number(h.averageIKPA) || 0,
+      notes: h.notes || '',
+      category: h.category || 'IKPA',
+      isActive: !!h.isActive,
+      satkersData: Array.isArray(h.satkersData)
+        ? h.satkersData.map((s: any, idx: number) => ({
+            id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${idx}`),
+            kodeSatker: s.kodeSatker || '',
+            namaSatker: s.namaSatker || '',
+            nilaiTotalIKPA: s.nilaiTotalIKPA ?? 0,
+            predikat: s.predikat || 'Cukup',
+            paguAnggaran: s.paguAnggaran || 0,
+            realisasiAnggaran: s.realisasiAnggaran || 0,
+            statusCapaianOutput: s.statusCapaianOutput || 'Belum Terlaporkan',
+            indikator: s.indikator || {
+              revisiDipa: 0,
+              deviasiHal3Dipa: 0,
+              penyerapanAnggaran: 0,
+              belanjaKontraktual: 0,
+              penyelesaianTagihan: 0,
+              pengelolaanUpTup: 0,
+              dispensasiSpm: 0,
+              capaianOutput: 0
+            },
+            hasIKPAData: s.hasIKPAData !== false,
+            hasCapaianOutputData: !!s.hasCapaianOutputData,
+            periodeUpdate: s.periodeUpdate || h.periode || 's.d. Agustus 2026'
+          }))
+        : []
+    };
+    return JSON.parse(JSON.stringify(item));
+  });
 }
 
 /**
- * Merge Satkers safely without ever downgrading or deleting multi-month history
- * Server data is authoritative for satkers list and current indicators, while preserving extended contact & history.
+ * Merge Satkers safely without ever downgrading or deleting multi-month history.
+ * Server data is 100% authoritative for metrics, status, indicators, and satker list during real-time sync,
+ * while safely preserving local contact details if server fields are empty.
  */
 export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: SatkerIKPA[]): SatkerIKPA[] {
   if (!Array.isArray(serverList) || serverList.length === 0) {
@@ -157,25 +164,21 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     });
   }
 
-  // Iterate over serverList
-  const mergedFrom = serverList.map(serverS => {
+  // Iterate over serverList - Server is authoritative for real-time synchronization
+  const mergedList = serverList.map(serverS => {
     const kode = serverS.kodeSatker?.trim();
     if (!kode) return serverS;
 
     const localS = localSatkerMap.get(kode);
     if (!localS) return serverS;
 
-    // Merge riwayatBulanan seamlessly (preserve all distinct months)
+    // Merge riwayatBulanan seamlessly
     const historyMap = new Map<string, any>();
     (localS.riwayatBulanan || []).forEach(r => {
-      if (r && r.bulan) {
-        historyMap.set(r.bulan.trim().toLowerCase(), r);
-      }
+      if (r && r.bulan) historyMap.set(r.bulan.trim().toLowerCase(), r);
     });
     (serverS.riwayatBulanan || []).forEach(r => {
-      if (r && r.bulan) {
-        historyMap.set(r.bulan.trim().toLowerCase(), r);
-      }
+      if (r && r.bulan) historyMap.set(r.bulan.trim().toLowerCase(), r);
     });
 
     const mergedHistory = Array.from(historyMap.values()).sort((a, b) => {
@@ -184,57 +187,28 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
       return (idxA !== -1 ? idxA : 99) - (idxB !== -1 ? idxB : 99);
     });
 
-    const hasServerIKPA = serverS.hasIKPAData === true || (serverS.hasIKPAData !== false && (Number(serverS.nilaiTotalIKPA) > 0 || Number(serverS.paguAnggaran) > 0));
-    const hasLocalIKPA = localS.hasIKPAData === true || (localS.hasIKPAData !== false && (Number(localS.nilaiTotalIKPA) > 0 || Number(localS.paguAnggaran) > 0));
-
-    const effectiveNilaiIKPA = (hasServerIKPA && Number(serverS.nilaiTotalIKPA) > 0)
-      ? serverS.nilaiTotalIKPA
-      : (hasLocalIKPA ? localS.nilaiTotalIKPA : (serverS.nilaiTotalIKPA ?? 0));
-
-    const effectiveIndikator = (hasServerIKPA && serverS.indikator)
-      ? { ...localS.indikator, ...serverS.indikator }
-      : (localS.indikator || serverS.indikator);
-
-    const effectivePagu = (Number(serverS.paguAnggaran) > 0)
-      ? serverS.paguAnggaran
-      : (Number(localS.paguAnggaran) > 0 ? localS.paguAnggaran : 0);
-
-    const effectiveRealisasi = (Number(serverS.realisasiAnggaran) > 0)
-      ? serverS.realisasiAnggaran
-      : (Number(localS.realisasiAnggaran) > 0 ? localS.realisasiAnggaran : 0);
-
-    return {
+    const res: any = {
       ...localS,
-      ...serverS,
-      nilaiTotalIKPA: effectiveNilaiIKPA,
-      indikator: effectiveIndikator,
-      paguAnggaran: effectivePagu,
-      realisasiAnggaran: effectiveRealisasi,
-      riwayatBulanan: mergedHistory.length > 0 ? mergedHistory : (serverS.riwayatBulanan || localS.riwayatBulanan || []),
+      ...serverS, // Server overrides local for all live metrics, indicators & Capaian Output status
+      riwayatBulanan: (serverS.riwayatBulanan && serverS.riwayatBulanan.length > 0)
+        ? serverS.riwayatBulanan
+        : (mergedHistory.length > 0 ? mergedHistory : (localS.riwayatBulanan || [])),
       namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
       noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
       emailPic: serverS.emailPic || localS.emailPic || '',
       passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
       alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
-      pejabatOperator: serverS.pejabatOperator || localS.pejabatOperator || undefined,
-      hasIKPAData: hasServerIKPA || hasLocalIKPA,
-      hasCapaianOutputData: Boolean(serverS.hasCapaianOutputData || localS.hasCapaianOutputData)
     };
+    if (serverS.pejabatOperator || localS.pejabatOperator) {
+      res.pejabatOperator = serverS.pejabatOperator || localS.pejabatOperator;
+    }
+    return res;
   });
 
-  // Preserve local satkers that might not be in the server batch (e.g. if server had partial upload)
-  const serverKodeSet = new Set(serverList.map(s => s.kodeSatker?.trim()).filter(Boolean));
-  const remainingLocal: SatkerIKPA[] = [];
-  if (Array.isArray(localList)) {
-    localList.forEach(localS => {
-      const kode = localS?.kodeSatker?.trim();
-      if (kode && !serverKodeSet.has(kode)) {
-        remainingLocal.push(localS);
-      }
-    });
-  }
-
-  return [...mergedFrom, ...remainingLocal];
+  // Preserve any local satkers that might not have reached server yet
+  const serverKodes = new Set(serverList.map(s => s.kodeSatker?.trim()));
+  const extraLocal = (localList || []).filter(s => s && s.kodeSatker && !serverKodes.has(s.kodeSatker.trim()));
+  return [...mergedList, ...extraLocal];
 }
 
 export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[]): any[] {
