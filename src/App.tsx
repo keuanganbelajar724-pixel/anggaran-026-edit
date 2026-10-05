@@ -129,7 +129,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'capaian-output': true,
   'diagnostik-caput': true,
   'deviasi-hal3': true,
-  'dispensasi-ikpa': true,
+  'dispensasi-ikpa': false,
   'spm-ppp': true,
   'pengelolaan-up': true,
   'transaksi-kkp': true,
@@ -4046,7 +4046,7 @@ export default function App() {
                   currentUser={currentUser}
                   onGoToAdmin={() => setActiveTab('admin')}
                   theme={theme}
-                  isDashboardActive={dashboardConfig.menuVisibility?.['dispensasi-ikpa'] ?? true}
+                  isDashboardActive={dashboardConfig.menuVisibility?.['dispensasi-ikpa'] ?? false}
                   onToggleDashboardActive={async (active) => {
                     const newConfig = {
                       ...dashboardConfig,

@@ -818,6 +818,10 @@ export const Header: React.FC<HeaderProps> = ({
               .filter((t) => {
                 if (t.id === 'admin') return true;
                 if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all tabs unless simulating Satker
+                // dispensasi-ikpa is strictly opt-in (disabled for Satker unless explicitly true)
+                if (t.id === 'dispensasi-ikpa') {
+                  return menuVisibility?.['dispensasi-ikpa'] === true;
+                }
                 if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
                   return false; // Hide disabled tabs for Satker users
                 }
@@ -825,7 +829,9 @@ export const Header: React.FC<HeaderProps> = ({
               })
               .map((t) => {
                 const isActive = activeTab === t.id;
-                const isDisabledForSatker = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
+                const isDisabledForSatker = menuVisibility 
+                  ? (menuVisibility[t.id as keyof MenuVisibilityConfig] === false || (t.id === 'dispensasi-ikpa' && menuVisibility['dispensasi-ikpa'] !== true))
+                  : (t.id === 'dispensasi-ikpa');
 
                 const activeStyle = isActive
                   ? `${t.activeColor} ${themeSettings?.activeTabGlow !== false ? 'scale-[1.02]' : ''}`

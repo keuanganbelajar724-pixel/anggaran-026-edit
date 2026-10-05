@@ -11607,7 +11607,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }}
           currentUser={currentUser}
           theme={theme}
-          isDashboardActive={tempConfig?.menuVisibility?.['dispensasi-ikpa'] ?? true}
+          isDashboardActive={tempConfig?.menuVisibility?.['dispensasi-ikpa'] ?? false}
           onToggleDashboardActive={async (active) => {
             const updatedConfig = {
               ...tempConfig,
