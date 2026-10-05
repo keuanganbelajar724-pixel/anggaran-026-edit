@@ -7,7 +7,86 @@ const baselineArray: any[] = Array.isArray(rawSatkersBaseline)
     ? (rawSatkersBaseline as any).default
     : [];
 
-export const INITIAL_SATKER_DATA: SatkerIKPA[] = baselineArray.map((s: any, idx: number) => ({
+// Standard 127 Satkers Mitra KPPN Semarang I (125 DIPA Satker + 2 Penyalur Dana Transfer BUN)
+const additionalTransferSatkers: any[] = [
+  {
+    kodeSatker: '500104',
+    namaSatker: 'KPPN SEMARANG I PENYALUR DANA TRANSFER UMUM',
+    kementerianLembaga: 'BA 999 - BUN KPPN Semarang I',
+    unitEselon1: 'Direktorat Jenderal Perbendaharaan',
+    paguAnggaran: 4917545149000,
+    realisasiAnggaran: 3536044688750,
+    persenPenyerapan: 71.91,
+    statusCapaianOutput: 'Sudah Terlaporkan',
+    indikator: {
+      revisiDipa: 100,
+      deviasiHal3Dipa: 100,
+      penyerapanAnggaran: 71.91,
+      belanjaKontraktual: 100,
+      penyelesaianTagihan: 100,
+      pengelolaanUpTup: 100,
+      dispensasiSpm: 0,
+      capaianOutput: 100
+    },
+    nilaiTotalIKPA: 95.0,
+    predikat: 'Sangat Baik',
+    hasIKPAData: true,
+    hasCapaianOutputData: true,
+    periodeUpdate: 's.d. Juli 2026',
+    riwayatBulanan: [
+      { bulan: 'Januari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Februari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Maret', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'April', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Mei', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Juni', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Juli', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 }
+    ]
+  },
+  {
+    kodeSatker: '600031',
+    namaSatker: 'KPPN SEMARANG I PENYALUR DANA TRANSFER KHUSUS',
+    kementerianLembaga: 'BA 999 - BUN KPPN Semarang I',
+    unitEselon1: 'Direktorat Jenderal Perbendaharaan',
+    paguAnggaran: 4146780657000,
+    realisasiAnggaran: 3494911496800,
+    persenPenyerapan: 84.28,
+    statusCapaianOutput: 'Sudah Terlaporkan',
+    indikator: {
+      revisiDipa: 100,
+      deviasiHal3Dipa: 100,
+      penyerapanAnggaran: 84.28,
+      belanjaKontraktual: 100,
+      penyelesaianTagihan: 100,
+      pengelolaanUpTup: 100,
+      dispensasiSpm: 0,
+      capaianOutput: 100
+    },
+    nilaiTotalIKPA: 95.0,
+    predikat: 'Sangat Baik',
+    hasIKPAData: true,
+    hasCapaianOutputData: true,
+    periodeUpdate: 's.d. Juli 2026',
+    riwayatBulanan: [
+      { bulan: 'Januari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Februari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Maret', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'April', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Mei', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Juni', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
+      { bulan: 'Juli', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 }
+    ]
+  }
+];
+
+const mergedBaseline = [...baselineArray];
+additionalTransferSatkers.forEach(ts => {
+  if (!mergedBaseline.some(b => String(b.kodeSatker).trim() === ts.kodeSatker)) {
+    mergedBaseline.push(ts);
+  }
+});
+
+export const INITIAL_SATKER_DATA: SatkerIKPA[] = mergedBaseline.map((s: any, idx: number) => ({
   ...s,
   id: s.id || (s.kodeSatker ? `satker-${s.kodeSatker}` : `satker-${idx}`),
   hasIKPAData: typeof s.hasIKPAData === 'boolean' ? s.hasIKPAData : true,

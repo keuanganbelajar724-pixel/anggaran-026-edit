@@ -205,10 +205,8 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     return res;
   });
 
-  // Preserve any local satkers that might not have reached server yet
-  const serverKodes = new Set(serverList.map(s => s.kodeSatker?.trim()));
-  const extraLocal = (localList || []).filter(s => s && s.kodeSatker && !serverKodes.has(s.kodeSatker.trim()));
-  return [...mergedList, ...extraLocal];
+  // If serverList provides a valid satker list, serverList is authoritative to prevent phantom/stale satkers
+  return mergedList;
 }
 
 export function compactPengelolaanUPForFirestore(records: PengelolaanUPRecord[]): any[] {

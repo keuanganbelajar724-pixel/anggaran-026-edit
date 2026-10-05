@@ -63,8 +63,6 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   const [uploadPeriode, setUploadPeriode] = useState<string>('Agustus 2026');
   const [uploadNotes, setUploadNotes] = useState<string>('Laporan % Progress Upload Capaian Output SAKTI');
   const [searchHistory, setSearchHistory] = useState<string>('');
-  const [satkerSearchQuery, setSatkerSearchQuery] = useState<string>('');
-  const [satkerFilterStatus, setSatkerFilterStatus] = useState<'ALL' | 'BELUM' | 'SUDAH'>('ALL');
 
   // Filter history khusus Capaian Output (deduplicated)
   const caputHistories = useMemo(() => {
@@ -73,72 +71,6 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
   }, [historicalUploads]);
   const terlaporkanCount = satkers.filter(s => s.statusCapaianOutput === 'Sudah Terlaporkan').length;
   const belumTerlaporkanCount = satkers.filter(s => s.statusCapaianOutput === 'Belum Terlaporkan').length;
-
-  // Filtered satkers for the interactive editor
-  const filteredSatkersForManagement = useMemo(() => {
-    return satkers.filter(s => {
-      const q = satkerSearchQuery.trim().toLowerCase();
-      const matchSearch = !q || (s.kodeSatker && s.kodeSatker.toLowerCase().includes(q)) || (s.namaSatker && s.namaSatker.toLowerCase().includes(q));
-      if (!matchSearch) return false;
-      if (satkerFilterStatus === 'BELUM') return s.statusCapaianOutput === 'Belum Terlaporkan';
-      if (satkerFilterStatus === 'SUDAH') return s.statusCapaianOutput === 'Sudah Terlaporkan';
-      return true;
-    });
-  }, [satkers, satkerSearchQuery, satkerFilterStatus]);
-
-  const handleToggleSingleSatker = (targetKode: string) => {
-    const cleanTarget = targetKode.trim();
-    const updated = satkers.map(s => {
-      if (s.kodeSatker?.trim() === cleanTarget) {
-        const isSudah = s.statusCapaianOutput === 'Sudah Terlaporkan';
-        const nextStatus = isSudah ? ('Belum Terlaporkan' as const) : ('Sudah Terlaporkan' as const);
-        const nextScore = isSudah ? 0 : 100;
-        return {
-          ...s,
-          hasCapaianOutputData: true,
-          statusCapaianOutput: nextStatus,
-          indikator: {
-            ...s.indikator,
-            capaianOutput: nextScore
-          }
-        };
-      }
-      return s;
-    });
-
-    onApplySatkers(updated, false);
-    showToast({
-      type: 'success',
-      title: 'Status Satker Diperbarui',
-      message: `Status Capaian Output Satker ${cleanTarget} berhasil dialihkan.`
-    });
-  };
-
-  const handleBatchSetStatus = (targetStatus: 'Sudah Terlaporkan' | 'Belum Terlaporkan') => {
-    requestConfirm(
-      `Ubah Semua ke ${targetStatus}`,
-      `Apakah Anda yakin ingin mengatur status seluruh ${satkers.length} Satker menjadi "${targetStatus}"?`,
-      () => {
-        const score = targetStatus === 'Sudah Terlaporkan' ? 100 : 0;
-        const updated = satkers.map(s => ({
-          ...s,
-          hasCapaianOutputData: true,
-          statusCapaianOutput: targetStatus,
-          indikator: {
-            ...s.indikator,
-            capaianOutput: score
-          }
-        }));
-        onApplySatkers(updated, false);
-        showToast({
-          type: 'success',
-          title: 'Status Massal Diperbarui',
-          message: `Seluruh Satker (${satkers.length}) diatur menjadi "${targetStatus}".`
-        });
-      },
-      { confirmText: 'Terapkan Perubahan', variant: targetStatus === 'Sudah Terlaporkan' ? 'success' : 'danger' }
-    );
-  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -193,61 +125,23 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
     const fileNameToUse = currentFileName || `Laporan_Capaian_Output_${uploadPeriode.replace(/\s+/g, '_')}.xlsx`;
 
     // Gabungkan data Capaian Output ke Satker yang sudah ada tanpa merusak indikator IKPA lainnya
-    const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker?.trim() || '', p]));
+    const previewMap = new Map<string, SatkerIKPA>(previewSatkers.map(p => [p.kodeSatker, p]));
     const mergedSatkers = satkers.map(currentSatker => {
-      const cleanKode = currentSatker.kodeSatker?.trim() || '';
-      const foundInPreview = previewMap.get(cleanKode);
+      const foundInPreview = previewMap.get(currentSatker.kodeSatker);
 
       if (foundInPreview) {
-        const isSudah = foundInPreview.statusCapaianOutput === 'Sudah Terlaporkan';
-        const caputScore = typeof foundInPreview.indikator?.capaianOutput === 'number' && foundInPreview.indikator.capaianOutput > 0
-          ? foundInPreview.indikator.capaianOutput
-          : (isSudah ? 100 : 0);
-
         return {
           ...currentSatker,
           hasCapaianOutputData: true,
-          statusCapaianOutput: foundInPreview.statusCapaianOutput || (caputScore > 0 ? 'Sudah Terlaporkan' : 'Belum Terlaporkan'),
+          statusCapaianOutput: foundInPreview.statusCapaianOutput,
           indikator: {
             ...currentSatker.indikator,
-            capaianOutput: caputScore
+            capaianOutput: foundInPreview.indikator.capaianOutput
           },
           periodeUpdate: uploadPeriode
         };
       }
       return currentSatker;
-    });
-
-    // Tambahkan satker baru jika ada di preview tapi belum ada di satkers
-    previewSatkers.forEach(p => {
-      const cleanKode = p.kodeSatker?.trim() || '';
-      if (!mergedSatkers.some(s => s.kodeSatker?.trim() === cleanKode)) {
-        const isSudah = p.statusCapaianOutput === 'Sudah Terlaporkan';
-        const caputScore = typeof p.indikator?.capaianOutput === 'number' && p.indikator.capaianOutput > 0
-          ? p.indikator.capaianOutput
-          : (isSudah ? 100 : 0);
-
-        mergedSatkers.push({
-          ...p,
-          kodeSatker: cleanKode,
-          hasCapaianOutputData: true,
-          statusCapaianOutput: p.statusCapaianOutput || (caputScore > 0 ? 'Sudah Terlaporkan' : 'Belum Terlaporkan'),
-          hasIKPAData: false,
-          nilaiTotalIKPA: 0,
-          paguAnggaran: 0,
-          realisasiAnggaran: 0,
-          indikator: {
-            revisiDipa: 0,
-            deviasiHal3Dipa: 0,
-            penyerapanAnggaran: 0,
-            belanjaKontraktual: 0,
-            penyelesaianTagihan: 0,
-            pengelolaanUpTup: 0,
-            dispensasiSpm: 0,
-            capaianOutput: caputScore
-          }
-        });
-      }
     });
 
     const newHistoryItem: ExcelUploadHistory = {
@@ -586,167 +480,6 @@ export const UploadOutputSection: React.FC<UploadOutputSectionProps> = ({
           <span className="text-lg font-black text-amber-600 dark:text-amber-400 mt-1 block truncate">
             {historicalUploads.find(h => h.category === 'CAPAIAN_OUTPUT' && h.isActive)?.periode || 'Juli 2026'}
           </span>
-        </div>
-      </div>
-
-      {/* Interactive Quick Manager & Verifier Status Satker */}
-      <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800'} rounded-3xl border shadow-xl p-6 sm:p-8 space-y-4`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-400/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold mb-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>KONTROL REAL-TIME STATUS PER SATKER</span>
-            </div>
-            <h4 className="text-lg font-black text-slate-900 dark:text-slate-100">
-              Daftar Status Capaian Output Satker ({satkers.length} Satker)
-            </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Anda dapat mengubah status setiap Satker secara instan dengan mengklik tombol status di bawah. Perubahan langsung tersinkronisasi ke Cloud Database dan tampil di seluruh perangkat.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => handleBatchSetStatus('Sudah Terlaporkan')}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Semua Sudah Lapor</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleBatchSetStatus('Belum Terlaporkan')}
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Semua Belum Lapor</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Filter & Search Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl text-xs font-bold">
-            <button
-              type="button"
-              onClick={() => setSatkerFilterStatus('ALL')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                satkerFilterStatus === 'ALL'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              Semua ({satkers.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSatkerFilterStatus('BELUM')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                satkerFilterStatus === 'BELUM'
-                  ? 'bg-rose-500 text-white shadow-xs'
-                  : 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-              }`}
-            >
-              Belum Terlaporkan ({belumTerlaporkanCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setSatkerFilterStatus('SUDAH')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                satkerFilterStatus === 'SUDAH'
-                  ? 'bg-emerald-600 text-white shadow-xs'
-                  : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-              }`}
-            >
-              Sudah Terlaporkan ({terlaporkanCount})
-            </button>
-          </div>
-
-          <div className="w-full sm:w-72">
-            <input
-              type="text"
-              value={satkerSearchQuery}
-              onChange={(e) => setSatkerSearchQuery(e.target.value)}
-              placeholder="Cari kode atau nama satker..."
-              className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-        </div>
-
-        {/* Scrollable Satker Table */}
-        <div className="overflow-x-auto max-h-80 border border-slate-200 dark:border-slate-800 rounded-2xl">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-700 dark:text-slate-300 uppercase sticky top-0">
-              <tr>
-                <th className="py-2.5 px-3">No</th>
-                <th className="py-2.5 px-3">Kode Satker</th>
-                <th className="py-2.5 px-3">Nama Satker</th>
-                <th className="py-2.5 px-3 text-center">Status Saat Ini</th>
-                <th className="py-2.5 px-3 text-center">Nilai Caput</th>
-                <th className="py-2.5 px-3 text-center">Aksi Cepat</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {filteredSatkersForManagement.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
-                    Tidak ditemukan data satker yang sesuai kriteria filter.
-                  </td>
-                </tr>
-              ) : (
-                filteredSatkersForManagement.map((s, idx) => {
-                  const isSudah = s.statusCapaianOutput === 'Sudah Terlaporkan';
-                  return (
-                    <tr key={s.id || s.kodeSatker || idx} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="py-2.5 px-3 font-mono text-slate-400">{idx + 1}</td>
-                      <td className="py-2.5 px-3 font-mono font-bold text-emerald-700 dark:text-emerald-300">
-                        {s.kodeSatker}
-                      </td>
-                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-slate-200 truncate max-w-xs">
-                        {s.namaSatker}
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
-                          isSudah
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                        }`}>
-                          {isSudah ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Sudah Terlaporkan</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="w-3 h-3 text-rose-600" />
-                              <span>Belum Terlaporkan</span>
-                            </>
-                          )}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-center font-mono font-black text-slate-800 dark:text-slate-200">
-                        {s.indikator?.capaianOutput ?? (isSudah ? 100 : 0)}%
-                      </td>
-                      <td className="py-2.5 px-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSingleSatker(s.kodeSatker)}
-                          className={`px-3 py-1 rounded-xl text-[11px] font-black transition-all cursor-pointer shadow-xs ${
-                            isSudah
-                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
-                              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                          }`}
-                        >
-                          {isSudah ? 'Ubah ke Belum' : 'Ubah ke Sudah'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
 

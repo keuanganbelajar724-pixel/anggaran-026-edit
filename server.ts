@@ -91,12 +91,30 @@ async function startServer() {
     }
   });
 
-  // Load initial baseline satkers if available
+  // Helper to get official 127 Satkers registered set
+  const getRegistered127SatkerCodes = (): Set<string> => {
+    try {
+      const masterPath = path.join(process.cwd(), 'master_satkers_generated.json');
+      if (fs.existsSync(masterPath)) {
+        const m = JSON.parse(fs.readFileSync(masterPath, 'utf8'));
+        return new Set(m.map((x: any) => String(x.kodeSatker).trim()));
+      }
+    } catch {}
+    return new Set();
+  };
+
+  // Load initial baseline satkers if available (strictly 127 registered satkers)
   let inMemorySatkers: any[] = [];
   try {
     const jsonPath = path.join(process.cwd(), 'satkers_generated.json');
     if (fs.existsSync(jsonPath)) {
-      inMemorySatkers = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      const raw = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      const regCodes = getRegistered127SatkerCodes();
+      if (regCodes.size > 0 && Array.isArray(raw)) {
+        inMemorySatkers = raw.filter((s: any) => s && s.kodeSatker && regCodes.has(String(s.kodeSatker).trim()));
+      } else {
+        inMemorySatkers = raw;
+      }
     }
   } catch (e) {
     console.warn('Could not load satkers_generated.json on server start:', e);
@@ -104,10 +122,14 @@ async function startServer() {
 
   // High-availability satker data endpoints to safeguard against Firestore rate limits
   app.get('/api/data/satkers', (_req, res) => {
+    const regCodes = getRegistered127SatkerCodes();
+    const filtered = (regCodes.size > 0 && Array.isArray(inMemorySatkers))
+      ? inMemorySatkers.filter((s: any) => s && s.kodeSatker && regCodes.has(String(s.kodeSatker).trim()))
+      : inMemorySatkers;
     res.json({
       status: 'ok',
-      count: inMemorySatkers.length,
-      list: inMemorySatkers,
+      count: filtered.length,
+      list: filtered,
     });
   });
 
@@ -115,12 +137,17 @@ async function startServer() {
     try {
       const { list } = req.body || {};
       if (Array.isArray(list) && list.length > 0) {
-        inMemorySatkers = list;
+        const regCodes = getRegistered127SatkerCodes();
+        const cleanedList = regCodes.size > 0
+          ? list.filter((s: any) => s && s.kodeSatker && regCodes.has(String(s.kodeSatker).trim()))
+          : list;
+
+        inMemorySatkers = cleanedList;
         const jsonPath = path.join(process.cwd(), 'satkers_generated.json');
-        fs.writeFile(jsonPath, JSON.stringify(list, null, 2), (err) => {
+        fs.writeFile(jsonPath, JSON.stringify(cleanedList, null, 2), (err) => {
           if (err) console.warn('Server disk backup notice:', err);
         });
-        return res.json({ status: 'ok', saved: list.length });
+        return res.json({ status: 'ok', saved: cleanedList.length });
       }
       res.status(400).json({ status: 'error', message: 'Invalid list payload' });
     } catch (e: any) {

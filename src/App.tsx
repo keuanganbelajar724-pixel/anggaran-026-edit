@@ -3445,15 +3445,15 @@ export default function App() {
 
         const calculatedIKPATotal = effectiveHasIKPA 
           ? (isNewIKPA && typeof newS.nilaiTotalIKPA === 'number' && newS.nilaiTotalIKPA > 0
-              ? (effectiveHasCaput ? hitungTotalIKPA(mergedIndikator) : newS.nilaiTotalIKPA)
-              : (existing && existing.nilaiTotalIKPA > 0 
-                  ? (effectiveHasCaput ? hitungTotalIKPA(mergedIndikator) : existing.nilaiTotalIKPA) 
-                  : hitungTotalIKPA(mergedIndikator)
+              ? newS.nilaiTotalIKPA
+              : (existing && typeof existing.nilaiTotalIKPA === 'number' && existing.nilaiTotalIKPA > 0 
+                  ? existing.nilaiTotalIKPA 
+                  : (newS.nilaiTotalIKPA > 0 ? newS.nilaiTotalIKPA : hitungTotalIKPA(mergedIndikator))
                 )
             ) 
           : 0;
         const calculatedPredikat = effectiveHasIKPA 
-          ? (newS.predikat && isNewIKPA ? newS.predikat : getPredikatIKPA(calculatedIKPATotal)) 
+          ? (isNewIKPA && newS.predikat ? newS.predikat : (existing?.predikat || getPredikatIKPA(calculatedIKPATotal))) 
           : 'Cukup';
 
         const existingHistory = existing.riwayatBulanan || [];
@@ -3517,6 +3517,17 @@ export default function App() {
           result.push(s);
         }
       });
+
+      // Guarantee exactly the 127 registered Satkers Mitra KPPN Semarang I are maintained without phantom entries
+      const registeredCodes = new Set(INITIAL_SATKER_DATA.map(m => m.kodeSatker?.trim()));
+      if (registeredCodes.size > 0) {
+        result = result.filter(r => r.kodeSatker && registeredCodes.has(r.kodeSatker.trim()));
+        INITIAL_SATKER_DATA.forEach(base => {
+          if (base.kodeSatker && !result.some(r => r.kodeSatker?.trim() === base.kodeSatker.trim())) {
+            result.push(base);
+          }
+        });
+      }
     }
     setSatkers(result);
     safeLocalStorageSet('kppn_satker_data', JSON.stringify(result));

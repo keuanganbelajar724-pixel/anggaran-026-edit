@@ -76,8 +76,8 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     ? selectedArchive.satkersData
     : satkers;
 
-  // Filter satkers yang memang memiliki data Capaian Output SAKTI (terisolasi dari IKPA)
-  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData === true);
+  // Filter satkers yang memiliki data Capaian Output (seluruh 127 Satker terdaftar mitra KPPN)
+  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData !== false);
   const hasAnyOutput = satkersWithOutput.length > 0;
 
   // Statistics & Classification

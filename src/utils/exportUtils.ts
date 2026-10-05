@@ -184,70 +184,33 @@ export function exportSatkersToPDF(
   doc.setFillColor(212, 175, 55); // Kemenkeu Gold #D4AF37
   doc.rect(0, 3.2, 297, 1, 'F');
 
-  // --- 2. HEADER KOP INSTANSI RESMI KEMENKEU DENGAN EMBLEM VEKTOR ---
-  drawKemenkeuEmblem(doc, 10, 6.5, 14.5);
-
-  const kopTextX = 27.5;
+  // --- 2. JUDUL LAPORAN & SUBTITLE (Tanpa Header Kop Surat) ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setTextColor(15, 47, 87);
-  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', kopTextX, 9.8);
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 64, 175);
-  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN', kopTextX, 13.8);
-
-  doc.setFontSize(7.2);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('KANTOR WILAYAH PROVINSI JAWA TENGAH', kopTextX, 17.2);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I (KPPN 026)', kopTextX, 20.8);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(
-    'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 | Telepon (024) 8412850 | Laman: djpb.kemenkeu.go.id/kppn/semarang1',
-    kopTextX,
-    24
-  );
-
-  // Garis Ganda Pembatas Kop Surat
-  doc.setDrawColor(15, 47, 87);
-  doc.setLineWidth(0.65);
-  doc.line(10, 26, 287, 26);
-
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
-  doc.line(10, 27.1, 287, 27.1);
-
-  // --- 3. JUDUL LAPORAN & SUBTITLE ---
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(15, 47, 87);
-  doc.text(docTitle, 10, 32.5);
+  doc.text(docTitle, 10, 11);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
   doc.setTextColor(30, 64, 175);
-  doc.text(docSubtitle, 10, 36.8);
+  doc.text(docSubtitle, 10, 15.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
   doc.text(
     `Periode: ${periodeText}   |   Waktu Unduh: ${printDateStr}, ${printTimeStr}   |   Kategori: ${filterBadge}   |   Sumber Data: OMSPAN / SAKTI Kemenkeu`,
     10,
-    41
+    20
   );
 
-  // --- 4. EXECUTIVE SUMMARY METRIC CARDS ---
-  const cardY = 43.5;
+  // Garis Pembatas Halus di Bawah Judul
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(10, 22.2, 287, 22.2);
+
+  // --- 3. EXECUTIVE SUMMARY METRIC CARDS ---
+  const cardY = 24.5;
   const cardH = 11.5;
   const cardW = 39;
   const gap = 3;
@@ -799,68 +762,33 @@ export function exportCapaianOutputToPDF(
   doc.setFillColor(212, 175, 55); // Kemenkeu Gold #D4AF37
   doc.rect(0, 3.2, 297, 1, 'F');
 
-  // --- 2. HEADER KOP INSTANSI RESMI KEMENKEU (TANPA LOGO) ---
-  const kopTextX = 10;
+  // --- 2. JUDUL LAPORAN & SUBTITLE (Tanpa Header Kop Surat) ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setTextColor(15, 47, 87);
-  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', kopTextX, 9.8);
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 64, 175);
-  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN', kopTextX, 13.8);
-
-  doc.setFontSize(7.2);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('KANTOR WILAYAH PROVINSI JAWA TENGAH', kopTextX, 17.2);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I (KPPN 026)', kopTextX, 20.8);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text(
-    'Jalan Ki Mangunsarkoro No. 34, Semarang 50241 | Telepon (024) 8412850 | Laman: djpb.kemenkeu.go.id/kppn/semarang1',
-    kopTextX,
-    24
-  );
-
-  // Garis Ganda Pembatas Kop Surat
-  doc.setDrawColor(15, 47, 87);
-  doc.setLineWidth(0.65);
-  doc.line(10, 26, 287, 26);
-
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
-  doc.line(10, 27.1, 287, 27.1);
-
-  // --- 3. JUDUL LAPORAN & SUBTITLE ---
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(15, 47, 87);
-  doc.text(docTitle, 10, 32.5);
+  doc.text(docTitle, 10, 11);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.2);
   doc.setTextColor(30, 64, 175);
-  doc.text(docSubtitle, 10, 36.8);
+  doc.text(docSubtitle, 10, 15.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
   doc.text(
     `Periode: ${periodeText}   |   Waktu Unduh: ${printDateStr}, ${printTimeStr}   |   Filter: ${filterBadge}   |   Sumber Data: Aplikasi SAKTI & OMSPAN`,
     10,
-    41
+    20
   );
 
-  // --- 4. EXECUTIVE SUMMARY METRIC CARDS (5 Cards) ---
-  const cardY = 43.5;
+  // Garis Pembatas Halus di Bawah Judul
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(10, 22.2, 287, 22.2);
+
+  // --- 3. EXECUTIVE SUMMARY METRIC CARDS (5 Cards) ---
+  const cardY = 24.5;
   const cardH = 11.5;
   const cardW = 53;
   const gap = 3;
@@ -1298,59 +1226,48 @@ export function exportDeviasiHal3ToPDF(
   doc.setFillColor(217, 119, 6); // amber-600 gold accent
   doc.rect(0, 3, 297, 1, 'F');
 
-  // --- 2. HEADER INSTANSI (Bersih & Resmi Kemenkeu) ---
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 23, 42); // slate-900
-  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', 12, 11);
-  
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105); // slate-600
-  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN - KPPN TIPE A1 SEMARANG I (KPPN 026)', 12, 15.5);
-
-  // --- 3. JUDUL LAPORAN & METADATA RESMI (Basis Data: My Intress) ---
+  // --- 2. JUDUL LAPORAN & METADATA RESMI (Basis Data: My Intress) ---
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(13);
   doc.setTextColor(17, 24, 39); // gray-900
-  doc.text('TABEL KEPATUHAN DEVIASI HALAMAN III DIPA SATUAN KERJA', 12, 22.5);
+  doc.text('TABEL KEPATUHAN DEVIASI HALAMAN III DIPA SATUAN KERJA', 12, 13);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text(`Periode Evaluasi: ${periodeText}${klText}   |   Jumlah Satker: ${records.length} Satker   |   Tanggal Cetak: ${printDateStr}   |   Basis Data: My Intress`, 12, 27.5);
+  doc.text(`Periode Evaluasi: ${periodeText}${klText}   |   Jumlah Satker: ${records.length} Satker   |   Tanggal Cetak: ${printDateStr}   |   Basis Data: My Intress`, 12, 18);
 
-  // --- 4. NOTICE BOX RESMI MY INTRESS ---
+  // --- 3. NOTICE BOX RESMI MY INTRESS ---
   // Container Background
   doc.setFillColor(255, 251, 235); // amber-50/yellow-50
   doc.setDrawColor(245, 158, 11);  // amber-500
   doc.setLineWidth(0.4);
-  doc.roundedRect(12, 30.5, 273, 11.5, 1.8, 1.8, 'FD');
+  doc.roundedRect(12, 21.5, 273, 11.5, 1.8, 1.8, 'FD');
 
   // Badge Tag "PETUNJUK SATKER"
   doc.setFillColor(217, 119, 6); // amber-600
-  doc.roundedRect(15, 32.2, 28, 4.2, 1, 1, 'F');
+  doc.roundedRect(15, 23.2, 28, 4.2, 1, 1, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(6.5);
   doc.setTextColor(255, 255, 255);
-  doc.text('PETUNJUK SATKER', 29, 35.2, { align: 'center' });
+  doc.text('PETUNJUK SATKER', 29, 26.2, { align: 'center' });
 
   // Breadcrumb path & instruction
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(120, 53, 15); // amber-950
-  doc.text('Silakan cek My Intress:', 46, 35.2);
+  doc.text('Silakan cek My Intress:', 46, 26.2);
 
   // Path highlight
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 58, 138); // blue path
-  doc.text('Tematik  >  Indikator Kinerja Pelaksanaan Anggaran  >  Indikator Kinerja Pelaksanaan Anggaran Satker  >  klik nilai Halaman III DIPA', 78, 35.2);
+  doc.text('Tematik  >  Indikator Kinerja Pelaksanaan Anggaran  >  Indikator Kinerja Pelaksanaan Anggaran Satker  >  klik nilai Halaman III DIPA', 78, 26.2);
 
   // Subtitle note
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.1);
   doc.setTextColor(146, 64, 14);
-  doc.text('untuk melakukan cek kesesuaian RPD (Matriks di bawah ini menyajikan nominal selisih/deviasi Rupiah per jenis belanja tanpa menyajikan angka RPD dan Realisasi).', 15, 39.8);
+  doc.text('untuk melakukan cek kesesuaian RPD (Matriks di bawah ini menyajikan nominal selisih/deviasi Rupiah per jenis belanja tanpa menyajikan angka RPD dan Realisasi).', 15, 30.8);
 
   // --- 5. TABLE SETUP WITH 2-TIER HEADER (TANPA STATUS & TANPA TOTAL DEVIASI) ---
   // Row 1 & Row 2 headers
@@ -1392,7 +1309,7 @@ export function exportDeviasiHal3ToPDF(
   autoTable(doc, {
     head: [headRow1 as any, headRow2 as any],
     body: tableRows,
-    startY: 44,
+    startY: 35,
     margin: { left: 12, right: 12, top: 18, bottom: 14 },
     theme: 'grid',
     showHead: 'everyPage',
@@ -1627,66 +1544,33 @@ export function exportPengelolaanUPToPDF(
   doc.setFillColor(212, 175, 55); // Kemenkeu Gold #D4AF37
   doc.rect(0, 3.2, 297, 1, 'F');
 
-  // --- 2. HEADER KOP INSTANSI RESMI KEMENKEU DENGAN EMBLEM VEKTOR ---
-  drawKemenkeuEmblem(doc, 12, 6.5, 14.5);
-
-  const kopTextX = 29.5;
+  // --- 2. JUDUL LAPORAN & SUBTITLE (Tanpa Header Kop Surat) ---
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setTextColor(15, 47, 87);
-  doc.text('KEMENTERIAN KEUANGAN REPUBLIK INDONESIA', kopTextX, 9.8);
-
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 64, 175); // Blue-700
-  doc.text('DIREKTORAT JENDERAL PERBENDAHARAAN', kopTextX, 13.8);
-
-  doc.setFontSize(7.2);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(71, 85, 105);
-  doc.text('KANTOR WILAYAH PROVINSI JAWA TENGAH', kopTextX, 17.2);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.setTextColor(15, 23, 42);
-  doc.text('KANTOR PELAYANAN PERBENDAHARAAN NEGARA TIPE A1 SEMARANG I', kopTextX, 20.8);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(6.5);
-  doc.setTextColor(100, 116, 139);
-  doc.text('Jalan Ki Mangunsarkoro No. 34, Semarang 50241 | Telepon (024) 8412850 | Laman: djpb.kemenkeu.go.id/kppn/semarang1', kopTextX, 24);
-
-  // Garis Ganda Pembatas Kop Surat Kemenkeu
-  doc.setDrawColor(15, 47, 87);
-  doc.setLineWidth(0.65);
-  doc.line(12, 26, 285, 26);
-
-  doc.setDrawColor(212, 175, 55);
-  doc.setLineWidth(0.3);
-  doc.line(12, 27.1, 285, 27.1);
-
-  // --- 3. JUDUL LAPORAN & SUBTITLE ---
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(15, 47, 87);
-  doc.text(docTitle, 12, 32.5);
+  doc.text(docTitle, 12, 11);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(153, 27, 27); // Dark Red / Crimson
-  doc.text(docSubtitle, 12, 36.8);
+  doc.text(docSubtitle, 12, 15.5);
 
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(7.2);
   doc.setTextColor(71, 85, 105);
   doc.text(
     `Tanggal Acuan: ${refDateStr}   |   Waktu Unduh: ${printDateStr}, ${printTimeStr}   |   Kategori: ${filterBadge}   |   ${updateInfo}`,
     12,
-    41
+    20
   );
 
-  // --- 4. EXECUTIVE SUMMARY METRIC CARDS ---
-  const cardY = 43.5;
+  // Garis Pembatas Halus di Bawah Judul
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(12, 22.2, 285, 22.2);
+
+  // --- 3. EXECUTIVE SUMMARY METRIC CARDS ---
+  const cardY = 24.5;
   const cardH = 11.5;
   const cardW = 44;
   const gap = 3.5;

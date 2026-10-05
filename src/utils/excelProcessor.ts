@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { SatkerIKPA, UploadLog, MasterSatker } from '../types';
-import { hitungTotalIKPA, getPredikatIKPA } from '../data/initialSatkerData';
+import { hitungTotalIKPA, getPredikatIKPA, INITIAL_SATKER_DATA } from '../data/initialSatkerData';
 
 export interface ProcessedExcelResult {
   satkers: SatkerIKPA[];
@@ -169,8 +169,12 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
           // Explicitly IKPA requested -> ALWAYS parse as IKPA
           isCaputFormat = false;
         } else if (requestedCategory === 'CAPAIAN_OUTPUT') {
-          // Explicitly requested as Capaian Output -> ALWAYS parse as Capaian Output
-          isCaputFormat = true;
+          // If explicitly requested as Capaian Output, only use Caput format if it does NOT have full IKPA columns
+          if (!hasIKPAColumns) {
+            isCaputFormat = true;
+          } else {
+            isCaputFormat = false;
+          }
         } else {
           // Auto-detection: Only treat as Caput if NO IKPA columns exist AND it matches Caput report patterns
           if (!hasIKPAColumns) {
@@ -183,35 +187,20 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
                 (rowStr.includes('kode') && (rowStr.includes('data masuk') || rowStr.includes('status penyampaian')))
               ) {
                 isCaputFormat = true;
+                caputHeaderRow = i;
                 break;
               }
             }
           }
         }
 
-        if (isCaputFormat) {
-          // Find the actual table headers row (must contain kode satker and not be just a title banner)
-          for (let i = 0; i < Math.min(30, matrix.length); i++) {
+        if (isCaputFormat && caputHeaderRow === -1) {
+          for (let i = 0; i < Math.min(25, matrix.length); i++) {
             if (!matrix[i]) continue;
             const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
-            const hasKodeCol = rowStr.includes('kode') || rowStr.includes('kdsatker') || rowStr.includes('satker');
-            const hasStatusCol = rowStr.includes('status') || rowStr.includes('penyampaian') || rowStr.includes('data masuk') || rowStr.includes('output') || rowStr.includes('capaian') || rowStr.includes('upload');
-            const hasNamaCol = rowStr.includes('nama') || rowStr.includes('nmsatker') || rowStr.includes('satuan kerja') || rowStr.includes('kppn');
-            const isTitleOnly = rowStr.startsWith('rekap') && !hasNamaCol && !rowStr.includes('no');
-
-            if (!isTitleOnly && hasKodeCol && (hasStatusCol || hasNamaCol)) {
+            if (rowStr.includes('kode') || rowStr.includes('satker')) {
               caputHeaderRow = i;
               break;
-            }
-          }
-          if (caputHeaderRow === -1) {
-            for (let i = 0; i < Math.min(25, matrix.length); i++) {
-              if (!matrix[i]) continue;
-              const rowStr = matrix[i].map(c => String(c).toLowerCase()).join(' ');
-              if (rowStr.includes('kode satker') || rowStr.includes('kdsatker') || (rowStr.includes('kode') && rowStr.includes('nama'))) {
-                caputHeaderRow = i;
-                break;
-              }
             }
           }
           if (caputHeaderRow === -1) caputHeaderRow = 0;
@@ -223,42 +212,21 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
         const notes: string[] = [];
 
         if (isCaputFormat && caputHeaderRow !== -1) {
-          let colKode = -1;
-          let colNama = -1;
-          let colPersen = -1;
+          // Column E = index 4 (Kode Satker)
+          // Column F = index 5 (Nama Satuan Kerja)
+          // Column O = index 14 (Status Penyampaian)
+          let colKode = 4;
+          let colNama = 5;
+          let colPersen = 14;
           
-          // Check both header row and next row (for merged 2-row table headers)
-          const headerRowsToCheck = [matrix[caputHeaderRow], matrix[caputHeaderRow + 1]].filter(Boolean);
-          headerRowsToCheck.forEach(hRow => {
-            hRow.forEach((colVal: any, cIdx: number) => {
-              const cStr = String(colVal || '').trim().toLowerCase();
-              if (colKode === -1 && (cStr.includes('kode satker') || cStr === 'kdsatker' || cStr === 'kd satker' || (cStr.includes('kode') && !cStr.includes('koderincian') && !cStr.includes('kppn') && !cStr.includes('ba')))) {
-                colKode = cIdx;
-              }
-              if (colNama === -1 && (cStr.includes('nama satker') || cStr === 'nmsatker' || cStr === 'nm satker' || cStr.includes('satuan kerja') || cStr === 'nama')) {
-                colNama = cIdx;
-              }
-              if (colPersen === -1 && (
-                cStr.includes('status penyampaian') ||
-                cStr.includes('data masuk') ||
-                cStr.includes('status lapor') ||
-                cStr.includes('status pelaporan') ||
-                cStr.includes('progress') ||
-                cStr.includes('upload') ||
-                cStr.includes('terlaporkan') ||
-                cStr.includes('capaian output') ||
-                cStr === 'status' ||
-                cStr === '%'
-              )) {
-                colPersen = cIdx;
-              }
+          if (matrix[caputHeaderRow]) {
+            matrix[caputHeaderRow].forEach((colVal: any, cIdx: number) => {
+              const cStr = String(colVal).toLowerCase();
+              if (cStr.includes('kode satker') || cStr.includes('kdsatker') || (cStr.includes('kode') && !cStr.includes('koderincian'))) colKode = cIdx;
+              if (cStr.includes('nama satker') || cStr.includes('nmsatker') || cStr.includes('satuan kerja') || cStr === 'nama') colNama = cIdx;
+              if (cStr.includes('status penyampaian') || cStr.includes('data masuk') || cStr.includes('upload') || cStr.includes('status')) colPersen = cIdx;
             });
-          });
-
-          // Fallbacks if columns not identified by name
-          if (colKode === -1) colKode = 4;
-          if (colNama === -1) colNama = 5;
-          if (colPersen === -1) colPersen = 14;
+          }
 
           let zeroCaputCount = 0;
           let terlaporkanCaputCount = 0;
@@ -273,38 +241,31 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               for (let c = 0; c < row.length; c++) {
                 const cellStr = String(row[c] || '').trim();
                 if (/^\d{5,6}$/.test(cellStr)) {
-                  rawKode = cellStr;
-                  if (row[c + 1] && colNama === -1) colNama = c + 1;
-                  break;
+                  const potentialKode = cellStr.padStart(6, '0');
+                  if (INITIAL_SATKER_DATA.some(m => m.kodeSatker === potentialKode)) {
+                    rawKode = cellStr;
+                    if (row[c + 1]) colNama = c + 1;
+                    break;
+                  }
                 }
               }
             }
 
             if (rawKode && /^\d{5,6}$/.test(rawKode)) {
               const kodeSatker = rawKode.padStart(6, '0');
-              const rawNama = row[colNama] !== undefined ? cleanText(row[colNama] || '') : '';
-              const namaSatker = rawNama || `SATKER ${kodeSatker}`;
-              
-              // Find status: first check target column, then fallback to scanning all row cells for status keywords
-              let rawStatusStr = String(row[colPersen] !== undefined ? row[colPersen] : '').trim();
-              
-              // Intelligent cell-level scanner: if rawStatusStr is empty or not conclusive, search row for 'sudah', 'belum', or percentage
-              let explicitKeywordMatch: 'Sudah' | 'Belum' | null = null;
-              for (let c = 0; c < row.length; c++) {
-                const cVal = String(row[c] || '').trim().toLowerCase();
-                if (cVal === 'sudah terlaporkan' || cVal === 'sudah lapor' || cVal === 'terlaporkan' || cVal === 'sudah') {
-                  explicitKeywordMatch = 'Sudah';
-                  break;
-                }
-                if (cVal === 'belum terlaporkan' || cVal === 'belum lapor' || cVal === 'belum' || cVal === '0%' || cVal === '0,00%' || cVal === '0.00%') {
-                  explicitKeywordMatch = 'Belum';
-                  break;
-                }
+              const registeredSatker = INITIAL_SATKER_DATA.find(m => m.kodeSatker === kodeSatker);
+              // Only process recognized Satkers of KPPN Semarang I to preserve exactly 127 registered satkers
+              if (!registeredSatker) {
+                continue;
               }
-
+              const rawNama = row[colNama] !== undefined ? cleanText(row[colNama] || '') : '';
+              const namaSatker = registeredSatker.namaSatker || rawNama || `SATKER ${kodeSatker}`;
+              
+              // Target Column O (index 14) for Status Penyampaian / % Data
+              const rawStatusStr = String(row[colPersen] !== undefined ? row[colPersen] : (row[14] !== undefined ? row[14] : '')).trim();
               const lowerStatus = rawStatusStr.toLowerCase();
+
               const isZeroPercent = 
-                explicitKeywordMatch === 'Belum' ||
                 lowerStatus === '0%' || 
                 lowerStatus === '0' || 
                 lowerStatus === '0.00%' || 
@@ -317,7 +278,7 @@ export async function processExcelFile(file: File, requestedCategory?: string): 
               let statusCapaianOutput: SatkerIKPA['statusCapaianOutput'] = 'Sudah Terlaporkan';
               let capaianOutputScore = 100;
 
-              if (isZeroPercent && explicitKeywordMatch !== 'Sudah') {
+              if (isZeroPercent) {
                 statusCapaianOutput = 'Belum Terlaporkan';
                 capaianOutputScore = 0;
                 zeroCaputCount++;
