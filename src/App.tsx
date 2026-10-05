@@ -1263,16 +1263,6 @@ export default function App() {
           const data = snap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
-              const serverUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
-              const localUpdatedAtStr = safeLocalStorageGet('kppn_satker_data_updatedAt');
-              const localUpdatedAt = localUpdatedAtStr ? new Date(localUpdatedAtStr).getTime() : 0;
-
-              // If local data in browser is newer than server, auto-propagate to Firestore immediately
-              if (localUpdatedAt > serverUpdatedAt && currentLocal.length > 0) {
-                syncSatkersToFirebase(currentLocal);
-                return currentLocal;
-              }
-
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               if (data.updatedAt) {
@@ -1781,7 +1771,10 @@ export default function App() {
                 sidebarConfig: cleanSidebar,
                 peraturanPerbendaharaanList: cleanPeraturan,
                 kegiatanSosialisasi: cleanKegiatan,
-                historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || []
+                // Preserve full historicalUploads archives (with satkersData) from the dedicated collection
+                historicalUploads: (prev.historicalUploads && prev.historicalUploads.length > 0 && prev.historicalUploads.some(h => (h.satkersData || []).length > 0))
+                  ? prev.historicalUploads
+                  : (Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || [])
               };
               if (JSON.stringify(updated) === JSON.stringify(prev)) {
                 return prev;
@@ -1850,16 +1843,6 @@ export default function App() {
           const data = docSnap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
             setSatkers(currentLocal => {
-              const serverUpdatedAt = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
-              const localUpdatedAtStr = safeLocalStorageGet('kppn_satker_data_updatedAt');
-              const localUpdatedAt = localUpdatedAtStr ? new Date(localUpdatedAtStr).getTime() : 0;
-
-              // If local in browser has unpushed updates that are newer, push up
-              if (localUpdatedAt > serverUpdatedAt && currentLocal.length > 0) {
-                syncSatkersToFirebase(currentLocal);
-                return currentLocal;
-              }
-
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
               if (data.updatedAt) {
@@ -3425,7 +3408,7 @@ export default function App() {
         // When managing Capaian Output tab: newSatkers has authoritative control over hasCapaianOutputData
         let effectiveHasCaput = false;
         if (targetTab === 'capaian-output') {
-          effectiveHasCaput = newS.hasCapaianOutputData === true;
+          effectiveHasCaput = newS.hasCapaianOutputData === true || !!newS.statusCapaianOutput;
         } else {
           effectiveHasCaput = isNewCaput || existingHasCaput;
         }
@@ -3446,7 +3429,7 @@ export default function App() {
           : (existingHasCaput ? existing.statusCapaianOutput : (newS.statusCapaianOutput || 'Belum Terlaporkan'));
 
         const effectiveCaputValue = targetTab === 'capaian-output'
-          ? (effectiveHasCaput ? (newS.indikator?.capaianOutput || 0) : 0)
+          ? (effectiveHasCaput ? (typeof newS.indikator?.capaianOutput === 'number' && newS.indikator.capaianOutput > 0 ? newS.indikator.capaianOutput : (effectiveStatusCaput === 'Sudah Terlaporkan' ? 100 : 0)) : 0)
           : (existingHasCaput ? (existing.indikator?.capaianOutput || 0) : (newS.indikator?.capaianOutput || 0));
 
         const mergedIndikator = {

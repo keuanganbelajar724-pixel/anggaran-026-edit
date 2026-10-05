@@ -165,13 +165,42 @@ async function startServer() {
   });
 
   // Dedicated historical upload archive endpoints for robust fallback
+  let inMemoryHistoricalUploads: any[] = [];
+  try {
+    const histPath = path.join(process.cwd(), 'historical_uploads_generated.json');
+    if (fs.existsSync(histPath)) {
+      inMemoryHistoricalUploads = JSON.parse(fs.readFileSync(histPath, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('Could not load historical_uploads_generated.json on server start:', e);
+  }
+
   app.get('/api/data/historical_uploads', (_req, res) => {
-    const list = inMemorySettings?.dashboardConfig?.historicalUploads || inMemorySettings?.historicalUploads || [];
+    const list = (inMemoryHistoricalUploads && inMemoryHistoricalUploads.length > 0)
+      ? inMemoryHistoricalUploads
+      : (inMemorySettings?.dashboardConfig?.historicalUploads || inMemorySettings?.historicalUploads || []);
     res.json({
       status: 'ok',
       count: Array.isArray(list) ? list.length : 0,
       list: Array.isArray(list) ? list : [],
     });
+  });
+
+  app.post('/api/data/historical_uploads', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list)) {
+        inMemoryHistoricalUploads = list;
+        const histPath = path.join(process.cwd(), 'historical_uploads_generated.json');
+        fs.writeFile(histPath, JSON.stringify(list, null, 2), (err) => {
+          if (err) console.warn('Server disk backup historical uploads notice:', err);
+        });
+        return res.json({ status: 'ok', count: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid list payload' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
   });
 
   // Kontrak Monitoring Persistence Endpoints (Dual-Backup to prevent data loss)
