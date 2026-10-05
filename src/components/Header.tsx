@@ -81,6 +81,7 @@ interface HeaderProps {
   transaksiKkpCount?: number;
   transaksiDigipayCount?: number;
   spmPppCount?: number;
+  dispensasiCount?: number;
   onOpenBroadcastLibrary?: () => void;
   slideShowConfig?: SlideShowConfig;
   onOpenAdminSlideShow?: () => void;
@@ -116,6 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
   transaksiKkpCount = 0,
   transaksiDigipayCount = 0,
   spmPppCount = 0,
+  dispensasiCount = 0,
   onOpenBroadcastLibrary,
   slideShowConfig,
   onOpenAdminSlideShow,
@@ -277,6 +279,19 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <FileSpreadsheet className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-indigo-950 text-indigo-200 border border-indigo-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Khusus Deviasi</span>,
       activeColor: 'bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30 ring-2 ring-indigo-400/50'
+    },
+    {
+      id: 'dispensasi-ikpa',
+      label: 'Dispensasi IKPA',
+      icon: <Scale className="w-4 h-4 text-amber-300" />,
+      badge: dispensasiCount > 0 ? (
+        <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">
+          {dispensasiCount} Berkas
+        </span>
+      ) : (
+        <span className="bg-amber-950 text-amber-200 border border-amber-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Dispensasi</span>
+      ),
+      activeColor: 'bg-gradient-to-r from-amber-600 via-orange-600 to-indigo-700 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-400/50'
     },
     {
       id: 'spm-ppp',

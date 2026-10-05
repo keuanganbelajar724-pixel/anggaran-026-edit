@@ -37,8 +37,10 @@ import {
   SPMGajiUploadBatch,
   HAICSOTicket,
   HAICSOUploadBatch,
-  HAICSODashboardSettings
+  HAICSODashboardSettings,
+  DispensasiIKPARecord
 } from '../types';
+import { DispensasiAdminCsoSection } from './admin/DispensasiAdminCsoSection';
 import { HaiCsoAdminDashboard } from './haicso/HaiCsoAdminDashboard';
 import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
 import { deduplicateHistoricalUploads } from '../utils/firebaseStorageOptimizer';
@@ -202,7 +204,8 @@ import {
   Ticket,
   UploadCloud,
   LayoutGrid,
-  HelpCircle
+  HelpCircle,
+  Scale
 } from 'lucide-react';
 
 const EMPTY_UP_FALLBACK: PengelolaanUPRecord[] = [];
@@ -297,6 +300,8 @@ interface AdminUploadProps {
   onNavigateTab?: (tab: NavigationTab) => void;
   konfirmasiKegiatanList?: UndanganKonfirmasiKegiatan[];
   konfirmasiKehadiranList?: KonfirmasiKehadiranRecord[];
+  dispensasiRecords?: DispensasiIKPARecord[];
+  onApplyDispensasiRecords?: (records: DispensasiIKPARecord[]) => void;
   onSaveKonfirmasiKegiatan?: (kegiatan: UndanganKonfirmasiKegiatan) => void;
   onDeleteKonfirmasiKegiatan?: (kegiatanId: string) => void;
   onSaveKonfirmasiKehadiran?: (record: KonfirmasiKehadiranRecord) => void;
@@ -507,6 +512,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onNavigateTab,
   konfirmasiKegiatanList = [],
   konfirmasiKehadiranList = [],
+  dispensasiRecords = [],
+  onApplyDispensasiRecords,
   onSaveKonfirmasiKegiatan,
   onDeleteKonfirmasiKegiatan,
   onSaveKonfirmasiKehadiran,
@@ -527,7 +534,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat' | 'formulir-survei'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat' | 'formulir-survei' | 'dispensasi-cso'>('upload');
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3864,6 +3871,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               </span>
             </button>
           )}
+
+          {/* 23. Monitoring Dispensasi & Dokumen CSO (Khusus Admin) */}
+          <button
+            onClick={() => setAdminTab('dispensasi-cso')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'dispensasi-cso'
+                ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-indigo-700 text-white shadow-lg border-2 border-amber-300 ring-4 ring-amber-400/40 scale-[1.03]'
+                : 'bg-white/80 dark:bg-slate-800/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-amber-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Scale className={`w-4 h-4 shrink-0 ${adminTab === 'dispensasi-cso' ? 'text-white' : 'text-amber-500'}`} />
+              <span className="truncate">23. Monitoring Dispensasi &amp; Dokumen CSO</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-amber-400 text-slate-950 font-bold">
+              {dispensasiRecords.length} BERKAS
+            </span>
+          </button>
         </div>
       </div>
 
@@ -4571,6 +4596,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                         'capaian-output',
                         'diagnostik-caput',
                         'deviasi-hal3',
+                        'dispensasi-ikpa',
                         'spm-ppp',
                         'pengelolaan-up',
                         'transaksi-kkp',
@@ -4785,7 +4811,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'monitoring-haicso': '🎫 Tiket HAICSO',
                       'kontrak': '📑 Data Kontrak',
                       'quiz-cat': '🎯 Kuis CAT & Kompetensi',
-                      'formulir-survei': '📝 Formulir & Survei (Google Form)'
+                      'formulir-survei': '📝 Formulir & Survei (Google Form)',
+                      'dispensasi-ikpa': '⚖️ Pengajuan Dispensasi IKPA'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -4794,6 +4821,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'capaian-output',
                       'diagnostik-caput',
                       'deviasi-hal3',
+                      'dispensasi-ikpa',
                       'spm-ppp',
                       'pengelolaan-up',
                       'transaksi-kkp',
@@ -4869,7 +4897,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'monitoring-haicso': { label: '🎫 Monitoring Tiket HAICSO', desc: 'Monitoring tiket layanan HAICSO masuk dari Satker, filter triwulan, status tindak lanjut, & IKU KPPN', category: 'HAICSO', badgeColor: 'bg-amber-100 text-amber-800' },
                     'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' },
-                    'formulir-survei': { label: '📝 Formulir & Survei (Google Form)', desc: 'Kuesioner survei kepuasan layanan & integritas Satker, pembaca respon Google Form & grafik otomatis', category: 'Survei', badgeColor: 'bg-sky-100 text-sky-800' }
+                    'formulir-survei': { label: '📝 Formulir & Survei (Google Form)', desc: 'Kuesioner survei kepuasan layanan & integritas Satker, pembaca respon Google Form & grafik otomatis', category: 'Survei', badgeColor: 'bg-sky-100 text-sky-800' },
+                    'dispensasi-ikpa': { label: '⚖️ Pengajuan & Monitoring Dispensasi IKPA', desc: 'Monitoring surat permohonan dispensasi IKPA Satker (Diterima KPPN -> Posisi Kanwil -> Posisi Kanpus -> Putusan Final Kantor Pusat)', category: 'Dispensasi', badgeColor: 'bg-amber-100 text-amber-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4878,6 +4907,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'capaian-output',
                     'diagnostik-caput',
                     'deviasi-hal3',
+                    'dispensasi-ikpa',
                     'spm-ppp',
                     'pengelolaan-up',
                     'transaksi-kkp',
@@ -11555,6 +11585,35 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               menuVisibility: {
                 ...tempConfig.menuVisibility,
                 'formulir-survei': active
+              }
+            };
+            setTempConfig(updatedConfig);
+            if (onUpdateDashboardConfig) {
+              onUpdateDashboardConfig(updatedConfig);
+            }
+          }}
+        />
+      )}
+
+      {/* 23. Monitoring Dispensasi IKPA & Dokumen CSO (Khusus Admin Super) */}
+      {adminTab === 'dispensasi-cso' && (
+        <DispensasiAdminCsoSection
+          records={dispensasiRecords}
+          satkers={satkers}
+          onSaveRecords={(records) => {
+            if (onApplyDispensasiRecords) {
+              onApplyDispensasiRecords(records);
+            }
+          }}
+          currentUser={currentUser}
+          theme={theme}
+          isDashboardActive={tempConfig?.menuVisibility?.['dispensasi-ikpa'] ?? true}
+          onToggleDashboardActive={async (active) => {
+            const updatedConfig = {
+              ...tempConfig,
+              menuVisibility: {
+                ...tempConfig.menuVisibility,
+                'dispensasi-ikpa': active
               }
             };
             setTempConfig(updatedConfig);

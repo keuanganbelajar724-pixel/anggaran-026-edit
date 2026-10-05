@@ -1121,6 +1121,7 @@ export interface MenuVisibilityConfig {
   'capaian-output': boolean;
   'diagnostik-caput'?: boolean;
   'deviasi-hal3'?: boolean;
+  'dispensasi-ikpa'?: boolean;
   'spm-ppp'?: boolean;
   'pengelolaan-up'?: boolean;
   'transaksi-kkp'?: boolean;
@@ -1548,6 +1549,7 @@ export type NavigationTab =
   | 'capaian-output' 
   | 'diagnostik-caput'
   | 'deviasi-hal3'
+  | 'dispensasi-ikpa'
   | 'spm-ppp'
   | 'pengelolaan-up'
   | 'transaksi-kkp'
@@ -1575,6 +1577,70 @@ export type NavigationTab =
   | 'admin' 
   | 'reminder' 
   | 'guide';
+
+// -------------------------------------------------------------
+// MODEL PENGAJUAN DISPENSASI IKPA SATKER (CSO -> KPPN -> KANWIL -> PUSAT)
+// -------------------------------------------------------------
+export type DispensasiIKPAStatus = 
+  | 'DIAJUKAN_CSO'        // Baru masuk ke CSO KPPN
+  | 'VERIFIKASI_KPPN'     // Dalam Proses Verifikasi KPPN (Seksi MSKI / PDMS)
+  | 'VERIFIKASI_KANWIL'   // Dalam Proses Verifikasi Kanwil DJPb
+  | 'DIAJUKAN_PUSAT'      // Sedang Diajukan ke Kantor Pusat DJPb
+  | 'DISETUJUI'           // Disetujui (Dispensasi Diterbitkan)
+  | 'DITOLAK'             // Ditolak / Tidak Memenuhi Syarat
+  | 'PERBAIKAN_DOKUMEN';  // Perbaikan / Menunggu Kelengkapan Dokumen
+
+export type JenisDispensasiIKPA =
+  | 'DISPENSASI_SPM'        // Dispensasi SPM Terlambat / Akhir Tahun
+  | 'DEVIASI_HAL3'          // Dispensasi Deviasi Halaman III DIPA
+  | 'KONTRAKTUAL'           // Dispensasi Pendaftaran Kontrak / Data Kontrak
+  | 'CAPAIAN_OUTPUT'        // Dispensasi Konfirmasi / Pelaporan Capaian Output
+  | 'UP_TUP'                // Dispensasi Pengelolaan UP/TUP / GUP
+  | 'LAINNYA';              // Lainnya / Force Majeure
+
+export interface DispensasiChecklistTahapan {
+  csoDiterima?: boolean;
+  csoTanggal?: string;
+  csoPetugas?: string;
+  kppnVerifikasi?: boolean;
+  kppnTanggal?: string;
+  kppnCatatan?: string;
+  kanwilVerifikasi?: boolean;
+  kanwilTanggal?: string;
+  kanwilCatatan?: string;
+  pusatDiajukan?: boolean;
+  pusatTanggal?: string;
+  pusatCatatan?: string;
+  keputusanFinal?: boolean;
+  keputusanTanggal?: string;
+}
+
+export interface DispensasiIKPARecord {
+  id: string;
+  nomorTiket: string;            // e.g. "DISP-2026-001"
+  kodeSatker: string;            // 6 digit kode satker
+  namaSatker: string;
+  kementerianLembaga?: string;
+  nomorSurat: string;            // Nomor surat permohonan satker
+  tanggalSurat: string;          // Tanggal surat satker
+  tanggalPengajuan: string;      // Tanggal diserahkan ke CSO KPPN
+  jenisDispensasi: JenisDispensasiIKPA;
+  alasanDispensasi: string;      // Uraian permohonan/kendala
+  linkDokumenCso: string;        // URL Dokumen/Google Drive yang diajukan ke CSO
+  linkDokumenPendukung?: string; // Lampiran SPTJM, screenshot, dll
+  namaPemohon?: string;
+  jabatanPemohon?: string;       // KPA / PPK / PPSPM / Bendahara / Operator
+  kontakPemohon?: string;        // No HP / WhatsApp
+  emailPemohon?: string;
+  status: DispensasiIKPAStatus;
+  checklistTahapan?: DispensasiChecklistTahapan;
+  nomorSuratHasil?: string;      // Nomor Surat Persetujuan/Penolakan jika terbit
+  tanggalSuratHasil?: string;
+  linkSuratHasil?: string;       // Link download surat keputusan hasil dispensasi
+  catatanAdmin?: string;         // Catatan arahan dari Admin KPPN
+  updatedAt: string;
+  updatedBy?: string;
+}
 
 // -------------------------------------------------------------
 // KONFIGURASI TARGET TRIWULANAN REALISASI ANGGARAN (MY INTRESS)

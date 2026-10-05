@@ -3,7 +3,7 @@ import { fetchSintesaFromFirestore, fetchMyIntressFromFirestore, saveMyIntressTo
 import React, { useState, useEffect, useMemo } from 'react';
 import { Lock, Database, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { db, doc, onSnapshot, setDoc, getDoc } from './lib/firebase';
-import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch, HAICSOTicket, HAICSOUploadBatch, HAICSODashboardSettings } from './types';
+import { SatkerIKPA, DashboardConfig, NavigationTab, AppTheme, Announcement, PejabatSertifikasi, MenuVisibilityConfig, ExcelUploadHistory, KegiatanSosialisasi, PresensiKegiatan, PesertaPresensi, UndanganKonfirmasiKegiatan, KonfirmasiKehadiranRecord, MasterSatker, PengelolaanUPRecord, TransaksiKKPRecord, DigipayRecord, DeviasiHal3Record, SPMPPPRecord, DispensasiIKPARecord, PresensiPrintConfig, MyIntressRecord, RealisasiAnggaranConfig, MonitoringRekonsiliasiRecord, MonitoringRekonsiliasiUploadBatch, MonitoringLPJRecord, LPJUploadBatch, SPMGajiRecord, SPMGajiUploadBatch, HAICSOTicket, HAICSOUploadBatch, HAICSODashboardSettings } from './types';
 import * as XLSX from 'xlsx';
 import { RekonsiliasiDashboard } from './components/rekonsiliasi/RekonsiliasiDashboard';
 import { parseMonitoringRekonsiliasiWorkbook, generateSampleMonitoringKepatuhanExcel } from './utils/rekonsiliasiExcelParser';
@@ -53,6 +53,7 @@ import { INITIAL_TRANSAKSI_KKP_DATA } from './data/initialKKPData';
 import { INITIAL_DIGIPAY_DATA } from './data/initialDigipayData';
 import { INITIAL_DEVIASI_HAL3_DATA } from './data/initialDeviasiHal3Data';
 import { INITIAL_SPM_PPP_DATA } from './data/initialSPMPPPData';
+import { INITIAL_DISPENSASI_IKPA_DATA } from './data/initialDispensasiData';
 import { INITIAL_SLIDESHOW_CONFIG, sanitizeSlideShowConfig } from './data/initialSlideShowData';
 import { loadCloudGeminiConfig } from './services/geminiService';
 import { AppUser } from './types/user';
@@ -73,6 +74,7 @@ import { PengelolaanUPDashboard } from './components/PengelolaanUPDashboard';
 import { TransaksiKKPDashboard } from './components/TransaksiKKPDashboard';
 import { TransaksiDigipayDashboard } from './components/TransaksiDigipayDashboard';
 import { DeviasiHal3Dashboard } from './components/DeviasiHal3Dashboard';
+import { DispensasiIKPADashboard } from './components/DispensasiIKPADashboard';
 import { SPMPPPDashboard } from './components/SPMPPPDashboard';
 import { KelolaDataSatkerDashboard } from './components/KelolaDataSatkerDashboard';
 import { PengumumanTab } from './components/PengumumanTab';
@@ -127,6 +129,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'capaian-output': true,
   'diagnostik-caput': true,
   'deviasi-hal3': true,
+  'dispensasi-ikpa': true,
   'spm-ppp': true,
   'pengelolaan-up': true,
   'transaksi-kkp': true,
@@ -2123,6 +2126,19 @@ export default function App() {
         console.warn("Firebase Gaji Induk listener notice:", error);
       });
 
+      // 17. Realtime Dispensasi IKPA Satker Data
+      const unsubDispensasi = onSnapshot(doc(db, 'data', 'dispensasi_ikpa'), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDispensasiList(data.list);
+            safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(data.list));
+          }
+        }
+      }, (error) => {
+        console.warn("Firebase Dispensasi IKPA listener notice:", error);
+      });
+
       const unsubUsers = subscribeUsers((users) => {
         const active = getCurrentUser();
         if (active) {
@@ -2172,6 +2188,7 @@ export default function App() {
         unsubRekonsiliasi();
         unsubLPJ();
         unsubGajiInduk();
+        unsubDispensasi();
       };
     } catch (e) {
       console.warn("Firebase Firestore setup notice:", e);
@@ -2811,6 +2828,45 @@ export default function App() {
     }
   };
 
+  // Dispensasi IKPA Satker State & Persistence
+  const [dispensasiList, setDispensasiList] = useState<DispensasiIKPARecord[]>(() => {
+    const saved = localStorage.getItem('kppn_dispensasi_ikpa_data');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Error parsing saved dispensasi IKPA data:', e);
+      }
+    }
+    return INITIAL_DISPENSASI_IKPA_DATA;
+  });
+
+  useEffect(() => {
+    try {
+      safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(dispensasiList));
+    } catch (e) {
+      console.warn('Error saving dispensasi IKPA data to localStorage:', e);
+    }
+  }, [dispensasiList]);
+
+  const handleUpdateDispensasiRecords = (newList: DispensasiIKPARecord[]) => {
+    if (notifyTamuBlocked('memperbarui data dispensasi IKPA')) return;
+    const listToSave = Array.isArray(newList) ? newList : [];
+    setDispensasiList(listToSave);
+    try {
+      safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(listToSave));
+      setDoc(doc(db, 'data', 'dispensasi_ikpa'), { 
+        list: listToSave, 
+        updatedAt: new Date().toISOString() 
+      }).catch(err => console.warn("Firebase Dispensasi IKPA setDoc notice:", err));
+    } catch (e) {
+      console.warn("Error syncing Dispensasi IKPA to Firebase:", e);
+    }
+  };
+
   // SPM PPP (Tagihan Listrik & Internet Belum SPM) State & Persistence
   const [spmPppList, setSpmPppList] = useState<SPMPPPRecord[]>(() => {
     const saved = localStorage.getItem('kppn_spm_ppp_v4');
@@ -3305,6 +3361,12 @@ export default function App() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
+      // 9. Push Dispensasi IKPA
+      await setDoc(doc(db, 'data', 'dispensasi_ikpa'), {
+        list: dispensasiList,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
       // Dual-sync to server backup API
       fetch('/api/data/satkers', {
         method: 'POST',
@@ -3714,6 +3776,7 @@ export default function App() {
         transaksiKkpCount={transaksiKkpList?.length || 0}
         transaksiDigipayCount={transaksiDigipayList?.length || 0}
         spmPppCount={spmPppList?.length || 0}
+        dispensasiCount={dispensasiList?.length || 0}
         onOpenBroadcastLibrary={() => setIsGlobalBroadcastLibraryOpen(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
@@ -3781,6 +3844,7 @@ export default function App() {
                       'capaian-output',
                       'diagnostik-caput',
                       'deviasi-hal3',
+                      'dispensasi-ikpa',
                       'spm-ppp',
                       'pengelolaan-up',
                       'transaksi-kkp',
@@ -3959,6 +4023,30 @@ export default function App() {
                   onAuthenticateAdmin={handleAuthenticateAdmin}
                   onLogoutAdmin={handleLogoutAdmin}
                   onGoToAdmin={() => setActiveTab('admin')}
+                />
+              )}
+
+              {/* Tab Dedicated: Pengajuan Dispensasi IKPA Satker & Monitoring Admin KPPN */}
+              {activeTab === 'dispensasi-ikpa' && (
+                <DispensasiIKPADashboard
+                  records={dispensasiList}
+                  satkers={satkers}
+                  onSaveRecords={handleUpdateDispensasiRecords}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  onGoToAdmin={() => setActiveTab('admin')}
+                  theme={theme}
+                  isDashboardActive={dashboardConfig.menuVisibility?.['dispensasi-ikpa'] ?? true}
+                  onToggleDashboardActive={async (active) => {
+                    const newConfig = {
+                      ...dashboardConfig,
+                      menuVisibility: {
+                        ...dashboardConfig.menuVisibility,
+                        'dispensasi-ikpa': active
+                      }
+                    };
+                    handleUpdateDashboardConfig(newConfig);
+                  }}
                 />
               )}
 
@@ -4330,6 +4418,8 @@ export default function App() {
                   onSaveKonfirmasiKehadiran={handleSaveKonfirmasiKehadiran}
                   onDeleteKonfirmasiKehadiran={handleDeleteKonfirmasiKehadiran}
                   onClearAllKonfirmasiKehadiran={handleClearAllKonfirmasiKehadiran}
+                  dispensasiRecords={dispensasiList}
+                  onApplyDispensasiRecords={handleUpdateDispensasiRecords}
                 />
               )}
 
