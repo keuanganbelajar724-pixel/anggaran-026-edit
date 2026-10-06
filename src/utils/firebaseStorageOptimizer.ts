@@ -151,8 +151,12 @@ export function compactHistoricalUploadsForFirestore(histories: ExcelUploadHisto
  * while safely preserving local contact details if server fields are empty.
  */
 export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: SatkerIKPA[]): SatkerIKPA[] {
-  if (!Array.isArray(serverList) || serverList.length === 0) {
+  if (!Array.isArray(serverList)) {
     return Array.isArray(localList) && localList.length > 0 ? localList : [];
+  }
+  if (serverList.length === 0) {
+    // If the server explicitly sent an empty list (e.g. data cleared), return empty array
+    return [];
   }
 
   const localSatkerMap = new Map<string, SatkerIKPA>();
@@ -164,19 +168,20 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     });
   }
 
-  // Iterate over serverList - Server is authoritative for real-time synchronization
+  // Iterate over serverList - Server is authoritative for real-time synchronization and deletion
   const mergedList = serverList.map(serverS => {
     const kode = serverS.kodeSatker?.trim();
     if (!kode) return serverS;
 
     const localS = localSatkerMap.get(kode);
-    if (!localS) return serverS;
 
     // Merge riwayatBulanan seamlessly
     const historyMap = new Map<string, any>();
-    (localS.riwayatBulanan || []).forEach(r => {
-      if (r && r.bulan) historyMap.set(r.bulan.trim().toLowerCase(), r);
-    });
+    if (localS) {
+      (localS.riwayatBulanan || []).forEach(r => {
+        if (r && r.bulan) historyMap.set(r.bulan.trim().toLowerCase(), r);
+      });
+    }
     (serverS.riwayatBulanan || []).forEach(r => {
       if (r && r.bulan) historyMap.set(r.bulan.trim().toLowerCase(), r);
     });
@@ -190,11 +195,11 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     // Single Central Database Authority:
     // Cloud Firestore server data is 100% authoritative for metrics, status, and indicators across all devices and browsers.
     // Local data only provides fallback for contact info if missing on the server.
-    const effectiveStatusCapaianOutput = serverS.statusCapaianOutput || localS.statusCapaianOutput || 'Belum Terlaporkan';
+    const effectiveStatusCapaianOutput = serverS.statusCapaianOutput || 'Belum Terlaporkan';
+    const effectiveHasCaput = !!serverS.hasCapaianOutputData;
     let effectiveCapaianOutputScore = typeof serverS.indikator?.capaianOutput === 'number'
       ? serverS.indikator.capaianOutput
-      : (typeof localS.indikator?.capaianOutput === 'number' ? localS.indikator.capaianOutput : 0);
-    const effectiveHasCaput = !!(serverS.hasCapaianOutputData ?? localS.hasCapaianOutputData);
+      : 0;
 
     if (effectiveCapaianOutputScore > 0 && effectiveCapaianOutputScore <= 1) {
       effectiveCapaianOutputScore = effectiveCapaianOutputScore * 100;
@@ -202,52 +207,51 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
     if (effectiveStatusCapaianOutput === 'Sudah Terlaporkan' && effectiveCapaianOutputScore === 0) {
       effectiveCapaianOutputScore = 100;
     }
+    if (effectiveStatusCapaianOutput === 'Belum Terlaporkan' && !effectiveHasCaput) {
+      effectiveCapaianOutputScore = 0;
+    }
 
     // Indikator: Server is authoritative
     const mergedIndikator = serverS.indikator ? {
-      revisiDipa: serverS.indikator.revisiDipa ?? localS.indikator?.revisiDipa ?? 0,
-      deviasiHal3Dipa: serverS.indikator.deviasiHal3Dipa ?? localS.indikator?.deviasiHal3Dipa ?? 0,
-      penyerapanAnggaran: serverS.indikator.penyerapanAnggaran ?? localS.indikator?.penyerapanAnggaran ?? 0,
-      belanjaKontraktual: serverS.indikator.belanjaKontraktual ?? localS.indikator?.belanjaKontraktual ?? 0,
-      penyelesaianTagihan: serverS.indikator.penyelesaianTagihan ?? localS.indikator?.penyelesaianTagihan ?? 0,
-      pengelolaanUpTup: serverS.indikator.pengelolaanUpTup ?? localS.indikator?.pengelolaanUpTup ?? 0,
-      dispensasiSpm: serverS.indikator.dispensasiSpm ?? localS.indikator?.dispensasiSpm ?? 0,
+      revisiDipa: Number(serverS.indikator.revisiDipa) || 0,
+      deviasiHal3Dipa: Number(serverS.indikator.deviasiHal3Dipa) || 0,
+      penyerapanAnggaran: Number(serverS.indikator.penyerapanAnggaran) || 0,
+      belanjaKontraktual: Number(serverS.indikator.belanjaKontraktual) || 0,
+      penyelesaianTagihan: Number(serverS.indikator.penyelesaianTagihan) || 0,
+      pengelolaanUpTup: Number(serverS.indikator.pengelolaanUpTup) || 0,
+      dispensasiSpm: Number(serverS.indikator.dispensasiSpm) || 0,
       capaianOutput: effectiveCapaianOutputScore
     } : {
-      ...(localS.indikator || {
-        revisiDipa: 0,
-        deviasiHal3Dipa: 0,
-        penyerapanAnggaran: 0,
-        belanjaKontraktual: 0,
-        penyelesaianTagihan: 0,
-        pengelolaanUpTup: 0,
-        dispensasiSpm: 0,
-        capaianOutput: 0
-      }),
+      revisiDipa: 0,
+      deviasiHal3Dipa: 0,
+      penyerapanAnggaran: 0,
+      belanjaKontraktual: 0,
+      penyelesaianTagihan: 0,
+      pengelolaanUpTup: 0,
+      dispensasiSpm: 0,
       capaianOutput: effectiveCapaianOutputScore
     };
 
     const res: any = {
-      ...localS,
       ...serverS, // Server provides authoritative base data
       hasCapaianOutputData: effectiveHasCaput,
       statusCapaianOutput: effectiveStatusCapaianOutput,
       indikator: mergedIndikator,
-      nilaiTotalIKPA: (Number(serverS.nilaiTotalIKPA) > 0) ? serverS.nilaiTotalIKPA : ((Number(localS.nilaiTotalIKPA) > 0) ? localS.nilaiTotalIKPA : 0),
-      paguAnggaran: (Number(serverS.paguAnggaran) > 0) ? serverS.paguAnggaran : (localS.paguAnggaran || 0),
-      realisasiAnggaran: (Number(serverS.realisasiAnggaran) > 0) ? serverS.realisasiAnggaran : (localS.realisasiAnggaran || 0),
-      persenPenyerapan: (Number(serverS.persenPenyerapan) > 0) ? serverS.persenPenyerapan : (localS.persenPenyerapan || 0),
-      riwayatBulanan: (serverS.riwayatBulanan && serverS.riwayatBulanan.length > 0)
+      nilaiTotalIKPA: typeof serverS.nilaiTotalIKPA === 'number' ? serverS.nilaiTotalIKPA : (Number(serverS.nilaiTotalIKPA) || 0),
+      paguAnggaran: typeof serverS.paguAnggaran === 'number' ? serverS.paguAnggaran : (Number(serverS.paguAnggaran) || 0),
+      realisasiAnggaran: typeof serverS.realisasiAnggaran === 'number' ? serverS.realisasiAnggaran : (Number(serverS.realisasiAnggaran) || 0),
+      persenPenyerapan: typeof serverS.persenPenyerapan === 'number' ? serverS.persenPenyerapan : (Number(serverS.persenPenyerapan) || 0),
+      riwayatBulanan: Array.isArray(serverS.riwayatBulanan) && serverS.riwayatBulanan.length > 0
         ? serverS.riwayatBulanan
-        : (mergedHistory.length > 0 ? mergedHistory : (localS.riwayatBulanan || [])),
-      namaPic: cleanPicName(serverS.namaPic || localS.namaPic, kode),
-      noHpPic: cleanContactValue(serverS.noHpPic || localS.noHpPic),
-      emailPic: serverS.emailPic || localS.emailPic || '',
-      passwordSatker: serverS.passwordSatker || localS.passwordSatker || '',
-      alamatSatker: serverS.alamatSatker || localS.alamatSatker || '',
+        : (mergedHistory.length > 0 ? mergedHistory : []),
+      namaPic: cleanPicName(serverS.namaPic || localS?.namaPic, kode),
+      noHpPic: cleanContactValue(serverS.noHpPic || localS?.noHpPic),
+      emailPic: serverS.emailPic || localS?.emailPic || '',
+      passwordSatker: serverS.passwordSatker || localS?.passwordSatker || '',
+      alamatSatker: serverS.alamatSatker || localS?.alamatSatker || '',
     };
-    if (serverS.pejabatOperator || localS.pejabatOperator) {
-      res.pejabatOperator = serverS.pejabatOperator || localS.pejabatOperator;
+    if (serverS.pejabatOperator || localS?.pejabatOperator) {
+      res.pejabatOperator = serverS.pejabatOperator || localS?.pejabatOperator;
     }
     return res;
   });
@@ -459,22 +463,20 @@ export function deduplicateHistoricalUploads(list: ExcelUploadHistory[]): ExcelU
  * Merge Historical Uploads anti-downgrade (Server data is authoritative, all batches preserved)
  */
 export function mergeHistoricalUploadsAntiDowngrade(listA: ExcelUploadHistory[], listB: ExcelUploadHistory[]): ExcelUploadHistory[] {
-  const combined = [
-    ...(Array.isArray(listB) ? listB : []),
-    ...(Array.isArray(listA) ? listA : [])
-  ];
+  // If listA (authoritative Firestore/server data) is provided, it is 100% authoritative!
+  // We do NOT combine listB to avoid resurrecting archives that the user deleted.
+  const source = Array.isArray(listA) ? listA : (Array.isArray(listB) ? listB : []);
+  const result = deduplicateHistoricalUploads(source);
 
-  const result = deduplicateHistoricalUploads(combined);
-
-  // Ensure an active IKPA batch exists; if none is active (e.g. purged batch was active), activate Juli
-  const activeIkpa = result.find(h => (!h.category || h.category === 'IKPA') && h.isActive);
-  if (!activeIkpa) {
-    const juliBatch = result.find(h => (!h.category || h.category === 'IKPA') && (h.id === 'hist-ikpa-juli-2026' || (h.periode && h.periode.toLowerCase().includes('juli'))));
+  // Ensure an active IKPA batch exists if any IKPA batches exist; if none is active, activate Juli
+  const ikpaBatches = result.filter(h => !h.category || h.category === 'IKPA');
+  const activeIkpa = ikpaBatches.find(h => h.isActive);
+  if (!activeIkpa && ikpaBatches.length > 0) {
+    const juliBatch = ikpaBatches.find(h => (h.id === 'hist-ikpa-juli-2026' || (h.periode && h.periode.toLowerCase().includes('juli'))));
     if (juliBatch) {
       juliBatch.isActive = true;
     } else {
-      const firstIkpa = result.find(h => !h.category || h.category === 'IKPA');
-      if (firstIkpa) firstIkpa.isActive = true;
+      ikpaBatches[0].isActive = true;
     }
   }
 

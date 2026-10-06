@@ -6,7 +6,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 13000000000,
     "realisasiAnggaran": 8190000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -15,10 +15,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -114,7 +114,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 21000000000,
     "realisasiAnggaran": 17640000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -123,10 +123,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.46,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -231,10 +231,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -330,7 +330,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 37000000000,
     "realisasiAnggaran": 31820000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -339,10 +339,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -447,10 +447,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -546,7 +546,7 @@
     "predikat": "Baik",
     "paguAnggaran": 53000000000,
     "realisasiAnggaran": 46640000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -555,10 +555,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -654,7 +654,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 61000000000,
     "realisasiAnggaran": 54290000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -663,10 +663,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -762,7 +762,7 @@
     "predikat": "Baik",
     "paguAnggaran": 69000000000,
     "realisasiAnggaran": 62100000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -771,10 +771,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -870,7 +870,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 77000000000,
     "realisasiAnggaran": 70070000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -879,10 +879,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.95,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -978,7 +978,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 85000000000,
     "realisasiAnggaran": 78200000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -987,10 +987,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1086,7 +1086,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 93000000000,
     "realisasiAnggaran": 86490000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1095,10 +1095,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1194,7 +1194,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 101000000000,
     "realisasiAnggaran": 62620000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1203,10 +1203,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 97.4,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1302,7 +1302,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 109000000000,
     "realisasiAnggaran": 103550000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1311,10 +1311,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1410,7 +1410,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 117000000000,
     "realisasiAnggaran": 112320000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1419,10 +1419,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1518,7 +1518,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 125000000000,
     "realisasiAnggaran": 121250000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1527,10 +1527,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1626,7 +1626,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 133000000000,
     "realisasiAnggaran": 109060000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1635,10 +1635,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1743,10 +1743,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1842,7 +1842,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 149000000000,
     "realisasiAnggaran": 101320000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1851,10 +1851,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 99.96,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -1950,7 +1950,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 157000000000,
     "realisasiAnggaran": 133450000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -1959,10 +1959,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 97.49,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2058,7 +2058,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 165000000000,
     "realisasiAnggaran": 141900000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -2067,10 +2067,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2166,7 +2166,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 173000000000,
     "realisasiAnggaran": 150510000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.67,
@@ -2175,10 +2175,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2274,7 +2274,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 181000000000,
     "realisasiAnggaran": 159280000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -2283,10 +2283,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 96.77
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2391,10 +2391,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2490,7 +2490,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 197000000000,
     "realisasiAnggaran": 177300000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -2499,10 +2499,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 97.08,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2598,7 +2598,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 205000000000,
     "realisasiAnggaran": 129150000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 94.47,
@@ -2607,10 +2607,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 96.49,
       "dispensasiSpm": 0,
-      "capaianOutput": 95.57
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2706,7 +2706,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 213000000000,
     "realisasiAnggaran": 195960000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -2715,10 +2715,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2814,7 +2814,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 221000000000,
     "realisasiAnggaran": 205530000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -2823,10 +2823,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -2922,7 +2922,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 229000000000,
     "realisasiAnggaran": 215260000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 94.78,
@@ -2931,10 +2931,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.25,
       "dispensasiSpm": 0,
-      "capaianOutput": 92.3
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3030,7 +3030,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 237000000000,
     "realisasiAnggaran": 225150000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 93.59,
@@ -3039,10 +3039,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.52,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3147,10 +3147,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.93,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3246,7 +3246,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 253000000000,
     "realisasiAnggaran": 245410000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -3255,10 +3255,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3363,10 +3363,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.73,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3462,7 +3462,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 269000000000,
     "realisasiAnggaran": 223270000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 94.29,
@@ -3471,10 +3471,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 96.83
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3579,10 +3579,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.61,
       "dispensasiSpm": 0,
-      "capaianOutput": 99.71
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3678,7 +3678,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 285000000000,
     "realisasiAnggaran": 242250000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 92.79,
@@ -3687,10 +3687,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3786,7 +3786,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 293000000000,
     "realisasiAnggaran": 251980000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 89.2,
@@ -3795,10 +3795,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.96,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -3894,7 +3894,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 301000000000,
     "realisasiAnggaran": 261870000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 70.41,
@@ -3903,10 +3903,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4002,7 +4002,7 @@
     "predikat": "Baik",
     "paguAnggaran": 309000000000,
     "realisasiAnggaran": 271920000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 79.71,
@@ -4011,10 +4011,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4110,7 +4110,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 317000000000,
     "realisasiAnggaran": 282130000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.14,
@@ -4119,10 +4119,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4218,7 +4218,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 5000000000,
     "realisasiAnggaran": 3300000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 87.73,
@@ -4227,10 +4227,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4326,7 +4326,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 13000000000,
     "realisasiAnggaran": 11830000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -4335,10 +4335,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4434,7 +4434,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 21000000000,
     "realisasiAnggaran": 19320000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -4443,10 +4443,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.87,
       "dispensasiSpm": 0,
-      "capaianOutput": 98.74
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4542,7 +4542,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 29000000000,
     "realisasiAnggaran": 26970000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.34,
@@ -4551,10 +4551,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4650,7 +4650,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 37000000000,
     "realisasiAnggaran": 34780000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -4659,10 +4659,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4758,7 +4758,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 45000000000,
     "realisasiAnggaran": 42750000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -4767,10 +4767,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.7,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4866,7 +4866,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 53000000000,
     "realisasiAnggaran": 50880000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 93.45,
@@ -4875,10 +4875,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -4974,7 +4974,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 61000000000,
     "realisasiAnggaran": 59170000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 82.25,
@@ -4983,10 +4983,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5082,7 +5082,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 69000000000,
     "realisasiAnggaran": 56580000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 88.49,
@@ -5091,10 +5091,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.6,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5190,7 +5190,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 77000000000,
     "realisasiAnggaran": 63910000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -5199,10 +5199,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5298,7 +5298,7 @@
     "predikat": "Baik",
     "paguAnggaran": 85000000000,
     "realisasiAnggaran": 71400000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 90.77,
@@ -5307,10 +5307,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 89.34,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5406,7 +5406,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 93000000000,
     "realisasiAnggaran": 79050000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 93.29,
@@ -5415,10 +5415,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5514,7 +5514,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 101000000000,
     "realisasiAnggaran": 86860000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 92.42,
@@ -5523,10 +5523,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5622,7 +5622,7 @@
     "predikat": "Baik",
     "paguAnggaran": 109000000000,
     "realisasiAnggaran": 94830000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.83,
@@ -5631,10 +5631,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5730,7 +5730,7 @@
     "predikat": "Kurang",
     "paguAnggaran": 117000000000,
     "realisasiAnggaran": 102960000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 0,
@@ -5739,10 +5739,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 86
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5838,7 +5838,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 125000000000,
     "realisasiAnggaran": 111250000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -5847,10 +5847,10 @@
       "penyelesaianTagihan": 96.88,
       "pengelolaanUpTup": 93.03,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -5946,7 +5946,7 @@
     "predikat": "Baik",
     "paguAnggaran": 133000000000,
     "realisasiAnggaran": 119700000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 81.62,
@@ -5955,10 +5955,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 95.34,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6054,7 +6054,7 @@
     "predikat": "Baik",
     "paguAnggaran": 141000000000,
     "realisasiAnggaran": 128310000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 81.31,
@@ -6063,10 +6063,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6171,10 +6171,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6270,7 +6270,7 @@
     "predikat": "Baik",
     "paguAnggaran": 157000000000,
     "realisasiAnggaran": 146010000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.07,
@@ -6279,10 +6279,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.49,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6378,7 +6378,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 165000000000,
     "realisasiAnggaran": 102300000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 94.97,
@@ -6387,10 +6387,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.82,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6486,7 +6486,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 173000000000,
     "realisasiAnggaran": 164350000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -6495,10 +6495,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6594,7 +6594,7 @@
     "predikat": "Baik",
     "paguAnggaran": 181000000000,
     "realisasiAnggaran": 173760000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 79.24,
@@ -6603,10 +6603,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 99.85,
       "dispensasiSpm": 0,
-      "capaianOutput": 99.95
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6702,7 +6702,7 @@
     "predikat": "Baik",
     "paguAnggaran": 189000000000,
     "realisasiAnggaran": 183330000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 71.29,
@@ -6711,10 +6711,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.23,
       "dispensasiSpm": 0,
-      "capaianOutput": 99.86
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6810,7 +6810,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 197000000000,
     "realisasiAnggaran": 161540000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 91.6,
@@ -6819,10 +6819,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 97.17,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -6918,7 +6918,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 205000000000,
     "realisasiAnggaran": 170150000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 61.44,
@@ -6927,10 +6927,10 @@
       "penyelesaianTagihan": 99.25,
       "pengelolaanUpTup": 96.71,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7026,7 +7026,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 213000000000,
     "realisasiAnggaran": 178920000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 88.39,
@@ -7035,10 +7035,10 @@
       "penyelesaianTagihan": 94.12,
       "pengelolaanUpTup": 99.13,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7134,7 +7134,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 221000000000,
     "realisasiAnggaran": 187850000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7143,10 +7143,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 97.63,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7242,7 +7242,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 229000000000,
     "realisasiAnggaran": 196940000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7251,10 +7251,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.85,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7350,7 +7350,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 237000000000,
     "realisasiAnggaran": 206190000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7359,10 +7359,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7458,7 +7458,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 245000000000,
     "realisasiAnggaran": 215600000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7467,10 +7467,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7566,7 +7566,7 @@
     "predikat": "Baik",
     "paguAnggaran": 253000000000,
     "realisasiAnggaran": 225170000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7575,10 +7575,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 99.1,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7674,7 +7674,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 261000000000,
     "realisasiAnggaran": 234900000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7683,10 +7683,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7782,7 +7782,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 269000000000,
     "realisasiAnggaran": 244790000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -7791,10 +7791,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.89,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7890,7 +7890,7 @@
     "predikat": "Baik",
     "paguAnggaran": 277000000000,
     "realisasiAnggaran": 254840000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 84.51,
@@ -7899,10 +7899,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -7998,7 +7998,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 285000000000,
     "realisasiAnggaran": 265050000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 87.29,
@@ -8007,10 +8007,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8106,7 +8106,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 293000000000,
     "realisasiAnggaran": 275420000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -8115,10 +8115,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 91.64,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8223,10 +8223,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 86.73,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8322,7 +8322,7 @@
     "predikat": "Baik",
     "paguAnggaran": 309000000000,
     "realisasiAnggaran": 296640000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 85.83,
@@ -8331,10 +8331,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.67,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8430,7 +8430,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 317000000000,
     "realisasiAnggaran": 307490000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -8439,10 +8439,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 94.72,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8538,7 +8538,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 5000000000,
     "realisasiAnggaran": 3500000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -8547,10 +8547,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.79,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8646,7 +8646,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 13000000000,
     "realisasiAnggaran": 10790000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 87.91,
@@ -8655,10 +8655,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 98.42,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8754,7 +8754,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 21000000000,
     "realisasiAnggaran": 17640000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -8763,10 +8763,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8862,7 +8862,7 @@
     "predikat": "Baik",
     "paguAnggaran": 29000000000,
     "realisasiAnggaran": 24650000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 68.23,
@@ -8871,10 +8871,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -8970,7 +8970,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 37000000000,
     "realisasiAnggaran": 31820000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 94.31,
@@ -8979,10 +8979,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9078,7 +9078,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 45000000000,
     "realisasiAnggaran": 39150000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9087,10 +9087,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9186,7 +9186,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 53000000000,
     "realisasiAnggaran": 46640000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9195,10 +9195,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9294,7 +9294,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 61000000000,
     "realisasiAnggaran": 54290000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9303,10 +9303,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9402,7 +9402,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 69000000000,
     "realisasiAnggaran": 62100000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9411,10 +9411,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.7,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9510,7 +9510,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 77000000000,
     "realisasiAnggaran": 70070000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9519,10 +9519,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9618,7 +9618,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 85000000000,
     "realisasiAnggaran": 78200000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9627,10 +9627,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.97,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9726,7 +9726,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 93000000000,
     "realisasiAnggaran": 86490000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9735,10 +9735,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9834,7 +9834,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 101000000000,
     "realisasiAnggaran": 94940000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -9843,10 +9843,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -9951,10 +9951,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10059,10 +10059,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10167,10 +10167,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10266,7 +10266,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 133000000000,
     "realisasiAnggaran": 109060000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -10275,10 +10275,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.48,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10374,7 +10374,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 141000000000,
     "realisasiAnggaran": 117030000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 79.95,
@@ -10383,10 +10383,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 97.95
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10482,7 +10482,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 149000000000,
     "realisasiAnggaran": 125160000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 60.59,
@@ -10491,10 +10491,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 94.3
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10590,7 +10590,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 157000000000,
     "realisasiAnggaran": 133450000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 90.85,
@@ -10599,10 +10599,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 95.79,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10698,7 +10698,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 165000000000,
     "realisasiAnggaran": 141900000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 27.94,
@@ -10707,10 +10707,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10806,7 +10806,7 @@
     "predikat": "Kurang",
     "paguAnggaran": 173000000000,
     "realisasiAnggaran": 150510000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 49.28,
@@ -10815,10 +10815,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 66.3
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -10914,7 +10914,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 181000000000,
     "realisasiAnggaran": 159280000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 35.38,
@@ -10923,10 +10923,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11022,7 +11022,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 189000000000,
     "realisasiAnggaran": 168210000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 80.3,
@@ -11031,10 +11031,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11130,7 +11130,7 @@
     "predikat": "Baik",
     "paguAnggaran": 197000000000,
     "realisasiAnggaran": 177300000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 72.36,
@@ -11139,10 +11139,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11247,10 +11247,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.95,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11346,7 +11346,7 @@
     "predikat": "Kurang",
     "paguAnggaran": 213000000000,
     "realisasiAnggaran": 195960000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 66.64,
@@ -11355,10 +11355,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 30
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11454,7 +11454,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 221000000000,
     "realisasiAnggaran": 205530000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 71.65,
@@ -11463,10 +11463,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11562,7 +11562,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 229000000000,
     "realisasiAnggaran": 215260000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 85.56,
@@ -11571,10 +11571,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 97.63,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11670,7 +11670,7 @@
     "predikat": "Baik",
     "paguAnggaran": 237000000000,
     "realisasiAnggaran": 225150000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 59.51,
@@ -11679,10 +11679,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 99.61
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11778,7 +11778,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 245000000000,
     "realisasiAnggaran": 235200000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 25.96,
@@ -11787,10 +11787,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 92.94
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11886,7 +11886,7 @@
     "predikat": "Baik",
     "paguAnggaran": 253000000000,
     "realisasiAnggaran": 245410000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -11895,10 +11895,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 94.92,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -11994,7 +11994,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 261000000000,
     "realisasiAnggaran": 214020000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 77.45,
@@ -12003,10 +12003,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 99.78,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12102,7 +12102,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 269000000000,
     "realisasiAnggaran": 223270000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 77.34,
@@ -12111,10 +12111,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 73.41,
       "dispensasiSpm": 0,
-      "capaianOutput": 90
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12210,7 +12210,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 277000000000,
     "realisasiAnggaran": 232680000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 85.31,
@@ -12219,10 +12219,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12318,7 +12318,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 285000000000,
     "realisasiAnggaran": 242250000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 64.9,
@@ -12327,10 +12327,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12435,10 +12435,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 88.75
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12534,7 +12534,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 301000000000,
     "realisasiAnggaran": 261870000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 100,
@@ -12543,10 +12543,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12642,7 +12642,7 @@
     "predikat": "Baik",
     "paguAnggaran": 309000000000,
     "realisasiAnggaran": 271920000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 72.56,
@@ -12651,10 +12651,10 @@
       "penyelesaianTagihan": 98.46,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12750,7 +12750,7 @@
     "predikat": "Baik",
     "paguAnggaran": 317000000000,
     "realisasiAnggaran": 282130000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 59.43,
@@ -12759,10 +12759,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12867,10 +12867,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 86.76,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -12975,10 +12975,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 87.08,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -13083,10 +13083,10 @@
       "penyelesaianTagihan": 100,
       "pengelolaanUpTup": 100,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -13182,7 +13182,7 @@
     "predikat": "Cukup",
     "paguAnggaran": 29000000000,
     "realisasiAnggaran": 26970000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 75,
@@ -13191,10 +13191,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -13290,7 +13290,7 @@
     "predikat": "Sangat Baik",
     "paguAnggaran": 37000000000,
     "realisasiAnggaran": 34780000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 82.42,
@@ -13299,10 +13299,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {
@@ -13398,7 +13398,7 @@
     "predikat": "Kurang",
     "paguAnggaran": 45000000000,
     "realisasiAnggaran": 42750000000,
-    "statusCapaianOutput": "Sudah Terlaporkan",
+    "statusCapaianOutput": "Belum Terlaporkan",
     "indikator": {
       "revisiDipa": 100,
       "deviasiHal3Dipa": 28.57,
@@ -13407,10 +13407,10 @@
       "penyelesaianTagihan": 0,
       "pengelolaanUpTup": 0,
       "dispensasiSpm": 0,
-      "capaianOutput": 100
+      "capaianOutput": 0
     },
     "hasIKPAData": true,
-    "hasCapaianOutputData": true,
+    "hasCapaianOutputData": false,
     "periodeUpdate": "s.d. Juli 2026",
     "riwayatBulanan": [
       {

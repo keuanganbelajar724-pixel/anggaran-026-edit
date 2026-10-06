@@ -22,6 +22,12 @@ import {
   verifyTelegramBot,
   type TelegramServerConfig
 } from './server_telegram.ts';
+import { initializeApp as initServerFirebase, getApps as getServerApps } from 'firebase/app';
+import { getFirestore as getServerFirestore, doc as serverDoc, setDoc as serverSetDoc, getDoc as serverGetDoc, onSnapshot as serverOnSnapshot } from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
+
+const serverFirebaseApp = getServerApps().length === 0 ? initServerFirebase(firebaseConfig) : getServerApps()[0];
+const serverDb = getServerFirestore(serverFirebaseApp, firebaseConfig.firestoreDatabaseId || undefined);
 
 dotenv.config();
 
@@ -120,8 +126,63 @@ async function startServer() {
     console.warn('Could not load satkers_generated.json on server start:', e);
   }
 
-  // High-availability satker data endpoints to safeguard against Firestore rate limits
-  app.get('/api/data/satkers', (_req, res) => {
+  // Setup server-side realtime listeners to Cloud Firestore so the server is ALWAYS in sync with deployment
+  try {
+    serverOnSnapshot(serverDoc(serverDb, 'data', 'satkers'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.list)) {
+          inMemorySatkers = data.list;
+          try {
+            fs.writeFileSync(path.join(process.cwd(), 'satkers_generated.json'), JSON.stringify(data.list, null, 2));
+          } catch {}
+        }
+      }
+    });
+
+    serverOnSnapshot(serverDoc(serverDb, 'data', 'historical_uploads'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.list)) {
+          inMemoryHistoricalUploads = data.list;
+          try {
+            fs.writeFileSync(path.join(process.cwd(), 'historical_uploads_generated.json'), JSON.stringify(data.list, null, 2));
+          } catch {}
+        }
+      }
+    });
+
+    serverOnSnapshot(serverDoc(serverDb, 'settings', 'global'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        inMemorySettings = data;
+        try {
+          fs.writeFileSync(path.join(process.cwd(), 'settings_generated.json'), JSON.stringify(data, null, 2));
+        } catch {}
+      }
+    });
+  } catch (err) {
+    console.warn('Server Firestore realtime sync setup notice:', err);
+  }
+
+  // High-availability satker data endpoints - Firestore authoritative
+  app.get('/api/data/satkers', async (_req, res) => {
+    try {
+      const snap = await serverGetDoc(serverDoc(serverDb, 'data', 'satkers'));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.list)) {
+          inMemorySatkers = data.list;
+          return res.json({
+            status: 'ok',
+            count: data.list.length,
+            list: data.list,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Direct Firestore satkers get notice (fallback to in-memory):', e);
+    }
     const regCodes = getRegistered127SatkerCodes();
     const filtered = (regCodes.size > 0 && Array.isArray(inMemorySatkers))
       ? inMemorySatkers.filter((s: any) => s && s.kodeSatker && regCodes.has(String(s.kodeSatker).trim()))
@@ -136,7 +197,7 @@ async function startServer() {
   app.post('/api/data/satkers', (req, res) => {
     try {
       const { list } = req.body || {};
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         const regCodes = getRegistered127SatkerCodes();
         const cleanedList = regCodes.size > 0
           ? list.filter((s: any) => s && s.kodeSatker && regCodes.has(String(s.kodeSatker).trim()))
@@ -147,6 +208,13 @@ async function startServer() {
         fs.writeFile(jsonPath, JSON.stringify(cleanedList, null, 2), (err) => {
           if (err) console.warn('Server disk backup notice:', err);
         });
+
+        // Persist to Cloud Firestore for cross-browser synchronization
+        serverSetDoc(serverDoc(serverDb, 'data', 'satkers'), {
+          list: cleanedList,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(err => console.warn('Server Firestore satkers sync notice:', err));
+
         return res.json({ status: 'ok', saved: cleanedList.length });
       }
       res.status(400).json({ status: 'error', message: 'Invalid list payload' });
@@ -166,7 +234,20 @@ async function startServer() {
     console.warn('Could not load settings_generated.json on server start:', e);
   }
 
-  app.get('/api/data/settings', (_req, res) => {
+  app.get('/api/data/settings', async (_req, res) => {
+    try {
+      const snap = await serverGetDoc(serverDoc(serverDb, 'settings', 'global'));
+      if (snap.exists()) {
+        const data = snap.data();
+        inMemorySettings = data;
+        return res.json({
+          status: 'ok',
+          settings: data,
+        });
+      }
+    } catch (e) {
+      console.warn('Direct Firestore settings get notice (fallback to in-memory):', e);
+    }
     res.json({
       status: 'ok',
       settings: inMemorySettings,
@@ -185,6 +266,13 @@ async function startServer() {
       fs.writeFile(settingsPath, JSON.stringify(inMemorySettings, null, 2), (err) => {
         if (err) console.warn('Server disk backup settings notice:', err);
       });
+
+      // Persist to Cloud Firestore
+      serverSetDoc(serverDoc(serverDb, 'settings', 'global'), {
+        ...body,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(err => console.warn('Server Firestore settings sync notice:', err));
+
       res.json({ status: 'ok', settings: inMemorySettings });
     } catch (e: any) {
       res.status(500).json({ status: 'error', message: e?.message });
@@ -202,7 +290,23 @@ async function startServer() {
     console.warn('Could not load historical_uploads_generated.json on server start:', e);
   }
 
-  app.get('/api/data/historical_uploads', (_req, res) => {
+  app.get('/api/data/historical_uploads', async (_req, res) => {
+    try {
+      const snap = await serverGetDoc(serverDoc(serverDb, 'data', 'historical_uploads'));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.list)) {
+          inMemoryHistoricalUploads = data.list;
+          return res.json({
+            status: 'ok',
+            count: data.list.length,
+            list: data.list,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Direct Firestore historical_uploads get notice (fallback to in-memory):', e);
+    }
     const list = (inMemoryHistoricalUploads && inMemoryHistoricalUploads.length > 0)
       ? inMemoryHistoricalUploads
       : (inMemorySettings?.dashboardConfig?.historicalUploads || inMemorySettings?.historicalUploads || []);
@@ -222,6 +326,13 @@ async function startServer() {
         fs.writeFile(histPath, JSON.stringify(list, null, 2), (err) => {
           if (err) console.warn('Server disk backup historical uploads notice:', err);
         });
+
+        // Persist to Cloud Firestore for cross-browser synchronization
+        serverSetDoc(serverDoc(serverDb, 'data', 'historical_uploads'), {
+          list,
+          updatedAt: new Date().toISOString()
+        }, { merge: true }).catch(err => console.warn('Server Firestore historical sync notice:', err));
+
         return res.json({ status: 'ok', count: list.length });
       }
       res.status(400).json({ status: 'error', message: 'Invalid list payload' });

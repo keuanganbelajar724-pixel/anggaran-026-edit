@@ -17,7 +17,7 @@ const additionalTransferSatkers: any[] = [
     paguAnggaran: 4917545149000,
     realisasiAnggaran: 3536044688750,
     persenPenyerapan: 71.91,
-    statusCapaianOutput: 'Sudah Terlaporkan',
+    statusCapaianOutput: 'Belum Terlaporkan',
     indikator: {
       revisiDipa: 100,
       deviasiHal3Dipa: 100,
@@ -26,12 +26,12 @@ const additionalTransferSatkers: any[] = [
       penyelesaianTagihan: 100,
       pengelolaanUpTup: 100,
       dispensasiSpm: 0,
-      capaianOutput: 100
+      capaianOutput: 0
     },
     nilaiTotalIKPA: 95.0,
     predikat: 'Sangat Baik',
     hasIKPAData: true,
-    hasCapaianOutputData: true,
+    hasCapaianOutputData: false,
     periodeUpdate: 's.d. Juli 2026',
     riwayatBulanan: [
       { bulan: 'Januari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 71.91, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
@@ -51,7 +51,7 @@ const additionalTransferSatkers: any[] = [
     paguAnggaran: 4146780657000,
     realisasiAnggaran: 3494911496800,
     persenPenyerapan: 84.28,
-    statusCapaianOutput: 'Sudah Terlaporkan',
+    statusCapaianOutput: 'Belum Terlaporkan',
     indikator: {
       revisiDipa: 100,
       deviasiHal3Dipa: 100,
@@ -60,12 +60,12 @@ const additionalTransferSatkers: any[] = [
       penyelesaianTagihan: 100,
       pengelolaanUpTup: 100,
       dispensasiSpm: 0,
-      capaianOutput: 100
+      capaianOutput: 0
     },
     nilaiTotalIKPA: 95.0,
     predikat: 'Sangat Baik',
     hasIKPAData: true,
-    hasCapaianOutputData: true,
+    hasCapaianOutputData: false,
     periodeUpdate: 's.d. Juli 2026',
     riwayatBulanan: [
       { bulan: 'Januari', nilaiIKPA: 95.0, capaianOutput: 100, deviasiHal3Dipa: 100, penyerapanAnggaran: 84.28, revisiDipa: 100, belanjaKontraktual: 100, penyelesaianTagihan: 100, pengelolaanUpTup: 100, dispensasiSpm: 0 },
@@ -205,9 +205,8 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
       const caputMatch = caputMap.get(kode);
       const hasCaput = Boolean(activeCaputHistory && caputMatch);
 
-      const existingCaputVal = Number(existing?.indikator?.capaianOutput) || 0;
       const matchedCaputVal = hasCaput ? (Number(caputMatch.indikator?.capaianOutput) || (caputMatch.statusCapaianOutput === 'Sudah Terlaporkan' ? 100 : 0)) : 0;
-      const finalCaputVal = hasCaput ? matchedCaputVal : existingCaputVal;
+      const finalCaputVal = hasCaput ? matchedCaputVal : 0;
 
       const mergedIndikator = {
         ...effectiveIndikator,
@@ -216,7 +215,7 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
 
       const finalStatusCaput = hasCaput 
         ? (caputMatch.statusCapaianOutput || 'Belum Terlaporkan') 
-        : (existing?.statusCapaianOutput || 'Belum Terlaporkan');
+        : 'Belum Terlaporkan';
 
       const mergedSatker: SatkerIKPA = {
         ...(existing || {}),
@@ -226,7 +225,7 @@ export function mergeHistoricalUploadsToSatkers(histories: any[]): SatkerIKPA[] 
         namaSatker: s.namaSatker || existing?.namaSatker || kode,
         kementerianLembaga: s.kementerianLembaga || existing?.kementerianLembaga || '-',
         hasIKPAData: true,
-        hasCapaianOutputData: hasCaput || Boolean(existing?.hasCapaianOutputData) || finalStatusCaput === 'Sudah Terlaporkan' || finalCaputVal > 0,
+        hasCapaianOutputData: hasCaput,
         nilaiTotalIKPA: Number.isFinite(finalIKPA) ? finalIKPA : 0,
         predikat: s.predikat || (existing?.predikat) || getPredikatIKPA(finalIKPA),
         paguAnggaran: Number(s.paguAnggaran) || Number(existing?.paguAnggaran) || 0,

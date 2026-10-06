@@ -1201,7 +1201,9 @@ export default function App() {
               announcements: Array.isArray(cleanDashboardConfig.announcements)
                 ? cleanDashboardConfig.announcements
                 : (Array.isArray(prev.announcements) ? prev.announcements : INITIAL_ANNOUNCEMENTS),
-              historicalUploads: mergeHistoricalUploadsAntiDowngrade(cleanDashboardConfig.historicalUploads || [], prev.historicalUploads || [])
+              historicalUploads: Array.isArray(cleanDashboardConfig.historicalUploads)
+                ? cleanDashboardConfig.historicalUploads
+                : (prev.historicalUploads || [])
             };
             if (JSON.stringify(updated) === JSON.stringify(prev)) {
               return prev;
@@ -1361,29 +1363,26 @@ export default function App() {
 
         if (!isMounted) return;
 
-        const combined = mergeHistoricalUploadsAntiDowngrade(firestoreList, apiList);
-        if (combined.length > 0) {
+        const effectiveList = (firestoreList && firestoreList.length > 0)
+          ? firestoreList
+          : ((apiList && apiList.length > 0) ? apiList : []);
+        const cleanEffectiveList = deduplicateHistoricalUploads(effectiveList);
+
+        if (cleanEffectiveList.length > 0) {
           setDashboardConfig(prev => {
             const currentHist = prev.historicalUploads || [];
-            if (currentHist.length === combined.length &&
-                currentHist.every((h, i) => h.id === combined[i]?.id && h.periode === combined[i]?.periode && h.isActive === combined[i]?.isActive)) {
+            if (currentHist.length === cleanEffectiveList.length &&
+                currentHist.every((h, i) => h.id === cleanEffectiveList[i]?.id && h.periode === cleanEffectiveList[i]?.periode && h.isActive === cleanEffectiveList[i]?.isActive)) {
               return prev;
             }
-            safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(combined));
+            safeLocalStorageSet('kppn_historical_uploads', JSON.stringify(cleanEffectiveList));
             return {
               ...prev,
-              historicalUploads: combined
+              historicalUploads: cleanEffectiveList
             };
           });
 
-          // Sync back to Firestore if Firestore had fewer batches or had the unwanted August batch
-          if (combined.length > firestoreList.length || firestoreList.some((h: any) => h.id === 'hist-ikpa-agustus-2026' || h.fileName === 'Laporan_IKPA_SAKTI_Agustus_2026.xlsx')) {
-            const compact = compactHistoricalUploadsForFirestore(combined);
-            setDoc(doc(db, 'data', 'historical_uploads'), {
-              list: compact,
-              updatedAt: new Date().toISOString()
-            }).catch(e => console.warn('Sync historical uploads to firestore notice:', e));
-          }
+          const combined = cleanEffectiveList;
 
           // If satkers is empty or has no IKPA satkers and no Capaian Output, reconstruct from historical archives or initial baseline
           setSatkers(curr => {
@@ -1966,6 +1965,23 @@ export default function App() {
                   safeLocalStorageSet('kppn_satker_data', JSON.stringify(mergedWithCaput));
                   return mergedWithCaput;
                 }
+              } else {
+                // If NO active Capaian Output archive exists in cleanList (e.g. deleted on deployment):
+                // Immediately reset Capaian Output status across all satkers!
+                const hasStaleCaput = curr.some(s => s.hasCapaianOutputData || s.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(s.indikator?.capaianOutput) > 0));
+                if (hasStaleCaput) {
+                  const resetCaput = curr.map(s => ({
+                    ...s,
+                    hasCapaianOutputData: false,
+                    statusCapaianOutput: 'Belum Terlaporkan' as const,
+                    indikator: {
+                      ...s.indikator,
+                      capaianOutput: 0
+                    }
+                  }));
+                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(resetCaput));
+                  return resetCaput;
+                }
               }
 
               return curr;
@@ -1980,7 +1996,7 @@ export default function App() {
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
@@ -3607,7 +3623,7 @@ export default function App() {
         // When managing Capaian Output tab: newSatkers has authoritative control over hasCapaianOutputData
         let effectiveHasCaput = false;
         if (targetTab === 'capaian-output') {
-          effectiveHasCaput = newS.hasCapaianOutputData === true || !!newS.statusCapaianOutput;
+          effectiveHasCaput = newS.hasCapaianOutputData === true || newS.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(newS.indikator?.capaianOutput) > 0);
         } else {
           effectiveHasCaput = isNewCaput || existingHasCaput;
         }

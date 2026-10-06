@@ -81,12 +81,13 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     if (!hasReportedInSatkers && activeCaputArchive && activeCaputArchive.satkersData && activeCaputArchive.satkersData.length > 0) {
       return activeCaputArchive.satkersData;
     }
-    return satkers;
+    return satkers || [];
   }, [selectedArchive, satkers, activeCaputArchive]);
 
-  // Filter satkers yang memiliki data Capaian Output (seluruh 127 Satker terdaftar mitra KPPN)
+  // Seluruh 127 Satker terdaftar mitra KPPN Semarang I wajib menyampaikan Capaian Output
   const satkersWithOutput = useMemo(() => {
-    return baseSatkers.filter(s => s.hasCapaianOutputData !== false);
+    if (!Array.isArray(baseSatkers)) return [];
+    return baseSatkers.filter(s => s && (s.kodeSatker || s.namaSatker));
   }, [baseSatkers]);
   const hasAnyOutput = satkersWithOutput.length > 0;
 
