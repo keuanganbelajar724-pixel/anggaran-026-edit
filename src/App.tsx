@@ -1727,6 +1727,34 @@ export default function App() {
         }
       }).catch(err => console.warn("Initial Firestore My InTress fetch notice:", err));
 
+      // Fast Initial Cloud Database Hydration for Satkers (Instant Single Database Sync across all browsers & devices)
+      getDoc(doc(db, 'data', 'satkers')).then((docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setSatkers(currentLocal => {
+              const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
+              safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+              return merged;
+            });
+          }
+        }
+      }).catch((err) => {
+        console.warn("Initial direct Firestore satkers getDoc notice:", err);
+        fetch('/api/data/satkers')
+          .then(res => res.json())
+          .then(resData => {
+            if (resData && Array.isArray(resData.list) && resData.list.length > 0) {
+              setSatkers(currentLocal => {
+                const merged = mergeSatkersAntiDowngrade(resData.list, currentLocal);
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                return merged;
+              });
+            }
+          })
+          .catch(() => {});
+      });
+
       // Purge legacy dummy konfirmasi kegiatan & dummy konf- records from Firebase & localStorage if present
       try {
         const dummyKegiatanIds = ['und-ikpa-tw3-2026', 'und-kkp-digipay-2026', 'und-fgd-kpa-2026'];
@@ -1896,7 +1924,11 @@ export default function App() {
               }
 
               // Active Capaian Output archive real-time sync across all devices
-              const activeCaput = cleanList.find((h: any) => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
+              const activeCaput = cleanList
+                .slice()
+                .reverse()
+                .find((h: any) => h.category === 'CAPAIAN_OUTPUT' && h.isActive && Array.isArray(h.satkersData) && h.satkersData.length > 0)
+                || cleanList.find((h: any) => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
               if (activeCaput && Array.isArray(activeCaput.satkersData) && activeCaput.satkersData.length > 0) {
                 const caputMap = new Map<string, any>();
                 activeCaput.satkersData.forEach((c: any) => {
@@ -1944,20 +1976,11 @@ export default function App() {
         console.warn("Firebase historical uploads listener notice:", error);
       });
 
-      // 3. Realtime Satkers Data (Instant bidirectional sync between Deployment & Google AI)
+      // 3. Realtime Satkers Data (Instant bidirectional sync between Deployment & Google AI - Single Source of Truth)
       const unsubSatkers = onSnapshot(doc(db, 'data', 'satkers'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (Array.isArray(data.list) && data.list.length > 0) {
-            // Guard: ignore stale snapshots if local user just uploaded data in the last 2.5 seconds
-            const localUpdatedAt = localStorage.getItem('kppn_satker_data_updatedAt');
-            if (localUpdatedAt && data.updatedAt) {
-              const localTime = new Date(localUpdatedAt).getTime();
-              const serverTime = new Date(data.updatedAt).getTime();
-              if (localTime > serverTime + 2500) {
-                return;
-              }
-            }
             setSatkers(currentLocal => {
               const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
               safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
