@@ -71,19 +71,39 @@ export const CapaianOutputDashboard: React.FC<CapaianOutputDashboardProps> = ({
     ? null 
     : caputArchives.find(h => h.id === selectedHistoricalId);
 
-  // Dataset to display: either from selected archive or current active satkers
-  const baseSatkers = selectedArchive && selectedArchive.satkersData && selectedArchive.satkersData.length > 0
-    ? selectedArchive.satkersData
-    : satkers;
+  // Dataset to display: either from selected archive or current active satkers, with fallback to activeCaputArchive
+  const baseSatkers = useMemo(() => {
+    if (selectedArchive && selectedArchive.satkersData && selectedArchive.satkersData.length > 0) {
+      return selectedArchive.satkersData;
+    }
+    // Check if satkers has valid reporting data
+    const hasReportedInSatkers = Array.isArray(satkers) && satkers.some(s => s.statusCapaianOutput === 'Sudah Terlaporkan' || (Number(s.indikator?.capaianOutput) > 0));
+    if (!hasReportedInSatkers && activeCaputArchive && activeCaputArchive.satkersData && activeCaputArchive.satkersData.length > 0) {
+      return activeCaputArchive.satkersData;
+    }
+    return satkers;
+  }, [selectedArchive, satkers, activeCaputArchive]);
 
   // Filter satkers yang memiliki data Capaian Output (seluruh 127 Satker terdaftar mitra KPPN)
-  const satkersWithOutput = baseSatkers.filter(s => s.hasCapaianOutputData !== false);
+  const satkersWithOutput = useMemo(() => {
+    return baseSatkers.filter(s => s.hasCapaianOutputData !== false);
+  }, [baseSatkers]);
   const hasAnyOutput = satkersWithOutput.length > 0;
 
+  // Helper score calculation
+  const getCaputScore = (s: SatkerIKPA): number => {
+    const raw = Number(s.indikator?.capaianOutput) || 0;
+    if (raw > 0 && raw <= 1) return raw * 100;
+    if (s.statusCapaianOutput === 'Sudah Terlaporkan' && raw === 0) return 100;
+    return raw;
+  };
+
   // Statistics & Classification
-  const isSatkerBelum = (s: SatkerIKPA) => 
-    s.statusCapaianOutput === 'Belum Terlaporkan' || 
-    s.indikator.capaianOutput === 0;
+  const isSatkerBelum = (s: SatkerIKPA) => {
+    if (s.statusCapaianOutput === 'Sudah Terlaporkan') return false;
+    if (s.statusCapaianOutput === 'Belum Terlaporkan') return true;
+    return getCaputScore(s) === 0;
+  };
 
   const totalSatker = satkersWithOutput.length;
   const satkerBelum = satkersWithOutput.filter(s => isSatkerBelum(s));

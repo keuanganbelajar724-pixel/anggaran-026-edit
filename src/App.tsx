@@ -1211,6 +1211,9 @@ export default function App() {
           });
           if (cleanDashboardConfig.menuVisibility) {
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+            if (cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
+              setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
+            }
           }
           if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
             const def = cleanDashboardConfig.defaultActiveTab;
@@ -1246,7 +1249,7 @@ export default function App() {
         fetchServerSettings();
       });
 
-      // Synchronize settings across all browsers on window focus directly from live Firestore
+      // Synchronize settings & satkers across all browsers and devices on window focus / tab visibility
       const onWindowFocus = () => {
         if (!isMounted) return;
         getDoc(doc(db, 'settings', 'global')).then(snap => {
@@ -1255,8 +1258,31 @@ export default function App() {
             applyCleanSettings(snap.data());
           }
         }).catch(() => {});
+
+        getDoc(doc(db, 'data', 'satkers')).then(snap => {
+          if (!isMounted) return;
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data.list) && data.list.length > 0) {
+              setSatkers(currentLocal => {
+                const merged = mergeSatkersAntiDowngrade(data.list, currentLocal);
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
+                if (data.updatedAt) {
+                  safeLocalStorageSet('kppn_satker_data_updatedAt', data.updatedAt);
+                }
+                return merged;
+              });
+            }
+          }
+        }).catch(() => {});
       };
       window.addEventListener('focus', onWindowFocus);
+      const onVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          onWindowFocus();
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibilityChange);
 
       const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
 
@@ -1376,6 +1402,37 @@ export default function App() {
                 const merged = mergeSatkersAntiDowngrade(INITIAL_SATKER_DATA, curr);
                 safeLocalStorageSet('kppn_satker_data', JSON.stringify(merged));
                 return merged;
+              }
+            } else if (!hasCaput && combined.length > 0) {
+              const activeCaput = combined.find((h: any) => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
+              if (activeCaput && Array.isArray(activeCaput.satkersData) && activeCaput.satkersData.length > 0) {
+                const caputMap = new Map<string, any>();
+                activeCaput.satkersData.forEach((c: any) => {
+                  if (c && c.kodeSatker) caputMap.set(c.kodeSatker.trim(), c);
+                });
+                const mergedWithCaput = curr.map(s => {
+                  const kode = s.kodeSatker?.trim();
+                  const caputMatch = kode ? caputMap.get(kode) : null;
+                  if (caputMatch) {
+                    const status = caputMatch.statusCapaianOutput || 'Belum Terlaporkan';
+                    let score = Number(caputMatch.indikator?.capaianOutput) || 0;
+                    if (score > 0 && score <= 1) score = score * 100;
+                    if (status === 'Sudah Terlaporkan' && score === 0) score = 100;
+                    return {
+                      ...s,
+                      hasCapaianOutputData: true,
+                      statusCapaianOutput: status,
+                      indikator: {
+                        ...s.indikator,
+                        capaianOutput: score
+                      },
+                      periodeUpdate: caputMatch.periodeUpdate || activeCaput.periode || s.periodeUpdate
+                    };
+                  }
+                  return s;
+                });
+                safeLocalStorageSet('kppn_satker_data', JSON.stringify(mergedWithCaput));
+                return mergedWithCaput;
               }
             }
             return curr;
@@ -1788,6 +1845,9 @@ export default function App() {
             });
             if (cleanDashboardConfig.menuVisibility) {
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
+              if (cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
+                setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
+              }
             }
             if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
               const def = cleanDashboardConfig.defaultActiveTab;
@@ -1824,7 +1884,7 @@ export default function App() {
               };
             });
 
-            // If satkers is empty, reconstruct from historical archives
+            // Multi-browser & mobile sync: reconstruct satkers if empty OR merge active Capaian Output archive
             setSatkers(curr => {
               if (curr.length === 0 && cleanList.length > 0) {
                 const reconstructed = mergeHistoricalUploadsToSatkers(cleanList);
@@ -1832,7 +1892,50 @@ export default function App() {
                   safeLocalStorageSet('kppn_satker_data', JSON.stringify(reconstructed));
                   return reconstructed;
                 }
+                return curr;
               }
+
+              // Active Capaian Output archive real-time sync across all devices
+              const activeCaput = cleanList.find((h: any) => h.category === 'CAPAIAN_OUTPUT' && h.isActive);
+              if (activeCaput && Array.isArray(activeCaput.satkersData) && activeCaput.satkersData.length > 0) {
+                const caputMap = new Map<string, any>();
+                activeCaput.satkersData.forEach((c: any) => {
+                  if (c && c.kodeSatker) caputMap.set(c.kodeSatker.trim(), c);
+                });
+
+                let caputChanged = false;
+                const mergedWithCaput = curr.map(s => {
+                  const kode = s.kodeSatker?.trim();
+                  const caputMatch = kode ? caputMap.get(kode) : null;
+                  if (caputMatch) {
+                    const status = caputMatch.statusCapaianOutput || 'Belum Terlaporkan';
+                    let score = Number(caputMatch.indikator?.capaianOutput) || 0;
+                    if (score > 0 && score <= 1) score = score * 100;
+                    if (status === 'Sudah Terlaporkan' && score === 0) score = 100;
+
+                    if (s.statusCapaianOutput !== status || s.indikator?.capaianOutput !== score || !s.hasCapaianOutputData) {
+                      caputChanged = true;
+                      return {
+                        ...s,
+                        hasCapaianOutputData: true,
+                        statusCapaianOutput: status,
+                        indikator: {
+                          ...s.indikator,
+                          capaianOutput: score
+                        },
+                        periodeUpdate: caputMatch.periodeUpdate || activeCaput.periode || s.periodeUpdate
+                      };
+                    }
+                  }
+                  return s;
+                });
+
+                if (caputChanged) {
+                  safeLocalStorageSet('kppn_satker_data', JSON.stringify(mergedWithCaput));
+                  return mergedWithCaput;
+                }
+              }
+
               return curr;
             });
           }
@@ -2140,7 +2243,7 @@ export default function App() {
       const unsubDispensasi = onSnapshot(doc(db, 'data', 'dispensasi_ikpa'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          if (Array.isArray(data.list) && data.list.length > 0) {
+          if (Array.isArray(data.list)) {
             setDispensasiList(data.list);
             safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(data.list));
           }
@@ -2176,6 +2279,7 @@ export default function App() {
 
       return () => {
         window.removeEventListener('focus', onWindowFocus);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
         window.removeEventListener('kppn_my_intress_updated', onMyIntressUpdated);
         unsubUsers();
         unsubSettings();
@@ -2844,7 +2948,7 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       } catch (e) {

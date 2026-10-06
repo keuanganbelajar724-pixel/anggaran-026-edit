@@ -211,6 +211,13 @@ export function mergeSatkersAntiDowngrade(serverList: SatkerIKPA[], localList: S
       effectiveCapaianOutputScore = Number(localS.indikator?.capaianOutput) || 0;
     }
 
+    if (effectiveCapaianOutputScore > 0 && effectiveCapaianOutputScore <= 1) {
+      effectiveCapaianOutputScore = effectiveCapaianOutputScore * 100;
+    }
+    if (effectiveStatusCapaianOutput === 'Sudah Terlaporkan' && effectiveCapaianOutputScore === 0) {
+      effectiveCapaianOutputScore = 100;
+    }
+
     // Indikator merging - keep valid scores
     const mergedIndikator = {
       revisiDipa: (serverS.indikator?.revisiDipa ?? 0) > 0 ? serverS.indikator.revisiDipa : (localS.indikator?.revisiDipa ?? 0),

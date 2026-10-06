@@ -817,11 +817,11 @@ export const Header: React.FC<HeaderProps> = ({
             {tabs
               .filter((t) => {
                 if (t.id === 'admin') return true;
-                if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all tabs unless simulating Satker
-                // dispensasi-ikpa is strictly opt-in (disabled for Satker unless explicitly true)
+                // dispensasi-ikpa is strictly opt-in (disabled unless explicitly active in menuVisibility)
                 if (t.id === 'dispensasi-ikpa') {
                   return menuVisibility?.['dispensasi-ikpa'] === true;
                 }
+                if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all other tabs unless simulating Satker
                 if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
                   return false; // Hide disabled tabs for Satker users
                 }
