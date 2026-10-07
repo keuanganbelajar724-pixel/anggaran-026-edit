@@ -104,6 +104,7 @@ import { PopUpAnnouncementModal } from './components/PopUpAnnouncementModal';
 import { UserGreetingBanner } from './components/UserGreetingBanner';
 import { SlideShowBannerCarousel } from './components/SlideShowBannerCarousel';
 import { AccessibilityWidget } from './components/AccessibilityWidget';
+import { VersionUpdateNotifier } from './components/VersionUpdateNotifier';
 import { InternalAppSidebar } from './components/InternalAppSidebar';
 import { INITIAL_SIDEBAR_CONFIG, DUMMY_SIDEBAR_APP_IDS, sanitizeSidebarConfig, filterDummyApps } from './data/initialSidebarData';
 import { INITIAL_PERATURAN_LIST, sanitizePeraturanList } from './data/initialPeraturanData';
@@ -5161,6 +5162,9 @@ export default function App() {
 
       {/* Premium Accessibility Floating Widget & Menu */}
       <AccessibilityWidget />
+
+      {/* Auto Version Check & Cache Busting Notification */}
+      <VersionUpdateNotifier />
 
       {/* Sidebar Aplikasi Internal KPPN (Hanya muncul jika sudah login) */}
       <InternalAppSidebar

@@ -44,6 +44,18 @@ async function startServer() {
 
   app.use(express.json({ limit: '20mb' }));
 
+  // Anti-stale cache middleware: Ensure HTML navigation is never cached by browser
+  app.use((req, res, next) => {
+    const accept = req.headers.accept || '';
+    if (accept.includes('text/html') || req.path === '/' || req.path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+    }
+    next();
+  });
+
   // Shared Gemini client helper with lazy initialization
   function getGeminiClient(customApiKey?: string): GoogleGenAI {
     const key = (customApiKey && customApiKey.trim()) || process.env.GEMINI_API_KEY;
@@ -1576,6 +1588,23 @@ async function startServer() {
     }
   });
 
+  // App Version & Cache Busting Check Endpoint
+  const SERVER_START_TIME = new Date().toISOString();
+  const APP_BUILD_ID = process.env.BUILD_ID || `build-${Date.now()}`;
+
+  app.get('/api/app-version', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.json({
+      status: 'ok',
+      buildId: APP_BUILD_ID,
+      serverStartTime: SERVER_START_TIME,
+      version: '3.2',
+      name: 'ANGKASA KPPN Semarang I'
+    });
+  });
+
   // Vite middleware in dev, static files in production
   const distPath = path.join(process.cwd(), 'dist');
   const hasDist = fs.existsSync(path.join(distPath, 'index.html'));
@@ -1602,7 +1631,12 @@ async function startServer() {
         }
         let template = fs.readFileSync(indexPath, 'utf-8');
         template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+        res.status(200).set({
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+          'Pragma': 'no-cache',
+          'Expires': '0',
+        }).end(template);
       } catch (e: any) {
         if (vite.ssrFixStacktrace) {
           vite.ssrFixStacktrace(e);
@@ -1611,11 +1645,26 @@ async function startServer() {
       }
     });
   } else {
-    app.use(express.static(distPath));
+    // Serve static files with anti-cache for HTML and immutable caching for hashed assets
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+        } else if (filePath.includes('/assets/')) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        }
+      }
+    }));
+
     app.get('*', (req, res, next) => {
       if (req.originalUrl.startsWith('/api')) {
         return next();
       }
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

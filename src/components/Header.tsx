@@ -53,6 +53,7 @@ import {
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
 import { AndroidInstallModal } from './AndroidInstallModal';
+import { forceCleanAppReload } from './VersionUpdateNotifier';
 import { SlideShowBannerCarousel } from './SlideShowBannerCarousel';
 import { getThemePreset } from '../utils/themeUtils';
 import { filterDummyApps } from '../data/initialSidebarData';
@@ -637,6 +638,21 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Smartphone className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Android</span>
+              </button>
+
+              {/* Tombol Segarkan Tampilan (Anti-Stale Cache Satker & Admin) */}
+              <button
+                type="button"
+                onClick={() => forceCleanAppReload()}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95 group ${
+                  isDark
+                    ? 'bg-slate-900 hover:bg-slate-800 text-sky-300 border-sky-500/40 shadow-xs'
+                    : 'bg-white hover:bg-sky-50 text-sky-700 border-sky-300 shadow-xs'
+                }`}
+                title="Segarkan Tampilan & Unduh Versi Terbaru (Bypass Cache Browser)"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-sky-400 group-hover:rotate-180 transition-transform duration-500" />
+                <span className="hidden sm:inline">Segarkan</span>
               </button>
 
               {/* Real-time Cloud Status Indicator (Otomatis Realtime) */}
