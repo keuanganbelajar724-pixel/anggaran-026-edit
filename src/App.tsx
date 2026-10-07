@@ -15,7 +15,9 @@ import { HaiCsoMainDashboard } from './components/haicso/HaiCsoMainDashboard';
 import { generateInitialHaiCsoData } from './utils/haiCsoExcelParser';
 import { KontrakDashboard } from './components/kontrak/KontrakDashboard';
 import { KonfirmasiKehadiranDashboard } from './components/KonfirmasiKehadiranDashboard';
-import { KontrakMonitoringRecord, KontrakUploadBatch } from './types';
+import { LLATMonitoringCenter } from './components/llat/LLATMonitoringCenter';
+import { DEFAULT_LLAT_EVENTS_2026, DEFAULT_LLAT_CATEGORIES, DEFAULT_LLAT_SETTINGS } from './data/defaultLlatData';
+import { LLATEvent, LLATCategory, LLATSettings, LLATAuditLogEntry, KontrakMonitoringRecord, KontrakUploadBatch } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
 import { INITIAL_KONFIRMASI_KEGIATAN, INITIAL_KONFIRMASI_KEHADIRAN } from './data/initialKonfirmasiData';
 import { INITIAL_MY_INTRESS_DATA } from './data/initialMyIntressData';
@@ -129,7 +131,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'capaian-output': true,
   'diagnostik-caput': true,
   'deviasi-hal3': true,
-  'dispensasi-ikpa': false,
+  'dispensasi-ikpa': true,
   'spm-ppp': true,
   'pengelolaan-up': true,
   'transaksi-kkp': true,
@@ -152,6 +154,8 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'gaji-induk': true,
   'monitoring-haicso': true,
   'kontrak': true,
+  'formulir-survei': true,
+  'monitoring-llat': true,
   'aduan': true,
   'reminder': true,
   'guide': true,
@@ -1213,7 +1217,7 @@ export default function App() {
           });
           if (cleanDashboardConfig.menuVisibility) {
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
-            if (cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
+            if (!isAdminAuthenticated && cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
               setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
             }
           }
@@ -1872,7 +1876,7 @@ export default function App() {
             });
             if (cleanDashboardConfig.menuVisibility) {
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
-              if (cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
+              if (!isAdminAuthenticated && cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
                 setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
               }
             }
@@ -3017,6 +3021,222 @@ export default function App() {
       }).catch(err => console.warn("Firebase Dispensasi IKPA setDoc notice:", err));
     } catch (e) {
       console.warn("Error syncing Dispensasi IKPA to Firebase:", e);
+    }
+  };
+
+  // -------------------------------------------------------------
+  // MONITORING LLAT (Langkah-Langkah Akhir Tahun) State & Handlers
+  // -------------------------------------------------------------
+  const [llatEvents, setLlatEvents] = useState<LLATEvent[]>(() => {
+    const saved = localStorage.getItem('kppn_llat_events');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Error parsing saved LLAT events:', e);
+      }
+    }
+    return DEFAULT_LLAT_EVENTS_2026;
+  });
+
+  const [llatCategories, setLlatCategories] = useState<LLATCategory[]>(() => {
+    const saved = localStorage.getItem('kppn_llat_categories');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Error parsing saved LLAT categories:', e);
+      }
+    }
+    return DEFAULT_LLAT_CATEGORIES;
+  });
+
+  const [llatSettings, setLlatSettings] = useState<LLATSettings>(() => {
+    const saved = localStorage.getItem('kppn_llat_settings');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (e) {
+        console.warn('Error parsing saved LLAT settings:', e);
+      }
+    }
+    return DEFAULT_LLAT_SETTINGS;
+  });
+
+  const [llatAuditLogs, setLlatAuditLogs] = useState<LLATAuditLogEntry[]>(() => {
+    const saved = localStorage.getItem('kppn_llat_audit_logs');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {
+        console.warn('Error parsing saved LLAT audit logs:', e);
+      }
+    }
+    return [];
+  });
+
+  // Sync LLAT from Firestore / Server on Mount
+  useEffect(() => {
+    // 1. Fetch server API backup
+    fetch('/api/llat/data')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.status === 'ok') {
+          if (Array.isArray(data.events) && data.events.length > 0) {
+            setLlatEvents(data.events);
+            safeLocalStorageSet('kppn_llat_events', JSON.stringify(data.events));
+          }
+          if (Array.isArray(data.categories) && data.categories.length > 0) {
+            setLlatCategories(data.categories);
+            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(data.categories));
+          }
+          if (data.settings) {
+            setLlatSettings(data.settings);
+            safeLocalStorageSet('kppn_llat_settings', JSON.stringify(data.settings));
+          }
+          if (Array.isArray(data.auditLogs) && data.auditLogs.length > 0) {
+            setLlatAuditLogs(data.auditLogs);
+            safeLocalStorageSet('kppn_llat_audit_logs', JSON.stringify(data.auditLogs));
+          }
+        }
+      })
+      .catch((err) => console.warn('Notice loading /api/llat/data:', err));
+
+    // 2. Realtime listener to Firestore
+    try {
+      const unsubLlat = onSnapshot(doc(db, 'data', 'llat_calendar'), (docSnap) => {
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          if (Array.isArray(cloudData?.events) && cloudData.events.length > 0) {
+            setLlatEvents(cloudData.events);
+            safeLocalStorageSet('kppn_llat_events', JSON.stringify(cloudData.events));
+          }
+          if (Array.isArray(cloudData?.categories) && cloudData.categories.length > 0) {
+            setLlatCategories(cloudData.categories);
+            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(cloudData.categories));
+          }
+          if (cloudData?.settings) {
+            setLlatSettings(cloudData.settings);
+            safeLocalStorageSet('kppn_llat_settings', JSON.stringify(cloudData.settings));
+          }
+          if (Array.isArray(cloudData?.auditLogs)) {
+            setLlatAuditLogs(cloudData.auditLogs);
+            safeLocalStorageSet('kppn_llat_audit_logs', JSON.stringify(cloudData.auditLogs));
+          }
+        }
+      }, (err) => console.warn('Firestore LLAT snapshot notice:', err));
+
+      return () => unsubLlat();
+    } catch (e) {
+      console.warn('Error subscribing to Firestore LLAT:', e);
+    }
+  }, []);
+
+  const handleSaveLlatEvents = (newEvents: LLATEvent[]) => {
+    if (notifyTamuBlocked('memperbarui kalender LLAT')) return;
+    setLlatEvents(newEvents);
+    try {
+      safeLocalStorageSet('kppn_llat_events', JSON.stringify(newEvents));
+      setDoc(doc(db, 'data', 'llat_calendar'), {
+        events: newEvents,
+        categories: llatCategories,
+        settings: llatSettings,
+        auditLogs: llatAuditLogs,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch((err) => console.warn('Firestore LLAT events save notice:', err));
+
+      fetch('/api/llat/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: newEvents })
+      }).catch((e) => console.warn('Server save LLAT events notice:', e));
+    } catch (e) {
+      console.warn('Error persisting LLAT events:', e);
+    }
+  };
+
+  const handleSaveLlatCategories = (newCategories: LLATCategory[]) => {
+    if (notifyTamuBlocked('mengubah kategori LLAT')) return;
+    setLlatCategories(newCategories);
+    try {
+      safeLocalStorageSet('kppn_llat_categories', JSON.stringify(newCategories));
+      setDoc(doc(db, 'data', 'llat_calendar'), {
+        categories: newCategories,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch((err) => console.warn('Firestore LLAT categories save notice:', err));
+
+      fetch('/api/llat/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categories: newCategories })
+      }).catch((e) => console.warn('Server save LLAT categories notice:', e));
+    } catch (e) {
+      console.warn('Error persisting LLAT categories:', e);
+    }
+  };
+
+  const handleSaveLlatSettings = (newSettings: LLATSettings) => {
+    if (notifyTamuBlocked('mengubah pengaturan LLAT')) return;
+    setLlatSettings(newSettings);
+    try {
+      safeLocalStorageSet('kppn_llat_settings', JSON.stringify(newSettings));
+      setDoc(doc(db, 'data', 'llat_calendar'), {
+        settings: newSettings,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch((err) => console.warn('Firestore LLAT settings save notice:', err));
+
+      fetch('/api/llat/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: newSettings })
+      }).catch((e) => console.warn('Server save LLAT settings notice:', e));
+
+      // Also sync menuVisibility
+      setDashboardConfig((prev) => ({
+        ...prev,
+        llatSettings: newSettings,
+        menuVisibility: {
+          ...(prev.menuVisibility || {}),
+          'monitoring-llat': newSettings.is_active
+        } as MenuVisibilityConfig
+      }));
+    } catch (e) {
+      console.warn('Error persisting LLAT settings:', e);
+    }
+  };
+
+  const handleAddLlatAuditLog = (entry: Omit<LLATAuditLogEntry, 'id' | 'timestamp'>) => {
+    const fullEntry: LLATAuditLogEntry = {
+      ...entry,
+      id: `audit-llat-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString()
+    };
+    const updated = [fullEntry, ...llatAuditLogs].slice(0, 100);
+    setLlatAuditLogs(updated);
+    try {
+      safeLocalStorageSet('kppn_llat_audit_logs', JSON.stringify(updated));
+      setDoc(doc(db, 'data', 'llat_calendar'), {
+        auditLogs: updated,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch((err) => console.warn('Firestore LLAT audit log notice:', err));
+
+      fetch('/api/llat/audit-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry: fullEntry })
+      }).catch((e) => console.warn('Server save LLAT audit notice:', e));
+    } catch (e) {
+      console.warn('Error adding LLAT audit log:', e);
     }
   };
 
@@ -4189,17 +4409,6 @@ export default function App() {
                   currentUser={currentUser}
                   onGoToAdmin={() => setActiveTab('admin')}
                   theme={theme}
-                  isDashboardActive={dashboardConfig.menuVisibility?.['dispensasi-ikpa'] ?? false}
-                  onToggleDashboardActive={async (active) => {
-                    const newConfig = {
-                      ...dashboardConfig,
-                      menuVisibility: {
-                        ...dashboardConfig.menuVisibility,
-                        'dispensasi-ikpa': active
-                      }
-                    };
-                    handleUpdateDashboardConfig(newConfig);
-                  }}
                 />
               )}
 
@@ -4573,6 +4782,29 @@ export default function App() {
                   onClearAllKonfirmasiKehadiran={handleClearAllKonfirmasiKehadiran}
                   dispensasiRecords={dispensasiList}
                   onApplyDispensasiRecords={handleUpdateDispensasiRecords}
+                  llatEvents={llatEvents}
+                  llatCategories={llatCategories}
+                  llatSettings={llatSettings}
+                  llatAuditLogs={llatAuditLogs}
+                  onSaveLlatEvents={handleSaveLlatEvents}
+                  onSaveLlatCategories={handleSaveLlatCategories}
+                  onSaveLlatSettings={handleSaveLlatSettings}
+                  onAddLlatAuditLog={handleAddLlatAuditLog}
+                />
+              )}
+
+              {/* Tab 📅 Monitoring LLAT (Langkah-Langkah Akhir Tahun) */}
+              {activeTab === 'monitoring-llat' && (
+                <LLATMonitoringCenter
+                  events={llatEvents}
+                  categories={llatCategories}
+                  settings={llatSettings}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  onGoToAdmin={() => {
+                    setActiveTab('admin');
+                  }}
+                  theme={theme}
                 />
               )}
 

@@ -13,7 +13,7 @@ import {
   Send, 
   Info, 
   ArrowRight,
-  Lock
+  PlusCircle
 } from 'lucide-react';
 import { 
   DispensasiIKPARecord, 
@@ -29,6 +29,7 @@ import {
   exportDispensasiToExcel, 
   exportDispensasiToPDF 
 } from '../utils/dispensasiExportHelper';
+import { AjukanDispensasiModal } from './dispensasi/AjukanDispensasiModal';
 
 interface DispensasiIKPADashboardProps {
   records: DispensasiIKPARecord[];
@@ -38,19 +39,16 @@ interface DispensasiIKPADashboardProps {
   currentUser?: AppUser | null;
   onGoToAdmin?: () => void;
   theme?: AppTheme;
-  isDashboardActive?: boolean;
-  onToggleDashboardActive?: (active: boolean) => void;
 }
 
 export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = ({
   records = [],
   satkers = [],
+  onSaveRecords,
   isAdminAuthenticated = false,
   currentUser,
   onGoToAdmin,
-  theme = 'light',
-  isDashboardActive = true,
-  onToggleDashboardActive
+  theme = 'light'
 }) => {
   const isDark = theme === 'dark';
 
@@ -58,6 +56,32 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterJenis, setFilterJenis] = useState<string>('ALL');
   const [selectedSatkerFilter, setSelectedSatkerFilter] = useState<string>('ALL');
+  const [isAjukanModalOpen, setIsAjukanModalOpen] = useState<boolean>(false);
+  const [submissionSuccessToast, setSubmissionSuccessToast] = useState<string | null>(null);
+
+  // Add new submission by Satker or Admin
+  const handleAddNewDispensasi = (newRecordData: Omit<DispensasiIKPARecord, 'id' | 'nomorTiket' | 'updatedAt'>) => {
+    const today = new Date();
+    const yearStr = today.getFullYear();
+    const randomSeq = String(records.length + 1).padStart(3, '0');
+    const newRecord: DispensasiIKPARecord = {
+      ...newRecordData,
+      id: `disp-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      nomorTiket: `DISP-${yearStr}-${randomSeq}`,
+      updatedAt: today.toISOString(),
+      updatedBy: currentUser?.displayName || (isAdminAuthenticated ? 'Admin CSO KPPN' : `Satker ${newRecordData.kodeSatker}`)
+    };
+
+    const updated = [newRecord, ...records];
+    if (onSaveRecords) {
+      onSaveRecords(updated);
+    }
+    setIsAjukanModalOpen(false);
+    setSubmissionSuccessToast(`Permohonan dispensasi berhasil dikirim dengan Nomor Tiket ${newRecord.nomorTiket}.`);
+    setTimeout(() => {
+      setSubmissionSuccessToast(null);
+    }, 6000);
+  };
 
   // Quick stats matching the 4 stages
   const stats = useMemo(() => {
@@ -237,42 +261,6 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
     );
   };
 
-  // Check if Module is Deactivated for Satker
-  if (!isAdminAuthenticated && isDashboardActive === false) {
-    return (
-      <div className={`p-8 sm:p-12 text-center rounded-3xl border shadow-md max-w-xl mx-auto my-12 space-y-5 animate-fadeIn ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-      }`}>
-        <div className="w-16 h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 flex items-center justify-center text-amber-600 dark:text-amber-400 mx-auto shadow-xs">
-          <Lock className="w-8 h-8" />
-        </div>
-        <div className="space-y-2">
-          <span className="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-            Akses Ditutup Sementara
-          </span>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white">
-            Modul Pengajuan Dispensasi IKPA Dinonaktifkan
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-md mx-auto">
-            Layanan monitoring dispensasi IKPA saat ini sedang dinonaktifkan sementara oleh Admin KPPN Semarang I. Segala permohonan dispensasi dikoordinasikan langsung melalui kanal resmi CSO KPPN.
-          </p>
-        </div>
-        {onGoToAdmin && (
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={onGoToAdmin}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-all cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4 text-amber-500" />
-              <span>Masuk sebagai Admin KPPN</span>
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       {/* Top Bar: Clean Action Toolbar */}
@@ -290,11 +278,6 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
               <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
                 Status Pengajuan Dispensasi IKPA Satker
               </h2>
-              {isDashboardActive === false && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
-                  🔴 Nonaktif di Satker
-                </span>
-              )}
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
               Pantau status posisi surat permohonan dispensasi (Diterima KPPN &rarr; Posisi Kanwil &rarr; Posisi Kanpus &rarr; Keputusan Final Kantor Pusat)
@@ -304,36 +287,29 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Admin Toggle for Satker Access */}
-          {isAdminAuthenticated && onToggleDashboardActive && (
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                Akses Satker:
-              </span>
-              <button
-                type="button"
-                onClick={() => onToggleDashboardActive(!isDashboardActive)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer transition-all flex items-center gap-1 shadow-2xs ${
-                  isDashboardActive !== false
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                    : 'bg-rose-600 hover:bg-rose-500 text-white'
-                }`}
-                title="Klik untuk mengaktifkan atau menonaktifkan tampilan dashboard untuk Satker"
-              >
-                <span>{isDashboardActive !== false ? '🟢 Aktif' : '🔴 Nonaktif'}</span>
-              </button>
-            </div>
-          )}
+          {/* Tombol Ajukan Permohonan Dispensasi Baru (Bisa untuk Satker maupun Admin) */}
+          <button
+            type="button"
+            onClick={() => setIsAjukanModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+            title="Kirim permohonan dispensasi IKPA resmi (DEVIASI HAL III, KONTRAK, CAPAIAN OUTPUT, UP/TUP, SPM)"
+          >
+            <PlusCircle className="w-4 h-4 text-amber-200" />
+            <span>Ajukan Dispensasi</span>
+          </button>
 
           {isAdminAuthenticated && (
             <button
               type="button"
-              onClick={onGoToAdmin}
+              onClick={() => {
+                sessionStorage.setItem('kppn_target_admin_tab', 'dispensasi-cso');
+                if (onGoToAdmin) onGoToAdmin();
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/80 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer shadow-2xs"
-              title="Buka Pusat Kendali Dokumen CSO di Control Admin Super"
+              title="Buka Pusat Kendali Dokumen CSO & Monitoring Admin Super"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span>Pusat Dokumen CSO (Admin)</span>
+              <span>Kendali Dokumen CSO (Admin)</span>
               <ArrowRight className="w-3 h-3" />
             </button>
           )}
@@ -359,6 +335,28 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
           </button>
         </div>
       </div>
+
+      {/* Success Notification Alert */}
+      {submissionSuccessToast && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-3 text-xs shadow-xs animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <div>
+              <p className="font-bold">{submissionSuccessToast}</p>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                Surat permohonan Anda telah tercatat di antrean CSO KPPN Semarang I dan dapat dipantau perkembangannya pada tabel di bawah.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSubmissionSuccessToast(null)}
+            className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards: 4 Stages Breakdown */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
@@ -653,6 +651,16 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
           </div>
         )}
       </div>
+
+      {/* Modal: Formulir Pengajuan Permohonan Dispensasi IKPA */}
+      <AjukanDispensasiModal
+        isOpen={isAjukanModalOpen}
+        onClose={() => setIsAjukanModalOpen(false)}
+        onSubmit={handleAddNewDispensasi}
+        satkers={satkers}
+        currentSatkerKode={undefined}
+        isDark={isDark}
+      />
     </div>
   );
 };

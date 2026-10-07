@@ -46,7 +46,8 @@ import {
   Check,
   LayoutGrid,
   Scale,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -454,6 +455,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <ClipboardList className="w-4 h-4 text-sky-300" />,
       badge: <span className="bg-sky-950 text-sky-200 border border-sky-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Google Form</span>,
       activeColor: 'bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-600 text-white shadow-lg shadow-sky-600/30 ring-2 ring-sky-400/50'
+    },
+    {
+      id: 'monitoring-llat',
+      label: dashboardConfig?.llatSettings?.menu_title || '📅 Monitoring LLAT',
+      icon: <Calendar className="w-4 h-4 text-amber-300" />,
+      badge: <span className="bg-red-950 text-amber-200 border border-red-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">LLAT</span>,
+      activeColor: 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-amber-400/50'
     }
   ];
 
@@ -817,10 +825,6 @@ export const Header: React.FC<HeaderProps> = ({
             {tabs
               .filter((t) => {
                 if (t.id === 'admin') return true;
-                // dispensasi-ikpa is strictly opt-in (disabled unless explicitly active in menuVisibility)
-                if (t.id === 'dispensasi-ikpa') {
-                  return menuVisibility?.['dispensasi-ikpa'] === true;
-                }
                 if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all other tabs unless simulating Satker
                 if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
                   return false; // Hide disabled tabs for Satker users
@@ -830,8 +834,8 @@ export const Header: React.FC<HeaderProps> = ({
               .map((t) => {
                 const isActive = activeTab === t.id;
                 const isDisabledForSatker = menuVisibility 
-                  ? (menuVisibility[t.id as keyof MenuVisibilityConfig] === false || (t.id === 'dispensasi-ikpa' && menuVisibility['dispensasi-ikpa'] !== true))
-                  : (t.id === 'dispensasi-ikpa');
+                  ? menuVisibility[t.id as keyof MenuVisibilityConfig] === false
+                  : false;
 
                 const activeStyle = isActive
                   ? `${t.activeColor} ${themeSettings?.activeTabGlow !== false ? 'scale-[1.02]' : ''}`

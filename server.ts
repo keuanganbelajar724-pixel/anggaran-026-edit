@@ -23,11 +23,18 @@ import {
   type TelegramServerConfig
 } from './server_telegram.ts';
 import { initializeApp as initServerFirebase, getApps as getServerApps } from 'firebase/app';
-import { getFirestore as getServerFirestore, doc as serverDoc, setDoc as serverSetDoc, getDoc as serverGetDoc, onSnapshot as serverOnSnapshot } from 'firebase/firestore';
+import { initializeFirestore as initServerFirestore, getFirestore as getServerFirestore, doc as serverDoc, setDoc as serverSetDoc, getDoc as serverGetDoc, onSnapshot as serverOnSnapshot } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 
 const serverFirebaseApp = getServerApps().length === 0 ? initServerFirebase(firebaseConfig) : getServerApps()[0];
-const serverDb = getServerFirestore(serverFirebaseApp, firebaseConfig.firestoreDatabaseId || undefined);
+let serverDb: any;
+try {
+  serverDb = initServerFirestore(serverFirebaseApp, {
+    experimentalForceLongPolling: true
+  }, firebaseConfig.firestoreDatabaseId || undefined);
+} catch {
+  serverDb = getServerFirestore(serverFirebaseApp, firebaseConfig.firestoreDatabaseId || undefined);
+}
 
 dotenv.config();
 
@@ -138,6 +145,8 @@ async function startServer() {
           } catch {}
         }
       }
+    }, (err) => {
+      console.warn('Server Firestore satkers listener notice:', err.message);
     });
 
     serverOnSnapshot(serverDoc(serverDb, 'data', 'historical_uploads'), (snap) => {
@@ -150,6 +159,8 @@ async function startServer() {
           } catch {}
         }
       }
+    }, (err) => {
+      console.warn('Server Firestore historical_uploads listener notice:', err.message);
     });
 
     serverOnSnapshot(serverDoc(serverDb, 'settings', 'global'), (snap) => {
@@ -160,6 +171,8 @@ async function startServer() {
           fs.writeFileSync(path.join(process.cwd(), 'settings_generated.json'), JSON.stringify(data, null, 2));
         } catch {}
       }
+    }, (err) => {
+      console.warn('Server Firestore settings listener notice:', err.message);
     });
   } catch (err) {
     console.warn('Server Firestore realtime sync setup notice:', err);
@@ -414,6 +427,115 @@ async function startServer() {
         return res.json({ status: 'ok', count: users.length });
       }
       res.status(400).json({ status: 'error', message: 'Invalid users array' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // -------------------------------------------------------------
+  // LLAT (Langkah-Langkah Akhir Tahun) Persistence Endpoints
+  // -------------------------------------------------------------
+  let inMemoryLlatEvents: any[] = [];
+  let inMemoryLlatCategories: any[] = [];
+  let inMemoryLlatSettings: any = null;
+  let inMemoryLlatAuditLogs: any[] = [];
+
+  try {
+    const llatPath = path.join(process.cwd(), 'llat_generated.json');
+    if (fs.existsSync(llatPath)) {
+      const parsedLlat = JSON.parse(fs.readFileSync(llatPath, 'utf8'));
+      if (Array.isArray(parsedLlat?.events)) inMemoryLlatEvents = parsedLlat.events;
+      if (Array.isArray(parsedLlat?.categories)) inMemoryLlatCategories = parsedLlat.categories;
+      if (parsedLlat?.settings) inMemoryLlatSettings = parsedLlat.settings;
+      if (Array.isArray(parsedLlat?.auditLogs)) inMemoryLlatAuditLogs = parsedLlat.auditLogs;
+    }
+  } catch (e) {
+    console.warn('Could not load llat_generated.json on server start:', e);
+  }
+
+  function saveLlatToDisk() {
+    try {
+      const llatPath = path.join(process.cwd(), 'llat_generated.json');
+      fs.writeFile(
+        llatPath,
+        JSON.stringify({
+          events: inMemoryLlatEvents,
+          categories: inMemoryLlatCategories,
+          settings: inMemoryLlatSettings,
+          auditLogs: inMemoryLlatAuditLogs,
+          updatedAt: new Date().toISOString()
+        }, null, 2),
+        (err) => {
+          if (err) console.warn('Server disk backup LLAT notice:', err);
+        }
+      );
+    } catch (e) {
+      console.warn('Error saving LLAT to disk:', e);
+    }
+  }
+
+  app.get('/api/llat/data', (_req, res) => {
+    res.json({
+      status: 'ok',
+      events: inMemoryLlatEvents,
+      categories: inMemoryLlatCategories,
+      settings: inMemoryLlatSettings,
+      auditLogs: inMemoryLlatAuditLogs
+    });
+  });
+
+  app.post('/api/llat/events', (req, res) => {
+    try {
+      const { events } = req.body || {};
+      if (Array.isArray(events)) {
+        inMemoryLlatEvents = events;
+        saveLlatToDisk();
+        return res.json({ status: 'ok', count: events.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid events array' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/llat/categories', (req, res) => {
+    try {
+      const { categories } = req.body || {};
+      if (Array.isArray(categories)) {
+        inMemoryLlatCategories = categories;
+        saveLlatToDisk();
+        return res.json({ status: 'ok', count: categories.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid categories array' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/llat/settings', (req, res) => {
+    try {
+      const { settings } = req.body || {};
+      if (settings && typeof settings === 'object') {
+        inMemoryLlatSettings = settings;
+        saveLlatToDisk();
+        return res.json({ status: 'ok', settings: inMemoryLlatSettings });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid settings object' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/llat/audit-logs', (req, res) => {
+    try {
+      const { entry, logs } = req.body || {};
+      if (Array.isArray(logs)) {
+        inMemoryLlatAuditLogs = logs;
+      } else if (entry) {
+        inMemoryLlatAuditLogs.unshift(entry);
+      }
+      saveLlatToDisk();
+      res.json({ status: 'ok', count: inMemoryLlatAuditLogs.length });
     } catch (e: any) {
       res.status(500).json({ status: 'error', message: e?.message });
     }

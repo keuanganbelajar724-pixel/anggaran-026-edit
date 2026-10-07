@@ -38,8 +38,13 @@ import {
   HAICSOTicket,
   HAICSOUploadBatch,
   HAICSODashboardSettings,
-  DispensasiIKPARecord
+  DispensasiIKPARecord,
+  LLATEvent,
+  LLATCategory,
+  LLATSettings,
+  LLATAuditLogEntry
 } from '../types';
+import { LLATAdminSection } from './llat/LLATAdminSection';
 import { DispensasiAdminCsoSection } from './admin/DispensasiAdminCsoSection';
 import { HaiCsoAdminDashboard } from './haicso/HaiCsoAdminDashboard';
 import { DEFAULT_TARGET_TRIWULAN, TRIWULAN_OPTIONS } from '../utils/targetTriwulanProcessor';
@@ -309,6 +314,14 @@ interface AdminUploadProps {
   onClearAllKonfirmasiKehadiran?: () => void;
   currentUser?: AppUser | null;
   onLoginSuccess?: (user: AppUser) => void;
+  llatEvents?: LLATEvent[];
+  llatCategories?: LLATCategory[];
+  llatSettings?: LLATSettings;
+  llatAuditLogs?: LLATAuditLogEntry[];
+  onSaveLlatEvents?: (events: LLATEvent[]) => void;
+  onSaveLlatCategories?: (categories: LLATCategory[]) => void;
+  onSaveLlatSettings?: (settings: LLATSettings) => void;
+  onAddLlatAuditLog?: (entry: Omit<LLATAuditLogEntry, 'id' | 'timestamp'>) => void;
 }
 
 const INITIAL_HISTORICAL_UPLOADS: ExcelUploadHistory[] = [
@@ -520,7 +533,15 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   onDeleteKonfirmasiKehadiran,
   onClearAllKonfirmasiKehadiran,
   currentUser = null,
-  onLoginSuccess
+  onLoginSuccess,
+  llatEvents = [],
+  llatCategories = [],
+  llatSettings,
+  llatAuditLogs = [],
+  onSaveLlatEvents,
+  onSaveLlatCategories,
+  onSaveLlatSettings,
+  onAddLlatAuditLog
 }) => {
   const isDark = theme === 'dark';
   const isTamu = currentUser?.role === 'tamu';
@@ -534,7 +555,16 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
   };
 
   // Navigation inside Admin Panel
-  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat' | 'formulir-survei' | 'dispensasi-cso'>('upload');
+  const [adminTab, setAdminTab] = useState<'upload' | 'crud' | 'perhatian' | 'pejabat-hp' | 'history' | 'analysis' | 'settings' | 'announcements' | 'materi-slide' | 'portal-link' | 'presensi-admin' | 'konfirmasi-admin' | 'broadcast' | 'jarkom-grup' | 'aduan' | 'logs' | 'gemini-ai' | 'pengetahuan-admin' | 'buletin' | 'firestore-quota' | 'users' | 'sidebar' | 'quiz-cat' | 'formulir-survei' | 'dispensasi-cso' | 'llat-admin'>(() => {
+    try {
+      const target = sessionStorage.getItem('kppn_target_admin_tab');
+      if (target) {
+        sessionStorage.removeItem('kppn_target_admin_tab');
+        return target as any;
+      }
+    } catch {}
+    return 'upload';
+  });
   const [selectedSatkerForAiDiagnosis, setSelectedSatkerForAiDiagnosis] = useState<SatkerIKPA | null>(null);
   const [aiGeneratedBroadcastTemplate, setAiGeneratedBroadcastTemplate] = useState<string | null>(null);
   
@@ -3889,6 +3919,24 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
               {dispensasiRecords.length} BERKAS
             </span>
           </button>
+
+          {/* 24. Kelola Kalender LLAT (Langkah-Langkah Akhir Tahun) */}
+          <button
+            onClick={() => setAdminTab('llat-admin')}
+            className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
+              adminTab === 'llat-admin'
+                ? 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-lg border-2 border-amber-300 ring-4 ring-amber-400/40 scale-[1.03]'
+                : 'bg-white/80 dark:bg-slate-800/80 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 hover:border-rose-400 shadow-2xs hover:shadow-xs'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 truncate">
+              <Calendar className={`w-4 h-4 shrink-0 ${adminTab === 'llat-admin' ? 'text-white' : 'text-rose-500'}`} />
+              <span className="truncate">24. 📅 Kelola Kalender LLAT</span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-amber-400 text-slate-950 font-bold">
+              {llatEvents.length} AGENDA
+            </span>
+          </button>
         </div>
       </div>
 
@@ -4812,7 +4860,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'kontrak': '📑 Data Kontrak',
                       'quiz-cat': '🎯 Kuis CAT & Kompetensi',
                       'formulir-survei': '📝 Formulir & Survei (Google Form)',
-                      'dispensasi-ikpa': '⚖️ Pengajuan Dispensasi IKPA'
+                      'dispensasi-ikpa': '⚖️ Pengajuan Dispensasi IKPA',
+                      'monitoring-llat': tempConfig.llatSettings?.menu_title || '📅 Monitoring LLAT'
                     };
 
                     const order = (tempConfig.tabOrder || [
@@ -4843,7 +4892,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       'monitoring-haicso',
                       'kontrak',
                       'quiz-cat',
-                      'formulir-survei'
+                      'formulir-survei',
+                      'monitoring-llat'
                     ]).filter(k => k !== 'guide');
 
                     return order.map((key, idx) => {
@@ -4898,7 +4948,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'kontrak': { label: '📑 Monitoring Data Kontrak', desc: 'Monitoring data kontrak (SPAN & SAKTI), realisasi pembayaran, sisa, status progress & NRK', category: 'Kontrak', badgeColor: 'bg-emerald-100 text-emerald-800' },
                     'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' },
                     'formulir-survei': { label: '📝 Formulir & Survei (Google Form)', desc: 'Kuesioner survei kepuasan layanan & integritas Satker, pembaca respon Google Form & grafik otomatis', category: 'Survei', badgeColor: 'bg-sky-100 text-sky-800' },
-                    'dispensasi-ikpa': { label: '⚖️ Pengajuan & Monitoring Dispensasi IKPA', desc: 'Monitoring surat permohonan dispensasi IKPA Satker (Diterima KPPN -> Posisi Kanwil -> Posisi Kanpus -> Putusan Final Kantor Pusat)', category: 'Dispensasi', badgeColor: 'bg-amber-100 text-amber-800' }
+                    'dispensasi-ikpa': { label: '⚖️ Pengajuan & Monitoring Dispensasi IKPA', desc: 'Monitoring surat permohonan dispensasi IKPA Satker (Diterima KPPN -> Posisi Kanwil -> Posisi Kanpus -> Putusan Final Kantor Pusat)', category: 'Dispensasi', badgeColor: 'bg-amber-100 text-amber-800' },
+                    'monitoring-llat': { label: tempConfig.llatSettings?.menu_title ? `📅 ${tempConfig.llatSettings.menu_title}` : '📅 Monitoring LLAT (Langkah-Langkah Akhir Tahun)', desc: tempConfig.llatSettings?.menu_description || 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.', category: 'Akhir Tahun', badgeColor: 'bg-rose-100 text-rose-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4929,7 +4980,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'monitoring-haicso',
                     'kontrak',
                     'quiz-cat',
-                    'formulir-survei'
+                    'formulir-survei',
+                    'monitoring-llat'
                   ];
 
                   // Build unified order without guide
@@ -7282,6 +7334,185 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                       📜 Riwayat Upload
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Setting 6b: Monitoring LLAT (Langkah-Langkah Akhir Tahun) */}
+            <div className="bg-rose-50/60 border border-rose-200 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs font-black text-rose-950 uppercase tracking-wider flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-rose-600" />
+                      Pengaturan Modul: Monitoring LLAT (Langkah-Langkah Akhir Tahun)
+                    </label>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                      tempConfig.menuVisibility?.['monitoring-llat'] !== false
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${tempConfig.menuVisibility?.['monitoring-llat'] !== false ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                      Status: {tempConfig.menuVisibility?.['monitoring-llat'] !== false ? '🟢 AKTIF' : '🔴 NONAKTIF'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Pusat pemantauan batas akhir pengajuan dan kewajiban akhir tahun KPPN dan Satker.
+                  </p>
+                </div>
+
+                {/* Master Switch for LLAT */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentActive = tempConfig.menuVisibility?.['monitoring-llat'] !== false;
+                    const nextActive = !currentActive;
+                    const newVis = {
+                      ...(tempConfig.menuVisibility || {}),
+                      'monitoring-llat': nextActive
+                    };
+                    const updatedCfg: DashboardConfig = {
+                      ...tempConfig,
+                      menuVisibility: newVis as any,
+                      llatSettings: {
+                        ...(tempConfig.llatSettings || {
+                          is_active: nextActive,
+                          menu_title: 'Monitoring LLAT',
+                          menu_description: 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.',
+                          menu_icon: '📅',
+                          tahun_aktif: 2026,
+                          version: 1,
+                          reminder: { reminder_h7: true, reminder_h3: true, reminder_h1: true, reminder_h0: true }
+                        }),
+                        is_active: nextActive
+                      }
+                    };
+                    setTempConfig(updatedCfg);
+                    onUpdateDashboardConfig(updatedCfg);
+                    if (onSaveLlatSettings && updatedCfg.llatSettings) {
+                      onSaveLlatSettings(updatedCfg.llatSettings);
+                    }
+                    addToast(
+                      `Modul Monitoring LLAT ${nextActive ? '🟢 Diaktifkan' : '🔴 Dinonaktifkan'} untuk Satker! Disimpan ke Database.`,
+                      nextActive ? 'success' : 'info'
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 shadow-xs ${
+                    tempConfig.menuVisibility?.['monitoring-llat'] !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700'
+                  }`}
+                >
+                  {tempConfig.menuVisibility?.['monitoring-llat'] !== false ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-ping"></span>
+                      <span>🟢 Aktif (Tampil di Satker)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-200"></span>
+                      <span>🔴 Nonaktif (Disembunyikan)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Editable Name & Description Form (Section 3) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Nama Menu Tampilan:
+                  </label>
+                  <div className="flex gap-1.5">
+                    <span className="px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl text-sm flex items-center justify-center font-bold">
+                      📅
+                    </span>
+                    <input
+                      type="text"
+                      value={tempConfig.llatSettings?.menu_title || 'Monitoring LLAT'}
+                      onChange={(e) => {
+                        const nextVal = e.target.value;
+                        const newCfg: DashboardConfig = {
+                          ...tempConfig,
+                          llatSettings: {
+                            ...(tempConfig.llatSettings || {
+                              is_active: true,
+                              menu_title: 'Monitoring LLAT',
+                              menu_description: 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.',
+                              menu_icon: '📅',
+                              tahun_aktif: 2026,
+                              version: 1,
+                              reminder: { reminder_h7: true, reminder_h3: true, reminder_h1: true, reminder_h0: true }
+                            }),
+                            menu_title: nextVal
+                          }
+                        };
+                        setTempConfig(newCfg);
+                        onUpdateDashboardConfig(newCfg);
+                      }}
+                      className="flex-1 px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
+                      placeholder="Monitoring LLAT"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Deskripsi Menu:
+                  </label>
+                  <input
+                    type="text"
+                    value={tempConfig.llatSettings?.menu_description || 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.'}
+                    onChange={(e) => {
+                      const nextVal = e.target.value;
+                      const newCfg: DashboardConfig = {
+                        ...tempConfig,
+                        llatSettings: {
+                          ...(tempConfig.llatSettings || {
+                            is_active: true,
+                            menu_title: 'Monitoring LLAT',
+                            menu_description: 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.',
+                            menu_icon: '📅',
+                            tahun_aktif: 2026,
+                            version: 1,
+                            reminder: { reminder_h7: true, reminder_h3: true, reminder_h1: true, reminder_h0: true }
+                          }),
+                          menu_description: nextVal
+                        }
+                      };
+                      setTempConfig(newCfg);
+                      onUpdateDashboardConfig(newCfg);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-xs font-bold"
+                    placeholder="Deskripsi batas waktu langkah akhir tahun..."
+                  />
+                </div>
+              </div>
+
+              {/* Status footer with link to LLAT Admin */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-rose-200/80">
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 font-semibold">
+                  <span>Total Kegiatan: <strong className="text-slate-900">{llatEvents.length}</strong></span>
+                  <span>&bull;</span>
+                  <span>Hak Akses Satker: <strong className={tempConfig.menuVisibility?.['monitoring-llat'] !== false ? 'text-emerald-700' : 'text-rose-700'}>{tempConfig.menuVisibility?.['monitoring-llat'] !== false ? 'Terbuka' : 'Tertutup'}</strong></span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setAdminTab('llat-admin')}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Buka Kelola Kalender LLAT &rarr;</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigateTab?.('monitoring-llat')}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-all"
+                  >
+                    👁️ Lihat Tampilan Satker
+                  </button>
                 </div>
               </div>
             </div>
@@ -11607,20 +11838,47 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           }}
           currentUser={currentUser}
           theme={theme}
-          isDashboardActive={tempConfig?.menuVisibility?.['dispensasi-ikpa'] ?? false}
-          onToggleDashboardActive={async (active) => {
+        />
+      )}
+
+      {/* 24. Kelola Kalender LLAT (Langkah-Langkah Akhir Tahun) */}
+      {adminTab === 'llat-admin' && (
+        <LLATAdminSection
+          events={llatEvents}
+          categories={llatCategories}
+          settings={llatSettings || tempConfig.llatSettings || {
+            is_active: tempConfig.menuVisibility?.['monitoring-llat'] !== false,
+            menu_title: 'Monitoring LLAT',
+            menu_description: 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.',
+            menu_icon: '📅',
+            tahun_aktif: 2026,
+            version: 1,
+            reminder: { reminder_h7: true, reminder_h3: true, reminder_h1: true, reminder_h0: true }
+          }}
+          auditLogs={llatAuditLogs}
+          onSaveEvents={(newEvents) => {
+            if (onSaveLlatEvents) onSaveLlatEvents(newEvents);
+          }}
+          onSaveCategories={(newCats) => {
+            if (onSaveLlatCategories) onSaveLlatCategories(newCats);
+          }}
+          onSaveSettings={(newSettings) => {
+            if (onSaveLlatSettings) onSaveLlatSettings(newSettings);
             const updatedConfig = {
               ...tempConfig,
+              llatSettings: newSettings,
               menuVisibility: {
                 ...tempConfig.menuVisibility,
-                'dispensasi-ikpa': active
+                'monitoring-llat': newSettings.is_active
               }
             };
             setTempConfig(updatedConfig);
-            if (onUpdateDashboardConfig) {
-              onUpdateDashboardConfig(updatedConfig);
-            }
+            if (onUpdateDashboardConfig) onUpdateDashboardConfig(updatedConfig);
           }}
+          onAddAuditLog={(entry) => {
+            if (onAddLlatAuditLog) onAddLlatAuditLog(entry);
+          }}
+          currentUser={currentUser}
         />
       )}
 

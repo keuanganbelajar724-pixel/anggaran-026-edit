@@ -1146,6 +1146,7 @@ export interface MenuVisibilityConfig {
   'kontrak'?: boolean;
   'peraturan-perbendaharaan'?: boolean;
   'formulir-survei'?: boolean;
+  'monitoring-llat'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1534,6 +1535,13 @@ export interface DashboardConfig {
   realisasiAnggaranConfig?: RealisasiAnggaranConfig;
   perhitunganIkpaReference?: PerhitunganIkpaExcelReference;
   sidebarConfig?: import('./types/sidebar').SidebarConfig;
+  llatEvents?: import('./types/llat').LLATEvent[];
+  llatCategories?: import('./types/llat').LLATCategory[];
+  llatSettings?: import('./types/llat').LLATSettings;
+  llatAuditLogs?: import('./types/llat').LLATAuditLogEntry[];
+  llatVersion?: number;
+  menuCustomLabels?: Record<string, string>;
+  menuCustomDescriptions?: Record<string, string>;
 }
 
 export interface JuknisSubTabVisibility {
@@ -1574,9 +1582,12 @@ export type NavigationTab =
   | 'kontrak'
   | 'peraturan-perbendaharaan'
   | 'formulir-survei'
+  | 'monitoring-llat'
   | 'admin' 
   | 'reminder' 
   | 'guide';
+
+export * from './types/llat';
 
 // -------------------------------------------------------------
 // MODEL PENGAJUAN DISPENSASI IKPA SATKER (CSO -> KPPN -> KANWIL -> PUSAT)

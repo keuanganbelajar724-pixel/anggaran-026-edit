@@ -39,7 +39,7 @@ try {
 
 export const auth = authInstance;
 
-// Initialize Firestore with autoDetectLongPolling to allow instantaneous WebSockets with reliable fallback
+// Initialize Firestore with experimentalForceLongPolling for instant, reliable connection in sandbox & preview environments
 let firestoreDb: any;
 try {
   let cacheConfig: any;
@@ -55,7 +55,7 @@ try {
     app,
     {
       localCache: cacheConfig,
-      experimentalAutoDetectLongPolling: true,
+      experimentalForceLongPolling: true,
     },
     firebaseConfig.firestoreDatabaseId || undefined
   );
@@ -64,7 +64,7 @@ try {
     firestoreDb = initializeFirestore(
       app,
       {
-        experimentalAutoDetectLongPolling: true,
+        experimentalForceLongPolling: true,
       },
       firebaseConfig.firestoreDatabaseId || undefined
     );
@@ -77,18 +77,6 @@ try {
 }
 
 export const db = firestoreDb;
-
-// Validate Connection to Firestore (Per Firebase Integration Skill)
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(firestoreDb, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Firestore connection check: operating in local offline cache mode.");
-    }
-  }
-}
-testConnection();
 
 // ==========================================
 // Robust Quota Guard & Circuit Breaker State

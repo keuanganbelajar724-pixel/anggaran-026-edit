@@ -15,7 +15,7 @@ import {
   ShieldCheck, 
   Copy, 
   Check, 
-  Send 
+  Send
 } from 'lucide-react';
 import { 
   DispensasiIKPARecord, 
@@ -48,9 +48,7 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
   satkers = [],
   onSaveRecords,
   currentUser,
-  theme = 'light',
-  isDashboardActive = true,
-  onToggleDashboardActive
+  theme = 'light'
 }) => {
   const isDark = theme === 'dark';
 
@@ -269,25 +267,16 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {onToggleDashboardActive && (
-              <div className="flex items-center gap-2 bg-white/90 dark:bg-slate-800/90 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700/60 shadow-2xs">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Akses Satker:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onToggleDashboardActive(!isDashboardActive)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-black border transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isDashboardActive !== false
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-700 shadow-xs'
-                      : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-700 shadow-xs'
-                  }`}
-                  title="Klik untuk mengaktifkan atau menonaktifkan tampilan modul di dashboard Satker"
-                >
-                  <span>{isDashboardActive !== false ? '🟢 Aktif di Satker' : '🔴 Nonaktif di Satker'}</span>
-                </button>
-              </div>
-            )}
+            <a
+              href="https://s.id/MonitoringPenyesuaianIKPA"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-200 cursor-pointer shadow-xs transition-all"
+              title="Buka laporan live Google Data Studio DJPb di tab baru"
+            >
+              <ExternalLink className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>Buka s.id/MonitoringPenyesuaianIKPA ↗</span>
+            </a>
 
             <button
               type="button"
@@ -319,8 +308,45 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
         </div>
       </div>
 
-      {/* KPI Cards: 4 Stages */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {/* Banner Informasi Link Monitoring DJPb Resmi (s.id/MonitoringPenyesuaianIKPA) */}
+      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+        isDark 
+          ? 'bg-gradient-to-r from-amber-950/30 via-slate-900 to-indigo-950/30 border-amber-800/40' 
+          : 'bg-gradient-to-r from-amber-50/70 via-white to-indigo-50/70 border-amber-200/80'
+      } shadow-xs`}>
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+            <Scale className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                Live Monitoring Penyesuaian IKPA DJPb
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                Google Data Studio DJPb
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Kebijakan pemilik laporan Google Data Studio membatasi embed langsung di situs luar. Buka langsung dashboard resmi dengan memilih filter <strong>KPPN: 026 - SEMARANG I</strong>.
+            </p>
+          </div>
+        </div>
+        <a
+          href="https://s.id/MonitoringPenyesuaianIKPA"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/20 transition-all shrink-0 cursor-pointer active:scale-95"
+          title="Buka laporan s.id/MonitoringPenyesuaianIKPA di tab baru"
+        >
+          <ExternalLink className="w-4 h-4" />
+          <span>Buka s.id/MonitoringPenyesuaianIKPA ↗</span>
+        </a>
+      </div>
+
+      <div className="space-y-6">
+        {/* KPI Cards: 4 Stages */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div 
           onClick={() => setFilterStatus('ALL')}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
@@ -709,6 +735,7 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
           </table>
         </div>
       )}
+        </div>
 
       {/* Modal: Tambah Rekam Pengajuan CSO Baru */}
       <AjukanDispensasiModal
