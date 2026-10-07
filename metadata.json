@@ -1,6 +1,6 @@
 {
   "name": "ANGKASA",
-  "description": "ANGKASA (Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja) KPPN: Monitoring Kinerja Anggaran, Monitoring LLAT (Langkah-Langkah Akhir Tahun), Gaji Induk, Monitoring HAICSO, Rekonsiliasi, LPJ Bendahara, Kontrak & Dispensasi IKPA",
+  "description": "ANGKASA (Aplikasi Navigasi Keuangan dan Anggaran Satuan Kerja) KPPN: Monitoring Kinerja Anggaran, Monitoring Hal III DIPA, Monitoring LLAT (Langkah-Langkah Akhir Tahun), Gaji Induk, Monitoring HAICSO, Rekonsiliasi, LPJ Bendahara, Kontrak & Dispensasi IKPA",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -47,7 +47,8 @@ import {
   LayoutGrid,
   Scale,
   ClipboardList,
-  Calendar
+  Calendar,
+  FileCheck
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -462,6 +463,13 @@ export const Header: React.FC<HeaderProps> = ({
       icon: <Calendar className="w-4 h-4 text-amber-300" />,
       badge: <span className="bg-red-950 text-amber-200 border border-red-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">LLAT</span>,
       activeColor: 'bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-amber-400/50'
+    },
+    {
+      id: 'monitoring-hal3-dipa',
+      label: '📑 Monitoring Hal III DIPA',
+      icon: <FileCheck className="w-4 h-4 text-emerald-300" />,
+      badge: <span className="bg-emerald-950 text-emerald-200 border border-emerald-700/60 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold">Hal III</span>,
+      activeColor: 'bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-700 text-white shadow-lg shadow-teal-600/30 ring-2 ring-teal-400/50'
     }
   ];
 

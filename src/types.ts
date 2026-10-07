@@ -1147,6 +1147,7 @@ export interface MenuVisibilityConfig {
   'peraturan-perbendaharaan'?: boolean;
   'formulir-survei'?: boolean;
   'monitoring-llat'?: boolean;
+  'monitoring-hal3-dipa'?: boolean;
   'reminder': boolean;
   'guide': boolean;
 }
@@ -1583,11 +1584,13 @@ export type NavigationTab =
   | 'peraturan-perbendaharaan'
   | 'formulir-survei'
   | 'monitoring-llat'
+  | 'monitoring-hal3-dipa'
   | 'admin' 
   | 'reminder' 
   | 'guide';
 
 export * from './types/llat';
+export * from './types/hal3Dipa';
 
 // -------------------------------------------------------------
 // MODEL PENGAJUAN DISPENSASI IKPA SATKER (CSO -> KPPN -> KANWIL -> PUSAT)

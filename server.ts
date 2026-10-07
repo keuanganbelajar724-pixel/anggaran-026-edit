@@ -541,6 +541,102 @@ async function startServer() {
     }
   });
 
+  // -------------------------------------------------------------
+  // MONITORING HAL III DIPA (Kanwil & Tindak Lanjut KPPN) Endpoints
+  // -------------------------------------------------------------
+  let inMemoryHal3Records: any[] = [];
+  let inMemoryHal3Batches: any[] = [];
+
+  try {
+    const hal3Path = path.join(process.cwd(), 'hal3_monitoring_generated.json');
+    if (fs.existsSync(hal3Path)) {
+      const parsedHal3 = JSON.parse(fs.readFileSync(hal3Path, 'utf8'));
+      if (Array.isArray(parsedHal3?.records)) inMemoryHal3Records = parsedHal3.records;
+      if (Array.isArray(parsedHal3?.batches)) inMemoryHal3Batches = parsedHal3.batches;
+    }
+  } catch (e) {
+    console.warn('Could not load hal3_monitoring_generated.json on server start:', e);
+  }
+
+  function saveHal3ToDisk() {
+    try {
+      const hal3Path = path.join(process.cwd(), 'hal3_monitoring_generated.json');
+      fs.writeFile(
+        hal3Path,
+        JSON.stringify({
+          records: inMemoryHal3Records,
+          batches: inMemoryHal3Batches,
+          updatedAt: new Date().toISOString()
+        }, null, 2),
+        (err) => {
+          if (err) console.warn('Server disk backup Hal3 notice:', err);
+        }
+      );
+    } catch (e) {
+      console.warn('Error saving Hal3 to disk:', e);
+    }
+  }
+
+  app.get('/api/hal3-dipa/data', (_req, res) => {
+    res.json({
+      status: 'ok',
+      records: inMemoryHal3Records,
+      batches: inMemoryHal3Batches
+    });
+  });
+
+  app.post('/api/hal3-dipa/records', (req, res) => {
+    try {
+      const { records, batches } = req.body || {};
+      if (Array.isArray(records)) {
+        inMemoryHal3Records = records;
+      }
+      if (Array.isArray(batches)) {
+        inMemoryHal3Batches = batches;
+      }
+      saveHal3ToDisk();
+      res.json({ status: 'ok', recordCount: inMemoryHal3Records.length, batchCount: inMemoryHal3Batches.length });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/hal3-dipa/batches', (req, res) => {
+    try {
+      const { batches } = req.body || {};
+      if (Array.isArray(batches)) {
+        inMemoryHal3Batches = batches;
+        saveHal3ToDisk();
+        return res.json({ status: 'ok', count: inMemoryHal3Batches.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid batches array' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  app.post('/api/hal3-dipa/tindak-lanjut', (req, res) => {
+    try {
+      const { recordId, tindakLanjut, historiItem } = req.body || {};
+      if (!recordId || !tindakLanjut) {
+        return res.status(400).json({ status: 'error', message: 'Missing recordId or tindakLanjut' });
+      }
+      const idx = inMemoryHal3Records.findIndex(r => r.id === recordId);
+      if (idx !== -1) {
+        inMemoryHal3Records[idx].tindak_lanjut = tindakLanjut;
+        if (historiItem) {
+          inMemoryHal3Records[idx].histori = [historiItem, ...(inMemoryHal3Records[idx].histori || [])];
+        }
+        inMemoryHal3Records[idx].updated_at = new Date().toISOString();
+        saveHal3ToDisk();
+        return res.json({ status: 'ok', record: inMemoryHal3Records[idx] });
+      }
+      res.status(404).json({ status: 'error', message: 'Record not found' });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
   app.post('/api/data/historical_uploads', (req, res) => {
     try {
       const { list } = req.body || {};

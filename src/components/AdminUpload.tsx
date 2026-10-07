@@ -4949,7 +4949,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'quiz-cat': { label: '🎯 Kuis CAT & Uji Kompetensi', desc: 'Simulasi ujian CAT interaktif BKN/Quizizz, pemahaman regulasi IKPA & SOP Perbendaharaan Satker', category: 'Edukasi', badgeColor: 'bg-amber-100 text-amber-800' },
                     'formulir-survei': { label: '📝 Formulir & Survei (Google Form)', desc: 'Kuesioner survei kepuasan layanan & integritas Satker, pembaca respon Google Form & grafik otomatis', category: 'Survei', badgeColor: 'bg-sky-100 text-sky-800' },
                     'dispensasi-ikpa': { label: '⚖️ Pengajuan & Monitoring Dispensasi IKPA', desc: 'Monitoring surat permohonan dispensasi IKPA Satker (Diterima KPPN -> Posisi Kanwil -> Posisi Kanpus -> Putusan Final Kantor Pusat)', category: 'Dispensasi', badgeColor: 'bg-amber-100 text-amber-800' },
-                    'monitoring-llat': { label: tempConfig.llatSettings?.menu_title ? `📅 ${tempConfig.llatSettings.menu_title}` : '📅 Monitoring LLAT (Langkah-Langkah Akhir Tahun)', desc: tempConfig.llatSettings?.menu_description || 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.', category: 'Akhir Tahun', badgeColor: 'bg-rose-100 text-rose-800' }
+                    'monitoring-llat': { label: tempConfig.llatSettings?.menu_title ? `📅 ${tempConfig.llatSettings.menu_title}` : '📅 Monitoring LLAT (Langkah-Langkah Akhir Tahun)', desc: tempConfig.llatSettings?.menu_description || 'Monitoring kalender dan batas waktu Langkah-Langkah dalam Menghadapi Akhir Tahun.', category: 'Akhir Tahun', badgeColor: 'bg-rose-100 text-rose-800' },
+                    'monitoring-hal3-dipa': { label: '📑 Monitoring Hal III DIPA', desc: 'Monitoring revisi Hal III DIPA satker dari Kanwil DJPb dan tindak lanjut internal KPPN Semarang I.', category: 'Hal III DIPA', badgeColor: 'bg-teal-100 text-teal-800' }
                   };
 
                   const defaultTabKeys: NavigationTab[] = [
@@ -4981,7 +4982,8 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     'kontrak',
                     'quiz-cat',
                     'formulir-survei',
-                    'monitoring-llat'
+                    'monitoring-llat',
+                    'monitoring-hal3-dipa'
                   ];
 
                   // Build unified order without guide
@@ -7514,6 +7516,84 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     👁️ Lihat Tampilan Satker
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Setting 6c: Monitoring Hal III DIPA (Kanwil & Internal KPPN) */}
+            <div className="bg-teal-50/60 border border-teal-200 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-xs font-black text-teal-950 uppercase tracking-wider flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-teal-600" />
+                      Pengaturan Modul: Monitoring Hal III DIPA (Kanwil & KPPN)
+                    </label>
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                      tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-rose-100 text-rose-800 border border-rose-300'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                      Status: {tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false ? '🟢 AKTIF' : '🔴 NONAKTIF'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Pusat pemantauan pengajuan revisi Hal III DIPA satker berdasarkan data Kanwil DJPb dan tindak lanjut internal KPPN Semarang I.
+                  </p>
+                </div>
+
+                {/* Master Switch for Hal III DIPA */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentActive = tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false;
+                    const nextActive = !currentActive;
+                    const newVis = {
+                      ...(tempConfig.menuVisibility || {}),
+                      'monitoring-hal3-dipa': nextActive
+                    };
+                    const updatedCfg: DashboardConfig = {
+                      ...tempConfig,
+                      menuVisibility: newVis as any
+                    };
+                    setTempConfig(updatedCfg);
+                    onUpdateDashboardConfig(updatedCfg);
+                    addToast(
+                      `Modul Monitoring Hal III DIPA ${nextActive ? '🟢 Diaktifkan' : '🔴 Dinonaktifkan'} untuk Satker! Disimpan ke Database.`,
+                      nextActive ? 'success' : 'info'
+                    );
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer border flex items-center gap-2 shadow-xs ${
+                    tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700 text-white border-rose-700'
+                  }`}
+                >
+                  {tempConfig.menuVisibility?.['monitoring-hal3-dipa'] !== false ? (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-ping"></span>
+                      <span>🟢 Aktif (Tampil di Satker)</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-200"></span>
+                      <span>🔴 Nonaktif (Disembunyikan)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-teal-200/80">
+                <span className="text-[11px] text-slate-600 font-semibold">
+                  Tersedia untuk KPPN Semarang I TA 2026 TW IV & Triwulan berikutnya
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab?.('monitoring-hal3-dipa')}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-all"
+                >
+                  👁️ Buka Modul Monitoring Hal III DIPA &rarr;
+                </button>
               </div>
             </div>
 

@@ -16,6 +16,9 @@ import { generateInitialHaiCsoData } from './utils/haiCsoExcelParser';
 import { KontrakDashboard } from './components/kontrak/KontrakDashboard';
 import { KonfirmasiKehadiranDashboard } from './components/KonfirmasiKehadiranDashboard';
 import { LLATMonitoringCenter } from './components/llat/LLATMonitoringCenter';
+import { Hal3DipaDashboard } from './components/hal3-dipa/Hal3DipaDashboard';
+import { MonitoringHal3Item, UploadHal3Batch } from './types/hal3Dipa';
+import { generateDefaultHal3DipaData, DEFAULT_HAL3_UPLOAD_BATCH } from './data/defaultHal3DipaData';
 import { DEFAULT_LLAT_EVENTS_2026, DEFAULT_LLAT_CATEGORIES, DEFAULT_LLAT_SETTINGS } from './data/defaultLlatData';
 import { LLATEvent, LLATCategory, LLATSettings, LLATAuditLogEntry, KontrakMonitoringRecord, KontrakUploadBatch } from './types';
 import { INITIAL_SATKER_DATA, hitungTotalIKPA, getPredikatIKPA, mergeHistoricalUploadsToSatkers } from './data/initialSatkerData';
@@ -156,6 +159,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'kontrak': true,
   'formulir-survei': true,
   'monitoring-llat': true,
+  'monitoring-hal3-dipa': true,
   'aduan': true,
   'reminder': true,
   'guide': true,
@@ -3240,6 +3244,96 @@ export default function App() {
     }
   };
 
+  // -------------------------------------------------------------
+  // MONITORING HAL III DIPA (Kanwil & Tindak Lanjut KPPN) State
+  // -------------------------------------------------------------
+  const [hal3Records, setHal3Records] = useState<MonitoringHal3Item[]>(() => {
+    const saved = localStorage.getItem('kppn_hal3_records');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading cached Hal3 records:', e);
+      }
+    }
+    return generateDefaultHal3DipaData();
+  });
+
+  const [hal3Batches, setHal3Batches] = useState<UploadHal3Batch[]>(() => {
+    const saved = localStorage.getItem('kppn_hal3_batches');
+    if (saved !== null) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.warn('Error reading cached Hal3 batches:', e);
+      }
+    }
+    return [DEFAULT_HAL3_UPLOAD_BATCH];
+  });
+
+  // Sync Hal III DIPA from Server / Firestore
+  useEffect(() => {
+    fetch('/api/hal3-dipa/data')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.status === 'ok') {
+          if (Array.isArray(data.records) && data.records.length > 0) {
+            setHal3Records(data.records);
+            safeLocalStorageSet('kppn_hal3_records', JSON.stringify(data.records));
+          }
+          if (Array.isArray(data.batches) && data.batches.length > 0) {
+            setHal3Batches(data.batches);
+            safeLocalStorageSet('kppn_hal3_batches', JSON.stringify(data.batches));
+          }
+        }
+      })
+      .catch(err => console.warn('Notice loading /api/hal3-dipa/data:', err));
+
+    try {
+      const unsubHal3 = onSnapshot(doc(db, 'data', 'monitoring_hal3_dipa'), (docSnap) => {
+        if (docSnap.exists()) {
+          const cloud = docSnap.data();
+          if (Array.isArray(cloud?.records) && cloud.records.length > 0) {
+            setHal3Records(cloud.records);
+            safeLocalStorageSet('kppn_hal3_records', JSON.stringify(cloud.records));
+          }
+          if (Array.isArray(cloud?.batches) && cloud.batches.length > 0) {
+            setHal3Batches(cloud.batches);
+            safeLocalStorageSet('kppn_hal3_batches', JSON.stringify(cloud.batches));
+          }
+        }
+      }, (err) => console.warn('Firestore Hal3 snapshot notice:', err));
+      return () => unsubHal3();
+    } catch (e) {
+      console.warn('Init Hal3 snapshot error:', e);
+    }
+  }, []);
+
+  const handleUpdateHal3Records = (newRecords: MonitoringHal3Item[], newBatches: UploadHal3Batch[]) => {
+    if (notifyTamuBlocked('memperbarui data Monitoring Hal III DIPA')) return;
+    setHal3Records(newRecords);
+    setHal3Batches(newBatches);
+    try {
+      safeLocalStorageSet('kppn_hal3_records', JSON.stringify(newRecords));
+      safeLocalStorageSet('kppn_hal3_batches', JSON.stringify(newBatches));
+      setDoc(doc(db, 'data', 'monitoring_hal3_dipa'), {
+        records: newRecords,
+        batches: newBatches,
+        updatedAt: new Date().toISOString()
+      }, { merge: true }).catch(e => console.warn('Firestore Hal3 save notice:', e));
+
+      fetch('/api/hal3-dipa/records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ records: newRecords, batches: newBatches })
+      }).catch(e => console.warn('Server Hal3 save notice:', e));
+    } catch (err) {
+      console.warn('Error saving Hal3 data:', err);
+    }
+  };
+
   // SPM PPP (Tagihan Listrik & Internet Belum SPM) State & Persistence
   const [spmPppList, setSpmPppList] = useState<SPMPPPRecord[]>(() => {
     const saved = localStorage.getItem('kppn_spm_ppp_v4');
@@ -4804,6 +4898,20 @@ export default function App() {
                   onGoToAdmin={() => {
                     setActiveTab('admin');
                   }}
+                  theme={theme}
+                />
+              )}
+
+              {/* Tab 📑 Monitoring Hal III DIPA (Kanwil & KPPN Semarang I) */}
+              {activeTab === 'monitoring-hal3-dipa' && (
+                <Hal3DipaDashboard
+                  records={hal3Records}
+                  batches={hal3Batches}
+                  onUpdateRecords={handleUpdateHal3Records}
+                  llatEvents={llatEvents}
+                  isAdminAuthenticated={isAdminAuthenticated}
+                  currentUser={currentUser}
+                  onNavigateTab={(tab) => setActiveTab(tab as any)}
                   theme={theme}
                 />
               )}
