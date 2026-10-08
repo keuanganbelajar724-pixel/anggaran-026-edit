@@ -86,6 +86,41 @@ export const LLATEventFormModal: React.FC<LLATEventFormModalProps> = ({
   const [publikasi, setPublikasi] = useState<LLATPublikasi>(eventToEdit?.publikasi || 'PUBLISHED');
   const [isActive, setIsActive] = useState<boolean>(eventToEdit?.is_active ?? true);
 
+  // Extended LLAT 2026 States
+  const [jenisTenggat, setJenisTenggat] = useState<string>(
+    eventToEdit?.jenis_tenggat || 'Penerimaan Dokumen di KPPN'
+  );
+  const [tanggalPenyelesaian, setTanggalPenyelesaian] = useState<string>(
+    eventToEdit?.tanggal_penyelesaian || eventToEdit?.tanggal_batas || `${currentYear}-12-18`
+  );
+  const [jamPenyelesaian, setJamPenyelesaian] = useState<string>(
+    eventToEdit?.jam_penyelesaian || '17:00'
+  );
+  const [ketentuanWaktu, setKetentuanWaktu] = useState<'HARI_KERJA' | 'HARI_KALENDER' | 'TIDAK_DITENTUKAN'>(
+    eventToEdit?.ketentuan_waktu || 'HARI_KERJA'
+  );
+  const [ketentuanKhusus, setKetentuanKhusus] = useState<string>(
+    eventToEdit?.ketentuan_khusus || ''
+  );
+  const [halamanSumber, setHalamanSumber] = useState<string>(
+    eventToEdit?.halaman_sumber ? String(eventToEdit.halaman_sumber) : 'Halaman Slide'
+  );
+  const [fileSumber, setFileSumber] = useState<string>(
+    eventToEdit?.file_sumber || 'sosialisasi LLAT 2026 ga full.pdf'
+  );
+  const [statusVerifikasi, setStatusVerifikasi] = useState<'TERVERIFIKASI' | 'BELUM_DIVERIFIKASI' | 'PERLU_PEMERIKSAAN_MANUAL'>(
+    eventToEdit?.status_verifikasi || 'TERVERIFIKASI'
+  );
+  const [statusPenyelesaian, setStatusPenyelesaian] = useState<'BELUM_SELESAI' | 'SELESAI' | 'TIDAK_ADA_STATUS'>(
+    eventToEdit?.status_penyelesaian || 'BELUM_SELESAI'
+  );
+  const [isTanggalPasti, setIsTanggalPasti] = useState<boolean>(
+    eventToEdit?.is_tanggal_pasti ?? true
+  );
+  const [aturanRelatif, setAturanRelatif] = useState<string>(
+    eventToEdit?.aturan_relatif || ''
+  );
+
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const toggleTarget = (targetId: string) => {
@@ -157,7 +192,22 @@ export const LLATEventFormModal: React.FC<LLATEventFormModalProps> = ({
       publikasi,
       created_at: eventToEdit?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      version: (eventToEdit?.version || 1) + (isEdit ? 1 : 0)
+      version: (eventToEdit?.version || 1) + (isEdit ? 1 : 0),
+
+      // Extended LLAT 2026
+      jenis_tenggat: jenisTenggat.trim(),
+      tanggal_penerimaan: tanggalBatas,
+      jam_penerimaan: jamBatas.trim() || '17:00',
+      tanggal_penyelesaian: tanggalPenyelesaian || tanggalBatas,
+      jam_penyelesaian: jamPenyelesaian.trim() || '17:00',
+      ketentuan_waktu: ketentuanWaktu,
+      ketentuan_khusus: ketentuanKhusus.trim(),
+      halaman_sumber: halamanSumber.trim(),
+      file_sumber: fileSumber.trim(),
+      status_verifikasi: statusVerifikasi,
+      status_penyelesaian: statusPenyelesaian,
+      is_tanggal_pasti: isTanggalPasti,
+      aturan_relatif: aturanRelatif.trim()
     };
 
     onSave(payload);
@@ -399,6 +449,126 @@ export const LLATEventFormModal: React.FC<LLATEventFormModalProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Extended LLAT 2026 Settings Box */}
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400">
+              Pengaturan Tenggat LLAT TA 2026 &amp; Verifikasi Sumber
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Jenis Tenggat
+                </label>
+                <input
+                  type="text"
+                  value={jenisTenggat}
+                  onChange={(e) => setJenisTenggat(e.target.value)}
+                  placeholder="misal: Penerimaan Dokumen di KPPN"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Status Verifikasi terhadap Sumber
+                </label>
+                <select
+                  value={statusVerifikasi}
+                  onChange={(e) => setStatusVerifikasi(e.target.value as any)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                >
+                  <option value="TERVERIFIKASI">Terverifikasi Sumber Resmi</option>
+                  <option value="PERLU_PEMERIKSAAN_MANUAL">Perlu Pemeriksaan Manual</option>
+                  <option value="BELUM_DIVERIFIKASI">Belum Diverifikasi</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Tanggal Batas Penyelesaian
+                </label>
+                <input
+                  type="date"
+                  value={tanggalPenyelesaian}
+                  onChange={(e) => setTanggalPenyelesaian(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Jam Penyelesaian
+                </label>
+                <input
+                  type="text"
+                  value={jamPenyelesaian}
+                  onChange={(e) => setJamPenyelesaian(e.target.value)}
+                  placeholder="17:00"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Ketentuan Waktu
+                </label>
+                <select
+                  value={ketentuanWaktu}
+                  onChange={(e) => setKetentuanWaktu(e.target.value as any)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                >
+                  <option value="HARI_KERJA">Hari Kerja</option>
+                  <option value="HARI_KALENDER">Hari Kalender</option>
+                  <option value="TIDAK_DITENTUKAN">Tidak Ditentukan</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  File Sumber PDF
+                </label>
+                <input
+                  type="text"
+                  value={fileSumber}
+                  onChange={(e) => setFileSumber(e.target.value)}
+                  placeholder="sosialisasi LLAT 2026 ga full.pdf"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                  Nomor Halaman PDF
+                </label>
+                <input
+                  type="text"
+                  value={halamanSumber}
+                  onChange={(e) => setHalamanSumber(e.target.value)}
+                  placeholder="Halaman 12"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 text-xs">
+                Ketentuan Khusus (Garansi Bank, Syarat Dispensasi, dll.)
+              </label>
+              <textarea
+                rows={2}
+                value={ketentuanKhusus}
+                onChange={(e) => setKetentuanKhusus(e.target.value)}
+                placeholder="Ketentuan persyaratan khusus bagi Satker atau KPPN..."
+                className="w-full px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+              />
             </div>
           </div>
 

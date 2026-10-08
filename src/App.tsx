@@ -3037,7 +3037,7 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed) && parsed.length >= 25 && parsed.some((e: any) => e.file_sumber)) {
           return parsed;
         }
       } catch (e) {
@@ -3052,7 +3052,7 @@ export default function App() {
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed) && parsed.length >= 15) {
           return parsed;
         }
       } catch (e) {
@@ -3097,11 +3097,11 @@ export default function App() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.status === 'ok') {
-          if (Array.isArray(data.events) && data.events.length > 0) {
+          if (Array.isArray(data.events) && data.events.length >= 25 && data.events.some((e: any) => e.file_sumber)) {
             setLlatEvents(data.events);
             safeLocalStorageSet('kppn_llat_events', JSON.stringify(data.events));
           }
-          if (Array.isArray(data.categories) && data.categories.length > 0) {
+          if (Array.isArray(data.categories) && data.categories.length >= 15) {
             setLlatCategories(data.categories);
             safeLocalStorageSet('kppn_llat_categories', JSON.stringify(data.categories));
           }
@@ -3122,11 +3122,11 @@ export default function App() {
       const unsubLlat = onSnapshot(doc(db, 'data', 'llat_calendar'), (docSnap) => {
         if (docSnap.exists()) {
           const cloudData = docSnap.data();
-          if (Array.isArray(cloudData?.events) && cloudData.events.length > 0) {
+          if (Array.isArray(cloudData?.events) && cloudData.events.length >= 25 && cloudData.events.some((e: any) => e.file_sumber)) {
             setLlatEvents(cloudData.events);
             safeLocalStorageSet('kppn_llat_events', JSON.stringify(cloudData.events));
           }
-          if (Array.isArray(cloudData?.categories) && cloudData.categories.length > 0) {
+          if (Array.isArray(cloudData?.categories) && cloudData.categories.length >= 15) {
             setLlatCategories(cloudData.categories);
             safeLocalStorageSet('kppn_llat_categories', JSON.stringify(cloudData.categories));
           }
