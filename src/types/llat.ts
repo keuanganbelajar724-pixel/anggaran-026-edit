@@ -103,6 +103,25 @@ export interface LLATEvent {
   aturan_relatif?: string;              // Misal "2 hari kerja setelah dokumen diterima"
   sub_deadlines?: LLATSubDeadline[];    // Jika 1 kegiatan induk memiliki multi-tenggat
   updated_by?: string;                  // User yang terakhir memperbarui
+
+  // Field Spesifikasi Master PER-9/PB/2026 & Mesin Hitung Hari Kerja
+  nomor_peraturan_resmi?: string;       // e.g. "PER-9/PB/2026"
+  pasal_bab?: string;                   // e.g. "Bab III Butir 2" atau "Pasal 14"
+  kutipan_sumber?: string;              // Kutipan teks hukum resmi dari dokumen PER-9/PB/2026
+  jenis_penentuan_tanggal?: 'TANGGAL_TETAP' | 'HARI_KERJA' | 'HARI_KALENDER' | 'PERIODE_RENTANG' | 'PERISTIWA_BERSYARAT';
+  rumus_penentuan?: string;             // Rumus komputasi tenggat
+  parameter_rumus?: {
+    tanggal_acuan?: string;
+    jumlah_hari?: number;
+    arah?: 'SEBELUM' | 'SESUDAH';
+    hitung_hari_libur?: boolean;
+    tanggal_acuan_dihitung?: boolean;
+  };
+  hasil_perhitungan_sistem?: string;
+  pihak_penanggung_jawab?: string[];    // Satker, KPPN, Kanwil DJPb, BLU, BUN, Bank Persepsi
+  konsekuensi_keterlambatan?: string;   // Sanksi penolakan SPM, dispensasi Kanwil, pemblokiran
+  kebutuhan_tindakan?: string;          // Actionable guidance untuk satker/KPPN
+  audit_halaman?: string;               // Halaman 1-59 dokumen PER-9/PB/2026
 }
 
 export interface LLATCategory {

@@ -54,6 +54,8 @@ import { LLATListView } from './LLATListView';
 import { LLATTimelineView } from './LLATTimelineView';
 import { LLATDetailModal } from './LLATDetailModal';
 import { LLATExportPdfModal } from './LLATExportPdfModal';
+import { LLATWorkingDaysCalculator } from './LLATWorkingDaysCalculator';
+import { Calculator } from 'lucide-react';
 
 interface LLATMonitoringCenterProps {
   events: LLATEvent[];
@@ -79,8 +81,8 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   onGoToAdmin,
   theme
 }) => {
-  // 5 View modes as required: 'calendar' | 'week' | 'daily' | 'list' | 'timeline'
-  const [viewMode, setViewMode] = useState<'calendar' | 'week' | 'daily' | 'list' | 'timeline'>('calendar');
+  // View modes: 'calendar' | 'week' | 'daily' | 'list' | 'timeline' | 'calculator'
+  const [viewMode, setViewMode] = useState<'calendar' | 'week' | 'daily' | 'list' | 'timeline' | 'calculator'>('calendar');
 
   // Filter States: Default awal adalah Oktober 2026 (index 9)
   const [selectedYear, setSelectedYear] = useState<number>(settings.tahun_aktif || 2026);
@@ -899,119 +901,119 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
         </div>
       </div>
 
-      {/* 2. 8 KARTU RINGKASAN DINAMIS (Section D) */}
+      {/* 2. 8 KARTU RINGKASAN DINAMIS (Section D) - Enhanced with rich colors & gradients */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 sm:gap-3">
         {/* 1. Total kegiatan aktif */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('list'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50/90 to-blue-50/60 dark:from-indigo-950/40 dark:to-blue-950/20 border-2 border-indigo-200/90 dark:border-indigo-800/80 hover:border-indigo-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-400 block truncate">
             1. Total Aktif
           </span>
-          <div className="text-2xl font-black text-slate-900 dark:text-white mt-1 group-hover:text-indigo-600 transition-colors">
+          <div className="text-2xl font-black text-indigo-900 dark:text-indigo-100 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.totalAktif}
           </div>
-          <span className="text-[10px] text-slate-400 block mt-0.5 truncate">Agenda TA {selectedYear}</span>
+          <span className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 block mt-0.5 truncate font-semibold">Agenda TA {selectedYear}</span>
         </div>
 
         {/* 2. Tenggat hari ini */}
         <div 
           onClick={() => { setOnlyToday(true); setViewMode('daily'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-rose-400 dark:hover:border-rose-600 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-100 to-red-50 dark:from-rose-950/60 dark:to-red-950/30 border-2 border-rose-300 dark:border-rose-800 hover:border-rose-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 block truncate flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+          <span className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-300 block truncate flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0" />
             2. Hari Ini
           </span>
-          <div className="text-2xl font-black text-rose-600 mt-1">
+          <div className="text-2xl font-black text-rose-700 dark:text-rose-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.hariIniCount}
           </div>
-          <span className="text-[10px] text-rose-500/80 block mt-0.5 truncate">Jatuh tempo</span>
+          <span className="text-[10px] text-rose-600 dark:text-rose-400 block mt-0.5 truncate font-extrabold">Jatuh tempo</span>
         </div>
 
         {/* 3. Tenggat 7 hari ke depan */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('week'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-600 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50/70 dark:from-amber-950/40 dark:to-orange-950/20 border-2 border-amber-300 dark:border-amber-800 hover:border-amber-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-amber-800 dark:text-amber-300 block truncate">
             3. H-7 Ke Depan
           </span>
-          <div className="text-2xl font-black text-amber-600 mt-1 group-hover:scale-105 transition-transform">
+          <div className="text-2xl font-black text-amber-700 dark:text-amber-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.tujuhHariCount}
           </div>
-          <span className="text-[10px] text-amber-500/80 block mt-0.5 truncate">Masa krusial</span>
+          <span className="text-[10px] text-amber-700/80 dark:text-amber-400/80 block mt-0.5 truncate font-semibold">Masa krusial</span>
         </div>
 
         {/* 4. Tenggat 30 hari ke depan */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('calendar'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 dark:from-sky-950/40 dark:to-blue-950/20 border-2 border-sky-300 dark:border-sky-800 hover:border-sky-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-sky-800 dark:text-sky-300 block truncate">
             4. H-30 Hari
           </span>
-          <div className="text-2xl font-black text-blue-600 mt-1 group-hover:scale-105 transition-transform">
+          <div className="text-2xl font-black text-sky-700 dark:text-sky-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.tigaPuluhHariCount}
           </div>
-          <span className="text-[10px] text-blue-500/80 block mt-0.5 truncate">Bulan ini</span>
+          <span className="text-[10px] text-sky-600/80 dark:text-sky-400/80 block mt-0.5 truncate font-semibold">Bulan ini</span>
         </div>
 
         {/* 5. Tenggat yang telah lewat */}
         <div 
           onClick={() => { setOnlyToday(false); setStatusFilter('TERLEWAT'); setViewMode('list'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-rose-400 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/40 dark:to-rose-950/20 border-2 border-red-300 dark:border-red-800 hover:border-red-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block truncate">
-            5. Tenggat Lewat
+          <span className="text-[10px] font-black uppercase text-red-700 dark:text-red-300 block truncate">
+            5. Lewat Tenggat
           </span>
-          <div className="text-2xl font-black text-rose-500 mt-1">
+          <div className="text-2xl font-black text-red-700 dark:text-red-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.telahLewatCount}
           </div>
-          <span className="text-[10px] text-slate-400 block mt-0.5 truncate">Perlu konfirmasi</span>
+          <span className="text-[10px] text-red-600/80 dark:text-red-400/80 block mt-0.5 truncate font-semibold">Perlu konfirmasi</span>
         </div>
 
         {/* 6. Kegiatan tanpa tanggal pasti */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('list'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-purple-400 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-950/40 dark:to-fuchsia-950/20 border-2 border-purple-300 dark:border-purple-800 hover:border-purple-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-purple-800 dark:text-purple-300 block truncate">
             6. Aturan Relatif
           </span>
-          <div className="text-2xl font-black text-purple-600 mt-1">
+          <div className="text-2xl font-black text-purple-700 dark:text-purple-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.tanpaTanggalPastiCount}
           </div>
-          <span className="text-[10px] text-purple-500/80 block mt-0.5 truncate">Syarat khusus</span>
+          <span className="text-[10px] text-purple-600/80 dark:text-purple-400/80 block mt-0.5 truncate font-semibold">Syarat khusus</span>
         </div>
 
         {/* 7. Kegiatan perlu diverifikasi */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('list'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-orange-400 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/40 dark:to-amber-950/20 border-2 border-orange-300 dark:border-orange-800 hover:border-orange-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-orange-600 dark:text-orange-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-orange-800 dark:text-orange-300 block truncate">
             7. Verifikasi
           </span>
-          <div className="text-2xl font-black text-orange-500 mt-1">
+          <div className="text-2xl font-black text-orange-700 dark:text-orange-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.perluVerifikasiCount}
           </div>
-          <span className="text-[10px] text-orange-500/80 block mt-0.5 truncate">Cek dokumen</span>
+          <span className="text-[10px] text-orange-600/80 dark:text-orange-400/80 block mt-0.5 truncate font-semibold">Cek dokumen</span>
         </div>
 
         {/* 8. Kegiatan sudah dipublikasikan */}
         <div 
           onClick={() => { setOnlyToday(false); setViewMode('list'); }}
-          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-400 shadow-sm transition-all cursor-pointer group"
+          className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/20 border-2 border-emerald-300 dark:border-emerald-800 hover:border-emerald-500 shadow-sm hover:shadow-md transition-all cursor-pointer group"
         >
-          <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 block truncate">
+          <span className="text-[10px] font-black uppercase text-emerald-800 dark:text-emerald-300 block truncate">
             8. Terpublikasi
           </span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">
+          <div className="text-2xl font-black text-emerald-700 dark:text-emerald-200 mt-1 group-hover:scale-105 transition-transform">
             {dynamicKpiStats.sudahPublikasiCount}
           </div>
-          <span className="text-[10px] text-emerald-500/80 block mt-0.5 truncate">Telah live</span>
+          <span className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 block mt-0.5 truncate font-semibold">Telah live</span>
         </div>
       </div>
 
@@ -1098,6 +1100,22 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
             >
               <GitCommit className="w-4 h-4 text-purple-500" />
               <span>Timeline Akhir Tahun</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOnlyToday(false);
+                setViewMode('calculator');
+              }}
+              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === 'calculator' && !onlyToday
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Calculator className="w-4 h-4 text-emerald-500" />
+              <span>Mesin Hitung Hari Kerja</span>
             </button>
           </div>
 
@@ -1244,6 +1262,16 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
           <LLATTimelineView
             events={filteredEvents}
             onSelectEvent={(event) => setSelectedDetailEvent(event)}
+          />
+        )}
+
+        {viewMode === 'calculator' && !onlyToday && (
+          <LLATWorkingDaysCalculator
+            onApplyDate={(calculatedDate) => {
+              // Set query pencarian ke tanggal hasil kalkulasi dan arahkan ke daftar agenda
+              setSearchQuery(calculatedDate);
+              setViewMode('list');
+            }}
           />
         )}
       </div>

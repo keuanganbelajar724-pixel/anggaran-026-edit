@@ -272,20 +272,53 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
             </div>
           )}
 
-          {/* Dasar Hukum & Referensi Sumber PDF */}
+          {/* Dasar Hukum & Referensi Dokumen Sumber PER-9/PB/2026 */}
           <div className="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 space-y-2">
-            <span className="text-xs font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Dasar Hukum &amp; Referensi Dokumen Sumber
-            </span>
-            <div className="text-xs text-blue-900 dark:text-blue-200 space-y-1">
-              <p className="font-bold">{event.nomor_peraturan || 'Perdirjen LLAT Tahun 2026'}</p>
-              <p className="text-[11px] opacity-90">{event.dasar_hukum}</p>
-              <div className="pt-1 mt-1 border-t border-blue-200/60 dark:border-blue-800 flex items-center justify-between text-[11px] font-mono">
-                <span>File: {event.file_sumber || 'sosialisasi LLAT 2026 ga full.pdf'}</span>
-                <span className="font-bold text-indigo-700 dark:text-indigo-300">{event.halaman_sumber || 'Slide Presentasi'}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                Dasar Hukum Resmi &amp; Rujukan PER-9/PB/2026
+              </span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 font-bold">
+                {event.nomor_peraturan_resmi || event.nomor_peraturan || 'PER-9/PB/2026'}
+              </span>
+            </div>
+            
+            <div className="text-xs text-blue-900 dark:text-blue-200 space-y-1.5">
+              <p className="font-bold">{event.pasal_bab || 'Ketentuan Pokok PER-9/PB/2026'}</p>
+              <p className="text-[11px] opacity-90 leading-relaxed">{event.dasar_hukum}</p>
+              
+              {event.kutipan_sumber && (
+                <div className="p-2.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-blue-200/60 dark:border-blue-900/60 text-[11px] italic text-slate-700 dark:text-slate-300">
+                  <span className="font-bold not-italic block mb-0.5 text-blue-700 dark:text-blue-300">Kutipan Ketentuan:</span>
+                  &ldquo;{event.kutipan_sumber}&rdquo;
+                </div>
+              )}
+
+              <div className="pt-1.5 mt-1 border-t border-blue-200/60 dark:border-blue-800 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                <span>Rujukan Peraturan: {event.nomor_peraturan_resmi || 'PER-9/PB/2026'}</span>
+                <span className="font-bold text-indigo-700 dark:text-indigo-300">{event.audit_halaman || event.halaman_sumber || 'Dokumen Resmi'}</span>
               </div>
             </div>
+          </div>
+
+          {/* Mesin Hitung Hari Kerja & Rumus Tenggat */}
+          <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 space-y-1.5 text-xs">
+            <span className="font-extrabold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              Formula Penentuan Tanggal &amp; Hasil Mesin Hitung:
+            </span>
+            <div className="p-2.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-emerald-200/60 dark:border-emerald-900/60 font-mono text-[11px] text-emerald-900 dark:text-emerald-200 space-y-1">
+              <div><span className="text-slate-400">Metode: </span><span className="font-bold text-emerald-700 dark:text-emerald-300">{event.jenis_penentuan_tanggal || (event.ketentuan_waktu === 'HARI_KERJA' ? 'HARI_KERJA' : 'TANGGAL_TETAP')}</span></div>
+              <div><span className="text-slate-400">Formula: </span><span className="font-bold text-slate-800 dark:text-slate-200">{event.rumus_penentuan || 'tanggal_agenda = tanggal_tetap_peraturan'}</span></div>
+              <div><span className="text-slate-400">Hasil Sistem: </span><span className="font-bold text-indigo-600 dark:text-indigo-400">{event.hasil_perhitungan_sistem || event.tanggal_batas || event.tanggal_penerimaan} ({event.jam_batas || '17:00'} WIB)</span></div>
+            </div>
+            {event.konsekuensi_keterlambatan && (
+              <div className="pt-1 text-[11px] text-rose-700 dark:text-rose-300">
+                <span className="font-bold">Konsekuensi Keterlambatan: </span>
+                {event.konsekuensi_keterlambatan}
+              </div>
+            )}
           </div>
 
           {/* Catatan Penting Petugas KPPN */}
