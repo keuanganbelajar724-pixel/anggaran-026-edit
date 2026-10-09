@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -14,33 +15,20 @@ import {
   ShieldAlert,
   Inbox,
   CheckSquare,
-  AlertTriangle,
+  Building,
   Flame,
-  Flag,
-  Bookmark,
   Layers,
-  Search,
-  Filter,
-  Eye,
-  CalendarCheck2,
-  BellRing,
+  ChevronDown,
   ExternalLink,
-  HelpCircle
+  BookOpen
 } from 'lucide-react';
 import { LLATEvent } from '../../types/llat';
-import { 
-  getCountdownInfo, 
-  getPriorityBadge, 
-  getStatusBadge, 
-  getVerificationBadge, 
-  getDeadlineTypeBadge 
-} from '../../data/defaultLlatData';
-import { isWeekend, isHoliday } from '../../utils/llatWorkingDaysEngine';
+import { getCountdownInfo, getDeadlineTypeBadge, getVerificationBadge, getPriorityBadge } from '../../data/defaultLlatData';
 
 interface LLATCalendarMonthViewProps {
   events: LLATEvent[];
   selectedYear: number;
-  selectedMonth: number; // 0-indexed: 0 = Jan, 9 = Okt, 11 = Des
+  selectedMonth: number;
   onChangeMonth: (year: number, month: number) => void;
   onSelectEvent: (event: LLATEvent) => void;
 }
@@ -50,144 +38,111 @@ const MONTH_NAMES = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-const DAY_NAMES = ['SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB', 'MIN'];
+const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
-export interface DateEventItem {
+// Daftar Hari Libur Nasional & Cuti Bersama Resmi (Q4 2026 & Jan 2027)
+const HOLIDAYS_MAP: Record<string, string> = {
+  // Oktober 2026
+  '2026-10-01': 'Hari Kesaktian Pancasila',
+  '2026-10-28': 'Hari Sumpah Pemuda',
+  // November 2026
+  '2026-11-10': 'Hari Pahlawan',
+  // Desember 2026
+  '2026-12-24': 'Cuti Bersama Hari Raya Natal',
+  '2026-12-25': 'Hari Raya Natal',
+  // Januari 2027
+  '2027-01-01': 'Tahun Baru 2027 Masehi'
+};
+
+interface DateEventItem {
   event: LLATEvent;
-  isPenerimaan: boolean;
-  isPenyelesaian: boolean;
+  isPenerimaan?: boolean;
+  isPenyelesaian?: boolean;
 }
 
-// Visual category color palette helper with rich, accessible contrast & domain-native styling
-function getCategoryColor(categoryName: string): {
-  bg: string;
-  text: string;
-  border: string;
-  dot: string;
+// Category aesthetic colors & badges
+function getCategoryColor(category: string): { 
+  bg: string; 
+  text: string; 
+  border: string; 
+  dot: string; 
   tag: string;
   accent: string;
+  gradient: string;
+  subtle: string;
 } {
-  const c = (categoryName || '').toLowerCase();
-  
-  if (c.includes('rpd') || c.includes('halaman iii dipa') || c.includes('rencana penarikan')) {
+  const c = category.toLowerCase();
+  if (c.includes('kontrak') || c.includes('bapp') || c.includes('bast')) {
     return {
       bg: 'bg-emerald-500/15 dark:bg-emerald-500/25',
       text: 'text-emerald-950 dark:text-emerald-200',
       border: 'border-emerald-300/80 dark:border-emerald-600/70',
       dot: 'bg-emerald-500',
       tag: 'bg-emerald-600 text-white',
-      accent: 'border-l-emerald-500'
+      accent: 'border-l-emerald-500',
+      gradient: 'from-emerald-600 to-teal-700',
+      subtle: 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
     };
   }
-  if (c.includes('kontrak') || c.includes('karwas')) {
+  if (c.includes('up') || c.includes('tup') || c.includes('gup') || c.includes('rekening')) {
+    return {
+      bg: 'bg-amber-500/15 dark:bg-amber-500/25',
+      text: 'text-amber-950 dark:text-amber-200',
+      border: 'border-amber-300/80 dark:border-amber-600/70',
+      dot: 'bg-amber-500',
+      tag: 'bg-amber-600 text-white',
+      accent: 'border-l-amber-500',
+      gradient: 'from-amber-600 to-orange-700',
+      subtle: 'bg-amber-950/40 border-amber-500/40 text-amber-200'
+    };
+  }
+  if (c.includes('revisi') || c.includes('dipa')) {
     return {
       bg: 'bg-purple-500/15 dark:bg-purple-500/25',
       text: 'text-purple-950 dark:text-purple-200',
       border: 'border-purple-300/80 dark:border-purple-600/70',
       dot: 'bg-purple-500',
       tag: 'bg-purple-600 text-white',
-      accent: 'border-l-purple-500'
+      accent: 'border-l-purple-500',
+      gradient: 'from-purple-600 to-indigo-700',
+      subtle: 'bg-purple-950/40 border-purple-500/40 text-purple-200'
     };
   }
-  if (c.includes('revisi') || c.includes('dipa')) {
-    return {
-      bg: 'bg-indigo-500/15 dark:bg-indigo-500/25',
-      text: 'text-indigo-950 dark:text-indigo-200',
-      border: 'border-indigo-300/80 dark:border-indigo-600/70',
-      dot: 'bg-indigo-500',
-      tag: 'bg-indigo-600 text-white',
-      accent: 'border-l-indigo-500'
-    };
-  }
-  if (c.includes('tup') || c.includes('up') || c.includes('ganti uang')) {
-    return {
-      bg: 'bg-amber-500/15 dark:bg-amber-500/25',
-      text: 'text-amber-950 dark:text-amber-200',
-      border: 'border-amber-400/80 dark:border-amber-600/70',
-      dot: 'bg-amber-500',
-      tag: 'bg-amber-600 text-white',
-      accent: 'border-l-amber-500'
-    };
-  }
-  if (c.includes('jaminan') || c.includes('garansi bank')) {
-    return {
-      bg: 'bg-orange-500/15 dark:bg-orange-500/25',
-      text: 'text-orange-950 dark:text-orange-200',
-      border: 'border-orange-300/80 dark:border-orange-600/70',
-      dot: 'bg-orange-500',
-      tag: 'bg-orange-600 text-white',
-      accent: 'border-l-orange-500'
-    };
-  }
-  if (c.includes('gaji') || c.includes('non-gaji') || c.includes('ls')) {
+  if (c.includes('gaji') || c.includes('pph') || c.includes('honor')) {
     return {
       bg: 'bg-cyan-500/15 dark:bg-cyan-500/25',
       text: 'text-cyan-950 dark:text-cyan-200',
       border: 'border-cyan-300/80 dark:border-cyan-600/70',
       dot: 'bg-cyan-500',
       tag: 'bg-cyan-600 text-white',
-      accent: 'border-l-cyan-500'
+      accent: 'border-l-cyan-500',
+      gradient: 'from-cyan-600 to-blue-700',
+      subtle: 'bg-cyan-950/40 border-cyan-500/40 text-cyan-200'
     };
   }
-  if (c.includes('blu') || c.includes('sp3b') || c.includes('sp2b')) {
-    return {
-      bg: 'bg-teal-500/15 dark:bg-teal-500/25',
-      text: 'text-teal-950 dark:text-teal-200',
-      border: 'border-teal-300/80 dark:border-teal-600/70',
-      dot: 'bg-teal-500',
-      tag: 'bg-teal-600 text-white',
-      accent: 'border-l-teal-500'
-    };
-  }
-  if (c.includes('bun') || c.includes('ba bun')) {
-    return {
-      bg: 'bg-lime-500/15 dark:bg-lime-500/25',
-      text: 'text-lime-950 dark:text-lime-200',
-      border: 'border-lime-400/80 dark:border-lime-600/70',
-      dot: 'bg-lime-600',
-      tag: 'bg-lime-600 text-white',
-      accent: 'border-l-lime-500'
-    };
-  }
-  if (c.includes('hibah')) {
-    return {
-      bg: 'bg-fuchsia-500/15 dark:bg-fuchsia-500/25',
-      text: 'text-fuchsia-950 dark:text-fuchsia-200',
-      border: 'border-fuchsia-300/80 dark:border-fuchsia-600/70',
-      dot: 'bg-fuchsia-500',
-      tag: 'bg-fuchsia-600 text-white',
-      accent: 'border-l-fuchsia-500'
-    };
-  }
-  if (c.includes('akuntansi') || c.includes('pelaporan') || c.includes('rekon') || c.includes('lpj')) {
-    return {
-      bg: 'bg-sky-500/15 dark:bg-sky-500/25',
-      text: 'text-sky-950 dark:text-sky-200',
-      border: 'border-sky-300/80 dark:border-sky-600/70',
-      dot: 'bg-sky-500',
-      tag: 'bg-sky-600 text-white',
-      accent: 'border-l-sky-500'
-    };
-  }
-  if (c.includes('retur') || c.includes('koreksi') || c.includes('pembukuan')) {
+  if (c.includes('retur') || c.includes('koreksi') || c.includes('pembukuan') || c.includes('kritis')) {
     return {
       bg: 'bg-rose-500/15 dark:bg-rose-500/25',
       text: 'text-rose-950 dark:text-rose-200',
       border: 'border-rose-400/80 dark:border-rose-600/70',
       dot: 'bg-rose-500',
       tag: 'bg-rose-600 text-white',
-      accent: 'border-l-rose-500'
+      accent: 'border-l-rose-500',
+      gradient: 'from-rose-600 to-red-700',
+      subtle: 'bg-rose-950/40 border-rose-500/40 text-rose-200'
     };
   }
   
-  // Default fallback
+  // Default fallback (Blue / Indigo)
   return {
     bg: 'bg-indigo-500/15 dark:bg-indigo-500/25',
     text: 'text-indigo-950 dark:text-indigo-200',
     border: 'border-indigo-300/80 dark:border-indigo-600/70',
     dot: 'bg-indigo-500',
     tag: 'bg-indigo-600 text-white',
-    accent: 'border-l-indigo-500'
+    accent: 'border-l-indigo-500',
+    gradient: 'from-indigo-600 to-blue-700',
+    subtle: 'bg-indigo-950/40 border-indigo-500/40 text-indigo-200'
   };
 }
 
@@ -206,15 +161,24 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
   // Card density mode (COMFY vs COMPACT)
   const [densityMode, setDensityMode] = useState<'COMFY' | 'COMPACT'>('COMFY');
 
-  // Hover Popover (Tooltip tanpa klik saat kursor menunjuk tanggal/agenda)
+  // Hover Popover (Tooltip membesar tanpa klik saat kursor menunjuk tanggal/agenda)
   const [hoverData, setHoverData] = useState<{
     dateStr: string;
     items: DateEventItem[];
     holidayName?: string;
     isWeekend?: boolean;
-    x: number;
-    y: number;
+    clientX: number;
+    clientY: number;
+    activeItemCode?: string;
   } | null>(null);
+
+  const leaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    };
+  }, []);
 
   // Selected date panel (jika tetap ingin mengklik untuk membuka modal permanen)
   const [selectedDateEvents, setSelectedDateEvents] = useState<{
@@ -289,9 +253,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
     const map: Record<string, DateEventItem[]> = {};
 
     events.forEach((ev) => {
-      // 1. Tanggal Batas / Penerimaan Dokumen
-      const penerimaanDate = ev.tanggal_penerimaan || ev.tanggal_batas;
-      if (penerimaanDate) {
+      // 1. Tanggal Batas / Penerimaan Dokumen (Primary Date)
+      const penerimaanDate = ev.tanggal_penerimaan || ev.tanggal_batas || ev.tanggal_tenggat;
+      const isOnlyPenyelesaian = Boolean(!ev.tanggal_penerimaan && !ev.tanggal_batas && ev.tanggal_penyelesaian);
+
+      if (penerimaanDate && !isOnlyPenyelesaian) {
         if (!map[penerimaanDate]) map[penerimaanDate] = [];
         const exists = map[penerimaanDate].some(item => item.event.llat_id === ev.llat_id && item.isPenerimaan);
         if (!exists) {
@@ -303,18 +269,38 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
         }
       }
 
-      // 2. Tanggal Batas Penyelesaian (jika berbeda dari tanggal penerimaan)
-      if (ev.tanggal_penyelesaian && ev.tanggal_penyelesaian !== penerimaanDate) {
-        const selDate = ev.tanggal_penyelesaian;
-        if (!map[selDate]) map[selDate] = [];
-        const exists = map[selDate].some(item => item.event.llat_id === ev.llat_id && item.isPenyelesaian);
+      // 2. Tanggal Penyelesaian SP2D KPPN (jika berbeda atau berdiri sendiri)
+      if (ev.tanggal_penyelesaian && (ev.tanggal_penyelesaian !== penerimaanDate || isOnlyPenyelesaian)) {
+        const kppnDate = ev.tanggal_penyelesaian;
+        if (!map[kppnDate]) map[kppnDate] = [];
+        const exists = map[kppnDate].some(item => item.event.llat_id === ev.llat_id && item.isPenyelesaian);
         if (!exists) {
-          map[selDate].push({
+          map[kppnDate].push({
             event: ev,
             isPenerimaan: false,
             isPenyelesaian: true
           });
         }
+      }
+
+      // 3. Sub deadlines jika ada
+      if (Array.isArray(ev.sub_deadlines)) {
+        ev.sub_deadlines.forEach((sub) => {
+          if (sub.tanggal) {
+            if (!map[sub.tanggal]) map[sub.tanggal] = [];
+            const exists = map[sub.tanggal].some(item => item.event.llat_id === ev.llat_id);
+            if (!exists) {
+              map[sub.tanggal].push({
+                event: {
+                  ...ev,
+                  nama_kegiatan: `${ev.nama_kegiatan} (${sub.label || 'Tahap'})`
+                },
+                isPenerimaan: true,
+                isPenyelesaian: false
+              });
+            }
+          }
+        });
       }
     });
 
@@ -364,27 +350,35 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
     return { satkerCount, kppnCount, criticalCount, totalItems };
   }, [eventsByDate, activeYear, activeMonth]);
 
-  // Handler for Hover / Mouse Enter
-  const handleCellMouseEnter = (
+  // Handler for Hover / Mouse Enter & Move
+  const handleCellHover = (
     e: React.MouseEvent,
     dateStr: string,
     items: DateEventItem[],
     holidayName?: string,
-    isWeekendVal?: boolean
+    isWeekendVal?: boolean,
+    activeItemCode?: string
   ) => {
-    const rect = e.currentTarget.getBoundingClientRect();
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
     setHoverData({
       dateStr,
       items,
       holidayName,
       isWeekend: isWeekendVal,
-      x: rect.left + rect.width / 2,
-      y: rect.top
+      clientX: e.clientX,
+      clientY: e.clientY,
+      activeItemCode
     });
   };
 
   const handleCellMouseLeave = () => {
-    setHoverData(null);
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => {
+      setHoverData(null);
+    }, 250);
   };
 
   return (
@@ -408,212 +402,190 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   {MONTH_NAMES[activeMonth]} {activeYear}
                 </h4>
                 {activeYear === 2026 && activeMonth === 8 && (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-indigo-500/80 border border-indigo-300/40 text-white shadow-xs">
-                    🌱 Persiapan Administrasi & Data Kontrak Awal
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-blue-500/80 text-white border border-white/30">
+                    Awal LLAT (Persiapan)
                   </span>
                 )}
                 {activeYear === 2026 && activeMonth === 9 && (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-blue-500/80 border border-blue-300/40 text-white shadow-xs">
-                    🍁 Awal Periode LLAT (RPD & Kontrak)
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 border border-amber-300 shadow-xs">
+                    Masa Transisi & Registrasi Kontrak
                   </span>
                 )}
                 {activeYear === 2026 && activeMonth === 10 && (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black shadow-xs ring-1 ring-amber-300">
-                    🍂 Fase Kritis Pra Cut-Off (TUP & Pengesahan BLU)
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-rose-500 text-white border border-rose-300 animate-pulse shadow-xs">
+                    Periode Kritis Tahap I & II
                   </span>
                 )}
                 {activeYear === 2026 && activeMonth === 11 && (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-rose-500/90 border border-rose-300/40 text-white shadow-xs animate-pulse">
-                    ❄️ Puncak Akhir Tahun & Cut-Off SPAN
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-red-600 text-white border border-red-300 shadow-xs animate-bounce">
+                    Puncak Tutup Tahun Anggaran 2026
                   </span>
                 )}
                 {activeYear === 2027 && activeMonth === 0 && (
-                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-500/90 border border-emerald-300/40 text-white shadow-xs">
-                    🗓️ Penutupan Buku & Pelaporan TA 2026
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-indigo-500/80 text-white border border-white/30">
+                    LPJ & Pembukuan Final
                   </span>
                 )}
               </div>
-              <p className="text-xs text-indigo-100/90 mt-1">
-                Visualisasi kalender penuh warna interaktif dengan identifikasi batas penerimaan berkas satker, penyelesaian SP2D, dan hari libur resmi.
+              <p className="text-xs sm:text-sm text-indigo-100 font-medium mt-0.5">
+                Berdasarkan PER-9/PB/2026 • Dilengkapi sorotan visual milestone Satker & KPPN
               </p>
             </div>
           </div>
 
-          {/* Month Navigation & Direct Month Switcher */}
-          <div className="flex items-center gap-1.5 flex-wrap relative z-10">
+          {/* Navigation Controls & Quick Month Jumpers */}
+          <div className="flex flex-wrap items-center gap-2 relative z-10">
+            {/* Quick Key Month Shortcuts */}
+            <div className="hidden lg:flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/15">
+              {[
+                { label: 'Okt 2026', y: 2026, m: 9 },
+                { label: 'Nov 2026', y: 2026, m: 10 },
+                { label: 'Des 2026 (Puncak)', y: 2026, m: 11, highlight: true },
+                { label: 'Jan 2027 (Final)', y: 2027, m: 0 }
+              ].map((jump) => {
+                const isActive = activeYear === jump.y && activeMonth === jump.m;
+                return (
+                  <button
+                    key={`${jump.y}-${jump.m}`}
+                    onClick={() => onChangeMonth(jump.y, jump.m)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-amber-400 text-slate-950 shadow-md ring-1 ring-amber-300'
+                        : jump.highlight
+                        ? 'bg-rose-500/80 text-white hover:bg-rose-500'
+                        : 'text-indigo-100 hover:text-white hover:bg-white/15'
+                    }`}
+                  >
+                    {jump.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <button
               onClick={handlePrevMonth}
-              className="p-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all cursor-pointer shadow-sm active:scale-95"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-black transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer shadow-sm"
               title="Bulan Sebelumnya"
             >
               <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Sebelumnya</span>
             </button>
 
             <button
-              onClick={() => onChangeMonth(2026, 8)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs ${
-                activeYear === 2026 && activeMonth === 8
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-md scale-105'
-                  : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-              }`}
-              title="September 2026"
+              onClick={() => {
+                const now = new Date();
+                onChangeMonth(now.getFullYear(), now.getMonth());
+              }}
+              className="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 text-xs font-black transition-all border border-amber-300 shadow-md cursor-pointer"
             >
-              Sep 2026
-            </button>
-
-            <button
-              onClick={() => onChangeMonth(2026, 9)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs ${
-                activeYear === 2026 && activeMonth === 9
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-md scale-105'
-                  : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-              }`}
-              title="Oktober 2026"
-            >
-              Okt 2026
-            </button>
-
-            <button
-              onClick={() => onChangeMonth(2026, 10)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs ${
-                activeYear === 2026 && activeMonth === 10
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-md scale-105'
-                  : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-              }`}
-              title="November 2026"
-            >
-              Nov 2026
-            </button>
-
-            <button
-              onClick={() => onChangeMonth(2026, 11)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs ${
-                activeYear === 2026 && activeMonth === 11
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-md scale-105'
-                  : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-              }`}
-              title="Desember 2026"
-            >
-              Des 2026
-            </button>
-
-            <button
-              onClick={() => onChangeMonth(2027, 0)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs ${
-                activeYear === 2027 && activeMonth === 0
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-md scale-105'
-                  : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
-              }`}
-              title="Januari 2027"
-            >
-              Jan 2027
+              Bulan Ini
             </button>
 
             <button
               onClick={handleNextMonth}
-              className="p-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 transition-all cursor-pointer shadow-sm active:scale-95"
+              className="p-2 sm:px-3 sm:py-2 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 text-white text-xs font-black transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer shadow-sm"
               title="Bulan Berikutnya"
             >
+              <span className="hidden sm:inline">Berikutnya</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Quick Month Metrics & Interactive Filter Strip */}
-        <div className="px-4 py-2.5 bg-indigo-50/70 dark:bg-slate-800/90 border-b border-indigo-100 dark:border-indigo-900/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-          {/* Quick Metrics in current view */}
-          <div className="flex items-center gap-3 sm:gap-6 flex-wrap font-bold">
-            <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-              <CalendarCheck2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span>Bulan ini: <strong className="text-slate-900 dark:text-white">{monthStats.totalItems}</strong> agenda</span>
+        {/* Informative Stats & Legend Strip with vibrant theme colors */}
+        <div className="p-3.5 sm:p-4 bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 dark:from-slate-800/90 dark:via-slate-850/80 dark:to-slate-900 border-b border-indigo-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          
+          {/* Quick Counter Chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-slate-700 dark:text-slate-300">
+              Ringkasan Bulan Ini:
             </span>
-
-            <span className="text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
-              <span>Penerimaan Satker: <strong>{monthStats.satkerCount}</strong></span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950/80 text-blue-800 dark:text-blue-300 font-extrabold border border-blue-200 dark:border-blue-800">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              <span>{monthStats.satkerCount} Batas Penerimaan Berkas Satker</span>
             </span>
-
-            <span className="text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
-              <span>Penyelesaian KPPN: <strong>{monthStats.kppnCount}</strong></span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-extrabold border border-indigo-200 dark:border-indigo-800">
+              <span className="w-2 h-2 rounded-full bg-indigo-600" />
+              <span>{monthStats.kppnCount} Penyelesaian SP2D KPPN</span>
             </span>
-
             {monthStats.criticalCount > 0 && (
-              <span className="text-rose-700 dark:text-rose-300 flex items-center gap-1.5 animate-pulse">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-600" />
-                <span>Kritis: <strong>{monthStats.criticalCount}</strong></span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950/80 text-rose-800 dark:text-rose-300 font-black border border-rose-300 dark:border-rose-800 animate-pulse">
+                <Flame className="w-3 h-3 text-rose-600" />
+                <span>{monthStats.criticalCount} Agenda Kritis</span>
               </span>
             )}
           </div>
 
-          {/* Quick Filter Buttons & Density Mode */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center bg-white dark:bg-slate-900 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+          {/* Controls: Filter & View Density */}
+          <div className="flex items-center gap-2 ml-auto">
+            {/* Filter buttons */}
+            <div className="flex items-center bg-white dark:bg-slate-800 rounded-xl p-0.5 border border-indigo-200 dark:border-slate-700 shadow-2xs">
               <button
-                type="button"
                 onClick={() => setFilterMode('ALL')}
-                className={`px-2.5 py-1 text-[11px] font-extrabold rounded-md transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterMode === 'ALL'
                     ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
               >
                 Semua
               </button>
               <button
-                type="button"
                 onClick={() => setFilterMode('PENERIMAAN')}
-                className={`px-2.5 py-1 text-[11px] font-extrabold rounded-md transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterMode === 'PENERIMAAN'
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-blue-600'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
+                title="Hanya Batas Penerimaan Berkas Satker"
               >
                 📥 Satker
               </button>
               <button
-                type="button"
                 onClick={() => setFilterMode('PENYELESAIAN')}
-                className={`px-2.5 py-1 text-[11px] font-extrabold rounded-md transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterMode === 'PENYELESAIAN'
                     ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-indigo-600'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
+                title="Hanya Batas Penyelesaian SP2D KPPN"
               >
                 🏁 KPPN
               </button>
               <button
-                type="button"
                 onClick={() => setFilterMode('KRITIS')}
-                className={`px-2.5 py-1 text-[11px] font-extrabold rounded-md transition-all flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterMode === 'KRITIS'
                     ? 'bg-rose-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-rose-600'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                 }`}
+                title="Hanya Prioritas Kritis"
               >
                 🔥 Kritis
               </button>
             </div>
 
             {/* Density toggle */}
-            <div className="hidden sm:flex items-center bg-white dark:bg-slate-900 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+            <div className="hidden sm:flex items-center bg-white dark:bg-slate-800 rounded-xl p-0.5 border border-indigo-200 dark:border-slate-700 shadow-2xs">
               <button
-                type="button"
                 onClick={() => setDensityMode('COMFY')}
-                className={`px-2 py-1 text-[11px] font-extrabold rounded-md ${
-                  densityMode === 'COMFY' ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500'
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  densityMode === 'COMFY'
+                    ? 'bg-slate-900 text-white dark:bg-slate-700'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
                 title="Tampilan Luas"
               >
                 Luas
               </button>
               <button
-                type="button"
                 onClick={() => setDensityMode('COMPACT')}
-                className={`px-2 py-1 text-[11px] font-extrabold rounded-md ${
-                  densityMode === 'COMPACT' ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white' : 'text-slate-500'
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  densityMode === 'COMPACT'
+                    ? 'bg-slate-900 text-white dark:bg-slate-700'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
-                title="Tampilan Rapat"
+                title="Tampilan Ringkas"
               >
                 Ringkas
               </button>
@@ -621,73 +593,141 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
           </div>
         </div>
 
-        {/* Vibrant Color Legend Bar with Hover Hint */}
-        <div className="px-4 py-2.5 bg-gradient-to-r from-slate-50 via-indigo-50/40 to-slate-50 dark:from-slate-800/80 dark:via-indigo-950/30 dark:to-slate-800/80 border-b border-indigo-100 dark:border-indigo-900/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-5">
-            <span className="font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>Keterangan Warna:</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 font-bold text-blue-800 dark:text-blue-300">
-              <span className="w-3 h-3 rounded-md bg-blue-600 shadow-xs"></span>
-              <span>📥 Batas Penerimaan Berkas Satker</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 font-bold text-indigo-800 dark:text-indigo-300">
-              <span className="w-3 h-3 rounded-md bg-indigo-600 shadow-xs"></span>
-              <span>🏁 Batas Penyelesaian SP2D KPPN</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 font-bold text-rose-700 dark:text-rose-400">
-              <span className="w-3 h-3 rounded-full bg-rose-500 animate-pulse shadow-xs"></span>
-              <span>Prioritas Kritis / Hari Libur</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400">
-              <span className="w-3 h-3 rounded-md bg-amber-500 shadow-xs"></span>
-              <span>TUP & UP</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 font-bold text-purple-700 dark:text-purple-400">
-              <span className="w-3 h-3 rounded-md bg-purple-600 shadow-xs"></span>
-              <span>Kontrak & Bank Garansi</span>
-            </span>
-          </div>
-
-          <span className="text-[11px] font-extrabold text-indigo-900 dark:text-indigo-300 bg-indigo-100/80 dark:bg-indigo-950/80 px-3 py-1 rounded-lg border border-indigo-300 dark:border-indigo-800 flex items-center gap-1.5 shadow-2xs">
-            <Eye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 animate-bounce" />
-            <span>Arahkan kursor ke tanggal/agenda untuk melihat popover mewah tanpa klik</span>
-          </span>
-        </div>
-
-        {/* Days of Week Bar (Colorful styling) */}
-        <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-100 via-indigo-50/50 to-slate-100 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 text-center font-black text-xs py-3">
-          {DAY_NAMES.map((d, idx) => {
-            const isWeekendDay = idx >= 5;
-            return (
-              <div 
-                key={d} 
-                className={`flex items-center justify-center gap-1 tracking-wider ${
-                  isWeekendDay 
-                    ? 'text-rose-600 dark:text-rose-400 font-black' 
-                    : 'text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                <span>{d}</span>
-                {isWeekendDay && <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />}
+        {/* Live Date Inspector Strip - Reaktif langsung saat kursor menunjuk tanggal mana pun */}
+        <div className={`px-4 py-3 transition-all duration-150 border-b ${
+          hoverData
+            ? 'bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white border-indigo-500 shadow-md ring-2 ring-indigo-400/30'
+            : 'bg-white dark:bg-slate-900/95 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+        }`}>
+          {hoverData ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-slate-950 flex items-center justify-center font-black shadow-sm shrink-0">
+                  <CalendarIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-black text-amber-300">
+                      {new Date(hoverData.dateStr + 'T00:00:00').toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </span>
+                    {hoverData.holidayName && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-xs">
+                        🏖️ Libur: {hoverData.holidayName}
+                      </span>
+                    )}
+                    {hoverData.items.length > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-600 text-white shadow-xs">
+                        🔔 {hoverData.items.length} Batas Waktu Terdaftar
+                      </span>
+                    )}
+                    {hoverData.items.length === 0 && !hoverData.holidayName && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-slate-300">
+                        {hoverData.isWeekend ? '☕ Hari Libur Akhir Pekan' : '✅ Hari Kerja Normal'}
+                      </span>
+                    )}
+                  </div>
+                  {hoverData.items.length > 0 && (
+                    <div className="text-xs text-indigo-200 mt-1 font-medium flex items-center gap-2 flex-wrap">
+                      {hoverData.items.slice(0, 3).map((it, idx) => (
+                        <span key={idx} className="bg-white/10 px-2 py-0.5 rounded text-[11px] font-semibold border border-white/15">
+                          <strong className="text-amber-300 font-mono mr-1">[{it.event.kode_kegiatan}]</strong>
+                          {it.event.nama_kegiatan} (Pukul {it.event.jam_batas || '17:00'} WIB)
+                        </span>
+                      ))}
+                      {hoverData.items.length > 3 && (
+                        <span className="text-[11px] text-amber-300 font-black">
+                          +{hoverData.items.length - 3} agenda lainnya
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            );
-          })}
+              <span className="text-xs text-amber-300 font-bold bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-lg">
+                PER-9/PB/2026
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 font-bold">
+                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                <span>Arahkan kursor ke tanggal mana pun pada kalender untuk melihat rincian tenggat secara instan</span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600" /> Penerimaan Satker
+                </span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-600" /> SP2D KPPN
+                </span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-600" /> Kritis / Libur
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* 7-Columns Calendar Grid with Rich Color Tinting */}
-        <div className="grid grid-cols-7 divide-x divide-y divide-slate-200/90 dark:divide-slate-800 bg-slate-200/60 dark:bg-slate-800">
-          {cells.map((cell) => {
+        {/* Legend color guide bar with high-contrast colored pills */}
+        <div className="px-4 py-2 bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-3 text-[11px] text-slate-600 dark:text-slate-400">
+          <span className="font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[10px]">
+            Panduan Warna:
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-blue-300 dark:ring-blue-800" />
+            <span className="font-bold text-blue-900 dark:text-blue-300">Batas Satker (Penerimaan)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 ring-2 ring-indigo-300 dark:ring-indigo-800" />
+            <span className="font-bold text-indigo-900 dark:text-indigo-300">Batas KPPN (Penyelesaian SP2D)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 ring-2 ring-rose-300 dark:ring-rose-800" />
+            <span className="font-bold text-rose-900 dark:text-rose-300">Prioritas Kritis / Libur</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 ring-2 ring-emerald-300 dark:ring-emerald-800" />
+            <span className="font-bold text-emerald-900 dark:text-emerald-300">Kontrak & BAST</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-800" />
+            <span className="font-bold text-amber-900 dark:text-amber-300">UP/TUP/GUP</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-600 ring-2 ring-purple-300 dark:ring-purple-800" />
+            <span className="font-bold text-purple-900 dark:text-purple-300">Revisi DIPA</span>
+          </div>
+        </div>
+
+        {/* Calendar Day Header (Sen s.d. Min) */}
+        <div className="grid grid-cols-7 border-b border-indigo-200 dark:border-slate-800 bg-gradient-to-r from-slate-100 via-indigo-50/50 to-slate-100 dark:from-slate-850 dark:to-slate-800">
+          {DAY_NAMES.map((d, idx) => (
+            <div
+              key={d}
+              className={`py-3 text-center text-xs font-black tracking-wider uppercase ${
+                idx >= 5 
+                  ? 'text-rose-600 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/30' 
+                  : 'text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar Grid (Days Cells) */}
+        <div className="grid grid-cols-7 divide-x divide-y divide-slate-200 dark:divide-slate-800 bg-slate-100/40 dark:bg-slate-950/40">
+          {cells.map((cell, idx) => {
             const rawItems = eventsByDate[cell.dateStr] || [];
             
-            // Filter items based on active quick filter
+            // Filter items based on user choice
             const dateItems = rawItems.filter(item => {
+              if (filterMode === 'ALL') return true;
               if (filterMode === 'PENERIMAAN') return item.isPenerimaan;
               if (filterMode === 'PENYELESAIAN') return item.isPenyelesaian;
               if (filterMode === 'KRITIS') return item.event.prioritas === 'KRITIS';
@@ -695,28 +735,32 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
             });
 
             const isToday = cell.dateStr === todayStr;
+            const isSelected = selectedDateEvents?.dateStr === cell.dateStr;
+            const isWeekendDay = (idx % 7) >= 5;
+            
+            // Check holiday
+            const holidayInfo = {
+              isHoliday: !!HOLIDAYS_MAP[cell.dateStr],
+              holidayName: HOLIDAYS_MAP[cell.dateStr]
+            };
+
             const hasEvents = dateItems.length > 0;
             const hasCritical = dateItems.some(i => i.event.prioritas === 'KRITIS');
             const hasPenerimaan = dateItems.some(i => i.isPenerimaan);
             const hasPenyelesaian = dateItems.some(i => i.isPenyelesaian);
-            const isSelected = selectedDateEvents?.dateStr === cell.dateStr;
-            const holidayInfo = isHoliday(cell.dateStr);
-            const isWeekendDay = isWeekend(cell.dateStr);
 
-            // Dynamic Background Tinting with distinct and lively colors
+            // Styling dynamic per cell
             let cellBgClass = 'bg-white dark:bg-slate-900';
-            let cellHoverClass = 'hover:bg-indigo-50/80 dark:hover:bg-slate-800/90';
+            let cellHoverClass = 'hover:bg-indigo-50/70 dark:hover:bg-slate-800/90';
 
             if (!cell.isCurrentMonth) {
-              cellBgClass = 'opacity-40 bg-slate-100/70 dark:bg-slate-950/60';
-            } else if (isToday) {
-              cellBgClass = 'bg-gradient-to-b from-blue-100/90 to-indigo-100/70 dark:from-blue-950/70 dark:to-indigo-950/60';
+              cellBgClass = 'bg-slate-50/50 dark:bg-slate-950/70 opacity-40';
             } else if (holidayInfo.isHoliday) {
-              cellBgClass = 'bg-rose-50/80 dark:bg-rose-950/40 border-l-2 border-l-rose-500';
+              cellBgClass = 'bg-rose-50/80 dark:bg-rose-950/30 border-l-2 border-l-rose-500';
             } else if (hasCritical) {
-              cellBgClass = 'bg-gradient-to-b from-rose-50/90 to-amber-50/40 dark:from-rose-950/40 dark:to-slate-900 border-l-2 border-l-rose-500';
+              cellBgClass = 'bg-rose-50/60 dark:bg-rose-950/30 border-l-4 border-l-rose-500 shadow-rose-100/50';
             } else if (hasPenerimaan && hasPenyelesaian) {
-              cellBgClass = 'bg-gradient-to-b from-blue-50/80 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/30 border-l-2 border-l-indigo-500';
+              cellBgClass = 'bg-gradient-to-br from-blue-50/60 to-indigo-50/60 dark:from-blue-950/30 dark:to-indigo-950/30 border-l-4 border-l-indigo-600';
             } else if (hasPenerimaan) {
               cellBgClass = 'bg-blue-50/60 dark:bg-blue-950/25 border-l-2 border-l-blue-500';
             } else if (hasPenyelesaian) {
@@ -729,21 +773,37 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               ? 'min-h-[96px] sm:min-h-[120px]' 
               : 'min-h-[120px] sm:min-h-[155px]';
 
+            const isHovered = hoverData?.dateStr === cell.dateStr;
+
             return (
               <div
                 key={cell.dateStr}
                 onMouseEnter={(e) => {
-                  if (rawItems.length > 0 || holidayInfo.isHoliday) {
-                    handleCellMouseEnter(
-                      e, 
-                      cell.dateStr, 
-                      rawItems, 
-                      holidayInfo.holidayName, 
-                      isWeekendDay
-                    );
-                  }
+                  handleCellHover(
+                    e, 
+                    cell.dateStr, 
+                    rawItems, 
+                    holidayInfo.holidayName, 
+                    isWeekendDay
+                  );
+                }}
+                onMouseMove={(e) => {
+                  handleCellHover(
+                    e, 
+                    cell.dateStr, 
+                    rawItems, 
+                    holidayInfo.holidayName, 
+                    isWeekendDay
+                  );
                 }}
                 onMouseLeave={handleCellMouseLeave}
+                title={
+                  rawItems.length > 0
+                    ? `${cell.dateStr}: ${rawItems.length} Deadline LLAT - ${rawItems.map(i => i.event.nama_kegiatan).join(', ')}`
+                    : holidayInfo.isHoliday
+                    ? `${cell.dateStr}: Libur Nasional - ${holidayInfo.holidayName}`
+                    : `${cell.dateStr}: Hari Kerja Normal`
+                }
                 onClick={() => {
                   if (rawItems.length > 0) {
                     setSelectedDateEvents({
@@ -761,6 +821,10 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                 } ${
                   isSelected 
                     ? 'ring-3 ring-amber-500 ring-inset shadow-lg bg-amber-50/60 dark:bg-amber-950/50 z-10' 
+                    : ''
+                } ${
+                  isHovered
+                    ? 'ring-2 ring-indigo-500 ring-inset shadow-lg bg-indigo-50/70 dark:bg-indigo-950/40 z-20 scale-[1.01]'
                     : ''
                 } group`}
               >
@@ -808,7 +872,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   {/* Right Badges: Holiday or Event Counter */}
                   <div className="flex items-center gap-1">
                     {holidayInfo.isHoliday && (
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 truncate max-w-[70px] sm:max-w-[90px]" title={holidayInfo.holidayName}>
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 truncate max-w-[70px] sm:max-w-[90px]">
                         Libur
                       </span>
                     )}
@@ -842,6 +906,26 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     return (
                       <div
                         key={`${item.event.llat_id}-${itemIdx}`}
+                        onMouseEnter={(e) => {
+                          handleCellHover(
+                            e, 
+                            cell.dateStr, 
+                            rawItems, 
+                            holidayInfo.holidayName, 
+                            isWeekendDay, 
+                            item.event.kode_kegiatan
+                          );
+                        }}
+                        onMouseMove={(e) => {
+                          handleCellHover(
+                            e, 
+                            cell.dateStr, 
+                            rawItems, 
+                            holidayInfo.holidayName, 
+                            isWeekendDay, 
+                            item.event.kode_kegiatan
+                          );
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectEvent(item.event);
@@ -851,7 +935,6 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                             ? 'bg-gradient-to-r from-rose-100 to-red-50 dark:from-rose-950/90 dark:to-red-950/70 text-rose-950 dark:text-rose-100 border-rose-400 dark:border-rose-700 ring-1 ring-rose-400/40 shadow-rose-200/50'
                             : `${colorScheme.bg} ${colorScheme.text} ${colorScheme.border}`
                         }`}
-                        title={`${item.isPenerimaan ? '📥 Penerimaan: ' : '🏁 Penyelesaian: '}${item.event.nama_kegiatan} (${item.event.kategori})`}
                       >
                         {/* Dot indicator */}
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -909,133 +992,213 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* HOVER TOOLTIP / POPOVER: TAMPILAN MEWAH, JELAS, BESAR & MUDAH DIBACA        */}
+      {/* HOVER TOOLTIP / POPOVER: TAMPILAN MEMBESAR, SANGAT JELAS, MEWAH & BEBAS GLITCH */}
+      {/* DI-PORTAL LANGSUNG KE document.body SEHINGGA BEBAS DARI TRANSFORM/OVERFLOW PARENT */}
       {/* ========================================================================= */}
-      {hoverData && (
-        <div 
-          className="fixed z-50 pointer-events-none transition-all duration-150 animate-in fade-in zoom-in-95"
-          style={{
-            // Center horizontally over the cell, position above or below cell
-            left: `${Math.min(Math.max(hoverData.x - 225, 20), window.innerWidth - 480)}px`,
-            top: `${hoverData.y > 420 ? hoverData.y - 14 : hoverData.y + 125}px`,
-            transform: hoverData.y > 420 ? 'translateY(-100%)' : 'translateY(0)'
-          }}
-        >
-          <div className="w-[450px] max-w-[94vw] bg-slate-950/95 backdrop-blur-xl text-white rounded-3xl shadow-2xl border-2 border-indigo-400/90 p-5 space-y-4 pointer-events-auto ring-4 ring-black/30">
-            {/* Header Popover with Grand Badge */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 text-amber-300 flex items-center justify-center font-black shadow-md border border-white/20">
-                  <CalendarIcon className="w-5 h-5" />
+      {typeof document !== 'undefined' && hoverData && createPortal(
+        (() => {
+          const cardWidth = typeof window !== 'undefined' ? Math.min(520, window.innerWidth - 32) : 480;
+          const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+          const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800;
+
+          // Position horizontally: to the right of cursor by 18px, or flip to left if near right edge
+          let left = hoverData.clientX + 18;
+          if (left + cardWidth > viewportWidth - 16) {
+            left = hoverData.clientX - cardWidth - 18;
+          }
+          if (left < 12) left = 12;
+
+          // Position vertically: align with cursor, clamped safely inside viewport
+          const estimatedHeight = Math.min(480, hoverData.items.length * 125 + 160);
+          let top = hoverData.clientY - 20;
+          if (top + estimatedHeight > viewportHeight - 16) {
+            top = Math.max(12, viewportHeight - estimatedHeight - 16);
+          }
+          if (top < 12) top = 12;
+
+          return (
+            <div 
+              className="fixed z-[9999999] pointer-events-none select-none transition-all duration-75 ease-out"
+              style={{
+                left: `${left}px`,
+                top: `${top}px`,
+              }}
+            >
+              {/* Pop-up Card */}
+              <div className="w-[520px] max-w-[92vw] bg-slate-950/98 backdrop-blur-2xl text-white rounded-3xl shadow-[0_25px_80px_rgba(0,0,0,0.95)] border-2 border-indigo-500/90 p-5 space-y-4 ring-4 ring-indigo-500/30 max-h-[min(520px,85vh)] overflow-y-auto">
+              
+              {/* Header Popover with Grand Badge & Glow */}
+              <div className="flex items-center justify-between border-b border-slate-800/90 pb-3.5">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 via-blue-600 to-indigo-700 text-amber-300 flex items-center justify-center font-black shadow-lg shadow-indigo-500/30 border border-white/25 shrink-0">
+                    <CalendarIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-base font-black text-white tracking-tight">
+                      {new Date(hoverData.dateStr + 'T00:00:00').toLocaleDateString('id-ID', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </h5>
+                    <p className="text-xs text-indigo-300 font-bold mt-0.5 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+                      <span>
+                        {hoverData.items.length > 0 
+                          ? `${hoverData.items.length} Agenda & Batas Waktu Resmi` 
+                          : hoverData.holidayName 
+                          ? 'Hari Libur Nasional Resmi'
+                          : hoverData.isWeekend
+                          ? 'Akhir Pekan (Hari Non-Kerja)'
+                          : 'Hari Kerja Normal (Tidak Ada Deadline Khusus)'}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h5 className="text-sm font-black text-white tracking-tight">
-                    {new Date(hoverData.dateStr + 'T00:00:00').toLocaleDateString('id-ID', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    })}
-                  </h5>
-                  <p className="text-xs text-indigo-300 font-bold mt-0.5">
-                    {hoverData.items.length > 0 
-                      ? `${hoverData.items.length} Agenda / Batas Waktu Terjadwal` 
-                      : (hoverData.holidayName ? 'Hari Libur Nasional / Cuti' : 'Tidak ada agenda')}
-                  </p>
-                </div>
+
+                {hoverData.holidayName && (
+                  <span className="text-xs font-black px-3 py-1 rounded-full bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-md border border-rose-400/40 shrink-0">
+                    🏖️ Libur Nasional
+                  </span>
+                )}
+                {!hoverData.holidayName && hoverData.isWeekend && (
+                  <span className="text-xs font-black px-3 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700 shrink-0">
+                    ☕ Akhir Pekan
+                  </span>
+                )}
+                {!hoverData.holidayName && !hoverData.isWeekend && hoverData.items.length === 0 && (
+                  <span className="text-xs font-black px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-600/50 shrink-0">
+                    ✅ Hari Kerja
+                  </span>
+                )}
               </div>
 
+              {/* Holiday Notice if any */}
               {hoverData.holidayName && (
-                <span className="text-xs font-black px-2.5 py-1 rounded-full bg-rose-600 text-white shadow-xs">
-                  Libur Nasional
-                </span>
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-950/80 via-red-950/70 to-rose-950/80 border-2 border-rose-500/60 text-xs font-bold text-rose-100 flex items-center gap-3 shadow-md">
+                  <span className="text-2xl">🏖️</span>
+                  <div>
+                    <div className="font-black text-rose-200">HARI LIBUR RESMI PEMERINTAH</div>
+                    <div className="text-rose-100 font-semibold">{hoverData.holidayName}</div>
+                    <div className="text-[11px] text-rose-300/80 mt-0.5">Sesuai SKB 3 Menteri, seluruh aktivitas layanan perbendaharaan diliburkan.</div>
+                  </div>
+                </div>
               )}
-            </div>
 
-            {/* Holiday Notice if any */}
-            {hoverData.holidayName && (
-              <div className="p-3 rounded-2xl bg-rose-950/70 border border-rose-500/50 text-xs font-bold text-rose-200 flex items-center gap-2.5 shadow-xs">
-                <span className="text-base">🏖️</span>
-                <span>{hoverData.holidayName}</span>
-              </div>
-            )}
+              {/* Items list preview - Prominent Cards, Crystal-Clear Typography & Colored Highlights */}
+              {hoverData.items.length > 0 ? (
+                <div className="space-y-3">
+                  {hoverData.items.map((it, idx) => {
+                    const priority = getPriorityBadge(it.event.prioritas);
+                    const isCrit = it.event.prioritas === 'KRITIS';
+                    const colorScheme = getCategoryColor(it.event.kategori);
+                    const isHighlighted = hoverData.activeItemCode === it.event.kode_kegiatan;
 
-            {/* Items list preview - Larger, more readable typography */}
-            {hoverData.items.length > 0 ? (
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {hoverData.items.map((it, idx) => {
-                  const priority = getPriorityBadge(it.event.prioritas);
-                  const isCrit = it.event.prioritas === 'KRITIS';
-                  const colorScheme = getCategoryColor(it.event.kategori);
+                    return (
+                      <div 
+                        key={`hover-${it.event.llat_id}-${idx}`}
+                        className={`p-3.5 rounded-2xl bg-gradient-to-br from-slate-900/95 to-slate-900/75 border-2 ${
+                          isHighlighted
+                            ? 'border-amber-400 ring-2 ring-amber-400/50 bg-indigo-950/40 shadow-lg'
+                            : isCrit 
+                            ? 'border-rose-500/90 shadow-lg shadow-rose-950/50 bg-rose-950/20' 
+                            : 'border-slate-700/80 hover:border-indigo-400'
+                        } transition-all space-y-2.5 shadow-md`}
+                      >
+                        {/* Top Badges row */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-black text-amber-300 bg-slate-950 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                              {it.event.kode_kegiatan}
+                            </span>
+                            <span className={`text-xs font-black px-2.5 py-0.5 rounded-lg shadow-xs ${
+                              it.isPenerimaan 
+                                ? 'bg-blue-600 text-white border border-blue-400/40' 
+                                : 'bg-indigo-600 text-white border border-indigo-400/40'
+                            }`}>
+                              {it.isPenerimaan ? '📥 Penerimaan Berkas Satker' : '🏁 Penyelesaian SP2D KPPN'}
+                            </span>
+                            <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ${colorScheme.subtle} border`}>
+                              {it.event.kategori}
+                            </span>
+                          </div>
 
-                  return (
-                    <div 
-                      key={`hover-${it.event.llat_id}-${idx}`}
-                      className="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700/80 hover:border-indigo-400 transition-all space-y-2 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="font-mono text-xs font-black text-amber-300 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                            {it.event.kode_kegiatan}
-                          </span>
-                          <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg ${
-                            it.isPenerimaan ? 'bg-blue-600 text-white' : 'bg-indigo-600 text-white'
-                          }`}>
-                            {it.isPenerimaan ? '📥 Penerimaan Berkas Satker' : '🏁 Penyelesaian SP2D KPPN'}
-                          </span>
-                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${colorScheme.bg} ${colorScheme.text} border ${colorScheme.border}`}>
-                            {it.event.kategori}
+                          {/* Jam batas pill */}
+                          <span className="font-mono text-xs text-amber-300 font-black flex items-center gap-1 bg-amber-950/80 px-2.5 py-0.5 rounded-lg border border-amber-500/50 shadow-xs">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Pukul {it.event.jam_batas || '17:00'} {it.event.timezone || 'WIB'}</span>
                           </span>
                         </div>
 
-                        <span className="font-mono text-xs text-amber-300 font-black flex items-center gap-1 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-600/40">
-                          <Clock className="w-3.5 h-3.5 text-amber-400" />
-                          <span>Pukul {it.event.jam_batas || '17:00'} {it.event.timezone || 'WIB'}</span>
-                        </span>
+                        {/* Main agenda title - Large, bold, eye-catching */}
+                        <div className="flex items-start justify-between gap-2">
+                          <h6 className="text-sm font-black text-white leading-snug">
+                            {it.event.nama_kegiatan}
+                          </h6>
+                        </div>
+
+                        {/* Detailed substance description */}
+                        <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                          {it.event.deskripsi}
+                        </p>
+
+                        {/* Footer legal basis & priority indicator */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/90 text-xs text-slate-400">
+                          <div className="flex items-center gap-1.5 truncate max-w-[340px]">
+                            <BookOpen className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                            <span className="font-medium truncate">
+                              {it.event.dasar_hukum} • Hal. {it.event.halaman_sumber || '-'}
+                            </span>
+                          </div>
+                          <span className={`font-black px-2 py-0.5 rounded text-[11px] ${
+                            isCrit 
+                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 animate-pulse' 
+                              : 'text-slate-300'
+                          }`}>
+                            {priority.label}
+                          </span>
+                        </div>
                       </div>
-
-                      {/* Main agenda title - bold, readable size */}
-                      <p className="text-sm font-black text-white leading-snug">
-                        {it.event.nama_kegiatan}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-center space-y-1">
+                  {hoverData.isWeekend ? (
+                    <>
+                      <p className="text-sm font-black text-slate-200">☕ Hari Libur Akhir Pekan</p>
+                      <p className="text-xs text-slate-400">
+                        Tidak ada aktivitas perbankan atau pengajuan SPM/SP2D reguler pada hari ini.
                       </p>
-
-                      {/* Detailed substance description */}
-                      <p className="text-xs text-slate-300 leading-relaxed font-normal">
-                        {it.event.deskripsi}
+                    </>
+                  ) : !hoverData.holidayName ? (
+                    <>
+                      <p className="text-sm font-black text-emerald-300">✅ Hari Kerja Reguler</p>
+                      <p className="text-xs text-slate-400">
+                        Tidak ada batas tenggat khusus LLAT PER-9/PB/2026 pada tanggal ini. Pemrosesan SPM/SP2D berjalan reguler.
                       </p>
+                    </>
+                  ) : null}
+                </div>
+              )}
 
-                      {/* Footer legal basis & critical alert */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-[11px] text-slate-400">
-                        <span className="font-medium truncate max-w-[280px]">
-                          {it.event.dasar_hukum} • Hal. {it.event.halaman_sumber || '-'}
-                        </span>
-                        <span className={`font-black ${isCrit ? 'text-rose-400 animate-pulse' : 'text-slate-300'}`}>
-                          {priority.label}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+              {/* Tooltip Footer instruction */}
+              <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between font-semibold">
+                <span className="flex items-center gap-1.5 text-indigo-200">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Klik tanggal ini pada kalender untuk membuka panel detail</span>
+                </span>
+                <span className="text-amber-400 font-black px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/30">
+                  PER-9/PB/2026
+                </span>
               </div>
-            ) : (
-              !hoverData.holidayName && (
-                <p className="text-xs text-slate-400 italic text-center py-2">
-                  Tidak ada tenggat batas untuk tanggal ini.
-                </p>
-              )
-            )}
-
-            {/* Tooltip Footer instruction */}
-            <div className="pt-2 border-t border-slate-800 text-xs text-slate-400 flex items-center justify-between font-semibold">
-              <span className="flex items-center gap-1">
-                <span>💡</span>
-                <span>Klik tanggal untuk membuka lembar rincian</span>
-              </span>
-              <span className="text-amber-400 font-extrabold">PER-9/PB/2026</span>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })(),
+      document.body
+    )}
 
       {/* Selected Date Agenda Panel (Rich Colorful Popover/Modal Banner yang tetap bisa dibuka via klik) */}
       {selectedDateEvents && (

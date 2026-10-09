@@ -133,7 +133,16 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   // Filtered Events based on user filters
   const filteredEvents = useMemo(() => {
     return accessibleEvents.filter((ev) => {
-      if (ev.tahun_anggaran !== selectedYear) return false;
+      // Periksa apakah kegiatan relevan dengan tahun yang dipilih (termasuk tenggat lanjutan Jan 2027 untuk TA 2026)
+      const matchesYear = 
+        ev.tahun_anggaran === selectedYear ||
+        ev.tahun_kalender_tenggat === selectedYear ||
+        (ev.tanggal_batas && ev.tanggal_batas.startsWith(String(selectedYear))) ||
+        (ev.tanggal_penerimaan && ev.tanggal_penerimaan.startsWith(String(selectedYear))) ||
+        (ev.tanggal_penyelesaian && ev.tanggal_penyelesaian.startsWith(String(selectedYear))) ||
+        (ev.tanggal_tenggat && ev.tanggal_tenggat.startsWith(String(selectedYear)));
+
+      if (!matchesYear) return false;
 
       if (onlyToday) {
         const isCutOffToday = 
@@ -172,7 +181,15 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
 
   // 8 STATISTICAL SUMMARY CARDS (Section D of User Requirements)
   const dynamicKpiStats = useMemo(() => {
-    const yearEvents = accessibleEvents.filter((e) => e.tahun_anggaran === selectedYear);
+    const yearEvents = accessibleEvents.filter((e) => {
+      return (
+        e.tahun_anggaran === selectedYear ||
+        e.tahun_kalender_tenggat === selectedYear ||
+        (e.tanggal_batas && e.tanggal_batas.startsWith(String(selectedYear))) ||
+        (e.tanggal_penerimaan && e.tanggal_penerimaan.startsWith(String(selectedYear))) ||
+        (e.tanggal_penyelesaian && e.tanggal_penyelesaian.startsWith(String(selectedYear)))
+      );
+    });
 
     // 1. Total kegiatan aktif
     const totalAktif = yearEvents.filter((e) => e.is_active).length;
