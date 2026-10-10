@@ -1,24 +1,18 @@
 import { MasterBankQuestion } from '../types/quiz';
+import { MASTER_QUIZ_BANK_PART2 } from './masterQuizBankDataPart2';
+import { MASTER_QUIZ_BANK_PART3 } from './masterQuizBankDataPart3';
+import { MASTER_QUIZ_BANK_PART4 } from './masterQuizBankDataPart4';
 
 /**
- * BANK SOAL MASTER RESMI PERBENDAHARAAN & APBN KPPN SEMARANG I (520 BUTIR SOAL)
+ * BANK SOAL MASTER RESMI PERBENDAHARAAN & APBN KPPN SEMARANG I (2.050 BUTIR SOAL)
  * 
- * Mencakup seluruh domain kompetensi & regulasi:
- * 1. Indikator IKPA 8 Aspek (Deviasi Hal III DIPA, Revisi, Penyerapan, Kontraktual, Tagihan 17 HK, UP/TUP, Dispensasi, Capaian Output)
- * 2. Mekanisme Pembayaran APBN & SP2D/SPM (LS, UP, GUP, PTUP, Nihil, Retur SP2D, Koreksi Pembukuan)
- * 3. Aplikasi SAKTI & SPAN (Modul Komitmen, Pembayaran, Bendahara, Aset, Persediaan, GLP, OTP BSrE)
- * 4. Pengelolaan UP, TUP, KKP & Digipay Satu (Limit, CMS, Porsi 40:60, Revolving 50%)
- * 5. Perpajakan Bendahara Pemerintah (PPh 21 TER PP 58/2023, PPh 22, PPh 23, PPh 4 ayat 2, PPN 11%, e-Bupot IP)
- * 6. Pejabat Perbendaharaan Negara (KPA, PPK, PPSPM, Bendahara Pengeluaran, PPABP, JF Perbendaharaan)
- * 7. Pengadaan Barang/Jasa Pemerintah (Perpres 16/2018 jo 12/2021, E-Purchasing, Denda 1/1000, Swakelola)
- * 8. Akuntansi Pemerintahan, Rekon MonSAKTI, LPJ Bendahara & BMN (PP 71/2010 SAP Akrual)
- * 9. Kas Negara, Rekening Pemerintah & TSA (PMK 182/2017, Virtual Account, SPRINT)
- * 10. Integritas, SPIP, Zona Integritas WBK/WBBM & Whistleblowing System WISE Kemenkeu
- * 
- * Lengkap dengan 3 level kesulitan (MUDAH, SEDANG, ANALISIS/HOTS), 
- * Pembahasan ilmiah mendalam, dan rujukan dasar hukum regulasi resmi.
+ * Part 1: 520 Butir Soal Master Fundamental
+ * Part 2: 530 Butir Soal Pengayaan & Studi Kasus Mendalam
+ * Part 3: 500 Butir Soal Lanjutan Reformulasi IKPA & Treasury Modern
+ * Part 4: 500 Butir Soal Komprehensif SBM, SBSN, Hibah, TP/TGR, LLAT & Digital Treasury
+ * Total: 2.050 Butir Soal Terstandarisasi
  */
-export const MASTER_QUIZ_BANK: MasterBankQuestion[] = [
+const MASTER_QUIZ_BANK_PART1: MasterBankQuestion[] = [
   {
     id: "mbq_001",
     number: 1,
@@ -7820,3 +7814,11 @@ export const MASTER_QUIZ_BANK: MasterBankQuestion[] = [
     points: 10
   }
 ];
+
+export const MASTER_QUIZ_BANK: MasterBankQuestion[] = [
+  ...MASTER_QUIZ_BANK_PART1,
+  ...MASTER_QUIZ_BANK_PART2,
+  ...MASTER_QUIZ_BANK_PART3,
+  ...MASTER_QUIZ_BANK_PART4
+];
+export { MASTER_QUIZ_BANK_PART1, MASTER_QUIZ_BANK_PART2, MASTER_QUIZ_BANK_PART3, MASTER_QUIZ_BANK_PART4 };

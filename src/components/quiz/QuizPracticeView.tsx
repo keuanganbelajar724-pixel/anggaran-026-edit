@@ -360,7 +360,7 @@ export const QuizPracticeView: React.FC<QuizPracticeViewProps> = ({
                   Khusus Rekan Mitra Satker (Bebas Akses)
                 </h4>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  <strong>Tidak perlu login</strong> sama sekali! Anda dapat langsung memilih paket latihan Satker atau memilih salah satu dari 520 butir bank soal berdasarkan topik perbendaharaan.
+                  <strong>Tidak perlu login</strong> sama sekali! Anda dapat langsung memilih paket latihan Satker atau memilih salah satu dari {masterQuestions.length || 2050} butir bank soal berdasarkan topik perbendaharaan.
                 </p>
               </div>
             </div>
@@ -410,7 +410,7 @@ export const QuizPracticeView: React.FC<QuizPracticeViewProps> = ({
                 }`}
               >
                 <BookOpen className="w-4 h-4" />
-                <span>Latihan Berdasarkan Topik Bank Soal (520 Soal)</span>
+                <span>Latihan Berdasarkan Topik Bank Soal ({masterQuestions.length || 2050} Soal)</span>
               </button>
 
               <button
@@ -441,7 +441,7 @@ export const QuizPracticeView: React.FC<QuizPracticeViewProps> = ({
           </div>
 
           {/* ================================================================= */}
-          {/* TAB 1: BANK SOAL 520 BY TOPIC & DIFFICULTY */}
+          {/* TAB 1: BANK SOAL BY TOPIC & DIFFICULTY */}
           {/* ================================================================= */}
           {selectedSourceType === 'BANK_TOPIC' && (
             <div className={`p-6 rounded-3xl border shadow-lg space-y-6 ${
@@ -451,7 +451,7 @@ export const QuizPracticeView: React.FC<QuizPracticeViewProps> = ({
                 <div>
                   <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-emerald-500" />
-                    <span>Konfigurasi Materi Latihan Mandiri (520 Butir Soal)</span>
+                    <span>Konfigurasi Materi Latihan Mandiri ({masterQuestions.length || 2050} Butir Soal)</span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
                     Pilih topik dan tingkat kesulitan soal yang ingin Anda pelajari secara langsung.
@@ -487,7 +487,7 @@ export const QuizPracticeView: React.FC<QuizPracticeViewProps> = ({
                     onChange={e => setSelectedTopic(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 font-bold text-slate-900 dark:text-slate-100 focus:outline-hidden"
                   >
-                    <option value="ALL">🌟 Semua Topik Perbendaharaan (Campuran 520 Soal)</option>
+                    <option value="ALL">🌟 Semua Topik Perbendaharaan (Campuran {masterQuestions.length || 2050} Soal)</option>
                     {uniqueTopics.map(t => (
                       <option key={t} value={t}>
                         {t} {t.toLowerCase().includes('kppn internal') ? '🔒 (Khusus KPPN)' : '🌐 (Satker & Umum)'}
