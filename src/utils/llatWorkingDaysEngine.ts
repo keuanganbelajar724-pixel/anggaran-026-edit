@@ -16,6 +16,9 @@ export const HOLIDAYS_LLAT_2026_2027: Record<string, HolidayEntry> = {
   '2026-01-01': { date: '2026-01-01', name: 'Tahun Baru 2026 Masehi', isCutiBersama: false },
   '2026-05-01': { date: '2026-05-01', name: 'Hari Buruh Internasional', isCutiBersama: false },
   '2026-08-17': { date: '2026-08-17', name: 'Hari Kemerdekaan RI ke-81', isCutiBersama: false },
+  '2026-10-01': { date: '2026-10-01', name: 'Hari Kesaktian Pancasila', isCutiBersama: false },
+  '2026-10-28': { date: '2026-10-28', name: 'Hari Sumpah Pemuda', isCutiBersama: false },
+  '2026-11-10': { date: '2026-11-10', name: 'Hari Pahlawan', isCutiBersama: false },
   '2026-12-24': { date: '2026-12-24', name: 'Cuti Bersama Hari Raya Natal', isCutiBersama: true },
   '2026-12-25': { date: '2026-12-25', name: 'Hari Raya Natal', isCutiBersama: false },
   // 2027
@@ -184,3 +187,162 @@ export function adjustIfHoliday(
     originalDayType: `Awalnya ${weekend ? 'Akhir Pekan' : holiday.holidayName}, disesuaikan ke ${adjustedDate}`
   };
 }
+
+/**
+ * Format tanggal YYYY-MM-DD menjadi format singkat bahasa Indonesia (e.g. "2 Okt 2026")
+ */
+export function formatShortDateID(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const monthName = months[parseInt(m, 10) - 1] || m;
+  return `${parseInt(d, 10)} ${monthName} ${y}`;
+}
+
+/**
+ * Hitung mundur N hari kerja dari refDate
+ */
+export function subtractWorkingDays(refDateStr: string, workingDays: number): {
+  targetDateStr: string;
+  steps: Array<{ dateStr: string; dayIndex: number; note: string }>;
+} {
+  const steps: Array<{ dateStr: string; dayIndex: number; note: string }> = [];
+  const current = new Date(refDateStr + 'T00:00:00');
+  let remainingDays = workingDays;
+  let dayIndex = 0;
+
+  // Mundur 1 hari kalender terlebih dahulu
+  current.setDate(current.getDate() - 1);
+
+  while (remainingDays > 0) {
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const weekend = isWeekend(dateStr);
+    const holidayInfo = isHoliday(dateStr);
+    const working = !weekend && !holidayInfo.isHoliday;
+
+    let note = 'Hari Kerja';
+    if (weekend) {
+      note = current.getDay() === 0 ? 'Minggu (Libur Akhir Pekan)' : 'Sabtu (Libur Akhir Pekan)';
+    } else if (holidayInfo.isHoliday) {
+      note = `Libur: ${holidayInfo.holidayName}`;
+    }
+
+    if (working) {
+      dayIndex++;
+      remainingDays--;
+      steps.push({ dateStr, dayIndex, note: `Hari kerja ke-${dayIndex} mundur` });
+    } else {
+      steps.push({ dateStr, dayIndex, note: `Dilewati: ${note}` });
+    }
+
+    if (remainingDays > 0) {
+      current.setDate(current.getDate() - 1);
+    }
+  }
+
+  const y = current.getFullYear();
+  const m = String(current.getMonth() + 1).padStart(2, '0');
+  const d = String(current.getDate()).padStart(2, '0');
+  return { targetDateStr: `${y}-${m}-${d}`, steps };
+}
+
+export interface Rolling5HKInfo {
+  dateStr: string;
+  sourceDateStr: string;
+  sourceDateFormatted: string;
+  forwardDeadlineStr: string;
+  forwardDeadlineFormatted: string;
+  stepsBack: Array<{ dateStr: string; dayIndex: number; note: string }>;
+  stepsForward: Array<{ dateStr: string; dayIndex: number; isWorking: boolean; note: string }>;
+  label: string;
+  shortLabel: string;
+  description: string;
+  pasal: string;
+  isOctober: boolean;
+  isNovember: boolean;
+  hardCutOffDateStr: string;
+  hardCutOffFormatted: string;
+}
+
+/**
+ * Mendapatkan informasi klausul dinamis 5 Hari Kerja (Pasal 6 ayat 2/3 & Pasal 18 ayat 1b PER-9/PB/2026)
+ * Khusus berlaku pada hari kerja di bulan Oktober dan November 2026
+ */
+export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
+  const isOct = dateStr.startsWith('2026-10-');
+  const isNov = dateStr.startsWith('2026-11-');
+
+  // Hanya berlaku untuk Oktober & November 2026
+  if (!isOct && !isNov) return null;
+
+  // Tanggal 1 s.d. 7 Oktober 2026 bukan batas waktu BAST/Kontrak:
+  // LLAT baru dimulai Oktober, sehingga BAST/Kontrak paling cepat terbit 1 Oktober.
+  // Batas 5 Hari Kerja untuk dokumen terbit 1 Oktober (Hari Kesaktian Pancasila) jatuh tempo pada 8 Oktober 2026.
+  // Dokumen yang terbit s.d. 30 September batas mutlak pendaftarannya diatur tersendiri pada 9 Oktober 2026 (LLAT-03.1 & LLAT-06.1).
+  if (isOct && dateStr < '2026-10-08') return null;
+
+  // Hanya berlaku untuk hari kerja efektif
+  if (!isWorkingDay(dateStr)) return null;
+
+  // 1. Hitung tanggal sumber mundur 5 hari kerja
+  // Khusus untuk 8 Oktober 2026, dokumen acuannya adalah BAST/Kontrak tanggal 1 Oktober 2026
+  let sourceDateStr: string;
+  let sourceDateFormatted: string;
+  let stepsBack: Array<{ dateStr: string; dayIndex: number; note: string }>;
+
+  if (dateStr === '2026-10-08') {
+    sourceDateStr = '2026-10-01';
+    sourceDateFormatted = '1 Okt 2026';
+    stepsBack = [
+      { dateStr: '2026-10-02', dayIndex: 1, note: 'HK-1: Jumat, 2 Okt 2026' },
+      { dateStr: '2026-10-05', dayIndex: 2, note: 'HK-2: Senin, 5 Okt 2026' },
+      { dateStr: '2026-10-06', dayIndex: 3, note: 'HK-3: Selasa, 6 Okt 2026' },
+      { dateStr: '2026-10-07', dayIndex: 4, note: 'HK-4: Rabu, 7 Okt 2026' },
+      { dateStr: '2026-10-08', dayIndex: 5, note: 'HK-5: Kamis, 8 Okt 2026 (Batas Akhir Hari Ini)' }
+    ];
+  } else {
+    const backResult = subtractWorkingDays(dateStr, 5);
+    sourceDateStr = backResult.targetDateStr;
+    sourceDateFormatted = formatShortDateID(sourceDateStr);
+    stepsBack = backResult.steps;
+  }
+
+  // 2. Hitung tanggal batas maju 5 hari kerja jika menandatangani hari ini
+  const forwardResult = calculateWorkingDayDeadline(dateStr, 5, 'SESUDAH', false);
+  const forwardDeadlineStr = forwardResult.targetDateStr;
+  const forwardDeadlineFormatted = formatShortDateID(forwardDeadlineStr);
+
+  // 3. Batas mutlak sapu jagat periode
+  const hardCutOffDateStr = isOct ? '2026-11-06' : '2026-12-07';
+  const hardCutOffFormatted = isOct ? '6 November 2026' : '7 Desember 2026';
+
+  const pasal = isOct
+    ? 'Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b'
+    : 'Pasal 6 ayat (3) & Pasal 18 ayat (1) huruf b/c';
+
+  return {
+    dateStr,
+    sourceDateStr,
+    sourceDateFormatted,
+    forwardDeadlineStr,
+    forwardDeadlineFormatted,
+    stepsBack,
+    stepsForward: forwardResult.steps,
+    label: `Batas 5 HK: BAST & Kontrak tgl ${sourceDateFormatted}`,
+    shortLabel: `5 HK (${sourceDateFormatted})`,
+    description: `Berdasarkan ketentuan ${pasal} PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak/Adendum dan SPM-LS Kontraktual (BAST/BAPP/Jaminan) yang ditandatangani pada tanggal ${sourceDateFormatted}.`,
+    pasal: `${pasal} PER-9/PB/2026`,
+    isOctober: isOct,
+    isNovember: isNov,
+    hardCutOffDateStr,
+    hardCutOffFormatted
+  };
+}
+
