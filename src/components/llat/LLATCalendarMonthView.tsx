@@ -20,7 +20,10 @@ import {
   Layers,
   ChevronDown,
   ExternalLink,
-  BookOpen
+  BookOpen,
+  Search,
+  CalendarDays,
+  Tag
 } from 'lucide-react';
 import { LLATEvent } from '../../types/llat';
 import { getCountdownInfo, getDeadlineTypeBadge, getVerificationBadge, getPriorityBadge } from '../../data/defaultLlatData';
@@ -28,10 +31,28 @@ import { getRolling5HKInfo, Rolling5HKInfo, formatShortDateID } from '../../util
 
 interface LLATCalendarMonthViewProps {
   events: LLATEvent[];
+  allEvents?: LLATEvent[];
   selectedYear: number;
   selectedMonth: number;
   onChangeMonth: (year: number, month: number) => void;
   onSelectEvent: (event: LLATEvent) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+}
+
+interface SearchDeadlineMatch {
+  id: string;
+  event: LLATEvent;
+  dateStr: string;
+  type: 'PENERIMAAN' | 'PENYELESAIAN' | 'SUB_DEADLINE';
+  stageLabel: string;
+  timeStr?: string;
+  title: string;
+  description: string;
+  dasarHukum: string;
+  isCurrentMonth: boolean;
+  monthIndex: number;
+  year: number;
 }
 
 const MONTH_NAMES = [
@@ -59,6 +80,7 @@ interface DateEventItem {
   event: LLATEvent;
   isPenerimaan?: boolean;
   isPenyelesaian?: boolean;
+  isMulai?: boolean;
 }
 
 // Category aesthetic colors & badges
@@ -149,13 +171,30 @@ function getCategoryColor(category: string): {
 
 export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
   events,
+  allEvents,
   selectedYear,
   selectedMonth,
   onChangeMonth,
-  onSelectEvent
+  onSelectEvent,
+  searchQuery,
+  onSearchQueryChange
 }) => {
   const activeYear = selectedYear || 2026;
   const activeMonth = selectedMonth >= 0 && selectedMonth <= 11 ? selectedMonth : 9; // Default Oktober (index 9)
+
+  // Keyword Search State (Filter Pencarian Kata Kunci)
+  const [localSearch, setLocalSearch] = useState<string>(searchQuery || '');
+
+  useEffect(() => {
+    if (searchQuery !== undefined) {
+      setLocalSearch(searchQuery);
+    }
+  }, [searchQuery]);
+
+  const handleSearchChange = (val: string) => {
+    setLocalSearch(val);
+    onSearchQueryChange?.(val);
+  };
 
   // Filter mode inside month view (ALL, SATKER_ONLY, KPPN_ONLY, CRITICAL_ONLY, 5-HK)
   const [filterMode, setFilterMode] = useState<'ALL' | 'PENERIMAAN' | 'PENYELESAIAN' | 'KRITIS' | 'LIMA_HK'>('ALL');
@@ -313,6 +352,169 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
     return map;
   }, [events]);
 
+  // Helper formatting for full Indonesian date
+  const formatFullDateID = (dateStr: string): string => {
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Keyword Search Results: comprehensive list of matching deadlines & dates across all events
+  const searchResults = React.useMemo(() => {
+    const rawQ = (localSearch || '').trim().toLowerCase();
+    if (!rawQ) return [];
+
+    const searchTokens = rawQ.split(/\s+/).filter(Boolean);
+    const sourceEvents = allEvents && allEvents.length > 0 ? allEvents : events;
+    const matches: SearchDeadlineMatch[] = [];
+    const seenKeys = new Set<string>();
+
+    sourceEvents.forEach((ev) => {
+      const fullSearchCorpus = [
+        ev.nama_kegiatan,
+        ev.kode_kegiatan,
+        ev.kategori,
+        ev.deskripsi,
+        ev.catatan || '',
+        ev.dasar_hukum || '',
+        ev.jenis_dokumen || '',
+        ev.periode_transaksi || '',
+        ev.jenis_tenggat || ''
+      ].join(' ').toLowerCase();
+
+      const isMatch = searchTokens.every(token => fullSearchCorpus.includes(token));
+
+      if (!isMatch) return;
+
+      // 1. Tanggal Penerimaan / Batas Utama Pengajuan SPM / Dokumen ke KPPN
+      const batasDate = ev.tanggal_penerimaan || ev.tanggal_batas || ev.tanggal_tenggat;
+      if (batasDate) {
+        const key = `${ev.llat_id}-PENERIMAAN-${batasDate}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const dParts = batasDate.split('-');
+          const mIdx = parseInt(dParts[1], 10) - 1;
+          const yNum = parseInt(dParts[0], 10);
+          matches.push({
+            id: key,
+            event: ev,
+            dateStr: batasDate,
+            type: 'PENERIMAAN',
+            stageLabel: '📥 BATAS PENGAJUAN / PENERIMAAN KPPN',
+            timeStr: ev.jam_batas ? `Pukul ${ev.jam_batas} WIB` : 'Pukul 17:00 WIB',
+            title: ev.nama_kegiatan,
+            description: ev.deskripsi,
+            dasarHukum: ev.dasar_hukum,
+            isCurrentMonth: mIdx === activeMonth && yNum === activeYear,
+            monthIndex: mIdx,
+            year: yNum
+          });
+        }
+      }
+
+      // 2. Tanggal Penyelesaian SP2D oleh KPPN
+      if (ev.tanggal_penyelesaian && ev.tanggal_penyelesaian !== batasDate) {
+        const key = `${ev.llat_id}-PENYELESAIAN-${ev.tanggal_penyelesaian}`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          const dParts = ev.tanggal_penyelesaian.split('-');
+          const mIdx = parseInt(dParts[1], 10) - 1;
+          const yNum = parseInt(dParts[0], 10);
+          matches.push({
+            id: key,
+            event: ev,
+            dateStr: ev.tanggal_penyelesaian,
+            type: 'PENYELESAIAN',
+            stageLabel: '🏁 BATAS PENYELESAIAN SP2D KPPN',
+            timeStr: 'Hari Kerja KPPN',
+            title: `Penyelesaian SP2D: ${ev.nama_kegiatan}`,
+            description: `Tenggat waktu bagi KPPN untuk memproses dan menerbitkan SP2D atas berkas yang diajukan.`,
+            dasarHukum: ev.dasar_hukum,
+            isCurrentMonth: mIdx === activeMonth && yNum === activeYear,
+            monthIndex: mIdx,
+            year: yNum
+          });
+        }
+      }
+
+      // 4. Sub Deadlines jika ada
+      if (Array.isArray(ev.sub_deadlines)) {
+        ev.sub_deadlines.forEach((sub, sIdx) => {
+          if (sub.tanggal) {
+            const key = `${ev.llat_id}-SUB-${sub.tanggal}-${sIdx}`;
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key);
+              const dParts = sub.tanggal.split('-');
+              const mIdx = parseInt(dParts[1], 10) - 1;
+              const yNum = parseInt(dParts[0], 10);
+              matches.push({
+                id: key,
+                event: ev,
+                dateStr: sub.tanggal,
+                type: 'SUB_DEADLINE',
+                stageLabel: `📌 ${sub.label || 'TAHAP KHUSUS'}`,
+                timeStr: sub.jam ? `Pukul ${sub.jam} WIB` : 'Pukul 17:00 WIB',
+                title: `${ev.nama_kegiatan} (${sub.label || 'Tahap'})`,
+                description: sub.catatan || ev.deskripsi,
+                dasarHukum: ev.dasar_hukum,
+                isCurrentMonth: mIdx === activeMonth && yNum === activeYear,
+                monthIndex: mIdx,
+                year: yNum
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Urutkan kronologis tanggal
+    matches.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    return matches;
+  }, [allEvents, events, localSearch, activeMonth, activeYear]);
+
+  // Set tanggal yang cocok dengan query untuk sorotan visual pada grid kalender
+  const matchingDateStrs = React.useMemo(() => {
+    return new Set(searchResults.map(m => m.dateStr));
+  }, [searchResults]);
+
+  // Bulan di luar bulan yang aktif yang memiliki hasil pencarian (agar satker tahu harus buka bulan apa)
+  const otherMonthsWithResults = React.useMemo(() => {
+    const map = new Map<string, { monthIdx: number; year: number; count: number }>();
+    searchResults.forEach((m) => {
+      if (!m.isCurrentMonth) {
+        const k = `${m.year}-${m.monthIndex}`;
+        const existing = map.get(k);
+        if (existing) {
+          existing.count++;
+        } else {
+          map.set(k, { monthIdx: m.monthIndex, year: m.year, count: 1 });
+        }
+      }
+    });
+    return Array.from(map.values());
+  }, [searchResults]);
+
+  const handleJumpToDate = (year: number, monthIndex: number, dateStr: string) => {
+    if (year !== activeYear || monthIndex !== activeMonth) {
+      onChangeMonth(year, monthIndex);
+    }
+    const items = eventsByDate[dateStr] || [];
+    const r5hk = showRolling5HK ? getRolling5HKInfo(dateStr) : null;
+    setSelectedDateEvents({
+      dateStr,
+      items,
+      rolling5HK: r5hk
+    });
+  };
+
   const handlePrevMonth = () => {
     if (activeMonth === 0) {
       onChangeMonth(activeYear - 1, 11);
@@ -354,8 +556,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
       }
     });
 
-    // Hitung hari kerja 5 HK di bulan yang sedang ditampilkan
-    if (activeYear === 2026 && (activeMonth === 9 || activeMonth === 10)) {
+    // Hitung hari kerja 5 HK & batas pendaftaran kontrak di bulan yang sedang ditampilkan (Okt, Nov, Des 2026)
+    if (activeYear === 2026 && (activeMonth === 9 || activeMonth === 10 || activeMonth === 11)) {
       for (let day = 1; day <= daysInMonth; day++) {
         const dStr = `${activeYear}-${String(activeMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (getRolling5HKInfo(dStr)) {
@@ -459,6 +661,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     Puncak Tutup Tahun Anggaran 2026
                   </span>
                 )}
+                {activeYear === 2026 && activeMonth === 11 && (
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-emerald-400 text-slate-950 border border-emerald-300 shadow-xs">
+                    📌 1 Des: Dimulainya Agenda Akhir Tahun
+                  </span>
+                )}
                 {activeYear === 2027 && activeMonth === 0 && (
                   <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-indigo-500/80 text-white border border-white/30">
                     LPJ & Pembukuan Final
@@ -530,6 +737,196 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
           </div>
         </div>
 
+        {/* KEYWORD SEARCH BAR & QUICK FILTERS STRIP (Filter Pencarian Kata Kunci Batas Waktu) */}
+        <div className="p-3.5 sm:p-4 bg-white dark:bg-slate-900 border-b border-indigo-100 dark:border-slate-800 space-y-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+            {/* Search Input Box */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-indigo-500 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                value={localSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Cari kata kunci batas waktu... (misal: 'gaji induk', 'kontrak', 'retur', 'up', 'tukin', '1 des')"
+                className="w-full pl-10 pr-9 py-2 rounded-xl border border-indigo-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-inner"
+              />
+              {localSearch && (
+                <button
+                  onClick={() => handleSearchChange('')}
+                  className="absolute right-2.5 top-2.5 p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                  title="Hapus pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Quick Status Count if Active */}
+            {localSearch.trim() && (
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-xs font-black px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  {searchResults.length} Batas Waktu Terkait
+                </span>
+                <button
+                  onClick={() => handleSearchChange('')}
+                  className="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Pill Chips Suggestions */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide shrink-0 mr-1 flex items-center gap-1">
+              <Tag className="w-3 h-3 text-indigo-400" />
+              <span>Saran:</span>
+            </span>
+            {[
+              { label: '💰 Gaji Induk (8 & 15 Des)', query: 'gaji induk' },
+              { label: '📑 BAST & Kontraktual', query: 'bast' },
+              { label: '🏆 Tunjangan Kinerja (21 Des)', query: 'tunjangan kinerja' },
+              { label: '📋 Pendaftaran Kontrak', query: 'kontrak' },
+              { label: '💳 UP / TUP / GUP', query: 'tup' },
+              { label: '⚖️ SPM Nihil', query: 'nihil' },
+              { label: '🏦 Penyetoran Sisa UP/TUP (31 Des)', query: 'penyetoran' },
+              { label: '📊 Rekonsiliasi Kas (31 Des)', query: 'rekonsiliasi' },
+              { label: '📑 LPJ Bendahara', query: 'lpj' },
+              { label: '🔄 Retur SP2D', query: 'retur' },
+              { label: '⚡ Non-Gaji', query: 'non-gaji' },
+              { label: '🔥 Batas Kritis', query: 'kritis' }
+            ].map((chip, cIdx) => (
+              <button
+                key={cIdx}
+                onClick={() => handleSearchChange(chip.query)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                  localSearch.toLowerCase() === chip.query.toLowerCase()
+                    ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs ring-1 ring-indigo-400'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
+          {/* EXPANDED SEARCH RESULTS LIST (Daftar Batas Waktu Terkait) */}
+          {localSearch.trim() && (
+            <div className="mt-2 p-4 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-purple-50/60 to-blue-50/90 dark:from-slate-850 dark:via-slate-900 dark:to-indigo-950/40 border-2 border-indigo-300/80 dark:border-indigo-700 space-y-3.5 shadow-md">
+              {/* Header */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-indigo-600 text-white shadow-xs">
+                    <CalendarDays className="w-4 h-4" />
+                  </span>
+                  <div>
+                    <h4 className="font-black text-slate-900 dark:text-white text-sm sm:text-base flex items-center gap-2">
+                      <span>Daftar Batas Waktu Terkait:</span>
+                      <span className="text-indigo-600 dark:text-indigo-400 underline decoration-indigo-400 underline-offset-2">
+                        "{localSearch}"
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                      Menampilkan {searchResults.length} agenda & batas waktu resmi berdasarkan PER-9/PB/2026
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-800">
+                    {searchResults.length} Ditemukan
+                  </span>
+                </div>
+              </div>
+
+              {/* Other Months Notification Banner if any results are not in current month */}
+              {otherMonthsWithResults.length > 0 && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 text-xs text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📍</span>
+                    <span>
+                      Beberapa batas waktu untuk <strong>"{localSearch}"</strong> berada pada bulan lain:
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {otherMonthsWithResults.map(({ monthIdx, year, count }) => (
+                      <button
+                        key={`${year}-${monthIdx}`}
+                        onClick={() => onChangeMonth(year, monthIdx)}
+                        className="px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black text-xs transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                      >
+                        <span>👉 Buka Kalender {MONTH_NAMES[monthIdx]} {year} ({count} Batas Waktu)</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Deadlines List Cards */}
+              {searchResults.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-1">
+                  {searchResults.map((match) => (
+                    <div
+                      key={match.id}
+                      onClick={() => handleJumpToDate(match.year, match.monthIndex, match.dateStr)}
+                      className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-slate-700 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between space-y-2.5"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                            match.type === 'PENERIMAAN'
+                              ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-300 dark:border-blue-700'
+                              : 'bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700'
+                          }`}>
+                            {match.stageLabel}
+                          </span>
+                          <span className="font-mono text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            {match.timeStr}
+                          </span>
+                        </div>
+
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                            📅 {formatFullDateID(match.dateStr)}
+                          </span>
+                          {!match.isCurrentMonth && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                              Bulan {MONTH_NAMES[match.monthIndex]}
+                            </span>
+                          )}
+                        </div>
+
+                        <h5 className="font-black text-xs sm:text-sm text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-snug">
+                          {match.title}
+                        </h5>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                          {match.description}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400 font-mono text-[10px] truncate max-w-[200px]">
+                          {match.dasarHukum || 'PER-9/PB/2026'}
+                        </span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center gap-1">
+                          <span>Buka Tanggal</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-slate-500 dark:text-slate-400 text-xs">
+                  Tidak ditemukan batas waktu atau agenda yang sesuai dengan kata kunci "{localSearch}".
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Informative Stats & Legend Strip with vibrant theme colors */}
         <div className="p-3.5 sm:p-4 bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 dark:from-slate-800/90 dark:via-slate-850/80 dark:to-slate-900 border-b border-indigo-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
           
@@ -555,7 +952,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
             {monthStats.rolling5HKCount > 0 && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 font-extrabold border border-amber-300 dark:border-amber-700 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <span>{monthStats.rolling5HKCount} Batas 5 HK Kontrak & BAST</span>
+                <span>
+                  {activeMonth === 11
+                    ? `${monthStats.rolling5HKCount} Batas Kontrak & 5 HK Des`
+                    : `${monthStats.rolling5HKCount} Batas 5 HK Kontrak & BAST`}
+                </span>
               </span>
             )}
           </div>
@@ -765,7 +1166,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
           </div>
           <div className="flex items-center gap-1.5 bg-amber-100/90 dark:bg-amber-950/70 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-700 shadow-2xs">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-700 animate-pulse" />
-            <span className="font-extrabold text-amber-950 dark:text-amber-200">Kuning: Batas 5 HK Kontrak & BAST (Klausul Manual)</span>
+            <span className="font-extrabold text-amber-950 dark:text-amber-200">Kuning: Batas 5 HK Kontrak & BAST (Okt, Nov & Des 2026)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-800" />
@@ -869,6 +1270,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               : 'min-h-[120px] sm:min-h-[155px]';
 
             const isHovered = hoverData?.dateStr === cell.dateStr;
+            const isSearchMatch = Boolean(localSearch.trim() && matchingDateStrs.has(cell.dateStr));
+            const isNonMatchingInSearch = Boolean(localSearch.trim() && !matchingDateStrs.has(cell.dateStr));
 
             return (
               <div
@@ -919,6 +1322,12 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   isHovered
                     ? 'ring-2 ring-indigo-500 ring-inset shadow-lg bg-indigo-50/70 dark:bg-indigo-950/40 z-20 scale-[1.01]'
                     : ''
+                } ${
+                  isSearchMatch
+                    ? 'ring-3 ring-amber-400 dark:ring-amber-300 ring-inset shadow-xl bg-amber-50/80 dark:bg-amber-950/70 z-20'
+                    : ''
+                } ${
+                  isNonMatchingInSearch ? 'opacity-40 hover:opacity-100 transition-opacity' : ''
                 } group`}
               >
                 {/* Cell Top Header (Date Number & Badges) */}
@@ -961,12 +1370,21 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       </div>
                     )}
 
+                    {/* Search Match Badge */}
+                    {isSearchMatch && (
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-md font-mono shadow-xs shrink-0 bg-amber-400 text-slate-950 ring-1 ring-amber-500 animate-pulse">
+                        🎯 SESUAI CARI
+                      </span>
+                    )}
+
                     {/* 5 HK Yellow Tag */}
                     {cell.isCurrentMonth && is5HKDay && (
                       <span 
-                        className="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-400 dark:bg-amber-500 text-slate-950 font-mono shadow-2xs shrink-0"
+                        className="text-[9px] font-black px-1.5 py-0.5 rounded-md font-mono shadow-2xs shrink-0 bg-amber-400 dark:bg-amber-500 text-slate-950"
                       >
-                        5 HK
+                        {rolling5HKInfo?.isFixedDateCutOff 
+                          ? 'BATAS' 
+                          : '5 HK'}
                       </span>
                     )}
                   </div>
@@ -1001,7 +1419,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
 
                 {/* Event Snippets (Enlarged, Clear Typography, High Contrast Badges) */}
                 <div className="space-y-1.5 flex-1 overflow-hidden">
-                  {/* Yellow Card for Rolling 5 HK Clause in October & November */}
+                  {/* Yellow Card for Rolling 5 HK Clause in October, November & December */}
                   {cell.isCurrentMonth && is5HKDay && (
                     <div
                       onClick={(e) => {
@@ -1029,14 +1447,22 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       <div className="truncate flex-1 leading-tight">
                         <div className="flex items-center gap-1">
                           <span className="font-mono text-[9px] font-black px-1 py-0.2 rounded bg-amber-300 dark:bg-amber-800 text-amber-950 dark:text-amber-100">
-                            H+5
+                            {rolling5HKInfo.isFixedDateCutOff
+                              ? (rolling5HKInfo.subClauseType === 'DEC_GROUP_D_NRK' ? 'NRK' : 'BATAS')
+                              : (rolling5HKInfo.isDecember ? '5 HK' : 'H+5')}
                           </span>
                           <span className="font-extrabold text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-200 truncate">
-                            BAST {rolling5HKInfo.sourceDateFormatted}
+                            {rolling5HKInfo.isDecember
+                              ? rolling5HKInfo.shortLabel
+                              : `BAST ${rolling5HKInfo.sourceDateFormatted}`}
                           </span>
                         </div>
                         <div className="text-[9px] text-amber-800 dark:text-amber-300/90 font-medium truncate">
-                          Pkl 17:00 • Batas Kontrak & LS
+                          {rolling5HKInfo.isFixedDateCutOff
+                            ? 'Bukan 5 HK • KPPN 17:00'
+                            : (rolling5HKInfo.isDecember
+                              ? `${rolling5HKInfo.hardCutOffFormatted} • KPPN 17:00`
+                              : 'Pkl 17:00 • Batas Kontrak & LS')}
                         </div>
                       </div>
                     </div>
@@ -1075,6 +1501,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         className={`px-2.5 py-1.5 rounded-xl text-xs leading-snug font-bold transition-all flex items-center gap-2 shadow-xs hover:scale-[1.02] cursor-pointer border ${
                           isCrit
                             ? 'bg-gradient-to-r from-rose-100 to-red-50 dark:from-rose-950/90 dark:to-red-950/70 text-rose-950 dark:text-rose-100 border-rose-400 dark:border-rose-700 ring-1 ring-rose-400/40 shadow-rose-200/50'
+                            : item.isMulai
+                            ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-400/40'
                             : `${colorScheme.bg} ${colorScheme.text} ${colorScheme.border}`
                         }`}
                       >
@@ -1082,6 +1510,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                           isCrit 
                             ? 'bg-rose-600 animate-ping' 
+                            : item.isMulai
+                            ? 'bg-emerald-500'
                             : item.isPenerimaan 
                             ? 'bg-blue-600' 
                             : 'bg-indigo-600'
@@ -1090,13 +1520,19 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         {/* Text and code with readable size & weight */}
                         <span className="truncate flex-1">
                           <span className="font-black mr-1 text-[11px]">
-                            {item.isPenerimaan ? '📥' : '🏁'}
+                            {item.isMulai ? '🚀' : item.isPenerimaan ? '📥' : '🏁'}
                           </span>
-                          <span className="font-mono text-[10px] font-black mr-1.5 px-1 py-0.2 rounded bg-black/10 dark:bg-white/10">
-                            {item.event.kode_kegiatan}
+                          <span className={`font-mono text-[10px] font-black mr-1.5 px-1 py-0.2 rounded ${
+                            item.isMulai
+                              ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-950 dark:text-emerald-100'
+                              : 'bg-black/10 dark:bg-white/10'
+                          }`}>
+                            {item.isMulai ? 'DIMULAI' : item.event.kode_kegiatan}
                           </span>
                           <span className="font-extrabold text-xs tracking-tight">
-                            {item.event.nama_kegiatan}
+                            {item.isMulai 
+                              ? `Dimulainya: ${item.event.nama_kegiatan.replace(/^Batas (Akhir )?Penerimaan:?\s*/i, '').replace(/^Batas (Akhir )?Penyelesaian:?\s*/i, '')}`
+                              : item.event.nama_kegiatan}
                           </span>
                         </span>
                       </div>
@@ -1271,7 +1707,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     <div className="flex items-center gap-2">
                       <span className="text-xl">⚡</span>
                       <span className="font-black text-xs uppercase tracking-wide text-amber-300 bg-amber-900/80 px-2.5 py-0.5 rounded-lg border border-amber-500/60 font-mono">
-                        Klausul Perhitungan Manual 5 HK (H+5)
+                        {hoverData.rolling5HK.isFixedDateCutOff
+                          ? 'Batas Langsung (Bukan 5 HK)'
+                          : hoverData.rolling5HK.isDecember 
+                          ? 'Batas Pendaftaran Kontrak & 5 HK Des'
+                          : 'Klausul Perhitungan Manual 5 HK (H+5)'}
                       </span>
                     </div>
                     <span className="font-mono text-xs text-amber-300 font-bold bg-amber-950 px-2 py-0.5 rounded border border-amber-500/40">
@@ -1281,18 +1721,29 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
 
                   <div>
                     <h6 className="text-sm font-black text-white leading-snug">
-                      Batas Waktu BAST & Kontrak Ditandatangan Tanggal {hoverData.rolling5HK.sourceDateFormatted}
+                      {hoverData.rolling5HK.isDecember
+                        ? hoverData.rolling5HK.label
+                        : `Batas Waktu BAST & Kontrak Ditandatangan Tanggal ${hoverData.rolling5HK.sourceDateFormatted}`}
                     </h6>
                     <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
                       {hoverData.rolling5HK.description}
                     </p>
                   </div>
 
+                  {/* Special Legal Distinction Note for Points c and d */}
+                  {hoverData.rolling5HK.isFixedDateCutOff && (
+                    <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-400/50 text-[11px] text-amber-200 leading-relaxed">
+                      <span className="font-bold text-amber-300">📌 Perbedaan dengan Poin a & b:</span> Ketentuan ini <strong>tidak menggunakan kata-kata "5 Hari Kerja"</strong>, melainkan langsung menetapkan batas akhir pada tanggal {hoverData.rolling5HK.hardCutOffFormatted} pukul 17:00 WIB.
+                    </div>
+                  )}
+
                   {/* 2-box metric */}
                   <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
                     <div className="bg-black/40 p-2.5 rounded-xl border border-amber-500/40">
                       <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
-                        📄 Tanggal Dokumen BAST/Kontrak:
+                        {hoverData.rolling5HK.isDecember 
+                          ? '📄 Dokumen Acuan / Periode:' 
+                          : '📄 Tanggal Dokumen BAST/Kontrak:'}
                       </div>
                       <div className="text-sm font-black text-white font-mono mt-0.5">
                         {hoverData.rolling5HK.sourceDateFormatted}
@@ -1300,10 +1751,14 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     </div>
                     <div className="bg-black/40 p-2.5 rounded-xl border border-amber-500/40">
                       <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
-                        ⏳ Batas Akhir Pengajuan (H+5 HK):
+                        {hoverData.rolling5HK.isFixedDateCutOff 
+                          ? '🛑 Batas Langsung KPPN:' 
+                          : '⏳ Batas Akhir Pengajuan:'}
                       </div>
                       <div className="text-sm font-black text-amber-300 font-mono mt-0.5">
-                        Hari ini (Pkl 17:00 WIB)
+                        {hoverData.rolling5HK.dateStr === hoverData.rolling5HK.hardCutOffDateStr
+                          ? 'Hari Ini Batas Mutlak (17:00)'
+                          : 'Hari ini (Pkl 17:00 WIB)'}
                       </div>
                     </div>
                   </div>
@@ -1315,12 +1770,18 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       <span className="font-bold text-amber-300">{hoverData.rolling5HK.pasal}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">Plafon Sapu Jagat Periode:</span>
+                      <span className="font-medium">Plafon Batas Akhir Periode:</span>
                       <span className="font-bold text-amber-300">{hoverData.rolling5HK.hardCutOffFormatted}</span>
                     </div>
                     <div className="mt-1 pt-1 border-t border-amber-500/20 text-[11px] text-amber-300 flex items-center gap-1.5 font-semibold">
                       <span>💡</span>
-                      <span>Jika BAST ditandatangani <strong>hari ini</strong>, batas pengajuannya adalah <strong>{hoverData.rolling5HK.forwardDeadlineFormatted}</strong>.</span>
+                      <span>
+                        {hoverData.rolling5HK.isFixedDateCutOff
+                          ? `Batas langsung penyerahan kontrak ke KPPN paling lambat pukul 17:00 WIB (${hoverData.rolling5HK.pasal}).`
+                          : hoverData.rolling5HK.isDecember
+                          ? `Pendaftaran kontrak diterima KPPN paling lambat pukul 17:00 WIB (Plafon: ${hoverData.rolling5HK.hardCutOffFormatted}).`
+                          : `Jika BAST ditandatangani hari ini, batas pengajuannya adalah ${hoverData.rolling5HK.forwardDeadlineFormatted}.`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1353,11 +1814,17 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                               {it.event.kode_kegiatan}
                             </span>
                             <span className={`text-xs font-black px-2.5 py-0.5 rounded-lg shadow-xs ${
-                              it.isPenerimaan 
+                              it.isMulai
+                                ? 'bg-emerald-600 text-white border border-emerald-400/40'
+                                : it.isPenerimaan 
                                 ? 'bg-blue-600 text-white border border-blue-400/40' 
                                 : 'bg-indigo-600 text-white border border-indigo-400/40'
                             }`}>
-                              {it.isPenerimaan ? '📥 Penerimaan Berkas Satker' : '🏁 Penyelesaian SP2D KPPN'}
+                              {it.isMulai 
+                                ? '🚀 AWAL DIMULAINYA' 
+                                : it.isPenerimaan 
+                                ? '📥 Penerimaan Berkas Satker' 
+                                : '🏁 Penyelesaian SP2D KPPN'}
                             </span>
                             <span className={`text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ${colorScheme.subtle} border`}>
                               {it.event.kategori}
@@ -1374,9 +1841,20 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         {/* Main agenda title - Large, bold, eye-catching */}
                         <div className="flex items-start justify-between gap-2">
                           <h6 className="text-sm font-black text-white leading-snug">
-                            {it.event.nama_kegiatan}
+                            {it.isMulai 
+                              ? `Dimulainya: ${it.event.nama_kegiatan.replace(/^Batas (Akhir )?Penerimaan:?\s*/i, '').replace(/^Batas (Akhir )?Penyelesaian:?\s*/i, '')}`
+                              : it.event.nama_kegiatan}
                           </h6>
                         </div>
+
+                        {it.isMulai && it.event.tanggal_batas && (
+                          <div className="p-2 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-[11px] text-emerald-200 flex items-center justify-between">
+                            <span>📌 <strong>Batas Akhir Penerimaan di KPPN:</strong></span>
+                            <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-500/40">
+                              {formatShortDateID(it.event.tanggal_batas)} (Pkl {it.event.jam_batas || '17:00'} WIB)
+                            </span>
+                          </div>
+                        )}
 
                         {/* Detailed substance description */}
                         <p className="text-xs text-slate-300 leading-relaxed font-normal">
@@ -1414,9 +1892,13 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     </>
                   ) : hoverData.rolling5HK && showRolling5HK ? (
                     <>
-                      <p className="text-sm font-black text-amber-300">⚡ Hari Batas Waktu 5 HK (Klausul Manual)</p>
+                      <p className="text-sm font-black text-amber-300">
+                        ⚡ {hoverData.rolling5HK.isDecember ? 'Batas Pendaftaran Kontrak Akhir Tahun (Desember)' : 'Hari Batas Waktu 5 HK (Klausul Manual)'}
+                      </p>
                       <p className="text-xs text-amber-200/80">
-                        Hari kerja ini merupakan batas akhir penyampaian Kontrak dan SPM-LS untuk BAST tanggal {hoverData.rolling5HK.sourceDateFormatted} (Pukul 17:00 WIB).
+                        {hoverData.rolling5HK.isDecember
+                          ? hoverData.rolling5HK.description
+                          : `Hari kerja ini merupakan batas akhir penyampaian Kontrak dan SPM-LS untuk BAST tanggal ${hoverData.rolling5HK.sourceDateFormatted} (Pukul 17:00 WIB).`}
                       </p>
                     </>
                   ) : !hoverData.holidayName ? (
@@ -1471,7 +1953,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     </>
                   ) : selectedDateEvents.rolling5HK ? (
                     <>
-                      Tanggal ini merupakan <span className="font-bold text-amber-600 dark:text-amber-400">Batas Waktu 5 Hari Kerja (Klausul Perhitungan Manual)</span> untuk pendaftaran Kontrak & SPM-LS Kontraktual untuk BAST tanggal {selectedDateEvents.rolling5HK.sourceDateFormatted}.
+                      Tanggal ini merupakan <span className="font-bold text-amber-600 dark:text-amber-400">{selectedDateEvents.rolling5HK.isDecember ? 'Batas Pendaftaran Kontrak / NRK Akhir Tahun' : 'Batas Waktu 5 Hari Kerja (Klausul Perhitungan Manual)'}</span> {selectedDateEvents.rolling5HK.isDecember ? `sesuai ${selectedDateEvents.rolling5HK.pasal}.` : `untuk pendaftaran Kontrak & SPM-LS Kontraktual untuk BAST tanggal ${selectedDateEvents.rolling5HK.sourceDateFormatted}.`}
                     </>
                   ) : (
                     <>
@@ -1501,9 +1983,17 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   </span>
                   <div>
                     <h5 className="font-black text-slate-950 dark:text-amber-100 text-base flex items-center gap-2">
-                      Klausul Batas 5 Hari Kerja (H+5 HK)
+                      {selectedDateEvents.rolling5HK.isFixedDateCutOff
+                        ? `Klausul Batas Langsung Pendaftaran Kontrak (${selectedDateEvents.rolling5HK.hardCutOffFormatted})`
+                        : selectedDateEvents.rolling5HK.isDecember 
+                        ? 'Klausul Pendaftaran Kontrak & Batas 5 HK Desember 2026' 
+                        : 'Klausul Batas 5 Hari Kerja (H+5 HK)'}
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
-                        Klausul Manual
+                        {selectedDateEvents.rolling5HK.isFixedDateCutOff
+                          ? 'Bukan 5 HK (Batas Langsung)'
+                          : selectedDateEvents.rolling5HK.isDecember
+                          ? 'Pasal 6 ayat (5)'
+                          : 'Klausul Manual'}
                       </span>
                     </h5>
                     <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold">
@@ -1521,37 +2011,60 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
 
               {/* Substantive Explanation */}
               <div className="bg-white/90 dark:bg-slate-900/90 p-4 rounded-xl border border-amber-200 dark:border-amber-800 text-xs text-slate-700 dark:text-slate-300 space-y-2 leading-relaxed">
-                <p className="font-bold text-slate-900 dark:text-white">
-                  📌 Mengapa tanggal ini merupakan batas waktu?
+                <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <span>📌</span>
+                  <span>Mengapa tanggal ini merupakan batas waktu?</span>
                 </p>
                 <p>
-                  Berdasarkan klausul PER-9/PB/2026, pendaftaran Kontrak/Perubahan Kontrak dan pengajuan SPM-LS Kontraktual untuk BAST/BAPP yang dibuat pada masa transisi/berjalan wajib disampaikan ke KPPN paling lambat <strong>5 (lima) Hari Kerja</strong> sejak tanggal penandatanganan dokumen.
+                  {selectedDateEvents.rolling5HK.isDecember
+                    ? selectedDateEvents.rolling5HK.description
+                    : 'Berdasarkan klausul PER-9/PB/2026, pendaftaran Kontrak/Perubahan Kontrak dan pengajuan SPM-LS Kontraktual untuk BAST/BAPP yang dibuat pada masa transisi/berjalan wajib disampaikan ke KPPN paling lambat 5 (lima) Hari Kerja sejak tanggal penandatanganan dokumen.'}
                 </p>
-                <p>
-                  Oleh karena itu, hari ini (<strong>{new Date(selectedDateEvents.dateStr + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>) adalah batas akhir bagi Satuan Kerja untuk mengajukan berkas BAST / Kontrak yang ditandatangani pada tanggal <strong>{selectedDateEvents.rolling5HK.sourceDateFormatted}</strong>.
-                </p>
+                {selectedDateEvents.rolling5HK.isDecember ? (
+                  <p>
+                    {selectedDateEvents.rolling5HK.subClauseType === 'DEC_GROUP_D_NRK'
+                      ? 'Penerbitan NRK dan/atau persetujuan perubahan data Kontrak oleh KPPN wajib diselesaikan paling lambat 2 (dua) Hari Kerja setelah diterima secara lengkap dan benar, dan paling lambat tanggal 23 Desember 2026 pada jam kerja.'
+                      : `Satker wajib memastikan pendaftaran kontrak pada periode ini telah disetujui KPPN sebelum batas plafon ${selectedDateEvents.rolling5HK.hardCutOffFormatted} pukul 17:00 WIB.`}
+                  </p>
+                ) : (
+                  <p>
+                    Oleh karena itu, hari ini (<strong>{new Date(selectedDateEvents.dateStr + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>) adalah batas akhir bagi Satuan Kerja untuk mengajukan berkas BAST / Kontrak yang ditandatangani pada tanggal <strong>{selectedDateEvents.rolling5HK.sourceDateFormatted}</strong>.
+                  </p>
+                )}
               </div>
 
               {/* 3-Col Key Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
                   <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
-                    📄 Tanggal BAST / Kontrak
+                    {selectedDateEvents.rolling5HK.isDecember 
+                      ? '📄 Periode Kontrak / Acuan' 
+                      : '📄 Tanggal BAST / Kontrak'}
                   </div>
                   <div className="text-sm font-black text-slate-900 dark:text-white font-mono mt-0.5">
                     {selectedDateEvents.rolling5HK.sourceDateFormatted}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">Tanggal penandatanganan</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    {selectedDateEvents.rolling5HK.isDecember 
+                      ? 'Kelompok penandatanganan' 
+                      : 'Tanggal penandatanganan'}
+                  </div>
                 </div>
 
                 <div className="bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border-2 border-amber-500 shadow-xs">
                   <div className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400">
-                    ⏳ Batas Akhir (H+5 HK)
+                    {selectedDateEvents.rolling5HK.isFixedDateCutOff 
+                      ? '🛑 Batas Langsung KPPN' 
+                      : '⏳ Batas Akhir (H+5 HK)'}
                   </div>
                   <div className="text-sm font-black text-amber-600 dark:text-amber-300 font-mono mt-0.5">
                     Hari Ini (17:00 WIB)
                   </div>
-                  <div className="text-[11px] text-amber-800 dark:text-amber-200 font-medium mt-1">Tenggat SAKTI & KPPN</div>
+                  <div className="text-[11px] text-amber-800 dark:text-amber-200 font-medium mt-1">
+                    {selectedDateEvents.rolling5HK.isFixedDateCutOff 
+                      ? 'Bukan perhitungan 5 HK' 
+                      : 'Tenggat SAKTI & KPPN'}
+                  </div>
                 </div>
 
                 <div className="bg-white/80 dark:bg-slate-900/80 p-3 rounded-xl border border-amber-200 dark:border-amber-800">
@@ -1561,7 +2074,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   <div className="text-sm font-black text-slate-900 dark:text-white font-mono mt-0.5">
                     {selectedDateEvents.rolling5HK.hardCutOffFormatted}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-1">Batas akhir sapu jagat</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Batas akhir sapu jagat
+                  </div>
                 </div>
               </div>
 
@@ -1569,12 +2084,19 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               {selectedDateEvents.rolling5HK.stepsBack && selectedDateEvents.rolling5HK.stepsBack.length > 0 && (
                 <div className="bg-white/60 dark:bg-slate-900/60 p-3.5 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                    <span>Rincian Penghitungan 5 Hari Kerja (Tanpa Libur & Akhir Pekan):</span>
-                    <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300">5 Hari Kerja Efektif</span>
+                    <span>
+                      {selectedDateEvents.rolling5HK.isFixedDateCutOff
+                        ? 'Kronologi Batas Waktu Berdasarkan Klausul PER-9/PB/2026:'
+                        : 'Rincian Penghitungan 5 Hari Kerja (Tanpa Libur & Akhir Pekan):'}
+                    </span>
+                    <span className="text-[11px] font-mono text-amber-700 dark:text-amber-300">
+                      {selectedDateEvents.rolling5HK.isFixedDateCutOff ? 'Batas Langsung' : '5 Hari Kerja Efektif'}
+                    </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
                     <span className="font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">
-                      Tgl BAST: {selectedDateEvents.rolling5HK.sourceDateFormatted}
+                      {selectedDateEvents.rolling5HK.isDecember ? 'Dokumen: ' : 'Tgl BAST: '}
+                      {selectedDateEvents.rolling5HK.sourceDateFormatted}
                     </span>
                     <span className="text-slate-400">➔</span>
                     {selectedDateEvents.rolling5HK.stepsBack.slice().reverse().map((step, sIdx) => (
@@ -1583,7 +2105,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         className="inline-flex items-center gap-1 font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700"
                         title={step.note}
                       >
-                        <span>HK-{step.dayIndex}: {formatShortDateID(step.dateStr)}</span>
+                        <span>{selectedDateEvents.rolling5HK?.isFixedDateCutOff ? step.note : `HK-${step.dayIndex}: ${formatShortDateID(step.dateStr)}`}</span>
                       </span>
                     ))}
                     <span className="text-slate-400">➔</span>
@@ -1599,11 +2121,27 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
                   <span>
-                    Jika BAST / Kontrak baru ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 17:00 WIB).
+                    {selectedDateEvents.rolling5HK.isFixedDateCutOff ? (
+                      <>
+                        <strong>Ketentuan Khusus:</strong> Poin ini tidak menggunakan klausul 5 Hari Kerja. Seluruh kontrak periode {selectedDateEvents.rolling5HK.sourceDateFormatted} wajib diterima KPPN paling lambat <strong>{selectedDateEvents.rolling5HK.hardCutOffFormatted}</strong> pukul 17:00 WIB ({selectedDateEvents.rolling5HK.pasal}).
+                      </>
+                    ) : selectedDateEvents.rolling5HK.isDecember ? (
+                      <>
+                        Pendaftaran Kontrak & SPM-LS Kontraktual periode ini wajib diajukan ke KPPN paling lambat <strong>{selectedDateEvents.rolling5HK.hardCutOffFormatted}</strong> pukul 17:00 WIB ({selectedDateEvents.rolling5HK.pasal}).
+                      </>
+                    ) : (
+                      <>
+                        Jika BAST / Kontrak baru ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 17:00 WIB).
+                      </>
+                    )}
                   </span>
                 </div>
                 <span className="text-[11px] font-black px-2.5 py-1 rounded bg-amber-400 text-slate-950 shrink-0 font-mono">
-                  Batas H+5: {selectedDateEvents.rolling5HK.forwardDeadlineFormatted}
+                  {selectedDateEvents.rolling5HK.isFixedDateCutOff
+                    ? `Batas Langsung: ${selectedDateEvents.rolling5HK.hardCutOffFormatted}`
+                    : selectedDateEvents.rolling5HK.isDecember
+                    ? `Plafon: ${selectedDateEvents.rolling5HK.hardCutOffFormatted}`
+                    : `Batas H+5: ${selectedDateEvents.rolling5HK.forwardDeadlineFormatted}`}
                 </span>
               </div>
             </div>
@@ -1639,7 +2177,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                             ? 'bg-blue-600 text-white shadow-xs'
                             : 'bg-indigo-600 text-white shadow-xs'
                         }`}>
-                          {item.isPenerimaan ? '📥 Batas Penerimaan Dokumen' : '🏁 Batas Penyelesaian SP2D'}
+                          {item.isPenerimaan 
+                            ? '📥 Batas Penerimaan Dokumen' 
+                            : '🏁 Batas Penyelesaian SP2D'}
                         </span>
                         <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${priority.badgeClass}`}>
                           {priority.label}
@@ -1683,6 +2223,46 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {selectedDateEvents.items.length === 0 && (
+            <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto text-xl shadow-xs">
+                📅
+              </div>
+              <div>
+                <h5 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white">
+                  Tidak Ada Batas Waktu / Tenggat Penerimaan Dokumen Pada Tanggal Ini
+                </h5>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-lg mx-auto">
+                  Sesuai ketentuan PER-9/PB/2026, seluruh batas waktu penerimaan SPM dan penyelesaian SP2D diatur pada tanggal-tanggal batas tertentu.
+                </p>
+              </div>
+
+              {/* Informative next upcoming deadlines */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700/80 max-w-xl mx-auto text-left">
+                <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">
+                  Batas Waktu Terdekat di Bulan Desember 2026:
+                </span>
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="font-mono text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400">Jumat, 4 Des 2026</span>
+                    <div className="font-bold text-slate-800 dark:text-slate-200 text-[11px] mt-0.5">Pendaftaran Kontrak</div>
+                    <div className="text-[10px] text-slate-500">Kontrak s.d. 30 Nov</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="font-mono text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400">Senin, 7 Des 2026</span>
+                    <div className="font-bold text-slate-800 dark:text-slate-200 text-[11px] mt-0.5">Kontrak 1–5 Des & SPM BAST</div>
+                    <div className="text-[10px] text-slate-500">BAST 16–30 Nov</div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                    <span className="font-mono text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">Selasa, 8 Des 2026</span>
+                    <div className="font-bold text-slate-800 dark:text-slate-200 text-[11px] mt-0.5">SPM Gaji Induk</div>
+                    <div className="text-[10px] text-slate-500">Gaji Jan 2027 (Pkl 17:00)</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

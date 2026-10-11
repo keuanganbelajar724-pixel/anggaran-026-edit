@@ -29,7 +29,8 @@ import {
   CheckSquare,
   CalendarRange,
   Layers,
-  Inbox
+  Inbox,
+  X
 } from 'lucide-react';
 import { 
   LLATEvent, 
@@ -1223,14 +1224,23 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
 
           {/* Search Box */}
           <div className="relative col-span-2 sm:col-span-4 lg:col-span-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            <Search className="w-3.5 h-3.5 text-indigo-500 absolute left-2.5 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari agenda LLAT..."
-              className="w-full pl-8 pr-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+              placeholder="Cari kata kunci (mis: gaji induk, kontrak)..."
+              className="w-full pl-8 pr-7 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                title="Hapus pencarian"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1240,6 +1250,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
         {viewMode === 'calendar' && !onlyToday && (
           <LLATCalendarMonthView
             events={filteredEvents}
+            allEvents={accessibleEvents}
             selectedYear={selectedYear}
             selectedMonth={selectedMonth}
             onChangeMonth={(year, month) => {
@@ -1247,6 +1258,8 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               setSelectedMonth(month);
             }}
             onSelectEvent={(event) => setSelectedDetailEvent(event)}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
           />
         )}
 

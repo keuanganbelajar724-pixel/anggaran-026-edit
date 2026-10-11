@@ -267,20 +267,33 @@ export interface Rolling5HKInfo {
   pasal: string;
   isOctober: boolean;
   isNovember: boolean;
+  isDecember: boolean;
   hardCutOffDateStr: string;
   hardCutOffFormatted: string;
+  subClauseType?: 'OCT_NOV_ROLLING' | 'DEC_GROUP_A' | 'DEC_GROUP_B' | 'DEC_GROUP_C' | 'DEC_GROUP_D_NRK';
+  isFixedDateCutOff?: boolean;
+  isDecemberStartMilestone?: boolean;
+  decemberStartMilestoneItems?: Array<{
+    title: string;
+    desc: string;
+    deadline: string;
+    pasal: string;
+    badge: string;
+  }>;
 }
 
 /**
- * Mendapatkan informasi klausul dinamis 5 Hari Kerja (Pasal 6 ayat 2/3 & Pasal 18 ayat 1b PER-9/PB/2026)
- * Khusus berlaku pada hari kerja di bulan Oktober dan November 2026
+ * Mendapatkan informasi klausul dinamis 5 Hari Kerja & batas pendaftaran Kontrak akhir tahun
+ * (Pasal 6 ayat 2, 3, 5 huruf a/b/c/d, ayat 6 & Pasal 18 ayat 1b PER-9/PB/2026)
+ * Berlaku pada hari kerja di bulan Oktober, November, dan Desember 2026
  */
 export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
   const isOct = dateStr.startsWith('2026-10-');
   const isNov = dateStr.startsWith('2026-11-');
+  const isDec = dateStr.startsWith('2026-12-');
 
-  // Hanya berlaku untuk Oktober & November 2026
-  if (!isOct && !isNov) return null;
+  // Berlaku untuk periode Q4 (Oktober, November, dan Desember 2026)
+  if (!isOct && !isNov && !isDec) return null;
 
   // Tanggal 1 s.d. 7 Oktober 2026 bukan batas waktu BAST/Kontrak:
   // LLAT baru dimulai Oktober, sehingga BAST/Kontrak paling cepat terbit 1 Oktober.
@@ -288,9 +301,208 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
   // Dokumen yang terbit s.d. 30 September batas mutlak pendaftarannya diatur tersendiri pada 9 Oktober 2026 (LLAT-03.1 & LLAT-06.1).
   if (isOct && dateStr < '2026-10-08') return null;
 
+  // Di bulan Desember, pendaftaran kontrak & penerbitan NRK ditutup pada 23 Desember 2026 (Pasal 6 ayat 5d & ayat 6)
+  if (isDec && dateStr > '2026-12-23') return null;
+
   // Hanya berlaku untuk hari kerja efektif
   if (!isWorkingDay(dateStr)) return null;
 
+  // =========================================================================
+  // LOGIKA KHUSUS DESEMBER 2026 (Pasal 6 ayat 3, ayat 5 huruf a, b, c, d & ayat 6)
+  // =========================================================================
+  if (isDec) {
+    // Di bulan Desember 2026, tanggal batas waktu pendaftaran kontrak HANYA jatuh pada:
+    // 1) 1 s.d. 4 Des: Batas 5 HK kontrak tgl 24–27 Nov (Pasal 6 ayat 3)
+    // 2) 7 Des: Batas 5 HK kontrak 30 Nov & Plafon Kontrak 1–5 Des (Pasal 6 ayat 3 & ayat 5 huruf a)
+    // 3) 14 Des: Batas 5 HK kontrak 7 Des & Plafon Kontrak 6–12 Des (Pasal 6 ayat 5 huruf b)
+    // 4) 21 Des: Batas LANGSUNG Kontrak 13–17 Des (Pasal 6 ayat 5 huruf c - TANPA kata 5 HK!)
+    // 5) 23 Des: Batas LANGSUNG Kontrak 18–22 Des & Penerbitan NRK KPPN (Pasal 6 ayat 5 huruf d & ayat 6 - TANPA kata 5 HK!)
+    // Tanggal lainnya (8, 9, 10, 11, 15, 16, 17, 18, 22 Des) BUKAN hari batas waktu kontrak!
+    const validDecemberDeadlineDates = [
+      '2026-12-01',
+      '2026-12-02',
+      '2026-12-03',
+      '2026-12-04',
+      '2026-12-07',
+      '2026-12-14',
+      '2026-12-21',
+      '2026-12-23'
+    ];
+
+    if (!validDecemberDeadlineDates.includes(dateStr)) {
+      return null;
+    }
+
+    let sourceDateStr = '';
+    let sourceDateFormatted = '';
+    let stepsBack: Array<{ dateStr: string; dayIndex: number; note: string }> = [];
+    let label = '';
+    let shortLabel = '';
+    let description = '';
+    let pasal = '';
+    let hardCutOffDateStr = '';
+    let hardCutOffFormatted = '';
+    let forwardDeadlineStr = '';
+    let forwardDeadlineFormatted = '';
+    let subClauseType: 'DEC_GROUP_A' | 'DEC_GROUP_B' | 'DEC_GROUP_C' | 'DEC_GROUP_D_NRK' = 'DEC_GROUP_A';
+    let isFixedDateCutOff = false;
+    let isDecemberStartMilestone = false;
+    let decemberStartMilestoneItems: Array<{
+      title: string;
+      desc: string;
+      deadline: string;
+      pasal: string;
+      badge: string;
+    }> | undefined = undefined;
+
+    if (dateStr <= '2026-12-07') {
+      subClauseType = 'DEC_GROUP_A';
+      hardCutOffDateStr = '2026-12-07';
+      hardCutOffFormatted = '7 Desember 2026';
+      isFixedDateCutOff = false;
+
+      if (dateStr === '2026-12-01') {
+        pasal = 'Pasal 6 ayat (5) huruf a PER-9/PB/2026';
+        sourceDateStr = '1 Des 2026';
+        sourceDateFormatted = '1 Des 2026';
+        forwardDeadlineStr = '2026-12-07';
+        forwardDeadlineFormatted = '7 Des 2026';
+        
+        stepsBack = [
+          { dateStr: '2026-12-01', dayIndex: 1, note: 'Tanda tangan kontrak 1 Des 2026' },
+          { dateStr: '2026-12-02', dayIndex: 2, note: 'HK-2: Verifikasi data kontrak' },
+          { dateStr: '2026-12-03', dayIndex: 3, note: 'HK-3: ADK Kontrak di SAKTI' },
+          { dateStr: '2026-12-04', dayIndex: 4, note: 'HK-4: Pengunggahan berkas' },
+          { dateStr: '2026-12-07', dayIndex: 5, note: '🛑 Batas Plafon KPPN (Pukul 17:00 WIB) untuk kontrak 1–5 Des' }
+        ];
+        
+        isDecemberStartMilestone = false;
+        label = 'Kontrak 1 Des 2026 • Batas Pendaftaran: 7 Des 2026 (Pasal 6 ayat 5 huruf a)';
+        shortLabel = 'Batas Kontrak: 7 Des';
+        description = 'Kontrak atau perubahan kontrak yang ditandatangani tanggal 1 Desember 2026 wajib didaftarkan ke KPPN paling lambat 7 Desember 2026 pukul 17:00 WIB (Pasal 6 ayat 5 huruf a PER-9/PB/2026). Tanggal 1 Desember bukan merupakan batas waktu/tenggat penerimaan dokumen di KPPN.';
+        decemberStartMilestoneItems = undefined;
+      } else if (dateStr === '2026-12-07') {
+        pasal = 'Pasal 6 ayat (3) & Pasal 6 ayat (5) huruf a PER-9/PB/2026';
+        sourceDateStr = '30 Nov & Kontrak 1–5 Des 2026';
+        sourceDateFormatted = '30 Nov & 1–5 Des';
+        forwardDeadlineStr = '2026-12-14';
+        forwardDeadlineFormatted = '14 Des 2026';
+        label = 'Batas 5 HK Kontrak 30 Nov & Plafon Kontrak 1–5 Des';
+        shortLabel = 'Batas Kontrak 1–5 Des (7 Des)';
+        description = 'Sesuai Pasal 6 ayat (3) dan Pasal 6 ayat (5) huruf a PER-9/PB/2026, hari ini merupakan batas akhir (H+5 HK) pendaftaran kontrak tanggal 30 Nov 2026, sekaligus batas akhir plafon mutlak bagi kontrak yang ditandatangani 1 s.d. 5 Desember 2026 pada Jam Kerja.';
+        stepsBack = [
+          { dateStr: '2026-12-01', dayIndex: 1, note: 'HK-1: Selasa, 1 Des 2026' },
+          { dateStr: '2026-12-02', dayIndex: 2, note: 'HK-2: Rabu, 2 Des 2026' },
+          { dateStr: '2026-12-03', dayIndex: 3, note: 'HK-3: Kamis, 3 Des 2026' },
+          { dateStr: '2026-12-04', dayIndex: 4, note: 'HK-4: Jumat, 4 Des 2026' },
+          { dateStr: '2026-12-07', dayIndex: 5, note: 'HK-5: Senin, 7 Des 2026 (Plafon Sapu Jagat Hari Ini)' }
+        ];
+      } else {
+        pasal = 'Pasal 6 ayat (3) PER-9/PB/2026';
+        const backResult = subtractWorkingDays(dateStr, 5);
+        sourceDateStr = backResult.targetDateStr;
+        sourceDateFormatted = formatShortDateID(sourceDateStr);
+        stepsBack = backResult.steps;
+        const forwardResult = calculateWorkingDayDeadline(dateStr, 5, 'SESUDAH', false);
+        forwardDeadlineStr = forwardResult.targetDateStr > '2026-12-07' ? '2026-12-07' : forwardResult.targetDateStr;
+        forwardDeadlineFormatted = forwardDeadlineStr === '2026-12-07' ? '7 Des 2026 (Plafon)' : formatShortDateID(forwardDeadlineStr);
+        label = `Batas 5 HK: Kontrak tgl ${sourceDateFormatted} (Plafon 7 Des)`;
+        shortLabel = `5 HK (${sourceDateFormatted})`;
+        description = `Sesuai ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini merupakan batas akhir (H+5 HK) pengajuan pendaftaran Kontrak yang ditandatangani pada tanggal ${sourceDateFormatted} (akhir November 2026).`;
+      }
+    } else if (dateStr === '2026-12-14') {
+      subClauseType = 'DEC_GROUP_B';
+      hardCutOffDateStr = '2026-12-14';
+      hardCutOffFormatted = '14 Desember 2026';
+      pasal = 'Pasal 6 ayat (5) huruf b PER-9/PB/2026';
+      isFixedDateCutOff = false;
+      sourceDateStr = 'Kontrak 6–12 Des 2026 (7 Des: H+5)';
+      sourceDateFormatted = 'Kontrak 6–12 Des';
+      forwardDeadlineStr = '2026-12-21';
+      forwardDeadlineFormatted = '21 Des 2026';
+      label = 'Batas 5 HK Kontrak 7 Des & Plafon Kontrak 6–12 Des';
+      shortLabel = 'Batas Kontrak 6–12 Des (14 Des)';
+      description = 'Sesuai Pasal 6 ayat (5) huruf b PER-9/PB/2026, kontrak atau perubahan kontrak yang ditandatangani tanggal 6 sampai dengan 12 Desember 2026 diterima KPPN paling lambat 5 (lima) Hari Kerja setelah tanggal ditandatangani dan PALING LAMBAT hari ini tanggal 14 Desember 2026 pada Jam Kerja. Hari ini juga batas H+5 HK bagi kontrak tanggal 7 Desember 2026.';
+      stepsBack = [
+        { dateStr: '2026-12-08', dayIndex: 1, note: 'HK-1: Selasa, 8 Des 2026' },
+        { dateStr: '2026-12-09', dayIndex: 2, note: 'HK-2: Rabu, 9 Des 2026' },
+        { dateStr: '2026-12-10', dayIndex: 3, note: 'HK-3: Kamis, 10 Des 2026' },
+        { dateStr: '2026-12-11', dayIndex: 4, note: 'HK-4: Jumat, 11 Des 2026' },
+        { dateStr: '2026-12-14', dayIndex: 5, note: 'HK-5: Senin, 14 Des 2026 (Plafon Mutlak Hari Ini)' }
+      ];
+    } else if (dateStr === '2026-12-21') {
+      subClauseType = 'DEC_GROUP_C';
+      hardCutOffDateStr = '2026-12-21';
+      hardCutOffFormatted = '21 Desember 2026';
+      pasal = 'Pasal 6 ayat (5) huruf c PER-9/PB/2026 (Batas Langsung)';
+      isFixedDateCutOff = true; // Langsung tanggal 21 Desember, tanpa kata 5 HK!
+      sourceDateStr = '2026-12-13 s.d. 2026-12-17';
+      sourceDateFormatted = 'Kontrak 13–17 Des 2026';
+      forwardDeadlineStr = '2026-12-21';
+      forwardDeadlineFormatted = '21 Des 2026 (Batas Langsung)';
+      label = 'Batas Langsung Kontrak 13–17 Des (Bukan 5 HK)';
+      shortLabel = 'Batas Kontrak 13–17 Des (21 Des)';
+      description = 'Sesuai Pasal 6 ayat (5) huruf c PER-9/PB/2026, kontrak atau perubahan kontrak yang ditandatangani tanggal 13 sampai dengan 17 Desember 2026 diterima KPPN paling lambat hari ini tanggal 21 Desember 2026 pada Jam Kerja. Berbeda dengan huruf a dan b, ketentuan ini TIDAK memuat kata "5 Hari Kerja", melainkan langsung menetapkan tanggal batas akhir mutlak pada 21 Desember 2026.';
+      stepsBack = [
+        { dateStr: '2026-12-13', dayIndex: 0, note: 'Awal penandatanganan kontrak kelompok c (13 Des 2026)' },
+        { dateStr: '2026-12-17', dayIndex: 0, note: 'Akhir penandatanganan kontrak kelompok c (17 Des 2026)' },
+        { dateStr: '2026-12-21', dayIndex: 1, note: 'Batas langsung penerimaan di KPPN: Senin, 21 Des 2026 (Pukul 17:00 WIB)' }
+      ];
+    } else if (dateStr === '2026-12-23') {
+      subClauseType = 'DEC_GROUP_D_NRK';
+      hardCutOffDateStr = '2026-12-23';
+      hardCutOffFormatted = '23 Desember 2026';
+      pasal = 'Pasal 6 ayat (5) huruf d & ayat (6) PER-9/PB/2026 (Batas Langsung)';
+      isFixedDateCutOff = true; // Langsung tanggal 23 Desember, tanpa kata 5 HK!
+      sourceDateStr = '2026-12-18 s.d. 2026-12-22';
+      sourceDateFormatted = 'Kontrak 18–22 Des & NRK KPPN';
+      forwardDeadlineStr = '2026-12-23';
+      forwardDeadlineFormatted = '23 Des 2026 (Tutup Tahun)';
+      label = 'Batas Langsung Kontrak 18–22 Des & Penerbitan NRK (Tutup Tahun)';
+      shortLabel = 'Batas Akhir Kontrak & NRK (23 Des)';
+      description = 'Sesuai Pasal 6 ayat (5) huruf d dan ayat (6) PER-9/PB/2026, kontrak atau perubahan kontrak yang ditandatangani tanggal 18 sampai dengan 22 Desember 2026 diterima KPPN paling lambat hari ini tanggal 23 Desember 2026 pada Jam Kerja. KPPN menerbitkan NRK/menyetujui perubahan kontrak paling lambat 2 HK dan paling lambat hari ini tanggal 23 Desember 2026 pada Jam Kerja. Berbeda dengan huruf a dan b, ketentuan ini TIDAK memuat kata "5 Hari Kerja", melainkan langsung menetapkan tanggal batas akhir penutupan pada 23 Desember 2026.';
+      stepsBack = [
+        { dateStr: '2026-12-18', dayIndex: 0, note: 'Awal penandatanganan kontrak kelompok d (18 Des 2026)' },
+        { dateStr: '2026-12-22', dayIndex: 0, note: 'Akhir penandatanganan kontrak kelompok d (22 Des 2026)' },
+        { dateStr: '2026-12-23', dayIndex: 1, note: 'Batas langsung kontrak & penutupan penerbitan NRK KPPN: Rabu, 23 Des 2026 (17:00 WIB)' }
+      ];
+    }
+
+    const forwardSteps: Array<{ dateStr: string; dayIndex: number; isWorking: boolean; note: string }> = dateStr === '2026-12-01' ? [
+      { dateStr: '2026-12-01', dayIndex: 0, isWorking: true, note: 'Hari ini: Dimulainya Agenda Akhir Tahun TA 2026' },
+      { dateStr: '2026-12-07', dayIndex: 5, isWorking: true, note: 'Batas Plafon KPPN: 7 Des 2026 (Pukul 17:00 WIB)' }
+    ] : [
+      { dateStr, dayIndex: 0, isWorking: true, note: `Hari ini: ${formatShortDateID(dateStr)}` },
+      { dateStr: hardCutOffDateStr, dayIndex: 1, isWorking: true, note: `Batas Plafon: ${formatShortDateID(hardCutOffDateStr)}` }
+    ];
+
+    return {
+      dateStr,
+      sourceDateStr,
+      sourceDateFormatted,
+      forwardDeadlineStr,
+      forwardDeadlineFormatted,
+      stepsBack,
+      stepsForward: forwardSteps,
+      label,
+      shortLabel,
+      description,
+      pasal,
+      isOctober: false,
+      isNovember: false,
+      isDecember: true,
+      hardCutOffDateStr,
+      hardCutOffFormatted,
+      subClauseType,
+      isFixedDateCutOff,
+      isDecemberStartMilestone,
+      decemberStartMilestoneItems
+    };
+  }
+
+  // =========================================================================
+  // LOGIKA OKTOBER & NOVEMBER 2026 (Pasal 6 ayat 2/3 & Pasal 18 ayat 1b)
+  // =========================================================================
   // 1. Hitung tanggal sumber mundur 5 hari kerja
   // Khusus untuk 8 Oktober 2026, dokumen acuannya adalah BAST/Kontrak tanggal 1 Oktober 2026
   let sourceDateStr: string;
@@ -341,8 +553,10 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     pasal: `${pasal} PER-9/PB/2026`,
     isOctober: isOct,
     isNovember: isNov,
+    isDecember: false,
     hardCutOffDateStr,
-    hardCutOffFormatted
+    hardCutOffFormatted,
+    subClauseType: 'OCT_NOV_ROLLING'
   };
 }
 
