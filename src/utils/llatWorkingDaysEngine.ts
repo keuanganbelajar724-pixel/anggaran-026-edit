@@ -312,7 +312,7 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
   // =========================================================================
   if (isDec) {
     // Di bulan Desember 2026, tanggal batas waktu pendaftaran kontrak HANYA jatuh pada:
-    // 1) 1 s.d. 4 Des: Batas 5 HK kontrak tgl 24–27 Nov (Pasal 6 ayat 3)
+    // 1) 1 s.d. 4 Des: Batas 5 HK pendaftaran Kontrak tgl 24–27 Nov (Pasal 6 ayat 3)
     // 2) 7 Des: Batas 5 HK kontrak 30 Nov & Plafon Kontrak 1–5 Des (Pasal 6 ayat 3 & ayat 5 huruf a)
     // 3) 14 Des: Batas 5 HK kontrak 7 Des & Plafon Kontrak 6–12 Des (Pasal 6 ayat 5 huruf b)
     // 4) 21 Des: Batas LANGSUNG Kontrak 13–17 Des (Pasal 6 ayat 5 huruf c - TANPA kata 5 HK!)
@@ -362,24 +362,25 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
       isFixedDateCutOff = false;
 
       if (dateStr === '2026-12-01') {
-        pasal = 'Pasal 6 ayat (5) huruf a PER-9/PB/2026';
-        sourceDateStr = '1 Des 2026';
-        sourceDateFormatted = '1 Des 2026';
+        pasal = 'Pasal 6 ayat (3) PER-9/PB/2026';
+        // Batas 5 HK mundur dari 1 Des adalah Kontrak tanggal 24 Nov 2026
+        sourceDateStr = '2026-11-24';
+        sourceDateFormatted = '24 Nov 2026';
         forwardDeadlineStr = '2026-12-07';
         forwardDeadlineFormatted = '7 Des 2026';
         
         stepsBack = [
-          { dateStr: '2026-12-01', dayIndex: 1, note: 'Tanda tangan kontrak 1 Des 2026' },
-          { dateStr: '2026-12-02', dayIndex: 2, note: 'HK-2: Verifikasi data kontrak' },
-          { dateStr: '2026-12-03', dayIndex: 3, note: 'HK-3: ADK Kontrak di SAKTI' },
-          { dateStr: '2026-12-04', dayIndex: 4, note: 'HK-4: Pengunggahan berkas' },
-          { dateStr: '2026-12-07', dayIndex: 5, note: '🛑 Batas Plafon KPPN (Pukul 17:00 WIB) untuk kontrak 1–5 Des' }
+          { dateStr: '2026-11-25', dayIndex: 1, note: 'HK-1: Rabu, 25 Nov 2026' },
+          { dateStr: '2026-11-26', dayIndex: 2, note: 'HK-2: Kamis, 26 Nov 2026' },
+          { dateStr: '2026-11-27', dayIndex: 3, note: 'HK-3: Jumat, 27 Nov 2026' },
+          { dateStr: '2026-11-30', dayIndex: 4, note: 'HK-4: Senin, 30 Nov 2026' },
+          { dateStr: '2026-12-01', dayIndex: 5, note: 'HK-5: Selasa, 1 Des 2026 (Batas Akhir Penerimaan)' }
         ];
         
         isDecemberStartMilestone = false;
-        label = 'Kontrak 1 Des 2026 • Batas Pendaftaran: 7 Des 2026 (Pasal 6 ayat 5 huruf a)';
-        shortLabel = 'Batas Kontrak: 7 Des';
-        description = 'Kontrak atau perubahan kontrak yang ditandatangani tanggal 1 Desember 2026 wajib didaftarkan ke KPPN paling lambat 7 Desember 2026 pukul 17:00 WIB (Pasal 6 ayat 5 huruf a PER-9/PB/2026). Tanggal 1 Desember bukan merupakan batas waktu/tenggat penerimaan dokumen di KPPN.';
+        label = 'Batas 5 HK: Kontrak tgl 24 Nov 2026 (Pasal 6 ayat 3)';
+        shortLabel = 'Batas Kontrak 24 Nov';
+        description = 'Sesuai ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini tanggal 1 Desember 2026 merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak yang ditandatangani tanggal 24 November 2026 ke KPPN (bukan batas BAST; batas SPM BAST November adalah gelondongan tanggal 20 Nov & 7 Des).';
         decemberStartMilestoneItems = undefined;
       } else if (dateStr === '2026-12-07') {
         pasal = 'Pasal 6 ayat (3) & Pasal 6 ayat (5) huruf a PER-9/PB/2026';
@@ -501,8 +502,18 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
   }
 
   // =========================================================================
-  // LOGIKA OKTOBER & NOVEMBER 2026 (Pasal 6 ayat 2/3 & Pasal 18 ayat 1b)
+  // LOGIKA OKTOBER & NOVEMBER 2026
   // =========================================================================
+  // CATATAN PENTING PER-9/PB/2026:
+  // - Bulan Oktober: Batas 5 HK berlaku untuk Kontrak (Pasal 6 ayat 2) DAN SPM-LS Kontraktual (BAST/BAPP/Jaminan).
+  //   Plafon sapu jagat SPM-LS BAST Oktober adalah 6 November 2026 (LLAT-06.2).
+  // - Bulan November: Batas 5 HK HANYA berlaku untuk Pendaftaran Kontrak (Pasal 6 ayat 3).
+  //   Untuk SPM-LS BAST November TIDAK menggunakan batas 5 HK harian berputar, melainkan ditetapkan secara
+  //   GELONDONGAN bertahap dengan tanggal pasti:
+  //     * BAST 1–15 November 2026  -> Batas SPM-LS ke KPPN: 20 November 2026 (LLAT-06.3)
+  //     * BAST 16–30 November 2026 -> Batas SPM-LS ke KPPN: 7 Desember 2026 (LLAT-06.4)
+  // =========================================================================
+
   // 1. Hitung tanggal sumber mundur 5 hari kerja
   // Khusus untuk 8 Oktober 2026, dokumen acuannya adalah BAST/Kontrak tanggal 1 Oktober 2026
   let sourceDateStr: string;
@@ -537,7 +548,19 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
 
   const pasal = isOct
     ? 'Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b'
-    : 'Pasal 6 ayat (3) & Pasal 18 ayat (1) huruf b/c';
+    : 'Pasal 6 ayat (3)';
+
+  const label = isOct
+    ? `Batas 5 HK: BAST & Kontrak tgl ${sourceDateFormatted}`
+    : `Batas 5 HK: Pendaftaran Kontrak tgl ${sourceDateFormatted}`;
+
+  const shortLabel = isOct
+    ? `5 HK (${sourceDateFormatted})`
+    : `Kontrak 5 HK (${sourceDateFormatted})`;
+
+  const description = isOct
+    ? `Berdasarkan ketentuan Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak dan SPM-LS Kontraktual untuk BAST/BAPP yang ditandatangani pada tanggal ${sourceDateFormatted} (dengan batas akhir sapu jagat 6 November 2026).`
+    : `Berdasarkan ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pendaftaran Kontrak atau perubahan data Kontrak yang ditandatangani tanggal ${sourceDateFormatted} ke KPPN. (Batas 5 hari kerja di bulan November HANYA berlaku untuk Pendaftaran Kontrak; untuk SPM-LS BAST November tidak ada batas 5 HK harian berputar, melainkan diajukan secara gelondongan tanggal 20 Nov & 7 Des 2026).`;
 
   return {
     dateStr,
@@ -547,9 +570,9 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     forwardDeadlineFormatted,
     stepsBack,
     stepsForward: forwardResult.steps,
-    label: `Batas 5 HK: BAST & Kontrak tgl ${sourceDateFormatted}`,
-    shortLabel: `5 HK (${sourceDateFormatted})`,
-    description: `Berdasarkan ketentuan ${pasal} PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak/Adendum dan SPM-LS Kontraktual (BAST/BAPP/Jaminan) yang ditandatangani pada tanggal ${sourceDateFormatted}.`,
+    label,
+    shortLabel,
+    description,
     pasal: `${pasal} PER-9/PB/2026`,
     isOctober: isOct,
     isNovember: isNov,

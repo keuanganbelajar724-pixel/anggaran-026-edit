@@ -31,7 +31,7 @@ export const LLATAiDraftModal: React.FC<LLATAiDraftModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const sampleTemplate = `Perdirjen Perbendaharaan Pedoman LLAT TA ${currentYear}:
-1. Batas Pendaftaran Kontrak BAST s.d. 30 November diajukan paling lambat 4 Desember ${currentYear} pukul 17:00 WIB. Kategori: Kontrak. Prioritas: Penting.
+1. Batas Pendaftaran Kontrak yang ditandatangani s.d. 30 November diajukan paling lambat 7 Desember ${currentYear} pukul 17:00 WIB. Kategori: Kontrak. Prioritas: Penting.
 2. Batas Pengajuan SPM-LS Gaji Induk Januari tahun berikutnya disampaikan paling lambat 8 Desember ${currentYear} pukul 17:00 WIB. Kategori: Gaji. Prioritas: Kritis.
 3. Batas Pengajuan SPM-TUP dan GUP Akhir Tahun diajukan paling lambat 15 Desember ${currentYear} pukul 17:00 WIB. Kategori: UP/TUP. Prioritas: Kritis.
 4. Batas SPM-LS Kontraktual dengan Jaminan Bank (Bank Garansi) diajukan paling lambat 21 Desember ${currentYear} pukul 17:00 WIB. Kategori: Kontrak. Prioritas: Kritis.

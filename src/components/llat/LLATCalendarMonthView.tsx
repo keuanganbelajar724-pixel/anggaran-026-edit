@@ -955,6 +955,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                 <span>
                   {activeMonth === 11
                     ? `${monthStats.rolling5HKCount} Batas Kontrak & 5 HK Des`
+                    : activeMonth === 10
+                    ? `${monthStats.rolling5HKCount} Batas 5 HK Pendaftaran Kontrak`
                     : `${monthStats.rolling5HKCount} Batas 5 HK Kontrak & BAST`}
                 </span>
               </span>
@@ -1029,7 +1031,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   ? 'bg-amber-100/90 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 border-amber-400 dark:border-amber-700 shadow-2xs'
                   : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
               }`}
-              title="Aktifkan / Sembunyikan Sorotan Batas 5 HK Kontrak & BAST (Warna Kuning)"
+              title={activeMonth === 10
+                ? "Aktifkan / Sembunyikan Sorotan Batas 5 HK Pendaftaran Kontrak (Warna Kuning)"
+                : activeMonth === 11
+                ? "Aktifkan / Sembunyikan Sorotan Batas Pendaftaran Kontrak Akhir Tahun (Warna Kuning)"
+                : "Aktifkan / Sembunyikan Sorotan Batas 5 HK Kontrak & BAST (Warna Kuning)"}
             >
               <span className={`w-2 h-2 rounded-full ${showRolling5HK ? 'bg-amber-500 animate-pulse' : 'bg-slate-400'}`} />
               <span>5 HK (Kuning)</span>
@@ -1162,11 +1168,19 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 ring-2 ring-emerald-300 dark:ring-emerald-800" />
-            <span className="font-bold text-emerald-900 dark:text-emerald-300">Kontrak & BAST</span>
+            <span className="font-bold text-emerald-900 dark:text-emerald-300">
+              {activeMonth === 10 ? 'Pendaftaran Kontrak' : 'Kontrak & BAST'}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 bg-amber-100/90 dark:bg-amber-950/70 px-2 py-0.5 rounded-lg border border-amber-300 dark:border-amber-700 shadow-2xs">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-700 animate-pulse" />
-            <span className="font-extrabold text-amber-950 dark:text-amber-200">Kuning: Batas 5 HK Kontrak & BAST (Okt, Nov & Des 2026)</span>
+            <span className="font-extrabold text-amber-950 dark:text-amber-200">
+              {activeMonth === 10
+                ? 'Kuning: Batas 5 HK Pendaftaran Kontrak (Pasal 6 ayat 3)'
+                : activeMonth === 11
+                ? 'Kuning: Batas Pendaftaran Kontrak Akhir Tahun (Pasal 6 ayat 5)'
+                : 'Kuning: Batas 5 HK Kontrak & BAST (Pasal 6 & 18)'}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500 ring-2 ring-amber-300 dark:ring-amber-800" />
@@ -1454,7 +1468,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           <span className="font-extrabold text-[10px] sm:text-[11px] text-amber-950 dark:text-amber-200 truncate">
                             {rolling5HKInfo.isDecember
                               ? rolling5HKInfo.shortLabel
-                              : `BAST ${rolling5HKInfo.sourceDateFormatted}`}
+                              : (rolling5HKInfo.isNovember 
+                                ? `Kontrak ${rolling5HKInfo.sourceDateFormatted}` 
+                                : `BAST ${rolling5HKInfo.sourceDateFormatted}`)}
                           </span>
                         </div>
                         <div className="text-[9px] text-amber-800 dark:text-amber-300/90 font-medium truncate">
@@ -1462,7 +1478,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                             ? 'Bukan 5 HK • KPPN 17:00'
                             : (rolling5HKInfo.isDecember
                               ? `${rolling5HKInfo.hardCutOffFormatted} • KPPN 17:00`
-                              : 'Pkl 17:00 • Batas Kontrak & LS')}
+                              : (rolling5HKInfo.isNovember 
+                                ? 'Pkl 17:00 • Pendaftaran Kontrak' 
+                                : 'Pkl 17:00 • Batas Kontrak & LS'))}
                         </div>
                       </div>
                     </div>
@@ -1640,7 +1658,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         {hoverData.items.length > 0 
                           ? `${hoverData.items.length} Agenda & Batas Waktu Resmi` 
                           : hoverData.rolling5HK && showRolling5HK
-                          ? `Batas 5 HK: BAST & Kontrak tgl ${hoverData.rolling5HK.sourceDateFormatted}`
+                          ? (hoverData.rolling5HK.isDecember
+                              ? hoverData.rolling5HK.shortLabel
+                              : hoverData.rolling5HK.isNovember
+                              ? `Batas 5 HK: Pendaftaran Kontrak tgl ${hoverData.rolling5HK.sourceDateFormatted}`
+                              : `Batas 5 HK: BAST & Kontrak tgl ${hoverData.rolling5HK.sourceDateFormatted}`)
                           : hoverData.holidayName 
                           ? 'Hari Libur Nasional Resmi'
                           : hoverData.isWeekend
@@ -1711,6 +1733,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           ? 'Batas Langsung (Bukan 5 HK)'
                           : hoverData.rolling5HK.isDecember 
                           ? 'Batas Pendaftaran Kontrak & 5 HK Des'
+                          : hoverData.rolling5HK.isNovember
+                          ? 'Batas 5 HK Pendaftaran Kontrak'
                           : 'Klausul Perhitungan Manual 5 HK (H+5)'}
                       </span>
                     </div>
@@ -1723,6 +1747,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     <h6 className="text-sm font-black text-white leading-snug">
                       {hoverData.rolling5HK.isDecember
                         ? hoverData.rolling5HK.label
+                        : hoverData.rolling5HK.isNovember
+                        ? `Batas Waktu Pendaftaran Kontrak Ditandatangan Tanggal ${hoverData.rolling5HK.sourceDateFormatted}`
                         : `Batas Waktu BAST & Kontrak Ditandatangan Tanggal ${hoverData.rolling5HK.sourceDateFormatted}`}
                     </h6>
                     <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
@@ -1743,6 +1769,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">
                         {hoverData.rolling5HK.isDecember 
                           ? '📄 Dokumen Acuan / Periode:' 
+                          : hoverData.rolling5HK.isNovember
+                          ? '📄 Tanggal TTD Kontrak:'
                           : '📄 Tanggal Dokumen BAST/Kontrak:'}
                       </div>
                       <div className="text-sm font-black text-white font-mono mt-0.5">
@@ -1780,6 +1808,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           ? `Batas langsung penyerahan kontrak ke KPPN paling lambat pukul 17:00 WIB (${hoverData.rolling5HK.pasal}).`
                           : hoverData.rolling5HK.isDecember
                           ? `Pendaftaran kontrak diterima KPPN paling lambat pukul 17:00 WIB (Plafon: ${hoverData.rolling5HK.hardCutOffFormatted}).`
+                          : hoverData.rolling5HK.isNovember
+                          ? `Jika Kontrak ditandatangani hari ini, batas pendaftarannya ke KPPN adalah ${hoverData.rolling5HK.forwardDeadlineFormatted} (Pasal 6 ayat 3).`
                           : `Jika BAST ditandatangani hari ini, batas pengajuannya adalah ${hoverData.rolling5HK.forwardDeadlineFormatted}.`}
                       </span>
                     </div>
@@ -1893,11 +1923,17 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   ) : hoverData.rolling5HK && showRolling5HK ? (
                     <>
                       <p className="text-sm font-black text-amber-300">
-                        ⚡ {hoverData.rolling5HK.isDecember ? 'Batas Pendaftaran Kontrak Akhir Tahun (Desember)' : 'Hari Batas Waktu 5 HK (Klausul Manual)'}
+                        ⚡ {hoverData.rolling5HK.isDecember 
+                              ? 'Batas Pendaftaran Kontrak Akhir Tahun (Desember)' 
+                              : hoverData.rolling5HK.isNovember
+                              ? 'Batas Waktu 5 HK Pendaftaran Kontrak (November)'
+                              : 'Hari Batas Waktu 5 HK (Klausul Manual)'}
                       </p>
                       <p className="text-xs text-amber-200/80">
                         {hoverData.rolling5HK.isDecember
                           ? hoverData.rolling5HK.description
+                          : hoverData.rolling5HK.isNovember
+                          ? `Hari kerja ini merupakan batas akhir penyampaian pendaftaran Kontrak yang ditandatangani tanggal ${hoverData.rolling5HK.sourceDateFormatted} ke KPPN (Pasal 6 ayat 3).`
                           : `Hari kerja ini merupakan batas akhir penyampaian Kontrak dan SPM-LS untuk BAST tanggal ${hoverData.rolling5HK.sourceDateFormatted} (Pukul 17:00 WIB).`}
                       </p>
                     </>
@@ -1953,7 +1989,17 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     </>
                   ) : selectedDateEvents.rolling5HK ? (
                     <>
-                      Tanggal ini merupakan <span className="font-bold text-amber-600 dark:text-amber-400">{selectedDateEvents.rolling5HK.isDecember ? 'Batas Pendaftaran Kontrak / NRK Akhir Tahun' : 'Batas Waktu 5 Hari Kerja (Klausul Perhitungan Manual)'}</span> {selectedDateEvents.rolling5HK.isDecember ? `sesuai ${selectedDateEvents.rolling5HK.pasal}.` : `untuk pendaftaran Kontrak & SPM-LS Kontraktual untuk BAST tanggal ${selectedDateEvents.rolling5HK.sourceDateFormatted}.`}
+                      Tanggal ini merupakan <span className="font-bold text-amber-600 dark:text-amber-400">
+                        {selectedDateEvents.rolling5HK.isDecember 
+                          ? 'Batas Pendaftaran Kontrak / NRK Akhir Tahun' 
+                          : selectedDateEvents.rolling5HK.isNovember
+                          ? 'Batas Waktu 5 Hari Kerja Pendaftaran Kontrak'
+                          : 'Batas Waktu 5 Hari Kerja (Klausul Perhitungan Manual)'}
+                      </span> {selectedDateEvents.rolling5HK.isDecember 
+                          ? `sesuai ${selectedDateEvents.rolling5HK.pasal}.` 
+                          : selectedDateEvents.rolling5HK.isNovember
+                          ? `untuk pendaftaran Kontrak/Perubahan Kontrak tanggal ${selectedDateEvents.rolling5HK.sourceDateFormatted} (Pasal 6 ayat 3).`
+                          : `untuk pendaftaran Kontrak & SPM-LS Kontraktual untuk BAST tanggal ${selectedDateEvents.rolling5HK.sourceDateFormatted}.`}
                     </>
                   ) : (
                     <>
@@ -1987,13 +2033,17 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         ? `Klausul Batas Langsung Pendaftaran Kontrak (${selectedDateEvents.rolling5HK.hardCutOffFormatted})`
                         : selectedDateEvents.rolling5HK.isDecember 
                         ? 'Klausul Pendaftaran Kontrak & Batas 5 HK Desember 2026' 
-                        : 'Klausul Batas 5 Hari Kerja (H+5 HK)'}
+                        : selectedDateEvents.rolling5HK.isNovember
+                        ? 'Klausul Pendaftaran Kontrak 5 HK November 2026'
+                        : 'Klausul Batas 5 Hari Kerja BAST & Kontrak (Oktober 2026)'}
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
                         {selectedDateEvents.rolling5HK.isFixedDateCutOff
                           ? 'Bukan 5 HK (Batas Langsung)'
                           : selectedDateEvents.rolling5HK.isDecember
                           ? 'Pasal 6 ayat (5)'
-                          : 'Klausul Manual'}
+                          : selectedDateEvents.rolling5HK.isNovember
+                          ? 'Pasal 6 ayat (3)'
+                          : 'Pasal 6 ayat (2) & Ps 18'}
                       </span>
                     </h5>
                     <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold">
@@ -2018,7 +2068,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                 <p>
                   {selectedDateEvents.rolling5HK.isDecember
                     ? selectedDateEvents.rolling5HK.description
-                    : 'Berdasarkan klausul PER-9/PB/2026, pendaftaran Kontrak/Perubahan Kontrak dan pengajuan SPM-LS Kontraktual untuk BAST/BAPP yang dibuat pada masa transisi/berjalan wajib disampaikan ke KPPN paling lambat 5 (lima) Hari Kerja sejak tanggal penandatanganan dokumen.'}
+                    : selectedDateEvents.rolling5HK.isNovember
+                    ? selectedDateEvents.rolling5HK.description
+                    : 'Berdasarkan klausul PER-9/PB/2026 Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b, pendaftaran Kontrak/Perubahan Kontrak dan pengajuan SPM-LS Kontraktual untuk BAST/BAPP yang dibuat pada bulan Oktober wajib disampaikan ke KPPN paling lambat 5 (lima) Hari Kerja sejak tanggal penandatanganan dokumen (plafon mutlak 6 November 2026).'}
                 </p>
                 {selectedDateEvents.rolling5HK.isDecember ? (
                   <p>
@@ -2026,6 +2078,14 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       ? 'Penerbitan NRK dan/atau persetujuan perubahan data Kontrak oleh KPPN wajib diselesaikan paling lambat 2 (dua) Hari Kerja setelah diterima secara lengkap dan benar, dan paling lambat tanggal 23 Desember 2026 pada jam kerja.'
                       : `Satker wajib memastikan pendaftaran kontrak pada periode ini telah disetujui KPPN sebelum batas plafon ${selectedDateEvents.rolling5HK.hardCutOffFormatted} pukul 17:00 WIB.`}
                   </p>
+                ) : selectedDateEvents.rolling5HK.isNovember ? (
+                  <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-900 dark:text-amber-200">
+                    <strong>Catatan Khusus BAST November:</strong> Batas 5 Hari Kerja di bulan November ini <em>hanya berlaku untuk pendaftaran Kontrak</em>. Untuk SPM-LS BAST bulan November tidak dihitung 5 HK per hari, melainkan menggunakan batas gelondongan tanggal pasti:
+                    <ul className="list-disc list-inside mt-1 font-semibold space-y-0.5">
+                      <li>BAST periode 1–15 November 2026: Batas SPM-LS ke KPPN adalah <strong>20 November 2026</strong> (LLAT-06.3)</li>
+                      <li>BAST periode 16–30 November 2026: Batas SPM-LS ke KPPN adalah <strong>7 Desember 2026</strong> (LLAT-06.4)</li>
+                    </ul>
+                  </div>
                 ) : (
                   <p>
                     Oleh karena itu, hari ini (<strong>{new Date(selectedDateEvents.dateStr + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>) adalah batas akhir bagi Satuan Kerja untuk mengajukan berkas BAST / Kontrak yang ditandatangani pada tanggal <strong>{selectedDateEvents.rolling5HK.sourceDateFormatted}</strong>.
@@ -2039,6 +2099,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   <div className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">
                     {selectedDateEvents.rolling5HK.isDecember 
                       ? '📄 Periode Kontrak / Acuan' 
+                      : selectedDateEvents.rolling5HK.isNovember
+                      ? '📄 Tanggal TTD Kontrak'
                       : '📄 Tanggal BAST / Kontrak'}
                   </div>
                   <div className="text-sm font-black text-slate-900 dark:text-white font-mono mt-0.5">
@@ -2047,6 +2109,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   <div className="text-[11px] text-slate-500 mt-1">
                     {selectedDateEvents.rolling5HK.isDecember 
                       ? 'Kelompok penandatanganan' 
+                      : selectedDateEvents.rolling5HK.isNovember
+                      ? 'Dokumen Kontrak / SPK'
                       : 'Tanggal penandatanganan'}
                   </div>
                 </div>
@@ -2095,7 +2159,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5 text-xs">
                     <span className="font-mono px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">
-                      {selectedDateEvents.rolling5HK.isDecember ? 'Dokumen: ' : 'Tgl BAST: '}
+                      {selectedDateEvents.rolling5HK.isDecember 
+                        ? 'Dokumen: ' 
+                        : selectedDateEvents.rolling5HK.isNovember
+                        ? 'Tgl Kontrak: '
+                        : 'Tgl BAST: '}
                       {selectedDateEvents.rolling5HK.sourceDateFormatted}
                     </span>
                     <span className="text-slate-400">➔</span>
@@ -2129,9 +2197,13 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       <>
                         Pendaftaran Kontrak & SPM-LS Kontraktual periode ini wajib diajukan ke KPPN paling lambat <strong>{selectedDateEvents.rolling5HK.hardCutOffFormatted}</strong> pukul 17:00 WIB ({selectedDateEvents.rolling5HK.pasal}).
                       </>
+                    ) : selectedDateEvents.rolling5HK.isNovember ? (
+                      <>
+                        Jika Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pendaftarannya ke KPPN adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> pukul 17:00 WIB ({selectedDateEvents.rolling5HK.pasal}). <em>(Batas SPM BAST November adalah gelondongan tanggal 20 Nov & 7 Des)</em>.
+                      </>
                     ) : (
                       <>
-                        Jika BAST / Kontrak baru ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 17:00 WIB).
+                        Jika BAST / Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 17:00 WIB).
                       </>
                     )}
                   </span>
