@@ -12,6 +12,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { LLATEvent } from '../../types/llat';
+import { getRolling5HKInfo, createRolling5HKEvent } from '../../utils/llatWorkingDaysEngine';
 import { 
   getCountdownInfo, 
   getPriorityBadge, 
@@ -110,6 +111,19 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
           event: ev,
           isPenerimaan: false,
           isPenyelesaian: true
+        });
+      }
+    });
+
+    // Masukkan tenggat 5 Hari Kerja untuk hari kerja yang relevan
+    weekDays.forEach(wd => {
+      const r5hk = getRolling5HKInfo(wd.dateStr);
+      if (r5hk) {
+        const rollingEv = createRolling5HKEvent(r5hk);
+        map[wd.dateStr].push({
+          event: rollingEv,
+          isPenerimaan: true,
+          isPenyelesaian: false
         });
       }
     });
@@ -249,45 +263,63 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                   ) : (
                     dayItems.map((item, idx) => {
                       const priority = getPriorityBadge(item.event.prioritas);
-                      const isCrit = item.event.prioritas === 'KRITIS';
+                      const isRolling5HK = item.event.llat_id.startsWith('rolling-5hk-');
 
                       return (
                         <div
                           key={`${item.event.llat_id}-week-${idx}`}
                           onClick={() => onSelectEvent(item.event)}
                           className={`p-2.5 rounded-xl border transition-all cursor-pointer group text-left ${
-                            item.isPenerimaan
+                            isRolling5HK
+                              ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700/80 hover:bg-amber-200/90 text-amber-950 dark:text-amber-100 shadow-2xs'
+                              : item.isPenerimaan
                               ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900 hover:border-blue-400'
                               : 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900 hover:border-indigo-400'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-1 mb-1">
-                            <span className="font-mono text-[10px] font-black px-1.5 py-0.2 rounded bg-slate-900 text-amber-300">
+                            <span className={`font-mono text-[10px] font-black px-1.5 py-0.2 rounded ${
+                              isRolling5HK ? 'bg-amber-700 text-amber-100' : 'bg-slate-900 text-amber-300'
+                            }`}>
                               {item.event.kode_kegiatan}
                             </span>
-                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${priority.badgeClass}`}>
-                              {priority.label}
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                              isRolling5HK 
+                                ? 'bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100'
+                                : priority.badgeClass
+                            }`}>
+                              {isRolling5HK ? '⚡ 5 HK' : priority.label}
                             </span>
                           </div>
 
                           <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-1">
-                            {item.isPenerimaan ? (
+                            {isRolling5HK ? (
+                              <span className="text-amber-800 dark:text-amber-300 font-extrabold">⚡ Batas 5 Hari Kerja</span>
+                            ) : item.isPenerimaan ? (
                               <span className="text-blue-700 dark:text-blue-300">📥 Batas Penerimaan</span>
                             ) : (
                               <span className="text-indigo-700 dark:text-indigo-300">🏁 Batas Penyelesaian</span>
                             )}
                           </div>
 
-                          <h5 className="text-[11px] font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          <h5 className={`text-[11px] font-bold leading-snug line-clamp-2 transition-colors ${
+                            isRolling5HK 
+                              ? 'text-amber-950 dark:text-amber-100 group-hover:text-amber-800'
+                              : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
+                          }`}>
                             {item.event.nama_kegiatan}
                           </h5>
 
-                          <div className="mt-2 pt-1.5 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-500">
+                          <div className={`mt-2 pt-1.5 border-t flex items-center justify-between text-[10px] ${
+                            isRolling5HK ? 'border-amber-300/60 dark:border-amber-800 text-amber-800 dark:text-amber-300' : 'border-slate-200/60 dark:border-slate-800 text-slate-500'
+                          }`}>
                             <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-slate-400" />
+                              <Clock className="w-3 h-3" />
                               {item.event.jam_batas || '17:00'}
                             </span>
-                            <span className="font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline">
+                            <span className={`font-bold group-hover:underline ${
+                              isRolling5HK ? 'text-amber-900 dark:text-amber-200' : 'text-indigo-600 dark:text-indigo-400'
+                            }`}>
                               Detail &rarr;
                             </span>
                           </div>

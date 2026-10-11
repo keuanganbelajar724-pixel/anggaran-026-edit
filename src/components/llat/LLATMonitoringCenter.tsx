@@ -56,6 +56,7 @@ import { LLATTimelineView } from './LLATTimelineView';
 import { LLATDetailModal } from './LLATDetailModal';
 import { LLATExportPdfModal } from './LLATExportPdfModal';
 import { LLATWorkingDaysCalculator } from './LLATWorkingDaysCalculator';
+import { getRolling5HKInfo, createRolling5HKEvent, getRolling5HKEventsInRange } from '../../utils/llatWorkingDaysEngine';
 import { Calculator } from 'lucide-react';
 
 interface LLATMonitoringCenterProps {
@@ -133,7 +134,23 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
 
   // Filtered Events based on user filters
   const filteredEvents = useMemo(() => {
-    return accessibleEvents.filter((ev) => {
+    // Muat event rolling 5 HK untuk rentang 30 hari ke depan agar satker dapat mencari atau melihat agenda 5 HK
+    const dToday = new Date(todayStr + 'T00:00:00');
+    const d30Days = new Date(dToday.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const d30DaysStr = `${d30Days.getFullYear()}-${String(d30Days.getMonth() + 1).padStart(2, '0')}-${String(d30Days.getDate()).padStart(2, '0')}`;
+
+    const rollingEvents = selectedYear === 2026
+      ? getRolling5HKEventsInRange(todayStr, d30DaysStr)
+      : [];
+
+    const allCandidates = [...accessibleEvents];
+    for (const rev of rollingEvents) {
+      if (!allCandidates.some((item) => item.llat_id === rev.llat_id)) {
+        allCandidates.push(rev);
+      }
+    }
+
+    return allCandidates.filter((ev) => {
       // Periksa apakah kegiatan relevan dengan tahun yang dipilih (termasuk tenggat lanjutan Jan 2027 untuk TA 2026)
       const matchesYear = 
         ev.tahun_anggaran === selectedYear ||
@@ -192,33 +209,44 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
       );
     });
 
+    const r5hkToday = selectedYear === 2026 ? getRolling5HKInfo(todayStr) : null;
+    const count5HKToday = r5hkToday ? 1 : 0;
+
     // 1. Total kegiatan aktif
-    const totalAktif = yearEvents.filter((e) => e.is_active).length;
+    const totalAktif = yearEvents.filter((e) => e.is_active).length + count5HKToday;
 
     // 2. Tenggat hari ini
     const hariIniCount = yearEvents.filter((e) => {
       const pen = e.tanggal_penerimaan || e.tanggal_batas;
       return pen === todayStr || e.tanggal_penyelesaian === todayStr;
-    }).length;
+    }).length + count5HKToday;
 
-    // 3. Tenggat 7 hari ke depan
+    // 3. Tenggat 7 hari ke depan (termasuk klausul 5 HK aktif dalam 7 hari)
     const dToday = new Date(todayStr + 'T00:00:00');
     const d7Days = new Date(dToday.getTime() + 7 * 24 * 60 * 60 * 1000);
     const d7DaysStr = `${d7Days.getFullYear()}-${String(d7Days.getMonth() + 1).padStart(2, '0')}-${String(d7Days.getDate()).padStart(2, '0')}`;
     
+    const rolling7Days = selectedYear === 2026
+      ? getRolling5HKEventsInRange(todayStr, d7DaysStr)
+      : [];
+
     const tujuhHariCount = yearEvents.filter((e) => {
       const d = e.tanggal_penerimaan || e.tanggal_batas;
-      return d > todayStr && d <= d7DaysStr && e.is_tanggal_pasti !== false;
-    }).length;
+      return d && d >= todayStr && d <= d7DaysStr && e.is_tanggal_pasti !== false;
+    }).length + rolling7Days.length;
 
     // 4. Tenggat 30 hari ke depan
     const d30Days = new Date(dToday.getTime() + 30 * 24 * 60 * 60 * 1000);
     const d30DaysStr = `${d30Days.getFullYear()}-${String(d30Days.getMonth() + 1).padStart(2, '0')}-${String(d30Days.getDate()).padStart(2, '0')}`;
 
+    const rolling30Days = selectedYear === 2026
+      ? getRolling5HKEventsInRange(todayStr, d30DaysStr)
+      : [];
+
     const tigaPuluhHariCount = yearEvents.filter((e) => {
       const d = e.tanggal_penerimaan || e.tanggal_batas;
-      return d > todayStr && d <= d30DaysStr && e.is_tanggal_pasti !== false;
-    }).length;
+      return d && d >= todayStr && d <= d30DaysStr && e.is_tanggal_pasti !== false;
+    }).length + rolling30Days.length;
 
     // 5. Tenggat yang telah lewat
     const telahLewatCount = yearEvents.filter((e) => {
@@ -253,59 +281,96 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
 
   // 1. TENGGAT HARI INI LIST
   const todayDeadlines = useMemo(() => {
-    return accessibleEvents
+    const list = accessibleEvents
       .filter((e) => {
         if (e.tahun_anggaran !== selectedYear) return false;
         const pen = e.tanggal_penerimaan || e.tanggal_batas;
         return pen === todayStr || e.tanggal_penyelesaian === todayStr;
-      })
-      .sort((a, b) => {
-        const jamA = a.jam_batas || '23:59';
-        const jamB = b.jam_batas || '23:59';
-        return jamA.localeCompare(jamB);
       });
+
+    // Cek apakah ada klausul 5 HK / batas regulasi untuk hari ini
+    if (selectedYear === 2026) {
+      const r5hk = getRolling5HKInfo(todayStr);
+      if (r5hk) {
+        list.push(createRolling5HKEvent(r5hk));
+      }
+    }
+
+    return list.sort((a, b) => {
+      const jamA = a.jam_batas || '23:59';
+      const jamB = b.jam_batas || '23:59';
+      return jamA.localeCompare(jamB);
+    });
   }, [accessibleEvents, selectedYear, todayStr]);
 
-  // 2. TENGGAT TERDEKAT LIST (Upcoming, min 3 items)
+  // 2. TENGGAT TERDEKAT LIST (Upcoming, min 3 items - Termasuk Klausul 5 HK Berjalan)
   const upcomingDeadlines = useMemo(() => {
-    return accessibleEvents
+    const list = accessibleEvents
       .filter((e) => {
         if (e.tahun_anggaran !== selectedYear) return false;
         const d = e.tanggal_penerimaan || e.tanggal_batas;
         return d && d >= todayStr && e.is_tanggal_pasti !== false && e.status_penyelesaian !== 'SELESAI';
-      })
-      .sort((a, b) => {
-        const da = a.tanggal_penerimaan || a.tanggal_batas || '';
-        const db = b.tanggal_penerimaan || b.tanggal_batas || '';
-        if (da !== db) return da.localeCompare(db);
-        const ja = a.jam_batas || '23:59';
-        const jb = b.jam_batas || '23:59';
-        return ja.localeCompare(jb);
       });
+
+    // Tambahkan agenda rolling 5 HK untuk 14 hari ke depan
+    if (selectedYear === 2026) {
+      const dToday = new Date(todayStr + 'T00:00:00');
+      const d14Days = new Date(dToday.getTime() + 14 * 24 * 60 * 60 * 1000);
+      const d14DaysStr = `${d14Days.getFullYear()}-${String(d14Days.getMonth() + 1).padStart(2, '0')}-${String(d14Days.getDate()).padStart(2, '0')}`;
+      const rollingUpcoming = getRolling5HKEventsInRange(todayStr, d14DaysStr);
+
+      for (const rev of rollingUpcoming) {
+        if (!list.some((item) => item.llat_id === rev.llat_id)) {
+          list.push(rev);
+        }
+      }
+    }
+
+    return list.sort((a, b) => {
+      const da = a.tanggal_penerimaan || a.tanggal_batas || '';
+      const db = b.tanggal_penerimaan || b.tanggal_batas || '';
+      if (da !== db) return da.localeCompare(db);
+      const ja = a.jam_batas || '23:59';
+      const jb = b.jam_batas || '23:59';
+      return ja.localeCompare(jb);
+    });
   }, [accessibleEvents, selectedYear, todayStr]);
 
-  // 3. TENGGAT 7 HARI KE DEPAN LIST
+  // 3. TENGGAT 7 HARI KE DEPAN LIST (Termasuk Agenda 5 HK Berjalan)
   const sevenDaysDeadlines = useMemo(() => {
     const dToday = new Date(todayStr + 'T00:00:00');
     const d7Days = new Date(dToday.getTime() + 7 * 24 * 60 * 60 * 1000);
     const d7DaysStr = `${d7Days.getFullYear()}-${String(d7Days.getMonth() + 1).padStart(2, '0')}-${String(d7Days.getDate()).padStart(2, '0')}`;
 
-    return accessibleEvents
+    const list = accessibleEvents
       .filter((e) => {
         if (e.tahun_anggaran !== selectedYear) return false;
         const d = e.tanggal_penerimaan || e.tanggal_batas;
-        return d && d > todayStr && d <= d7DaysStr && e.is_tanggal_pasti !== false && e.status_penyelesaian !== 'SELESAI';
-      })
-      .sort((a, b) => {
-        const da = a.tanggal_penerimaan || a.tanggal_batas || '';
-        const db = b.tanggal_penerimaan || b.tanggal_batas || '';
-        return da.localeCompare(db);
+        return d && d >= todayStr && d <= d7DaysStr && e.is_tanggal_pasti !== false && e.status_penyelesaian !== 'SELESAI';
       });
+
+    if (selectedYear === 2026) {
+      const rolling7Days = getRolling5HKEventsInRange(todayStr, d7DaysStr);
+      for (const rev of rolling7Days) {
+        if (!list.some((item) => item.llat_id === rev.llat_id)) {
+          list.push(rev);
+        }
+      }
+    }
+
+    return list.sort((a, b) => {
+      const da = a.tanggal_penerimaan || a.tanggal_batas || '';
+      const db = b.tanggal_penerimaan || b.tanggal_batas || '';
+      if (da !== db) return da.localeCompare(db);
+      const ja = a.jam_batas || '23:59';
+      const jb = b.jam_batas || '23:59';
+      return ja.localeCompare(jb);
+    });
   }, [accessibleEvents, selectedYear, todayStr]);
 
-  // 4. PERLU PERHATIAN LIST (Overdue, Critical due soon, or Unverified/Belum selesai)
+  // 4. PERLU PERHATIAN LIST (Overdue, Critical due soon, Unverified, atau Klausul 5 HK Aktif)
   const attentionItems = useMemo(() => {
-    return accessibleEvents
+    const list = accessibleEvents
       .filter((e) => {
         if (e.tahun_anggaran !== selectedYear) return false;
         const d = e.tanggal_penerimaan || e.tanggal_batas;
@@ -313,12 +378,32 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
         const isCriticalSoon = e.prioritas === 'KRITIS' && d && d >= todayStr && e.status_penyelesaian !== 'SELESAI';
         const isNeedsManual = e.status_verifikasi === 'PERLU_PEMERIKSAAN_MANUAL';
         return isOverdue || isCriticalSoon || isNeedsManual;
-      })
-      .sort((a, b) => {
-        const da = a.tanggal_penerimaan || a.tanggal_batas || '';
-        const db = b.tanggal_penerimaan || b.tanggal_batas || '';
-        return da.localeCompare(db);
       });
+
+    // Masukkan agenda rolling 5 HK aktif untuk hari ini dan 3 hari ke depan ke Perlu Perhatian
+    // agar satker waspada terhadap batas ketat 5 hari kerja menurut PER-9/PB/2026
+    if (selectedYear === 2026) {
+      const dToday = new Date(todayStr + 'T00:00:00');
+      const d3Days = new Date(dToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const d3DaysStr = `${d3Days.getFullYear()}-${String(d3Days.getMonth() + 1).padStart(2, '0')}-${String(d3Days.getDate()).padStart(2, '0')}`;
+      
+      const rollingAttention = getRolling5HKEventsInRange(todayStr, d3DaysStr);
+      for (const rEv of rollingAttention) {
+        if (!list.some((item) => item.llat_id === rEv.llat_id)) {
+          list.push({
+            ...rEv,
+            prioritas: 'KRITIS', // Klausul 5 HK aktif diprioritaskan agar satker tidak terlambat
+            catatan: `[PERLU PERHATIAN] Klausul batas 5 hari kerja aktif (PER-9/PB/2026). Pastikan dokumen diajukan tepat waktu ke KPPN Semarang I.`
+          });
+        }
+      }
+    }
+
+    return list.sort((a, b) => {
+      const da = a.tanggal_penerimaan || a.tanggal_batas || '';
+      const db = b.tanggal_penerimaan || b.tanggal_batas || '';
+      return da.localeCompare(db);
+    });
   }, [accessibleEvents, selectedYear, todayStr]);
 
   const nearestUpcomingEvent = upcomingDeadlines[0] || null;
@@ -605,26 +690,45 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
             {todayDeadlines.map((ev) => {
               const priority = getPriorityBadge(ev.prioritas);
               const isPenerimaan = (ev.tanggal_penerimaan || ev.tanggal_batas) === todayStr;
+              const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
+
               return (
                 <div
                   key={ev.llat_id}
                   onClick={() => setSelectedDetailEvent(ev)}
-                  className="p-4 rounded-2xl border-2 border-rose-300 dark:border-rose-800/80 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100/60 dark:hover:bg-rose-900/30 transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs"
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs ${
+                    isRolling5HK
+                      ? 'border-amber-400 dark:border-amber-600/90 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/70 dark:hover:bg-amber-900/40'
+                      : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100/60 dark:hover:bg-rose-900/30'
+                  }`}
                 >
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-rose-600 text-white">
+                      <span className={`font-mono text-xs font-black px-2 py-0.5 rounded ${
+                        isRolling5HK ? 'bg-amber-600 text-white' : 'bg-rose-600 text-white'
+                      }`}>
                         {ev.kode_kegiatan}
                       </span>
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-700">
-                        {isPenerimaan ? '📥 Batas Penerimaan' : '🏁 Batas Penyelesaian'}
-                      </span>
+                      {isRolling5HK ? (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 border border-amber-400 dark:border-amber-700 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          ⚡ Klausul 5 Hari Kerja (H+5)
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-white dark:bg-slate-800 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-700">
+                          {isPenerimaan ? '📥 Batas Penerimaan' : '🏁 Batas Penyelesaian'}
+                        </span>
+                      )}
                       <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${priority.badgeClass}`}>
                         {priority.label}
                       </span>
                     </div>
 
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors leading-snug">
+                    <h3 className={`text-sm font-black transition-colors leading-snug ${
+                      isRolling5HK
+                        ? 'text-slate-900 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400'
+                        : 'text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400'
+                    }`}>
                       {ev.nama_kegiatan}
                     </h3>
 
@@ -640,13 +744,19 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-rose-200/80 dark:border-rose-800/60 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1 text-rose-700 dark:text-rose-300 font-black">
+                  <div className={`pt-2 border-t flex items-center justify-between text-xs ${
+                    isRolling5HK ? 'border-amber-200 dark:border-amber-800/60' : 'border-rose-200/80 dark:border-rose-800/60'
+                  }`}>
+                    <div className={`flex items-center gap-1 font-black ${
+                      isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
+                    }`}>
                       <Clock className="w-3.5 h-3.5" />
                       <span>Batas: Pukul {ev.jam_batas || '17:00'} {ev.timezone || 'WIB'}</span>
                     </div>
 
-                    <span className="inline-flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300 group-hover:translate-x-1 transition-transform">
+                    <span className={`inline-flex items-center gap-1 font-bold group-hover:translate-x-1 transition-transform ${
+                      isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
+                    }`}>
                       <span>Lihat Detail</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </span>
@@ -707,12 +817,17 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                 month: 'long',
                 year: 'numeric'
               });
+              const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
 
               return (
                 <div
                   key={`upcoming-${ev.llat_id}`}
                   onClick={() => setSelectedDetailEvent(ev)}
-                  className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs"
+                  className={`p-4 rounded-2xl border transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs ${
+                    isRolling5HK
+                      ? 'border-amber-300 dark:border-amber-600/70 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-500 hover:bg-amber-50/60'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20'
+                  }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
@@ -721,15 +836,25 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                         <span>{formattedDate}</span>
                       </span>
 
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black font-mono bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black font-mono ${
+                        isRolling5HK
+                          ? 'bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-200'
+                          : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
+                      }`}>
                         {countdown.text}
                       </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-[11px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-amber-300">
-                        {ev.kode_kegiatan}
-                      </span>
+                      {isRolling5HK ? (
+                        <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded bg-amber-500 text-slate-950 shadow-xs flex items-center gap-1">
+                          ⚡ 5 HK
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[11px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-amber-300">
+                          {ev.kode_kegiatan}
+                        </span>
+                      )}
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 truncate max-w-[160px]">
                         {ev.kategori}
                       </span>
@@ -809,17 +934,34 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                 const targetDate = ev.tanggal_penerimaan || ev.tanggal_batas || '';
                 const dateObj = new Date(targetDate + 'T00:00:00');
                 const priority = getPriorityBadge(ev.prioritas);
+                const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
+                const isToday = targetDate === todayStr;
+
                 return (
                   <div
                     key={`7d-${ev.llat_id}`}
                     onClick={() => setSelectedDetailEvent(ev)}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30 transition-all cursor-pointer flex items-center justify-between gap-3 text-xs"
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-xs ${
+                      isRolling5HK
+                        ? 'border-amber-300 dark:border-amber-600/60 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-500 hover:bg-amber-50/60'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-blue-400 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-blue-50/30'
+                    }`}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-blue-700 dark:text-blue-400">
                           {dateObj.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}
                         </span>
+                        {isToday && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-rose-500 text-white font-mono">
+                            HARI INI
+                          </span>
+                        )}
+                        {isRolling5HK && (
+                          <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 font-mono">
+                            ⚡ 5 HK
+                          </span>
+                        )}
                         <span className="text-slate-400">•</span>
                         <span className="text-slate-500 font-mono">Pukul {ev.jam_batas || '17:00'}</span>
                         <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${priority.badgeClass}`}>
@@ -858,7 +1000,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                   ⚠️ PERLU PERHATIAN
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Tenggat terlewat, prioritas kritis, dan agenda perlu verifikasi
+                  Tenggat terlewat, prioritas kritis, dan agenda batas 5 HK aktif
                 </p>
               </div>
             </div>
@@ -873,11 +1015,17 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               {attentionItems.slice(0, 8).map((ev) => {
                 const targetDate = ev.tanggal_penerimaan || ev.tanggal_batas || '';
                 const isOverdue = targetDate && targetDate < todayStr;
+                const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
+
                 return (
                   <div
                     key={`att-${ev.llat_id}`}
                     onClick={() => setSelectedDetailEvent(ev)}
-                    className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-rose-400 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-rose-50/20 transition-all cursor-pointer flex items-center justify-between gap-3 text-xs"
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-xs ${
+                      isRolling5HK
+                        ? 'border-amber-300 dark:border-amber-600/60 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-500 hover:bg-amber-50/60'
+                        : 'border-slate-200 dark:border-slate-800 hover:border-rose-400 bg-slate-50/50 dark:bg-slate-800/40 hover:bg-rose-50/20'
+                    }`}
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -886,11 +1034,15 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                             Tenggat Lewat
                           </span>
                         )}
-                        {ev.prioritas === 'KRITIS' && (
+                        {isRolling5HK ? (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 shadow-xs">
+                            ⚡ Klausul 5 HK Aktif
+                          </span>
+                        ) : ev.prioritas === 'KRITIS' ? (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">
                             Prioritas Kritis
                           </span>
-                        )}
+                        ) : null}
                         {ev.status_verifikasi === 'PERLU_PEMERIKSAAN_MANUAL' && (
                           <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800">
                             Perlu Cek Manual

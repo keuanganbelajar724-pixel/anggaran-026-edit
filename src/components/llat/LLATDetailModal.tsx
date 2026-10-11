@@ -19,6 +19,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import { LLATEvent } from '../../types/llat';
+import { getRolling5HKInfo } from '../../utils/llatWorkingDaysEngine';
 import { 
   getCountdownInfo, 
   getPriorityBadge, 
@@ -49,6 +50,7 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
   const verification = getVerificationBadge(event.status_verifikasi);
   const deadlineType = getDeadlineTypeBadge(event.jenis_tenggat);
   const completion = getCompletionBadge(event.status_penyelesaian);
+  const rolling5HKInfo = event.tanggal_batas ? getRolling5HKInfo(event.tanggal_batas) : null;
 
   // Format date readable
   const formatDateIndo = (dateStr?: string) => {
@@ -161,6 +163,59 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
               </p>
             </div>
           </div>
+
+          {/* Klausul Batas Waktu 5 Hari Kerja (Pasal 6 & 18 PER-9/PB/2026) */}
+          {rolling5HKInfo && (
+            <div className="p-4 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border-2 border-amber-300 dark:border-amber-700/80 space-y-3">
+              <div className="flex items-center justify-between gap-2 border-b border-amber-200 dark:border-amber-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="font-mono text-xs font-black uppercase text-amber-950 dark:text-amber-200">
+                    ⚡ Simulasi Batas Waktu 5 Hari Kerja (H+5 HK)
+                  </span>
+                </div>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100">
+                  PER-9/PB/2026
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">
+                    {rolling5HKInfo.isNovember ? 'Tanggal TTD Kontrak:' : 'Tanggal Terbit BAST / Kontrak:'}
+                  </span>
+                  <span className="font-mono font-black text-slate-900 dark:text-white text-sm">
+                    {rolling5HKInfo.sourceDateFormatted}
+                  </span>
+                </div>
+
+                <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">
+                    Plafon Mutlak Sapu Jagat:
+                  </span>
+                  <span className="font-mono font-black text-rose-700 dark:text-rose-400 text-sm">
+                    {rolling5HKInfo.hardCutOffFormatted}
+                  </span>
+                </div>
+              </div>
+
+              {rolling5HKInfo.stepsBack && rolling5HKInfo.stepsBack.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 block">
+                    Tahapan 5 Hari Kerja Menuju Jatuh Tempo Hari Ini:
+                  </span>
+                  <div className="space-y-1">
+                    {rolling5HKInfo.stepsBack.map((st, sIdx) => (
+                      <div key={sIdx} className="flex items-center justify-between text-[11px] px-2 py-1 rounded bg-white/70 dark:bg-slate-900/70 border border-amber-100 dark:border-amber-900">
+                        <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{st.note}</span>
+                        <span className="font-mono text-amber-800 dark:text-amber-400">{st.dateStr}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Aturan Relatif jika bukan tanggal pasti */}
           {event.is_tanggal_pasti === false && (

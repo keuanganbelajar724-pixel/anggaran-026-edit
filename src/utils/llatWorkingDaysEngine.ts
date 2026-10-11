@@ -4,6 +4,8 @@
  * tenggat waktu (sebelum/sesudah, hari kerja vs hari kalender, pergeseran bila libur).
  */
 
+import { LLATEvent } from '../types/llat';
+
 export interface HolidayEntry {
   date: string; // YYYY-MM-DD
   name: string;
@@ -582,4 +584,115 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     subClauseType: 'OCT_NOV_ROLLING'
   };
 }
+
+/**
+ * Konversi objek Rolling5HKInfo menjadi format LLATEvent resmi
+ * agar dapat terintegrasi sempurna di panel "Hari Ini Ada Deadline Apa?",
+ * agenda harian, modal detail, dan penghitung KPI.
+ */
+export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
+  const isOct = r5hk.isOctober;
+  const isNov = r5hk.isNovember;
+  const isDec = r5hk.isDecember;
+
+  let kodeKegiatan = 'PASAL-6&18';
+  let namaKegiatan = '';
+  let jenisDokumen = '';
+  let kategori = 'Kontrak & BAST';
+
+  if (isOct) {
+    kodeKegiatan = 'PASAL-6&18';
+    namaKegiatan = `Batas 5 HK: BAST & Kontrak Ditandatangani ${r5hk.sourceDateFormatted}`;
+    jenisDokumen = 'Pendaftaran Data Kontrak & SPM-LS Kontraktual (BAST/BAPP)';
+    kategori = 'Kontrak & BAST';
+  } else if (isNov) {
+    kodeKegiatan = 'PASAL-6.3';
+    namaKegiatan = `Batas 5 HK: Pendaftaran Kontrak Ditandatangani ${r5hk.sourceDateFormatted}`;
+    jenisDokumen = 'Pendaftaran Data Kontrak / Addendum';
+    kategori = 'Pendaftaran Kontrak';
+  } else if (isDec) {
+    kodeKegiatan = r5hk.isFixedDateCutOff ? 'PASAL-6.5' : 'PASAL-6.3';
+    namaKegiatan = r5hk.label;
+    jenisDokumen = 'Pendaftaran Kontrak & Penerbitan NRK KPPN';
+    kategori = 'Pendaftaran Kontrak';
+  } else {
+    kodeKegiatan = 'PASAL-6';
+    namaKegiatan = r5hk.label;
+    jenisDokumen = 'Dokumen Kontraktual / BAST';
+    kategori = 'Kontrak & BAST';
+  }
+
+  return {
+    llat_id: `rolling-5hk-${r5hk.dateStr}`,
+    tahun_anggaran: 2026,
+    kode_kegiatan: kodeKegiatan,
+    nama_kegiatan: namaKegiatan,
+    kategori: kategori,
+    deskripsi: r5hk.description,
+    tanggal_mulai: r5hk.sourceDateStr,
+    tanggal_batas: r5hk.dateStr,
+    jam_batas: '17:00',
+    timezone: 'WIB',
+    status: 'HARI_INI',
+    status_mode: 'AUTO',
+    prioritas: 'PENTING',
+    target_pengguna: ['SEMUA_SATKER', 'PPK', 'PPSPM'],
+    dasar_hukum: r5hk.pasal,
+    nomor_peraturan: 'PER-9/PB/2026',
+    catatan: `Klausul batas waktu 5 hari kerja (H+5 HK). Tanggal penerbitan dokumen acuan: ${r5hk.sourceDateFormatted}. Batas pengajuan ke KPPN Semarang I: ${r5hk.dateStr} pukul 17:00 WIB (Plafon mutlak: ${r5hk.hardCutOffFormatted}).`,
+    urutan: 999,
+    is_active: true,
+    publikasi: 'PUBLISHED',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    jenis_dokumen: jenisDokumen,
+    jenis_tenggat: 'Batas Diterima KPPN',
+    tanggal_tenggat: r5hk.dateStr,
+    jam_tenggat: '17:00',
+    tanggal_penerimaan: r5hk.dateStr,
+    jam_penerimaan: '17:00',
+    tanggal_penyelesaian: r5hk.dateStr,
+    jam_penyelesaian: '17:00',
+    ketentuan_waktu: 'HARI_KERJA',
+    is_tanggal_pasti: true,
+    status_verifikasi: 'TERVERIFIKASI',
+    status_penyelesaian: 'BELUM_SELESAI',
+    nomor_peraturan_resmi: 'PER-9/PB/2026',
+    pasal_bab: r5hk.pasal
+  };
+}
+
+/**
+ * Menghasilkan daftar LLATEvent rolling 5 HK untuk rentang tanggal tertentu
+ * (digunakan untuk panel Deadline Terdekat, 7 Hari Ke Depan, Perlu Perhatian, dan pencarian)
+ */
+export function getRolling5HKEventsInRange(startDateStr: string, endDateStr: string): LLATEvent[] {
+  const events: LLATEvent[] = [];
+  if (!startDateStr || !endDateStr || startDateStr > endDateStr) return events;
+
+  const start = new Date(startDateStr + 'T00:00:00');
+  const end = new Date(endDateStr + 'T00:00:00');
+  
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start.getTime() > end.getTime()) {
+    return events;
+  }
+
+  const current = new Date(start);
+  while (current <= end) {
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${d}`;
+
+    const r5hk = getRolling5HKInfo(dateStr);
+    if (r5hk) {
+      events.push(createRolling5HKEvent(r5hk));
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  return events;
+}
+
 

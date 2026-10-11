@@ -16,6 +16,7 @@ import {
   Inbox
 } from 'lucide-react';
 import { LLATEvent } from '../../types/llat';
+import { getRolling5HKInfo, createRolling5HKEvent } from '../../utils/llatWorkingDaysEngine';
 import { 
   getCountdownInfo, 
   getPriorityBadge, 
@@ -76,7 +77,7 @@ export const LLATDailyAgendaView: React.FC<LLATDailyAgendaViewProps> = ({
   // Find all events due on this day (either tanggal_batas, tanggal_penerimaan, or tanggal_penyelesaian)
   // or active during this day
   const eventsForDay = useMemo(() => {
-    return events.filter(ev => {
+    const list = events.filter(ev => {
       const penDate = ev.tanggal_penerimaan || ev.tanggal_batas;
       const selDate = ev.tanggal_penyelesaian;
       const startDate = ev.tanggal_mulai;
@@ -85,7 +86,14 @@ export const LLATDailyAgendaView: React.FC<LLATDailyAgendaViewProps> = ({
       const isRunning = startDate <= selectedDate && selectedDate <= (selDate || penDate);
 
       return isDue || isRunning;
-    }).sort((a, b) => {
+    });
+
+    const r5hk = getRolling5HKInfo(selectedDate);
+    if (r5hk) {
+      list.push(createRolling5HKEvent(r5hk));
+    }
+
+    return list.sort((a, b) => {
       // Prioritize items that have cut-off today
       const aIsCutOff = (a.tanggal_penerimaan || a.tanggal_batas) === selectedDate || a.tanggal_penyelesaian === selectedDate;
       const bIsCutOff = (b.tanggal_penerimaan || b.tanggal_batas) === selectedDate || b.tanggal_penyelesaian === selectedDate;
