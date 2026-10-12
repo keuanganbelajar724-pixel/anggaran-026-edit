@@ -1194,10 +1194,10 @@ export function getMasterQuizBank(): MasterBankQuestion[] {
       safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
       return MASTER_QUIZ_BANK;
     }
-    // If stored questions are fewer than the 520 authoritative master bank, automatically merge
-    if (parsed.length < MASTER_QUIZ_BANK.length) {
-      const existingIds = new Set(parsed.map((q: any) => q.id));
-      const missing = MASTER_QUIZ_BANK.filter(q => !existingIds.has(q.id));
+    // Automatically merge any newly released official questions without losing user custom questions
+    const existingIds = new Set(parsed.map((q: any) => q.id));
+    const missing = MASTER_QUIZ_BANK.filter(q => !existingIds.has(q.id));
+    if (missing.length > 0) {
       const merged = [...parsed, ...missing].map((q, idx) => ({ ...q, number: idx + 1 }));
       safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(merged));
       return merged;

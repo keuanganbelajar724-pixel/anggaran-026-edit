@@ -2,15 +2,17 @@ import { MasterBankQuestion } from '../types/quiz';
 import { MASTER_QUIZ_BANK_PART2 } from './masterQuizBankDataPart2';
 import { MASTER_QUIZ_BANK_PART3 } from './masterQuizBankDataPart3';
 import { MASTER_QUIZ_BANK_PART4 } from './masterQuizBankDataPart4';
+import { MASTER_QUIZ_BANK_PART5 } from './masterQuizBankDataPart5';
 
 /**
- * BANK SOAL MASTER RESMI PERBENDAHARAAN & APBN KPPN SEMARANG I (2.050 BUTIR SOAL)
+ * BANK SOAL MASTER RESMI PERBENDAHARAAN & APBN KPPN SEMARANG I (2.550 BUTIR SOAL)
  * 
  * Part 1: 520 Butir Soal Master Fundamental
  * Part 2: 530 Butir Soal Pengayaan & Studi Kasus Mendalam
  * Part 3: 500 Butir Soal Lanjutan Reformulasi IKPA & Treasury Modern
  * Part 4: 500 Butir Soal Komprehensif SBM, SBSN, Hibah, TP/TGR, LLAT & Digital Treasury
- * Total: 2.050 Butir Soal Terstandarisasi
+ * Part 5: 500 Butir Soal Akuntansi Pemerintah (SAP), Bagan Akun Standar (BAS), Jurnal & MonSAKTI
+ * Total: 2.550 Butir Soal Terstandarisasi
  */
 const MASTER_QUIZ_BANK_PART1: MasterBankQuestion[] = [
   {
@@ -7819,6 +7821,7 @@ export const MASTER_QUIZ_BANK: MasterBankQuestion[] = [
   ...MASTER_QUIZ_BANK_PART1,
   ...MASTER_QUIZ_BANK_PART2,
   ...MASTER_QUIZ_BANK_PART3,
-  ...MASTER_QUIZ_BANK_PART4
+  ...MASTER_QUIZ_BANK_PART4,
+  ...MASTER_QUIZ_BANK_PART5
 ];
-export { MASTER_QUIZ_BANK_PART1, MASTER_QUIZ_BANK_PART2, MASTER_QUIZ_BANK_PART3, MASTER_QUIZ_BANK_PART4 };
+export { MASTER_QUIZ_BANK_PART1, MASTER_QUIZ_BANK_PART2, MASTER_QUIZ_BANK_PART3, MASTER_QUIZ_BANK_PART4, MASTER_QUIZ_BANK_PART5 };
