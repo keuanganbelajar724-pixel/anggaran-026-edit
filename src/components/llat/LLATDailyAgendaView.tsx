@@ -267,7 +267,7 @@ export const LLATDailyAgendaView: React.FC<LLATDailyAgendaViewProps> = ({
                     </span>
                     <div className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center justify-end gap-1">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Cut-off: {event.jam_batas || '17:00'} {event.timezone || 'WIB'}</span>
+                      <span>Cut-off: {event.jam_batas || (selectedDate.match(/^2026-(10|11)/) ? '15:00' : '17:00')} {event.timezone || 'WIB'}</span>
                     </div>
                   </div>
                 </div>

@@ -309,7 +309,7 @@ export const LLATTimelineView: React.FC<LLATTimelineViewProps> = ({
                             <div className="flex flex-wrap items-center gap-3">
                               <span className="flex items-center gap-1">
                                 <Calendar className="w-3.5 h-3.5 text-blue-500" />
-                                <span>{fullDateIndo} (Pukul {event.jam_batas || '17:00'} {event.timezone || 'WIB'})</span>
+                                <span>{fullDateIndo} (Pukul {event.jam_batas || ((event.tanggal_batas || '').match(/^2026-(10|11)/) ? '15:00' : '17:00')} {event.timezone || 'WIB'})</span>
                               </span>
                               <span className="flex items-center gap-1 font-mono text-[11px] text-slate-400">
                                 <BookOpen className="w-3.5 h-3.5 text-amber-500" />

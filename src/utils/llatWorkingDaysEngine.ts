@@ -622,6 +622,8 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
     kategori = 'Kontrak & BAST';
   }
 
+  const defaultJam = (isOct || isNov) ? '15:00' : '17:00';
+
   return {
     llat_id: `rolling-5hk-${r5hk.dateStr}`,
     tahun_anggaran: 2026,
@@ -631,7 +633,7 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
     deskripsi: r5hk.description,
     tanggal_mulai: r5hk.sourceDateStr,
     tanggal_batas: r5hk.dateStr,
-    jam_batas: '17:00',
+    jam_batas: defaultJam,
     timezone: 'WIB',
     status: 'HARI_INI',
     status_mode: 'AUTO',
@@ -639,7 +641,7 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
     target_pengguna: ['SEMUA_SATKER', 'PPK', 'PPSPM'],
     dasar_hukum: r5hk.pasal,
     nomor_peraturan: 'PER-9/PB/2026',
-    catatan: `Klausul batas waktu 5 hari kerja (H+5 HK). Tanggal penerbitan dokumen acuan: ${r5hk.sourceDateFormatted}. Batas pengajuan ke KPPN Semarang I: ${r5hk.dateStr} pukul 17:00 WIB (Plafon mutlak: ${r5hk.hardCutOffFormatted}).`,
+    catatan: `Klausul batas waktu 5 hari kerja (H+5 HK). Tanggal penerbitan dokumen acuan: ${r5hk.sourceDateFormatted}. Batas pengajuan ke KPPN Semarang I: ${r5hk.dateStr} pukul ${defaultJam} WIB (Plafon mutlak: ${r5hk.hardCutOffFormatted}).`,
     urutan: 999,
     is_active: true,
     publikasi: 'PUBLISHED',
@@ -648,11 +650,11 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
     jenis_dokumen: jenisDokumen,
     jenis_tenggat: 'Batas Diterima KPPN',
     tanggal_tenggat: r5hk.dateStr,
-    jam_tenggat: '17:00',
+    jam_tenggat: defaultJam,
     tanggal_penerimaan: r5hk.dateStr,
-    jam_penerimaan: '17:00',
+    jam_penerimaan: defaultJam,
     tanggal_penyelesaian: r5hk.dateStr,
-    jam_penyelesaian: '17:00',
+    jam_penyelesaian: defaultJam,
     ketentuan_waktu: 'HARI_KERJA',
     is_tanggal_pasti: true,
     status_verifikasi: 'TERVERIFIKASI',

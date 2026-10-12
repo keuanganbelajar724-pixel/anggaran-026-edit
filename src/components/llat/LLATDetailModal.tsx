@@ -51,6 +51,8 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
   const deadlineType = getDeadlineTypeBadge(event.jenis_tenggat);
   const completion = getCompletionBadge(event.status_penyelesaian);
   const rolling5HKInfo = event.tanggal_batas ? getRolling5HKInfo(event.tanggal_batas) : null;
+  const isOctNov = Boolean((event.tanggal_batas || event.tanggal_tenggat || event.tanggal_penerimaan || '').match(/^2026-(10|11)/));
+  const fallbackJam = isOctNov ? '15:00' : '17:00';
 
   // Format date readable
   const formatDateIndo = (dateStr?: string) => {
@@ -146,7 +148,7 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
                 {formatDateIndo(event.tanggal_penerimaan || event.tanggal_batas)}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Pukul {event.jam_penerimaan || event.jam_batas || '17:00'} {event.timezone || 'WIB'}
+                Pukul {event.jam_penerimaan || event.jam_batas || fallbackJam} {event.timezone || 'WIB'}
               </p>
             </div>
 
@@ -159,7 +161,7 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
                 {formatDateIndo(event.tanggal_penyelesaian || event.tanggal_batas)}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Pukul {event.jam_penyelesaian || event.jam_batas || '17:00'} {event.timezone || 'WIB'}
+                Pukul {event.jam_penyelesaian || event.jam_batas || fallbackJam} {event.timezone || 'WIB'}
               </p>
             </div>
           </div>
@@ -366,7 +368,7 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
             <div className="p-2.5 rounded-lg bg-white/80 dark:bg-slate-900/60 border border-emerald-200/60 dark:border-emerald-900/60 font-mono text-[11px] text-emerald-900 dark:text-emerald-200 space-y-1">
               <div><span className="text-slate-400">Metode: </span><span className="font-bold text-emerald-700 dark:text-emerald-300">{event.jenis_penentuan_tanggal || (event.ketentuan_waktu === 'HARI_KERJA' ? 'HARI_KERJA' : 'TANGGAL_TETAP')}</span></div>
               <div><span className="text-slate-400">Formula: </span><span className="font-bold text-slate-800 dark:text-slate-200">{event.rumus_penentuan || 'tanggal_agenda = tanggal_tetap_peraturan'}</span></div>
-              <div><span className="text-slate-400">Hasil Sistem: </span><span className="font-bold text-indigo-600 dark:text-indigo-400">{event.hasil_perhitungan_sistem || event.tanggal_batas || event.tanggal_penerimaan} ({event.jam_batas || '17:00'} WIB)</span></div>
+              <div><span className="text-slate-400">Hasil Sistem: </span><span className="font-bold text-indigo-600 dark:text-indigo-400">{event.hasil_perhitungan_sistem || event.tanggal_batas || event.tanggal_penerimaan} ({event.jam_batas || fallbackJam} WIB)</span></div>
             </div>
             {event.konsekuensi_keterlambatan && (
               <div className="pt-1 text-[11px] text-rose-700 dark:text-rose-300">

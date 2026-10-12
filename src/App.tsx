@@ -3038,7 +3038,25 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length >= 25 && parsed.some((e: any) => e.file_sumber)) {
-          return parsed;
+          // Migrasi jam batas 15:00 untuk Oktober & November jika masih tersimpan 17:00 di browser user
+          const migrated = parsed.map((e: any) => {
+            const d = e.tanggal_batas || e.tanggal_tenggat || e.tanggal_penerimaan || '';
+            if (d.startsWith('2026-10') || d.startsWith('2026-11')) {
+              if (e.jam_batas === '17:00' || e.jam_tenggat === '17:00' || e.jam_penerimaan === '17:00') {
+                return {
+                  ...e,
+                  jam_batas: '15:00',
+                  jam_tenggat: '15:00',
+                  jam_penerimaan: '15:00',
+                  jam_penyelesaian: '15:00',
+                  kutipan_sumber: e.kutipan_sumber?.replace(/pukul 17:00 WIB/g, 'pukul 15:00 WIB'),
+                  hasil_perhitungan_sistem: e.hasil_perhitungan_sistem?.replace(/\(17:00 WIB\)/g, '(15:00 WIB)')
+                };
+              }
+            }
+            return e;
+          });
+          return migrated;
         }
       } catch (e) {
         console.warn('Error parsing saved LLAT events:', e);

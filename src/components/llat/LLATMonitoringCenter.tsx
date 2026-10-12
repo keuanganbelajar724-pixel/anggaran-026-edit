@@ -113,6 +113,13 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   }, []);
 
   // Compute live dynamic status for every event
+  const getEventHour = (ev: { jam_batas?: string; tanggal_batas?: string; tanggal_tenggat?: string }) => {
+    if (ev.jam_batas) return ev.jam_batas;
+    const d = ev.tanggal_batas || ev.tanggal_tenggat || '';
+    if (d.startsWith('2026-10') || d.startsWith('2026-11')) return '15:00';
+    return '17:00';
+  };
+
   const eventsWithLiveStatus = useMemo(() => {
     return events.map((ev) => {
       const liveStatus = calculateEventStatus(ev);
@@ -751,7 +758,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                       isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
                     }`}>
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Batas: Pukul {ev.jam_batas || '17:00'} {ev.timezone || 'WIB'}</span>
+                      <span>Batas: Pukul {getEventHour(ev)} {ev.timezone || 'WIB'}</span>
                     </div>
 
                     <span className={`inline-flex items-center gap-1 font-bold group-hover:translate-x-1 transition-transform ${
@@ -875,7 +882,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                   <div className="pt-2 border-t border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                       <Clock className="w-3.5 h-3.5" />
-                      <span>Pukul {ev.jam_batas || '17:00'} {ev.timezone || 'WIB'}</span>
+                      <span>Pukul {getEventHour(ev)} {ev.timezone || 'WIB'}</span>
                     </div>
 
                     <button
@@ -963,7 +970,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                           </span>
                         )}
                         <span className="text-slate-400">•</span>
-                        <span className="text-slate-500 font-mono">Pukul {ev.jam_batas || '17:00'}</span>
+                        <span className="text-slate-500 font-mono">Pukul {getEventHour(ev)}</span>
                         <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${priority.badgeClass}`}>
                           {priority.label}
                         </span>
@@ -1054,7 +1061,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                         {ev.nama_kegiatan}
                       </p>
                       <p className="text-[11px] text-slate-500 truncate">
-                        Tenggat: {targetDate || 'Aturan Relatif'} • Pukul {ev.jam_batas || '17:00'}
+                        Tenggat: {targetDate || 'Aturan Relatif'} • Pukul {getEventHour(ev)}
                       </p>
                     </div>
 

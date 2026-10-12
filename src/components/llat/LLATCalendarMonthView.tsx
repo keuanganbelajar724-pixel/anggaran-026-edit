@@ -169,6 +169,13 @@ function getCategoryColor(category: string): {
   };
 }
 
+const getEventJam = (ev: LLATEvent): string => {
+  if (ev.jam_batas) return ev.jam_batas;
+  const d = ev.tanggal_batas || ev.tanggal_tenggat || ev.tanggal_penerimaan || '';
+  if (d.startsWith('2026-10') || d.startsWith('2026-11')) return '15:00';
+  return '17:00';
+};
+
 export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
   events,
   allEvents,
@@ -409,7 +416,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
             dateStr: batasDate,
             type: 'PENERIMAAN',
             stageLabel: '📥 BATAS PENGAJUAN / PENERIMAAN KPPN',
-            timeStr: ev.jam_batas ? `Pukul ${ev.jam_batas} WIB` : 'Pukul 17:00 WIB',
+            timeStr: `Pukul ${getEventJam(ev)} WIB`,
             title: ev.nama_kegiatan,
             description: ev.deskripsi,
             dasarHukum: ev.dasar_hukum,
@@ -1112,7 +1119,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       {hoverData.items.slice(0, 3).map((it, idx) => (
                         <span key={idx} className="bg-white/10 px-2 py-0.5 rounded text-[11px] font-semibold border border-white/15">
                           <strong className="text-amber-300 font-mono mr-1">[{it.event.kode_kegiatan}]</strong>
-                          {it.event.nama_kegiatan} (Pukul {it.event.jam_batas || '17:00'} WIB)
+                          {it.event.nama_kegiatan} (Pukul {getEventJam(it.event)} WIB)
                         </span>
                       ))}
                       {hoverData.items.length > 3 && (
@@ -1479,8 +1486,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                             : (rolling5HKInfo.isDecember
                               ? `${rolling5HKInfo.hardCutOffFormatted} • KPPN 17:00`
                               : (rolling5HKInfo.isNovember 
-                                ? 'Pkl 17:00 • Pendaftaran Kontrak' 
-                                : 'Pkl 17:00 • Batas Kontrak & LS'))}
+                                ? 'Pkl 15:00 • Pendaftaran Kontrak' 
+                                : 'Pkl 15:00 • Batas Kontrak & LS'))}
                         </div>
                       </div>
                     </div>
@@ -1785,8 +1792,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       </div>
                       <div className="text-sm font-black text-amber-300 font-mono mt-0.5">
                         {hoverData.rolling5HK.dateStr === hoverData.rolling5HK.hardCutOffDateStr
-                          ? 'Hari Ini Batas Mutlak (17:00)'
-                          : 'Hari ini (Pkl 17:00 WIB)'}
+                          ? `Hari Ini Batas Mutlak (${(hoverData.rolling5HK.isOctober || hoverData.rolling5HK.isNovember) ? '15:00' : '17:00'})`
+                          : `Hari ini (Pkl ${(hoverData.rolling5HK.isOctober || hoverData.rolling5HK.isNovember) ? '15:00' : '17:00'} WIB)`}
                       </div>
                     </div>
                   </div>
@@ -1864,7 +1871,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           {/* Jam batas pill */}
                           <span className="font-mono text-xs text-amber-300 font-black flex items-center gap-1 bg-amber-950/80 px-2.5 py-0.5 rounded-lg border border-amber-500/50 shadow-xs">
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Pukul {it.event.jam_batas || '17:00'} {it.event.timezone || 'WIB'}</span>
+                            <span>Pukul {getEventJam(it.event)} {it.event.timezone || 'WIB'}</span>
                           </span>
                         </div>
 
@@ -1881,7 +1888,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           <div className="p-2 rounded-lg bg-emerald-950/70 border border-emerald-500/50 text-[11px] text-emerald-200 flex items-center justify-between">
                             <span>📌 <strong>Batas Akhir Penerimaan di KPPN:</strong></span>
                             <span className="font-mono font-black text-amber-300 bg-black/40 px-2 py-0.5 rounded border border-amber-500/40">
-                              {formatShortDateID(it.event.tanggal_batas)} (Pkl {it.event.jam_batas || '17:00'} WIB)
+                              {formatShortDateID(it.event.tanggal_batas)} (Pkl {getEventJam(it.event)} WIB)
                             </span>
                           </div>
                         )}
@@ -1933,8 +1940,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         {hoverData.rolling5HK.isDecember
                           ? hoverData.rolling5HK.description
                           : hoverData.rolling5HK.isNovember
-                          ? `Hari kerja ini merupakan batas akhir penyampaian pendaftaran Kontrak yang ditandatangani tanggal ${hoverData.rolling5HK.sourceDateFormatted} ke KPPN (Pasal 6 ayat 3).`
-                          : `Hari kerja ini merupakan batas akhir penyampaian Kontrak dan SPM-LS untuk BAST tanggal ${hoverData.rolling5HK.sourceDateFormatted} (Pukul 17:00 WIB).`}
+                          ? `Hari kerja ini merupakan batas akhir penyampaian pendaftaran Kontrak yang ditandatangani tanggal ${hoverData.rolling5HK.sourceDateFormatted} ke KPPN pukul 15:00 WIB (Pasal 6 ayat 3).`
+                          : `Hari kerja ini merupakan batas akhir penyampaian Kontrak dan SPM-LS untuk BAST tanggal ${hoverData.rolling5HK.sourceDateFormatted} (Pukul 15:00 WIB).`}
                       </p>
                     </>
                   ) : !hoverData.holidayName ? (
@@ -2054,7 +2061,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
 
                 <div className="text-right">
                   <span className="text-xs font-mono font-black px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-400/40">
-                    Pukul 17:00 WIB
+                    Pukul {(selectedDateEvents.rolling5HK.isOctober || selectedDateEvents.rolling5HK.isNovember) ? '15:00' : '17:00'} WIB
                   </span>
                 </div>
               </div>
@@ -2122,7 +2129,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       : '⏳ Batas Akhir (H+5 HK)'}
                   </div>
                   <div className="text-sm font-black text-amber-600 dark:text-amber-300 font-mono mt-0.5">
-                    Hari Ini (17:00 WIB)
+                    Hari Ini ({(selectedDateEvents.rolling5HK.isOctober || selectedDateEvents.rolling5HK.isNovember) ? '15:00' : '17:00'} WIB)
                   </div>
                   <div className="text-[11px] text-amber-800 dark:text-amber-200 font-medium mt-1">
                     {selectedDateEvents.rolling5HK.isFixedDateCutOff 
@@ -2199,11 +2206,11 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                       </>
                     ) : selectedDateEvents.rolling5HK.isNovember ? (
                       <>
-                        Jika Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pendaftarannya ke KPPN adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> pukul 17:00 WIB ({selectedDateEvents.rolling5HK.pasal}). <em>(Batas SPM BAST November adalah gelondongan tanggal 20 Nov & 7 Des)</em>.
+                        Jika Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pendaftarannya ke KPPN adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> pukul 15:00 WIB ({selectedDateEvents.rolling5HK.pasal}). <em>(Batas SPM BAST November adalah gelondongan tanggal 20 Nov & 7 Des)</em>.
                       </>
                     ) : (
                       <>
-                        Jika BAST / Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 17:00 WIB).
+                        Jika BAST / Kontrak ditandatangani <strong>HARI INI ({formatShortDateID(selectedDateEvents.dateStr)})</strong>: Batas pengajuannya adalah <strong>{selectedDateEvents.rolling5HK.forwardDeadlineFormatted}</strong> (Pukul 15:00 WIB).
                       </>
                     )}
                   </span>
@@ -2281,7 +2288,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 font-mono font-bold text-slate-600 dark:text-slate-300">
                         <Clock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>Pukul {item.event.jam_batas || '17:00'} {item.event.timezone || 'WIB'}</span>
+                        <span>Pukul {getEventJam(item.event)} {item.event.timezone || 'WIB'}</span>
                       </div>
 
                       <button

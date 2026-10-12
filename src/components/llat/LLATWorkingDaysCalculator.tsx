@@ -182,7 +182,7 @@ export const LLATWorkingDaysCalculator: React.FC<LLATWorkingDaysCalculatorProps>
                   {result.targetDateStr}
                 </span>
                 <span className="block text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Pukul 17:00 WIB (Batas Akhir Jam Layanan)
+                  Pukul {(result.targetDateStr.startsWith('2026-10') || result.targetDateStr.startsWith('2026-11')) ? '15:00' : '17:00'} WIB (Batas Akhir Jam Layanan)
                 </span>
               </div>
 

@@ -307,7 +307,7 @@ export const LLATListView: React.FC<LLATListViewProps> = ({
                       </div>
                       <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <Clock className="w-3 h-3" />
-                        <span>{event.jam_batas || '17:00'} {event.timezone || 'WIB'}</span>
+                        <span>{event.jam_batas || ((event.tanggal_batas || '').match(/^2026-(10|11)/) ? '15:00' : '17:00')} {event.timezone || 'WIB'}</span>
                       </div>
                       <span className={`inline-block mt-1 text-[9px] font-black px-1.5 py-0.2 rounded ${priority.badgeClass}`}>
                         {priority.label}

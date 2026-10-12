@@ -315,7 +315,7 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                           }`}>
                             <span className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {item.event.jam_batas || '17:00'}
+                              {item.event.jam_batas || (wd.dateStr.match(/^2026-(10|11)/) ? '15:00' : '17:00')}
                             </span>
                             <span className={`font-bold group-hover:underline ${
                               isRolling5HK ? 'text-amber-900 dark:text-amber-200' : 'text-indigo-600 dark:text-indigo-400'
