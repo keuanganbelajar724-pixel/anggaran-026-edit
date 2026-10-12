@@ -22,7 +22,7 @@ export const LLATWorkingDaysCalculator: React.FC<LLATWorkingDaysCalculatorProps>
   };
   const targetHoliday = isHoliday(result.targetDateStr);
 
-  const setPreset = (type: 'KONTRAK' | 'SPM_GAJI' | 'KOREKSI_RETUR') => {
+  const setPreset = (type: 'KONTRAK' | 'SPM_GAJI' | 'KOREKSI_RETUR' | 'SPM_DITOLAK') => {
     if (type === 'KONTRAK') {
       setRuleType('KONTRAK');
       setWorkingDays(5);
@@ -36,6 +36,11 @@ export const LLATWorkingDaysCalculator: React.FC<LLATWorkingDaysCalculatorProps>
     } else if (type === 'KOREKSI_RETUR') {
       setRuleType('CUSTOM');
       setWorkingDays(7);
+      setDirection('SESUDAH');
+      setIncludeRefDate(false);
+    } else if (type === 'SPM_DITOLAK') {
+      setRuleType('SPM');
+      setWorkingDays(2);
       setDirection('SESUDAH');
       setIncludeRefDate(false);
     }
@@ -82,6 +87,12 @@ export const LLATWorkingDaysCalculator: React.FC<LLATWorkingDaysCalculatorProps>
             className="px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-[11px] font-bold transition-colors"
           >
             Retur (+7 HK)
+          </button>
+          <button
+            onClick={() => setPreset('SPM_DITOLAK')}
+            className="px-2.5 py-1 rounded-lg bg-rose-500/30 hover:bg-rose-500/50 text-[11px] font-extrabold text-rose-200 border border-rose-400/40 transition-colors"
+          >
+            SPM Ditolak (+2 HK)
           </button>
         </div>
       </div>

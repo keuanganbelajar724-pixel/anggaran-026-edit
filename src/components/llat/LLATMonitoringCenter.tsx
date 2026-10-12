@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -56,6 +56,7 @@ import { LLATTimelineView } from './LLATTimelineView';
 import { LLATDetailModal } from './LLATDetailModal';
 import { LLATExportPdfModal } from './LLATExportPdfModal';
 import { LLATWorkingDaysCalculator } from './LLATWorkingDaysCalculator';
+import { LLATRejectedSpmModal } from './LLATRejectedSpmModal';
 import { getRolling5HKInfo, createRolling5HKEvent, getRolling5HKEventsInRange } from '../../utils/llatWorkingDaysEngine';
 import { Calculator } from 'lucide-react';
 
@@ -99,6 +100,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   // Modals
   const [selectedDetailEvent, setSelectedDetailEvent] = useState<LLATEvent | null>(null);
   const [isExportPdfOpen, setIsExportPdfOpen] = useState<boolean>(false);
+  const [isRejectedSpmModalOpen, setIsRejectedSpmModalOpen] = useState<boolean>(false);
 
   // Available Years
   const availableYears = useMemo(() => {
@@ -204,17 +206,19 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
     });
   }, [accessibleEvents, selectedYear, onlyToday, categoryFilter, statusFilter, priorityFilter, targetFilter, searchQuery, todayStr]);
 
+  const isRelevantForYear = useCallback((e: LLATEvent) => {
+    return (
+      e.tahun_anggaran === selectedYear ||
+      e.tahun_kalender_tenggat === selectedYear ||
+      (Boolean(e.tanggal_batas) && e.tanggal_batas.startsWith(String(selectedYear))) ||
+      (Boolean(e.tanggal_penerimaan) && e.tanggal_penerimaan.startsWith(String(selectedYear))) ||
+      (Boolean(e.tanggal_penyelesaian) && e.tanggal_penyelesaian.startsWith(String(selectedYear)))
+    );
+  }, [selectedYear]);
+
   // 8 STATISTICAL SUMMARY CARDS (Section D of User Requirements)
   const dynamicKpiStats = useMemo(() => {
-    const yearEvents = accessibleEvents.filter((e) => {
-      return (
-        e.tahun_anggaran === selectedYear ||
-        e.tahun_kalender_tenggat === selectedYear ||
-        (e.tanggal_batas && e.tanggal_batas.startsWith(String(selectedYear))) ||
-        (e.tanggal_penerimaan && e.tanggal_penerimaan.startsWith(String(selectedYear))) ||
-        (e.tanggal_penyelesaian && e.tanggal_penyelesaian.startsWith(String(selectedYear)))
-      );
-    });
+    const yearEvents = accessibleEvents.filter(isRelevantForYear);
 
     const r5hkToday = selectedYear === 2026 ? getRolling5HKInfo(todayStr) : null;
     const count5HKToday = r5hkToday ? 1 : 0;
@@ -290,7 +294,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   const todayDeadlines = useMemo(() => {
     const list = accessibleEvents
       .filter((e) => {
-        if (e.tahun_anggaran !== selectedYear) return false;
+        if (!isRelevantForYear(e)) return false;
         const pen = e.tanggal_penerimaan || e.tanggal_batas;
         return pen === todayStr || e.tanggal_penyelesaian === todayStr;
       });
@@ -314,7 +318,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
   const upcomingDeadlines = useMemo(() => {
     const list = accessibleEvents
       .filter((e) => {
-        if (e.tahun_anggaran !== selectedYear) return false;
+        if (!isRelevantForYear(e)) return false;
         const d = e.tanggal_penerimaan || e.tanggal_batas;
         return d && d >= todayStr && e.is_tanggal_pasti !== false && e.status_penyelesaian !== 'SELESAI';
       });
@@ -351,7 +355,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
 
     const list = accessibleEvents
       .filter((e) => {
-        if (e.tahun_anggaran !== selectedYear) return false;
+        if (!isRelevantForYear(e)) return false;
         const d = e.tanggal_penerimaan || e.tanggal_batas;
         return d && d >= todayStr && d <= d7DaysStr && e.is_tanggal_pasti !== false && e.status_penyelesaian !== 'SELESAI';
       });
@@ -566,6 +570,16 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                 <span>Lihat Tenggat Terdekat</span>
               </button>
 
+              {/* Button Batas SPM Ditolak PER-9/PB/2026 */}
+              <button
+                type="button"
+                onClick={() => setIsRejectedSpmModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs transition-colors shadow-md flex items-center gap-1.5"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>Batas SPM Ditolak</span>
+              </button>
+
               {/* Admin Manage button if logged in */}
               {isAdminAuthenticated && onGoToAdmin && (
                 <button
@@ -698,13 +712,16 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               const priority = getPriorityBadge(ev.prioritas);
               const isPenerimaan = (ev.tanggal_penerimaan || ev.tanggal_batas) === todayStr;
               const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
+              const isRejectedSpm = ev.llat_id.includes('reject') || (ev.kategori || '').toLowerCase().includes('ditolak');
 
               return (
                 <div
                   key={ev.llat_id}
                   onClick={() => setSelectedDetailEvent(ev)}
                   className={`p-4 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs ${
-                    isRolling5HK
+                    isRejectedSpm
+                      ? 'border-red-500 dark:border-red-600 bg-red-50/90 dark:bg-red-950/40 hover:bg-red-100/90 shadow-red-200/50'
+                      : isRolling5HK
                       ? 'border-amber-400 dark:border-amber-600/90 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100/70 dark:hover:bg-amber-900/40'
                       : 'border-rose-300 dark:border-rose-800/80 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100/60 dark:hover:bg-rose-900/30'
                   }`}
@@ -712,11 +729,15 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className={`font-mono text-xs font-black px-2 py-0.5 rounded ${
-                        isRolling5HK ? 'bg-amber-600 text-white' : 'bg-rose-600 text-white'
+                        isRejectedSpm ? 'bg-red-700 text-white shadow-xs' : isRolling5HK ? 'bg-amber-600 text-white' : 'bg-rose-600 text-white'
                       }`}>
                         {ev.kode_kegiatan}
                       </span>
-                      {isRolling5HK ? (
+                      {isRejectedSpm ? (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-red-600 text-white flex items-center gap-1 shadow-xs animate-pulse">
+                          🚨 Batas SPM Ditolak ({ev.no_pasal || 'Pasal 19'})
+                        </span>
+                      ) : isRolling5HK ? (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-100 border border-amber-400 dark:border-amber-700 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                           ⚡ Klausul 5 Hari Kerja (H+5)
@@ -732,7 +753,9 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                     </div>
 
                     <h3 className={`text-sm font-black transition-colors leading-snug ${
-                      isRolling5HK
+                      isRejectedSpm
+                        ? 'text-red-950 dark:text-red-100 group-hover:text-red-700 dark:group-hover:text-red-300'
+                        : isRolling5HK
                         ? 'text-slate-900 dark:text-white group-hover:text-amber-700 dark:group-hover:text-amber-400'
                         : 'text-slate-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400'
                     }`}>
@@ -752,17 +775,21 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                   </div>
 
                   <div className={`pt-2 border-t flex items-center justify-between text-xs ${
-                    isRolling5HK ? 'border-amber-200 dark:border-amber-800/60' : 'border-rose-200/80 dark:border-rose-800/60'
+                    isRejectedSpm
+                      ? 'border-red-200 dark:border-red-800/60'
+                      : isRolling5HK 
+                      ? 'border-amber-200 dark:border-amber-800/60' 
+                      : 'border-rose-200/80 dark:border-rose-800/60'
                   }`}>
                     <div className={`flex items-center gap-1 font-black ${
-                      isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
+                      isRejectedSpm ? 'text-red-700 dark:text-red-300' : isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
                     }`}>
                       <Clock className="w-3.5 h-3.5" />
                       <span>Batas: Pukul {getEventHour(ev)} {ev.timezone || 'WIB'}</span>
                     </div>
 
                     <span className={`inline-flex items-center gap-1 font-bold group-hover:translate-x-1 transition-transform ${
-                      isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
+                      isRejectedSpm ? 'text-red-700 dark:text-red-300' : isRolling5HK ? 'text-amber-800 dark:text-amber-300' : 'text-rose-700 dark:text-rose-300'
                     }`}>
                       <span>Lihat Detail</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -785,6 +812,111 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
             </div>
           </div>
         )}
+      </div>
+
+      {/* ============================================================== */}
+      {/* 2.5 PANEL NOTIFIKASI KHUSUS: BATAS SPM DITOLAK (PER-9/PB/2026) */}
+      {/* ============================================================== */}
+      <div className="bg-gradient-to-br from-rose-50 via-red-50/70 to-amber-50/80 dark:from-rose-950/40 dark:via-red-950/30 dark:to-slate-900 rounded-3xl border-2 border-red-300/80 dark:border-red-800/80 p-5 sm:p-6 shadow-md space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-red-200/80 dark:border-red-800/60 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black shadow-md">
+              <ShieldAlert className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black text-red-950 dark:text-white tracking-tight">
+                  🚨 MONITORING BATAS WAKTU SPM DITOLAK (PER-9/PB/2026)
+                </h2>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-600 text-white shadow-xs">
+                  Pasal 9, 12, 15, 17, 19, 24, 28
+                </span>
+              </div>
+              <p className="text-xs text-red-900/80 dark:text-red-200/80 mt-0.5">
+                Pengaturan resmi tenggat perbaikan SPM yang ditolak KPPN agar Satker tidak terlewat batas waktu dan SPM tidak ditolak permanen.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsRejectedSpmModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-black shadow-md flex items-center gap-1.5 transition-all cursor-pointer hover:scale-102"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Buka Kalkulator &amp; Matriks SPM Ditolak</span>
+          </button>
+        </div>
+
+        {/* Highlight Contoh Kasus & Aturan Regulasi PER-9/PB/2026 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-red-200 dark:border-red-900/60 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-200">
+                PASAL 19 (OKTOBER)
+              </span>
+              <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400">Pukul 15:00 WIB</span>
+            </div>
+            <h4 className="text-xs font-black text-slate-900 dark:text-white">
+              SPM BAST Kontraktual Oktober
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              • BAST s.d. 30 Sept ditolak 9 Okt ➔ Batas pengajuan: <strong>Selasa, 13 Okt 2026</strong><br/>
+              • BAST 5 Okt ditolak 12 Okt ➔ Batas pengajuan: <strong>Rabu, 14 Okt 2026</strong><br/>
+              • BAST 6–23 Okt ➔ Paling lambat <strong>2 Hari Kerja berikutnya</strong> dengan bukti penolakan KPPN.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-red-200 dark:border-red-900/60 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
+                PASAL 24 (UP / TUP / GUP)
+              </span>
+              <span className="text-[10px] font-extrabold text-rose-600 dark:text-rose-400">Bukti Wajib</span>
+            </div>
+            <h4 className="text-xs font-black text-slate-900 dark:text-white">
+              TUP Tunai &amp; UP / GUP
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              • SPM-TUP Tunai: perbaikan diterima KPPN paling lambat <strong>16 Nov 2026 (15:00 WIB)</strong>.<br/>
+              • SPM-UP/GUP ditolak s.d. 7 Des: <strong>2 HK berikutnya</strong>.<br/>
+              • Ditolak 8 Des ➔ Maks <strong>9 Des (1 HK)</strong>; Ditolak 9 Des ➔ Maks <strong>10 Des (1 HK)</strong>.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-red-200 dark:border-red-900/60 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-200">
+                PASAL 9, 12, 15, 28
+              </span>
+              <span className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400">Pukul 17:00 WIB</span>
+            </div>
+            <h4 className="text-xs font-black text-slate-900 dark:text-white">
+              Gaji, Tukin, Nonkontrak &amp; Nihil
+            </h4>
+            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+              • SPM-PTUP ditolak: Paling lambat <strong>16 Des 2026</strong>.<br/>
+              • SPM Tukin Jan ditolak 18 Des ➔ <strong>21 Des</strong>; ditolak 21 Des ➔ <strong>22 Des (1 HK)</strong>.<br/>
+              • SPM-GUP Nihil ditolak: <strong>1 Hari Kerja berikutnya</strong>, maks <strong>12 Jan 2027</strong>.
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-rose-50 to-amber-50 dark:from-rose-950/40 dark:to-amber-950/40 border-2 border-rose-400 dark:border-rose-700/80 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] font-black px-2 py-0.5 rounded bg-rose-600 text-white animate-pulse">
+                ⚡ ATURAN DESEMBER
+              </span>
+              <span className="text-[10px] font-extrabold text-rose-700 dark:text-rose-300">1 HK vs 2 HK</span>
+            </div>
+            <h4 className="text-xs font-black text-rose-950 dark:text-white">
+              Batas Akhir Tahun Anggaran
+            </h4>
+            <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
+              • <strong>Bisa 2 HK:</strong> BAST 1–7 Des (ditolak 9 Des ➔ 11 Des), BAST 8–14 Des (ditolak 16 Des ➔ 18 Des), BAST 19–23 Des (ditolak 28 Des ➔ 30 Des).<br/>
+              • <strong>Wajib 1 HK:</strong> UP/GUP (ditolak 8 &amp; 9 Des), Gaji (ditolak 14 &amp; 28 Des), Tukin (ditolak 21 Des), SPM ditolak 29 Des ➔ 30 Des, ditolak 30 Des ➔ <strong>31 Des (Maks 17:00 WIB)</strong>.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ============================================================== */}
@@ -825,26 +957,33 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                 year: 'numeric'
               });
               const isRolling5HK = ev.llat_id.startsWith('rolling-5hk-');
+              const isRejectedSpm = ev.llat_id.includes('reject') || (ev.kategori || '').toLowerCase().includes('ditolak');
 
               return (
                 <div
                   key={`upcoming-${ev.llat_id}`}
                   onClick={() => setSelectedDetailEvent(ev)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs ${
-                    isRolling5HK
+                  className={`p-4 rounded-2xl border-2 transition-all cursor-pointer group flex flex-col justify-between space-y-3 shadow-xs ${
+                    isRejectedSpm
+                      ? 'border-red-400 dark:border-red-600/80 bg-red-50/60 dark:bg-red-950/30 hover:border-red-600 hover:bg-red-50/80 shadow-red-100/40'
+                      : isRolling5HK
                       ? 'border-amber-300 dark:border-amber-600/70 bg-amber-50/40 dark:bg-amber-950/20 hover:border-amber-500 hover:bg-amber-50/60'
                       : 'border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500 bg-slate-50/60 dark:bg-slate-800/40 hover:bg-amber-50/30 dark:hover:bg-amber-950/20'
                   }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <span className={`font-bold text-xs flex items-center gap-1 ${
+                        isRejectedSpm ? 'text-red-700 dark:text-red-400 font-black' : 'text-amber-700 dark:text-amber-400'
+                      }`}>
                         <CalendarIcon className="w-3.5 h-3.5" />
                         <span>{formattedDate}</span>
                       </span>
 
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black font-mono ${
-                        isRolling5HK
+                        isRejectedSpm
+                          ? 'bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-300 ring-1 ring-red-400'
+                          : isRolling5HK
                           ? 'bg-amber-200 dark:bg-amber-900 text-amber-950 dark:text-amber-200'
                           : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300'
                       }`}>
@@ -853,7 +992,11 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {isRolling5HK ? (
+                      {isRejectedSpm ? (
+                        <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded bg-red-600 text-white shadow-xs flex items-center gap-1 animate-pulse">
+                          🚨 SPM Ditolak ({ev.no_pasal || 'Pasal 19'})
+                        </span>
+                      ) : isRolling5HK ? (
                         <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded bg-amber-500 text-slate-950 shadow-xs flex items-center gap-1">
                           ⚡ 5 HK
                         </span>
@@ -1294,6 +1437,16 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               <Calculator className="w-4 h-4 text-emerald-500" />
               <span>Mesin Hitung Hari Kerja</span>
             </button>
+
+            {/* Tombol Tab Cepat: Batas SPM Ditolak */}
+            <button
+              type="button"
+              onClick={() => setIsRejectedSpmModalOpen(true)}
+              className="px-3 py-2 rounded-lg transition-all flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/80 font-black text-xs"
+            >
+              <ShieldAlert className="w-4 h-4 text-rose-600 animate-pulse" />
+              <span>Batas SPM Ditolak (Pasal 9–28)</span>
+            </button>
           </div>
 
           {/* Quick PDF & Reset Toolbar */}
@@ -1487,6 +1640,21 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
           onClose={() => setIsExportPdfOpen(false)}
         />
       )}
+
+      {/* REJECTED SPM MODAL PER-9/PB/2026 */}
+      <LLATRejectedSpmModal
+        isOpen={isRejectedSpmModalOpen}
+        onClose={() => setIsRejectedSpmModalOpen(false)}
+        onSelectDate={(dateStr) => {
+          const parts = dateStr.split('-');
+          if (parts.length === 3) {
+            setSelectedYear(parseInt(parts[0], 10));
+            setSelectedMonth(parseInt(parts[1], 10) - 1);
+            setViewMode('calendar');
+            setSearchQuery(dateStr);
+          }
+        }}
+      />
     </div>
   );
 };

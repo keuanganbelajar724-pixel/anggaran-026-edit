@@ -1,6 +1,14 @@
 import { LLATEvent, LLATCategory } from '../types/llat';
+import { generateRejectedSpmLlatEvents } from '../utils/llatRejectedSpmEngine';
 
 export const DEFAULT_LLAT_CATEGORIES: LLATCategory[] = [
+  {
+    "id": "cat-spm-ditolak",
+    "nama": "Batas Pengajuan Kembali SPM Ditolak",
+    "deskripsi": "Ketentuan batas waktu pengajuan kembali perbaikan SPM yang ditolak KPPN (Pasal 9, 12, 15, 17, 19, 24, 28 PER-9/PB/2026)",
+    "warna": "#dc2626",
+    "is_active": true
+  },
   {
     "id": "cat-retur",
     "nama": "Penyelesaian Retur dan Ketentuan Lain-Lain",
@@ -178,7 +186,7 @@ export const DEFAULT_LLAT_CATEGORIES: LLATCategory[] = [
   }
 ];
 
-export const DEFAULT_LLAT_EVENTS: LLATEvent[] = [
+const BASE_DEFAULT_LLAT_EVENTS: LLATEvent[] = [
   {
     "llat_id": "llat-2026-001",
     "tahun_anggaran": 2026,
@@ -7466,4 +7474,9 @@ export const DEFAULT_LLAT_EVENTS: LLATEvent[] = [
     "konsekuensi_keterlambatan": "Kepadatan lalu lintas jaringan SAKTI/SPAN dan risiko keterlambatan pemrosesan SP2D.",
     "kebutuhan_tindakan": "Lakukan koordinasi internal Satker, periksa dokumen kelengkapan di SAKTI, dan ajukan ke KPPN Semarang I sebelum jam batas."
   }
+];
+
+export const DEFAULT_LLAT_EVENTS: LLATEvent[] = [
+  ...BASE_DEFAULT_LLAT_EVENTS,
+  ...generateRejectedSpmLlatEvents()
 ];

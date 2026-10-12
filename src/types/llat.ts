@@ -107,6 +107,10 @@ export interface LLATEvent {
   // Field Spesifikasi Master PER-9/PB/2026 & Mesin Hitung Hari Kerja
   nomor_peraturan_resmi?: string;       // e.g. "PER-9/PB/2026"
   pasal_bab?: string;                   // e.g. "Bab III Butir 2" atau "Pasal 14"
+  no_pasal?: string;                    // e.g. "Pasal 19", "Pasal 24"
+  ayat_pasal?: string;                  // e.g. "Ayat (1) & (2)"
+  dokumen_terkait?: string;             // e.g. "Surat Bukti Penolakan SPM"
+  sanksi_keterlambatan?: string;        // e.g. "Ditolak permanen"
   kutipan_sumber?: string;              // Kutipan teks hukum resmi dari dokumen PER-9/PB/2026
   jenis_penentuan_tanggal?: 'TANGGAL_TETAP' | 'HARI_KERJA' | 'HARI_KALENDER' | 'PERIODE_RENTANG' | 'PERISTIWA_BERSYARAT';
   rumus_penentuan?: string;             // Rumus komputasi tenggat

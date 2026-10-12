@@ -16,11 +16,19 @@ import {
   query,
   DocumentReference,
   DocumentSnapshot,
-  SetOptions
+  SetOptions,
+  setLogLevel
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { safeLocalStorageSet, safeLocalStorageGet, safeLocalStorageRemove } from '../utils/safeStorage';
 import { trackFirestoreRead, trackFirestoreWrite } from '../utils/firestoreQuotaTracker';
+
+// Silence internal Firestore stream connection/reconnection logs
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

@@ -216,6 +216,19 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Ketentuan Penolakan SPM (Pasal 19) */}
+              {rolling5HKInfo.rejectedDeadlineFormatted && (
+                <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-950 dark:text-rose-200 space-y-1">
+                  <span className="font-black text-rose-700 dark:text-rose-300 flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                    Batas Waktu Pengajuan Kembali Jika Ditolak KPPN (Pasal 19):
+                  </span>
+                  <p className="leading-relaxed">
+                    Jika pengajuan SPM pada hari ini ditolak oleh KPPN, Satker dapat mengajukan kembali perbaikan paling lambat <strong>2 (dua) Hari Kerja</strong> yaitu tanggal <strong>{rolling5HKInfo.rejectedDeadlineFormatted} pukul {rolling5HKInfo.rejectedJamBatas} WIB</strong> dengan melampirkan bukti penolakan SPM dari KPPN.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

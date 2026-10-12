@@ -23,8 +23,21 @@ import {
   type TelegramServerConfig
 } from './server_telegram.ts';
 import { initializeApp as initServerFirebase, getApps as getServerApps } from 'firebase/app';
-import { initializeFirestore as initServerFirestore, getFirestore as getServerFirestore, doc as serverDoc, setDoc as serverSetDoc, getDoc as serverGetDoc, onSnapshot as serverOnSnapshot } from 'firebase/firestore';
+import { 
+  initializeFirestore as initServerFirestore, 
+  getFirestore as getServerFirestore, 
+  doc as serverDoc, 
+  setDoc as serverSetDoc, 
+  getDoc as serverGetDoc,
+  setLogLevel
+} from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
+
+try {
+  setLogLevel('silent');
+} catch {
+  // ignore
+}
 
 const serverFirebaseApp = getServerApps().length === 0 ? initServerFirebase(firebaseConfig) : getServerApps()[0];
 let serverDb: any;
@@ -145,50 +158,49 @@ async function startServer() {
     console.warn('Could not load satkers_generated.json on server start:', e);
   }
 
-  // Setup server-side realtime listeners to Cloud Firestore so the server is ALWAYS in sync with deployment
-  try {
-    serverOnSnapshot(serverDoc(serverDb, 'data', 'satkers'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.list)) {
+  // Startup hydration of server state from Cloud Firestore
+  // Note: Avoids background serverOnSnapshot gRPC streams in Node.js which cause idle RST_STREAM disconnects
+  const hydrateServerFromFirestore = async () => {
+    try {
+      const [satkersSnap, uploadsSnap, settingsSnap] = await Promise.allSettled([
+        serverGetDoc(serverDoc(serverDb, 'data', 'satkers')),
+        serverGetDoc(serverDoc(serverDb, 'data', 'historical_uploads')),
+        serverGetDoc(serverDoc(serverDb, 'settings', 'global')),
+      ]);
+
+      if (satkersSnap.status === 'fulfilled' && satkersSnap.value?.exists()) {
+        const data = satkersSnap.value.data();
+        if (Array.isArray(data?.list)) {
           inMemorySatkers = data.list;
           try {
             fs.writeFileSync(path.join(process.cwd(), 'satkers_generated.json'), JSON.stringify(data.list, null, 2));
           } catch {}
         }
       }
-    }, (err) => {
-      console.warn('Server Firestore satkers listener notice:', err.message);
-    });
 
-    serverOnSnapshot(serverDoc(serverDb, 'data', 'historical_uploads'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.list)) {
+      if (uploadsSnap.status === 'fulfilled' && uploadsSnap.value?.exists()) {
+        const data = uploadsSnap.value.data();
+        if (Array.isArray(data?.list)) {
           inMemoryHistoricalUploads = data.list;
           try {
             fs.writeFileSync(path.join(process.cwd(), 'historical_uploads_generated.json'), JSON.stringify(data.list, null, 2));
           } catch {}
         }
       }
-    }, (err) => {
-      console.warn('Server Firestore historical_uploads listener notice:', err.message);
-    });
 
-    serverOnSnapshot(serverDoc(serverDb, 'settings', 'global'), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
+      if (settingsSnap.status === 'fulfilled' && settingsSnap.value?.exists()) {
+        const data = settingsSnap.value.data();
         inMemorySettings = data;
         try {
           fs.writeFileSync(path.join(process.cwd(), 'settings_generated.json'), JSON.stringify(data, null, 2));
         } catch {}
       }
-    }, (err) => {
-      console.warn('Server Firestore settings listener notice:', err.message);
-    });
-  } catch (err) {
-    console.warn('Server Firestore realtime sync setup notice:', err);
-  }
+    } catch (err) {
+      // Graceful fallback to local generated files already loaded
+    }
+  };
+
+  hydrateServerFromFirestore().catch(() => {});
 
   // High-availability satker data endpoints - Firestore authoritative
   app.get('/api/data/satkers', async (_req, res) => {

@@ -3032,31 +3032,75 @@ export default function App() {
   // -------------------------------------------------------------
   // MONITORING LLAT (Langkah-Langkah Akhir Tahun) State & Handlers
   // -------------------------------------------------------------
+  const mergeOfficialEvents = (events: any[]): LLATEvent[] => {
+    if (!Array.isArray(events) || events.length === 0) return DEFAULT_LLAT_EVENTS_2026;
+    const existingMap = new Map<string, LLATEvent>();
+    events.forEach((e: any) => {
+      if (e && e.llat_id) {
+        // Migrasi jam batas 15:00 untuk Oktober & November jika masih tersimpan 17:00 di browser user
+        const d = e.tanggal_batas || e.tanggal_tenggat || e.tanggal_penerimaan || '';
+        let item = e;
+        if (d.startsWith('2026-10') || d.startsWith('2026-11')) {
+          if (e.jam_batas === '17:00' || e.jam_tenggat === '17:00' || e.jam_penerimaan === '17:00') {
+            item = {
+              ...e,
+              jam_batas: '15:00',
+              jam_tenggat: '15:00',
+              jam_penerimaan: '15:00',
+              jam_penyelesaian: '15:00',
+              kutipan_sumber: e.kutipan_sumber?.replace(/pukul 17:00 WIB/g, 'pukul 15:00 WIB'),
+              hasil_perhitungan_sistem: e.hasil_perhitungan_sistem?.replace(/\(17:00 WIB\)/g, '(15:00 WIB)')
+            };
+          }
+        }
+        existingMap.set(item.llat_id, item);
+      }
+    });
+
+    const result: LLATEvent[] = [];
+    for (const item of existingMap.values()) {
+      if (item.llat_id.startsWith('llat-reject-')) {
+        const official = DEFAULT_LLAT_EVENTS_2026.find((o) => o.llat_id === item.llat_id);
+        if (official) {
+          result.push(official);
+          continue;
+        }
+      }
+      result.push(item);
+    }
+
+    for (const official of DEFAULT_LLAT_EVENTS_2026) {
+      if (!existingMap.has(official.llat_id)) {
+        result.push(official);
+        existingMap.set(official.llat_id, official);
+      }
+    }
+    return result;
+  };
+
+  const mergeOfficialCategories = (cats: any[]): LLATCategory[] => {
+    if (!Array.isArray(cats) || cats.length === 0) return DEFAULT_LLAT_CATEGORIES;
+    const existingMap = new Map<string, LLATCategory>();
+    cats.forEach((c: any) => {
+      if (c && c.id) existingMap.set(c.id, c);
+    });
+    const result: LLATCategory[] = Array.from(existingMap.values());
+    for (const official of DEFAULT_LLAT_CATEGORIES) {
+      if (!existingMap.has(official.id)) {
+        result.push(official);
+        existingMap.set(official.id, official);
+      }
+    }
+    return result;
+  };
+
   const [llatEvents, setLlatEvents] = useState<LLATEvent[]>(() => {
     const saved = localStorage.getItem('kppn_llat_events');
     if (saved !== null) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length >= 25 && parsed.some((e: any) => e.file_sumber)) {
-          // Migrasi jam batas 15:00 untuk Oktober & November jika masih tersimpan 17:00 di browser user
-          const migrated = parsed.map((e: any) => {
-            const d = e.tanggal_batas || e.tanggal_tenggat || e.tanggal_penerimaan || '';
-            if (d.startsWith('2026-10') || d.startsWith('2026-11')) {
-              if (e.jam_batas === '17:00' || e.jam_tenggat === '17:00' || e.jam_penerimaan === '17:00') {
-                return {
-                  ...e,
-                  jam_batas: '15:00',
-                  jam_tenggat: '15:00',
-                  jam_penerimaan: '15:00',
-                  jam_penyelesaian: '15:00',
-                  kutipan_sumber: e.kutipan_sumber?.replace(/pukul 17:00 WIB/g, 'pukul 15:00 WIB'),
-                  hasil_perhitungan_sistem: e.hasil_perhitungan_sistem?.replace(/\(17:00 WIB\)/g, '(15:00 WIB)')
-                };
-              }
-            }
-            return e;
-          });
-          return migrated;
+          return mergeOfficialEvents(parsed);
         }
       } catch (e) {
         console.warn('Error parsing saved LLAT events:', e);
@@ -3071,7 +3115,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length >= 15) {
-          return parsed;
+          return mergeOfficialCategories(parsed);
         }
       } catch (e) {
         console.warn('Error parsing saved LLAT categories:', e);
@@ -3116,12 +3160,21 @@ export default function App() {
       .then((data) => {
         if (data?.status === 'ok') {
           if (Array.isArray(data.events) && data.events.length >= 25 && data.events.some((e: any) => e.file_sumber)) {
-            setLlatEvents(data.events);
-            safeLocalStorageSet('kppn_llat_events', JSON.stringify(data.events));
+            const merged = mergeOfficialEvents(data.events);
+            setLlatEvents(merged);
+            safeLocalStorageSet('kppn_llat_events', JSON.stringify(merged));
+            if (merged.length > data.events.length) {
+              fetch('/api/llat/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ events: merged })
+              }).catch(() => {});
+            }
           }
           if (Array.isArray(data.categories) && data.categories.length >= 15) {
-            setLlatCategories(data.categories);
-            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(data.categories));
+            const mergedCats = mergeOfficialCategories(data.categories);
+            setLlatCategories(mergedCats);
+            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(mergedCats));
           }
           if (data.settings) {
             setLlatSettings(data.settings);
@@ -3141,12 +3194,20 @@ export default function App() {
         if (docSnap.exists()) {
           const cloudData = docSnap.data();
           if (Array.isArray(cloudData?.events) && cloudData.events.length >= 25 && cloudData.events.some((e: any) => e.file_sumber)) {
-            setLlatEvents(cloudData.events);
-            safeLocalStorageSet('kppn_llat_events', JSON.stringify(cloudData.events));
+            const merged = mergeOfficialEvents(cloudData.events);
+            setLlatEvents(merged);
+            safeLocalStorageSet('kppn_llat_events', JSON.stringify(merged));
+            if (merged.length > cloudData.events.length) {
+              setDoc(doc(db, 'data', 'llat_calendar'), {
+                events: merged,
+                updatedAt: new Date().toISOString()
+              }, { merge: true }).catch(() => {});
+            }
           }
           if (Array.isArray(cloudData?.categories) && cloudData.categories.length >= 15) {
-            setLlatCategories(cloudData.categories);
-            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(cloudData.categories));
+            const mergedCats = mergeOfficialCategories(cloudData.categories);
+            setLlatCategories(mergedCats);
+            safeLocalStorageSet('kppn_llat_categories', JSON.stringify(mergedCats));
           }
           if (cloudData?.settings) {
             setLlatSettings(cloudData.settings);

@@ -264,6 +264,8 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                     dayItems.map((item, idx) => {
                       const priority = getPriorityBadge(item.event.prioritas);
                       const isRolling5HK = item.event.llat_id.startsWith('rolling-5hk-');
+                      const isTolakan = item.event.kode_kegiatan?.startsWith('TOLAK') || item.event.kategori?.toLowerCase().includes('ditolak');
+                      const is1HK = isTolakan && (item.event.catatan?.includes('1_HK') || item.event.catatan?.includes('1 Hari Kerja') || item.event.deskripsi?.includes('1 (satu) hari kerja') || item.event.deskripsi?.includes('1 Hari Kerja'));
 
                       return (
                         <div
@@ -272,6 +274,8 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                           className={`p-2.5 rounded-xl border transition-all cursor-pointer group text-left ${
                             isRolling5HK
                               ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700/80 hover:bg-amber-200/90 text-amber-950 dark:text-amber-100 shadow-2xs'
+                              : isTolakan
+                              ? 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-900 hover:border-rose-500 shadow-2xs'
                               : item.isPenerimaan
                               ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900 hover:border-blue-400'
                               : 'bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900 hover:border-indigo-400'
@@ -279,22 +283,30 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                         >
                           <div className="flex items-center justify-between gap-1 mb-1">
                             <span className={`font-mono text-[10px] font-black px-1.5 py-0.2 rounded ${
-                              isRolling5HK ? 'bg-amber-700 text-amber-100' : 'bg-slate-900 text-amber-300'
+                              isRolling5HK 
+                                ? 'bg-amber-700 text-amber-100' 
+                                : isTolakan
+                                ? 'bg-rose-700 text-white'
+                                : 'bg-slate-900 text-amber-300'
                             }`}>
                               {item.event.kode_kegiatan}
                             </span>
                             <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
                               isRolling5HK 
                                 ? 'bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100'
+                                : isTolakan
+                                ? (is1HK ? 'bg-rose-600 text-white animate-pulse' : 'bg-amber-100 dark:bg-amber-900 text-amber-900 dark:text-amber-200 border border-amber-300')
                                 : priority.badgeClass
                             }`}>
-                              {isRolling5HK ? '⚡ 5 HK' : priority.label}
+                              {isRolling5HK ? '⚡ 5 HK' : isTolakan ? (is1HK ? '⚡ 1 HK' : '⏱️ 2 HK') : priority.label}
                             </span>
                           </div>
 
                           <div className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-1">
                             {isRolling5HK ? (
                               <span className="text-amber-800 dark:text-amber-300 font-extrabold">⚡ Batas 5 Hari Kerja</span>
+                            ) : isTolakan ? (
+                              <span className="text-rose-700 dark:text-rose-300 font-extrabold">🚨 Batas SPM Ditolak ({is1HK ? '1 Hari Kerja' : '2 Hari Kerja'})</span>
                             ) : item.isPenerimaan ? (
                               <span className="text-blue-700 dark:text-blue-300">📥 Batas Penerimaan</span>
                             ) : (
@@ -305,20 +317,30 @@ export const LLATCalendarWeekView: React.FC<LLATCalendarWeekViewProps> = ({
                           <h5 className={`text-[11px] font-bold leading-snug line-clamp-2 transition-colors ${
                             isRolling5HK 
                               ? 'text-amber-950 dark:text-amber-100 group-hover:text-amber-800'
+                              : isTolakan
+                              ? 'text-rose-950 dark:text-rose-100 group-hover:text-rose-700 dark:group-hover:text-rose-300'
                               : 'text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400'
                           }`}>
                             {item.event.nama_kegiatan}
                           </h5>
 
                           <div className={`mt-2 pt-1.5 border-t flex items-center justify-between text-[10px] ${
-                            isRolling5HK ? 'border-amber-300/60 dark:border-amber-800 text-amber-800 dark:text-amber-300' : 'border-slate-200/60 dark:border-slate-800 text-slate-500'
+                            isRolling5HK 
+                              ? 'border-amber-300/60 dark:border-amber-800 text-amber-800 dark:text-amber-300' 
+                              : isTolakan
+                              ? 'border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300'
+                              : 'border-slate-200/60 dark:border-slate-800 text-slate-500'
                           }`}>
-                            <span className="flex items-center gap-1">
+                            <span className="flex items-center gap-1 font-mono font-bold">
                               <Clock className="w-3 h-3" />
-                              {item.event.jam_batas || (wd.dateStr.match(/^2026-(10|11)/) ? '15:00' : '17:00')}
+                              {item.event.jam_batas || (wd.dateStr.match(/^2026-(10|11)/) ? '15:00' : '17:00')} WIB
                             </span>
                             <span className={`font-bold group-hover:underline ${
-                              isRolling5HK ? 'text-amber-900 dark:text-amber-200' : 'text-indigo-600 dark:text-indigo-400'
+                              isRolling5HK 
+                                ? 'text-amber-900 dark:text-amber-200' 
+                                : isTolakan
+                                ? 'text-rose-700 dark:text-rose-300'
+                                : 'text-indigo-600 dark:text-indigo-400'
                             }`}>
                               Detail &rarr;
                             </span>

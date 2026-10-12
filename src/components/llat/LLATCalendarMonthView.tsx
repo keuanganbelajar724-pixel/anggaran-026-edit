@@ -28,6 +28,7 @@ import {
 import { LLATEvent } from '../../types/llat';
 import { getCountdownInfo, getDeadlineTypeBadge, getVerificationBadge, getPriorityBadge } from '../../data/defaultLlatData';
 import { getRolling5HKInfo, Rolling5HKInfo, formatShortDateID } from '../../utils/llatWorkingDaysEngine';
+import { LLATRejectedSpmModal } from './LLATRejectedSpmModal';
 
 interface LLATCalendarMonthViewProps {
   events: LLATEvent[];
@@ -155,6 +156,18 @@ function getCategoryColor(category: string): {
       subtle: 'bg-rose-950/40 border-rose-500/40 text-rose-200'
     };
   }
+  if (c.includes('ditolak') || c.includes('penolakan')) {
+    return {
+      bg: 'bg-rose-500/20 dark:bg-rose-500/30',
+      text: 'text-rose-950 dark:text-rose-100 font-black',
+      border: 'border-rose-400 dark:border-rose-600',
+      dot: 'bg-rose-600 animate-pulse',
+      tag: 'bg-rose-600 text-white font-black',
+      accent: 'border-l-rose-600',
+      gradient: 'from-rose-600 to-red-700',
+      subtle: 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+    };
+  }
   
   // Default fallback (Blue / Indigo)
   return {
@@ -237,6 +250,9 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
     items: DateEventItem[];
     rolling5HK?: Rolling5HKInfo | null;
   } | null>(null);
+
+  // Modal Batas SPM Ditolak (Pasal 9, 12, 15, 17, 19, 24, 28 PER-9/PB/2026)
+  const [isRejectedSpmModalOpen, setIsRejectedSpmModalOpen] = useState(false);
 
   // Month navigation calculation
   const firstDayOfMonth = new Date(activeYear, activeMonth, 1);
@@ -741,6 +757,16 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               <span className="hidden sm:inline">Berikutnya</span>
               <ChevronRight className="w-4 h-4" />
             </button>
+
+            {/* Quick Button Batas SPM Ditolak */}
+            <button
+              onClick={() => setIsRejectedSpmModalOpen(true)}
+              className="px-3 py-2 rounded-xl bg-rose-500/90 hover:bg-rose-500 active:scale-95 text-white text-xs font-black transition-all flex items-center gap-1.5 border border-rose-400 shadow-md cursor-pointer ml-1"
+              title="Cek Batas Pengajuan Kembali SPM Ditolak (Pasal 9-28 PER-9/PB/2026)"
+            >
+              <ShieldAlert className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span className="hidden md:inline">Batas SPM Ditolak</span>
+            </button>
           </div>
         </div>
 
@@ -791,6 +817,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               <span>Saran:</span>
             </span>
             {[
+              { label: '🚨 SPM Ditolak (Pasal 9–28)', query: 'ditolak' },
               { label: '💰 Gaji Induk (8 & 15 Des)', query: 'gaji induk' },
               { label: '📑 BAST & Kontraktual', query: 'bast' },
               { label: '🏆 Tunjangan Kinerja (21 Des)', query: 'tunjangan kinerja' },
@@ -1246,6 +1273,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
             const hasCritical = dateItems.some(i => i.event.prioritas === 'KRITIS');
             const hasPenerimaan = dateItems.some(i => i.isPenerimaan);
             const hasPenyelesaian = dateItems.some(i => i.isPenyelesaian);
+            const hasRejectedSpm = rawItems.some(i => (i.event.llat_id || '').includes('reject') || (i.event.kategori || '').toLowerCase().includes('ditolak'));
 
             // Styling dynamic per cell
             let cellBgClass = 'bg-white dark:bg-slate-900';
@@ -1262,6 +1290,10 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
               }
             } else if (holidayInfo.isHoliday) {
               cellBgClass = 'bg-rose-50/80 dark:bg-rose-950/30 border-l-2 border-l-rose-500';
+            } else if (hasRejectedSpm) {
+              cellBgClass = is5HKDay 
+                ? 'bg-rose-50/80 dark:bg-rose-950/45 border-l-4 border-l-red-600 border-r-4 border-r-amber-400 shadow-rose-100/50'
+                : 'bg-rose-50/70 dark:bg-rose-950/35 border-l-4 border-l-red-600 shadow-rose-100/50';
             } else if (hasCritical) {
               cellBgClass = is5HKDay 
                 ? 'bg-rose-50/70 dark:bg-rose-950/40 border-l-4 border-l-rose-500 border-r-4 border-r-amber-400 shadow-rose-100/50'
@@ -1408,6 +1440,16 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           : '5 HK'}
                       </span>
                     )}
+
+                    {/* Rejected SPM Alert Badge */}
+                    {cell.isCurrentMonth && hasRejectedSpm && (
+                      <span 
+                        className="text-[9px] font-black px-1.5 py-0.5 rounded-md font-mono shadow-xs shrink-0 bg-red-600 text-white flex items-center gap-0.5 animate-pulse"
+                        title="Terdapat batas waktu pengajuan kembali SPM ditolak KPPN pada hari ini!"
+                      >
+                        🚨 TOLAKAN
+                      </span>
+                    )}
                   </div>
 
                   {/* Right Badges: Holiday or Event Counter */}
@@ -1487,7 +1529,7 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                               ? `${rolling5HKInfo.hardCutOffFormatted} • KPPN 17:00`
                               : (rolling5HKInfo.isNovember 
                                 ? 'Pkl 15:00 • Pendaftaran Kontrak' 
-                                : 'Pkl 15:00 • Batas Kontrak & LS'))}
+                                : `Pkl 15:00 • Tolakan: ${rolling5HKInfo.rejectedDeadlineFormatted || 'H+2 HK'}`))}
                         </div>
                       </div>
                     </div>
@@ -1495,6 +1537,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                   {dateItems.slice(0, densityMode === 'COMPACT' ? 1 : 2).map((item, itemIdx) => {
                     const isCrit = item.event.prioritas === 'KRITIS';
                     const colorScheme = getCategoryColor(item.event.kategori);
+                    const isTolakan = item.event.kategori?.toLowerCase().includes('ditolak') || item.event.kode_kegiatan?.startsWith('TOLAK');
+                    const is1HK = isTolakan && (item.event.catatan?.includes('1_HK') || item.event.catatan?.includes('1 Hari Kerja') || item.event.deskripsi?.includes('1 (satu) hari kerja') || item.event.deskripsi?.includes('1 Hari Kerja'));
 
                     return (
                       <div
@@ -1526,6 +1570,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         className={`px-2.5 py-1.5 rounded-xl text-xs leading-snug font-bold transition-all flex items-center gap-2 shadow-xs hover:scale-[1.02] cursor-pointer border ${
                           isCrit
                             ? 'bg-gradient-to-r from-rose-100 to-red-50 dark:from-rose-950/90 dark:to-red-950/70 text-rose-950 dark:text-rose-100 border-rose-400 dark:border-rose-700 ring-1 ring-rose-400/40 shadow-rose-200/50'
+                            : isTolakan
+                            ? 'bg-rose-50 dark:bg-rose-950/80 text-rose-950 dark:text-rose-100 border-rose-300 dark:border-rose-800 ring-1 ring-rose-400/30'
                             : item.isMulai
                             ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-950 dark:text-emerald-100 border-emerald-300 dark:border-emerald-700 ring-1 ring-emerald-400/40'
                             : `${colorScheme.bg} ${colorScheme.text} ${colorScheme.border}`
@@ -1537,6 +1583,8 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                             ? 'bg-rose-600 animate-ping' 
                             : item.isMulai
                             ? 'bg-emerald-500'
+                            : isTolakan
+                            ? 'bg-rose-600'
                             : item.isPenerimaan 
                             ? 'bg-blue-600' 
                             : 'bg-indigo-600'
@@ -1545,15 +1593,26 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         {/* Text and code with readable size & weight */}
                         <span className="truncate flex-1">
                           <span className="font-black mr-1 text-[11px]">
-                            {item.isMulai ? '🚀' : item.isPenerimaan ? '📥' : '🏁'}
+                            {item.isMulai ? '🚀' : isTolakan ? '🚨' : item.isPenerimaan ? '📥' : '🏁'}
                           </span>
                           <span className={`font-mono text-[10px] font-black mr-1.5 px-1 py-0.2 rounded ${
                             item.isMulai
                               ? 'bg-emerald-200 dark:bg-emerald-800 text-emerald-950 dark:text-emerald-100'
+                              : isTolakan
+                              ? 'bg-rose-200 dark:bg-rose-900 text-rose-950 dark:text-rose-100'
                               : 'bg-black/10 dark:bg-white/10'
                           }`}>
                             {item.isMulai ? 'DIMULAI' : item.event.kode_kegiatan}
                           </span>
+                          {isTolakan && (
+                            <span className={`text-[9px] font-black mr-1 px-1 py-0.2 rounded ${
+                              is1HK 
+                                ? 'bg-rose-600 text-white animate-pulse' 
+                                : 'bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                            }`}>
+                              {is1HK ? '⚡ 1 HK' : '⏱️ 2 HK'}
+                            </span>
+                          )}
                           <span className="font-extrabold text-xs tracking-tight">
                             {item.isMulai 
                               ? `Dimulainya: ${item.event.nama_kegiatan.replace(/^Batas (Akhir )?Penerimaan:?\s*/i, '').replace(/^Batas (Akhir )?Penyelesaian:?\s*/i, '')}`
@@ -1820,6 +1879,19 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                           : `Jika BAST ditandatangani hari ini, batas pengajuannya adalah ${hoverData.rolling5HK.forwardDeadlineFormatted}.`}
                       </span>
                     </div>
+
+                    {/* Ketentuan Penolakan SPM (Pasal 19) */}
+                    {hoverData.rolling5HK.rejectedDeadlineFormatted && (
+                      <div className="mt-2 p-2.5 rounded-xl bg-rose-950/60 border border-rose-500/50 text-[11px] text-rose-200 space-y-1">
+                        <div className="flex items-center gap-1.5 font-black text-rose-300">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Ketentuan Batas SPM Ditolak (Pasal 19):</span>
+                        </div>
+                        <p className="leading-snug text-slate-200">
+                          Jika SPM ditolak KPPN hari ini ({formatShortDateID(hoverData.dateStr)}), batas pengajuan kembali perbaikan adalah <strong>{hoverData.rolling5HK.rejectedDeadlineFormatted} pukul {hoverData.rolling5HK.rejectedJamBatas} WIB</strong> (paling lambat 2 Hari Kerja dengan melampirkan bukti penolakan KPPN).
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2223,6 +2295,27 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                     : `Batas H+5: ${selectedDateEvents.rolling5HK.forwardDeadlineFormatted}`}
                 </span>
               </div>
+
+              {/* Box Ketentuan Tolakan SPM (Pasal 19) */}
+              {selectedDateEvents.rolling5HK.rejectedDeadlineFormatted && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-500/15 via-red-500/10 to-amber-500/10 border border-rose-300 dark:border-rose-800 text-xs text-rose-950 dark:text-rose-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5 font-black text-rose-700 dark:text-rose-300">
+                      <ShieldAlert className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      <span>Ketentuan Batas Pengajuan Kembali SPM Ditolak (Pasal 19 PER-9/PB/2026):</span>
+                    </div>
+                    <p className="text-slate-700 dark:text-slate-300 leading-relaxed">
+                      Jika SPM diajukan dan ditolak KPPN hari ini (<strong>{formatShortDateID(selectedDateEvents.dateStr)}</strong>), perbaikan diajukan kembali paling lambat <strong>2 Hari Kerja</strong> yaitu <strong>{selectedDateEvents.rolling5HK.rejectedDeadlineFormatted}</strong> pukul <strong>{selectedDateEvents.rolling5HK.rejectedJamBatas} WIB</strong> dengan melampirkan bukti penolakan KPPN.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsRejectedSpmModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] shrink-0 transition-colors shadow-xs"
+                  >
+                    Cek Matriks Tolakan
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -2251,15 +2344,24 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
                         <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-slate-900 text-amber-300">
                           {item.event.kode_kegiatan}
                         </span>
-                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
-                          item.isPenerimaan
-                            ? 'bg-blue-600 text-white shadow-xs'
-                            : 'bg-indigo-600 text-white shadow-xs'
-                        }`}>
-                          {item.isPenerimaan 
-                            ? '📥 Batas Penerimaan Dokumen' 
-                            : '🏁 Batas Penyelesaian SP2D'}
-                        </span>
+                        {item.event.kategori?.toLowerCase().includes('ditolak') || item.event.kode_kegiatan?.startsWith('TOLAK') ? (
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-rose-600 text-white shadow-xs inline-flex items-center gap-1.5">
+                            <span>🚨 Batas SPM Ditolak</span>
+                            <span className="px-1.5 py-0.2 rounded bg-black/25 text-[9px] font-mono">
+                              {item.event.catatan?.includes('1_HK') || item.event.catatan?.includes('1 Hari Kerja') || item.event.deskripsi?.includes('1 (satu) hari kerja') || item.event.deskripsi?.includes('1 Hari Kerja') ? '⚡ 1 HK' : '⏱️ 2 HK'}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                            item.isPenerimaan
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-indigo-600 text-white shadow-xs'
+                          }`}>
+                            {item.isPenerimaan 
+                              ? '📥 Batas Penerimaan Dokumen' 
+                              : '🏁 Batas Penyelesaian SP2D'}
+                          </span>
+                        )}
                         <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${priority.badgeClass}`}>
                           {priority.label}
                         </span>
@@ -2346,6 +2448,19 @@ export const LLATCalendarMonthView: React.FC<LLATCalendarMonthViewProps> = ({
           )}
         </div>
       )}
+
+      {/* Modal Batas SPM Ditolak PER-9/PB/2026 */}
+      <LLATRejectedSpmModal
+        isOpen={isRejectedSpmModalOpen}
+        onClose={() => setIsRejectedSpmModalOpen(false)}
+        onSelectDate={(dateStr) => {
+          const parts = dateStr.split('-');
+          if (parts.length === 3) {
+            onChangeMonth(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1);
+            handleSearchChange(dateStr);
+          }
+        }}
+      />
     </div>
   );
 };

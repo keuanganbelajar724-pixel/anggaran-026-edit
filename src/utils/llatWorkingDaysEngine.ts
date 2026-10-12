@@ -282,6 +282,12 @@ export interface Rolling5HKInfo {
     pasal: string;
     badge: string;
   }>;
+  // Ketentuan Batas Penolakan SPM (Pasal 19 PER-9/PB/2026)
+  rejectedDeadlineStr?: string;
+  rejectedDeadlineFormatted?: string;
+  rejectedJamBatas?: string;
+  rejectedRulePasal?: string;
+  rejectedDescription?: string;
 }
 
 /**
@@ -479,6 +485,10 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
       { dateStr: hardCutOffDateStr, dayIndex: 1, isWorking: true, note: `Batas Plafon: ${formatShortDateID(hardCutOffDateStr)}` }
     ];
 
+    const decRejectedCalc = calculateWorkingDayDeadline(dateStr, 2, 'SESUDAH', false);
+    const decRejectedDeadlineStr = decRejectedCalc.targetDateStr;
+    const decRejectedDeadlineFormatted = formatShortDateID(decRejectedDeadlineStr);
+
     return {
       dateStr,
       sourceDateStr,
@@ -499,7 +509,12 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
       subClauseType,
       isFixedDateCutOff,
       isDecemberStartMilestone,
-      decemberStartMilestoneItems
+      decemberStartMilestoneItems,
+      rejectedDeadlineStr: decRejectedDeadlineStr,
+      rejectedDeadlineFormatted: decRejectedDeadlineFormatted,
+      rejectedJamBatas: '17:00',
+      rejectedRulePasal: 'Pasal 19 PER-9/PB/2026',
+      rejectedDescription: `Berdasarkan Pasal 19 PER-9/PB/2026, dalam hal KPPN melakukan penolakan atas pengajuan SPM pada hari ini (${formatShortDateID(dateStr)}), Satker dapat mengajukan kembali perbaikan SPM paling lambat 2 Hari Kerja setelah ditolak yaitu ${decRejectedDeadlineFormatted} pukul 17:00 WIB dengan melampirkan bukti penolakan SPM dari KPPN.`
     };
   }
 
@@ -564,6 +579,14 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     ? `Berdasarkan ketentuan Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak dan SPM-LS Kontraktual untuk BAST/BAPP yang ditandatangani pada tanggal ${sourceDateFormatted} (dengan batas akhir sapu jagat 6 November 2026).`
     : `Berdasarkan ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pendaftaran Kontrak atau perubahan data Kontrak yang ditandatangani tanggal ${sourceDateFormatted} ke KPPN. (Batas 5 hari kerja di bulan November HANYA berlaku untuk Pendaftaran Kontrak; untuk SPM-LS BAST November tidak ada batas 5 HK harian berputar, melainkan diajukan secara gelondongan tanggal 20 Nov & 7 Des 2026).`;
 
+  const rejectedCalc = calculateWorkingDayDeadline(dateStr, 2, 'SESUDAH', false);
+  const rejectedDeadlineStr = rejectedCalc.targetDateStr;
+  const rejectedDeadlineFormatted = formatShortDateID(rejectedDeadlineStr);
+  const rejectedJamBatas = (isOct || isNov) ? '15:00' : '17:00';
+  const rejectedDescription = isOct
+    ? `Berdasarkan Pasal 19 PER-9/PB/2026, dalam hal KPPN melakukan penolakan atas pengajuan SPM-LS Kontraktual/BAST pada hari ini (${formatShortDateID(dateStr)}), Satker dapat mengajukan kembali perbaikan SPM paling lambat 2 Hari Kerja setelah ditolak yaitu ${rejectedDeadlineFormatted} pukul ${rejectedJamBatas} WIB dengan melampirkan bukti penolakan SPM dari KPPN.`
+    : `Berdasarkan regulasi PER-9/PB/2026, jika terdapat penolakan dokumen pengajuan pada hari ini (${formatShortDateID(dateStr)}), perbaikan diajukan paling lambat 2 Hari Kerja yaitu ${rejectedDeadlineFormatted} pukul ${rejectedJamBatas} WIB dengan melampirkan bukti penolakan resmi.`;
+
   return {
     dateStr,
     sourceDateStr,
@@ -581,7 +604,12 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     isDecember: false,
     hardCutOffDateStr,
     hardCutOffFormatted,
-    subClauseType: 'OCT_NOV_ROLLING'
+    subClauseType: 'OCT_NOV_ROLLING',
+    rejectedDeadlineStr,
+    rejectedDeadlineFormatted,
+    rejectedJamBatas,
+    rejectedRulePasal: 'Pasal 19 PER-9/PB/2026',
+    rejectedDescription
   };
 }
 
