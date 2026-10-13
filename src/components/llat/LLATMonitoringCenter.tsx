@@ -30,7 +30,8 @@ import {
   CalendarRange,
   Layers,
   Inbox,
-  X
+  X,
+  Scale
 } from 'lucide-react';
 import { 
   LLATEvent, 
@@ -57,6 +58,7 @@ import { LLATDetailModal } from './LLATDetailModal';
 import { LLATExportPdfModal } from './LLATExportPdfModal';
 import { LLATWorkingDaysCalculator } from './LLATWorkingDaysCalculator';
 import { LLATRejectedSpmModal } from './LLATRejectedSpmModal';
+import { LLATRegulationDisclaimerWidget, LLATHeaderNoticeBanner } from './LLATRegulationDisclaimerWidget';
 import { getRolling5HKInfo, createRolling5HKEvent, getRolling5HKEventsInRange } from '../../utils/llatWorkingDaysEngine';
 import { Calculator } from 'lucide-react';
 
@@ -574,10 +576,21 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               <button
                 type="button"
                 onClick={() => setIsRejectedSpmModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs transition-colors shadow-md flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-xs transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
               >
                 <ShieldAlert className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
                 <span>Batas SPM Ditolak</span>
+              </button>
+
+              {/* Button Kroscek & Disclaimer PER-9/PB/2026 */}
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent('kppn_expand_llat_disclaimer_widget'))}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 hover:text-amber-200 font-black text-xs border border-amber-400/40 transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
+                title="Buka pengingat & kroscek resmi ke naskah PER-9/PB/2026"
+              >
+                <Scale className="w-3.5 h-3.5 text-amber-300" />
+                <span>Kroscek PER-9/PB/2026</span>
               </button>
 
               {/* Admin Manage button if logged in */}
@@ -676,6 +689,11 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
           </div>
         </div>
       </div>
+
+      {/* NOTICE BANNER: ACUAN PANDUAN & KROSCEK KE PER-9/PB/2026 */}
+      <LLATHeaderNoticeBanner 
+        onOpenDetails={() => window.dispatchEvent(new CustomEvent('kppn_open_llat_disclaimer_modal'))}
+      />
 
       {/* ============================================================== */}
       {/* 2. PANEL: HARI INI ADA DEADLINE APA? (Section 2 Prompt)        */}
@@ -1654,6 +1672,11 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
             setSearchQuery(dateStr);
           }
         }}
+      />
+
+      {/* FLOATING NON-INTRUSIVE DISCLAIMER & REGULATION VERIFICATION POPUP / PILL */}
+      <LLATRegulationDisclaimerWidget 
+        onOpenRejectedModal={() => setIsRejectedSpmModalOpen(true)}
       />
     </div>
   );
