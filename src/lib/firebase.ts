@@ -4,7 +4,7 @@ import {
   getFirestore, 
   initializeFirestore,
   persistentLocalCache,
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
   memoryLocalCache,
   doc, 
   getDoc as rawGetDoc, 
@@ -47,15 +47,17 @@ try {
 
 export const auth = authInstance;
 
-// Initialize Firestore with experimentalForceLongPolling for instant, reliable connection in sandbox & preview environments
+// Initialize Firestore with robust local caching that uses IndexedDB without writing tab-sync locks to localStorage
 let firestoreDb: any;
 try {
   let cacheConfig: any;
   try {
+    // persistentSingleTabManager uses IndexedDB directly without touching localStorage,
+    // completely preventing QuotaExceededError and internal assertion crashes.
     cacheConfig = persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
+      tabManager: persistentSingleTabManager({ forceOwnership: true }),
     });
-  } catch (err) {
+  } catch {
     cacheConfig = memoryLocalCache();
   }
 
@@ -72,6 +74,7 @@ try {
     firestoreDb = initializeFirestore(
       app,
       {
+        localCache: memoryLocalCache(),
         experimentalForceLongPolling: true,
       },
       firebaseConfig.firestoreDatabaseId || undefined

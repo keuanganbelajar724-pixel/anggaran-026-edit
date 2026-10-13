@@ -9,7 +9,7 @@ import {
   MasterBankQuestion,
   QuestionDifficulty
 } from '../types/quiz';
-import { safeLocalStorageGet, safeLocalStorageSet } from './safeStorage';
+import { safeLocalStorageGet, safeLocalStorageSet, safeLocalStorageRemove, saveLargeDataset, removeLargeDataset } from './safeStorage';
 import { 
   collection, 
   doc, 
@@ -25,6 +25,8 @@ import { MASTER_QUIZ_BANK } from '../data/masterQuizBankData';
 const QUIZ_PACKAGES_STORAGE_KEY = 'kppn_quiz_packages_v1';
 const QUIZ_RESULTS_STORAGE_KEY = 'kppn_quiz_results_v1';
 const MASTER_QUIZ_BANK_STORAGE_KEY = 'kppn_master_quiz_bank_v1';
+const CUSTOM_QUIZ_QUESTIONS_KEY = 'kppn_custom_master_quiz_questions_v1';
+const DELETED_QUIZ_QUESTION_IDS_KEY = 'kppn_deleted_master_quiz_ids_v1';
 const FIRESTORE_PACKAGES_COLLECTION = 'quiz_packages';
 const FIRESTORE_RESULTS_COLLECTION = 'quiz_results';
 const FIRESTORE_BANK_COLLECTION = 'master_quiz_bank';
@@ -1179,47 +1181,95 @@ export function calculateItemAnalysis(pkg: QuizPackage, results: QuizResultRecor
 // 6. MASTER BANK SOAL (CENTRAL REPOSITORY & PACKAGE IMPORT UTILITIES)
 // ============================================================================
 
-/**
- * Retrieves the full master question bank from local cache or default seed
- */
-export function getMasterQuizBank(): MasterBankQuestion[] {
-  const raw = safeLocalStorageGet(MASTER_QUIZ_BANK_STORAGE_KEY);
-  if (!raw) {
-    safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
-    return MASTER_QUIZ_BANK;
-  }
+let inMemoryMasterBank: MasterBankQuestion[] | null = null;
+
+function getCustomMasterQuestions(): MasterBankQuestion[] {
+  const raw = safeLocalStorageGet(CUSTOM_QUIZ_QUESTIONS_KEY);
+  if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
-      return MASTER_QUIZ_BANK;
-    }
-    // Automatically merge any newly released official questions without losing user custom questions
-    const existingIds = new Set(parsed.map((q: any) => q.id));
-    const missing = MASTER_QUIZ_BANK.filter(q => !existingIds.has(q.id));
-    if (missing.length > 0) {
-      const merged = [...parsed, ...missing].map((q, idx) => ({ ...q, number: idx + 1 }));
-      safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(merged));
-      return merged;
-    }
-    return parsed;
-  } catch (e) {
-    console.error('[QuizStorage] Error reading master quiz bank:', e);
-    return MASTER_QUIZ_BANK;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
+}
+
+function getDeletedMasterQuestionIds(): Set<string> {
+  const raw = safeLocalStorageGet(DELETED_QUIZ_QUESTION_IDS_KEY);
+  if (!raw) return new Set();
+  try {
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Retrieves the full master question bank with instant in-memory access and IndexedDB persistence.
+ * Avoids storing all 3,000+ items into localStorage to prevent QuotaExceededError.
+ */
+export function getMasterQuizBank(): MasterBankQuestion[] {
+  if (inMemoryMasterBank && inMemoryMasterBank.length > 0) {
+    return inMemoryMasterBank;
+  }
+
+  // Purge legacy oversized key from localStorage if it exists
+  safeLocalStorageRemove(MASTER_QUIZ_BANK_STORAGE_KEY);
+
+  const deletedIds = getDeletedMasterQuestionIds();
+  const customQuestions = getCustomMasterQuestions();
+
+  // Combine official authoritative questions with custom questions
+  const officialActive = MASTER_QUIZ_BANK.filter(q => !deletedIds.has(q.id));
+  const customActive = customQuestions.filter(q => !deletedIds.has(q.id));
+
+  const map = new Map<string, MasterBankQuestion>();
+  officialActive.forEach(q => map.set(q.id, q));
+  customActive.forEach(q => map.set(q.id, q));
+
+  const result = Array.from(map.values()).map((q, idx) => ({
+    ...q,
+    number: idx + 1
+  }));
+
+  inMemoryMasterBank = result;
+
+  // Persist full set in IndexedDB in the background (zero localStorage consumption)
+  saveLargeDataset('kppn_master_quiz_bank_idb', result).catch(() => {});
+
+  return result;
 }
 
 /**
  * Saves the full master question bank and broadcasts updates
  */
 export async function saveMasterQuizBank(questions: MasterBankQuestion[]): Promise<MasterBankQuestion[]> {
-  safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(questions));
+  inMemoryMasterBank = questions;
+
+  // Cleanup legacy oversized key from localStorage
+  safeLocalStorageRemove(MASTER_QUIZ_BANK_STORAGE_KEY);
+
+  // Identify custom questions and deleted official question IDs
+  const officialIds = new Set(MASTER_QUIZ_BANK.map(q => q.id));
+  const newQuestionIds = new Set(questions.map(q => q.id));
+
+  const customQuestions = questions.filter(q => !officialIds.has(q.id));
+  const deletedOfficialIds = MASTER_QUIZ_BANK.filter(q => !newQuestionIds.has(q.id)).map(q => q.id);
+
+  safeLocalStorageSet(CUSTOM_QUIZ_QUESTIONS_KEY, JSON.stringify(customQuestions.slice(0, 500)));
+  safeLocalStorageSet(DELETED_QUIZ_QUESTION_IDS_KEY, JSON.stringify(deletedOfficialIds));
+
+  // Save complete bank in IndexedDB (zero localStorage quota usage)
+  await saveLargeDataset('kppn_master_quiz_bank_idb', questions);
+
   window.dispatchEvent(new CustomEvent('kppn_master_bank_updated'));
 
-  if (db) {
+  // Save only custom questions to Firestore (preserving Firebase quota)
+  if (db && customQuestions.length > 0) {
     try {
       const batch = writeBatch(db);
-      questions.slice(0, 100).forEach(q => {
+      customQuestions.slice(0, 50).forEach(q => {
         const ref = doc(db, FIRESTORE_BANK_COLLECTION, q.id);
         batch.set(ref, q, { merge: true });
       });
@@ -1250,25 +1300,21 @@ export function subscribeToMasterQuizBank(callback: (questions: MasterBankQuesti
   try {
     const colRef = collection(db, FIRESTORE_BANK_COLLECTION);
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
-      const cloudQuestions: MasterBankQuestion[] = [];
+      const cloudCustomQuestions: MasterBankQuestion[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data && data.id) cloudQuestions.push(data as MasterBankQuestion);
+        if (data && data.id) cloudCustomQuestions.push(data as MasterBankQuestion);
       });
 
-      if (cloudQuestions.length > 0) {
-        if (cloudQuestions.length < MASTER_QUIZ_BANK.length) {
-          const cloudIds = new Set(cloudQuestions.map(q => q.id));
-          const missing = MASTER_QUIZ_BANK.filter(q => !cloudIds.has(q.id));
-          const merged = [...cloudQuestions, ...missing].map((q, idx) => ({ ...q, number: idx + 1 }));
-          safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(merged));
-          callback(merged);
-        } else {
-          safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(cloudQuestions));
-          callback(cloudQuestions);
-        }
-      } else {
-        callback(getMasterQuizBank());
+      if (cloudCustomQuestions.length > 0) {
+        const current = getMasterQuizBank();
+        const map = new Map<string, MasterBankQuestion>();
+        current.forEach(q => map.set(q.id, q));
+        cloudCustomQuestions.forEach(q => map.set(q.id, q));
+        const merged = Array.from(map.values()).map((q, idx) => ({ ...q, number: idx + 1 }));
+        inMemoryMasterBank = merged;
+        saveLargeDataset('kppn_master_quiz_bank_idb', merged).catch(() => {});
+        callback(merged);
       }
     }, (error) => {
       console.warn('[QuizStorage] Firestore bank subscription notice:', error);
@@ -1331,7 +1377,11 @@ export async function deleteMasterBankQuestion(questionId: string): Promise<Mast
  * Resets the master quiz bank to default authoritative repository
  */
 export async function resetMasterQuizBankToDefault(): Promise<MasterBankQuestion[]> {
-  safeLocalStorageSet(MASTER_QUIZ_BANK_STORAGE_KEY, JSON.stringify(MASTER_QUIZ_BANK));
+  safeLocalStorageRemove(MASTER_QUIZ_BANK_STORAGE_KEY);
+  safeLocalStorageRemove(CUSTOM_QUIZ_QUESTIONS_KEY);
+  safeLocalStorageRemove(DELETED_QUIZ_QUESTION_IDS_KEY);
+  await removeLargeDataset('kppn_master_quiz_bank_idb');
+  inMemoryMasterBank = MASTER_QUIZ_BANK;
   window.dispatchEvent(new CustomEvent('kppn_master_bank_updated'));
   return MASTER_QUIZ_BANK;
 }

@@ -2,9 +2,34 @@
  * Safe LocalStorage Manager with automatic quota management & pruning
  */
 
+// Immediate startup cleanup: Remove legacy oversized keys that exceed the 5MB browser quota
+if (typeof window !== 'undefined' && window.localStorage) {
+  try {
+    // 1. Purge legacy master bank key (>2.9MB) which was causing QuotaExceededError
+    if (localStorage.getItem('kppn_master_quiz_bank_v1')) {
+      localStorage.removeItem('kppn_master_quiz_bank_v1');
+    }
+    // 2. Clean up any obsolete firestore multi-tab sync keys from previous sessions
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('firestore_targets_firestore')) {
+        try { localStorage.removeItem(k); } catch {}
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
 export function safeLocalStorageSet(key: string, value: string): boolean {
   if (typeof window === 'undefined') return false;
   
+  // Guard against trying to save massive strings directly into localStorage
+  if (value && value.length > 500_000) {
+    console.warn(`[safeStorage] Value for key "${key}" is too large (${(value.length / 1024).toFixed(1)} KB) for localStorage. Use saveLargeDataset (IndexedDB) instead.`);
+    return false;
+  }
+
   try {
     localStorage.setItem(key, value);
     return true;
@@ -125,6 +150,11 @@ export function emergencyPruneStorage(): void {
   if (typeof window === 'undefined') return;
 
   try {
+    // 0. Remove legacy master bank key if present
+    try {
+      localStorage.removeItem('kppn_master_quiz_bank_v1');
+    } catch {}
+
     // 1. Prune traffic analytics state
     const trafficKey = 'kppn_traffic_analytics_real_v2';
     const trafficRaw = localStorage.getItem(trafficKey);
