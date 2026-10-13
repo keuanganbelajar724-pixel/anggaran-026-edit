@@ -876,12 +876,12 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400">Pukul 15:00 WIB</span>
             </div>
             <h4 className="text-xs font-black text-slate-900 dark:text-white">
-              SPM BAST Kontraktual Oktober
+              SPM-LS Kontraktual dengan BAST/BAPP/Jaminan
             </h4>
             <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-              • BAST s.d. 30 Sept ditolak 9 Okt ➔ Batas pengajuan: <strong>Selasa, 13 Okt 2026</strong><br/>
-              • BAST 5 Okt ditolak 12 Okt ➔ Batas pengajuan: <strong>Rabu, 14 Okt 2026</strong><br/>
-              • BAST 6–23 Okt ➔ Paling lambat <strong>2 Hari Kerja berikutnya</strong> dengan bukti penolakan KPPN.
+              • BAST/BAPP/Jaminan s.d. 30 Sept ditolak 9 Okt ➔ Batas pengajuan: <strong>Selasa, 13 Okt 2026</strong><br/>
+              • BAST/BAPP/Jaminan 5 Okt ditolak 12 Okt ➔ Batas pengajuan: <strong>Rabu, 14 Okt 2026</strong><br/>
+              • BAST/BAPP/Jaminan 6–23 Okt ➔ Paling lambat <strong>2 Hari Kerja berikutnya</strong> dengan bukti penolakan KPPN.
             </p>
           </div>
 
@@ -930,7 +930,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
               Batas Akhir Tahun Anggaran
             </h4>
             <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-relaxed">
-              • <strong>Bisa 2 HK:</strong> BAST 1–7 Des (ditolak 9 Des ➔ 11 Des), BAST 8–14 Des (ditolak 16 Des ➔ 18 Des), BAST 19–23 Des (ditolak 28 Des ➔ 30 Des).<br/>
+              • <strong>Bisa 2 HK:</strong> BAST/BAPP/Jaminan 1–7 Des (ditolak 9 Des ➔ 11 Des), BAST/BAPP/Jaminan 8–14 Des (ditolak 16 Des ➔ 18 Des), BAST/BAPP/Jaminan 19–23 Des (ditolak 28 Des ➔ 30 Des).<br/>
               • <strong>Wajib 1 HK:</strong> UP/GUP (ditolak 8 &amp; 9 Des), Gaji (ditolak 14 &amp; 28 Des), Tukin (ditolak 21 Des), SPM ditolak 29 Des ➔ 30 Des, ditolak 30 Des ➔ <strong>31 Des (Maks 17:00 WIB)</strong>.
             </p>
           </div>

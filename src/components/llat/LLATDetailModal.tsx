@@ -184,7 +184,7 @@ export const LLATDetailModal: React.FC<LLATDetailModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                 <div className="bg-white/80 dark:bg-slate-900/80 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800">
                   <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">
-                    {rolling5HKInfo.isNovember ? 'Tanggal TTD Kontrak:' : 'Tanggal Terbit BAST / Kontrak:'}
+                    {rolling5HKInfo.isNovember ? 'Tanggal TTD Kontrak:' : 'Tanggal Terbit BAST/BAPP/Jaminan & Kontrak:'}
                   </span>
                   <span className="font-mono font-black text-slate-900 dark:text-white text-sm">
                     {rolling5HKInfo.sourceDateFormatted}

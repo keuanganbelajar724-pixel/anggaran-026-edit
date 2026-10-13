@@ -568,7 +568,7 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     : 'Pasal 6 ayat (3)';
 
   const label = isOct
-    ? `Batas 5 HK: BAST & Kontrak tgl ${sourceDateFormatted}`
+    ? `Batas 5 HK: BAST/BAPP/Jaminan & Kontrak Ditandatangani ${sourceDateFormatted}`
     : `Batas 5 HK: Pendaftaran Kontrak tgl ${sourceDateFormatted}`;
 
   const shortLabel = isOct
@@ -576,15 +576,15 @@ export function getRolling5HKInfo(dateStr: string): Rolling5HKInfo | null {
     : `Kontrak 5 HK (${sourceDateFormatted})`;
 
   const description = isOct
-    ? `Berdasarkan ketentuan Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak dan SPM-LS Kontraktual untuk BAST/BAPP yang ditandatangani pada tanggal ${sourceDateFormatted} (dengan batas akhir sapu jagat 6 November 2026).`
-    : `Berdasarkan ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pendaftaran Kontrak atau perubahan data Kontrak yang ditandatangani tanggal ${sourceDateFormatted} ke KPPN. (Batas 5 hari kerja di bulan November HANYA berlaku untuk Pendaftaran Kontrak; untuk SPM-LS BAST November tidak ada batas 5 HK harian berputar, melainkan diajukan secara gelondongan tanggal 20 Nov & 7 Des 2026).`;
+    ? `Berdasarkan ketentuan Pasal 6 ayat (2) & Pasal 18 ayat (1) huruf b PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pengajuan pendaftaran Kontrak dan SPM-LS Kontraktual dengan BAST/BAPP/Jaminan yang ditandatangani pada tanggal ${sourceDateFormatted} (dengan batas akhir sapu jagat 6 November 2026).`
+    : `Berdasarkan ketentuan Pasal 6 ayat (3) PER-9/PB/2026, hari ini merupakan batas akhir (H+5 Hari Kerja) pendaftaran Kontrak atau perubahan data Kontrak yang ditandatangani tanggal ${sourceDateFormatted} ke KPPN. (Batas 5 hari kerja di bulan November HANYA berlaku untuk Pendaftaran Kontrak; untuk SPM-LS dengan BAST/BAPP/Jaminan November tidak ada batas 5 HK harian berputar, melainkan diajukan secara gelondongan tanggal 20 Nov & 7 Des 2026).`;
 
   const rejectedCalc = calculateWorkingDayDeadline(dateStr, 2, 'SESUDAH', false);
   const rejectedDeadlineStr = rejectedCalc.targetDateStr;
   const rejectedDeadlineFormatted = formatShortDateID(rejectedDeadlineStr);
   const rejectedJamBatas = (isOct || isNov) ? '15:00' : '17:00';
   const rejectedDescription = isOct
-    ? `Berdasarkan Pasal 19 PER-9/PB/2026, dalam hal KPPN melakukan penolakan atas pengajuan SPM-LS Kontraktual/BAST pada hari ini (${formatShortDateID(dateStr)}), Satker dapat mengajukan kembali perbaikan SPM paling lambat 2 Hari Kerja setelah ditolak yaitu ${rejectedDeadlineFormatted} pukul ${rejectedJamBatas} WIB dengan melampirkan bukti penolakan SPM dari KPPN.`
+    ? `Berdasarkan Pasal 19 PER-9/PB/2026, dalam hal KPPN melakukan penolakan atas pengajuan SPM-LS Kontraktual dengan BAST/BAPP/Jaminan pada hari ini (${formatShortDateID(dateStr)}), Satker dapat mengajukan kembali perbaikan SPM paling lambat 2 Hari Kerja setelah ditolak yaitu ${rejectedDeadlineFormatted} pukul ${rejectedJamBatas} WIB dengan melampirkan bukti penolakan SPM dari KPPN.`
     : `Berdasarkan regulasi PER-9/PB/2026, jika terdapat penolakan dokumen pengajuan pada hari ini (${formatShortDateID(dateStr)}), perbaikan diajukan paling lambat 2 Hari Kerja yaitu ${rejectedDeadlineFormatted} pukul ${rejectedJamBatas} WIB dengan melampirkan bukti penolakan resmi.`;
 
   return {
@@ -626,13 +626,13 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
   let kodeKegiatan = 'PASAL-6&18';
   let namaKegiatan = '';
   let jenisDokumen = '';
-  let kategori = 'Kontrak & BAST';
+  let kategori = 'Kontrak & BAST/BAPP/Jaminan';
 
   if (isOct) {
     kodeKegiatan = 'PASAL-6&18';
-    namaKegiatan = `Batas 5 HK: BAST & Kontrak Ditandatangani ${r5hk.sourceDateFormatted}`;
-    jenisDokumen = 'Pendaftaran Data Kontrak & SPM-LS Kontraktual (BAST/BAPP)';
-    kategori = 'Kontrak & BAST';
+    namaKegiatan = `Batas 5 HK: BAST/BAPP/Jaminan & Kontrak Ditandatangani ${r5hk.sourceDateFormatted}`;
+    jenisDokumen = 'Pendaftaran Data Kontrak & SPM-LS Kontraktual (BAST/BAPP/Jaminan)';
+    kategori = 'Kontrak & BAST/BAPP/Jaminan';
   } else if (isNov) {
     kodeKegiatan = 'PASAL-6.3';
     namaKegiatan = `Batas 5 HK: Pendaftaran Kontrak Ditandatangani ${r5hk.sourceDateFormatted}`;
@@ -646,8 +646,8 @@ export function createRolling5HKEvent(r5hk: Rolling5HKInfo): LLATEvent {
   } else {
     kodeKegiatan = 'PASAL-6';
     namaKegiatan = r5hk.label;
-    jenisDokumen = 'Dokumen Kontraktual / BAST';
-    kategori = 'Kontrak & BAST';
+    jenisDokumen = 'Dokumen Kontraktual (BAST/BAPP/Jaminan)';
+    kategori = 'Kontrak & BAST/BAPP/Jaminan';
   }
 
   const defaultJam = (isOct || isNov) ? '15:00' : '17:00';
