@@ -145,38 +145,52 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
     }
   };
 
-  // Inline toggle for the 4 stages
+  // Inline toggle for the 4 stages - Respect exact record.checklistTahapan
   const handleToggleStage = (
     record: DispensasiIKPARecord, 
     stage: 'kppn' | 'kanwil' | 'kanpus' | 'final'
   ) => {
-    let nextStatus = record.status;
     const tahapan = record.checklistTahapan || {};
     const nowStr = new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
 
-    if (stage === 'final') {
-      nextStatus = record.status === 'DISETUJUI' ? 'DIAJUKAN_PUSAT' : 'DISETUJUI';
-    } else if (stage === 'kanpus') {
-      nextStatus = record.status === 'DIAJUKAN_PUSAT' ? 'VERIFIKASI_KANWIL' : 'DIAJUKAN_PUSAT';
-    } else if (stage === 'kanwil') {
-      nextStatus = record.status === 'VERIFIKASI_KANWIL' ? 'VERIFIKASI_KPPN' : 'VERIFIKASI_KANWIL';
-    } else if (stage === 'kppn') {
-      nextStatus = 'VERIFIKASI_KPPN';
-    }
+    const currentKppn = tahapan.csoDiterima !== undefined ? tahapan.csoDiterima : true;
+    const currentKanwil = tahapan.kanwilVerifikasi !== undefined ? tahapan.kanwilVerifikasi : (record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+    const currentKanpus = tahapan.pusatDiajukan !== undefined ? tahapan.pusatDiajukan : (record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+    const currentFinal = tahapan.keputusanFinal !== undefined ? tahapan.keputusanFinal : (record.status === 'DISETUJUI' || record.status === 'DITOLAK');
 
-    const isKanwil = nextStatus === 'VERIFIKASI_KANWIL' || nextStatus === 'DIAJUKAN_PUSAT' || nextStatus === 'DISETUJUI' || nextStatus === 'DITOLAK';
-    const isKanpus = nextStatus === 'DIAJUKAN_PUSAT' || nextStatus === 'DISETUJUI' || nextStatus === 'DITOLAK';
-    const isFinal = nextStatus === 'DISETUJUI' || nextStatus === 'DITOLAK';
+    let nextKppn = currentKppn;
+    let nextKanwil = currentKanwil;
+    let nextKanpus = currentKanpus;
+    let nextFinal = currentFinal;
+    let nextStatus = record.status;
+
+    if (stage === 'kppn') {
+      nextKppn = !currentKppn;
+    } else if (stage === 'kanwil') {
+      nextKanwil = !currentKanwil;
+      if (nextKanwil && nextStatus === 'VERIFIKASI_KPPN') nextStatus = 'VERIFIKASI_KANWIL';
+      if (!nextKanwil && nextStatus === 'VERIFIKASI_KANWIL') nextStatus = 'VERIFIKASI_KPPN';
+    } else if (stage === 'kanpus') {
+      nextKanpus = !currentKanpus;
+      if (nextKanpus && (nextStatus === 'VERIFIKASI_KANWIL' || nextStatus === 'VERIFIKASI_KPPN')) nextStatus = 'DIAJUKAN_PUSAT';
+      if (!nextKanpus && nextStatus === 'DIAJUKAN_PUSAT') nextStatus = 'VERIFIKASI_KANWIL';
+    } else if (stage === 'final') {
+      nextFinal = !currentFinal;
+      if (nextFinal && nextStatus !== 'DITOLAK') nextStatus = 'DISETUJUI';
+      if (!nextFinal && nextStatus === 'DISETUJUI') nextStatus = nextKanpus ? 'DIAJUKAN_PUSAT' : (nextKanwil ? 'VERIFIKASI_KANWIL' : 'VERIFIKASI_KPPN');
+    }
 
     const updatedTahapan = {
       ...tahapan,
-      csoDiterima: true,
-      kanwilVerifikasi: isKanwil,
-      kanwilTanggal: isKanwil ? (tahapan.kanwilTanggal || nowStr) : undefined,
-      pusatDiajukan: isKanpus,
-      pusatTanggal: isKanpus ? (tahapan.pusatTanggal || nowStr) : undefined,
-      keputusanFinal: isFinal,
-      keputusanTanggal: isFinal ? (tahapan.keputusanTanggal || nowStr) : undefined
+      csoDiterima: nextKppn,
+      csoTanggal: tahapan.csoTanggal || nowStr,
+      kppnVerifikasi: nextKppn,
+      kanwilVerifikasi: nextKanwil,
+      kanwilTanggal: nextKanwil ? (tahapan.kanwilTanggal || nowStr) : undefined,
+      pusatDiajukan: nextKanpus,
+      pusatTanggal: nextKanpus ? (tahapan.pusatTanggal || nowStr) : undefined,
+      keputusanFinal: nextFinal,
+      keputusanTanggal: nextFinal ? (tahapan.keputusanTanggal || nowStr) : undefined
     };
 
     handleUpdateRecord({
@@ -571,9 +585,19 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-slate-800 bg-slate-950' : 'divide-slate-200 bg-white'}`}>
               {filteredRecords.map((record, index) => {
-                const isKanwil = record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK';
-                const isKanpus = record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK';
-                const isFinal = record.status === 'DISETUJUI' || record.status === 'DITOLAK';
+                const tahapan = record.checklistTahapan || {};
+                const isKppn = tahapan.csoDiterima !== undefined 
+                  ? tahapan.csoDiterima 
+                  : true;
+                const isKanwil = tahapan.kanwilVerifikasi !== undefined 
+                  ? tahapan.kanwilVerifikasi 
+                  : (record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+                const isKanpus = tahapan.pusatDiajukan !== undefined 
+                  ? tahapan.pusatDiajukan 
+                  : (record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+                const isFinal = tahapan.keputusanFinal !== undefined 
+                  ? tahapan.keputusanFinal 
+                  : (record.status === 'DISETUJUI' || record.status === 'DITOLAK');
 
                 return (
                   <tr 
@@ -683,11 +707,11 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
                         <label className="flex items-center gap-2 cursor-pointer hover:text-indigo-600">
                           <input
                             type="checkbox"
-                            checked={true}
+                            checked={isKppn}
                             onChange={() => handleToggleStage(record, 'kppn')}
-                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
                           />
-                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                          <span className={`font-semibold ${isKppn ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400'}`}>
                             1. Diterima KPPN
                           </span>
                         </label>

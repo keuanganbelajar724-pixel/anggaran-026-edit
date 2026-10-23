@@ -186,34 +186,47 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
   };
 
   // 4 Clean Timeline Steps:
-  // 1. Diterima KPPN -> 2. Posisi Kanwil -> 3. Posisi Kanpus -> 4. Disetujui / Ditolak (oleh Kantor Pusat)
+  // 1. Diterima KPPN -> 2. Posisi Kanwil -> 3. Posisi Kanpus -> 4. Disetujui / Ditolak
   const renderTimelineSteps = (record: DispensasiIKPARecord) => {
-    const isKanwilReached = record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK';
-    const isKanpusReached = record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK';
-    const isFinalDone = record.status === 'DISETUJUI' || record.status === 'DITOLAK';
+    const tahapan = record.checklistTahapan || {};
+    const isKppn = tahapan.csoDiterima !== undefined 
+      ? tahapan.csoDiterima 
+      : true;
+    const isKanwil = tahapan.kanwilVerifikasi !== undefined 
+      ? tahapan.kanwilVerifikasi 
+      : (record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+    const isKanpus = tahapan.pusatDiajukan !== undefined 
+      ? tahapan.pusatDiajukan 
+      : (record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI');
+    const isFinal = tahapan.keputusanFinal !== undefined 
+      ? tahapan.keputusanFinal 
+      : (record.status === 'DISETUJUI' || record.status === 'DITOLAK');
+
+    const isRejected = record.status === 'DITOLAK';
+    const isApproved = record.status === 'DISETUJUI';
 
     const steps = [
       { 
         label: 'Diterima KPPN', 
-        done: true, 
-        active: record.status === 'DIAJUKAN_CSO' || record.status === 'VERIFIKASI_KPPN'
+        done: isKppn, 
+        active: (record.status === 'DIAJUKAN_CSO' || record.status === 'VERIFIKASI_KPPN') && !isRejected && !isApproved
       },
       { 
         label: 'Posisi Kanwil', 
-        done: isKanwilReached, 
-        active: record.status === 'VERIFIKASI_KANWIL' 
+        done: isKanwil, 
+        active: record.status === 'VERIFIKASI_KANWIL' && !isRejected && !isApproved
       },
       { 
         label: 'Posisi Kanpus', 
-        done: isKanpusReached, 
-        active: record.status === 'DIAJUKAN_PUSAT' 
+        done: isKanpus, 
+        active: record.status === 'DIAJUKAN_PUSAT' && !isRejected && !isApproved
       },
       { 
-        label: record.status === 'DITOLAK' ? 'Ditolak' : 'Disetujui', 
-        done: isFinalDone, 
+        label: isRejected ? 'Ditolak' : 'Disetujui', 
+        done: isApproved ? true : (isRejected ? isFinal : false), 
         active: false, 
         isFinal: true, 
-        isRejected: record.status === 'DITOLAK' 
+        isRejected: isRejected 
       }
     ];
 
@@ -254,7 +267,7 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
             </div>
             {idx < steps.length - 1 && (
               <div className={`h-0.5 flex-1 -mt-3.5 ${
-                steps[idx + 1].done || step.done
+                step.done && (steps[idx + 1].done || steps[idx + 1].active)
                   ? 'bg-emerald-500 dark:bg-emerald-600'
                   : isDark ? 'bg-slate-800' : 'bg-slate-200'
               }`} />

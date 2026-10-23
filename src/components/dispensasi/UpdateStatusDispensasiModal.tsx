@@ -25,16 +25,26 @@ export const UpdateStatusDispensasiModal: React.FC<UpdateStatusDispensasiModalPr
   const [nomorSuratHasil, setNomorSuratHasil] = useState<string>(record.nomorSuratHasil || '');
 
   // 4 Stages:
-  // 1. Diterima KPPN -> 2. Posisi Kanwil -> 3. Posisi Kanpus -> 4. Putusan Akhir (Kantor Pusat)
-  const [stage1Kppn, setStage1Kppn] = useState<boolean>(record.checklistTahapan?.csoDiterima ?? true);
+  // 1. Diterima KPPN -> 2. Posisi Kanwil -> 3. Posisi Kanpus -> 4. Putusan Akhir
+  const [stage1Kppn, setStage1Kppn] = useState<boolean>(
+    record.checklistTahapan?.csoDiterima !== undefined
+      ? record.checklistTahapan.csoDiterima
+      : true
+  );
   const [stage2Kanwil, setStage2Kanwil] = useState<boolean>(
-    record.checklistTahapan?.kanwilVerifikasi ?? (record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK')
+    record.checklistTahapan?.kanwilVerifikasi !== undefined
+      ? record.checklistTahapan.kanwilVerifikasi
+      : (record.status === 'VERIFIKASI_KANWIL' || record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI')
   );
   const [stage3Kanpus, setStage3Kanpus] = useState<boolean>(
-    record.checklistTahapan?.pusatDiajukan ?? (record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI' || record.status === 'DITOLAK')
+    record.checklistTahapan?.pusatDiajukan !== undefined
+      ? record.checklistTahapan.pusatDiajukan
+      : (record.status === 'DIAJUKAN_PUSAT' || record.status === 'DISETUJUI')
   );
   const [stage4Keputusan, setStage4Keputusan] = useState<boolean>(
-    record.checklistTahapan?.keputusanFinal ?? (record.status === 'DISETUJUI' || record.status === 'DITOLAK')
+    record.checklistTahapan?.keputusanFinal !== undefined
+      ? record.checklistTahapan.keputusanFinal
+      : (record.status === 'DISETUJUI' || record.status === 'DITOLAK')
   );
 
   const handleStatusChange = (newStatus: DispensasiIKPAStatus) => {
@@ -55,10 +65,14 @@ export const UpdateStatusDispensasiModal: React.FC<UpdateStatusDispensasiModalPr
       setStage2Kanwil(true);
       setStage3Kanpus(true);
       setStage4Keputusan(false);
-    } else if (newStatus === 'DISETUJUI' || newStatus === 'DITOLAK') {
+    } else if (newStatus === 'DISETUJUI') {
       setStage1Kppn(true);
       setStage2Kanwil(true);
       setStage3Kanpus(true);
+      setStage4Keputusan(true);
+    } else if (newStatus === 'DITOLAK') {
+      // Saat ditolak, pertahankan tahapan yang memang sudah dilalui dan tandai keputusan selesai
+      setStage1Kppn(true);
       setStage4Keputusan(true);
     }
   };
@@ -348,7 +362,7 @@ export const UpdateStatusDispensasiModal: React.FC<UpdateStatusDispensasiModalPr
                   className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                 />
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Tahap 4: Keputusan Selesai (Disetujui / Ditolak oleh Kantor Pusat DJPb)
+                  Tahap 4: Keputusan Selesai ({status === 'DITOLAK' ? 'Ditolak' : 'Disetujui'})
                 </span>
               </label>
             </div>
