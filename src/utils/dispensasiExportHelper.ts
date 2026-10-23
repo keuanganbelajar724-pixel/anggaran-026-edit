@@ -5,18 +5,24 @@ import { DispensasiIKPARecord } from '../types';
 
 export function getLabelJenisDispensasi(jenis: string): string {
   switch (jenis) {
-    case 'DISPENSASI_SPM':
-      return 'Dispensasi SPM Terlambat (Akhir Tahun / Triwulan IV)';
+    case 'REVISI_DIPA':
+      return 'Revisi DIPA (Indikator 1)';
     case 'DEVIASI_HAL3':
-      return 'Dispensasi Deviasi Hal III DIPA';
+      return 'Deviasi Hal III DIPA (Indikator 2)';
+    case 'PENYERAPAN_ANGGARAN':
+      return 'Penyerapan Anggaran (Indikator 3)';
     case 'KONTRAKTUAL':
-      return 'Dispensasi Pendaftaran Kontrak';
-    case 'CAPAIAN_OUTPUT':
-      return 'Dispensasi Konfirmasi Capaian Output';
+      return 'Belanja Kontraktual (Indikator 4)';
+    case 'PENYELESAIAN_TAGIHAN':
+      return 'Penyelesaian Tagihan (Indikator 5)';
     case 'UP_TUP':
-      return 'Dispensasi Pengelolaan UP / TUP';
+      return 'Pengelolaan UP / TUP (Indikator 6)';
+    case 'DISPENSASI_SPM':
+      return 'Dispensasi SPM Terlambat (Indikator 7)';
+    case 'CAPAIAN_OUTPUT':
+      return 'Capaian Output (Indikator 8)';
     case 'LAINNYA':
-      return 'Dispensasi Lainnya / Force Majeure';
+      return 'Lainnya / Force Majeure';
     default:
       return jenis || 'Dispensasi IKPA';
   }
@@ -50,6 +56,7 @@ export function exportDispensasiToExcel(records: DispensasiIKPARecord[]) {
     'Nama Satker': r.namaSatker,
     'Kementerian / Lembaga': r.kementerianLembaga || '-',
     'Jenis Dispensasi': getLabelJenisDispensasi(r.jenisDispensasi),
+    'Kriteria ND-1423': r.kriteriaKode ? `Kriteria ${r.kriteriaKode}` : '-',
     'Nomor Surat Satker': r.nomorSurat,
     'Tanggal Surat Satker': r.tanggalSurat,
     'Tanggal Masuk CSO': r.tanggalPengajuan,

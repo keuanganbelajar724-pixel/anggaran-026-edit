@@ -13,7 +13,8 @@ import {
   Send, 
   Info, 
   ArrowRight,
-  PlusCircle
+  PlusCircle,
+  BookOpen
 } from 'lucide-react';
 import { 
   DispensasiIKPARecord, 
@@ -29,7 +30,9 @@ import {
   exportDispensasiToExcel, 
   exportDispensasiToPDF 
 } from '../utils/dispensasiExportHelper';
+import { getIndikatorDispensasiConfig } from '../data/kriteriaDispensasiData';
 import { AjukanDispensasiModal } from './dispensasi/AjukanDispensasiModal';
+import { KriteriaND1423Modal } from './dispensasi/KriteriaND1423Modal';
 
 interface DispensasiIKPADashboardProps {
   records: DispensasiIKPARecord[];
@@ -57,6 +60,7 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
   const [filterJenis, setFilterJenis] = useState<string>('ALL');
   const [selectedSatkerFilter, setSelectedSatkerFilter] = useState<string>('ALL');
   const [isAjukanModalOpen, setIsAjukanModalOpen] = useState<boolean>(false);
+  const [isKriteriaModalOpen, setIsKriteriaModalOpen] = useState<boolean>(false);
   const [submissionSuccessToast, setSubmissionSuccessToast] = useState<string | null>(null);
 
   // Add new submission by Satker or Admin
@@ -292,10 +296,21 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
             type="button"
             onClick={() => setIsAjukanModalOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
-            title="Kirim permohonan dispensasi IKPA resmi (DEVIASI HAL III, KONTRAK, CAPAIAN OUTPUT, UP/TUP, SPM)"
+            title="Kirim permohonan dispensasi/penyesuaian IKPA resmi sesuai ND-1423/PB.2/2026"
           >
             <PlusCircle className="w-4 h-4 text-amber-200" />
             <span>Ajukan Dispensasi</span>
+          </button>
+
+          {/* Tombol Pedoman Kriteria ND-1423 */}
+          <button
+            type="button"
+            onClick={() => setIsKriteriaModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-200 cursor-pointer shadow-2xs transition-all"
+            title="Pedoman Matriks Kriteria Penyesuaian IKPA (ND-1423/PB.2/2026)"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span>Kriteria ND-1423 (8 Indikator)</span>
           </button>
 
           {isAdminAuthenticated && (
@@ -503,13 +518,16 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
             onChange={(e) => setFilterJenis(e.target.value)}
             className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
           >
-            <option value="ALL">Semua Jenis Dispensasi</option>
-            <option value="DEVIASI_HAL3">Deviasi Halaman III DIPA</option>
-            <option value="DISPENSASI_SPM">Dispensasi SPM Terlambat</option>
-            <option value="KONTRAKTUAL">Pendaftaran Data Kontrak</option>
-            <option value="CAPAIAN_OUTPUT">Capaian Output</option>
-            <option value="UP_TUP">Pengelolaan UP / TUP</option>
-            <option value="LAINNYA">Lainnya / Force Majeure</option>
+            <option value="ALL">Semua Jenis Dispensasi (8 Indikator)</option>
+            <option value="PENYERAPAN_ANGGARAN">⭐ 3. Penyerapan Anggaran (ND-1423)</option>
+            <option value="REVISI_DIPA">1. Revisi DIPA (ND-1423)</option>
+            <option value="DEVIASI_HAL3">2. Deviasi Halaman III DIPA</option>
+            <option value="KONTRAKTUAL">4. Belanja Kontraktual</option>
+            <option value="PENYELESAIAN_TAGIHAN">5. Penyelesaian Tagihan</option>
+            <option value="UP_TUP">6. Pengelolaan UP / TUP</option>
+            <option value="DISPENSASI_SPM">7. Dispensasi SPM Terlambat</option>
+            <option value="CAPAIAN_OUTPUT">8. Capaian Output</option>
+            <option value="LAINNYA">9. Lainnya / Force Majeure</option>
           </select>
 
           {/* Satker Filter */}
@@ -602,14 +620,26 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
 
                 {/* Jenis Dispensasi Pill & Nomor Surat */}
                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
-                      {getLabelJenisDispensasi(record.jenisDispensasi)}
-                    </span>
-                    <span className="text-[10px] text-slate-500">
-                      Surat Satker: <strong>{record.nomorSurat}</strong>
-                    </span>
-                  </div>
+                  {(() => {
+                    const cfg = getIndikatorDispensasiConfig(record.jenisDispensasi);
+                    return (
+                      <div className="flex items-center justify-between flex-wrap gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[11px] font-black px-2 py-0.5 rounded border ${cfg.warnaBadge}`}>
+                            {cfg.nomor}. {cfg.nama}
+                          </span>
+                          {record.kriteriaKode && (
+                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                              Kriteria {record.kriteriaKode}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-500">
+                          Surat: <strong>{record.nomorSurat}</strong> ({record.tanggalSurat})
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <p className="text-[11px] text-slate-600 dark:text-slate-300 italic line-clamp-2">
                     &ldquo;{record.alasanDispensasi}&rdquo;
                   </p>
@@ -659,6 +689,13 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
         onSubmit={handleAddNewDispensasi}
         satkers={satkers}
         currentSatkerKode={undefined}
+        isDark={isDark}
+      />
+
+      {/* Modal: Pedoman Kriteria ND-1423/PB.2/2026 */}
+      <KriteriaND1423Modal
+        isOpen={isKriteriaModalOpen}
+        onClose={() => setIsKriteriaModalOpen(false)}
         isDark={isDark}
       />
     </div>

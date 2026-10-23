@@ -3902,7 +3902,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
             </button>
           )}
 
-          {/* 23. Monitoring Dispensasi & Dokumen CSO (Khusus Admin) */}
+          {/* 23. Monitoring Dispensasi & Penyesuaian IKPA CSO (ND-1423) */}
           <button
             onClick={() => setAdminTab('dispensasi-cso')}
             className={`flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer h-11 min-h-[44px] ${
@@ -3913,7 +3913,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
           >
             <div className="flex items-center gap-1.5 truncate">
               <Scale className={`w-4 h-4 shrink-0 ${adminTab === 'dispensasi-cso' ? 'text-white' : 'text-amber-500'}`} />
-              <span className="truncate">23. Monitoring Dispensasi &amp; Dokumen CSO</span>
+              <span className="truncate">23. Dispensasi &amp; Penyesuaian IKPA (ND-1423)</span>
             </div>
             <span className="text-[9px] px-1.5 py-0.5 rounded-full font-black uppercase shrink-0 shadow-2xs bg-amber-400 text-slate-950 font-bold">
               {dispensasiRecords.length} BERKAS

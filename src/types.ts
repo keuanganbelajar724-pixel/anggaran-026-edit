@@ -1605,12 +1605,15 @@ export type DispensasiIKPAStatus =
   | 'PERBAIKAN_DOKUMEN';  // Perbaikan / Menunggu Kelengkapan Dokumen
 
 export type JenisDispensasiIKPA =
-  | 'DISPENSASI_SPM'        // Dispensasi SPM Terlambat / Akhir Tahun
-  | 'DEVIASI_HAL3'          // Dispensasi Deviasi Halaman III DIPA
-  | 'KONTRAKTUAL'           // Dispensasi Pendaftaran Kontrak / Data Kontrak
-  | 'CAPAIAN_OUTPUT'        // Dispensasi Konfirmasi / Pelaporan Capaian Output
-  | 'UP_TUP'                // Dispensasi Pengelolaan UP/TUP / GUP
-  | 'LAINNYA';              // Lainnya / Force Majeure
+  | 'REVISI_DIPA'           // 1. Revisi DIPA (ND-1423/PB.2/2026)
+  | 'DEVIASI_HAL3'          // 2. Deviasi Halaman III DIPA (ND-1423/PB.2/2026)
+  | 'PENYERAPAN_ANGGARAN'   // 3. Penyerapan Anggaran (ND-1423/PB.2/2026)
+  | 'KONTRAKTUAL'           // 4. Belanja Kontraktual (ND-1423/PB.2/2026)
+  | 'PENYELESAIAN_TAGIHAN'  // 5. Penyelesaian Tagihan (ND-1423/PB.2/2026)
+  | 'UP_TUP'                // 6. Pengelolaan UP/TUP (ND-1423/PB.2/2026)
+  | 'DISPENSASI_SPM'        // 7. Dispensasi SPM Terlambat (ND-1423/PB.2/2026)
+  | 'CAPAIAN_OUTPUT'        // 8. Capaian Output (ND-1423/PB.2/2026)
+  | 'LAINNYA';              // 9. Lainnya / Force Majeure
 
 export interface DispensasiChecklistTahapan {
   csoDiterima?: boolean;
@@ -1639,7 +1642,8 @@ export interface DispensasiIKPARecord {
   tanggalSurat: string;          // Tanggal surat satker
   tanggalPengajuan: string;      // Tanggal diserahkan ke CSO KPPN
   jenisDispensasi: JenisDispensasiIKPA;
-  alasanDispensasi: string;      // Uraian permohonan/kendala
+  kriteriaKode?: string;         // e.g. "3.a", "3.b" (ND-1423/PB.2/2026)
+  alasanDispensasi: string;      // Uraian permohonan/kendala/kriteria resmi
   linkDokumenCso: string;        // URL Dokumen/Google Drive yang diajukan ke CSO
   linkDokumenPendukung?: string; // Lampiran SPTJM, screenshot, dll
   namaPemohon?: string;

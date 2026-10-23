@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   Copy, 
   Check, 
-  Send
+  Send,
+  BookOpen
 } from 'lucide-react';
 import { 
   DispensasiIKPARecord, 
@@ -30,8 +31,10 @@ import {
   exportDispensasiToExcel, 
   exportDispensasiToPDF 
 } from '../../utils/dispensasiExportHelper';
+import { getIndikatorDispensasiConfig } from '../../data/kriteriaDispensasiData';
 import { AjukanDispensasiModal } from '../dispensasi/AjukanDispensasiModal';
 import { UpdateStatusDispensasiModal } from '../dispensasi/UpdateStatusDispensasiModal';
+import { KriteriaND1423Modal } from '../dispensasi/KriteriaND1423Modal';
 
 interface DispensasiAdminCsoSectionProps {
   records: DispensasiIKPARecord[];
@@ -59,6 +62,7 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
 
   // Modals
   const [isAjukanModalOpen, setIsAjukanModalOpen] = useState<boolean>(false);
+  const [isKriteriaModalOpen, setIsKriteriaModalOpen] = useState<boolean>(false);
   const [selectedRecordForUpdate, setSelectedRecordForUpdate] = useState<DispensasiIKPARecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -280,6 +284,16 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
 
             <button
               type="button"
+              onClick={() => setIsKriteriaModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 cursor-pointer shadow-xs transition-all"
+              title="Pedoman Matriks Kriteria Penyesuaian IKPA (ND-1423/PB.2/2026)"
+            >
+              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Kriteria ND-1423 (8 Indikator)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => exportDispensasiToExcel(filteredRecords)}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer shadow-xs transition-all"
             >
@@ -476,13 +490,16 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
             onChange={(e) => setFilterJenis(e.target.value)}
             className="text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
           >
-            <option value="ALL">Semua Jenis Dispensasi</option>
-            <option value="DEVIASI_HAL3">Deviasi Halaman III DIPA</option>
-            <option value="DISPENSASI_SPM">Dispensasi SPM Terlambat</option>
-            <option value="KONTRAKTUAL">Pendaftaran Data Kontrak</option>
-            <option value="CAPAIAN_OUTPUT">Capaian Output</option>
-            <option value="UP_TUP">Pengelolaan UP / TUP</option>
-            <option value="LAINNYA">Lainnya / Force Majeure</option>
+            <option value="ALL">Semua Jenis Dispensasi (8 Indikator)</option>
+            <option value="PENYERAPAN_ANGGARAN">⭐ 3. Penyerapan Anggaran (ND-1423)</option>
+            <option value="REVISI_DIPA">1. Revisi DIPA (ND-1423)</option>
+            <option value="DEVIASI_HAL3">2. Deviasi Halaman III DIPA</option>
+            <option value="KONTRAKTUAL">4. Belanja Kontraktual</option>
+            <option value="PENYELESAIAN_TAGIHAN">5. Penyelesaian Tagihan</option>
+            <option value="UP_TUP">6. Pengelolaan UP / TUP</option>
+            <option value="DISPENSASI_SPM">7. Dispensasi SPM Terlambat</option>
+            <option value="CAPAIAN_OUTPUT">8. Capaian Output</option>
+            <option value="LAINNYA">9. Lainnya / Force Majeure</option>
           </select>
 
           <select
@@ -592,16 +609,31 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
                     </td>
 
                     {/* 3. Jenis Dispensasi & Uraian */}
-                    <td className="px-3.5 py-3 max-w-[240px]">
-                      <span className="inline-block text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800 mb-1">
-                        {getLabelJenisDispensasi(record.jenisDispensasi)}
-                      </span>
-                      <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                        Surat: {record.nomorSurat}
-                      </div>
-                      <div className="text-[10px] text-slate-500 italic line-clamp-2 mt-0.5" title={record.alasanDispensasi}>
-                        &ldquo;{record.alasanDispensasi}&rdquo;
-                      </div>
+                    <td className="px-3.5 py-3 max-w-[260px]">
+                      {(() => {
+                        const cfg = getIndikatorDispensasiConfig(record.jenisDispensasi);
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${cfg.warnaBadge}`}>
+                                <span>{cfg.nomor}.</span>
+                                <span>{cfg.nama}</span>
+                              </span>
+                              {record.kriteriaKode && (
+                                <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                  Kriteria {record.kriteriaKode}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                              Surat: {record.nomorSurat}
+                            </div>
+                            <div className="text-[10px] text-slate-500 italic line-clamp-2" title={record.alasanDispensasi}>
+                              &ldquo;{record.alasanDispensasi}&rdquo;
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* 4. Link Dokumen CSO (Drive) */}
@@ -752,6 +784,13 @@ export const DispensasiAdminCsoSection: React.FC<DispensasiAdminCsoSectionProps>
         onClose={() => setSelectedRecordForUpdate(null)}
         record={selectedRecordForUpdate}
         onUpdate={handleUpdateRecord}
+        isDark={isDark}
+      />
+
+      {/* Modal: Pedoman Matriks Kriteria ND-1423/PB.2/2026 */}
+      <KriteriaND1423Modal
+        isOpen={isKriteriaModalOpen}
+        onClose={() => setIsKriteriaModalOpen(false)}
         isDark={isDark}
       />
     </div>

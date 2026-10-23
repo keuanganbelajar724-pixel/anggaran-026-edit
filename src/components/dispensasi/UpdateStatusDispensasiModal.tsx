@@ -122,20 +122,63 @@ export const UpdateStatusDispensasiModal: React.FC<UpdateStatusDispensasiModalPr
         {/* Content */}
         <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           {/* Info Summary */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between text-xs">
-            <div>
-              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
-                {getLabelJenisDispensasi(record.jenisDispensasi)}
-              </span>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Surat: <strong>{record.nomorSurat}</strong> ({record.tanggalSurat})
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-xs space-y-2.5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                    {getLabelJenisDispensasi(record.jenisDispensasi)}
+                  </span>
+                  {record.kriteriaKode && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      Kriteria ND-1423: {record.kriteriaKode}
+                    </span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-500 mt-1">
+                  Surat: <strong>{record.nomorSurat}</strong> ({record.tanggalSurat}) • Masuk CSO: {record.tanggalPengajuan}
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-[10px] text-slate-400">Status Saat Ini:</div>
+                <div className="font-extrabold text-indigo-600 dark:text-indigo-400">
+                  {getLabelStatusDispensasi(record.status)}
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] text-slate-400">Status Saat Ini:</div>
-              <div className="font-extrabold text-indigo-600 dark:text-indigo-400">
-                {getLabelStatusDispensasi(record.status)}
-              </div>
+
+            {/* Uraian Alasan Satker */}
+            <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                Alasan &amp; Kriteria Permohonan Satker:
+              </span>
+              <p className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed italic">
+                &ldquo;{record.alasanDispensasi || 'Tidak ada uraian alasan'}&rdquo;
+              </p>
+            </div>
+
+            {/* Document Links */}
+            <div className="flex items-center gap-3 pt-1 text-[11px] flex-wrap">
+              {record.linkDokumenCso && (
+                <a
+                  href={record.linkDokumenCso}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  📄 Buka Berkas Surat CSO
+                </a>
+              )}
+              {record.linkDokumenPendukung && (
+                <a
+                  href={record.linkDokumenPendukung}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                >
+                  📎 Buka Dokumen Pendukung (SK/DIPA IVB/SPTJM)
+                </a>
+              )}
             </div>
           </div>
 
