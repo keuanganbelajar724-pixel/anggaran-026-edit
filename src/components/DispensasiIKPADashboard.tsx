@@ -600,97 +600,134 @@ export const DispensasiIKPADashboard: React.FC<DispensasiIKPADashboardProps> = (
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredRecords.map((record) => (
-              <div 
-                key={record.id}
-                className={`p-5 rounded-2xl border transition-all ${
-                  isDark ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
-                } shadow-xs space-y-3.5`}
-              >
-                {/* Top Card Info */}
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700">
-                        {record.nomorTiket}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-500">
-                        {record.tanggalPengajuan}
-                      </span>
-                    </div>
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1.5 line-clamp-1">
-                      {record.namaSatker}
-                    </h4>
-                    <div className="text-[11px] font-semibold text-slate-500">
-                      Kode: <strong className="text-indigo-600 dark:text-indigo-400">{record.kodeSatker}</strong> • {record.kementerianLembaga || '-'}
-                    </div>
-                  </div>
+            {filteredRecords.map((record) => {
+              const cfg = getIndikatorDispensasiConfig(record.jenisDispensasi);
+              const isDitolak = record.status === 'DITOLAK';
+              const isDisetujui = record.status === 'DISETUJUI';
 
-                  <div className="shrink-0 text-right">
-                    {renderStatusBadge(record.status)}
-                  </div>
-                </div>
+              return (
+                <div 
+                  key={record.id}
+                  className={`rounded-3xl border-2 transition-all overflow-hidden ${cfg.cardBorder} ${cfg.cardBg} shadow-sm hover:shadow-xl hover:-translate-y-0.5 duration-200 flex flex-col`}
+                >
+                  {/* Top Colored Accent Gradient Bar */}
+                  <div className={`h-2.5 w-full bg-gradient-to-r ${cfg.cardGradientBar} shadow-xs`} />
 
-                {/* Jenis Dispensasi Pill & Nomor Surat */}
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60 space-y-1.5 text-xs">
-                  {(() => {
-                    const cfg = getIndikatorDispensasiConfig(record.jenisDispensasi);
-                    return (
-                      <div className="flex items-center justify-between flex-wrap gap-1.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[11px] font-black px-2 py-0.5 rounded border ${cfg.warnaBadge}`}>
-                            {cfg.nomor}. {cfg.nama}
+                  {/* Card Content with subtle header tint */}
+                  <div className={`p-5 space-y-3.5 flex-1 flex flex-col justify-between ${cfg.cardHeaderBg}`}>
+                    <div className="space-y-3.5">
+                      {/* Top Card Info */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2.5">
+                          <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${cfg.cardGradientBar} text-white font-black text-sm flex items-center justify-center shrink-0 shadow-md mt-0.5 ring-2 ring-white/80 dark:ring-slate-800`}>
+                            {cfg.nomor}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs font-black px-2 py-0.5 rounded-lg bg-white/90 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-2xs">
+                                {record.nomorTiket}
+                              </span>
+                              <span className="text-[11px] font-bold text-slate-500">
+                                {record.tanggalPengajuan}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1 line-clamp-1">
+                              {record.namaSatker}
+                            </h4>
+                            <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                              Kode: <strong className="text-indigo-600 dark:text-indigo-400">{record.kodeSatker}</strong> • {record.kementerianLembaga || '-'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          {renderStatusBadge(record.status)}
+                        </div>
+                      </div>
+
+                      {/* Jenis Dispensasi Pill & Nomor Surat */}
+                      <div className={`p-3.5 rounded-2xl ${cfg.innerBoxBg} ${cfg.quoteLeftBorder} space-y-2 text-xs shadow-xs transition-all`}>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[11px] font-black px-3 py-1 rounded-full shadow-xs ${cfg.warnaBadge}`}>
+                              {cfg.nomor}. {cfg.nama}
+                            </span>
+                            {record.kriteriaKode && (
+                              <span className="text-[10px] font-mono font-black px-2.5 py-0.5 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 shadow-2xs">
+                                Kriteria {record.kriteriaKode}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-500">
+                            Surat: <strong>{record.nomorSurat}</strong> ({record.tanggalSurat})
                           </span>
-                          {record.kriteriaKode && (
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
-                              Kriteria {record.kriteriaKode}
+                        </div>
+                        <p className="text-[12px] text-slate-800 dark:text-slate-200 font-medium italic line-clamp-2 leading-relaxed bg-white/60 dark:bg-slate-900/60 p-2.5 rounded-xl border border-black/5 dark:border-white/5">
+                          &ldquo;{record.alasanDispensasi}&rdquo;
+                        </p>
+                      </div>
+
+                      {/* Visual Timeline Tracker: 4 Tahap */}
+                      <div className="pt-1 bg-white/60 dark:bg-slate-900/60 p-3 rounded-2xl border border-black/5 dark:border-white/5 shadow-2xs">
+                        <div className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                          <span>Progress Posisi &amp; Verifikasi:</span>
+                          {record.status === 'DITOLAK' && (
+                            <span className="text-[10px] font-black text-rose-600 dark:text-rose-400">
+                              Status: Ditolak
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-500">
-                          Surat: <strong>{record.nomorSurat}</strong> ({record.tanggalSurat})
+                        {renderTimelineSteps(record)}
+                      </div>
+
+                      {/* Catatan Arahan KPPN jika ada */}
+                      {record.catatanAdmin && (
+                        <div className={`p-3.5 rounded-2xl border text-xs space-y-1.5 transition-colors shadow-2xs ${
+                          isDitolak
+                            ? 'bg-rose-50/95 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100 ring-1 ring-rose-400/20'
+                            : isDisetujui
+                              ? 'bg-emerald-50/95 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 ring-1 ring-emerald-400/20'
+                              : 'bg-amber-50/95 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100 ring-1 ring-amber-400/20'
+                        }`}>
+                          <div className="font-extrabold flex items-center gap-1.5">
+                            {isDitolak ? (
+                              <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                            ) : isDisetujui ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            ) : (
+                              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                            )}
+                            <span className="text-[11px] uppercase tracking-wider font-black">
+                              {isDitolak ? 'Catatan / Alasan Penolakan KPPN:' : isDisetujui ? 'Catatan / Arahan Persetujuan KPPN:' : 'Catatan / Keterangan KPPN:'}
+                            </span>
+                          </div>
+                          <p className="leading-relaxed pl-5 font-medium">{record.catatanAdmin}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer Info (Satker Code & Status) */}
+                    <div className="pt-2.5 mt-2 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Building2 className={`w-3.5 h-3.5 ${cfg.accentIconColor} shrink-0`} />
+                        <span className="font-bold text-slate-700 dark:text-slate-300 truncate max-w-[200px] sm:max-w-[280px]">
+                          {record.namaSatker} ({record.kodeSatker})
                         </span>
                       </div>
-                    );
-                  })()}
-                  <p className="text-[11px] text-slate-600 dark:text-slate-300 italic line-clamp-2">
-                    &ldquo;{record.alasanDispensasi}&rdquo;
-                  </p>
-                </div>
-
-                {/* Visual Timeline Tracker: 4 Tahap */}
-                <div className="pt-1">
-                  <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
-                    Progress Posisi &amp; Verifikasi:
-                  </div>
-                  {renderTimelineSteps(record)}
-                </div>
-
-                {/* Catatan Arahan KPPN jika ada */}
-                {record.catatanAdmin && (
-                  <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-[11px] text-blue-900 dark:text-blue-200 space-y-0.5">
-                    <div className="font-bold flex items-center gap-1">
-                      <Info className="w-3.5 h-3.5 text-blue-500" />
-                      <span>Catatan / Keterangan KPPN:</span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 ${
+                        isDisetujui
+                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                          : isDitolak
+                            ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                      }`}>
+                        {record.status === 'DISETUJUI' ? 'Persetujuan Selesai' : record.status === 'DITOLAK' ? 'Keputusan Selesai' : 'Dalam Penanganan'}
+                      </span>
                     </div>
-                    <p className="leading-relaxed">{record.catatanAdmin}</p>
                   </div>
-                )}
-
-                {/* Footer Info (Satker Code & Status) */}
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                    <span className="font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[200px] sm:max-w-[280px]">
-                      {record.namaSatker} ({record.kodeSatker})
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-medium shrink-0">
-                    {record.status === 'DISETUJUI' ? 'Persetujuan Selesai' : record.status === 'DITOLAK' ? 'Keputusan Selesai' : 'Dalam Penanganan'}
-                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
