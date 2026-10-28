@@ -38,8 +38,79 @@
     <meta name="twitter:description" content="Portal Terpadu Monitoring IKPA, Capaian Output SAKTI & Juknis Perbendaharaan Satker KPPN Semarang I." />
     <meta name="twitter:image" content="https://lh3.googleusercontent.com/d/1-A24n4dMvWp_rFj7U-s7c8d9E0F1G2H3" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body class="bg-slate-900 text-slate-100">
+    <div id="root">
+      <!-- Pre-mount Splash & Recovery Screen (Replaced automatically when React mounts) -->
+      <div id="angkasa-boot-loader" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, #1e293b 0%, #0f172a 100%); color: #f8fafc; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; text-align: center;">
+        <div style="max-width: 460px; width: 100%; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(71, 85, 105, 0.5); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: 24px; padding: 32px 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+          <!-- Logo Icon -->
+          <div style="width: 64px; height: 64px; margin: 0 auto 16px auto; border-radius: 18px; background: linear-gradient(135deg, #2563eb, #1d4ed8); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);">
+            <svg style="width: 32px; height: 32px; color: white;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          
+          <h2 style="font-size: 20px; font-weight: 800; color: #ffffff; margin: 0 0 6px 0; letter-spacing: -0.025em;">
+            ANGKASA 026
+          </h2>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0 0 24px 0; font-weight: 500;">
+            KPPN Semarang I • Sistem Navigasi Keuangan & Anggaran
+          </p>
+
+          <div id="angkasa-boot-spinner" style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+            <div style="width: 36px; height: 36px; border: 3px solid rgba(59, 130, 246, 0.2); border-top-color: #3b82f6; border-radius: 50%; animation: angkasa-spin 0.9s linear infinite;"></div>
+            <p style="font-size: 13px; color: #cbd5e1; font-weight: 600; margin: 0;">
+              Memuat Sistem...
+            </p>
+          </div>
+
+          <!-- Fallback Diagnostic Notice (Hidden by default, shown if loading takes > 6s or on script error) -->
+          <div id="angkasa-boot-error" style="display: none; margin-top: 20px; padding: 14px; background: rgba(225, 29, 72, 0.15); border: 1px solid rgba(225, 29, 72, 0.3); border-radius: 14px; text-align: left;">
+            <p style="font-size: 12px; font-weight: 700; color: #fda4af; margin: 0 0 4px 0;">
+              ⚠️ Memuat Memerlukan Waktu Lebih Lama
+            </p>
+            <p id="angkasa-boot-err-msg" style="font-size: 11px; color: #fecdd3; margin: 0 0 12px 0; line-height: 1.5; font-family: monospace; word-break: break-all;">
+              Jika halaman belum tampil, kemungkinan browser menyimpan cache lama atau folder build di server belum sesuai.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="window.location.reload()" style="flex: 1; padding: 8px 12px; font-size: 12px; font-weight: 700; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                Muat Ulang
+              </button>
+              <button onclick="try { localStorage.clear(); sessionStorage.clear(); } catch(e){} window.location.reload();" style="flex: 1; padding: 8px 12px; font-size: 12px; font-weight: 700; background: #334155; color: #e2e8f0; border: 1px solid #475569; border-radius: 8px; cursor: pointer;">
+                Reset Cache
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <style>
+        @keyframes angkasa-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+      <script>
+        // Global boot error guard: detects script load failures or timeouts
+        (function() {
+          var timer = setTimeout(function() {
+            var errBox = document.getElementById('angkasa-boot-error');
+            if (errBox) errBox.style.display = 'block';
+          }, 6000);
+
+          window.addEventListener('error', function(e) {
+            clearTimeout(timer);
+            var errBox = document.getElementById('angkasa-boot-error');
+            var errMsg = document.getElementById('angkasa-boot-err-msg');
+            var spinner = document.getElementById('angkasa-boot-spinner');
+            if (errBox) errBox.style.display = 'block';
+            if (spinner) spinner.style.display = 'none';
+            if (errMsg && e && (e.message || e.filename)) {
+              errMsg.textContent = (e.message || 'Error memuat file script') + (e.filename ? ' (' + e.filename + ')' : '');
+            }
+          });
+        })();
+      </script>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
