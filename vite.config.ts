@@ -27,9 +27,6 @@ export default defineConfig(() => {
               if (id.includes('recharts')) {
                 return 'vendor-charts';
               }
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
               if (id.includes('lucide-react')) {
                 return 'vendor-icons';
               }

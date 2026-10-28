@@ -6,14 +6,14 @@ import {
   persistentLocalCache,
   persistentSingleTabManager,
   memoryLocalCache,
-  doc, 
+  doc as rawDoc, 
   getDoc as rawGetDoc, 
   getDocFromServer,
   getDocs as rawGetDocs,
   setDoc as rawSetDoc, 
   onSnapshot as rawOnSnapshot, 
-  collection, 
-  query,
+  collection as rawCollection, 
+  query as rawQuery,
   DocumentReference,
   DocumentSnapshot,
   SetOptions,
@@ -30,7 +30,17 @@ try {
   // ignore
 }
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let appInstance: any;
+try {
+  appInstance = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+} catch {
+  try {
+    appInstance = getApp();
+  } catch {
+    appInstance = { name: '[DEFAULT]', options: firebaseConfig };
+  }
+}
+const app = appInstance;
 
 let authInstance: any = null;
 try {
@@ -48,7 +58,7 @@ try {
 export const auth = authInstance;
 
 // Initialize Firestore with robust local caching that uses IndexedDB without writing tab-sync locks to localStorage
-let firestoreDb: any;
+let firestoreDb: any = null;
 try {
   let cacheConfig: any;
   try {
@@ -69,7 +79,7 @@ try {
     },
     firebaseConfig.firestoreDatabaseId || undefined
   );
-} catch (e) {
+} catch (e1) {
   try {
     firestoreDb = initializeFirestore(
       app,
@@ -79,11 +89,20 @@ try {
       },
       firebaseConfig.firestoreDatabaseId || undefined
     );
-  } catch {
-    firestoreDb = getFirestore(
-      app,
-      firebaseConfig.firestoreDatabaseId || undefined
-    );
+  } catch (e2) {
+    try {
+      firestoreDb = getFirestore(
+        app,
+        firebaseConfig.firestoreDatabaseId || undefined
+      );
+    } catch (e3) {
+      try {
+        firestoreDb = getFirestore(app);
+      } catch (e4) {
+        console.warn('Firestore service unavailable in current environment, switching to safe offline fallback mode:', e4);
+        firestoreDb = { _isFallback: true, app, type: 'firestore-fallback' };
+      }
+    }
   }
 }
 
@@ -207,10 +226,78 @@ function isQuotaError(err: any): boolean {
   );
 }
 
+// Safe reference and collection builders that never throw if db is offline or initialized in fallback mode
+export function doc(...args: any[]): any {
+  try {
+    if (!args[0] || args[0]._isFallback) {
+      const pathParts = args.slice(1).join('/');
+      return {
+        id: args[args.length - 1] || 'mock_doc',
+        path: pathParts,
+        _isFallback: true,
+      };
+    }
+    return (rawDoc as any)(...args);
+  } catch {
+    const pathParts = args.slice(1).join('/');
+    return {
+      id: args[args.length - 1] || 'mock_doc',
+      path: pathParts,
+      _isFallback: true,
+    };
+  }
+}
+
+export function collection(...args: any[]): any {
+  try {
+    if (!args[0] || args[0]._isFallback) {
+      const pathParts = args.slice(1).join('/');
+      return {
+        id: args[args.length - 1] || 'mock_col',
+        path: pathParts,
+        _isFallback: true,
+      };
+    }
+    return (rawCollection as any)(...args);
+  } catch {
+    return {
+      id: args[args.length - 1] || 'mock_col',
+      path: args.slice(1).join('/'),
+      _isFallback: true,
+    };
+  }
+}
+
+export function query(...args: any[]): any {
+  try {
+    if (!args[0] || args[0]._isFallback) {
+      return {
+        ...args[0],
+        _isFallback: true,
+      };
+    }
+    return (rawQuery as any)(...args);
+  } catch {
+    return {
+      ...args[0],
+      _isFallback: true,
+    };
+  }
+}
+
 // Direct, reliable getDoc wrapper with quota tracking & graceful offline fallback
 export async function getDoc<T = any>(
-  reference: DocumentReference<T>
+  reference: DocumentReference<T> | any
 ): Promise<any> {
+  if (!db || db._isFallback || !reference || reference._isFallback) {
+    return {
+      exists: () => false,
+      data: () => undefined,
+      id: reference?.id || '',
+      ref: reference,
+      metadata: { hasPendingWrites: false, fromCache: true }
+    };
+  }
   try {
     const snap = await rawGetDoc(reference);
     trackFirestoreRead(reference?.path || 'unknown_doc');
@@ -247,10 +334,13 @@ function sanitizeFirestorePayload(val: any): any {
 
 // Direct, reliable setDoc wrapper with circuit breaker, undefined sanitizer, and write stream protection
 export async function setDoc<T = any>(
-  reference: DocumentReference<T>,
+  reference: DocumentReference<T> | any,
   data: any,
   options?: SetOptions
 ): Promise<void> {
+  if (!db || db._isFallback || !reference || reference._isFallback) {
+    return;
+  }
   try {
     const cleanData = sanitizeFirestorePayload(data);
     if (options) {
@@ -273,8 +363,30 @@ export async function setDoc<T = any>(
 
 // Direct, reliable onSnapshot wrapper with quota tracking & error guard
 export function onSnapshot(...args: any[]): () => void {
+  const targetRef = args[0];
+  const isFallbackMode = !db || db._isFallback || !targetRef || targetRef._isFallback;
+
+  if (isFallbackMode) {
+    const nextCallback = typeof args[1] === 'function' ? args[1] : (typeof args[2] === 'function' ? args[2] : null);
+    if (nextCallback) {
+      try {
+        nextCallback({
+          exists: () => false,
+          data: () => undefined,
+          docs: [],
+          empty: true,
+          size: 0,
+          forEach: () => {},
+          metadata: { hasPendingWrites: false, fromCache: true }
+        });
+      } catch (e) {
+        // ignore
+      }
+    }
+    return () => {};
+  }
+
   try {
-    const targetRef = args[0];
     const pathStr = targetRef?.path || 'snapshot_ref';
     let nextCallback: any = null;
     let errorCallback: any = null;
@@ -339,6 +451,9 @@ export function onSnapshot(...args: any[]): () => void {
 }
 
 export async function getDocs(queryOrCollection: any): Promise<any> {
+  if (!db || db._isFallback || !queryOrCollection || queryOrCollection._isFallback) {
+    return { empty: true, docs: [], size: 0, forEach: () => {} };
+  }
   try {
     const snap = await rawGetDocs(queryOrCollection);
     trackFirestoreRead(queryOrCollection?.path || 'query_docs', snap?.size || 1);
@@ -355,5 +470,3 @@ export async function getDocs(queryOrCollection: any): Promise<any> {
     return { empty: true, docs: [], size: 0, forEach: () => {} };
   }
 }
-
-export { doc, collection, query };
