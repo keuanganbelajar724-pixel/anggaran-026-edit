@@ -4800,33 +4800,9 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     Preview Tampilan Bar Navigasi Satker:
                   </span>
                   <span>
-                    {(tempConfig.tabOrder || [
-                      'dashboard',
-                      'realisasi-anggaran',
-                      'capaian-output',
-                      'diagnostik-caput',
-                      'deviasi-hal3',
-                      'spm-ppp',
-                      'pengelolaan-up',
-                      'transaksi-kkp',
-                      'transaksi-digipay',
-                      'kelola-satker',
-                      'sertifikasi',
-                      'per5-analisis',
-                      'announcements',
-                      'materi-slide',
-                      'portal-link',
-                      'pengetahuan',
-                      'aduan',
-                      'presensi',
-                      'konfirmasi-kehadiran',
-                      'pendaftaran-user-sakti',
-                      'rekonsiliasi',
-                      'lpj',
-                      'gaji-induk',
-                      'monitoring-haicso',
-                      'kontrak'
-                    ]).filter(k => k !== 'guide' && tempConfig.menuVisibility?.[k as keyof MenuVisibilityConfig] !== false).length} Menu Aktif
+                    {Object.entries(tempConfig.menuVisibility || {}).filter(
+                      ([k, v]) => v === true && k !== 'guide' && k !== 'admin'
+                    ).length} Menu Aktif
                   </span>
                 </div>
 

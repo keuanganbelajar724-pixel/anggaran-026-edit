@@ -276,10 +276,14 @@ async function startServer() {
       const snap = await serverGetDoc(serverDoc(serverDb, 'settings', 'global'));
       if (snap.exists()) {
         const data = snap.data();
-        inMemorySettings = data;
+        const firestoreTime = new Date(data.updatedAt || 0).getTime();
+        const inMemoryTime = new Date(inMemorySettings?.updatedAt || 0).getTime();
+        if (firestoreTime >= inMemoryTime) {
+          inMemorySettings = data;
+        }
         return res.json({
           status: 'ok',
-          settings: data,
+          settings: inMemorySettings,
         });
       }
     } catch (e) {

@@ -210,7 +210,7 @@ export default function App() {
           if (t && t !== 'admin') return t;
         }
         let menuVis: any = null;
-        let defaultTab: NavigationTab = 'capaian-output';
+        let defaultTab: NavigationTab = 'monitoring-llat';
         try {
           const localMenu = localStorage.getItem('kppn_menu_visibility');
           if (localMenu) menuVis = JSON.parse(localMenu);
@@ -220,6 +220,13 @@ export default function App() {
             if (parsedCfg?.defaultActiveTab) defaultTab = parsedCfg.defaultActiveTab;
           }
         } catch (e) {}
+
+        if (menuVis && menuVis[defaultTab] === false) {
+          const firstActive = Object.entries(menuVis).find(
+            ([k, v]) => v === true && k !== 'admin' && k !== 'guide'
+          )?.[0] as NavigationTab;
+          if (firstActive) defaultTab = firstActive;
+        }
 
         const saved = localStorage.getItem('kppn_active_tab') as NavigationTab;
         const hasManualSwitch = sessionStorage.getItem('kppn_manual_tab_switch') === 'true';
@@ -309,7 +316,10 @@ export default function App() {
     try {
       const localMenu = localStorage.getItem('kppn_menu_visibility');
       if (localMenu) {
-        savedMenuVisibility = JSON.parse(localMenu);
+        const parsed = JSON.parse(localMenu);
+        if (parsed && typeof parsed === 'object') {
+          savedMenuVisibility = parsed;
+        }
       }
     } catch (e) {
       console.warn('Error reading kppn_menu_visibility from localStorage:', e);
@@ -1117,37 +1127,63 @@ export default function App() {
     if (activeTab !== 'admin' && !isAdminAuthenticated && dashboardConfig.menuVisibility) {
       const isCurrentDisabled = dashboardConfig.menuVisibility[activeTab as keyof MenuVisibilityConfig] === false;
       if (isCurrentDisabled) {
-        const tabPriorityOrder: NavigationTab[] = [
-          'realisasi-anggaran',
+        const def = dashboardConfig.defaultActiveTab;
+        if (def && def !== 'admin' && dashboardConfig.menuVisibility[def as keyof MenuVisibilityConfig] !== false) {
+          if (def !== activeTab) {
+            setActiveTab(def);
+            return;
+          }
+        }
+
+        const allPossibleTabs: NavigationTab[] = [
+          'monitoring-llat',
           'capaian-output',
+          'realisasi-anggaran',
           'dashboard',
           'deviasi-hal3',
+          'dispensasi-ikpa',
+          'spm-ppp',
           'pengelolaan-up',
           'transaksi-kkp',
           'transaksi-digipay',
           'kelola-satker',
           'sertifikasi',
           'per5-analisis',
+          'announcements',
           'materi-slide',
           'portal-link',
-          'announcements',
           'pengetahuan',
           'quiz-cat',
+          'aduan',
           'presensi',
+          'konfirmasi-kehadiran',
+          'pendaftaran-user-sakti',
+          'rekonsiliasi',
+          'lpj',
+          'gaji-induk',
           'monitoring-haicso',
           'kontrak',
-          'aduan',
+          'formulir-survei',
+          'monitoring-hal3-dipa',
           'guide'
         ];
-        const firstVisibleTab = tabPriorityOrder.find(
-          tab => dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false
+
+        const activeOrder = dashboardConfig.tabOrder && dashboardConfig.tabOrder.length > 0
+          ? dashboardConfig.tabOrder
+          : allPossibleTabs;
+
+        const firstVisibleTab = activeOrder.find(
+          tab => tab !== 'admin' && dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false
+        ) || allPossibleTabs.find(
+          tab => tab !== 'admin' && dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false
         );
+
         if (firstVisibleTab && firstVisibleTab !== activeTab) {
           setActiveTab(firstVisibleTab);
         }
       }
     }
-  }, [activeTab, dashboardConfig.menuVisibility, isAdminAuthenticated]);
+  }, [activeTab, dashboardConfig.menuVisibility, dashboardConfig.defaultActiveTab, dashboardConfig.tabOrder, isAdminAuthenticated]);
 
   // Real-time Firebase Sync for Satkers, Pejabat, UP/TUP, KKP & Global Settings
   useEffect(() => {
@@ -1200,9 +1236,15 @@ export default function App() {
 
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+            const rawVis = cleanDashboardConfig.menuVisibility;
+            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
+              ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
+              : (prev.menuVisibility || DEFAULT_MENU_VISIBILITY);
+
             const updated = {
               ...prev,
               ...cleanDashboardConfig,
+              menuVisibility: effectiveMenuVisibility,
               slideShowConfig: mergedSlideShow,
               sidebarConfig: cleanSidebar,
               peraturanPerbendaharaanList: cleanPeraturan,
@@ -1221,9 +1263,11 @@ export default function App() {
             return updated;
           });
           if (cleanDashboardConfig.menuVisibility) {
-            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
-            if (!isAdminAuthenticated && cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
-              setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
+            const rawVis = cleanDashboardConfig.menuVisibility;
+            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
+            if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
+              setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
             }
           }
           if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
@@ -1824,6 +1868,10 @@ export default function App() {
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
+          const localUpdatedAt = localStorage.getItem('kppn_dashboard_config_updated_at');
+          if (localUpdatedAt && data.updatedAt && new Date(data.updatedAt).getTime() < new Date(localUpdatedAt).getTime()) {
+            return;
+          }
           if (data.adminPin) {
             setAdminPin(data.adminPin);
             safeLocalStorageSet('kppn_admin_pin', data.adminPin);
@@ -1861,9 +1909,15 @@ export default function App() {
 
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+              const rawVis = cleanDashboardConfig.menuVisibility;
+              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
+                ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
+                : (prev.menuVisibility || DEFAULT_MENU_VISIBILITY);
+
               const updated = {
                 ...prev,
                 ...cleanDashboardConfig,
+                menuVisibility: effectiveMenuVisibility,
                 slideShowConfig: mergedSlideShow,
                 sidebarConfig: cleanSidebar,
                 peraturanPerbendaharaanList: cleanPeraturan,
@@ -1880,9 +1934,11 @@ export default function App() {
               return updated;
             });
             if (cleanDashboardConfig.menuVisibility) {
-              safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(cleanDashboardConfig.menuVisibility));
-              if (!isAdminAuthenticated && cleanDashboardConfig.menuVisibility['dispensasi-ikpa'] === false) {
-                setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'dashboard' : curr));
+              const rawVis = cleanDashboardConfig.menuVisibility;
+              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+              safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
+              if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
+                setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
               }
             }
             if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
@@ -2758,6 +2814,8 @@ export default function App() {
     if (notifyTamuBlocked('mengubah pengaturan dashboard')) return;
     setDashboardConfig(newConfig);
     try {
+      const nowIso = new Date().toISOString();
+      safeLocalStorageSet('kppn_dashboard_config_updated_at', nowIso);
       safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(newConfig));
       if (newConfig.menuVisibility) {
         safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(newConfig.menuVisibility));
@@ -4385,11 +4443,16 @@ export default function App() {
               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-center gap-3">
                 <button
                   onClick={() => {
-                    const tabPriorityOrder: NavigationTab[] = [
-                      'dashboard',
-                      'realisasi-anggaran',
+                    const def = dashboardConfig.defaultActiveTab;
+                    if (def && def !== 'admin' && dashboardConfig.menuVisibility?.[def as keyof MenuVisibilityConfig] !== false) {
+                      setActiveTab(def);
+                      return;
+                    }
+                    const allTabs: NavigationTab[] = [
+                      'monitoring-llat',
                       'capaian-output',
-                      'diagnostik-caput',
+                      'realisasi-anggaran',
+                      'dashboard',
                       'deviasi-hal3',
                       'dispensasi-ikpa',
                       'spm-ppp',
@@ -4405,14 +4468,23 @@ export default function App() {
                       'pengetahuan',
                       'quiz-cat',
                       'presensi',
+                      'konfirmasi-kehadiran',
                       'pendaftaran-user-sakti',
                       'rekonsiliasi',
                       'lpj',
                       'gaji-induk',
+                      'monitoring-haicso',
+                      'kontrak',
+                      'formulir-survei',
+                      'monitoring-hal3-dipa',
                       'aduan',
                       'guide'
                     ];
-                    const firstVisible = tabPriorityOrder.find(tab => dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false);
+                    const activeOrder = dashboardConfig.tabOrder && dashboardConfig.tabOrder.length > 0
+                      ? dashboardConfig.tabOrder
+                      : allTabs;
+                    const firstVisible = activeOrder.find(tab => tab !== 'admin' && dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false)
+                      || allTabs.find(tab => tab !== 'admin' && dashboardConfig.menuVisibility?.[tab as keyof MenuVisibilityConfig] !== false);
                     if (firstVisible) setActiveTab(firstVisible);
                   }}
                   className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all cursor-pointer"
