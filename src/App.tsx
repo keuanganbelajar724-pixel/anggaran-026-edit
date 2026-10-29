@@ -112,7 +112,55 @@ import { INITIAL_PERATURAN_LIST, sanitizePeraturanList } from './data/initialPer
 import { ToastProvider, useToast } from './components/ToastNotification';
 import { trackPageView } from './utils/trafficTracker';
 
-const INITIAL_ANNOUNCEMENTS: Announcement[] = [];
+const INITIAL_ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: 'ann-1792725471230',
+    title: 'PENYELENGGARAAN UJI KOMPETENSI DALAM RANGKA KENAIKAN JENJANG JABATAN FUNGSIONAL ANALIS PENGELOLAAN KEUANGAN ANGGARAN PENDAPATAN DAN BELANJA NEGARA DAN JABATAN FUNGSIONAL PRANATA KEUANGAN ANGGARAN PENDAPATAN DAN BELANJA NEGARA TAHUN 2026',
+    content: 'Dalam rangka pembinaan karir dan kenaikan jenjang satu tingkat lebih tinggi bagi Jabatan Fungsional Analis Pengelolaan Keuangan Anggaran Pendapatan dan Belanja Negara (JF APK APBN) dan Jabatan Fungsional Pranata Keuangan Anggaran Pendapatan dan Belanja Negara (JF PK APBN) ',
+    author: 'Direktorat Sistem Perbendaharaan',
+    date: '23 Oktober 2026',
+    category: 'Penting',
+    isActive: true,
+    isPinned: false,
+    isUrgent: false,
+    linkUrl: 'https://drive.google.com/file/d/1SDvEp_fo3Rd8oCP0gLjUVYoxXwonl4Vs/view?usp=sharing',
+    attachmentUrl: 'https://drive.google.com/file/d/1SDvEp_fo3Rd8oCP0gLjUVYoxXwonl4Vs/view?usp=sharing',
+    isHeroSpotlight: false,
+    heroDisplayMode: 'full'
+  },
+  {
+    id: 'ann-1788489977476',
+    title: 'PERPANJANGAN MASA BERLAKU SERTIFIKAT KOMPETENSI PPK, PPSPM, DAN BENDAHARA PERIODE TRIWULAN IV TAHUN 2026',
+    content: 'Terkait Detail Informasi Terkait Pengumuman Perpanjangan Sertifikat Triwulan IV Tahun 2026',
+    author: 'Direktorat Sistem Perbendaharaan',
+    date: '04 September 2026',
+    category: 'Penting',
+    isActive: true,
+    isPinned: false,
+    isUrgent: false,
+    linkUrl: 'https://drive.google.com/file/d/1S89Fd3yDV8RQty4R5MdXxVIBwsi6Fdd9/view?usp=sharing',
+    attachmentUrl: 'https://drive.google.com/file/d/1S89Fd3yDV8RQty4R5MdXxVIBwsi6Fdd9/view?usp=sharing',
+    isHeroSpotlight: false,
+    heroDisplayMode: 'full'
+  }
+];
+
+// Invalidate legacy stale localStorage so production & preview always display the same 4 tabs
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261028-sync-final';
+if (typeof window !== 'undefined') {
+  try {
+    const savedVer = localStorage.getItem('kppn_cache_sync_ver');
+    if (savedVer !== CURRENT_APP_SYNC_VERSION) {
+      localStorage.removeItem('kppn_menu_visibility');
+      const savedActive = localStorage.getItem('kppn_active_tab');
+      if (savedActive === 'capaian-output' || savedActive === 'dashboard') {
+        localStorage.setItem('kppn_active_tab', 'dispensasi-ikpa');
+      }
+      localStorage.removeItem('kppn_dashboard_config_updated_at');
+      localStorage.setItem('kppn_cache_sync_ver', CURRENT_APP_SYNC_VERSION);
+    }
+  } catch (_) {}
+}
 
 export const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
   kopBaris1: 'KEMENTERIAN KEUANGAN REPUBLIK INDONESIA',
@@ -361,7 +409,7 @@ export default function App() {
         defaultActiveTab: savedConfig.defaultActiveTab || 'dispensasi-ikpa',
         tabOrder: savedConfig.tabOrder && savedConfig.tabOrder.length > 0
           ? savedConfig.tabOrder
-          : ['announcements', 'pengetahuan', 'dispensasi-ikpa', 'monitoring-llat'],
+          : ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
         announcements: Array.isArray(savedConfig.announcements) ? savedConfig.announcements : INITIAL_ANNOUNCEMENTS,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
@@ -394,7 +442,7 @@ export default function App() {
     return {
       defaultFilter: 'ALL',
       defaultActiveTab: 'dispensasi-ikpa',
-      tabOrder: ['announcements', 'pengetahuan', 'dispensasi-ikpa', 'monitoring-llat'],
+      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
