@@ -64,12 +64,8 @@ const MONTH_NAMES = [
 const DAY_NAMES = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
 // Daftar Hari Libur Nasional & Cuti Bersama Resmi (Q4 2026 & Jan 2027)
+// Catatan: 1 Okt, 28 Okt, dan 10 Nov adalah hari kerja biasa (bukan hari libur nasional / cuti bersama).
 const HOLIDAYS_MAP: Record<string, string> = {
-  // Oktober 2026
-  '2026-10-01': 'Hari Kesaktian Pancasila',
-  '2026-10-28': 'Hari Sumpah Pemuda',
-  // November 2026
-  '2026-11-10': 'Hari Pahlawan',
   // Desember 2026
   '2026-12-24': 'Cuti Bersama Hari Raya Natal',
   '2026-12-25': 'Hari Raya Natal',

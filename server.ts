@@ -190,10 +190,14 @@ async function startServer() {
 
       if (settingsSnap.status === 'fulfilled' && settingsSnap.value?.exists()) {
         const data = settingsSnap.value.data();
-        inMemorySettings = data;
-        try {
-          fs.writeFileSync(path.join(process.cwd(), 'settings_generated.json'), JSON.stringify(data, null, 2));
-        } catch {}
+        const firestoreTime = new Date(data?.updatedAt || 0).getTime();
+        const inMemoryTime = new Date(inMemorySettings?.updatedAt || 0).getTime();
+        if (firestoreTime > inMemoryTime) {
+          inMemorySettings = data;
+          try {
+            fs.writeFileSync(path.join(process.cwd(), 'settings_generated.json'), JSON.stringify(data, null, 2));
+          } catch {}
+        }
       }
     } catch (err) {
       // Graceful fallback to local generated files already loaded
@@ -273,18 +277,28 @@ async function startServer() {
 
   app.get('/api/data/settings', async (_req, res) => {
     try {
+      const settingsPath = path.join(process.cwd(), 'settings_generated.json');
+      if (fs.existsSync(settingsPath)) {
+        try {
+          const diskSettings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+          const diskTime = new Date(diskSettings?.updatedAt || 0).getTime();
+          const inMemTime = new Date(inMemorySettings?.updatedAt || 0).getTime();
+          if (diskTime >= inMemTime) {
+            inMemorySettings = diskSettings;
+          }
+        } catch {
+          // ignore disk read error
+        }
+      }
+
       const snap = await serverGetDoc(serverDoc(serverDb, 'settings', 'global'));
       if (snap.exists()) {
         const data = snap.data();
         const firestoreTime = new Date(data.updatedAt || 0).getTime();
         const inMemoryTime = new Date(inMemorySettings?.updatedAt || 0).getTime();
-        if (firestoreTime >= inMemoryTime) {
+        if (firestoreTime > inMemoryTime) {
           inMemorySettings = data;
         }
-        return res.json({
-          status: 'ok',
-          settings: inMemorySettings,
-        });
       }
     } catch (e) {
       console.warn('Direct Firestore settings get notice (fallback to in-memory):', e);
@@ -564,6 +578,72 @@ async function startServer() {
       }
       saveLlatToDisk();
       res.json({ status: 'ok', count: inMemoryLlatAuditLogs.length });
+    } catch (e: any) {
+      res.status(500).json({ status: 'error', message: e?.message });
+    }
+  });
+
+  // -------------------------------------------------------------
+  // DISPENSASI IKPA (Satker Submissions & Kanpus Decisions)
+  // -------------------------------------------------------------
+  let inMemoryDispensasiList: any[] = [];
+  try {
+    const dispPath = path.join(process.cwd(), 'dispensasi_ikpa_generated.json');
+    if (fs.existsSync(dispPath)) {
+      const parsedDisp = JSON.parse(fs.readFileSync(dispPath, 'utf8'));
+      if (Array.isArray(parsedDisp?.list)) inMemoryDispensasiList = parsedDisp.list;
+    }
+  } catch (e) {
+    console.warn('Could not load dispensasi_ikpa_generated.json on server start:', e);
+  }
+
+  function saveDispensasiToDisk() {
+    try {
+      const dispPath = path.join(process.cwd(), 'dispensasi_ikpa_generated.json');
+      fs.writeFile(
+        dispPath,
+        JSON.stringify({
+          list: inMemoryDispensasiList,
+          updatedAt: new Date().toISOString()
+        }, null, 2),
+        (err) => {
+          if (err) console.warn('Server disk backup dispensasi notice:', err);
+        }
+      );
+    } catch (e) {
+      console.warn('Error saving dispensasi to disk:', e);
+    }
+  }
+
+  app.get('/api/data/dispensasi_ikpa', async (_req, res) => {
+    try {
+      if (inMemoryDispensasiList.length > 0) {
+        return res.json({ status: 'ok', count: inMemoryDispensasiList.length, list: inMemoryDispensasiList });
+      }
+      const snap = await serverGetDoc(serverDoc(serverDb, 'data', 'dispensasi_ikpa'));
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.list) && data.list.length > 0) {
+          inMemoryDispensasiList = data.list;
+          saveDispensasiToDisk();
+          return res.json({ status: 'ok', count: inMemoryDispensasiList.length, list: inMemoryDispensasiList });
+        }
+      }
+    } catch {
+      // fallback to memory
+    }
+    return res.json({ status: 'ok', count: inMemoryDispensasiList.length, list: inMemoryDispensasiList });
+  });
+
+  app.post('/api/data/dispensasi_ikpa', (req, res) => {
+    try {
+      const { list } = req.body || {};
+      if (Array.isArray(list)) {
+        inMemoryDispensasiList = list;
+        saveDispensasiToDisk();
+        return res.json({ status: 'ok', count: list.length });
+      }
+      res.status(400).json({ status: 'error', message: 'Invalid dispensasi list array' });
     } catch (e: any) {
       res.status(500).json({ status: 'error', message: e?.message });
     }

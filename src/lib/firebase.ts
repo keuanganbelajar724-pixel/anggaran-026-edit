@@ -343,11 +343,13 @@ export async function setDoc<T = any>(
   }
   try {
     const cleanData = sanitizeFirestorePayload(data);
-    if (options) {
-      await rawSetDoc(reference, cleanData, options);
-    } else {
-      await rawSetDoc(reference, cleanData);
-    }
+    const writePromise = options
+      ? rawSetDoc(reference, cleanData, options)
+      : rawSetDoc(reference, cleanData);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore write timeout')), 3500)
+    );
+    await Promise.race([writePromise, timeoutPromise]);
     trackFirestoreWrite(reference?.path || 'unknown_doc', 1);
   } catch (err: any) {
     if (isPermissionError(err)) {

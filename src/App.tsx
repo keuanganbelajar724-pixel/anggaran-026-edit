@@ -130,40 +130,40 @@ export const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
 const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [];
 
 export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
-  'dashboard': true,
-  'realisasi-anggaran': true,
-  'capaian-output': true,
-  'diagnostik-caput': true,
-  'deviasi-hal3': true,
+  'dashboard': false,
+  'realisasi-anggaran': false,
+  'capaian-output': false,
+  'diagnostik-caput': false,
+  'deviasi-hal3': false,
   'dispensasi-ikpa': true,
-  'spm-ppp': true,
-  'pengelolaan-up': true,
-  'transaksi-kkp': true,
-  'transaksi-digipay': true,
-  'kelola-satker': true,
-  'redflags': true,
-  'sertifikasi': true,
-  'per5-analisis': true,
+  'spm-ppp': false,
+  'pengelolaan-up': false,
+  'transaksi-kkp': false,
+  'transaksi-digipay': false,
+  'kelola-satker': false,
+  'redflags': false,
+  'sertifikasi': false,
+  'per5-analisis': false,
   'pengetahuan': true,
-  'peraturan-perbendaharaan': true,
-  'quiz-cat': true,
+  'peraturan-perbendaharaan': false,
+  'quiz-cat': false,
   'announcements': true,
-  'materi-slide': true,
-  'portal-link': true,
-  'presensi': true,
-  'konfirmasi-kehadiran': true,
-  'pendaftaran-user-sakti': true,
-  'rekonsiliasi': true,
-  'lpj': true,
-  'gaji-induk': true,
-  'monitoring-haicso': true,
-  'kontrak': true,
-  'formulir-survei': true,
+  'materi-slide': false,
+  'portal-link': false,
+  'presensi': false,
+  'konfirmasi-kehadiran': false,
+  'pendaftaran-user-sakti': false,
+  'rekonsiliasi': false,
+  'lpj': false,
+  'gaji-induk': false,
+  'monitoring-haicso': false,
+  'kontrak': false,
+  'formulir-survei': false,
   'monitoring-llat': true,
-  'monitoring-hal3-dipa': true,
-  'aduan': true,
-  'reminder': true,
-  'guide': true,
+  'monitoring-hal3-dipa': false,
+  'aduan': false,
+  'reminder': false,
+  'guide': false,
 };
 
 export default function App() {
@@ -210,7 +210,7 @@ export default function App() {
           if (t && t !== 'admin') return t;
         }
         let menuVis: any = null;
-        let defaultTab: NavigationTab = 'monitoring-llat';
+        let defaultTab: NavigationTab = 'dispensasi-ikpa';
         try {
           const localMenu = localStorage.getItem('kppn_menu_visibility');
           if (localMenu) menuVis = JSON.parse(localMenu);
@@ -318,7 +318,13 @@ export default function App() {
       if (localMenu) {
         const parsed = JSON.parse(localMenu);
         if (parsed && typeof parsed === 'object') {
-          savedMenuVisibility = parsed;
+          const activeCount = Object.values(parsed).filter(v => v === true).length;
+          if (activeCount <= 10) {
+            savedMenuVisibility = parsed;
+          } else {
+            savedMenuVisibility = DEFAULT_MENU_VISIBILITY;
+            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(DEFAULT_MENU_VISIBILITY));
+          }
         }
       }
     } catch (e) {
@@ -340,8 +346,22 @@ export default function App() {
         savedConfig.customTexts.dashboardSubtitle = savedConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
       }
 
+      const rawSavedVis = savedConfig.menuVisibility;
+      const isSavedVisOld = rawSavedVis && Object.values(rawSavedVis).filter(v => v === true).length > 10;
+      const initialMenuVisibility = isSavedVisOld
+        ? DEFAULT_MENU_VISIBILITY
+        : {
+            ...DEFAULT_MENU_VISIBILITY,
+            ...(rawSavedVis || {}),
+            ...(savedMenuVisibility || {})
+          };
+
       return {
         ...savedConfig,
+        defaultActiveTab: savedConfig.defaultActiveTab || 'dispensasi-ikpa',
+        tabOrder: savedConfig.tabOrder && savedConfig.tabOrder.length > 0
+          ? savedConfig.tabOrder
+          : ['announcements', 'pengetahuan', 'dispensasi-ikpa', 'monitoring-llat'],
         announcements: Array.isArray(savedConfig.announcements) ? savedConfig.announcements : INITIAL_ANNOUNCEMENTS,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
@@ -352,11 +372,7 @@ export default function App() {
         kegiatanSosialisasi: Array.isArray(savedConfig.kegiatanSosialisasi) 
           ? savedConfig.kegiatanSosialisasi.filter((k: any) => k && k.id !== 'kegiatan-demo-1')
           : [],
-        menuVisibility: {
-          ...DEFAULT_MENU_VISIBILITY,
-          ...savedConfig.menuVisibility,
-          ...(savedMenuVisibility || {})
-        },
+        menuVisibility: initialMenuVisibility,
         realisasiAnggaranConfig: savedConfig.realisasiAnggaranConfig
           ? { ...DEFAULT_REALISASI_ANGGARAN_CONFIG, ...savedConfig.realisasiAnggaranConfig }
           : DEFAULT_REALISASI_ANGGARAN_CONFIG,
@@ -377,6 +393,8 @@ export default function App() {
 
     return {
       defaultFilter: 'ALL',
+      defaultActiveTab: 'dispensasi-ikpa',
+      tabOrder: ['announcements', 'pengetahuan', 'dispensasi-ikpa', 'monitoring-llat'],
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
@@ -1237,9 +1255,10 @@ export default function App() {
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
             const rawVis = cleanDashboardConfig.menuVisibility;
-            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
+            const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object' && !isOldStaleVis
               ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
-              : (prev.menuVisibility || DEFAULT_MENU_VISIBILITY);
+              : DEFAULT_MENU_VISIBILITY;
 
             const updated = {
               ...prev,
@@ -1910,9 +1929,10 @@ export default function App() {
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
               const rawVis = cleanDashboardConfig.menuVisibility;
-              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
+              const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object' && !isOldStaleVis
                 ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
-                : (prev.menuVisibility || DEFAULT_MENU_VISIBILITY);
+                : DEFAULT_MENU_VISIBILITY;
 
               const updated = {
                 ...prev,
@@ -3072,6 +3092,19 @@ export default function App() {
     }
   }, [dispensasiList]);
 
+  // Dual sync fetch for Dispensasi IKPA
+  useEffect(() => {
+    fetch('/api/data/dispensasi_ikpa')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.status === 'ok' && Array.isArray(data.list) && data.list.length > 0) {
+          setDispensasiList(data.list);
+          safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(data.list));
+        }
+      })
+      .catch((err) => console.warn('Dispensasi server fallback notice:', err));
+  }, []);
+
   const handleUpdateDispensasiRecords = (newList: DispensasiIKPARecord[]) => {
     if (notifyTamuBlocked('memperbarui data dispensasi IKPA')) return;
     const listToSave = Array.isArray(newList) ? newList : [];
@@ -3082,6 +3115,11 @@ export default function App() {
         list: listToSave, 
         updatedAt: new Date().toISOString() 
       }).catch(err => console.warn("Firebase Dispensasi IKPA setDoc notice:", err));
+      fetch('/api/data/dispensasi_ikpa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ list: listToSave })
+      }).catch(() => {});
     } catch (e) {
       console.warn("Error syncing Dispensasi IKPA to Firebase:", e);
     }

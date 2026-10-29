@@ -13,14 +13,13 @@ export interface HolidayEntry {
 }
 
 // Daftar Libur Nasional dan Cuti Bersama Resmi Periode Q4 2026 s.d. Q1 2027 (Kemenko PMK/SKB 3 Menteri)
+// Catatan: Hari Besar Nasional seperti 1 Okt (Kesaktian Pancasila), 28 Okt (Sumpah Pemuda), dan 10 Nov (Hari Pahlawan)
+// adalah hari kerja biasa (bukan tanggal merah / bukan libur nasional). Layanan KPPN & SAKTI beroperasi normal.
 export const HOLIDAYS_LLAT_2026_2027: Record<string, HolidayEntry> = {
   // 2026
   '2026-01-01': { date: '2026-01-01', name: 'Tahun Baru 2026 Masehi', isCutiBersama: false },
   '2026-05-01': { date: '2026-05-01', name: 'Hari Buruh Internasional', isCutiBersama: false },
   '2026-08-17': { date: '2026-08-17', name: 'Hari Kemerdekaan RI ke-81', isCutiBersama: false },
-  '2026-10-01': { date: '2026-10-01', name: 'Hari Kesaktian Pancasila', isCutiBersama: false },
-  '2026-10-28': { date: '2026-10-28', name: 'Hari Sumpah Pemuda', isCutiBersama: false },
-  '2026-11-10': { date: '2026-11-10', name: 'Hari Pahlawan', isCutiBersama: false },
   '2026-12-24': { date: '2026-12-24', name: 'Cuti Bersama Hari Raya Natal', isCutiBersama: true },
   '2026-12-25': { date: '2026-12-25', name: 'Hari Raya Natal', isCutiBersama: false },
   // 2027
