@@ -1283,15 +1283,21 @@ export default function App() {
           });
           if (cleanDashboardConfig.menuVisibility) {
             const rawVis = cleanDashboardConfig.menuVisibility;
-            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+            const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+            const effectiveMenuVisibility = isOldStaleVis
+              ? DEFAULT_MENU_VISIBILITY
+              : { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
             if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
               setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
             }
           }
           if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
-            const def = cleanDashboardConfig.defaultActiveTab;
-            if (!cleanDashboardConfig.menuVisibility || cleanDashboardConfig.menuVisibility[def as keyof MenuVisibilityConfig] !== false) {
+            const rawVis = cleanDashboardConfig.menuVisibility;
+            const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+            const def = isOldStaleVis ? 'dispensasi-ikpa' : cleanDashboardConfig.defaultActiveTab;
+            const effectiveMenuVisibility = isOldStaleVis ? DEFAULT_MENU_VISIBILITY : (rawVis || DEFAULT_MENU_VISIBILITY);
+            if (effectiveMenuVisibility[def as keyof MenuVisibilityConfig] !== false) {
               setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
             }
           }
@@ -1673,13 +1679,9 @@ export default function App() {
             safeLocalStorageSet('kppn_spm_ppp_v4', JSON.stringify(normalized));
           } else {
             setSpmPppList(INITIAL_SPM_PPP_DATA);
-            setDoc(doc(db, 'data', 'spm_ppp'), { list: INITIAL_SPM_PPP_DATA, updatedAt: new Date().toISOString() })
-              .catch(e => console.warn('Sync initial SPM PPP to Firestore notice:', e));
           }
         } else {
           setSpmPppList(INITIAL_SPM_PPP_DATA);
-          setDoc(doc(db, 'data', 'spm_ppp'), { list: INITIAL_SPM_PPP_DATA, updatedAt: new Date().toISOString() })
-            .catch(e => console.warn('Sync initial SPM PPP to Firestore notice:', e));
         }
       }).catch(err => console.warn("Initial Firestore SPM PPP fetch notice:", err));
 
@@ -1837,8 +1839,6 @@ export default function App() {
             const cleanKeg = parsedKeg.filter((k: any) => !dummyKegiatanIds.includes(k.id));
             safeLocalStorageSet('kppn_konfirmasi_kegiatan', JSON.stringify(cleanKeg));
             setKonfirmasiKegiatanList(cleanKeg);
-            setDoc(doc(db, 'data', 'konfirmasi_kegiatan'), { list: cleanKeg, updatedAt: new Date().toISOString() }, { merge: true })
-              .catch(err => console.warn("Notice purging dummy konfirmasi kegiatan:", err));
           }
         }
 
@@ -1849,8 +1849,6 @@ export default function App() {
             const clean = parsed.filter((r: any) => !r.id?.startsWith('konf-') && !dummyKegiatanIds.includes(r.kegiatanId));
             safeLocalStorageSet('kppn_konfirmasi_kehadiran', JSON.stringify(clean));
             setKonfirmasiKehadiranList(clean);
-            setDoc(doc(db, 'data', 'konfirmasi_kehadiran'), { list: clean, updatedAt: new Date().toISOString() }, { merge: true })
-              .catch(err => console.warn("Notice purging dummy konfirmasi kehadiran:", err));
           }
         }
 
@@ -1914,17 +1912,7 @@ export default function App() {
               cleanDashboardConfig.customTexts.dashboardSubtitle = cleanDashboardConfig.customTexts.dashboardSubtitle.replace(', deteksi dini deviasi Halaman III DIPA', '');
             }
 
-            // Sync clean state to Firestore if dummy data was present
-            const rawSidebarLen = data.dashboardConfig.sidebarConfig?.items?.length || 0;
-            const rawPeraturanLen = data.dashboardConfig.peraturanPerbendaharaanList?.length || 0;
-            if (rawSidebarLen !== cleanSidebar.items.length || rawPeraturanLen !== cleanPeraturan.length) {
-              setDoc(doc(db, 'settings', 'global'), {
-                dashboardConfig: {
-                  sidebarConfig: cleanSidebar,
-                  peraturanPerbendaharaanList: cleanPeraturan
-                }
-              }, { merge: true }).catch(() => {});
-            }
+            // Keep in-memory clean state without recursive Firestore write loops
 
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
@@ -1955,15 +1943,21 @@ export default function App() {
             });
             if (cleanDashboardConfig.menuVisibility) {
               const rawVis = cleanDashboardConfig.menuVisibility;
-              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+              const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+              const effectiveMenuVisibility = isOldStaleVis
+                ? DEFAULT_MENU_VISIBILITY
+                : { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
               if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
                 setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
               }
             }
             if (cleanDashboardConfig.defaultActiveTab && !window.location.hash && sessionStorage.getItem('kppn_manual_tab_switch') !== 'true') {
-              const def = cleanDashboardConfig.defaultActiveTab;
-              if (!cleanDashboardConfig.menuVisibility || cleanDashboardConfig.menuVisibility[def as keyof MenuVisibilityConfig] !== false) {
+              const rawVis = cleanDashboardConfig.menuVisibility;
+              const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
+              const def = isOldStaleVis ? 'dispensasi-ikpa' : cleanDashboardConfig.defaultActiveTab;
+              const effectiveMenuVisibility = isOldStaleVis ? DEFAULT_MENU_VISIBILITY : (rawVis || DEFAULT_MENU_VISIBILITY);
+              if (effectiveMenuVisibility[def as keyof MenuVisibilityConfig] !== false) {
                 setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
               }
             }
