@@ -400,8 +400,8 @@ export default function App() {
         ? DEFAULT_MENU_VISIBILITY
         : {
             ...DEFAULT_MENU_VISIBILITY,
-            ...(rawSavedVis || {}),
-            ...(savedMenuVisibility || {})
+            ...(savedMenuVisibility || {}),
+            ...(rawSavedVis || {})
           };
 
       return {

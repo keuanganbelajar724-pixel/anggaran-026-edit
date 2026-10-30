@@ -849,9 +849,8 @@ export const Header: React.FC<HeaderProps> = ({
             {tabs
               .filter((t) => {
                 if (t.id === 'admin') return true;
-                if (isAdminAuthenticated && !isSatkerPreviewMode) return true; // Admin sees all other tabs unless simulating Satker
                 if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
-                  return false; // Hide disabled tabs for Satker users
+                  return false; // Hide disabled tab across all devices and previews
                 }
                 return true;
               })
