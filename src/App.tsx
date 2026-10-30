@@ -1346,7 +1346,12 @@ export default function App() {
             const def = isOldStaleVis ? 'dispensasi-ikpa' : cleanDashboardConfig.defaultActiveTab;
             const effectiveMenuVisibility = isOldStaleVis ? DEFAULT_MENU_VISIBILITY : (rawVis || DEFAULT_MENU_VISIBILITY);
             if (effectiveMenuVisibility[def as keyof MenuVisibilityConfig] !== false) {
-              setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
+              setActiveTab(curr => {
+                if (effectiveMenuVisibility[curr as keyof MenuVisibilityConfig] === false || curr === 'sertifikasi' || curr === 'dashboard' || curr === 'capaian-output') {
+                  return def;
+                }
+                return curr;
+              });
             }
           }
         }
@@ -1933,10 +1938,6 @@ export default function App() {
       const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          const localUpdatedAt = localStorage.getItem('kppn_dashboard_config_updated_at');
-          if (localUpdatedAt && data.updatedAt && new Date(data.updatedAt).getTime() < new Date(localUpdatedAt).getTime()) {
-            return;
-          }
           if (data.adminPin) {
             setAdminPin(data.adminPin);
             safeLocalStorageSet('kppn_admin_pin', data.adminPin);
@@ -2006,7 +2007,12 @@ export default function App() {
               const def = isOldStaleVis ? 'dispensasi-ikpa' : cleanDashboardConfig.defaultActiveTab;
               const effectiveMenuVisibility = isOldStaleVis ? DEFAULT_MENU_VISIBILITY : (rawVis || DEFAULT_MENU_VISIBILITY);
               if (effectiveMenuVisibility[def as keyof MenuVisibilityConfig] !== false) {
-                setActiveTab(curr => (curr === 'sertifikasi' || curr === 'dashboard' ? def : curr));
+                setActiveTab(curr => {
+                  if (effectiveMenuVisibility[curr as keyof MenuVisibilityConfig] === false || curr === 'sertifikasi' || curr === 'dashboard' || curr === 'capaian-output') {
+                    return def;
+                  }
+                  return curr;
+                });
               }
             }
           }
