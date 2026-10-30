@@ -194,7 +194,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'per5-analisis': false,
   'pengetahuan': true,
   'peraturan-perbendaharaan': false,
-  'quiz-cat': false,
+  'quiz-cat': true,
   'announcements': true,
   'materi-slide': false,
   'portal-link': false,
@@ -408,8 +408,8 @@ export default function App() {
         ...savedConfig,
         defaultActiveTab: savedConfig.defaultActiveTab || 'dispensasi-ikpa',
         tabOrder: savedConfig.tabOrder && savedConfig.tabOrder.length > 0
-          ? savedConfig.tabOrder
-          : ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
+          ? (savedConfig.tabOrder.includes('quiz-cat') ? savedConfig.tabOrder : [...savedConfig.tabOrder, 'quiz-cat'])
+          : ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat', 'quiz-cat'],
         announcements: Array.isArray(savedConfig.announcements) ? savedConfig.announcements : INITIAL_ANNOUNCEMENTS,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
@@ -442,7 +442,7 @@ export default function App() {
     return {
       defaultFilter: 'ALL',
       defaultActiveTab: 'dispensasi-ikpa',
-      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
+      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat', 'quiz-cat'],
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
