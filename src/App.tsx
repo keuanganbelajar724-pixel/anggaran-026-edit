@@ -145,8 +145,8 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
   }
 ];
 
-// Invalidate legacy stale localStorage so production & preview always display the same 4 tabs
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261030-final-force-sync';
+// Invalidate legacy stale localStorage so production & preview always display the same 5 tabs & 10 dispensasi records
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261031-omniverse-sync';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
@@ -154,6 +154,7 @@ if (typeof window !== 'undefined') {
       localStorage.removeItem('kppn_menu_visibility');
       localStorage.removeItem('kppn_dashboard_config');
       sessionStorage.removeItem('kppn_manual_tab_switch');
+      localStorage.removeItem('kppn_dispensasi_ikpa_data');
       localStorage.setItem('kppn_active_tab', 'dispensasi-ikpa');
       localStorage.removeItem('kppn_dashboard_config_updated_at');
       localStorage.setItem('kppn_cache_sync_ver', CURRENT_APP_SYNC_VERSION);
@@ -1391,6 +1392,17 @@ export default function App() {
           }
         }).catch(() => {});
 
+        getDoc(doc(db, 'data', 'dispensasi_ikpa')).then(snap => {
+          if (!isMounted) return;
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data.list) && data.list.length > 0) {
+              setDispensasiList(data.list);
+              safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(data.list));
+            }
+          }
+        }).catch(() => {});
+
         getDoc(doc(db, 'data', 'satkers')).then(snap => {
           if (!isMounted) return;
           if (snap.exists()) {
@@ -1639,12 +1651,24 @@ export default function App() {
           });
       }).catch(err => console.warn("Initial Firestore Pejabat Perbendaharaan fetch notice:", err));
 
+      const fetchDispensasi = getDoc(doc(db, 'data', 'dispensasi_ikpa')).then(snap => {
+        if (!isMounted) return;
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list) && data.list.length > 0) {
+            setDispensasiList(data.list);
+            safeLocalStorageSet('kppn_dispensasi_ikpa_data', JSON.stringify(data.list));
+          }
+        }
+      }).catch(err => console.warn("Initial Firestore Dispensasi IKPA fetch notice:", err));
+
       Promise.allSettled([
         fetchSettings, 
         fetchSatkers, 
         fetchHistoricalUploads, 
         fetchMasterSatkers, 
         fetchPejabatPerbendaharaan,
+        fetchDispensasi,
         fetchGeminiConfig
       ]).then(() => {
         if (!isMounted) return;
