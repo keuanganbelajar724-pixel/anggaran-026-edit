@@ -146,16 +146,15 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 // Invalidate legacy stale localStorage so production & preview always display the same 4 tabs
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261028-sync-final';
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261030-final-force-sync';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
     if (savedVer !== CURRENT_APP_SYNC_VERSION) {
       localStorage.removeItem('kppn_menu_visibility');
-      const savedActive = localStorage.getItem('kppn_active_tab');
-      if (savedActive === 'capaian-output' || savedActive === 'dashboard') {
-        localStorage.setItem('kppn_active_tab', 'dispensasi-ikpa');
-      }
+      localStorage.removeItem('kppn_dashboard_config');
+      sessionStorage.removeItem('kppn_manual_tab_switch');
+      localStorage.setItem('kppn_active_tab', 'dispensasi-ikpa');
       localStorage.removeItem('kppn_dashboard_config_updated_at');
       localStorage.setItem('kppn_cache_sync_ver', CURRENT_APP_SYNC_VERSION);
     }
@@ -293,7 +292,7 @@ export default function App() {
         return defaultTab;
       }
     } catch (e) {}
-    return 'capaian-output';
+    return 'dispensasi-ikpa';
   });
 
   useEffect(() => {
