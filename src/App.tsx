@@ -145,8 +145,8 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
   }
 ];
 
-// Invalidate legacy stale localStorage so production & preview always display the same 5 tabs & 10 dispensasi records
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261031-omniverse-sync';
+// Invalidate legacy stale localStorage so production & preview always display the same 4 tabs & 10 dispensasi records
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261031-instant-reflect-sync';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
