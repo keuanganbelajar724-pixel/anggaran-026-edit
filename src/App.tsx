@@ -146,7 +146,7 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 // Invalidate legacy stale localStorage so production & preview always display the same 4 tabs & 10 dispensasi records
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261031-instant-reflect-sync';
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261031-exact-4-tabs-sync';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
@@ -194,7 +194,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'per5-analisis': false,
   'pengetahuan': true,
   'peraturan-perbendaharaan': false,
-  'quiz-cat': true,
+  'quiz-cat': false,
   'announcements': true,
   'materi-slide': false,
   'portal-link': false,
@@ -408,8 +408,8 @@ export default function App() {
         ...savedConfig,
         defaultActiveTab: savedConfig.defaultActiveTab || 'dispensasi-ikpa',
         tabOrder: savedConfig.tabOrder && savedConfig.tabOrder.length > 0
-          ? (savedConfig.tabOrder.includes('quiz-cat') ? savedConfig.tabOrder : [...savedConfig.tabOrder, 'quiz-cat'])
-          : ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat', 'quiz-cat'],
+          ? savedConfig.tabOrder
+          : ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
         announcements: Array.isArray(savedConfig.announcements) ? savedConfig.announcements : INITIAL_ANNOUNCEMENTS,
         presensiPrintConfig: savedPresensiPrint || DEFAULT_PRESENSI_PRINT_CONFIG,
         slideShowConfig: sanitizeSlideShowConfig(savedConfig.slideShowConfig),
@@ -442,7 +442,7 @@ export default function App() {
     return {
       defaultFilter: 'ALL',
       defaultActiveTab: 'dispensasi-ikpa',
-      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat', 'quiz-cat'],
+      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
@@ -1303,8 +1303,7 @@ export default function App() {
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
             const rawVis = cleanDashboardConfig.menuVisibility;
-            const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
-            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object' && !isOldStaleVis
+            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
               ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
               : DEFAULT_MENU_VISIBILITY;
 
@@ -1323,18 +1322,12 @@ export default function App() {
                 ? cleanDashboardConfig.historicalUploads
                 : (prev.historicalUploads || [])
             };
-            if (JSON.stringify(updated) === JSON.stringify(prev)) {
-              return prev;
-            }
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
             return updated;
           });
           if (cleanDashboardConfig.menuVisibility) {
             const rawVis = cleanDashboardConfig.menuVisibility;
-            const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
-            const effectiveMenuVisibility = isOldStaleVis
-              ? DEFAULT_MENU_VISIBILITY
-              : { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
             if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
               setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
@@ -1427,6 +1420,17 @@ export default function App() {
         }
       };
       document.addEventListener('visibilitychange', onVisibilityChange);
+
+      // Fast auto-sync heartbeat: seamlessly updates settings across tabs & browsers without requiring user reload or click
+      const autoSyncInterval = setInterval(() => {
+        if (!isMounted) return;
+        getDoc(doc(db, 'settings', 'global')).then(snap => {
+          if (!isMounted) return;
+          if (snap.exists()) {
+            applyCleanSettings(snap.data());
+          }
+        }).catch(() => {});
+      }, 2500);
 
       const fetchGeminiConfig = loadCloudGeminiConfig().catch(err => console.warn("Initial Firestore Gemini config fetch notice:", err));
 
@@ -1989,8 +1993,7 @@ export default function App() {
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
               const rawVis = cleanDashboardConfig.menuVisibility;
-              const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
-              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object' && !isOldStaleVis
+              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
                 ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
                 : DEFAULT_MENU_VISIBILITY;
 
@@ -2007,18 +2010,12 @@ export default function App() {
                   ? prev.historicalUploads
                   : (Array.isArray(cleanDashboardConfig.historicalUploads) ? cleanDashboardConfig.historicalUploads : prev.historicalUploads || [])
               };
-              if (JSON.stringify(updated) === JSON.stringify(prev)) {
-                return prev;
-              }
               safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
               return updated;
             });
             if (cleanDashboardConfig.menuVisibility) {
               const rawVis = cleanDashboardConfig.menuVisibility;
-              const isOldStaleVis = rawVis && Object.values(rawVis).filter(v => v === true).length > 10;
-              const effectiveMenuVisibility = isOldStaleVis
-                ? DEFAULT_MENU_VISIBILITY
-                : { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
               if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
                 setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
@@ -2473,6 +2470,7 @@ export default function App() {
       window.addEventListener('kppn_my_intress_updated', onMyIntressUpdated);
 
       return () => {
+        clearInterval(autoSyncInterval);
         window.removeEventListener('focus', onWindowFocus);
         document.removeEventListener('visibilitychange', onVisibilityChange);
         window.removeEventListener('kppn_my_intress_updated', onMyIntressUpdated);
