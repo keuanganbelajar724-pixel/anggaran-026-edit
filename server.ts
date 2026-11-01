@@ -51,9 +51,22 @@ try {
 
 dotenv.config();
 
+function getPortFromArgs(): number {
+  const portArgIndex = process.argv.indexOf('--port');
+  if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
+    const parsed = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(parsed) && parsed > 0) return parsed;
+  }
+  // In development dev server or environment constraint, port must be 3000
+  if (process.env.NODE_ENV !== 'production' || process.env.npm_lifecycle_event === 'dev') {
+    return 3000;
+  }
+  return Number(process.env.PORT) || 3000;
+}
+
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = getPortFromArgs();
 
   app.use(express.json({ limit: '20mb' }));
 
