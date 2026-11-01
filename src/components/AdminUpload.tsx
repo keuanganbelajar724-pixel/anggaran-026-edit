@@ -44,6 +44,7 @@ import {
   LLATSettings,
   LLATAuditLogEntry
 } from '../types';
+import { DEFAULT_MENU_VISIBILITY } from '../App';
 import { LLATAdminSection } from './llat/LLATAdminSection';
 import { DispensasiAdminCsoSection } from './admin/DispensasiAdminCsoSection';
 import { HaiCsoAdminDashboard } from './haicso/HaiCsoAdminDashboard';
@@ -4639,33 +4640,10 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                     type="button"
                     onClick={() => {
                       const defaultOrder: NavigationTab[] = [
-                        'dashboard',
-                        'realisasi-anggaran',
-                        'capaian-output',
-                        'diagnostik-caput',
-                        'deviasi-hal3',
                         'dispensasi-ikpa',
-                        'spm-ppp',
-                        'pengelolaan-up',
-                        'transaksi-kkp',
-                        'transaksi-digipay',
-                        'kelola-satker',
-                        'sertifikasi',
-                        'per5-analisis',
                         'announcements',
-                        'materi-slide',
-                        'portal-link',
                         'pengetahuan',
-                        'aduan',
-                        'presensi',
-                        'konfirmasi-kehadiran',
-                        'pendaftaran-user-sakti',
-                        'rekonsiliasi',
-                        'lpj',
-                        'gaji-induk',
-                        'monitoring-haicso',
-                        'kontrak',
-                        'quiz-cat'
+                        'monitoring-llat'
                       ];
                       const newCfg = {
                         ...tempConfig,
@@ -5094,37 +5072,7 @@ export const AdminUpload: React.FC<AdminUploadProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              const currVis = tempConfig.menuVisibility || {
-                                'dashboard': true,
-                                'realisasi-anggaran': true,
-                                'capaian-output': true,
-                                'diagnostik-caput': true,
-                                'deviasi-hal3': true,
-                                'spm-ppp': true,
-                                'pengelolaan-up': true,
-                                'transaksi-kkp': true,
-                                'transaksi-digipay': true,
-                                'kelola-satker': true,
-                                'redflags': true,
-                                'sertifikasi': true,
-                                'per5-analisis': true,
-                                'pengetahuan': true,
-                                'announcements': true,
-                                'materi-slide': true,
-                                'portal-link': true,
-                                'presensi': true,
-                                'pendaftaran-user-sakti': true,
-                                'rekonsiliasi': true,
-                                'lpj': true,
-                                'gaji-induk': true,
-                                'monitoring-haicso': true,
-                                'kontrak': true,
-                                'quiz-cat': true,
-                                'formulir-survei': true,
-                                'aduan': true,
-                                'reminder': true,
-                                'guide': false
-                              };
+                              const currVis = tempConfig.menuVisibility || DEFAULT_MENU_VISIBILITY;
                               const updatedVis = {
                                 ...currVis,
                                 [menuKey]: !isVisible
