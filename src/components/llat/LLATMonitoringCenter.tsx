@@ -59,7 +59,7 @@ import { LLATExportPdfModal } from './LLATExportPdfModal';
 import { LLATWorkingDaysCalculator } from './LLATWorkingDaysCalculator';
 import { LLATRejectedSpmModal } from './LLATRejectedSpmModal';
 import { LLATRegulationDisclaimerWidget, LLATHeaderNoticeBanner } from './LLATRegulationDisclaimerWidget';
-import { getRolling5HKInfo, createRolling5HKEvent, getRolling5HKEventsInRange } from '../../utils/llatWorkingDaysEngine';
+import { getRolling5HKInfo, createRolling5HKEvent, createRolling5HKEvents, getRolling5HKEventsInRange } from '../../utils/llatWorkingDaysEngine';
 import { Calculator } from 'lucide-react';
 
 interface LLATMonitoringCenterProps {
@@ -223,7 +223,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
     const yearEvents = accessibleEvents.filter(isRelevantForYear);
 
     const r5hkToday = selectedYear === 2026 ? getRolling5HKInfo(todayStr) : null;
-    const count5HKToday = r5hkToday ? 1 : 0;
+    const count5HKToday = r5hkToday ? createRolling5HKEvents(r5hkToday).length : 0;
 
     // 1. Total kegiatan aktif
     const totalAktif = yearEvents.filter((e) => e.is_active).length + count5HKToday;
@@ -305,7 +305,7 @@ export const LLATMonitoringCenter: React.FC<LLATMonitoringCenterProps> = ({
     if (selectedYear === 2026) {
       const r5hk = getRolling5HKInfo(todayStr);
       if (r5hk) {
-        list.push(createRolling5HKEvent(r5hk));
+        list.push(...createRolling5HKEvents(r5hk));
       }
     }
 
