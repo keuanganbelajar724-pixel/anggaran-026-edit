@@ -31,7 +31,16 @@ import {
   getDoc as serverGetDoc,
   setLogLevel
 } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+
+let firebaseConfig: any = {};
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  }
+} catch (e) {
+  console.warn('Could not read firebase-applet-config.json:', e);
+}
 
 try {
   setLogLevel('silent');

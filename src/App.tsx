@@ -1303,9 +1303,15 @@ export default function App() {
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
             const rawVis = cleanDashboardConfig.menuVisibility || data.menuVisibility;
-            const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
-              ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
-              : DEFAULT_MENU_VISIBILITY;
+            // Strict sanitization: Never allow old deactivated tabs (like dashboard) to leak back in
+            const effectiveMenuVisibility: MenuVisibilityConfig = {
+              ...DEFAULT_MENU_VISIBILITY,
+              ...(rawVis && typeof rawVis === 'object' ? rawVis : {})
+            };
+            // Guarantee only active tabs can be visible
+            if (rawVis && typeof rawVis === 'object' && rawVis.dashboard !== true) {
+              effectiveMenuVisibility.dashboard = false;
+            }
 
             const updated = {
               ...prev,
@@ -1993,9 +1999,13 @@ export default function App() {
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
               const rawVis = cleanDashboardConfig.menuVisibility || data.menuVisibility;
-              const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
-                ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
-                : DEFAULT_MENU_VISIBILITY;
+              const effectiveMenuVisibility: MenuVisibilityConfig = {
+                ...DEFAULT_MENU_VISIBILITY,
+                ...(rawVis && typeof rawVis === 'object' ? rawVis : {})
+              };
+              if (rawVis && typeof rawVis === 'object' && rawVis.dashboard !== true) {
+                effectiveMenuVisibility.dashboard = false;
+              }
 
               const updated = {
                 ...prev,
@@ -2015,7 +2025,13 @@ export default function App() {
             });
             const rawVisSnapshot = cleanDashboardConfig.menuVisibility || data.menuVisibility;
             if (rawVisSnapshot) {
-              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVisSnapshot };
+              const effectiveMenuVisibility: MenuVisibilityConfig = {
+                ...DEFAULT_MENU_VISIBILITY,
+                ...(typeof rawVisSnapshot === 'object' ? rawVisSnapshot : {})
+              };
+              if (typeof rawVisSnapshot === 'object' && rawVisSnapshot.dashboard !== true) {
+                effectiveMenuVisibility.dashboard = false;
+              }
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
               if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
                 setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));

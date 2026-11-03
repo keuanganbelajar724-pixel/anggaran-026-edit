@@ -512,7 +512,7 @@ export const Header: React.FC<HeaderProps> = ({
     }
 
     return baseList;
-  }, [tabOrder, satkerCount, belumCapaianCount, sertifikasiUnapprovedCount, announcementsCount, masterSatkers.length, isAdminAuthenticated, isSatkerPreviewMode]);
+  }, [tabOrder, menuVisibility, satkerCount, belumCapaianCount, sertifikasiUnapprovedCount, announcementsCount, masterSatkers.length, isAdminAuthenticated, isSatkerPreviewMode]);
 
   return (
     <header className={`${
