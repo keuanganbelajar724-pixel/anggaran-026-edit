@@ -1302,7 +1302,7 @@ export default function App() {
 
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
-            const rawVis = cleanDashboardConfig.menuVisibility;
+            const rawVis = cleanDashboardConfig.menuVisibility || data.menuVisibility;
             const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
               ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
               : DEFAULT_MENU_VISIBILITY;
@@ -1325,9 +1325,9 @@ export default function App() {
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
             return updated;
           });
-          if (cleanDashboardConfig.menuVisibility) {
-            const rawVis = cleanDashboardConfig.menuVisibility;
-            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+          const rawVisSetting = cleanDashboardConfig.menuVisibility || data.menuVisibility;
+          if (rawVisSetting) {
+            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVisSetting };
             safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
             if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
               setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
@@ -1992,7 +1992,7 @@ export default function App() {
 
             setDashboardConfig(prev => {
               const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
-              const rawVis = cleanDashboardConfig.menuVisibility;
+              const rawVis = cleanDashboardConfig.menuVisibility || data.menuVisibility;
               const effectiveMenuVisibility = rawVis && typeof rawVis === 'object'
                 ? { ...DEFAULT_MENU_VISIBILITY, ...rawVis }
                 : DEFAULT_MENU_VISIBILITY;
@@ -2013,9 +2013,9 @@ export default function App() {
               safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
               return updated;
             });
-            if (cleanDashboardConfig.menuVisibility) {
-              const rawVis = cleanDashboardConfig.menuVisibility;
-              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVis };
+            const rawVisSnapshot = cleanDashboardConfig.menuVisibility || data.menuVisibility;
+            if (rawVisSnapshot) {
+              const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVisSnapshot };
               safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
               if (!isAdminAuthenticated && effectiveMenuVisibility['dispensasi-ikpa'] === false) {
                 setActiveTab(curr => (curr === 'dispensasi-ikpa' ? 'monitoring-llat' : curr));
@@ -3834,11 +3834,16 @@ export default function App() {
           const incomingSlideShow = data.dashboardConfig.slideShowConfig
             ? sanitizeSlideShowConfig(data.dashboardConfig.slideShowConfig)
             : undefined;
+          const rawVisSync = data.dashboardConfig.menuVisibility || data.menuVisibility;
           setDashboardConfig(prev => {
             const mergedSlideShow = incomingSlideShow || prev.slideShowConfig || INITIAL_SLIDESHOW_CONFIG;
+            const effectiveMenuVisibility = rawVisSync && typeof rawVisSync === 'object'
+              ? { ...DEFAULT_MENU_VISIBILITY, ...rawVisSync }
+              : DEFAULT_MENU_VISIBILITY;
             const updated = {
               ...prev,
               ...data.dashboardConfig,
+              menuVisibility: effectiveMenuVisibility,
               slideShowConfig: mergedSlideShow,
               announcements: Array.isArray(data.dashboardConfig.announcements)
                 ? data.dashboardConfig.announcements
@@ -3850,8 +3855,9 @@ export default function App() {
             safeLocalStorageSet('kppn_dashboard_config', JSON.stringify(updated));
             return updated;
           });
-          if (data.dashboardConfig.menuVisibility) {
-            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(data.dashboardConfig.menuVisibility));
+          if (rawVisSync) {
+            const effectiveMenuVisibility = { ...DEFAULT_MENU_VISIBILITY, ...rawVisSync };
+            safeLocalStorageSet('kppn_menu_visibility', JSON.stringify(effectiveMenuVisibility));
           }
         }
       }

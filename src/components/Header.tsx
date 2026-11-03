@@ -11,6 +11,7 @@ import {
   Search,
   Zap,
   Activity,
+  Cloud,
   Megaphone,
   Sun,
   Moon,
@@ -655,17 +656,39 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">Segarkan</span>
               </button>
 
-              {/* Real-time Cloud Status Indicator (Otomatis Realtime) */}
-              <div 
-                className="hidden md:flex items-center gap-2 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-950/50 text-emerald-300 border border-emerald-500/40 select-none shadow-sm"
-                title="Sinkronisasi otomatis real-time aktif via Firebase Firestore: Setiap perubahan data di Google AI atau Deployment langsung sinkron tanpa tombol manual."
+              {/* Tombol Singkron Cloud / Real-time Cloud Status Indicator */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onForceCloudSync) {
+                    onForceCloudSync();
+                  } else {
+                    forceCleanAppReload();
+                  }
+                }}
+                disabled={isCloudSyncing}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer shrink-0 min-h-[38px] hover:scale-105 active:scale-95 shadow-sm group ${
+                  isCloudSyncing
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-400/50 cursor-wait'
+                    : isDark
+                      ? 'bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-300 border-emerald-500/50 hover:border-emerald-400'
+                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 hover:border-emerald-500'
+                }`}
+                title="Klik untuk Sinkronisasi Langsung ke Google Cloud Firestore (Tarik Data & Tampilan Terbaru)"
               >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                {isCloudSyncing ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                ) : (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                )}
+                <Cloud className={`w-3.5 h-3.5 ${isCloudSyncing ? 'text-amber-400 animate-pulse' : 'text-emerald-500 dark:text-emerald-400 group-hover:scale-110 transition-transform'}`} />
+                <span className="text-[11px] font-black tracking-tight">
+                  {isCloudSyncing ? 'Menyinkronkan...' : 'Singkron Cloud'}
                 </span>
-                <span className="text-[11px] font-bold tracking-tight">Realtime Terhubung</span>
-              </div>
+              </button>
 
               {/* Login Button (Only shown when not logged in) */}
               {!isAdminAuthenticated && (
