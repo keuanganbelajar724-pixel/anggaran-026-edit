@@ -52,6 +52,7 @@ import {
   FileCheck
 } from 'lucide-react';
 import { NavigationTab, AppTheme, MenuVisibilityConfig, MasterSatker, SlideShowConfig, DashboardConfig, AppUser } from '../types';
+import { DEFAULT_MENU_VISIBILITY } from '../constants/menuConstants';
 import { AdminLoginModal } from './AdminLoginModal';
 import { AndroidInstallModal } from './AndroidInstallModal';
 import { forceCleanAppReload } from './VersionUpdateNotifier';
@@ -872,8 +873,14 @@ export const Header: React.FC<HeaderProps> = ({
             {tabs
               .filter((t) => {
                 if (t.id === 'admin') return true;
-                if (menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false) {
-                  return false; // Hide disabled tab across all devices and previews
+                // If menuVisibility specifies false OR not set and DEFAULT_MENU_VISIBILITY is false, do not show
+                const isExplicitlyDisabled = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
+                if (isExplicitlyDisabled) return false;
+
+                // Enforce default hidden tabs unless explicitly turned on by admin
+                if (DEFAULT_MENU_VISIBILITY[t.id as keyof MenuVisibilityConfig] === false) {
+                  const isExplicitlyEnabled = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === true;
+                  if (!isExplicitlyEnabled) return false;
                 }
                 return true;
               })

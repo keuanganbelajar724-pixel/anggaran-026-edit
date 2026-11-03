@@ -146,7 +146,7 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
 ];
 
 // Invalidate legacy stale localStorage so production & preview always display the same 4 tabs & 10 dispensasi records
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261101-exact-live-sync-match';
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261103-universal-tabs-unified-strict';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
@@ -177,42 +177,8 @@ export const DEFAULT_PRESENSI_PRINT_CONFIG: PresensiPrintConfig = {
 
 const INITIAL_KEGIATAN_SOSIALISASI: KegiatanSosialisasi[] = [];
 
-export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
-  'dashboard': false,
-  'realisasi-anggaran': false,
-  'capaian-output': false,
-  'diagnostik-caput': false,
-  'deviasi-hal3': false,
-  'dispensasi-ikpa': true,
-  'spm-ppp': false,
-  'pengelolaan-up': false,
-  'transaksi-kkp': false,
-  'transaksi-digipay': false,
-  'kelola-satker': false,
-  'redflags': false,
-  'sertifikasi': false,
-  'per5-analisis': false,
-  'pengetahuan': true,
-  'peraturan-perbendaharaan': false,
-  'quiz-cat': false,
-  'announcements': true,
-  'materi-slide': false,
-  'portal-link': false,
-  'presensi': false,
-  'konfirmasi-kehadiran': false,
-  'pendaftaran-user-sakti': false,
-  'rekonsiliasi': false,
-  'lpj': false,
-  'gaji-induk': false,
-  'monitoring-haicso': false,
-  'kontrak': false,
-  'formulir-survei': false,
-  'monitoring-llat': true,
-  'monitoring-hal3-dipa': false,
-  'aduan': false,
-  'reminder': false,
-  'guide': false,
-};
+import { DEFAULT_MENU_VISIBILITY } from './constants/menuConstants';
+export { DEFAULT_MENU_VISIBILITY };
 
 export default function App() {
   const [satkers, setSatkers] = useState<SatkerIKPA[]>(() => {
@@ -395,14 +361,24 @@ export default function App() {
       }
 
       const rawSavedVis = savedConfig.menuVisibility;
-      const isSavedVisOld = rawSavedVis && Object.values(rawSavedVis).filter(v => v === true).length > 10;
-      const initialMenuVisibility = isSavedVisOld
-        ? DEFAULT_MENU_VISIBILITY
-        : {
-            ...DEFAULT_MENU_VISIBILITY,
-            ...(savedMenuVisibility || {}),
-            ...(rawSavedVis || {})
-          };
+      const initialMenuVisibility: MenuVisibilityConfig = {
+        ...DEFAULT_MENU_VISIBILITY,
+        ...(savedMenuVisibility && typeof savedMenuVisibility === 'object' ? savedMenuVisibility : {}),
+        ...(rawSavedVis && typeof rawSavedVis === 'object' ? rawSavedVis : {})
+      };
+      // Strict guard: Always enforce false for unactivated tabs
+      (Object.keys(DEFAULT_MENU_VISIBILITY) as (keyof MenuVisibilityConfig)[]).forEach(k => {
+        if (DEFAULT_MENU_VISIBILITY[k] === false) {
+          const isExplicitTrue = (savedMenuVisibility && savedMenuVisibility[k] === true) || (rawSavedVis && rawSavedVis[k] === true);
+          if (!isExplicitTrue) {
+            initialMenuVisibility[k] = false;
+          }
+        }
+      });
+      // Never allow dashboard to be visible unless explicitly enabled by admin
+      if ((!savedMenuVisibility || savedMenuVisibility.dashboard !== true) && (!rawSavedVis || rawSavedVis.dashboard !== true)) {
+        initialMenuVisibility.dashboard = false;
+      }
 
       return {
         ...savedConfig,
