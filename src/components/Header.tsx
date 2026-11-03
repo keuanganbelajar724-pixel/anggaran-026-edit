@@ -873,16 +873,12 @@ export const Header: React.FC<HeaderProps> = ({
             {tabs
               .filter((t) => {
                 if (t.id === 'admin') return true;
-                // If menuVisibility specifies false OR not set and DEFAULT_MENU_VISIBILITY is false, do not show
-                const isExplicitlyDisabled = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === false;
-                if (isExplicitlyDisabled) return false;
-
-                // Enforce default hidden tabs unless explicitly turned on by admin
-                if (DEFAULT_MENU_VISIBILITY[t.id as keyof MenuVisibilityConfig] === false) {
-                  const isExplicitlyEnabled = menuVisibility && menuVisibility[t.id as keyof MenuVisibilityConfig] === true;
-                  if (!isExplicitlyEnabled) return false;
+                // If menuVisibility has explicit value, respect it
+                if (menuVisibility && typeof menuVisibility[t.id as keyof MenuVisibilityConfig] === 'boolean') {
+                  return menuVisibility[t.id as keyof MenuVisibilityConfig] === true;
                 }
-                return true;
+                // Fallback to default menu visibility
+                return DEFAULT_MENU_VISIBILITY[t.id as keyof MenuVisibilityConfig] === true;
               })
               .map((t) => {
                 const isActive = activeTab === t.id;

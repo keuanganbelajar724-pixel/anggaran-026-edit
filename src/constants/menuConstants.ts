@@ -13,7 +13,7 @@ export const DEFAULT_MENU_VISIBILITY: MenuVisibilityConfig = {
   'transaksi-digipay': false,
   'kelola-satker': false,
   'redflags': false,
-  'sertifikasi': false,
+  'sertifikasi': true,
   'per5-analisis': false,
   'pengetahuan': true,
   'peraturan-perbendaharaan': false,

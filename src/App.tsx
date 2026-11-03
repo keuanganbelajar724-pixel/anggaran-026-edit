@@ -145,8 +145,8 @@ const INITIAL_ANNOUNCEMENTS: Announcement[] = [
   }
 ];
 
-// Invalidate legacy stale localStorage so production & preview always display the same 4 tabs & 10 dispensasi records
-const CURRENT_APP_SYNC_VERSION = 'v3.2.20261103-universal-tabs-unified-strict';
+// Invalidate legacy stale localStorage so production & preview always display the same active tabs & dispensasi records
+const CURRENT_APP_SYNC_VERSION = 'v3.2.20261103-sertifikasi-live-sync';
 if (typeof window !== 'undefined') {
   try {
     const savedVer = localStorage.getItem('kppn_cache_sync_ver');
@@ -154,8 +154,6 @@ if (typeof window !== 'undefined') {
       localStorage.removeItem('kppn_menu_visibility');
       localStorage.removeItem('kppn_dashboard_config');
       sessionStorage.removeItem('kppn_manual_tab_switch');
-      localStorage.removeItem('kppn_dispensasi_ikpa_data');
-      localStorage.setItem('kppn_active_tab', 'dispensasi-ikpa');
       localStorage.removeItem('kppn_dashboard_config_updated_at');
       localStorage.setItem('kppn_cache_sync_ver', CURRENT_APP_SYNC_VERSION);
     }
@@ -418,7 +416,7 @@ export default function App() {
     return {
       defaultFilter: 'ALL',
       defaultActiveTab: 'dispensasi-ikpa',
-      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat'],
+      tabOrder: ['dispensasi-ikpa', 'announcements', 'pengetahuan', 'monitoring-llat', 'sertifikasi'],
       customAnnouncement: 'PERHATIAN: Batas akhir pengiriman Capaian Output SAKTI KPPN Semarang I (026) periode ini tanggal 5. Mohon Satker terlampir segera melengkapi.',
       showKpiCards: true,
       showBarChart: true,
