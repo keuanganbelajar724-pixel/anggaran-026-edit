@@ -320,7 +320,7 @@ export const CakraBotWidget: React.FC<CakraBotProps> = ({
         .replace(/#/g, '')
         .replace(/`{1,3}[^`]*`{1,3}/g, '')
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        .replace(/[🎶🎵✨👋🤖⏱️🏆🎤💃🕺🌟📜⚖️❌]/g, '');
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
 
       const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = 'id-ID';
@@ -417,7 +417,15 @@ PENGETAHUAN LENGKAP PERBENDAHARAAN & APLIKASI ANGKASA:
 5. SERTIFIKASI PEJABAT:
    - Sertifikasi PPK, PPSPM, dan Bendahara (PNT/SNT/BNT), perpanjangan masa berlaku sertifikat kompetensi.
 6. KONTAK & LAYANAN KPPN SEMARANG I:
-   - Alamat: Jl. Ki Mangunsarkoro No. 34 Semarang. Telepon: (024) 8414441. Layanan HAI CSO online dan tatap muka: Cepat, Tepat, Akuntabel, dan Tanpa Biaya (Gratis)!
+   - Alamat: Jl. Ki Mangunsarkoro No. 34 Semarang. Telepon: (024) 8414441.
+   - Petugas CSO (Customer Service Officer) KPPN Semarang I: Mas Firman, Mas Fauzan, dan Mas Taufik (CSO Semarang 1).
+   - Layanan HAI CSO online dan tatap muka: Cepat, Tepat, Akuntabel, dan Tanpa Biaya (Gratis)!
+
+ATURAN WAJIB JIKA TIDAK BISA MENJAWAB / RAGU / KASUS SPESIFIK:
+- Jika Cakra tidak mengetahui jawabannya dengan pasti, ragu, pertanyaan berada di luar pengetahuan yang valid, atau memerlukan pengecekan kasus/data spesifik Satker (misalnya status SPM/SP2D tertentu, kendala teknis SAKTI per satker, atau kebijakan khusus yang belum jelas):
+- JANGAN mengarang atau memaksakan jawaban!
+- Langsung arahkan pengguna dengan ramah untuk menghubungi CSO langsung ke Mas Firman, Mas Fauzan, atau Mas Taufik (CSO Semarang 1).
+- Gunakan arahan jelas seperti: "Mohon maaf, untuk hal ini Cakra belum bisa memberikan jawaban yang pasti. Silakan langsung menghubungi CSO KPPN Semarang I ke Mas Firman, Mas Fauzan, atau Mas Taufik (CSO Semarang 1) ya!"
 
 Gaya Menjawab: Sangat ramah, sopan, antusias, cerdas, runtut, jelas mengutip regulasi/pasal bila relevan, dan menggunakan emoji yang ceria.`;
 
@@ -493,13 +501,22 @@ Gaya Menjawab: Sangat ramah, sopan, antusias, cerdas, runtut, jelas mengutip reg
       return `Sesuai **Pasal 19 PER-9/PB/2026**, dalam hal SPM yang diajukan oleh Satker ditolak oleh KPPN, Satker dapat mengajukan kembali perbaikan SPM paling lambat **2 (dua) Hari Kerja** setelah tanggal penolakan SPM oleh KPPN (pukul 15:00 WIB untuk periode Okt–Nov, dan pukul 17:00 WIB untuk Des) dengan melampirkan bukti surat/lembar penolakan SPM resmi dari KPPN. ⏱️📑`;
     }
 
-    // 4. Deteksi Alamat & Layanan KPPN Semarang I
-    if (lq.includes('alamat') || lq.includes('kontak') || lq.includes('kppn') || lq.includes('semarang')) {
-      return `📍 **KPPN Tipe A1 Semarang I (Kode 026)** beralamat di Jalan Ki Mangunsarkoro No. 34, Semarang 50241. Telepon: (024) 8414441. Layanan tatap muka dan online HAI CSO siap melayani seluruh 127 Satker dengan integritas dan tanpa biaya (Gratis)! 🏛️✨`;
+    // 4. Deteksi Alamat & Layanan CSO KPPN Semarang I
+    if (
+      lq.includes('alamat') ||
+      lq.includes('kontak') ||
+      lq.includes('kppn') ||
+      lq.includes('semarang') ||
+      lq.includes('cso') ||
+      lq.includes('firman') ||
+      lq.includes('fauzan') ||
+      lq.includes('taufik')
+    ) {
+      return `📍 **KPPN Tipe A1 Semarang I (Kode 026)** beralamat di Jalan Ki Mangunsarkoro No. 34, Semarang 50241. Telepon: (024) 8414441.\n\nUntuk layanan konsultasi tatap muka maupun online, silakan menghubungi **CSO KPPN Semarang I** langsung ke **Mas Firman**, **Mas Fauzan**, atau **Mas Taufik** (CSO Semarang 1). Seluruh layanan Cepat, Tepat, Akuntabel, dan Tanpa Biaya (Gratis)! 🏛️✨`;
     }
 
-    // 5. General AI response helper
-    return `Halo! Cakra mengerti pertanyaanmu tentang "${q}". Sebagai AI Asisten KPPN Semarang I, aku siap menjawab materi perbendaharaan seperti PER-9/PB/2026, LLAT, Dispensasi IKPA, Deviasi Hal III DIPA, Rekonsiliasi SAKTI, LPJ Bendahara, UP/TUP, maupun hal-hal lainnya. Ada hal spesifik yang ingin kamu ketahui? Tanyakan saja pada Cakra! 🤖✨`;
+    // 5. Fallback langsung ke CSO KPPN Semarang I jika Cakra tidak bisa menjawab
+    return `Mohon maaf Sobat Satker, untuk pertanyaan tentang "${q}" Cakra belum bisa memberikan jawaban yang pasti. 🙏\n\nSilakan langsung menghubungi **CSO KPPN Semarang I** ke:\n- **Mas Firman**\n- **Mas Fauzan**\n- **Mas Taufik**\n(CSO Semarang 1) ya agar segera dibantu dengan tepat! 😊`;
   };
 
   return (
